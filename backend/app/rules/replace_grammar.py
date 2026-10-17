@@ -344,6 +344,8 @@ _ACTION = re.compile(r"^If a creature you control would (?P<verb>explore|connive
 def _keyword_action(text: str) -> Definition | None:
     if text == "If you would scry a number of cards, draw that many cards instead.":
         return _static("scry", {"who": "you"}, {"do": "draw"})
+    if text == "If you would proliferate, proliferate twice instead.":  # -- keyword actions (wave 50F) -- Tekuthal, Inquiry Dominus: two proliferates, neither replaced again by this effect (614.5)
+        return _static("proliferate", {"who": "you"}, {"do": "again"})
     m = _ACTION.match(text)
     if not m:
         return None

@@ -171,6 +171,7 @@ SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"prevent_ha
 SUPPORTED_REPLACE_OPS["scry"] = frozenset({"draw"})
 SUPPORTED_REPLACE_OPS["explore"] = frozenset({"again", "before"})
 SUPPORTED_REPLACE_OPS["connive"] = frozenset({"before"})
+SUPPORTED_REPLACE_OPS["proliferate"] = frozenset({"again"})  # -- keyword actions (wave 50F) -- 701.34a, 614.1a: "proliferate twice instead" (Tekuthal, Inquiry Dominus)
 # -- damage bodies (wave 35C) -- "put that many counters on it instead" (Phytohydra, Szadek, Soul-Scar Mage: app/rules/replace_grammar.py _damage_body)
 SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"body"}
 # … and token creation adding a different token (Peregrin Took, Chatterfang: app/rules/extra_tokens.py)

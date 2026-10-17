@@ -45,7 +45,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["The Balrog of Moria", "Elektra, Femme Fatale", "Invisible Woman", "The Motherlode, Excavator", "Lich's Relic", "Tasha, the Witch Queen", "Sepulchral Primordial", "Sorin, Vengeful Bloodlord", "Chainer, Dementia Master", "Spider-Man, To the Rescue", "Ian the Reckless"])
+@pytest.mark.parametrize("name", ["The Balrog of Moria", "Elektra, Femme Fatale", "Invisible Woman", "The Motherlode, Excavator", "Lich's Relic", "Tasha, the Witch Queen", "Sepulchral Primordial", "Sorin, Vengeful Bloodlord", "Chainer, Dementia Master", "Spider-Man, To the Rescue", "Ian the Reckless", "Tekuthal, Inquiry Dominus"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -353,6 +353,28 @@ def test_ian_not_modified_does_not_trigger(cards):
     attack(s, ian)
     assert not s.state.zones.get("stack") and s.state.rules.decision is None
     assert life(s) == 40 and life(s, "p2") == 40
+    check(s)
+
+
+def test_tekuthal_makes_one_proliferate_two(cards):
+    s = build(cards, ["Tekuthal, Inquiry Dominus", "Steady Progress", "Grizzly Bears"], [])
+    put(s, "Tekuthal, Inquiry Dominus")
+    bears = put(s, "Grizzly Bears")
+    act(s, "p1", type="counter", card_ids=[bears.id], kind="+1/+1", delta=1)
+    before = hand(s)
+    cast_from_hand(s, "Steady Progress", U=1, G=2)
+    settle(s)  # each proliferate chooses the Bears (the only permanent with a counter)
+    assert s.state.cards[bears.id].counters.get("+1/+1") == 3 and hand(s) == before + 1  # 701.34a twice (614.1a); the draw is no proliferate
+    check(s)
+
+
+def test_one_proliferate_without_tekuthal(cards):
+    s = build(cards, ["Steady Progress", "Grizzly Bears"], [])
+    bears = put(s, "Grizzly Bears")
+    act(s, "p1", type="counter", card_ids=[bears.id], kind="+1/+1", delta=1)
+    cast_from_hand(s, "Steady Progress", U=1, G=2)
+    settle(s)
+    assert s.state.cards[bears.id].counters.get("+1/+1") == 2
     check(s)
 
 

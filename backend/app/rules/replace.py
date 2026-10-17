@@ -392,7 +392,7 @@ class Planner:
 def affected(plan: Plan, ev: Event) -> str | None:
     """616.1: the affected object's controller (its owner if it has none) or the affected player."""
     kind = ev["kind"]
-    if kind in ("tokens", "draw", "draw_count", "life", "life_loss", "mill", "player_counters", "scry", "explore", "connive"):
+    if kind in ("tokens", "draw", "draw_count", "life", "life_loss", "mill", "player_counters", "scry", "explore", "connive", "proliferate"):
         return ev.get("player")
     if kind == "counters":
         if ev.get("controller"):
@@ -459,6 +459,8 @@ def describe(plan: Plan, ev: Event) -> str:
         return f"{ev['name']} {kind}s"
     if kind == "scry":
         return f"{plan.name(ev['player'])} scries {ev['n']}"
+    if kind == "proliferate":
+        return f"{plan.name(ev['player'])} proliferates"
     if kind == "damage":  # (-- damage bodies (wave 35C) -- and what a replacement counts of it: "0 damage (Phytohydra counts 6)")
         return f"{ev['amount']} damage" + "".join(f" ({r['name']} counts {r['n']})" for r in ev.get("riders") or [])
     return kind
@@ -1582,6 +1584,8 @@ def _action_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
         return False
     if ev["kind"] == "scry":
         return int(ev["n"]) >= 1
+    if ev["kind"] == "proliferate":  # (-- keyword actions (wave 50F) -- 701.34a: the player proliferates)
+        return True
     card = plan.state.cards.get(ev.get("card") or "")
     return card is not None and card.zone.endswith(":battlefield") and plan.ch(card).is_creature and card.controller == c.controller
 
@@ -2250,9 +2254,9 @@ def ask_shield(plan: Plan, s: ShieldAsk, resume: dict[str, Any], order: list[str
 # -- the kinds' rules (the loop dispatches on the event's kind) ------------------------------------
 _APPLIES: dict[str, Any] = {"tokens": _tokens_applies, "counters": _counters_applies, "player_counters": _player_counters_applies,
                             "draw": _draw_applies, "draw_count": _dcount_applies, "life": _life_applies, "life_loss": _loss_applies, "mill": _mill_applies,
-                            "damage": _damage_applies, "scry": _action_applies, "explore": _action_applies, "connive": _action_applies}
+                            "damage": _damage_applies, "scry": _action_applies, "explore": _action_applies, "connive": _action_applies, "proliferate": _action_applies}
 _APPLY: dict[str, Any] = {"tokens": _tokens_apply, "counters": _counters_apply, "player_counters": _counters_apply,
                           "draw": _draw_apply, "draw_count": _dcount_apply, "life": _life_apply, "life_loss": _loss_apply, "mill": _mill_apply,
-                          "damage": _damage_apply, "scry": _action_apply, "explore": _action_apply, "connive": _action_apply}
+                          "damage": _damage_apply, "scry": _action_apply, "explore": _action_apply, "connive": _action_apply, "proliferate": _action_apply}
 _PERFORM: dict[str, Any] = {"draw": _draw_perform, "dredge": _dredge_perform}
 SITES: dict[str, Any] = {"tokens": _run_tokens, "counters": _run_counters, "draw": _run_draw, "life": _run_life, "loss": _run_loss}
