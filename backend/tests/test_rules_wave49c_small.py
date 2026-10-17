@@ -4,6 +4,8 @@ Every scenario checks the replay and a save and a load.
 * 613.1f, 613.7: "All creatures lose flying." (Gravity Sphere), "All creatures lose flying and islandwalk." (Mystic Decree) - a static loss in timestamp order.
 * 105.2, 509.1: "White creatures and blue creatures can't block." (Magistrate's Veto), "Green creatures and white creatures can't block this turn." (Flash of Defiance).
 * 115.2: "… can't be the target of spells" (Spectral Shield), "… of blue or black spells" (Karplusan Strider), "… unless it attacked or blocked this turn" (Lurker) - abilities still may.
+* 118.12: "At the beginning of your upkeep, sacrifice this creature unless you mill two cards." (Deep Spawn) - the payment is the controller's choice.
+* 602.2: "{3}, {T} or {R}, {T}: This artifact deals 1 damage to any target." (Granite Shard and the other Shards) - the ability may be paid either way, not both (the rulings).
 * 702.129a: "Eternalize—{2}{W}{W}, Discard a card." (Sunscourge Champion, Sinuous Striker) - the keyword's cost has a second part, a discard from the hand (the card with
   eternalize is in the graveyard, so it cannot discard itself); with no other card in hand the ability cannot be activated.
 """
@@ -158,4 +160,62 @@ def test_lurker_can_be_targeted_by_spells_only_after_it_attacked(cards):
     act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[lurker.id])  # it attacked this turn
     settle(s)
     assert s.state.cards[bolt.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_a_shard_is_activated_with_either_cost(cards):
+    s = build(cards, ["Granite Shard"])
+    shard = put(s, "Granite Shard")
+    mana(s, R=1)
+    act(s, "p1", type="activate_ability", card_id=shard.id, ability=1, targets=["p2"])  # {R}, {T}
+    settle(s)
+    assert life(s, "p2") == 39 and s.state.cards[shard.id].tapped
+    check(s)
+
+
+def test_a_shard_is_activated_with_three_generic(cards):
+    s = build(cards, ["Granite Shard"])
+    shard = put(s, "Granite Shard")
+    mana(s, C=3)
+    act(s, "p1", type="activate_ability", card_id=shard.id, ability=0, targets=["p2"])  # {3}, {T}
+    settle(s)
+    assert life(s, "p2") == 39
+    check(s)
+
+
+def test_a_shard_needs_one_of_its_costs_in_full(cards):
+    s = build(cards, ["Granite Shard"])
+    shard = put(s, "Granite Shard")
+    mana(s, C=2)  # not {3}, and no {R}
+    for index in (0, 1):
+        with pytest.raises(ActionError):
+            act(s, "p1", type="activate_ability", card_id=shard.id, ability=index, targets=["p2"])
+    check(s)
+
+
+def upkeep_answering(s, answer, limit=200):
+    """Alice's next upkeep: the optional payment is answered ``answer``; nobody attacks or blocks."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if s.state.turn.number == 3 and s.state.turn.phase == "main1" and d is None:
+            return
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[answer] if answer in ids else ids[: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("never reached the main phase")
+
+
+@pytest.mark.parametrize(("answer", "milled", "alive"), [("pay", 2, True), ("decline", 0, False)])
+def test_deep_spawn_is_sacrificed_unless_you_mill_two_cards(cards, answer, milled, alive):
+    s = build(cards, ["Deep Spawn"])
+    spawn = put(s, "Deep Spawn")
+    library, graveyard = len(s.state.zones["p1:library"]), len(s.state.zones["p1:graveyard"])
+    upkeep_answering(s, answer)
+    assert (s.state.cards[spawn.id].zone == "p1:battlefield") is alive
+    assert len(s.state.zones["p1:library"]) == library - milled - 1  # (and the draw for the turn)
+    assert len(s.state.zones["p1:graveyard"]) == graveyard + milled + (0 if alive else 1)
     check(s)

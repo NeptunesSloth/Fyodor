@@ -3902,7 +3902,7 @@ _PICK_NEG = re.compile(r"^if you (don't|do) put (?:the card|that card|it|them) (
 _PICK_DIDNT = re.compile(r"^if you didn't put (?:a|the|that) card into your hand this way, ")
 _IF_YOU_DO = re.compile(r"^if you (?:(?P<neg>don't)|do), (?P<rest>.+)$")
 _UNLESS = re.compile(r"^(?P<lead>.+?) unless (?P<who>you|that player|they|its controller|that creature's controller|target opponent|target player) "
-                     r"(?P<act>(?:pays?|discards?|sacrifices?|returns?|exiles?|removes?|taps?) .+|has (?:~|this [a-z]+) deal \d+ damage to (?:them|you)"
+                     r"(?P<act>(?:pays?|discards?|sacrifices?|returns?|exiles?|removes?|taps?|mills?) .+|has (?:~|this [a-z]+) deal \d+ damage to (?:them|you)"
                      r"|has (?:~|this [a-z]+) deal (?:damage to (?:them|you) equal to .+|that much damage to (?:them|you)))$")  # (wave 27A: "has ~ deal 4 damage to them"; wave 1B: any cost the engine pays; wave 34D: sized)
 
 

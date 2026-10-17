@@ -151,5 +151,90 @@
   "keywords": [],
   "power": "2",
   "toughness": "3"
+ },
+ {
+  "name": "Granite Shard",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "{3}, {T} or {R}, {T}: This artifact deals 1 damage to any target.",
+  "colors": [],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Heartwood Shard",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "{3}, {T} or {G}, {T}: Target creature gains trample until end of turn.",
+  "colors": [],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Pearl Shard",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "{3}, {T} or {W}, {T}: Prevent the next 2 damage that would be dealt to any target this turn.",
+  "colors": [],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Crystal Shard",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "{3}, {T} or {U}, {T}: Return target creature to its owner's hand unless its controller pays {1}.",
+  "colors": [],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Skeleton Shard",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "{3}, {T} or {B}, {T}: Return target artifact creature card from your graveyard to your hand.",
+  "colors": [],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Deep Spawn",
+  "layout": "normal",
+  "mana_cost": "{5}{U}{U}{U}",
+  "cmc": 8.0,
+  "type_line": "Creature — Homarid",
+  "oracle_text": "Trample\nAt the beginning of your upkeep, sacrifice this creature unless you mill two cards.\n{U}: This creature gains shroud until end of turn and doesn't untap during your next untap step. Tap this creature. (A creature with shroud can't be the target of spells or abilities.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Trample",
+   "Mill"
+  ],
+  "power": "6",
+  "toughness": "6"
  }
 ]

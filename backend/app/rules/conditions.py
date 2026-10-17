@@ -474,7 +474,8 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     if found is not None:
         return found
     m = re.fullmatch(r"an opponent (?:(?P<has>has)|controls) (?P<rest>(?:no|\w+ or (?:more|fewer|less)) .+ in (?:hand|their graveyard)|\d+ or (?:more|less) life)", t)  # (wave 16F; 44D: Sheoldred's graveyard; 49C: "an opponent has 10 or less life")
-    if m:  # "an opponent has no cards in hand": the same test read for some one opponent ("you" of it is them)
+    if m and (objects or not m["rest"].endswith(" life")):  # "an opponent has no cards in hand": the same test read for some one opponent ("you" of it is them)
+        # (wave 49C: "has 10 or less life" only inside an ability, a trigger's: a static keeps its own ``opp_life`` form)
         inner = _parse_one(f"you {'have' if m['has'] else 'control'} {m['rest'].replace('their graveyard', 'your graveyard')}", objects)
         if inner is not None and "value" in inner and not inner.get("per_opponent"):
             return {"as": "opponent", "cond": inner}

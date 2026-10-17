@@ -381,6 +381,11 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         if (um := re.fullmatch(r"(.+?) enters tapped and (doesn't untap during your untap step)\.", line)) and not spell:
             line = f"{um[1]} enters tapped."
             tail.append((f"{um[1]} {um[2]}.", sections[n]))
+        # -- keyword meanings (wave 49C) -- "{3}, {T} or {R}, {T}: …" (the Shards): one ability payable either way (the rulings: one cost or the other, not both) is read as two
+        # activated abilities with the same effect, the second added after the printed lines (the card menu's mapping, as Reconfigure's)
+        if (sm := re.fullmatch(r"((?:\{[^}]+\}(?:, )?)+) or ((?:\{[^}]+\}(?:, )?)+): (.+)", line)) and not spell:
+            line = f"{sm[1]}: {sm[3]}"
+            tail.append((f"{sm[2]}: {sm[3]}", sections[n]))
         if line.startswith("Max speed — ") and not spell:  # -- speed (wave 24B) -- 702.178a: "As long as you have max speed, ~ has …"
             from app.rules import speed
 
