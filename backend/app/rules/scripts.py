@@ -962,6 +962,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             if "n" in e:
                 e["n"] = _bind_stats(e["n"], lambda verb=None, at=index: stat_ref(at, verb),
                                      (lambda: "event") if antecedent == "event_spell" else None)  # (wave 3R3)
+            if e.get("do") == "put_from_hand" and isinstance(e.get("mv"), list) and isinstance(e["mv"][1], dict):  # -- trigger other (wave 44D) -- "… with mana value less than or
+                # equal to that creature's power" (Minn, Wily Illusionist): the creature the trigger is about, as it last existed (608.2h)
+                e["mv"] = [e["mv"][0], _bind_stats(e["mv"][1], lambda verb=None, at=index: stat_ref(at, verb), None)]
             if "life_x" in e:  # -- sized payments (wave 5G) -- "pay X life, where X is its power"
                 e["life_x"] = _bind_stats(e["life_x"], lambda verb=None, at=index: stat_ref(at, verb),
                                           (lambda: "event") if antecedent == "event_spell" else None)

@@ -22,7 +22,7 @@ from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_effects import pass_until_stack_empty
-from tests.test_rules_wave34b_activated import next_turn
+from tests.test_rules_wave34b_activated import next_turn, stops, to_phase
 from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave44d_cards.json").read_text("utf-8"))
@@ -196,4 +196,132 @@ def test_rowan_makes_black_and_red_spells_cost_less_by_the_life_lost(cards):
     mana(s, R=1)
     cast(s, "Fireball", targets=["p2"], x_value=2)  # {2}{R}: two less
     assert zone_of(s, "Fireball") == "p1:graveyard"
+    check(s)
+
+
+# ---- triggers ------------------------------------------------------------------------------------------------------------------------------------------
+def exp(s, pid="p1"):
+    return s.state.players[pid].resources.get("experience", 0)
+
+
+def decide(s, ids):
+    d = s.state.rules.decision
+    assert d is not None, "no decision"
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+    pass_until_stack_empty(s)
+
+
+def test_zuko_gets_an_experience_counter_for_a_spell_cast_during_combat_only(cards):
+    s = build(cards, [ZUKO, "Lightning Bolt", "Giant Growth"], [])
+    z = put(s, ZUKO)
+    mana(s, R=1, G=1)
+    cast(s, "Lightning Bolt", targets=["p2"])
+    pass_until_stack_empty(s)
+    assert exp(s) == 0  # (cast in the main phase)
+    stops(s)
+    to_phase(s, "begin_combat")
+    mana(s, G=1)
+    cast(s, "Giant Growth", targets=[z.id])
+    pass_until_stack_empty(s)
+    assert exp(s) == 1
+    check(s)
+
+
+def test_mizzix_counts_only_spells_with_more_mana_value_than_the_experience_counters(cards):
+    s = build(cards, [MIZZIX, "Lightning Bolt", "Fiery Temper", "Giant Growth"], [])
+    z = put(s, MIZZIX)
+    mana(s, R=5, G=1)
+    cast(s, "Lightning Bolt", targets=["p2"])  # mana value 1 > 0
+    pass_until_stack_empty(s)
+    assert exp(s) == 1
+    cast(s, "Fiery Temper", targets=["p2"])  # mana value 3 > 1
+    pass_until_stack_empty(s)
+    assert exp(s) == 2
+    cast(s, "Giant Growth", targets=[z.id])  # mana value 1, not more than 2
+    pass_until_stack_empty(s)
+    assert exp(s) == 2
+    check(s)
+
+
+def test_syr_vondam_destroys_a_permanent_when_exiled_with_power_4_or_more(cards):
+    s = build(cards, [VONDAM, "Swords to Plowshares"], ["Grizzly Bears"])
+    v = put(s, VONDAM)
+    bears = put(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="counter", card_ids=[v.id], kind="+1/+1", delta=2)
+    mana(s, W=1)
+    cast(s, "Swords to Plowshares", targets=[v.id])
+    pass_until_stack_empty(s)
+    if s.state.rules.decision is not None:
+        decide(s, [bears.id])
+    assert zone_of(s, VONDAM) == "p1:exile" and s.state.cards[bears.id].zone == "p2:graveyard"
+    check(s)
+
+
+def test_syr_vondam_with_power_under_4_destroys_nothing(cards):
+    s = build(cards, [VONDAM, "Swords to Plowshares"], ["Grizzly Bears"])
+    v = put(s, VONDAM)
+    bears = put(s, "Grizzly Bears", "p2")
+    mana(s, W=1)
+    cast(s, "Swords to Plowshares", targets=[v.id])
+    pass_until_stack_empty(s)
+    assert zone_of(s, VONDAM) == "p1:exile" and s.state.cards[bears.id].zone == "p2:battlefield"
+    check(s)
+
+
+def fill_graveyard(s, pid, n):
+    ids = [c for c in s.state.zones[f"{pid}:library"][:n]]
+    act(s, pid, type="move", card_ids=ids, to={"player": pid, "zone": "graveyard"})
+
+
+def test_the_master_of_lake_town_draws_for_each_graveyard_with_seven_or_more_cards(cards):
+    s = build(cards, [MASTER, "Murder"], [])
+    master = put(s, MASTER)
+    fill_graveyard(s, "p1", 6)  # (seven with the Master)
+    fill_graveyard(s, "p2", 7)
+    mana(s, B=3)
+    hand = len(s.state.zones["p1:hand"])
+    cast(s, "Murder", targets=[master.id])
+    pass_until_stack_empty(s)
+    assert len(s.state.zones["p1:hand"]) == hand + 2
+    check(s)
+
+
+def test_the_master_of_lake_town_skips_a_graveyard_with_fewer_cards(cards):
+    s = build(cards, [MASTER, "Murder"], [])
+    master = put(s, MASTER)
+    fill_graveyard(s, "p1", 5)  # (six with the Master)
+    fill_graveyard(s, "p2", 7)
+    mana(s, B=3)
+    hand = len(s.state.zones["p1:hand"])
+    cast(s, "Murder", targets=[master.id])
+    pass_until_stack_empty(s)
+    assert len(s.state.zones["p1:hand"]) == hand + 1
+    check(s)
+
+
+def test_minn_puts_a_permanent_with_mana_value_up_to_the_dead_illusions_power_from_hand(cards):
+    s = build(cards, [MINN, "Phantasmal Forces", "Murder", "Hill Giant", "Nessian Asp"], [])
+    put(s, MINN)
+    forces = put(s, "Phantasmal Forces")
+    giant, asp = to_hand(s, "Hill Giant"), to_hand(s, "Nessian Asp")
+    mana(s, B=3)
+    cast(s, "Murder", targets=[forces.id])  # a 4/1 Illusion
+    pass_until_stack_empty(s)
+    decide(s, [giant.id])  # (mana value 4; the Asp's 5 is not offered)
+    assert s.state.cards[giant.id].zone == "p1:battlefield" and s.state.cards[asp.id].zone == "p1:hand"
+    check(s)
+
+
+def test_tifa_untaps_and_adds_a_combat_phase_after_a_big_hit_in_the_first_combat(cards):
+    s = build(cards, [TIFA], [])
+    t = put(s, TIFA)
+    act(s, "p1", type="counter", card_ids=[t.id], kind="+1/+1", delta=3)  # 7/7
+    next_turn(s)
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": t.id, "target": "p2"}])
+    to_phase(s, "combat_damage")
+    pass_until_stack_empty(s)
+    assert s.state.rules.extra_phases[:1] == ["begin_combat"]
+    assert not s.state.cards[t.id].tapped  # (untapped by the trigger)
     check(s)
