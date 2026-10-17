@@ -1828,8 +1828,10 @@ def _scry_x(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": m["verb"], "who": "you", "n": _x_amount(m["xdef"])}], None  # (wave 4K: 701.22, 701.25)
 
 
-@effect(r"(?P<src>~|it) explores, then (?:it|~) explores again")
+@effect(r"(?P<src>~|it|target creature you control) explores, then (?:it|~) explores again")
 def _explore_twice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    if m["src"] == "target creature you control":  # -- most-played modal spells (wave 50I) -- "Target creature you control explores, then it explores again." (Over the Edge): the same creature twice (701.44a)
+        return [{"do": "explore", "who": "target"}, {"do": "explore", "who": "target"}], "creature_you_control"
     return [{"do": "explore", **_it_source(m["src"])}, {"do": "explore", **_it_source(m["src"])}], None  # -- triggers (wave 17D) -- 701.44a twice
 
 
