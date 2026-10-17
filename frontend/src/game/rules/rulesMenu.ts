@@ -193,7 +193,7 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     abilityLines(text).forEach((line, i) => {
       // (wave 5A) 113.6m / 605.3a: "Exile this card from your hand: Add {R}." (Simian Spirit Guide)
       // (wave 24C) 702.57a: "Forecast — {1}{U}, Reveal this card from your hand: …" (the server checks the upkeep and once each turn)
-      if (/^(?:(?:basic )?[a-z]+)?cycling \{/i.test(line) || /^suspend \d+\s*[—-]/i.test(line) || /^forecast\s*—/i.test(line)
+      if (/^(?:(?:basic )?[a-z]+)?cycling \{/i.test(line) || /^suspend (?:\d+|X)\s*[—-]/i.test(line) || /^forecast\s*—/i.test(line)
         || /^Exile this card from your hand: Add /.test(line)
         // (review 24C) 113.6m: any other ability that works from the hand ("{B}, Reveal this card from your hand: …", channel) when the server lists it
         || !!hints.activatable?.some((a) => a.card_id === card.id && a.ability === i)) {

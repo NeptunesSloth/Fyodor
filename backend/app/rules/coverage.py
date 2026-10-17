@@ -514,7 +514,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
     if kw == "plot":  # -- keywords (wave 15E) -- casting.plot: a mana plot cost
         return re.fullmatch(r"plot (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "suspend":  # casting.suspend_info: "Suspend N—{cost}"
-        return re.fullmatch(r"suspend \d+\s*[—-]\s*(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
+        return re.fullmatch(r"suspend (?:\d+|x)\s*[—-]\s*(?:\{[^}]+\})+(?:\. x can't be 0)?", line.strip().rstrip(".").lower()) is not None  # (wave 50H: "Suspend X—{X}{3}{U}. X can't be 0.")
     if kw == "cumulative upkeep":  # triggers.cumulative_costs: a mana cost (-- keywords (wave 43C) -- or any cost the optional payment pays, 702.24a)
         from app.rules.triggers import keyword_cost
 

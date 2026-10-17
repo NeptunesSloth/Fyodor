@@ -397,6 +397,21 @@ describe("rules card menu", () => {
     expect(sent[3]).toEqual({ type: "miracle_reveal", card_id: "w1" });
   });
 
+  it("lists Suspend X in the hand and waits for X before sending it (wave 50H, 107.3d)", () => {
+    const base = view({ ...RULES, hints: { activatable: [{ card_id: "x1", ability: 1, x: true }] } });
+    const v = { ...base, cards: { ...base.cards, x1: card("x1", "p1:hand", "chron") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        chron: { id: "chron", name: "Aeon Chronicler", type_line: "Creature — Avatar",
+          oracle_text: "Aeon Chronicler's power and toughness are each equal to the number of cards in your hand.\nSuspend X—{X}{3}{U}. X can't be 0." } as CardData,
+      },
+    });
+    useGame.setState({ view: v });
+    item(rulesMenu(v.cards.x1!, v, "p1"), "Suspend X—{X}{3}{U}. X can't be 0.").onClick?.();
+    expect(useXPrompt.getState().action).toEqual({ type: "activate_ability", card_id: "x1", ability: 1 });
+  });
+
   it("numbers reconfigure's abilities after every printed line (702.151a)", () => {
     const base = view({ ...RULES, hints: { activatable: [{ card_id: "r1", ability: 2 }] } });
     const v = { ...base, cards: { ...base.cards, r1: card("r1", "p1:battlefield", "gear") } } as unknown as GameView;

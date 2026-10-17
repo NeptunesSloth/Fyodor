@@ -513,6 +513,9 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
                   "snap": None if _live(plan, got[0]) else r.lki.get(e.object_id or "")})]
     if e.kind == "counters" and e.amount < 0:  # -- keywords (wave 15E) -- 122.6: counters removed from a permanent ("the last time
         got = _object_then(plan, e.card, e.object_id)  # counter is removed", vanishing 702.63a); ``last``: none of that kind left
+        exiled = plan.state.cards.get(e.card or "")  # (-- keywords (wave 50H) -- a time counter removed from a suspended card, in exile: it is that object still)
+        if got is None and exiled is not None and exiled.zone.endswith(":exile") and (e.object_id is None or plan.oid(exiled) == e.object_id):
+            got = (exiled, plan.ch(exiled))
         if got is None:
             return []
         return [("counters_removed", got[0], got[1], got[0].controller,
@@ -654,6 +657,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
     event, obj, och, player, info = fact
     you = watcher.controller
     want = cond["event"]
+    if cond.get("exiled") and not watcher.zone.endswith(":exile"):
+        return False  # -- keywords (wave 50H) -- "while it's exiled": the ability functions only there
     if cond.get("during") and (plan.active != (player if cond["during"] == "their" else you)) != (cond["during"] == "opponent"):
         return False  # -- trigger qualifiers (wave 11C) -- "during your / an opponent's / their turn" (603.2)
     if want == "either":  # -- triggers (wave 5D) -- "Whenever you create or sacrifice a token": each event (603.2c)
@@ -1432,9 +1437,10 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
             out += command_zone_abilities(plan, card, trigger)
             continue
         if card.zone.endswith(":exile"):  # -- keywords (wave 50H) -- 702.55c: "When the creature it haunts dies" functions in exile
-            if trigger == "event" and plan.oid(card) in plan.rules.haunting and plan.in_game(card) and not plan.manual(card):
+            if trigger == "event" and plan.in_game(card) and not plan.manual(card):
                 ch = plan.ch(card)
-                out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if (d.get("cond") or {}).get("subject") == "haunted"]
+                out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger)
+                        if ((d.get("cond") or {}).get("subject") == "haunted" and plan.oid(card) in plan.rules.haunting) or (d.get("cond") or {}).get("exiled")]
             continue
         if not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or not plan.in_game(card) or plan.manual(card):
             continue  # (-- emblems (wave 13A) -- 114.4: an emblem's triggered abilities work from the command zone)
@@ -1822,6 +1828,18 @@ def _suspend(plan: Plan) -> None:
         _add(plan, controller=card.owner, source_card=card.id, source_object=plan.oid(card), name=card.name,
              index=5000, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
                                      "effects": [{"do": "suspend_tick", "card": card.id}]})
+
+
+def exile_watch(plan: Plan, card: CardInstance) -> bool:
+    """-- keywords (wave 50H) -- does the card have an ability of its own that functions in exile ("Whenever a time counter is removed from this card while it's exiled")?"""
+    return any((d.get("cond") or {}).get("exiled") for _, d in abilities(plan, plan.ch(card), "event"))
+
+
+def suspend_last(plan: Plan, card: CardInstance) -> None:
+    """-- keywords (wave 50H) -- 702.62a: "When the last time counter is removed from this card, if it's exiled, you may play it without paying its mana cost": a triggered ability of its own."""
+    _add(plan, controller=card.owner, source_card=card.id, source_object=plan.oid(card), name=card.name,
+         index=5001, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
+                                 "effects": [{"do": "suspend_cast", "card": card.id, "object": plan.oid(card)}]})
 
 
 def _echo(plan: Plan) -> None:

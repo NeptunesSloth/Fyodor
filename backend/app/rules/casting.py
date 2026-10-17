@@ -3039,26 +3039,30 @@ def _stacked(plan: Plan, card: CardInstance, oid: str, ch: Characteristics, abil
 CREW = re.compile(r"^crew (?P<n>\d+)$", re.IGNORECASE)
 
 
-SUSPEND = re.compile(r"^suspend (?P<n>\d+)\s*[—-]\s*(?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+SUSPEND = re.compile(r"^suspend (?P<n>\d+|x)\s*[—-]\s*(?P<cost>(?:\{[^}]+\})+)(?:\. x can't be 0)?$", re.IGNORECASE)  # (-- keywords (wave 50H) -- "Suspend X—{X}{3}{U}. X can't be 0.")
 
 
-def suspend_info(ch: Characteristics, index: int) -> tuple[int, str] | None:
-    """702.62 "Suspend N—{cost}" on ability line ``index``: (N, cost)."""
+def suspend_info(ch: Characteristics, index: int) -> tuple[int | None, str] | None:
+    """702.62 "Suspend N—{cost}" on ability line ``index``: (N, cost); N is None for "Suspend X—{X}{3}{U}. X can't be 0." (X is announced, 107.3d)."""
     for ab in ch.abilities:
         if ab.index == index and ab.kind == "keywords" and "suspend" in ab.keywords:
             m = SUSPEND.fullmatch(ab.text.strip().rstrip("."))
             if m:
-                return int(m["n"]), m["cost"]
+                return (None if m["n"].lower() == "x" else int(m["n"])), m["cost"]
     return None
 
 
-def suspend(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, n: int, cost_text: str) -> None:
+def suspend(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, n: int | None, cost_text: str) -> None:
     """702.62a: a special action — whenever you could begin to cast it, pay the suspend cost and
     exile it with N time counters. It doesn't use the stack."""
     problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info)
     if problem:
         raise ActionError(problem)
     cost = M.parse_cost(cost_text)
+    if n is None:  # -- keywords (wave 50H) -- 107.3d: X is chosen by the player taking the special action, immediately before they pay the cost; it can't be 0 (the printed line)
+        if not a.x_value or a.x_value < 1:
+            raise ActionError("Choose a value for X (it can't be 0)")
+        n, cost = a.x_value, cost.with_x(a.x_value)
     if payment_step(plan, a, cost, f"suspending {ch.name}", purpose=Purpose()):  # (review 18B: a special action, 116.2f: not a cast — restricted mana for spells or abilities doesn't pay it)
         return
     pay(plan, plan.actor, cost, f"paid {cost.text()} to suspend {ch.name}", sources=a.sources, purpose=Purpose())
@@ -4460,7 +4464,7 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
         if r is not None and (not check_priority or (r.priority == player and r.decision is None)):
             ch = chars.of(state.cards[cid], info)
             out += [{"card_id": cid, "ability": ab.index, "x": True} for ab in ch.abilities
-                    if (found := hand_ability(ch, ab.index)) is not None and M.parse_cost(found[1]).x]
+                    if (found := hand_ability(ch, ab.index)) is not None and M.parse_cost(found[1]).x or (sus := suspend_info(ch, ab.index)) is not None and sus[0] is None]  # (wave 50H: Suspend X)
     for cid in state.zones.get(zone_key(player, "graveyard"), []):  # 113.6m: "Exile this card from your graveyard: …"
         card = state.cards[cid]
         ch = chars.of(card, info)
