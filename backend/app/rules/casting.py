@@ -2149,12 +2149,12 @@ def _hint_targets(ch: Characteristics) -> tuple[str, ...]:
 
 # -- cost changers (wave 4I) --
 def alt_castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *,
-                 check_priority: bool = True) -> list[dict[str, str]]:
+                 check_priority: bool = True) -> list[dict[str, Any]]:
     """The alternative costs (118.9) ``player`` could cast this card for right now, each with what the intent's
     ``alt_cost`` names: its condition holds, and the whole total cost (601.2f) can be paid (118.3)."""
     from app.rules import alt_costs  # (a leaf over this module)
 
-    out: list[dict[str, str]] = []
+    out: list[dict[str, Any]] = []
     if chars.is_two_spell_card(card, info) or state.rules is None or state.rules.card_mode(card.id) == "manual":
         return out  # (a split card / adventure: which half isn't part of the hint)
     ch = chars.as_cast(card, info, None)
@@ -2355,9 +2355,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     elif base.x and a.x_value and (free or airbent):  # -- review (wave 25A) -- 107.3b: the only legal choice is 0
         raise ActionError(f"X is 0 when {ch.name} is cast without paying its mana cost or for an alternative cost without X (107.3b)")
     kick_x = a.kicker and not a.face_down and (kc := kicker_cost(ch.abilities)) is not None and kc.x  # -- cast keywords (wave 43D) -- 107.3a: "Kicker {X}"
-    if kick_x and (base.x or a.x_value is None or free):
-        raise ActionError(f"Choose a value for X to pay the kicker cost of {ch.name}" if a.x_value is None and not base.x and not free
-                          else f"{ch.name}: a kicker cost with X is paid by hand when the spell has another X or is cast without paying its mana cost")
+    if kick_x and (base.x or a.x_value is None or free):  # ponytail: a spell with another X, or cast free this way, pays a kicker X by hand
+        raise ActionError(f"Choose a value for X to pay the kicker cost of {ch.name}" if a.x_value is None and not (base.x or free)
+                          else f"{ch.name}: pay its kicker X by hand")
     alternative: M.ManaCost | None = M.parse_cost("{3}") if a.face_down else None
     additional: list[M.ManaCost] = []
     if a.buyback:
@@ -3301,8 +3301,9 @@ def free_optional_offers(plan: Plan, card: CardInstance, ch: Characteristics) ->
             if not can_pay(plan.state, plan.actor, total, plan.info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=plan.actor,
                                                                                       kicked=True)):
                 break
-            if (more := kicker_parts(ch, n)) is not None and additional_problem(plan, more, card, plan.actor):
-                break  # (-- cast keywords (wave 43D) -- a "Kicker—Sacrifice a land." with nothing to sacrifice)
+            if (more := kicker_parts(ch, n)) is not None and not any(c.kind in _HAND_PARTS for c in more.components) \
+                    and additional_problem(plan, more, card, plan.actor):
+                break  # (-- cast keywords (wave 43D) -- a "Kicker—Sacrifice a land." with nothing to sacrifice; a part paid from the hand is always offered: no omission tells)
             out.append((f"kicker:{n}", kick.text if n == 1 else f"{kick.text}, paid {n} times"))
     for o in cost_changes.optional_offers(plan.state, plan.actor, card, ch, plan.info):
         if not o.kind:
@@ -3342,7 +3343,7 @@ def announce_free_x(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characte
     if a.x_value is not None or not ((kick is not None and kick.x) or (alt is not None and M.parse_cost(alt).x)):
         return False
     options: list[DecisionOption] = []
-    for n in range(0, 41):
+    for n in range(41):  # ponytail: X is offered up to 40
         total = spell_cost(plan.state, card, ch, n, plan.info, player=plan.actor, free=alt is None,
                            alternative=M.parse_cost(alt) if alt is not None else None, kicker=a.kicker)
         if not can_pay(plan.state, plan.actor, total, plan.info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=plan.actor,
@@ -4026,15 +4027,16 @@ def _equip_side(plan: Plan, card: CardInstance, ch: Characteristics, a: A.Activa
         return AbilityText(index=a.ability, kind="activated", cost=side, special="equip", text=f"{side}: Attach {ch.name} to target creature you control. "
                            "Activate only as a sorcery.")
 
-    given = [c for c in a.cost_choices if c.component == costs.EITHER_SLOT]
-    if given:
-        picked = given[-1].cards
-        if len(picked) != 1 or not picked[0].startswith("either:") or not picked[0].split(":", 1)[1].isdigit() or int(picked[0].split(":", 1)[1]) >= len(sides):
+    given = next((c.cards[0] for c in a.cost_choices if c.component == costs.EITHER_SLOT and c.cards), None)
+    if given is not None:
+        i = int(given[7:]) if given.startswith("either:") and given[7:].isdigit() else -1
+        if not 0 <= i < len(sides):
             raise ActionError("Choose one of the costs of the equip ability")
-        return sides[int(picked[0].split(":", 1)[1])]
-    problems = [ability_problem(plan.state, plan.actor, card, ch, ability_of(side), ability_cost(ch, ability_of(side), state=plan.state, card=card, info=plan.info),
-                                check_priority=False, info=plan.info, plan=plan) for side in sides]
-    offered = [i for i, side in enumerate(sides) if problems[i] is None or any(c.kind in _HAND_PARTS for c in ability_cost(ch, ability_of(side)).components)]
+        return sides[i]
+    paid = [ability_cost(ch, ability_of(side), state=plan.state, card=card, info=plan.info) for side in sides]
+    problems = [ability_problem(plan.state, plan.actor, card, ch, ability_of(side), cost, check_priority=False, info=plan.info, plan=plan)
+                for side, cost in zip(sides, paid, strict=True)]
+    offered = [i for i, cost in enumerate(paid) if problems[i] is None or any(c.kind in _HAND_PARTS for c in cost.components)]
     if not offered:
         raise ActionError(problems[0] or "You can't pay the cost of that ability")
     if len(offered) == 1:  # (118.3: the other can't be paid — nothing to choose)

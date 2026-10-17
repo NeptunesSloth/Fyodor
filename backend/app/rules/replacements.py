@@ -240,7 +240,7 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
         # (a printed loyalty of X is the X its spell was cast with, 107.3; 0 when it wasn't cast)
         loyalty = int(ch.loyalty) if ch.loyalty and ch.loyalty.isdigit() else int(x or 0) if ch.loyalty == "X" else 0
         if loyalty and "compleated" in ch.keywords and not plan.manual(card):  # -- cast keywords (wave 43D) -- 702.150a: two fewer for each Phyrexian symbol paid with life
-            paid = plan.rules.payments.get(plan.oid(card))
+            paid = plan.rules.payments.get(plan.oid(card))  # ponytail: mana.solve pays a Phyrexian symbol with life only when mana falls short (no free choice)
             loyalty = max(0, loyalty - 2 * (paid.phyrexian if paid is not None else 0))
         if loyalty:
             counters["loyalty"] = counters.get("loyalty", 0) + loyalty

@@ -3982,8 +3982,8 @@ def _kicked_sentence(m: re.Match[str], effects: list[dict[str, Any]], prev_start
     if restated is not None:
         found: tuple[list[dict[str, Any]], Any] | None = (restated, None)
     else:
-        if rest.startswith("it deals "):
-            rest = "~ deals " + rest[len("it deals "):]  # "If this spell was kicked, it deals …": the spell (wave 1B)
+        if rest.startswith(("it deals ", "it also deals ")):
+            rest = "~ " + rest[len("it "):]  # "If this spell was kicked, it deals …": the spell (wave 1B; wave 43D: "it also deals", Goblin Barrage)
         found = _clause(rest)
     if found is None or not found[0]:
         return None

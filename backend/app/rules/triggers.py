@@ -1631,11 +1631,27 @@ def _whose_step(plan: Plan, card: CardInstance, whose: str, ap: str) -> bool:
 ECHO = re.compile(r"^echo (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 
 
+# -- cast keywords (wave 43D) -- 702.30a: "Echo—Discard a card." / "Echo—Sacrifice two lands.": an echo cost that isn't mana, paid as an optional cost of
+# the "sacrifice it unless you pay" (optional_payment); the cost is returned as "text:<the cost>"
+ECHO_OTHER = re.compile(r"^echo—(?P<cost>[^.{}]+)$", re.IGNORECASE)
+
+
+def echo_line_cost(line: str) -> str | None:
+    """The echo cost a keyword line states: its mana, or "text:<cost>" for a cost the optional payment engine pays, else None."""
+    from app.rules import optional_payment
+
+    text = re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".")
+    if (m := ECHO.fullmatch(text)) is not None:
+        return m["cost"]
+    if (o := ECHO_OTHER.fullmatch(text)) is not None and (found := optional_payment.cost_text(o["cost"][:1].lower() + o["cost"][1:])) is not None:
+        return f"text:{found}"
+    return None
+
+
 def echo_cost(ch: Any) -> str | None:
     for ab in ch.abilities:
         if ab.kind == "keywords" and "echo" in ab.keywords:
-            m = ECHO.fullmatch(ab.text.strip().rstrip("."))
-            return m["cost"] if m else None
+            return echo_line_cost(ab.text)
     return None
 
 
@@ -1717,7 +1733,10 @@ def _echo(plan: Plan) -> None:
         r.echo_done.append(key)
         _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
              index=3000, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
-                                     "effects": [{"do": "pay_or_sacrifice", "cost": cost}]})
+                                     "effects": [{"do": "pay_or_sacrifice", "cost": cost}] if not cost.startswith("text:") else [
+                                         {"do": "optional_payment", "who": "you", "cost": cost[5:], "bind": "pay0"},  # (wave 43D: "Echo—Discard a card.")
+                                         {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1},
+                                         {"do": "sacrifice", "who": "self"}]})
 
 
 def _keyword_n(ch: Any, word: str) -> list[int]:

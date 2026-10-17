@@ -434,8 +434,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return line.strip().rstrip(".").lower() == "cipher"
     if kw == "ripple":  # -- static_other sweep (wave 17C) -- casting._ripple_triggers: "Ripple N", each instance its own line
         return re.fullmatch(r"ripple \d+", line.strip().rstrip(".").lower()) is not None
-    if kw == "echo":  # triggers.echo_cost: a mana echo cost
-        return re.fullmatch(r"echo (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
+    if kw == "echo":  # triggers.echo_cost: a mana echo cost (wave 43D: or one the optional payment engine pays, "Echo—Discard a card.")
+        from app.rules.triggers import echo_line_cost
+
+        return echo_line_cost(line) is not None
     if kw in ("morph", "megamorph"):  # casting.morph_cost: a mana morph cost
         if re.fullmatch(r"(?:mega)?morph (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None:  # (no X: wave 3F)
             return True

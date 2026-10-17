@@ -94,6 +94,19 @@ def test_goblin_barrage_kicked_by_sacrificing_a_goblin_deals_both(cards):
     check(s)
 
 
+def test_goblin_barrage_can_target_the_goblin_it_sacrifices_to_pay_for_the_kicker(cards):
+    """Goblin Barrage's ruling: targets are chosen first (601.2c), the kicker cost is paid later (601.2h), so the Goblin may be the creature target and then
+    be sacrificed; the creature part does nothing (its target is gone, 608.2b) and the player is still dealt 4 damage."""
+    s = build(cards, ["Goblin Barrage"])
+    gob = token_of(s, "p1", "Goblin", "Token Creature — Goblin", "1/1")
+    to_hand(s, "Goblin Barrage")
+    mana(s, R=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Goblin Barrage").id, kicker=1, targets=[gob.id, "p2"], target_counts=[1, 1])
+    settle(s)
+    assert not on_field(s, gob.id) and life(s, "p2") == 36
+    check(s)
+
+
 def test_goblin_barrage_unkicked_pays_no_sacrifice_and_hits_only_the_creature(cards):
     s = build(cards, ["Goblin Barrage"])
     gob = token_of(s, "p1", "Goblin", "Token Creature — Goblin", "1/1")
@@ -606,6 +619,51 @@ def test_rumbling_aftershocks_deals_damage_equal_to_the_times_the_spell_was_kick
     check(s)
 
 
+# ---- echo with a cost that isn't mana (702.30a) ------------------------------------------------------------------------------------------------
+def to_upkeep(s, turn=3):
+    """On to Alice's upkeep of that turn, with its triggers on the stack."""
+    until(s, lambda s: s.state.turn.number >= turn and s.state.turn.phase == "upkeep" and s.state.turn.active_player == "p1" and bool(s.state.zones.get("stack")))
+
+
+def test_echo_discard_a_card_is_paid_at_the_next_upkeep_or_the_creature_is_sacrificed(cards):
+    """"Echo—Discard a card.": at the beginning of your next upkeep the creature is sacrificed unless you discard a card (702.30a); a private yes / no, and
+    the card is chosen by the payer."""
+    s = build(cards, ["Deepcavern Imp", "Grizzly Bears"])
+    mana(s, B=1, C=2)
+    to_hand(s, "Deepcavern Imp")
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Deepcavern Imp").id)
+    settle(s)
+    to_hand(s, "Grizzly Bears")
+    hand_of(s, "p1", 1, name="Forest")
+    to_upkeep(s)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and d.prompt == "Deepcavern Imp: pay Discard a card?" and [o.id for o in d.options] == ["pay", "decline"]
+    assert "Discard" not in json.dumps(s.view("p2")["rules"]["decision"])
+    pick(s, "pay")
+    d = s.state.rules.decision  # (which card: a Bear or a Forest)
+    assert d is not None and sorted(o.label for o in d.options) == ["Forest", "Grizzly Bears"]
+    s = reloaded_session(s)  # a save and a load in the middle of the payment
+    d = s.state.rules.decision
+    pick(s, next(o.id for o in d.options if o.label == "Grizzly Bears"))
+    settle(s)
+    assert zone_of(s, "Deepcavern Imp") == "p1:battlefield" and zone_of(s, "Grizzly Bears") == "p1:graveyard"
+    check(s)
+
+
+def test_echo_declined_sacrifices_the_creature(cards):
+    s = build(cards, ["Deepcavern Imp", "Grizzly Bears"])
+    mana(s, B=1, C=2)
+    to_hand(s, "Deepcavern Imp")
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Deepcavern Imp").id)
+    settle(s)
+    to_hand(s, "Grizzly Bears")
+    to_upkeep(s)
+    pick(s, "decline")
+    settle(s)
+    assert zone_of(s, "Deepcavern Imp") == "p1:graveyard" and zone_of(s, "Grizzly Bears") == "p1:hand"
+    check(s)
+
+
 # ---- equip with a choice of costs (702.6a) ----------------------------------------------------------------------------------------------------
 def equip_index(s, name):
     card = card_named(s, name)
@@ -1090,6 +1148,47 @@ def test_bonfire_of_the_damned_miracle_asks_x_and_pays_it_in_the_miracle_cost(ca
     settle(s)
     assert life(s, "p2") == 37 and not on_field(s, victim.id) and on_field(s, [c.id for c in s.state.cards.values() if c.name == "Mine"][0])
     assert zone_of(s, "Bonfire of the Damned") == "p1:graveyard" and sum(s.state.players["p1"].mana.values()) == 0
+    check(s)
+
+
+def test_entreat_the_dead_miracle_announces_x_before_its_x_targets(cards):
+    """"Miracle {X}{B}{B}": X = 2 is announced as the cast begins (107.3a), then "Return X target creature cards from your graveyard to the battlefield"
+    takes two targets (601.2c comes after 601.2b): both Bears return."""
+    s = build(cards, ["Entreat the Dead", "Elvish Visionary", "Grizzly Bears", "Grizzly Bears"])
+    for b in [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"][:2]:
+        act(s, "p1", type="move", card_ids=[b.id], to={"zone": "graveyard"})
+    stack_top(s, ["Entreat the Dead"])
+    visionary = card_named(s, "Elvish Visionary")
+    act(s, "p1", type="move", card_ids=[visionary.id], to={"zone": "hand"})
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=visionary.id)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            pick(s, *[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, "p1", type="pass_priority")
+            act(s, "p2", type="pass_priority")
+        else:
+            break
+    entreat = card_named(s, "Entreat the Dead")
+    assert entreat.zone == "p1:hand" and s.state.rules.miracle == [entreat.id]
+    mana(s, B=2, C=2)
+    act(s, "p1", type="miracle_reveal", card_id=entreat.id)
+    for _ in range(14):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif any(o.id == "yes" for o in d.options):
+            pick(s, "yes")
+        elif d.options and d.options[0].id.startswith("x:"):
+            assert [o.id for o in d.options] == ["x:0", "x:1", "x:2"]  # ({X}{B}{B} with four mana: X up to 2)
+            pick(s, "x:2")
+        else:
+            pick(s, *[o.id for o in d.options][: max(1, d.min_choices)])
+    assert len([c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.zone == "p1:battlefield"]) == 2
     check(s)
 
 

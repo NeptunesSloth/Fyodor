@@ -552,6 +552,7 @@ def _entwine_extra(line: str) -> str | None:
 # -- cast keywords (wave 43D) -- 702.33a, 702.157a, 702.56a: a kicker / squad / replicate cost that isn't mana ("Kicker—Sacrifice a land.",
 # "Squad—Exile four cards from your graveyard.", "Replicate—Pay {E}{E}{E}.") is an optional additional cost made of the parts an alternative cost
 # may have (alt_costs.parse_cost); paid with the other additional costs, once for each time it is paid (601.2b, 601.2h)
+# ponytail: squad / replicate have no menu entry in the frontend (only the cast_spell ``kicker`` count), mana or not
 _KICKER_EXTRA = re.compile(r"^(?:(?P<multi>multi)?kicker|(?P<many>squad|replicate))—(?P<rest>[^{}]+|pay (?:\{E\})+)$", re.IGNORECASE)
 
 

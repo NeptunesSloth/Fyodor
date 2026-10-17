@@ -150,7 +150,9 @@ class Plan:
         (``CreateArrow``), so a spell with more targets ("up to X target …", "any number of target …") gets several. (review 29C: arrows only
         show the targets: past ``ENGINE_ARROWS`` on the table none are added, as the table refuses more than 200 and that would refuse the
         cast or the resolution itself)"""
-        ids = list(dict.fromkeys(ids))
+        # (-- cast keywords (wave 43D) -- a target paid as a cost, "Kicker—Sacrifice an artifact or Goblin." with the Goblin chosen as the target (Goblin
+        # Barrage's ruling), is a token that ceased to exist (111.7): no arrow to a thing that isn't on the table)
+        ids = [i for i in dict.fromkeys(ids) if i in self.state.cards or i in self.state.players]
         for i in range(0, len(ids), ARROW_TARGETS):
             if len(self.state.arrows) >= ENGINE_ARROWS:
                 return

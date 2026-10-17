@@ -908,6 +908,69 @@
   ]
  },
  {
+  "name": "Deepcavern Imp",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature — Imp Rebel",
+  "oracle_text": "Flying, haste\nEcho—Discard a card. (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Echo",
+   "Flying",
+   "Haste"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Skizzik Surger",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Creature — Elemental",
+  "oracle_text": "Haste\nEcho—Sacrifice two lands. (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Haste",
+   "Echo"
+  ],
+  "power": "6",
+  "toughness": "4"
+ },
+ {
+  "name": "Rakdos Headliner",
+  "layout": "normal",
+  "mana_cost": "{B}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Devil",
+  "oracle_text": "Haste\nEcho—Discard a card. (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Haste",
+   "Echo"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
   "name": "Murasa Sproutling",
   "layout": "normal",
   "mana_cost": "{2}{G}",
