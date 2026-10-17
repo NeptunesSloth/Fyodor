@@ -1384,9 +1384,9 @@ def parse(phrase: str) -> Selector | None:
     # -- layers (wave 49C) -- "white creatures and blue creatures" (Magistrate's Veto): the creatures that are white or blue, as "white or blue creatures"
     phrase = re.sub(r"^(white|blue|black|red|green) creatures and (white|blue|black|red|green) creatures$", r"\1 or \2 creatures", phrase.strip(), flags=re.I)
     # -- layers (wave 49C) -- "nonattacking creature" (Alarum), "nonattacking, nonblocking creature" (Unlikely Alliance): not attacking / not blocking (506.4)
-    lead = re.match(r"^(?P<adj>nonattacking(?:,? (?:and )?nonblocking)?|nonblocking) (?P<rest>.+)$", phrase.strip())
+    lead = re.match(r"^(?P<pre>(?:another |other )?)(?P<adj>nonattacking(?:,? (?:and )?nonblocking)?|nonblocking) (?P<rest>.+)$", phrase.strip())  # (wave 50F: "another nonattacking creature you control", Spider-Man, To the Rescue)
     if lead is not None:
-        base = _parse(_type_and(lead["rest"]))
+        base = _parse(_type_and(lead["pre"] + lead["rest"]))
         flags = tuple(f for w, f in (("nonattacking", "not_attacking"), ("nonblocking", "not_blocking")) if w in lead["adj"])
         return None if base is None else replace(base, extras=(*base.extras, *flags))
     return _parse(_type_and(phrase.strip()))

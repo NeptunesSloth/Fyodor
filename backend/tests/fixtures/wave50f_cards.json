@@ -1,0 +1,360 @@
+[
+ {
+  "name": "The Balrog of Moria",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{B}{R}",
+  "cmc": 7.0,
+  "type_line": "Legendary Creature — Avatar Demon",
+  "oracle_text": "Trample, haste\nWhen The Balrog of Moria dies, you may exile it. When you do, for each opponent, exile up to one target creature that player controls.\nCycling {3}{R} ({3}{R}, Discard this card: Draw a card.)\nWhen you cycle this card, create two Treasure tokens.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Treasure",
+   "Haste",
+   "Trample",
+   "Cycling"
+  ],
+  "power": "8",
+  "toughness": "8"
+ },
+ {
+  "name": "Elektra, Femme Fatale",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Assassin Hero",
+  "oracle_text": "When Elektra enters, you may have her deal 2 damage to you. When you do, she deals 4 damage to target creature.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Invisible Woman",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Hero",
+  "oracle_text": "At the beginning of combat on your turn, if you've cast a noncreature spell this turn, create a 0/3 colorless Wall creature token with defender and reach.\nWhenever you attack, you may pay {R}{G}{W}{U}. When you do, target creature gets +1/+0 until end of turn for each creature you control and can't be blocked this turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "The Motherlode, Excavator",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Artifact Creature — Robot",
+  "oracle_text": "When The Motherlode enters, choose target opponent. You get an amount of {E} (energy counters) equal to the number of nonbasic lands that player controls.\nWhenever The Motherlode attacks, you may pay {E}{E}{E}{E}. When you do, destroy target nonbasic land defending player controls, and creatures that player controls without flying can't block this turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Lich's Relic",
+  "layout": "normal",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "When this Equipment enters, you may pay {2}. When you do, for each opponent, destroy up to one target creature or planeswalker that player controls.\nEquipped creature gets +2/+1.\nEquip {2}",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Tasha, the Witch Queen",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{B}",
+  "cmc": 5.0,
+  "type_line": "Legendary Planeswalker — Tasha",
+  "oracle_text": "Whenever you cast a spell you don't own, create a 3/3 black Demon creature token.\n+1: Draw a card. For each opponent, exile up to one target instant or sorcery card from that player's graveyard and put a page counter on it.\n−3: You may cast a spell from among cards in exile with page counters on them without paying its mana cost.\nTasha, the Witch Queen can be your commander.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [],
+  "loyalty": "4"
+ },
+ {
+  "name": "Nils, Discipline Enforcer",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Cleric",
+  "oracle_text": "At the beginning of your end step, for each player, put a +1/+1 counter on up to one target creature that player controls.\nEach creature with one or more counters on it can't attack you or planeswalkers you control unless its controller pays {X}, where X is the number of counters on that creature.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Sepulchral Primordial",
+  "layout": "normal",
+  "mana_cost": "{5}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Creature — Avatar",
+  "oracle_text": "Intimidate (This creature can't be blocked except by artifact creatures and/or creatures that share a color with it.)\nWhen this creature enters, for each opponent, you may put up to one target creature card from that player's graveyard onto the battlefield under your control.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Intimidate"
+  ],
+  "power": "5",
+  "toughness": "4"
+ },
+ {
+  "name": "Sorin, Vengeful Bloodlord",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Sorin",
+  "oracle_text": "During your turn, creatures and planeswalkers you control have lifelink.\n+2: Sorin deals 1 damage to target player or planeswalker.\n−X: Return target creature card with mana value X from your graveyard to the battlefield. That creature is a Vampire in addition to its other types.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [],
+  "loyalty": "4"
+ },
+ {
+  "name": "Chainer, Dementia Master",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{B}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Minion",
+  "oracle_text": "All Nightmares get +1/+1.\n{B}{B}{B}, Pay 3 life: Put target creature card from a graveyard onto the battlefield under your control. That creature is black and is a Nightmare in addition to its other creature types.\nWhen Chainer leaves the battlefield, exile all Nightmares.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Demonic Junker",
+  "layout": "normal",
+  "mana_cost": "{6}{B}",
+  "cmc": 7.0,
+  "type_line": "Artifact — Vehicle",
+  "oracle_text": "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)\nWhen this Vehicle enters, for each player, destroy up to one target creature that player controls. If a creature you controlled was destroyed this way, put two +1/+1 counters on this Vehicle.\nCrew 2",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Affinity",
+   "Crew"
+  ],
+  "power": "4",
+  "toughness": "3"
+ },
+ {
+  "name": "Battle at the Helvault",
+  "layout": "saga",
+  "mana_cost": "{4}{W}{W}",
+  "cmc": 6.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI, II — For each player, exile up to one target non-Saga, nonland permanent that player controls until this Saga leaves the battlefield.\nIII — Create Avacyn, a legendary 8/8 white Angel creature token with flying, vigilance, and indestructible.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Vigilance"
+  ]
+ },
+ {
+  "name": "Spider-Man, To the Rescue",
+  "layout": "normal",
+  "mana_cost": "{2}{G/W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Spider Human Hero",
+  "oracle_text": "Flash\nReach, vigilance\nNo One Dies! — When Spider-Man enters, you may tap him. When you do, another target nonattacking creature you control gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Reach",
+   "Vigilance",
+   "Flash",
+   "No One Dies!"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Ian the Reckless",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Warrior",
+  "oracle_text": "Whenever Ian the Reckless attacks, if it's modified, you may have it deal damage equal to its power to you and any target. (Equipment, Auras you control, and counters are modifications.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Tekuthal, Inquiry Dominus",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Phyrexian Horror",
+  "oracle_text": "Flying\nIf you would proliferate, proliferate twice instead.\n{1}{U/P}{U/P}, Remove three counters from among other artifacts, creatures, and planeswalkers you control: Put an indestructible counter on Tekuthal. ({U/P} can be paid with either {U} or 2 life.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Proliferate"
+  ],
+  "power": "3",
+  "toughness": "5"
+ },
+ {
+  "name": "Steady Progress",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)\nDraw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Proliferate"
+  ]
+ },
+ {
+  "name": "Lim-Dûl the Necromancer",
+  "layout": "normal",
+  "mana_cost": "{5}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "Whenever a creature an opponent controls dies, you may pay {1}{B}. If you do, return that card to the battlefield under your control. If it's a creature, it's a Zombie in addition to its other creature types.\n{1}{B}: Regenerate target Zombie.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Regenerate"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Rubblebelt Braggart",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Creature — Lizard Warrior",
+  "oracle_text": "Whenever this creature attacks, if it's not suspected, you may suspect it. (A suspected creature has menace and can't block.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Suspect"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Retriever Phoenix",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Phoenix",
+  "oracle_text": "Flying, haste\nWhen this creature enters, if you cast it, learn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.)\nAs long as this card is in your graveyard, if you would learn, you may instead return this card to the battlefield.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying",
+   "Haste",
+   "Learn"
+  ],
+  "power": "2",
+  "toughness": "2"
+ }
+]

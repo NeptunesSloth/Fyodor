@@ -1190,6 +1190,8 @@ def lki_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def proliferate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.34a: choose any number of permanents and/or players that have a counter; each gets one
     more of each kind it already has."""
+    if (replaced := replace.keyword_replace(plan, ctx, e, "proliferate", ctx["controller"])) is not None:
+        return replaced  # -- keyword actions (wave 50F) -- 614.1a: "If you would proliferate, proliferate twice instead." (Tekuthal, Inquiry Dominus)
     options = [DecisionOption(id=c.id, label=f"{c.name} ({', '.join(f'{v} {k}' for k, v in c.counters.items() if v)})", card_id=c.id)
                for c in plan.state.cards.values()
                if c.zone.endswith(":battlefield") and plan.in_game(c) and any(v > 0 for v in c.counters.values())]
