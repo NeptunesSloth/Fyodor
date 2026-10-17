@@ -78,30 +78,32 @@ def test_merfolk_spy_makes_the_player_it_hurt_reveal_a_card_at_random(cards, mon
     """"Whenever this creature deals combat damage to a player, that player reveals a card at random from their hand." (the player the trigger is about)"""
     pin_random(monkeypatch, 1)
     s = table(cards, ["Merfolk Spy"])
-    hand = sorted(bobs_hand(s))
     spy = put(s, "Merfolk Spy")
-    until(s, lambda s: s.state.turn.number == 4 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    until(s, lambda s: s.state.turn.number == 4 and s.state.turn.phase == "main1" and s.state.rules.decision is None)  # (Bob drew on his own turn)
+    hand = sorted(bobs_hand(s))
     until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": spy.id, "target": "p2"}])
     through_combat(s)
-    log = json.dumps(s.view("p3")["log"])
-    assert [n for n in HAND if f'"name": "{n}"' in log] == [s.state.cards[hand[1]].name]  # one card shown to everyone: the second by the table's order
+    shown = [x["card"]["name"] for e in s.view("p3")["log"] if any(" revealed " in (p.get("t") or "") for p in e["parts"])
+             for g in e["parts"] if "group" in g for x in g["group"]]
+    assert shown == [s.state.cards[hand[1]].name]  # one card shown to everyone: the second by the table's order
     assert seen_by(s, "p3", hand) == [] and all(s.state.cards[c].revealed_to == [] for c in hand)  # and hidden again afterwards
     check(s)
 
 
-@pytest.mark.parametrize("named, expected", [("Island", 2), ("Grizzly Bears", 1)])
+@pytest.mark.parametrize("named, expected", [("Island", 3), ("Grizzly Bears", 1)])
 def test_nebuchadnezzar_discards_only_the_revealed_cards_with_the_chosen_name(cards, monkeypatch, named, expected):
     """{X}, {T}: Choose a card name. Target opponent reveals X cards at random from their hand. Then that player discards all cards with that name
-    revealed this way. Bob holds Grizzly Bears and two Islands; X is 3: all three are revealed (nothing else is shown), and only those named go."""
+    revealed this way. Bob holds Grizzly Bears and three Islands; X is 4: all are revealed (nothing else is shown), and only those named go."""
     pin_random(monkeypatch, 0)
     s = build3(cards, ["Nebuchadnezzar"], bobs=["Grizzly Bears"])
     act(s, "p2", type="draw", player="p2", count=3)
-    hand = sorted(bobs_hand(s))
     neb = put(s, "Nebuchadnezzar")
-    until(s, lambda s: s.state.turn.number == 4 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
-    mana(s, C=3)
-    activate(s, "p1", neb, targets=["p2"], x_value=3)
+    until(s, lambda s: s.state.turn.number == 4 and s.state.turn.phase == "main1" and s.state.rules.decision is None)  # (Bob drew on his own turn)
+    hand = sorted(bobs_hand(s))
+    assert len(hand) == 4
+    mana(s, C=4)
+    activate(s, "p1", neb, targets=["p2"], x_value=4)
     d = s.state.rules.decision  # the typed name (a free-text choice; nothing about any hand is in the question)
     assert d is not None and d.player == "p1"
     act(s, "p1", type="choose", decision_id=d.id, name=named)
