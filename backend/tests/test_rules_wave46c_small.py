@@ -16,8 +16,8 @@ from app.rules import coverage
 from app.rules.plan import Plan
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, settle, stops, to_phase
-from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_of
-from tests.wave43b_kit import on_top
+from tests.wave9c_kit import build, card_named, check, mana, pt, put, to_hand, zone_of
+from tests.wave43b_kit import ch, on_top
 from tests.wave46c_kit import FULL, cast, open_cards
 
 
@@ -240,6 +240,20 @@ def test_ox_drover_gives_the_opponent_an_ox_and_draws_you_a_card(cards):
     cast(s, "Ox Drover")
     assert len(on_table(s, "battlefield", "p2", "Ox")) == 1 and not on_table(s, "battlefield", "p1", "Ox")
     assert len(s.state.zones["p1:library"]) == before - 1  # you draw a card
+    check(s)
+
+
+def test_gideon_blackblade_is_a_creature_only_during_its_controllers_turn(cards):
+    # 613.1d, 613.4b, 205.1b: "During your turn, ~ is a 4/4 Human Soldier creature with indestructible that's still a planeswalker."
+    s = build(cards, ["Gideon Blackblade"], [])
+    gideon = put(s, "Gideon Blackblade")
+    mine = ch(s, gideon)
+    assert {"Creature", "Planeswalker"} <= set(mine.types) and {"Human", "Soldier"} <= set(mine.subtypes)
+    assert pt(s, "Gideon Blackblade") == (4, 4) and "indestructible" in mine.keywords
+    stops(s)
+    to_phase(s, "upkeep", turn=2)
+    theirs = ch(s, gideon)
+    assert "Creature" not in theirs.types and "Planeswalker" in theirs.types and "Soldier" not in theirs.subtypes
     check(s)
 
 

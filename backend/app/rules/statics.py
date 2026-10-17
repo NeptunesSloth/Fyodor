@@ -430,6 +430,7 @@ def parse(text: str) -> Definition | None:
 _NOT_CREATURE = re.compile(r"^(?:~|it) isn't a creature$")
 _IS_TYPES = re.compile(r"^(?:~|it)(?:'s| is) an? (?:(?P<pt>\d+)/(?P<tt>\d+) )?(?P<types>(?:(?:artifact|creature|land|enchantment) )*"
                        r"(?:artifact|creature|land|enchantment))(?P<add> in addition to its other types)?(?: and (?P<rest>(?:it|~) .+))?$")
+_STILL = re.compile(r"^(?:~|it) is an? (?P<pt>\d+)/(?P<tt>\d+) (?P<subs>(?:[A-Z][a-z]+ )+)creature with (?P<kw>[a-z]+) that's still an? planeswalker$")
 _SUB_CREATURE = re.compile(r"^(?:~|it)(?:'s| is) an? (?P<sub>[A-Z][a-z]+) creature in addition to its other types$")
 _IN_ADDITION = re.compile(r"^(?:(?P<pre>.+?),? and |(?:~|it) )is (?:a|an) (?P<sub>[A-Z][a-z]+) in addition to its other types$")
 
@@ -467,6 +468,14 @@ def _layer4_parts(body: str) -> tuple[str, dict[str, Any]] | None:
         if m["pt"]:
             parts["base"] = [int(m["pt"]), int(m["tt"])]
         return (m["rest"] or ""), parts
+    m = _STILL.fullmatch(body)  # -- most-played cards III (wave 46C) -- 205.1b, 613.4b: "~ is a 4/4 Human Soldier creature with indestructible that's still a planeswalker" (Gideon Blackblade)
+    if m:
+        from app.rules.creature_types import CREATURE_TYPES
+
+        subs = m["subs"].split()
+        if not all(s in CREATURE_TYPES for s in subs):
+            return None
+        return f"~ has {m['kw']}", {"remove_types": [], "add_types": ["Creature"], "add_subtypes": subs, "base": [int(m["pt"]), int(m["tt"])]}
     m = _SUB_CREATURE.fullmatch(body)  # -- counters (wave 44C) -- 205.1b: "it's a Phyrexian creature in addition to its other types" (Weatherlight Compleated)
     if m:
         from app.rules.creature_types import CREATURE_TYPES
