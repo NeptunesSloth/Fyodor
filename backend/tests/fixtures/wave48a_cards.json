@@ -314,5 +314,196 @@
   ],
   "power": "4",
   "toughness": "4"
+ },
+ {
+  "name": "Deadeye Tracker",
+  "layout": "normal",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Creature — Human Pirate",
+  "oracle_text": "{1}{B}, {T}: Exile two target cards from an opponent's graveyard. This creature explores. (Reveal the top card of your library. Put that card into your hand if it's a land. Otherwise, put a +1/+1 counter on this creature, then put the card back or put it into your graveyard.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Explore"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Lochmere Serpent",
+  "layout": "normal",
+  "mana_cost": "{4}{U}{B}",
+  "cmc": 6.0,
+  "type_line": "Creature — Serpent",
+  "oracle_text": "Flash\n{U}, Sacrifice an Island: This creature can't be blocked this turn.\n{B}, Sacrifice a Swamp: You gain 1 life and draw a card.\n{U}{B}: Exile five target cards from an opponent's graveyard. Return this card from your graveyard to your hand. Activate only as a sorcery.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Flash"
+  ],
+  "power": "7",
+  "toughness": "7"
+ },
+ {
+  "name": "Spurnmage Advocate",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Creature — Human Nomad",
+  "oracle_text": "{T}: Return two target cards from an opponent's graveyard to their hand. Destroy target attacking creature.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Elvish Vatkeeper",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Phyrexian Elf",
+  "oracle_text": "When this creature enters, incubate 2. (Create an Incubator token with two +1/+1 counters on it and \"{2}: Transform this token.\" It transforms into a 0/0 Phyrexian artifact creature.)\n{5}: Transform target Incubator token you control. Double the number of +1/+1 counters on it.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Incubate",
+   "Transform",
+   "Double"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Seedpod Caretaker",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Phyrexian Cleric",
+  "oracle_text": "When this creature enters, choose one —\n• Put a +1/+1 counter on target artifact or creature you control.\n• Transform target Incubator token you control.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Attentive Skywarden",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Phyrexian Kor",
+  "oracle_text": "Flying\nWhenever this creature deals combat damage to a player or battle, transform up to one target Incubator token you control.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Transform"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Waxing Moon",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Transform up to one target Werewolf you control. Creatures you control gain trample until end of turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Transform"
+  ]
+ },
+ {
+  "name": "Villagers of Estwald // Howlpack of Estwald",
+  "layout": "transform",
+  "mana_cost": "{2}{G} // ",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Werewolf // Creature — Werewolf",
+  "oracle_text": "At the beginning of each upkeep, if no spells were cast last turn, transform this creature.\n//\nAt the beginning of each upkeep, if a player cast two or more spells last turn, transform this creature.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "power": "2",
+  "toughness": "3",
+  "card_faces": [
+   {
+    "name": "Villagers of Estwald",
+    "mana_cost": "{2}{G}",
+    "type_line": "Creature — Human Werewolf",
+    "oracle_text": "At the beginning of each upkeep, if no spells were cast last turn, transform this creature.",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+     "G"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/3/1/319b65f6-a6e6-45ea-9837-bc5831f54205.jpg?1783908089",
+     "normal": "https://cards.scryfall.io/normal/front/3/1/319b65f6-a6e6-45ea-9837-bc5831f54205.jpg?1783908089",
+     "large": "https://cards.scryfall.io/large/front/3/1/319b65f6-a6e6-45ea-9837-bc5831f54205.jpg?1783908089",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/3/1/319b65f6-a6e6-45ea-9837-bc5831f54205.jpg?1783908089"
+    }
+   },
+   {
+    "name": "Howlpack of Estwald",
+    "mana_cost": "",
+    "type_line": "Creature — Werewolf",
+    "oracle_text": "At the beginning of each upkeep, if a player cast two or more spells last turn, transform this creature.",
+    "power": "4",
+    "toughness": "6",
+    "colors": [
+     "G"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/3/1/319b65f6-a6e6-45ea-9837-bc5831f54205.jpg?1783908089",
+     "normal": "https://cards.scryfall.io/normal/back/3/1/319b65f6-a6e6-45ea-9837-bc5831f54205.jpg?1783908089",
+     "large": "https://cards.scryfall.io/large/back/3/1/319b65f6-a6e6-45ea-9837-bc5831f54205.jpg?1783908089",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/3/1/319b65f6-a6e6-45ea-9837-bc5831f54205.jpg?1783908089"
+    }
+   }
+  ]
  }
 ]

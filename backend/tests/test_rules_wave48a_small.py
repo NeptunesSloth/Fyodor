@@ -3,6 +3,10 @@ Every scenario checks the replay and a save and a load.
 
 * 608.2c, 608.2h: "Destroy target artifact. ~ deals damage to that artifact's controller equal to the artifact's mana value." (Viashino Heretic) - the artifact as it
   last existed; the damage goes to whoever controlled it, Alice for her own artifact.
+* 601.2c, 400.1: "{1}{B}, {T}: Exile two target cards from an opponent's graveyard." (Deadeye Tracker, Lochmere Serpent, the Advocates) - rulings: the cards are in a single
+  opponent's graveyard; the ability cannot be activated without two of them.
+* 701.27a, 701.27f: "Transform up to one target Werewolf you control." (Waxing Moon), "{5}: Transform target Incubator token you control. Double the number of +1/+1
+  counters on it." (Elvish Vatkeeper) - the chosen permanent turns over; a target that is not a Werewolf (an Incubator token) is no legal target.
 * 115.3, 611.2c: "Until end of turn, target creature gets +0/+2 and another target creature gets -2/-0." (Rookie Mistake, Skulduggery) - two different targets, each its own pump;
   "+X/+0 and -0/-X, where X is the number of artifacts you control" (Monoist Circuit-Feeder) - one X for both halves.
 """
@@ -22,7 +26,7 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, ask, next_turn, settle
 from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, to_hand
-from tests.wave43b_kit import cast
+from tests.wave43b_kit import cast, ch, move, names_in
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave48a_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
@@ -106,4 +110,68 @@ def test_monoist_circuit_feeder_counts_artifacts_once_for_both_halves(cards):
     settle(s)
     # two artifacts (Sol Ring and the Feeder): +2/+0 on Alice's Bears, -0/-2 on Bob's Troll
     assert pt(s, "Grizzly Bears") == (4, 2) and pt(s, "Albino Troll", "p2") == (3, 1)
+    check(s)
+
+
+def test_deadeye_tracker_exiles_two_cards_of_one_opponents_graveyard_and_explores(cards):
+    s = build(cards, ["Deadeye Tracker"], ["Grizzly Bears", "Elvish Visionary"])
+    tracker = put(s, "Deadeye Tracker")
+    move(s, "Grizzly Bears", pid="p2")
+    move(s, "Elvish Visionary", pid="p2")
+    next_turn(s)
+    mana(s, B=1, C=1)
+    a, b = card_named(s, "Grizzly Bears", "p2"), card_named(s, "Elvish Visionary", "p2")
+    activate(s, "p1", tracker, targets=[a.id, b.id], target_counts=[2])
+    settle(s)
+    assert names_in(s, "graveyard", "p2") == [] and names_in(s, "exile", "p2") == ["Elvish Visionary", "Grizzly Bears"]
+    assert "Forest" in names_in(s, "hand")  # explores: the revealed land goes to hand
+    check(s)
+
+
+def test_deadeye_tracker_needs_two_cards_in_an_opponents_graveyard(cards):
+    s = build(cards, ["Deadeye Tracker", "Grizzly Bears"], ["Elvish Visionary"])
+    tracker = put(s, "Deadeye Tracker")
+    move(s, "Elvish Visionary", pid="p2")
+    move(s, "Grizzly Bears")  # (Alice's own graveyard)
+    next_turn(s)
+    mana(s, B=1, C=1)
+    theirs, mine = card_named(s, "Elvish Visionary", "p2"), card_named(s, "Grizzly Bears")
+    with pytest.raises(ActionError):
+        activate(s, "p1", tracker, targets=[theirs.id], target_counts=[1])  # one card is not two
+    with pytest.raises(ActionError):
+        activate(s, "p1", tracker, targets=[theirs.id, mine.id], target_counts=[2])  # her own graveyard is no opponent's
+
+
+def test_waxing_moon_turns_a_werewolf_over_and_gives_trample(cards):
+    s = build(cards, ["Waxing Moon", "Villagers of Estwald // Howlpack of Estwald", "Grizzly Bears"], [])
+    wolf, bears = put(s, "Villagers of Estwald // Howlpack of Estwald"), put(s, "Grizzly Bears")
+    to_hand(s, "Waxing Moon")
+    mana(s, G=2)
+    cast(s, "Waxing Moon", targets=[wolf.id], target_counts=[1])
+    assert s.state.cards[wolf.id].face == 1 and pt(s, "Villagers of Estwald // Howlpack of Estwald") == (4, 6)
+    assert "trample" in ch(s, bears).keywords
+    check(s)
+
+
+def test_waxing_moon_cannot_target_a_creature_that_is_not_a_werewolf(cards):
+    s = build(cards, ["Waxing Moon", "Grizzly Bears"], [])
+    bears = put(s, "Grizzly Bears")
+    to_hand(s, "Waxing Moon")
+    mana(s, G=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Waxing Moon").id, targets=[bears.id], target_counts=[1])
+
+
+def test_elvish_vatkeeper_transforms_the_incubator_and_doubles_its_counters(cards):
+    s = build(cards, ["Elvish Vatkeeper"], [])
+    to_hand(s, "Elvish Vatkeeper")
+    mana(s, B=1, G=1, C=1)
+    cast(s, "Elvish Vatkeeper")  # incubate 2
+    token = next(c for c in s.state.cards.values() if c.name == "Incubator")
+    assert s.state.cards[token.id].counters.get("+1/+1") == 2
+    mana(s, C=5)
+    activate(s, "p1", card_named(s, "Elvish Vatkeeper"), "Transform target", targets=[token.id])
+    settle(s)
+    now = s.state.cards[token.id]
+    assert now.face == 1 and now.counters.get("+1/+1") == 4 and "Creature" in ch(s, now).types
     check(s)

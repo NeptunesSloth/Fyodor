@@ -166,7 +166,12 @@ def target_group(phrase: str) -> dict[str, Any] | None:
     each_opponents = what.startswith(selectors.PREFIX) and re.search(r"\ban opponent controls\b", rest) is not None \
         and selectors.from_key(what).controller == "opponent" and selectors.from_key(what).zones == ("battlefield",)
     if hi > 1 and not each_opponents and re.search(r"\ban opponent(?:'s)?\b", rest):
-        raise _Fail  # "two target cards from an opponent's graveyard": the same opponent? (not a guess)
+        # -- activated other (wave 48A) -- "two target cards from an opponent's graveyard" (Deadeye Tracker, Spurnmage Advocate): all in the graveyard of one opponent (rulings
+        # 2018-01-19 "You can't activate … without targeting two cards in a single opponent's graveyard"); any other wording naming an opponent stays refused
+        if not (what.startswith(selectors.PREFIX) and selectors.from_key(what).zones == ("graveyard",) and selectors.from_key(what).zone_owner == "opponent"
+                and rest.endswith("from an opponent's graveyard")):
+            raise _Fail
+        constraints = {**constraints, "same_graveyard": True}
     if hi > 1 and what.startswith(selectors.PREFIX) and selectors.from_key(what).controller == "defending":
         raise _Fail  # "two target creatures defending player controls": one specific defending player (508.5a)
     return {"what": what, "min": lo, "max": hi, **constraints}
@@ -4100,6 +4105,13 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
     if re.fullmatch(r"transform (?:this token|~|this (?:creature|artifact|land|enchantment|permanent|saga|vehicle))", text) \
             and has_primitive("transform"):
         return [{"do": "transform", "who": "self"}], None  # (701.27c: anything that isn't double-faced doesn't turn over)
+    m = re.fullmatch(r"transform (?P<o>(?:up to one )?target .+)", text)
+    if m and has_primitive("transform"):  # -- transform (wave 48A) -- "transform up to one target Werewolf you control" (Waxing Moon), "transform target Incubator token you control": a chosen permanent on the battlefield (701.27a)
+        try:
+            kind, key, group = ref(m["o"])
+        except _Fail:
+            return None
+        return ([{"do": "transform", "who": "target"}], _one(group)) if kind == "target" and on_battlefield_only(key) else None
     if text in ("transform it", "transform him", "transform her") and has_primitive("transform"):  # -- transform (wave 20F) --
         return [{"do": "transform", "who": "it"}], None  # (the pronoun's antecedent is bound by scripts.resolve_it: the source in its own trigger)
     # -- flip (wave 24C) -- 710: "flip ~" / "flip this creature" / "flip it" (the source only: a flip card's own ability)
