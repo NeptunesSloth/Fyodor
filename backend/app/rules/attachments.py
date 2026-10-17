@@ -57,7 +57,7 @@ _ENCHANT = re.compile(r"^enchant (?P<what>.+?)\.?$", re.IGNORECASE)
 # -- equip (wave 15E) -- 702.6a "Equip [cost]", "Equip [quality] [cost]" (702.6b: only a creature with that quality) and
 # "Equip—[non-mana cost]": the cost, the target selector and the ability's own trailing sentences ("Activate only once each
 # turn.", "This ability costs {3} less to activate if …")
-EQUIP = re.compile(r"^equip(?: (?P<q>[A-Za-z][A-Za-z' -]*?))? (?P<cost>(?:\{[^}]+\})+)(?P<tail>(?:\. .+|\.)?)$|"
+EQUIP = re.compile(r"^equip(?: (?P<q>[A-Za-z][A-Za-z' -]*?))? (?P<cost>(?:\{[^}]+\})+(?: or (?:\{[^}]+\})+)?)(?P<tail>(?:\. .+|\.)?)$|"
                    r"^equip—(?P<cost2>[^.]+)(?P<tail2>\..*)?$", re.IGNORECASE)
 
 
@@ -117,6 +117,13 @@ def _equip_target(q: str | None) -> str | None:
     return None
 
 
+def equip_sides(cost: str) -> list[str]:
+    """-- cast keywords (wave 43D) -- 702.6a: an equip cost written "{2} or {B}" or "Pay {3} or discard a card" is a choice of the cost to pay as the ability
+    is activated (601.2b): its sides, each a cost on its own ("Pay {3}" is "{3}"); one side for any other cost."""
+    sides = [p.strip() for p in re.split(r" or (?![^{]*\})", cost.strip())]
+    return [re.sub(r"^[Pp]ay ((?:\{[^}]+\})+)$", r"\1", p[:1].upper() + p[1:]) for p in sides] if len(sides) > 1 else [cost.strip()]
+
+
 def equip_info(line: str, name: str = "") -> tuple[str, str, str] | None:
     """(cost, target selector, trailing sentences) of an equip line the engine carries out, or None."""
     from app.rules import cost_changes, restrictions
@@ -128,8 +135,10 @@ def equip_info(line: str, name: str = "") -> tuple[str, str, str] | None:
     cost, tail = (m["cost"], m["tail"]) if m["cost"] else (m["cost2"].strip(), m["tail2"] or "")
     tail = tail.strip().lstrip(".").strip()
     target = _equip_target(m["q"] if m["cost"] else None)
-    if target is None or (not m["cost"] and parse_ability_cost(cost, card_name=name).unsupported):
+    if target is None or (not m["cost"] and any(parse_ability_cost(side, card_name=name).unsupported for side in equip_sides(cost))):
         return None
+    if len(equip_sides(cost)) > 1 and tail:
+        return None  # (a choice of costs with a trailing sentence about the cost: not read)
     if tail:
         text = f"{cost}: Attach ~ to target creature you control. Activate only as a sorcery. {tail}"
         if restrictions.parse(text) is None or cost_changes.ability_change(text) is None:

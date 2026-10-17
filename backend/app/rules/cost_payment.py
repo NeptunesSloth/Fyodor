@@ -300,7 +300,7 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, cost: 
     None while waiting for the payer's (private) choice. Each object pays for one part only."""
     given: dict[int, list[str]] = {}
     for c in a.cost_choices:
-        if c.component == C.EITHER_SLOT and isinstance(a, A.CastSpell):  # -- static wordings (wave 6E) -- (either_costs)
+        if c.component == C.EITHER_SLOT and isinstance(a, A.CastSpell | A.ActivateAbility):  # -- static wordings (wave 6E) -- (either_costs; wave 43D: equip)
             continue
         if c.component in given:
             raise ActionError("Choose the objects for each part of the cost once")

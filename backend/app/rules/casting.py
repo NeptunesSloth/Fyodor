@@ -4005,11 +4005,46 @@ def equip_ability(plan: Plan, card: CardInstance, ch: Characteristics, a: A.Acti
     cost, target, tail = equip
     if "Equipment" not in ch.subtypes or ch.is_creature:
         raise ActionError(f"{ch.name} can't equip a creature" + (" while it's a creature" if ch.is_creature else ""))
+    if len(sides := attachments.equip_sides(cost)) > 1:  # -- cast keywords (wave 43D) -- "Equip {2} or {B}", "Equip—Pay {3} or discard a card.": the cost is announced (601.2b)
+        picked = _equip_side(plan, card, ch, a, sides)
+        if picked is None:
+            return  # waiting for the choice
+        cost = picked
     ability = AbilityText(index=a.ability, kind="activated", cost=cost, special="equip",
                           text=f"{cost}: Attach {ch.name} to target creature you control. Activate only as a sorcery."
                                + (f" {tail}" if tail else ""))
     definition = {"kind": "activated", "effects": [{"do": "attach_self"}], "target": {"what": target}}
     activate_to_stack(plan, card, ch, ability, a, definition=definition, exclude_targets=(card.id,))
+
+
+def _equip_side(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, sides: list[str]) -> str | None:
+    """-- cast keywords (wave 43D) -- 601.2b: the cost the activator announced for an equip ability that lets them pay one of several ("{2} or {B}",
+    "Pay {3} or discard a card"; 702.6a, 118.3: a side that can't be paid can't be chosen), or None while they're asked. What is public decides whether one is
+    offered (mana, the permanents, the counters): a side that discards a card from the hand is always offered, so that no omission tells the table what the
+    hand holds (the activation refuses it if it can't be paid)."""
+    def ability_of(side: str) -> AbilityText:
+        return AbilityText(index=a.ability, kind="activated", cost=side, special="equip", text=f"{side}: Attach {ch.name} to target creature you control. "
+                           "Activate only as a sorcery.")
+
+    given = [c for c in a.cost_choices if c.component == costs.EITHER_SLOT]
+    if given:
+        picked = given[-1].cards
+        if len(picked) != 1 or not picked[0].startswith("either:") or not picked[0].split(":", 1)[1].isdigit() or int(picked[0].split(":", 1)[1]) >= len(sides):
+            raise ActionError("Choose one of the costs of the equip ability")
+        return sides[int(picked[0].split(":", 1)[1])]
+    problems = [ability_problem(plan.state, plan.actor, card, ch, ability_of(side), ability_cost(ch, ability_of(side), state=plan.state, card=card, info=plan.info),
+                                check_priority=False, info=plan.info, plan=plan) for side in sides]
+    offered = [i for i, side in enumerate(sides) if problems[i] is None or any(c.kind in _HAND_PARTS for c in ability_cost(ch, ability_of(side)).components)]
+    if not offered:
+        raise ActionError(problems[0] or "You can't pay the cost of that ability")
+    if len(offered) == 1:  # (118.3: the other can't be paid — nothing to choose)
+        a.cost_choices = [*a.cost_choices, A.CostChoice(component=costs.EITHER_SLOT, cards=[f"either:{offered[0]}"])]
+        return sides[offered[0]]
+    decide(plan, player=plan.actor, kind="choose_cards", prompt=f"{ch.name or 'It'}: choose the cost of its equip ability (601.2b), or none to cancel",
+           options=[DecisionOption(id=f"either:{i}", label=sides[i]) for i in offered], min_choices=0, max_choices=1,
+           resume={"step": "ability_cost", "component": costs.EITHER_SLOT, "amount": 1, "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},
+           source=card)
+    return None
 
 
 def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, ability: AbilityText,

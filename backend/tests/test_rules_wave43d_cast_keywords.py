@@ -36,7 +36,10 @@ def card_db(settings):
     return settings.cards_db_path
 
 
-@pytest.mark.parametrize("name", [c["name"] for c in DATA])
+REFUSED = {"Warrior's Blades"}  # (kept manual, with the reason in its own test)
+
+
+@pytest.mark.parametrize("name", [c["name"] for c in DATA if c["name"] not in REFUSED])
 def test_every_card_is_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -510,6 +513,94 @@ def test_nyxborn_hydra_bestowed_with_x_gives_the_enchanted_creature_x_plus_x(car
     assert hydra.attached_to == host.id and hydra.counters.get("+1/+1") == 2
     assert pt(s, "Bear") == (4, 4) and sum(s.state.players["p1"].mana.values()) == 0
     check(s)
+
+
+# ---- equip with a choice of costs (702.6a) ----------------------------------------------------------------------------------------------------
+def equip_index(s, name):
+    card = card_named(s, name)
+    return next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(card).abilities if a.kind == "keywords" and "equip" in a.keywords)
+
+
+def equip(s, name, target, **kw):
+    act(s, "p1", type="activate_ability", card_id=card_named(s, name).id, ability=equip_index(s, name), targets=[target.id], **kw)
+
+
+def test_bloodthorn_flail_equip_pays_three_or_discards_a_card(cards):
+    """"Equip—Pay {3} or discard a card.": the activator announces which (601.2b), privately; a side whose cost can't be paid isn't offered (118.3)."""
+    s = build(cards, ["Bloodthorn Flail"])
+    flail = put(s, "Bloodthorn Flail")
+    host = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    hand_of(s, "p1", 2, name="Forest")
+    mana(s, C=3)
+    equip(s, "Bloodthorn Flail", host)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and sorted(o.label for o in d.options) == ["Discard a card", "{3}"]
+    assert "Discard a card" not in json.dumps(s.view("p2")["rules"]["decision"])  # (Bob only sees that Alice is choosing)
+    s = reloaded_session(s)  # a save and a load in the middle of the question
+    pick(s, next(o.id for o in s.state.rules.decision.options if o.label == "Discard a card"))
+    d = s.state.rules.decision  # (which card: she has two Forests in hand)
+    if d is not None:
+        pick(s, d.options[0].id)
+    settle(s)
+    assert s.state.cards[flail.id].attached_to == host.id and pt(s, "Bear") == (4, 3)
+    assert sum(s.state.players["p1"].mana.values()) == 3 and len([c for c in s.state.cards.values() if c.zone == "p1:graveyard"]) == 1
+    check(s)
+
+
+def test_bloodthorn_flail_equip_with_mana_only_offers_what_can_be_paid(cards):
+    """A discard from the hand is always offered (what the hand holds is hidden: asking or not asking must not tell), but the ability is refused whole if it is
+    chosen (or the only side offered) with nothing to discard; with {3} available the question is asked and paying {3} works."""
+    s = build(cards, ["Bloodthorn Flail"])
+    flail = put(s, "Bloodthorn Flail")
+    host = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    with pytest.raises(ActionError):  # (no mana and no card: the only side offered is the discard, and it can't be paid)
+        equip(s, "Bloodthorn Flail", host)
+    assert s.state.cards[flail.id].attached_to is None
+    mana(s, C=3)
+    equip(s, "Bloodthorn Flail", host)
+    pick(s, next(o.id for o in s.state.rules.decision.options if o.label == "{3}"))
+    settle(s)
+    assert s.state.cards[flail.id].attached_to == host.id and sum(s.state.players["p1"].mana.values()) == 0
+    check(s)
+
+
+def test_transmogrants_crown_equips_for_two_or_for_black(cards):
+    """"Equip {2} or {B}": {B} alone pays; one colorless mana pays neither side."""
+    s = build(cards, ["Transmogrant's Crown"])
+    crown = put(s, "Transmogrant's Crown")
+    host = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    mana(s, C=1)
+    with pytest.raises(ActionError):
+        equip(s, "Transmogrant's Crown", host)
+    mana(s, B=1)  # (now {B} is there: that side is payable, {2} too with both: the choice is asked)
+    equip(s, "Transmogrant's Crown", host)
+    d = s.state.rules.decision
+    assert d is not None and sorted(o.label for o in d.options) == ["{2}", "{B}"]
+    pick(s, next(o.id for o in d.options if o.label == "{B}"))
+    settle(s)
+    assert s.state.cards[crown.id].attached_to == host.id and s.state.players["p1"].mana.get("C") == 1
+    check(s)
+
+
+def test_gavel_of_the_righteous_equips_by_removing_a_counter_or_paying_three(cards):
+    """"Equip—Pay {3} or remove a counter from this Equipment." With a charge counter and no mana the counter is removed (the only side payable, nothing to
+    ask); with neither, the equip fails."""
+    s = build(cards, ["Gavel of the Righteous"])
+    gavel = put(s, "Gavel of the Righteous")
+    host = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    with pytest.raises(ActionError):
+        equip(s, "Gavel of the Righteous", host)
+    act(s, "p1", type="counter", card_ids=[gavel.id], kind="charge", delta=2)
+    equip(s, "Gavel of the Righteous", host)
+    settle(s)
+    assert s.state.cards[gavel.id].attached_to == host.id and s.state.cards[gavel.id].counters.get("charge") == 1
+    check(s)
+
+
+def test_warriors_blades_stays_manual_its_equip_cost_depends_on_the_target(cards):
+    """"This ability costs {1} less to activate for each +1/+1 counter on the creature it targets": an activation cost read against its target (601.2f
+    comes after 601.2c) isn't computed (cost_changes.ability_change): refused, not guessed."""
+    assert coverage.of_card_data(cards.resolve("Warrior's Blades")).level == "PARTIAL"
 
 
 # ---- flashback with parts sized by X or by a count (702.34a, 107.3a, 701.4a) --------------------------------------------------------------------
