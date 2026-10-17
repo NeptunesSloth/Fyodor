@@ -718,7 +718,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
 def _hosted(plan: Plan, watcher: CardInstance, obj: CardInstance, info: dict[str, Any]) -> bool:
     """-- attached triggers (wave 50D) -- 603.2, 704.3: "enchanted / equipped creature is dealt damage / deals damage": the event happened while the Aura / Equipment
     was attached. State-based actions come after it (704.5g, 704.5m, 704.5n), so by the time the trigger is looked at the creature may be gone and the Aura let go
-    of it (or the Equipment unattached): the creature's last known information lists what was attached to it (603.10a)."""
+    of it (or the Equipment unattached): the creature's last known information lists what was attached to it (603.10a).
+    ponytail: that list is as the creature left, not as the damage was dealt; they differ only if the Aura / Equipment moved between the two within one look."""
     snap = plan.rules.lki.get(info.get("oid") or "")
     return (watcher.attached_to is not None and obj.id == watcher.attached_to) or (snap is not None and watcher.id in snap.attached)
 
