@@ -925,7 +925,7 @@ def test_birthing_pod_finds_a_creature_one_mana_value_higher(cards):
     pod = put(s, "Birthing Pod", "battlefield")
     bears = put(s, "Grizzly Bears", "battlefield")  # mana value 2
     mana(s, G=1, C=1)
-    act(s, "p1", type="activate_ability", card_id=pod.id, ability=0, cost_choices=[{"component": 2, "cards": [bears.id]}])
+    act(s, "p1", type="activate_ability", card_id=pod.id, ability=0, cost_choices=[{"component": 2, "cards": [bears.id]}], life_symbols=[])  # (wave 50B: the {G/P} is announced paid with mana)
     assert s.state.cards[bears.id].zone == "p1:graveyard"
     pass_until_stack_empty(s)
     d = s.state.rules.decision

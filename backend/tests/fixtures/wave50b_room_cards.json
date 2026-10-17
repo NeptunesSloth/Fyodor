@@ -1,0 +1,31 @@
+[
+ {
+  "name": "Bottomless Pool // Locker Room",
+  "layout": "split",
+  "mana_cost": "{U} // {4}{U}",
+  "cmc": 6.0,
+  "type_line": "Enchantment — Room // Enchantment — Room",
+  "oracle_text": "When you unlock this door, return up to one target creature to its owner's hand.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)\n//\nWhenever one or more creatures you control deal combat damage to a player, draw a card.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "card_faces": [
+   {
+    "name": "Bottomless Pool",
+    "mana_cost": "{U}",
+    "type_line": "Enchantment — Room",
+    "oracle_text": "When you unlock this door, return up to one target creature to its owner's hand.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)"
+   },
+   {
+    "name": "Locker Room",
+    "mana_cost": "{4}{U}",
+    "type_line": "Enchantment — Room",
+    "oracle_text": "Whenever one or more creatures you control deal combat damage to a player, draw a card.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)"
+   }
+  ]
+ }
+]
