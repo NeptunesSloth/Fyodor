@@ -3736,7 +3736,7 @@ def _may_first_only(texts: list[str], effects: list[dict[str, Any]], sentences: 
     return 0 if any(_DEPENDENT.search(t) for t in texts[1:]) else len(first)
 
 
-_KICKED = re.compile(r"^if (?:this spell|it|~) (?P<neg>wasn't|was) kicked, (?P<instead1>instead )?(?P<rest>.+?)(?P<instead2> instead)?$")
+_KICKED = re.compile(r"^if (?P<neg>this spell wasn't|(?:this spell|it|~) was) kicked, (?P<instead1>instead )?(?P<rest>.+?)(?P<instead2> instead)?$")  # (wave 45A: "this spell wasn't": Parting Gust's gift)
 # -- refused look/cast-free (wave 3R5) -- after a free cast: a replacement effect on the spell cast (614.1a)
 _FREE_EXILE_GY = re.compile(r"^if (?:that spell|that card|a spell cast this way|(?P<is>an instant or sorcery) spell cast this way) "  # (wave 19C: "is")
                             r"would be put into (?P<g>your|their|a) graveyard, exile it instead$")
@@ -4106,7 +4106,7 @@ def _kicked_sentence(m: re.Match[str], effects: list[dict[str, Any]], prev_start
         alt = restated if restated is not None else _add_groups(groups, *found)
     except _NoMatch:
         return None
-    if m["neg"] == "wasn't":  # -- most-played cards II (wave 45A) -- "If the gift wasn't promised, return that card …" (Parting Gust): the effect happens only when it was not
+    if m["neg"] == "this spell wasn't":  # -- most-played cards II (wave 45A) -- "If the gift wasn't promised, return that card …" (Parting Gust): the effect happens only when it was not
         # kicked (702.33e read the other way); no "instead", and no target of its own (they would be chosen only when it isn't kicked)
         return None if instead or len(groups) > own else [*effects, {"do": "kicked_gate", "kicked": False, "n": len(alt)}, *alt]
     if not kicked_instead.mark(groups, own, len(groups), True):
@@ -6663,6 +6663,20 @@ def _compound_subject(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if lgroups or rgroups:
         raise _NoMatch  # (a target inside a half: not read here)
     return left[0] + right[0], None
+
+
+@_first
+@effect(_language.COMPOUND_MULTI)
+def _compound_multi(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """-- most-played cards II (wave 45A) -- "Any number of target opponents each sacrifice a creature … and lose 3 life." (Will of the Abzan): one group of players, the
+    subject of both halves (each half is read with the subject repeated; both name the one group)."""
+    left, right = _clause(f"{m['s']} {m['l']}"), _clause(f"{m['s']} {m['r']}")
+    if left is None or right is None:
+        raise _NoMatch
+    lgroups, rgroups = _as_groups(left[1]), _as_groups(right[1])
+    if len(lgroups) != 1 or lgroups != rgroups:
+        raise _NoMatch
+    return left[0] + right[0], left[1]
 
 
 # -- animation (app/rules/language.py "animation", app/rules/effects.py ``become``, agent A2) --------

@@ -2696,6 +2696,10 @@ _V3 = (r"draws|loses|gains|discards|mills|sacrifices|creates|puts|exiles|returns
        r"gets|searches")
 COMPOUND = (rf"(?P<s>target player|target opponent|each player|each opponent|each of your opponents|that player) "
             rf"(?P<l>(?:{_V3}) [^\"]+?) and (?P<r>(?:{_V3}) .+)")  # (wave 26A: no "and" inside a quoted ability: an emblem's text)
+# -- most-played cards II (wave 45A) -- "Any number of target opponents each sacrifice a creature … and lose 3 life." (Will of the Abzan): the group of players is the subject of both
+# halves (a bare "lose" would be read as the controller's own); scripts._compound_multi
+_VB = r"draw|lose|gain|discard|mill|sacrifice|create|put|exile|return|reveal|shuffle|scry|surveil|get"
+COMPOUND_MULTI = (rf"(?P<s>{_MULTI_PLAYERS}) (?P<l>(?:{_VB}) [^\"]+?) and (?P<r>(?:{_VB}) .+)")
 
 
 # -- delayed triggers & durations (agent J) --------------------------------------------------------
