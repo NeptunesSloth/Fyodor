@@ -225,7 +225,7 @@ FREE_AMONG = re.compile(
     r" from among (?P<src>them|those cards|those nonland cards|cards revealed this way|the revealed cards|the exiled cards"
     r"|cards exiled this way|the cards exiled this way|the nonland cards exiled this way)"  # (wave 44A: a land is never cast, so "nonland" adds nothing)
     rf"(?: {_FREE_MV.replace('?P<n>', '?P<n2>').replace('?P<v>', '?P<v2>')})?"
-    r" without paying (?:its|their) mana costs?$")
+    r"(?P<free> without paying (?:its|their) mana costs?)?$")  # (wave 50G: without it, the cast is paid for, as the ability resolves: 608.2g, Nathan Drake)
 # -- cast riders (wave 38C) -- "You may cast a spell from among cards you own in exile with dream counters on them without paying its mana cost." (Goliath
 # Daydreamer; the cards its other ability exiled), "… from among cards in exile with page counters on them …" (Tasha, the Witch Queen: any owner's): one at a time
 FREE_COUNTED = re.compile(r"^(?:you may )?cast (?:a|an) (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell from among cards (?P<own>you own )?in exile with "
@@ -319,7 +319,7 @@ def _free_among(text: str) -> list[dict[str, Any]] | None:
     # "zone": "among" — resolved to the cards looked at (still in the library: "looked") or to the
     # cards an earlier instruction moved ("that", a binding) by scripts.resolve_it
     return [{"do": "free_cast", "zone": "among", "who": "them:card", "filter": key, "optional": True, "mv": "x" if m["eq"] else mv,
-             "n": _FREE_COUNT[m["q"] or "any number of"], **({"mv_eq": True} if m["eq"] else {})}]
+             "n": _FREE_COUNT[m["q"] or "any number of"], **({"mv_eq": True} if m["eq"] else {}), **({} if m["free"] else {"paid": True})}]
 
 
 # "You may cast it without paying its mana cost if it's a spell with lesser mana value." (Rashmi, Eternities

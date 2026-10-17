@@ -782,3 +782,48 @@ def test_seek_thrills_puts_the_adventure_cards_milled_into_the_hand(cards):
     assert s.state.cards[card_named(s, GIANT).id].zone == "p1:hand"
     assert s.state.cards[card_named(s, "Grizzly Bears").id].zone == "p1:graveyard"
     check(s)
+
+
+# -- Nathan Drake, Treasure Hunter -------------------------------------------------------------------------------------------------------------------
+NATHAN = "Nathan Drake, Treasure Hunter"
+
+
+def nathan_attack(s, nathan, pick, **m):
+    """Alice attacks with Nathan on her turn 3 (green mana in her pool as the trigger resolves) and casts ``pick`` from among the exiled cards if she can."""
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": nathan.id, "target": "p2"}])
+    mana(s, "p1", **m)
+    drive(s, [pick, "Bob"], lambda s: s.state.rules.decision is None and not s.state.zones.get("stack"))
+
+
+@pytest.mark.parametrize("pick", ["Lightning Bolt", "Grizzly Bears"])
+def test_nathan_casts_a_spell_from_among_the_exiled_cards_with_mana_of_any_color(cards, pick):
+    """"Whenever Nathan Drake attacks, exile the top card of each player's library. You may cast a spell from among those cards." (608.2g, paid for) and "You may spend
+    mana as though it were mana of any color to cast spells you don't own": Bob's Lightning Bolt is cast with Alice's green mana, her own Bears ({1}{G}) the plain way;
+    the one not chosen stays in exile (it can't be cast later)."""
+    s = build(cards, [NATHAN, "Grizzly Bears"], ["Lightning Bolt"])
+    nathan = put(s, NATHAN)
+    finish_turn(s)
+    finish_turn(s)
+    stack_top(s, ["Lightning Bolt"], "p2")
+    stack_top(s, ["Grizzly Bears"])
+    nathan_attack(s, nathan, pick, G=2)
+    bolt, bears = card_named(s, "Lightning Bolt", "p2"), card_named(s, "Grizzly Bears")
+    if pick == "Lightning Bolt":
+        assert (s.state.cards[bolt.id].zone, s.state.cards[bears.id].zone) == ("p2:graveyard", "p1:exile")
+    else:
+        assert (s.state.cards[bolt.id].zone, s.state.cards[bears.id].zone) == ("p2:exile", "p1:battlefield")
+    check(s)
+
+
+def test_nathan_cant_pay_for_a_spell_he_owns_with_the_wrong_color(cards):
+    """The static is for "spells you don't own": Alice's own Lightning Bolt ({R}) can't be paid with green mana, so it stays in exile."""
+    s = build(cards, [NATHAN, "Lightning Bolt"], [])
+    nathan = put(s, NATHAN)
+    finish_turn(s)
+    finish_turn(s)
+    stack_top(s, ["Lightning Bolt"])
+    with pytest.raises(ActionError):  # (the Bolt is offered; paying {R} with {G} is refused, so it stays in exile)
+        nathan_attack(s, nathan, "Lightning Bolt", G=2)
+    assert s.state.cards[card_named(s, "Lightning Bolt").id].zone == "p1:exile"
+    check(s)

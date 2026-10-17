@@ -118,7 +118,8 @@ EFFECT_FLASH = re.compile(r"^(?:(?P<lead>until end of turn|until your next turn)
 # -- casting costs (wave 22F) -- Chromatic Orrery / Mycosynth Lattice: "You may spend mana as though it were mana of any color." / "Players may
 # …" (every spell and ability: any mana pays a colored symbol, 609.4b), Agatha's Soul Cauldron: "… to activate abilities of creatures you control."
 STATIC_SPEND = re.compile(r"^(?P<who>you|players) (?P<how>may spend mana as though it were mana of any color|can spend mana of any type)"
-                          r"(?: to (?:cast (?P<sel>[A-Za-z][A-Za-z' ,-]*?) spells|(?P<act>activate abilities of creatures you control)))?$")
+                          r"(?: to (?:(?P<own>cast spells you don't own or to activate abilities of permanents you control but don't own)"  # (wave 50G: Nathan Drake)
+                          r"|cast (?P<sel>[A-Za-z][A-Za-z' ,-]*?) spells|(?P<act>activate abilities of creatures you control)))?$")
 STATIC_HASTE = "you may activate abilities of creatures you control as though those creatures had haste"
 # 702.51 / 702.126 / 702.66: "Nonartifact spells you cast have improvise." / "Artifact spells you cast have convoke." / "Spells
 # you cast have delve." — the spell has it while it's being cast (601.2g-h: costs are paid with the spell on the stack)
@@ -379,6 +380,16 @@ def static_definition(text: str) -> Definition | None:
     m = STATIC_SPEND.fullmatch(t)
     if m:
         ok, key = _filter(m["sel"])
+        if m["own"]:  # -- cant restrictions (wave 50G) -- 609.4b: "… to cast spells you don't own or to activate abilities of permanents you control but don't own" (Nathan Drake)
+            if m["who"] != "you" or m["how"].startswith("can"):
+                return None
+            from dataclasses import replace as _replace
+
+            from app.rules.selectors import parse as _parse
+
+            unowned = _parse("spell")
+            return None if unowned is None else {"kind": "static", "static": "spend_as", "mode": "color", "filter": _replace(unowned, owner="opponent").key(),
+                                                 "abilities": "unowned", "effects": []}
         everything = not m["sel"] and not m["act"]  # (wave 22F: no "to …": every spell and every activated ability)
         if not ok or (key is None and m["sel"]) or (m["who"] == "players" and (m["sel"] or m["act"] or m["how"].startswith("can"))):
             return None
@@ -822,7 +833,7 @@ def ability_spend_mode(state: GameState, player: str, card: CardInstance, ch: Ch
     if info is None:
         return None
     modes = {d["mode"] for src, d in _statics(state, info, "spend_as") if (src.controller == player or d.get("players")) and d.get("abilities")
-             and (d["abilities"] == "all" or (ch.is_creature and card.controller == src.controller))}
+             and (d["abilities"] == "all" or (card.controller == src.controller and (card.owner != card.controller if d["abilities"] == "unowned" else ch.is_creature)))}
     return "type" if "type" in modes else "color" if modes else None
 
 

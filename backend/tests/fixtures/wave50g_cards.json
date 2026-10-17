@@ -622,5 +622,28 @@
     "oracle_text": "Mill seven cards. Then put all cards that have an Adventure from among the milled cards into your hand."
    }
   ]
+ },
+ {
+  "name": "Nathan Drake, Treasure Hunter",
+  "layout": "normal",
+  "mana_cost": "{U}{B}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Rogue",
+  "oracle_text": "First strike\nYou may spend mana as though it were mana of any color to cast spells you don't own or to activate abilities of permanents you control but don't own.\nWhenever Nathan Drake attacks, exile the top card of each player's library. You may cast a spell from among those cards.",
+  "colors": [
+   "B",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "First strike"
+  ],
+  "power": "3",
+  "toughness": "2"
  }
 ]
