@@ -4511,7 +4511,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 # shield counter on ~, you and other Heroes you control have hexproof." (Captain America): the static ability the rest of the sentence is, applying only
 # while the condition holds. Tried last, so it never reads what a grammar above it reads; for the statics whose readers check ``static_if`` (replacement and
 # prevention effects: replace.static_candidates, replacements._static_records; the limits: cast_limits._statics; a player's hexproof: player_shields).
-_WHEN_KINDS = frozenset({"replace", "prevent", "cast_limit", "first_alt"})
+_WHEN_KINDS = frozenset({"replace", "prevent", "cast_limit", "first_alt", "extra_land_plays"})  # (wave 48D: land_plays.allowed)
 
 
 def _conditional_static(ability: AbilityText, ch: Characteristics, text: str) -> Definition | None:
@@ -4533,6 +4533,8 @@ def _conditional_static(ability: AbilityText, ch: Characteristics, text: str) ->
         return None
     if inner.get("static") in _WHEN_KINDS:
         return {**inner, "static_if": [cond]}
+    if inner.get("static") == "permission" and inner.get("zone") == "graveyard" and not inner.get("self") and "if" not in inner:
+        return {**inner, "if": cond}  # -- station (wave 48D) -- 611.3a: "As long as this permanent has 8 or more charge counters on it, once during each of your turns, you may cast … from your graveyard" (permissions: the table statics' "if")
     if inner.get("static") == "grant" and inner.get("player_shield") and not inner.get("conditions"):
         return {**inner, "conditions": [cond]}
     if inner.get("static") == "grant" and not inner.get("conditions") and all(r.startswith("attack_tax") for r in inner.get("rules") or ["-"]):
