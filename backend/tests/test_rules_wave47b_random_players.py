@@ -120,7 +120,8 @@ def test_zaffai_deals_10_to_one_opponent_at_random_only_for_a_spell_of_mana_valu
 def strax_table(cards, monkeypatch, index):
     pin_random(monkeypatch, index)
     s = build3(cards, ["Strax, Sontaran Nurse", "Sol Ring"], bobs=["Grizzly Bears"], carols=["Hill Giant"])
-    strax, ring = put(s, "Strax, Sontaran Nurse"), put(s, "Sol Ring")
+    strax = put(s, "Strax, Sontaran Nurse")
+    put(s, "Sol Ring")  # (the artifact sacrificed as the cost)
     bears, hill = put(s, "Grizzly Bears", "p2"), put(s, "Hill Giant", "p3")
     until(s, lambda s: s.state.turn.number == 4 and s.state.turn.phase == "main1" and s.state.rules.decision is None)  # (no summoning sickness)
     mana(s, C=2)
