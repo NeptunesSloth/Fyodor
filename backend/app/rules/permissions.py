@@ -605,6 +605,8 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     # -- small wordings (wave 11E) -- "Creature spells you control can't be countered." (101.2, 701.6)
     # (-- cant restrictions (wave 20F) -- "Creature spells can't be countered" (Gaea's Herald), "Creature spells you cast …", "… you control
     # with power 5 or greater …": whose spells, and a with-tail; 101.2, 701.6)
+    if t == "spells and abilities can't be countered":  # -- cant restrictions (wave 46A) -- 101.2, 701.6: Spider-Punk; counter_object lets neither a spell nor an ability be countered
+        return {"kind": "static", "static": "spells_uncounterable", "filter": None, "effects": [], "any_player": True, "abilities": True}
     m = re.fullmatch(r"(?:(?P<sel>[\w ,'-]+?) )?spells(?: (?P<own>you control|you cast))?(?: (?P<with>with (?:power|toughness) "
                      r"\d+ or (?:greater|less)))? can't be countered", t)  # (not "mana value": a spell's X, 107.3f, isn't read here)
     if m:
@@ -652,6 +654,9 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[m["who"]]
         delta = int(m["n"]) * (-1 if m["dir"] == "less" else 1)
         return {"kind": "static", "static": "cost_modifier", "delta": delta, "caster": caster, "filter": key, "effects": []}
+    m = re.fullmatch(r"plotting cards from your hand costs \{(?P<n>\d+)\} less", t)  # -- cant restrictions (wave 46A) -- 702.170a, 118.7a: the plot cost (Doc Aurlock, Grizzled Genius)
+    if m:
+        return {"kind": "static", "static": "ability_cost_modifier", "delta": -int(m["n"]), "filter": None, "who": "you", "floor": False, "plot": True, "effects": []}
     m = EQUIP_COST.fullmatch(t)
     if m:
         return {"kind": "static", "static": "ability_cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1),
@@ -1063,8 +1068,13 @@ def spell_matches(state: GameState, player: str, card: CardInstance, ch: Charact
                   source: str | None = None) -> bool:
     """Would the spell this card becomes match the selector ("creature spells", "red spells")? (``source``: the
     permanent whose "chosen type" the selector reads, wave 5I)"""
-    probe = card.model_copy(update={"zone": STACK, "controller": player})
+    probe = card.model_copy(update={"zone": STACK, "controller": player, **({"face_down": True} if ch.face_down else {})})  # (wave 46A: a spell being cast face down, 708.4)
     return selectors.matches(_view(state, player, info), selectors.from_key(key), probe, ch, player, source)
+
+
+def abilities_uncounterable(state: GameState, info: CardInfo) -> bool:
+    """-- cant restrictions (wave 46A) -- does a static on the table say abilities can't be countered (Spider-Punk: "Spells and abilities can't be countered", 101.2)?"""
+    return any(d.get("abilities") for _, _, d in _table_statics(state, info, {"spells_uncounterable"}))
 
 
 def spell_uncounterable(state: GameState, info: CardInfo, card: CardInstance, ch: Characteristics) -> bool:
@@ -1429,6 +1439,9 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
     reduction = affinity
     changes = cost_changes.Changes()  # -- cost changers (wave 4I) -- colored increases / reductions (118.7b/c)
     if info is not None:
+        from app.rules import spell_grants
+
+        reduction += spell_grants.cost_reduction(state, player, card, ch, info)  # (-- cant restrictions (wave 46A) -- "The next spell you cast this turn costs {1} less")
         for m in modifiers(state, player, card, ch, info, targets):  # (targets: wave 4I, "spells that target …")
             if m.mana:
                 changes.add(m.delta, m.mana)
@@ -1442,6 +1455,7 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
         reduction += own.reduction
         changes.colored_more += own.colored_more
         changes.colored_less += own.colored_less
+        changes.colored_only += own.colored_only
         for d in _definitions(ch).values():  # -- static_other sweep (wave 16B) -- strive: for each target beyond the first
             if d.get("static") == "self_cost" and d.get("per_target"):
                 more, each = max(0, len(targets) - 1), M.parse_cost(d["per_target"])
@@ -1449,6 +1463,7 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
                 changes.colored_more += tuple(each.colored) * more
     cost = cost_changes.add_colored(cost.plus_generic(increase), changes.colored_more)
     cost = cost_changes.reduce_colored(cost, changes.colored_less)  # (colored first: what's left over reduces generic, 118.7c)
+    cost = cost_changes.reduce_colored(cost, changes.colored_only, only=True)  # (wave 46A: Morophon)
     return cost.plus_generic(-min(cost.generic, reduction))
 
 
@@ -1473,6 +1488,8 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
         if d["who"] == "you" and src.controller != player:
             continue
         if d.get("equip") and not attachments.is_equip_text(ability_text):  # -- equip (wave 15E) --
+            continue
+        if bool(d.get("plot")) != (ability_text == "plot"):  # -- cant restrictions (wave 46A) -- plotting is a special action (116.2k): only plot changers touch its cost, and they touch nothing else
             continue
         if d["filter"]:
             view = view or _view(state, player, info)

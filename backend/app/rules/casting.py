@@ -2959,7 +2959,7 @@ def plot(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
     state = plan.state
     if state.turn.active_player != plan.actor or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK):
         raise ActionError("You can plot a card only in your main phase while the stack is empty")
-    cost = M.parse_cost(cost_text)
+    cost = M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, cost_text, plan.info, 0, "plot"))  # (wave 46A: "Plotting cards from your hand costs {2} less", 118.7a)
     if payment_step(plan, a, cost, f"plotting {ch.name}", purpose=Purpose()):  # (review 18B: a special action, 116.2k)
         return
     pay(plan, plan.actor, cost, f"paid {cost.text()} to plot {ch.name}", sources=a.sources, purpose=Purpose())

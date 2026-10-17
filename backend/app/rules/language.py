@@ -2057,6 +2057,17 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "lki_counters", "from": "it" if m["whose"] in ("its", "those") else "self_named",
                  "who": _who(kind, key)}], _one(group)
+    # -- Station (wave 46D) -- "put your choice of a +1/+1 counter or two charge counters on up to one other target artifact" (Inspirit, Flagship
+    # Vessel): the kind is chosen as the instruction is carried out (608.2d), after the target is (counter_pick.py)
+    m = re.fullmatch(r"put your choice of (?P<k>.+) on (?P<o>(?:up to \w+ )?(?:other )?target .+)", text)
+    if m and rider is None:
+        from app.rules import counter_pick
+
+        kind, key, group = ref(m["o"])
+        picks = counter_pick.parse(m["k"], _who(kind, key)) if kind != "players" else None
+        if picks is None:
+            raise _Fail
+        return picks, _one(group)
     # -- counters (wave 5H) -- "put a +1/+1 counter, a reach counter, and a deathtouch counter on target creature",
     # "put two +1/+1 counters and a flying counter on …": counters of several kinds put at once (one event, 122.6)
     m = re.fullmatch(rf"put (?P<list>(?:(?:{AMT}) (?:[+-]\d+/[+-]\d+|[a-z]+(?: [a-z]+)?) counters?,? )+and "
@@ -3132,7 +3143,7 @@ _BECOME = re.compile(
     r"(?:a|an) (?P<desc>.+?)"
     r"(?P<addition> in addition to its other (?P<addcolors>colors and )?(?:creature )?types)?"
     r"(?P<still> that(?:'s| are) still (?:an? )?(?:land|artifact|enchantment|planeswalker|creature)s?)?"  # (wave 19A: "that are still lands")
-    r"(?: and gains? (?:(?P<gain>[a-z ,]+)|(?P<gainq>\"[^\"]*\"(?:,? and \"[^\"]*\")*)))?"
+    r"(?: and gains? (?:(?P<gain>[a-z ,]+?)|(?P<gainq>\"[^\"]*\"(?:,? and \"[^\"]*\")*)))?"
     r"(?:(?P<trail> until end of turn)|(?P<ntrail> until your next turn))?"
     r"(?P<cbb> and can't be blocked this turn)?$")  # (cbb: wave 7E, Dimir Keyrune)
 _DESC = re.compile(  # (each part optional, space-separated: "legendary 8/12 green Spirit artifact creature with …")

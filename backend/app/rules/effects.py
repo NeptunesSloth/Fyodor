@@ -1578,8 +1578,9 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
         return
     from app.rules import permissions, scripts
 
-    if card.ability is None and (scripts.uncounterable(plan.ch(card)) or _mana_units.uncounterable(plan, card)  # (wave 18B: 106.6)
-                                 or permissions.spell_uncounterable(plan.state, plan.info, card, plan.ch(card))):
+    if (permissions.abilities_uncounterable(plan.state, plan.info) if card.ability is not None  # (-- cant restrictions (wave 46A) -- Spider-Punk: 101.2)
+            else scripts.uncounterable(plan.ch(card)) or _mana_units.uncounterable(plan, card)  # (wave 18B: 106.6)
+            or permissions.spell_uncounterable(plan.state, plan.info, card, plan.ch(card))):
         plan.note(f"{card.name} can't be countered", [stack_id])
         return
     r = plan.rules
@@ -2242,10 +2243,22 @@ def _finish_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, chosen
     continue_effects(plan, ctx)
 
 
+def can_become_monarch(plan: Plan, pid: str) -> bool:
+    """-- cant restrictions (wave 46A) -- 725.4: "You can't become the monarch this turn." (Jared Carthalion, True Heir) — the turn's records."""
+    return not any(x.get("what") == "cant_monarch" and x["player"] == pid and x["turn"] == plan.state.turn.number for x in plan.rules.results)
+
+
 def monarch(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for pid in _players(plan, ctx, e["who"]):
-        if plan.state.table.monarch != pid:
+        if plan.state.table.monarch != pid and can_become_monarch(plan, pid):
             plan.do({"type": "set_monarch", "player": pid}, actor=pid)
+    return True
+
+
+def cant_monarch(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    for pid in _players(plan, ctx, e["who"]):
+        plan.rules.results.append({"what": "cant_monarch", "player": pid, "turn": plan.state.turn.number})
+        plan.note(f"{plan.name(pid)} can't become the monarch this turn", actor=ctx["controller"])
     return True
 
 
@@ -2596,7 +2609,7 @@ PRIMITIVES = {
     "draw": draw, "gain_life": gain_life, "lose_life": lose_life, "damage": damage, "pump": pump, "grant": grant,
     "destroy": destroy, "exile": exile, "bounce": bounce, "tap": tap, "untap": untap, "scry": scry, "surveil": surveil,
     "player_counter": player_counter, "create_token": create_token, "add_counters": add_counters,
-    "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch,
+    "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch, "cant_monarch": cant_monarch,
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen, "no_regen_turn": no_regen_turn,
     "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "return_any": return_any, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
     "madness_offer": madness_offer, "free_cast_offer": free_cast_offer, "counter": counter, "counter_unless": counter_unless,

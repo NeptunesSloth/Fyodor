@@ -318,13 +318,14 @@ def self_text(text: str, name: str) -> str:
 
     # -- activated other (wave 34B) -- 'If Kellan is a Scout, it becomes a Human Faerie Detective and gains "Whenever Kellan deals combat damage …"': the
     # object that gets the quoted ability is the source itself (it is the one that becomes), so the name in the quote names its owner as well (~ there)
+    # (-- Station (wave 46D) -- likewise a station symbol's "As long as this permanent has N or more charge counters on it, it has "Whenever Dawnsire …"": 721.2a)
     alt = "|".join(re.escape(n) for n in names) or "(?!)"
     self_grant = re.compile(rf"(?:^|: |\. )(?:If (?:{alt}|~|this \w+) is an? [\w' -]+, it|{alt}|~|[Tt]his \w+) becomes? [^\".]*$")
     parts = out.split('"')
-    out = '"'.join(own(p) if i % 2 == 0 else _own(p) if self_grant.search(parts[i - 1]) else granter(p) for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
+    out = '"'.join(own(p) if i % 2 == 0 else _own(p) if self_grant.search(parts[i - 1]) or parts[i - 1].endswith(" counters on it, it has ") else granter(p) for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
     out = re.sub(r"\b(?:a|an) ((?:[a-z]+ )*?card) other than this card\b", r"another \1", out)  # (wave 19C: Ichorid; the source is that card)
     out = re.sub(r"(\bto the battlefield) and (attach this (?:Equipment|Aura) to it\b)", lambda m: f"{m[1]}. {m[2][0].upper()}{m[2][1:]}", out)  # (wave 19C: Nim Deathmantle: two instructions in order)
-    out = re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room)\b", "~", out)
+    out = re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room|Spacecraft|Planet)\b", "~", out)
     # -- gift (wave 23D) -- 702.174k: a promised gift is read as the spell having been kicked (app/rules/gift.py): "If the gift was promised, …"
     # opens a sentence of the spell, "When ~ enters, if the gift was promised, …" is the permanent's intervening "if"
     out = re.sub(r"(?:^|(?<=\. ))If the gift was promised, ", "If this spell was kicked, ", out)
@@ -1905,6 +1906,11 @@ def _monarch(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "monarch", "who": "you"}], None
 
 
+@effect(r"you can't become the monarch this turn")  # -- cant restrictions (wave 46A) -- 725.4 (Jared Carthalion, True Heir)
+def _cant_monarch(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "cant_monarch", "who": "you"}], None
+
+
 @effect(r"draw {N} cards?, then discard {M} cards?")
 def _loot(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "draw", "who": "you", "n": num(m["n"])}, {"do": "discard", "who": "you", "n": num(m["m"])}], None
@@ -2269,6 +2275,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # instructions of one sentence about the same object
     body = re.sub(r"\b(That token|That creature|It) (gains haste until end of turn) and (attacks this (?:combat|turn) if able)",
                   r"\1 \2. \1 \3", body)
+    body = re.sub(r"(^|\. |, )([Pp]opulate)\. The token enters tapped and attacking\.", r"\1\2 tapped and attacking.", body)  # (-- cant restrictions (wave 46A) -- Ghired)
     # -- enter attacking (wave 30P) -- 508.4: "Create Ragavan, a legendary 2/1 red Monkey creature token. Ragavan enters tapped and attacking." (Kari
     # Zev), "Put … from that player's graveyard onto the battlefield under your control. It enters tapped and attacking that player." (Shark
     # Shredder): the second sentence only says that what the first made or put enters attacking — one instruction, worded as the grammar has it
@@ -4721,7 +4728,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                             return None
                         names = [h[0] for h in halves if h]
                         generic = [h[1] for h in halves if h and h[1] is not None]
-                        if names == ["event", "event"] and generic[0]["event"] != generic[1]["event"] and not re.search(
+                        # (-- cant restrictions (wave 46A) -- the same event twice with different subjects, "Whenever Giott or another Dwarf you control enters and
+                        # whenever an Equipment you control enters": one object entering is one event, so one trigger however many halves it matches, 603.2c)
+                        if names == ["event", "event"] and not re.search(
                                 r"\b(?:it|its|it's|that|those|them|they)\b", re.sub(r"\bit's the \w+ time\b", "", m["body"])) and not any(
                                 g.get("aggregate") or g["event"] in ("either", "multi") for g in generic):
                             # -- ability words (wave 20C) -- "Whenever an enchantment you control enters and whenever you fully unlock a
@@ -5891,6 +5900,11 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     """A static line that is a replacement or prevention effect of the permanent itself."""
     if ability.kind != "static":
         return None
+    # -- cant restrictions (wave 46A) -- "~ enters with six +1/+1 counters on it. It escapes with twelve +1/+1 counters on it instead." (Polukranos, Unchained):
+    # the usual amount, and the escaped one that replaces it (614.1c, 702.138b); replacements.counter_amount reads "escaped_n"
+    if (esc := re.fullmatch(r"(~ enters with (?P<n>\w+) (?P<k>[+-]\d+/[+-]\d+) counters on it)\. It escapes with (?P<e>\w+) (?P=k) counters on it instead\.", text)) is not None \
+            and (base := define_replacement(ability, esc[1] + ".")) is not None and base.get("replacement") == "enters_with_counters" and (escaped := {**NUMBERS, "eleven": 11, "twelve": 12}.get(esc["e"])) is not None:
+        return {**base, "escaped_n": escaped}
     text = re.sub(r"^~ enters tapped if it's not your turn\.$", "~ enters tapped unless it's your turn.", text)  # (wave 19A: Eddymurk Crab)
     # -- refused grants/replacements (wave 3R2) -- "Damage can't be prevented." and friends (615.12)
     from app.rules import skips, source_shields
@@ -7867,9 +7881,9 @@ def _attach_self_to_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 @_first
-@effect(r"populate")
+@effect(r"populate(?P<att> tapped and attacking)?")
 def _populate(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    return [{"do": "populate"}], None  # 701.36 (app/rules/populate.py)
+    return [{"do": "populate", **({"attacking": True} if m["att"] else {})}], None  # 701.36 (app/rules/populate.py)
 
 
 @_first
@@ -8062,10 +8076,12 @@ _CHOSEN["return_choice"] = "n"
 # until end of turn." The control-changing effect (layer 2, 613.1b) names its objects: a following "it" / "that
 # creature" is the target, as after any plain target (app/rules/language.py "control", app/rules/effects.py).
 _RECORDING.update({"gain_control": None, "exchange_control": None})
+# (-- cant restrictions (wave 46A) -- not across ", then": "Gain control of all Dragons, then untap all Dragons." (Karrthus) is two instructions in order, 608.2c,
+# which _clause splits; the control wording alone must not swallow the whole sentence and give up on it)
 
 
 @_first
-@effect(r"(?P<t>(?!.* (?:for as long as|until (?:the end of )?your next turn)\b)(?!.* at end of combat$)(?:(?:untap .+? and )?(?:you )?gain control of .+|.+? gains control of .+|exchange control of .+))")
+@effect(r"(?P<t>(?!.*, then )(?!.* (?:for as long as|until (?:the end of )?your next turn)\b)(?!.* at end of combat$)(?:(?:untap .+? and )?(?:you )?gain control of .+|.+? gains control of .+|exchange control of .+))")
 def _control(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 

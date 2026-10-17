@@ -209,7 +209,8 @@ def note_cast(plan: Plan, card: Any) -> None:
     log.casts.append(CastNote(player=card.controller, object_id=plan.oid(card), types=sorted(ch.types),
                               subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes), colors=sorted(ch.colors),
                               mv=float(_stack_mv(card, ch)), cast_from=record.cast_from if record is not None else None,
-                              alt=record.alternative if record is not None else None, x_cost="{X}" in ch.mana_cost))
+                              alt=record.alternative if record is not None else None, x_cost="{X}" in ch.mana_cost,
+                              keywords=sorted(ch.keywords), face_down=bool(card.face_down)))
 
 
 def _stack_mv(card: Any, ch: Any) -> int:
@@ -387,24 +388,27 @@ _NOTE_FIELDS = {"types", "not_types", "subtypes", "not_subtypes", "supertypes", 
                 "colorless", "multicolored", "token", "compare", "extras", "union", "zones"}
 
 
-def note_selector_ok(sel: Any, spell: bool = False) -> bool:
+def note_selector_ok(sel: Any, spell: bool = False, *, kept: bool = False) -> bool:
+    """``kept``: the caller also passes the note's keywords and face-down flag to ``note_matches`` (wave 46A), so "with flying" and "face-down" are read."""
     from dataclasses import fields
 
     from app.rules.selectors import Selector
 
     blank = Selector()
     for f in fields(sel):
-        if f.name not in _NOTE_FIELDS and getattr(sel, f.name) != getattr(blank, f.name):
+        if f.name not in _NOTE_FIELDS and not (kept and f.name == "with_keywords") and getattr(sel, f.name) != getattr(blank, f.name):
             return False
     # (-- history (wave 22E) -- a spell's note also records whether its cost has {X}, and "outlaw"-style subtype lists answer from the subtypes)
-    extras_ok = {"all_types", "historic", *(("x_cost",) if spell else ())}  # (wave 30T: 700.6 historic is answered from the recorded types)
+    extras_ok = {"all_types", "historic", *(("x_cost",) if spell else ()), *(("face_down",) if kept else ())}  # (wave 30T: 700.6 historic is answered from the recorded types)
     return all(e in extras_ok or e.startswith("subtype_any:") for e in sel.extras) \
         and all(c[0] == "mv" and isinstance(c[2], int) for c in sel.compare)
 
 
 def note_matches(sel: Any, types: Any, subtypes: Any = (), supertypes: Any = (), colors: Any = (), mv: float = 0,
-                 token: bool | None = None, x_cost: bool | None = None) -> bool:
+                 token: bool | None = None, x_cost: bool | None = None, keywords: Any = (), face_down: bool = False) -> bool:
     """Does an object, as recorded then, match a selector ``note_selector_ok`` accepts?"""
+    if not set(sel.with_keywords) <= set(keywords) or "face_down" in sel.extras and not face_down:  # (wave 46A: only ``kept`` callers get here with either)
+        return False
     types, subtypes, supertypes, colors = set(types), set(subtypes), set(supertypes), set(colors)
     if sel.union:
         if not (set(sel.types) & types or set(sel.subtypes) & subtypes):

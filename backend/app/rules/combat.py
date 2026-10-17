@@ -221,6 +221,9 @@ def _phrase(arg: str) -> str:
             text += "s"
         if sel.with_keywords:
             text += " with " + " and ".join(sel.with_keywords)
+        for x in sel.extras:  # (wave 45D's either-keyword selector)
+            if x.startswith("any_kw:"):
+                text += " with " + " or ".join(x[7:].split(","))
         if sel.without_keywords:
             text += " without " + " and ".join(sel.without_keywords)
         for what, op, n in sel.compare:

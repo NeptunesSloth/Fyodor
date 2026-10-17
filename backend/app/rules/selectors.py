@@ -47,7 +47,7 @@ OTHER_SUBTYPES = {"Equipment", "Aura", "Vehicle", "Food", "Clue", "Treasure", "B
                   "Curse", "Plains", "Island", "Swamp", "Mountain", "Forest", "Desert", "Gate", "Cave", "Town",
                   "Sphere", "Lesson", "Adventure", "Arcane", "Trap", "Room", "Class", "Case", "Background",
                   "Fortification", "Attraction", "Contraption", "Powerstone", "Map", "Incubator", "Junk",
-                  "Lair", "Locus", "Bobblehead", "Cartouche", "Spacecraft", "Rune", "Plan"}  # (wave 25C: Rune, 205.3h; wave 35D: Plan, 205.3h)  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
+                  "Lair", "Locus", "Bobblehead", "Cartouche", "Spacecraft", "Rune", "Plan", "Lander"}  # (wave 25C: Rune, 205.3h; wave 35D: Plan, 205.3h)  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
 # -- kicked / instead (wave 4G) -- 205.3j: the planeswalker types ("If you control a Jace planeswalker, …"), read only
 # when written capitalized (a word like "will" is never one)
 PLANESWALKER_TYPES = frozenset({
@@ -470,12 +470,16 @@ def _thats_colored(s: Selector, m: re.Match[str]) -> Selector:  # (wave 19D: "th
 # a Barbarian, a Warrior, or a Berserker": any of these creature types (205.3m)
 # (-- counters (wave 33C) -- "each other creature you control that's a token or a Rabbit" (Finneas, Ace Archer): "token" is one of the alternatives, kept
 # as the word in the list and read as the object's being a token (111.7); alone it is no creature type: "that's a token" stays unread)
-@_suffix(r"that['’]s (?P<list>an? (?:[A-Z][\w'’-]*|token)(?:(?:,|,? or|,? and/or) (?:an? )?(?:[A-Z][\w'’-]*|token))*)")
+# (-- cant restrictions (wave 46A) -- "each creature you control that's an artifact or Human" (Paladin Danse): a card type is one of the alternatives too, read from the object's types)
+_THAT_WORD = r"[A-Z][\w'’-]*|token|artifact|enchantment|land|planeswalker|battle"
+
+
+@_suffix(rf"that['’]s (?P<list>an? (?:{_THAT_WORD})(?:(?:,|,? or|,? and/or) (?:an? )?(?:{_THAT_WORD}))*)")
 def _thats_types(s: Selector, m: re.Match[str]) -> Selector:
     words = [w for w in re.split(r",? (?:or|and/or) |, ", m["list"]) if w]
     subs = [("tok", "token") if re.sub(r"^an? ", "", w) == "token" else _core(re.sub(r"^an? ", "", w)) for w in words]
-    found = [c for c in subs if c is not None and c[0] in ("sub", "tok")]
-    if not subs or len(found) != len(subs) or found == [("tok", "token")]:
+    found = [c for c in subs if c is not None and c[0] in ("sub", "tok", "type")]
+    if not subs or len(found) != len(subs) or found == [("tok", "token")] or (len(subs) < 2 and found[0][0] == "type"):
         raise ValueError("not a list of creature types")
     return replace(s, extras=(*s.extras, "subtype_any:" + "|".join(c[1] for c in found)))
 
@@ -2033,7 +2037,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             p, t = _stat(ch, "power"), _stat(ch, "toughness")
             if p is None or t is None or t <= p:
                 return False
-        if extra.startswith("subtype_any:") and not (set(extra[12:].split("|")) & ch.subtypes or (card.is_token and "token" in extra[12:].split("|"))):  # (wave 6C; 33C: "a token or a Rabbit")
+        if extra.startswith("subtype_any:") and not (set(extra[12:].split("|")) & (ch.subtypes | ch.types) or (card.is_token and "token" in extra[12:].split("|"))):  # (wave 6C; 33C: "a token or a Rabbit")
             return False
         if extra == "mergeable":  # -- merged permanents (wave 18D) -- a permanent a mutating spell can merge with (app/rules/merged.py)
             from app.rules import merged

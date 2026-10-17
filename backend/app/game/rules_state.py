@@ -465,6 +465,8 @@ class CastNote(BaseModel):
     alt: str | None = Field(default=None, max_length=20)  # -- void (wave 19E) -- the alternative cost it was cast for ("warp": 702.185a)
     became: str | None = Field(default=None, max_length=80)  # the permanent a permanent spell became (608.3)
     x_cost: bool = False  # -- history (wave 22E) -- its mana cost has {X} ("a spell with {X} in its mana cost", 107.3); older saves: False
+    keywords: list[str] = Field(default_factory=list)  # -- cant restrictions (wave 46A) -- the keywords it had as cast ("the first creature spell with flying you cast", Momo)
+    face_down: bool = False  # -- cant restrictions (wave 46A) -- it was cast face down ("the first face-down creature spell you cast each turn", Kadena); older saves: False
 
 
 class TurnFact(BaseModel):
@@ -898,7 +900,7 @@ class CostModifier(BaseModel):
     turn: int = 0  # the turn it was created
     source: str | None = None
     label: str = Field(default="", max_length=120)
-    mana: str = Field(default="", max_length=1)  # -- cost changers (wave 4I) -- a colored change ("{W} more"): its color
+    mana: str = Field(default="", max_length=8)  # -- cost changers (wave 4I) -- a colored change ("{W} more"): its color (wave 46A: several, "!" first: only colored)
 
 
 class NextSpellGrant(BaseModel):
@@ -914,6 +916,7 @@ class NextSpellGrant(BaseModel):
     turn: int = 0
     source: str | None = None
     label: str = Field(default="", max_length=120)
+    amount: int = 0  # -- cant restrictions (wave 46A) -- keyword "cost": the generic mana it takes off ("The next spell you cast this turn costs {1} less to cast.", 601.2f, 118.7a)
 
 
 class TopReveal(BaseModel):

@@ -36,6 +36,8 @@ if TYPE_CHECKING:
 Change = dict[str, Any]
 
 _SYMBOL = r"\{(?P<n>\d+|X|[WUBRG])\}"
+# (-- cant restrictions (wave 46A) -- several colored symbols for a table changer: "cost {W}{U}{B}{R}{G} less" (Morophon, the Boundless), 118.7b/c, one reduction each: ``n`` is "W}{U}{B}{R}{G")
+_SYMBOLS = r"\{(?P<n>\d+|X|[WUBRG](?:\}\{[WUBRG])*)\}"
 # "~'s power" / "this creature's power" ("this creature" is written ~ already: scripts.self_text)
 _SELF_STAT = re.compile(r"^~'s (?P<stat>power|toughness)$")
 _REST = re.compile(r"^(?:(?P<each> for each (?P<what>.+))|(?P<if> if (?P<cond>.+))|(?P<long> as long as (?P<cond2>.+))"
@@ -62,6 +64,13 @@ def parse_change(symbol: str, direction: str, rest: str) -> Change | None:
     capped = re.fullmatch(r"(?P<rest>.*?)\. [Tt]his effect can't reduce the amount of mana this spell costs by more than \{(?P<cap>\d+)\}\.?", rest)
     if capped is not None:
         rest = capped["rest"]
+    # -- cant restrictions (wave 46A) -- "This effect reduces only the amount of colored mana you pay." (Morophon, Edgewalker): a colored reduction that never spills over
+    # into the generic part of the cost (it replaces the reading of 118.7b/c for that changer)
+    only = re.fullmatch(r"(?P<rest>.*?)\. [Tt]his effect reduces only the amount of colored mana you pay\.?", rest)
+    if only is not None:
+        if direction != "less" or symbol.isdigit() or symbol == "X":
+            return None
+        rest = only["rest"]
     m = _REST.fullmatch(rest.rstrip("."))
     if m is None:
         return None
@@ -79,7 +88,7 @@ def parse_change(symbol: str, direction: str, rest: str) -> Change | None:
     if symbol.isdigit():
         out["n"] = int(symbol)
     else:
-        out["n"], out["mana"] = 1, symbol  # (118.7b/c: a colored amount)
+        out["n"], out["mana"] = 1, ("!" if only is not None else "") + "".join(symbol.split("}{"))  # (118.7b/c: a colored amount; "!": only colored, wave 46A)
     if m["each"]:
         v = _value(m["what"])
         if v is None:
@@ -209,14 +218,17 @@ class Changes:
     reduction: int = 0
     colored_more: tuple[str, ...] = ()
     colored_less: tuple[str, ...] = ()
+    colored_only: tuple[str, ...] = ()  # (wave 46A: reductions of colored mana that don't spill over into the generic part)
 
     def add(self, delta: int, mana: str | None) -> None:
         if mana:
             n = abs(delta)
             if delta > 0:
-                self.colored_more += (mana,) * n
+                self.colored_more += tuple(mana) * n
+            elif mana[0] == "!":
+                self.colored_only += tuple(mana[1:]) * n
             else:
-                self.colored_less += (mana,) * n
+                self.colored_less += tuple(mana) * n
         elif delta > 0:
             self.increase += delta
         else:
@@ -253,14 +265,15 @@ def own_changes(state: GameState, player: str, card: CardInstance, ch: Character
     return out
 
 
-def reduce_colored(cost: M.ManaCost, colors: tuple[str, ...]) -> M.ManaCost:
-    """118.7b/c: each colored reduction takes one symbol of that color away; with none left, one generic."""
+def reduce_colored(cost: M.ManaCost, colors: tuple[str, ...], only: bool = False) -> M.ManaCost:
+    """118.7b/c: each colored reduction takes one symbol of that color away; with none left, one generic (``only``: "reduces only the amount
+    of colored mana you pay", wave 46A: nothing more)."""
     colored = list(cost.colored)
     generic = cost.generic
     for c in colors:
         if c in colored:
             colored.remove(c)
-        elif generic:
+        elif generic and not only:
             generic -= 1
     return M.ManaCost(generic, tuple(colored), cost.hybrid, cost.phyrexian, cost.x, cost.unsupported)
 
@@ -281,17 +294,21 @@ _FROM = {"from your graveyard": ("your_graveyard",), "from graveyards": ("gravey
          "from anywhere other than your hand": ("not_hand",)}
 STATIC = re.compile(
     r"^(?P<during>during your turn, |during turns other than yours, )?(?:each )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? "
+    r"(?:(?P<chosen1>of the chosen type) )?"  # (wave 46A: "Spells of the chosen type you cast cost …", Morophon)
     r"(?:(?P<with>with (?:flying|flash|mana value \d+ or (?:greater|less))) )?(?P<who>you cast |your opponents cast )?(?:(?P<with2>with (?:mana value \d+ or (?:greater|less)|toughness greater than its power)) )?(?P<own>but don't own )?(?P<chosen>of the chosen type )?"
     r"(?:(?P<from>from (?:your graveyard or from exile|graveyards or from exile|your graveyard|graveyards|exile"
     r"|anywhere other than your hand)) )?"
-    rf"costs? {_SYMBOL} (?P<dir>less|more) to cast(?P<rest>.*)$")
+    rf"costs? {_SYMBOLS} (?P<dir>less|more) to cast(?P<rest>.*)$")
 _EXCEPT = " except during its controller's turn"
 # "The first creature spell you cast each turn costs {2} less to cast." (Shadow in the Warp) / "The second spell you cast
 # each turn costs {1} less to cast." (Raging Battle Mouse): read against this turn's casts (history.py, 601.2i)
 # -- spell grants (wave 30T) -- "… costs {2} less to cast and can be cast as though it had flash." (Radagast of Rhosgobel): the first one's flash too
 # -- cost changers (wave 44D) -- "The first spell you cast with {X} in its mana cost each turn costs {1} less to cast for each +1/+1 counter on ~." (Zimone, Infinite Analyst): the
 # turn's cast records say whether a spell had {X} in its mana cost (history.CastNote.x_cost)
-ORDINAL = re.compile(rf"^the (?P<ord>first|second) (?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spell you cast(?P<xc> with \{{X\}} in its mana cost)? each turn costs {_SYMBOL} "
+# (-- cant restrictions (wave 46A) -- "The first non-Lemur creature spell with flying you cast during each of your turns costs {1} less to cast." (Momo, Friendly Flier): a keyword
+# the spell had as it was cast, and only the turns of the source's controller)
+ORDINAL = re.compile(rf"^the (?P<ord>first|second) (?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spell(?P<kw> with (?:flying|flash|haste|trample|vigilance|reach|menace|deathtouch|lifelink|first strike))? you cast"
+                     rf"(?P<xc> with \{{X\}} in its mana cost)?(?P<when> each turn| during each of your turns) costs {_SYMBOL} "
                      r"less to cast(?P<each> for each [^.]+?)?(?P<flash> and can be cast as though it had flash)?$")
 
 
@@ -306,7 +323,7 @@ def special(t: str) -> bool:
     if ORDINAL.fullmatch(t) or TARGETING.fullmatch(t) or TARGETING_LIFE.fullmatch(t) or PER_CASTER.fullmatch(t):
         return True
     m = STATIC.fullmatch(t)
-    return m is not None and bool(m["during"] or m["with"] or m["with2"] or m["chosen"] or m["from"] or m["rest"] or m["own"] or not m["n"].isdigit())
+    return m is not None and bool(m["during"] or m["with"] or m["with2"] or m["chosen"] or m["chosen1"] or m["from"] or m["rest"] or m["own"] or not m["n"].isdigit())
 
 
 def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
@@ -333,13 +350,13 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
             return None
         turn, rest = "not_caster", rest[: -len(_EXCEPT)]
     change = parse_change(m["n"], m["dir"], rest)
-    if change is None or change.get("mana") and change.get("value"):
+    if change is None:  # (-- cant restrictions (wave 46A) -- a colored amount per count is read too: Eluge, 118.7b/c)
         return None
     # ("… as long as there are three or more Lesson cards in your graveyard": the static's condition, read with its
     # source's controller as "you" each time a total cost is determined: amount())
     # the chosen type is the permanent's "As ~ enters, choose a creature type." answer (614.12a): only with that line
-    card_type = m["chosen"] and any(re.fullmatch(r"As .+ enters, choose (?:a card type(?: other than creature or land)?|artifact, creature, enchantment, instant, or sorcery)\.?", x.strip()) for x in lines)  # (wave 47A: Umori, Stenn)
-    if m["chosen"] and not card_type and not any(re.fullmatch(r"As .+ enters, choose a creature type\.?", x.strip()) for x in lines):
+    card_type = (m["chosen"] or m["chosen1"]) and any(re.fullmatch(r"As .+ enters, choose (?:a card type(?: other than creature or land)?|artifact, creature, enchantment, instant, or sorcery)\.?", x.strip()) for x in lines)  # (wave 47A: Umori, Stenn)
+    if (m["chosen"] or m["chosen1"]) and not card_type and not any(re.fullmatch(r"As .+ enters, choose a creature type\.?", x.strip()) for x in lines):
         return None
     sel = m["sel"]
     if card_type and (sel or m["with"] or m["with2"]):
@@ -362,7 +379,7 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
         if base is None:
             return None
         out["filter"] = _replace(base, owner="opponent").key()
-    if m["chosen"]:
+    if m["chosen"] or m["chosen1"]:
         # "of the chosen type": wave 4J's selector extra, read from the source permanent's own enters choice (614.12a;
         # scripts checks the card has exactly that one choice: chosen.chosen_value_ok). Kept as "spell", not "filter",
         # since only static_delta knows the source
@@ -463,24 +480,24 @@ def _ordinal_definition(o: re.Match[str]) -> dict[str, Any] | None:
     from app.rules import history, selectors
     from app.rules.permissions import spell_filter
 
-    if not o["n"].isdigit():
+    if o["xc"] and o["kw"]:
         return None
-    tail = "with {X} in its mana cost" if o["xc"] else None
+    tail = "with {X} in its mana cost" if o["xc"] else o["kw"].strip() if o["kw"] else None
     key = spell_filter(o["sel"], tail) if o["sel"] or tail else None
-    if (o["sel"] or tail) and (key is None or not history.note_selector_ok(selectors.from_key(key), spell=True)):
+    if (o["sel"] or tail) and (key is None or not history.note_selector_ok(selectors.from_key(key), spell=True, kept=True)):
         return None  # (a kind of spell the turn's cast records can't answer: "kicked", "face-down", "with flying")
     if o["ord"] == "second" and key is not None:
         return None
-    n = int(o["n"])
+    n = int(o["n"]) if o["n"].isdigit() else 1  # (wave 46A: a colored symbol, "{U} less for each …", Eluge)
     if o["flash"] and o["ord"] != "first":
         return None
     change = parse_change(o["n"], "less", o["each"] or "")
-    if change is None or change.get("mana"):
+    if change is None:
         return None
     from app.rules import cast_limits
 
     return {"kind": "static", "static": "cost_modifier", "delta": -n, "caster": "you", "filter": key,
-            "change": change, "ordinal": 1 if o["ord"] == "first" else 2, "effects": [],
+            "change": change, "ordinal": 1 if o["ord"] == "first" else 2, "effects": [], **({"turn": "yours"} if o["when"] != " each turn" else {}),
             **({"flash_perm": cast_limits.flash_def(key, first=True)} if o["flash"] else {})}  # (read by permissions.grants: 601.3b)
 
 
@@ -491,7 +508,8 @@ def _ordinal_ok(state: GameState, info: CardInfo, player: str, d: dict[str, Any]
     log = history.log_for(view_of(state, player, info))
     sel = selectors.from_key(d["filter"]) if d.get("filter") else None
     before = sum(1 for note in log.casts if note.player == player
-                 and (sel is None or history.note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv, x_cost=note.x_cost)))
+                 and (sel is None or history.note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv, x_cost=note.x_cost,
+                                                              keywords=note.keywords, face_down=note.face_down)))
     return before == d["ordinal"] - 1
 
 
