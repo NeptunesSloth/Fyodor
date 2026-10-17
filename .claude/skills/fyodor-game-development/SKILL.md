@@ -13,7 +13,8 @@ description: How to change Fyodor's rules engine, game server and card automatio
 - **No runtime LLM judge; card text is never executed.** Scripts are declarative data.
 - **Wrong automation is worse than manual: refuse rather than guess.** A card is FULL only with complete,
   tested behavior on real Oracle text. Unknown wordings must keep parsing to "unsupported". Unsettled rulings
-  ⇒ refuse (e.g. Panharmonicon vs "create a token": `trigger_multipliers.ENTERING = False`).
+  ⇒ refuse until a ruling or a close official analogy settles it (e.g. Panharmonicon vs "create a token" was refused
+  until wave 43A read it from Ancient Greenwarden's "play a land" ruling: see `trigger_multipliers.py`).
 - **Server is authoritative; hidden information never leaks** (views, hints, logs, prompts — including leaks by
   omission such as skipping a question only when the hidden answer is "nothing").
 - Every new behavior: scenario test with real Oracle text + `replay_matches` + save/load round trip; new state

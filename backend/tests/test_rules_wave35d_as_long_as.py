@@ -49,11 +49,11 @@ FULL = ["Frodo Baggins", "Balan, Wandering Knight", "Brass Knuckles", "Timber Pa
 # * Croakid Amphibonaut: "a stickered permanent" (stickers are not modelled: no permanent is ever stickered, so the line can't be read);
 # * Manor Gargoyle, Warmonger's Chariot: a condition on the keywords of the very object it modifies (613.8: dependencies between layer-6 effects);
 # * Grond: a layer-4 type change whose condition reads other permanents' creature types (613.8, app/rules/statics.py ``_layer4_safe``);
-# * Cloud, Midgar Mercenary: a trigger multiplier is read with last known information (603.10), a condition on it isn't modelled;
+# * (Cloud, Midgar Mercenary - a trigger multiplier read with last known information (603.10) under a condition - is read since wave 43A: test_rules_wave43a_trigger_multipliers.py)
 # * Archelos: "enter tapped" and "enter untapped" replacements whose order the affected permanent's controller chooses (616.1);
 # * Sting: "blocking or blocked by a Goblin or Orc" (the relation between the equipped creature and the creature it fights);
 # * Bronze Horse: "prevent all damage … by spells that target it" (its unconditional wording isn't read).
-MANUAL = ["Croakid Amphibonaut", "Manor Gargoyle", "Warmonger's Chariot", "Grond, the Gatebreaker", "Cloud, Midgar Mercenary",
+MANUAL = ["Croakid Amphibonaut", "Manor Gargoyle", "Warmonger's Chariot", "Grond, the Gatebreaker",
           "Archelos, Lagoon Mystic", "Sting, the Glinting Dagger", "Bronze Horse"]
 
 
