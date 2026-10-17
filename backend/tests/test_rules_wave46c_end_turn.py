@@ -137,3 +137,23 @@ def test_days_undoing_shuffles_draws_seven_and_ends_the_turn(cards):
     assert zone_of(s, "Day's Undoing") == "p1:exile"  # 724.1b: exiled while resolving, after its shuffle
     assert s.state.turn.number == 2
     check(s)
+
+
+def test_glorious_end_ends_the_turn_and_its_controller_loses_at_their_next_end_step(cards):
+    # 724.1e: the end step of this turn is skipped, so "your next end step" is the one of Alice's next turn; the delayed trigger (603.7) is made as the spell resolves
+    s = build(cards, ["Glorious End"], [])
+    to_hand(s, "Glorious End")
+    mana(s, R=1, C=2)
+    cast(s, "Glorious End")
+    assert s.state.turn.number == 2 and s.state.turn.active_player == "p2" and zone_of(s, "Glorious End") == "p1:exile"
+    assert [d.controller for d in s.state.rules.delayed] == ["p1"] and s.state.rules.winner is None
+    stops(s)
+    to_phase(s, "end", turn=3)  # Bob's end step passed without a loss; this is Alice's
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.rules.winner is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.rules.winner == "p2"
+    check(s)
