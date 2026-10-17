@@ -255,6 +255,9 @@ def probe_ok(plan: Any, ctx: Context, name: str) -> bool:
     if "left" in b:
         return any((card := plan.state.cards.get(cid)) is None or plan.oid(card) != oid or not card.zone.endswith(":battlefield")
                    for cid, oid in b["left"].items())
+    if "control" in b:  # -- commanders (wave 50C) -- a permanent that is still that object has another controller than before (effects.gain_control)
+        return any((card := plan.state.cards.get(cid)) is not None and plan.oid(card) == oid and card.controller != was
+                   for cid, (oid, was) in b["control"].items())
     if "counters" in b:
         return any((card := plan.state.cards.get(cid)) is not None and plan.oid(card) == oid
                    and card.counters.get(b["counter"], 0) < n for cid, (oid, n) in b["counters"].items())

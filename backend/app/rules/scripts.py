@@ -250,7 +250,8 @@ def _short_name(name: str, text: str = "") -> str | None:
         # the subject ("Elanor enters", "Elanor's power"), so a color or type word of a plain name is never read as it
         m = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]{2,}) [A-ZÀ-ÖØ-Þ]", name)
         # (wave 19D: also "put a +1/+1 counter on Legolas", the name after "counter(s) on")
-        if m is None or not re.search(rf"\b{re.escape(m[1])}(?: {_SELF_VERBS}|'s )|counters? on {re.escape(m[1])}\b", text):
+        # (wave 50C: "transform Henrika", "Remove a dream counter from Rasputin", "damage that would be dealt to Rasputin": the word after a verb or "from"/"to")
+        if m is None or not re.search(rf"\b{re.escape(m[1])}(?: {_SELF_VERBS}|'s )|(?:counters? on|[Tt]ransform|[Cc]onvert|from|dealt to|damage to) {re.escape(m[1])}\b", text):
             return None
     if m[1] in CREATURE_TYPES or m[1].rstrip("s") in CREATURE_TYPES:
         return None
@@ -273,7 +274,7 @@ def _self_pronouns(part: str) -> str:
     part = re.sub(r"(?<!or )\b(?:him|her)\b(?=[.,;:)]|$| (?:and|until|this|then|to|from|into|onto|on|with|unless|if|as|equal|for)\b)",
                   "~", part)
     part = re.sub(r"(?<=\btransformed under )~'s owner's control\b", "its owner's control", part)  # -- activated other (wave 44D) -- "return her to the battlefield transformed under her owner's control" (Nissa, Jace)
-    part = re.sub(r"(\bexile ~, then return )~(?= to the battlefield\b)", r"\1it", part)  # (-- activated other (wave 44D) -- "exile Nissa, then return her …": the card just exiled)
+    part = re.sub(r"(\b[Ee]xile ~, then return )(?:~|him|her)(?= to the battlefield\b)", r"\1it", part)  # (wave 50C: "him", Zuko; the capital, a mode)  # (-- activated other (wave 44D) -- "exile Nissa, then return her …": the card just exiled)
     return re.sub(r"(?<=return ~ to )~'s owner's hand\b", "its owner's hand", part)  # -- if you do (wave 40A) -- "return him to his owner's hand" (Bob): 400.3, the card's owner
 
 
@@ -295,7 +296,7 @@ def self_text(text: str, name: str) -> str:
 
     short = _short_name(name, out)
     names = [n for n in sorted({name, name.split(",")[0].strip(), *([short] if short else [])}, key=len, reverse=True)
-             if len(n) >= 3 or (len(n) == 2 and n.isupper())]  # (wave 15D: "MJ")
+             if len(n) >= 3 or (len(n) == 2 and (n.isupper() or n == name.split(",")[0].strip()))]  # (wave 15D: "MJ"; wave 50C: "Ao", the name before the comma)
 
     def own(part: str) -> str:
         # -- activated wordings (wave 15D) -- a token's name is its own ("a Kobold token named Kobolds of Kher Keep" on Kher Keep)
@@ -331,6 +332,7 @@ def self_text(text: str, name: str) -> str:
     out = re.sub(r"\b(?:a|an) ((?:[a-z]+ )*?card) other than this card\b", r"another \1", out)  # (wave 19C: Ichorid; the source is that card)
     out = re.sub(r"(\bto the battlefield) and (attach this (?:Equipment|Aura) to it\b)", lambda m: f"{m[1]}. {m[2][0].upper()}{m[2][1:]}", out)  # (wave 19C: Nim Deathmantle: two instructions in order)
     out = re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room|Spacecraft|Planet)\b", "~", out)
+    out = re.sub(r"\b([Cc])onvert(s|ed)?\b", lambda m: f"{m[1].replace('c', 't').replace('C', 'T')}ransform{m[2] or ''}", out)  # (-- commanders (wave 50C) -- 701.28a: to convert a permanent is to turn it over as transforming does; "Convert Starscream." is "Transform ~.")
     # -- gift (wave 23D) -- 702.174k: a promised gift is read as the spell having been kicked (app/rules/gift.py): "If the gift was promised, …"
     # opens a sentence of the spell, "When ~ enters, if the gift was promised, …" is the permanent's intervening "if"
     out = re.sub(r"(?:^|(?<=\. ))If the gift was promised, ", "If this spell was kicked, ", out)
@@ -2247,6 +2249,8 @@ def _clause(text: str, may_ok: bool = False) -> tuple[list[dict[str, Any]], Any]
     own target group (115.3); the halves' groups are numbered in order."""
     if re.match(r"choose [^,]*\btargets?\b[^,]*, then \w+ all other\b", text):
         return None  # (review 25B: "Choose up to one target creature, then airbend all other creatures": other than the chosen one, unread)
+    text = re.sub(r"^(target (?:player|opponent)) puts (an? [^,.]+? counters?) on each ([^,.]+?) they control$",
+                  r"put \2 on each \3 \1 controls", text)  # (-- commanders (wave 50C) -- "Target player puts a +1/+1 counter on each creature they control." (Shadrix Silverquill): the creatures that player controls)
     found = _one_clause(text) or _their_group_clause(text)
     if found is not None:
         return found
@@ -2344,6 +2348,8 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
 
     body = body.replace(" your team controls", " you control")  # -- static_other (wave 49C) -- 102.4: outside a team game "your team" is "you" (Combo Attack, Dwarven Lightsmith)
     body = _licids.rewrite(body)  # -- licids (wave 50A) --
+    body = body.replace("can't be blocked by more than one creature each combat this turn", "can't be blocked by more than one creature this turn")  # (-- commanders (wave 50C) -- Glorfindel: the effect lasts the turn, so it covers each combat of it, 611.2a)
+    body = re.sub(r"(\. |^)It's (an? [^.]+? for as long as it has an? [^.]+? counter on it)(?=\.|$)", r"\1It becomes \2", body)  # (-- commanders (wave 50C) -- Sauron, Dino Devotee: "It's a green Dinosaur with base power and toughness 5/5 for as long as it has a saurian counter on it" is a duration effect on the creature just given the counter, 611.2a)
     if (gifts := refused_zones.gifts_ability(body)) is not None:
         return gifts
     from app.rules import (
@@ -2472,6 +2478,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # -- reflexive this way (wave 30G) -- "you may discard one or more land cards" is "any number" to a player who may choose none (Loamcrafter Faun)
     body = re.sub(r"(?i)(?<!spell, )\byou may (discard|sacrifice) one or more ", r"you may \1 any number of ", body)
     body = _COUNTED_IF_YOU_DO.sub(_counted_if_you_do, body)  # -- reflexive this way (wave 30G) -- Neheb: "… draw that many cards and add that much {R}."
+    body = re.sub(r"^(target (?:opponent|player) gains control of [^.]+)\. If they do, ", r"\1. If you do, ", body, flags=re.I)  # (-- commanders (wave 50C) -- Bill Ferny: "If they do" asks whether the control changed, as "If you do" after the instruction)
     body = re.sub(r"(?i)\b(discard (?:up to \w+|any number of|\w+) cards?)(?:, then |\. (?:then )?)draw that many cards\b(?! plus| and )",
                   r"\1, then draw a card for each card discarded this way", body)
     # (wave 45D) Jared Carthalion: "For each of them, put a number of +1/+1 counters on it equal to the number of colors it is." is each chosen creature's own count
@@ -4697,10 +4704,12 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return keyword_triggers.dynamic_x(text)
     if ability.kind == "spell" and SHUFFLE_INSTEAD_SELF.match(text):  # -- zone replacements (wave 22C) -- Nexus of Fate: a replacement line of a spell card
         return {"kind": "replacement", "replacement": "shuffle_instead", "from": "anywhere", "effects": []}
-    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",), ("sneak",), ("freerunning",), ("impending",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E; sneak: 30I; freerunning, impending: 43D)
+    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",), ("sneak",), ("freerunning",), ("impending",), ("more than meets the eye",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E; sneak: 30I; freerunning, impending: 43D)
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(ability.text)
+    if ability.kind == "keywords" and ability.keywords == ("living metal",):  # -- commanders (wave 50C) -- 702.161a: "During your turn, this permanent is an artifact creature in addition to its other types."
+        return define(replace(ability, kind="static", keywords=(), text="During your turn, this permanent is an artifact creature in addition to its other types."), ch)
     if ability.kind == "keywords" and ability.keywords == ("unleash",):  # -- keywords (wave 15E) -- 702.98a's second static
         return parse_anthem("~ can't block as long as it has a +1/+1 counter on it.")
     # -- static_other (wave 36B) -- 601.3, 101.2: "You can't cast Rakdos unless an opponent lost life this turn." (Rakdos, Lord of Riots), "Threshold — You can't cast
@@ -4839,7 +4848,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 from app.rules import trigger_words  # or Vehicle spell", "a noncreature, nonland card")
 
                 m = trigger_words.comma_condition(text, m)
-            if m and trigger == "cast_you" and re.search(r"\bthat spell\b|\bcopy it\b|\bthe amount of mana you spent\b|\bspent to cast it\b|\bits mana value\b|\bthat creature enters with\b", m["body"]):  # (3R3: copy it; wave 16B: increment; 18B: mana spent)
+            if m and trigger == "cast_you" and re.search(r"\bthat spell\b|\bcopy it\b|\bthe amount of mana you spent\b|\bspent to cast it\b|\bits mana value\b|\bthat creature enters with\b", m["body"], re.I):  # (3R3: copy it; wave 16B: increment; 18B: mana spent)
                 continue  # -- sized amounts (wave 3D) -- it reads the spell cast: the generic condition's event carries it
             if m:
                 name = step_trigger(m) if trigger == "step" else (
@@ -6779,6 +6788,16 @@ def _return_owner(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return _from_language(language.parse_return_owner(m.group(0)))
 
 
+@effect(r"return (?P<o>it|that card) to the battlefield under an opponent's control")
+def _return_opponent(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """-- commanders (wave 50C) -- "Exile ~, then return it to the battlefield under an opponent's control." (Zuko, Conflicted; Sol'Kanar the Tainted): its controller
+    chooses the opponent as this resolves (608.2d; with one opponent there is nothing to choose). It is not a target (115.1)."""
+    from app.rules import language
+
+    effects, target = _from_language(language.parse_return_owner(f"return {m['o']} to the battlefield under its owner's control"))
+    return [{"do": "choose_opponent", "as": "copp"}, *({**e, "under": "ref:copp"} for e in effects)], target
+
+
 @effect(r"exile (?P<o>.+?) until ~ leaves the battlefield")
 def _exile_until_any(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
@@ -7260,7 +7279,7 @@ def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
 # was) might not be there: "If you do" would then be false, which this reading can't tell.
 _CERTAIN_WHEN_CHOSEN = frozenset({"draw", "create_token", "choose_value"})  # (wave 31A: "you may choose a color / a creature type": a choice that is always there to make, 118.12)
 _CERTAIN_ON_A_TARGET = frozenset({"exile", "bounce", "gain_control", "pump", "grant"})  # (wave 19E: gain control of a chosen target: it changes hands or the ability fizzles; wave 21C: "you may have target creature get +2/+0 and gain haste until end of turn. If you do, …")
-_PROBED = frozenset({"draw", "exile", "bounce", "add_counters", "put_from_hand", "lose_life", "tap", "sacrifice", "look_top"})  # (their "If you do" reads whether the player started it, 118.12: effects._did; wave 26C: put_from_hand)
+_PROBED = frozenset({"draw", "exile", "bounce", "add_counters", "put_from_hand", "lose_life", "tap", "sacrifice", "look_top", "transform"})  # (their "If you do" reads whether the player started it, 118.12: effects._did; wave 26C: put_from_hand)
 
 
 def _probed_move(e: dict[str, Any]) -> bool:
@@ -7269,7 +7288,7 @@ def _probed_move(e: dict[str, Any]) -> bool:
     false when the card had already left (400.7: there's nothing to exile) — no certainty is needed."""
     if e["do"] == "add_counters":  # -- if you do (wave 15C) -- counters on a chosen object: probed (effects._did_counters_up)
         return isinstance(e.get("who"), str) and isinstance(e.get("n"), int) and e["n"] > 0 and not e.get("optional")
-    if e["do"] == "tap":  # -- if you do (wave 30G) -- "you may tap it. If you do, …": that one permanent, if it is untapped (effects._did_tap)
+    if e["do"] in ("tap", "transform"):  # -- if you do (wave 30G) -- "you may tap it. If you do, …": that one permanent, if it is untapped (effects._did_tap); wave 50C: "you may convert ~. When you do, …" (Ratchet): that permanent, if it turned over (effects._did_transform)
         return e.get("who") in ("self", "it") and not e.get("optional")
     if e["do"] == "lose_life":  # -- if you do (wave 30G) -- "you may have target player lose 3 life. If you do, …": chosen unless their life can't change (effects._did_lose_life)
         return isinstance(e.get("who"), str) and e["who"].startswith("target") and isinstance(e.get("n"), int) and e["n"] > 0 and not e.get("optional")
@@ -7452,7 +7471,7 @@ def _gated_other_rewrite(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # you do, …"): whether the player started that one instruction (118.12; an object gone is "can't", a count other than one is read
 # only if the whole of it could be paid, 118.3), probed as it runs (effects._did_r1, effects._did). The sentence before must be that one instruction (an intervening "if" of a trigger may gate it).
 _DID_MANDATORY = frozenset({"sacrifice", "sacrifice_choice", "edict", "remove_counters", "discard", "exile", "bounce", "add_counters", "tap", "search",
-                            "choose_random"})  # (choose_random: wave 47B, "Choose a player at random. When you do, …")
+                            "choose_random", "gain_control", "transform"})  # (gain_control: wave 50C, Bill Ferny; transform: Ratchet)  # (choose_random: wave 47B, "Choose a player at random. When you do, …")
 
 
 def _if_you_do_after_mandatory(if_do: re.Match[str], effects: list[dict[str, Any]],
@@ -7792,7 +7811,7 @@ def _probe_previous(effects: list[dict[str, Any]], prev_start: int, reflex: bool
         return None
     if base[0]["do"] == "edict" and base[0].get("who") not in ("event_player", "target", "that_player"):
         return None  # -- trigger other (wave 41C) -- one player's edict only (effects._did_r1): "If the player can't, …"
-    if base[0]["do"] == "tap" and base[0].get("who") not in ("self", "it"):
+    if base[0]["do"] in ("tap", "transform") and base[0].get("who") not in ("self", "it"):
         return None  # -- if you do (wave 30G) -- (only the permanent itself: tapping several, or a target that may already be tapped, is not read)
     if base[0]["do"] == "search" and (reflex or base[0].get("who", "you") != "you" or any(base[0].get(k) for k in ("may", "zones", "graveyard", "lib_pid"))):
         return None  # -- if you do (wave 31A) -- 118.12b: "Search your library …. If you do, …" (not a reflexive "When you do") is read for the searcher's own library alone (effects._did_search)
@@ -8441,6 +8460,15 @@ def _copy_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 @effect(r"return that spell to its owner's hand")
 def _return_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "bounce", "who": "event_spell"}], None
+
+
+# -- commanders (wave 50C) -- "Whenever you cast an instant or sorcery spell, … that spell gains deathtouch and lifelink." (Judith, Carnage Connoisseur): the spell a cast
+# trigger is about has the keywords while it is that object on the stack (613.1f, 400.7); the damage it deals as it resolves is dealt by a source with them (702.2b, 702.15b: the
+# ruling of 2024-02-02 - a spell that tells another object to deal the damage deals none itself)
+@_first
+@effect(r"[Tt]hat spell gains (?P<kw>deathtouch and lifelink|lifelink and deathtouch|deathtouch|lifelink)")
+def _spell_gains(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "grant", "who": "event_spell", "keywords": m["kw"].split(" and ")}], None
 
 
 # -- cast riders (wave 47D) -- "Whenever you cast a creature spell with mana value 5 or greater, that creature enters with X additional +1/+1 counters on it, where X is its mana

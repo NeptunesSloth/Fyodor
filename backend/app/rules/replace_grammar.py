@@ -499,6 +499,8 @@ def _recipient(phrase: str | None) -> dict[str, Any] | None:
     if m:
         out["players"] = players[m["p"]]
         phrase = m["o"]
+        if phrase in ("battle", "planeswalker"):  # -- commanders (wave 50C) -- "a player or battle" (Rankle and Torbran): the bare noun after "or"
+            phrase = f"a {phrase}"
     obj = _object(phrase)
     if obj is None:
         return None

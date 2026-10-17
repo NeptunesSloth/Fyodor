@@ -959,7 +959,7 @@ def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effe
             if ev["kind"] == "counters" and ev["n"] > 0 and (
                     barred := prohibitions.cant_counters(plan, ev["card"], ev.get("controller") if ev.get("entering") else None, ev["counter"])):
                 ev["prohibited"] = barred  # -- prohibitions (wave 22B) -- 614.17: no event: nothing replaces or triggers on it
-            elif ev["kind"] == "player_counters" and ev["n"] > 0 and (barred := prohibitions.cant_get_counters(plan)):
+            elif ev["kind"] == "player_counters" and ev["n"] > 0 and (barred := prohibitions.cant_get_counters(plan, ev["player"], ev["counter"])):
                 ev["prohibited"] = barred
             elif ev["n"] > 0 or (ev.get("entering") and extra_kinds):  # (wave 5H: a zero entering event too)
                 planner.settle(ev, {}, out.append)

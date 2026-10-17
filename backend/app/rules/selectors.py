@@ -728,6 +728,12 @@ def _with_kw_any(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"any_kw:{m['a']},{m['b']}"))  # either keyword
 
 
+# -- commanders (wave 50C) -- "creature you control with flying, deathtouch, and/or lifelink" (Henrika Domnathi): any of the keywords listed
+@_suffix(r"with (?P<list>(?:(?:" + "|".join(_WITH_KEYWORDS) + r"), )+(?:and/or|or) (?:" + "|".join(_WITH_KEYWORDS) + r"))")
+def _with_kw_list(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "any_kw:" + ",".join(re.split(r", (?:and/or |or )?|, ", m["list"]))))
+
+
 @_suffix(r"(?:with|that has) (?P<kw>" + "|".join(_WITH_KEYWORDS) + r")")  # (wave 15B: "a spell that has convoke")
 def _with_kw(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, with_keywords=(*s.with_keywords, m["kw"]))
