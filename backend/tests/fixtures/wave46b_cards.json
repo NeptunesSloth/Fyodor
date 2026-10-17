@@ -691,5 +691,82 @@
   "keywords": [],
   "power": "1",
   "toughness": "1"
+ },
+ {
+  "name": "Thunderfoot Baloth",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Creature — Beast",
+  "oracle_text": "Trample\nLieutenant — As long as you control your commander, this creature gets +2/+2 and other creatures you control get +2/+2 and have trample.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Trample",
+   "Lieutenant"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Angelic Field Marshal",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{W}",
+  "cmc": 4.0,
+  "type_line": "Creature — Angel",
+  "oracle_text": "Flying\nLieutenant — As long as you control your commander, this creature gets +2/+2 and creatures you control have vigilance.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Lieutenant"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Stone-Tongue Basilisk",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}{G}",
+  "cmc": 7.0,
+  "type_line": "Creature — Basilisk",
+  "oracle_text": "Whenever this creature deals combat damage to a creature, destroy that creature at end of combat.\nThreshold — As long as there are seven or more cards in your graveyard, all creatures able to block this creature do so.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Threshold"
+  ],
+  "power": "4",
+  "toughness": "5"
+ },
+ {
+  "name": "Seton's Desire",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets +2/+2.\nThreshold — As long as there are seven or more cards in your graveyard, all creatures able to block enchanted creature do so.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Enchant",
+   "Threshold"
+  ]
  }
 ]

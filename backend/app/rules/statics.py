@@ -207,8 +207,9 @@ def parse(text: str) -> Definition | None:
         return _definition("self", None, [], rules=[f"cant_be_blocked_by_power:{m['dir']}"])
     # -- lure (wave 12B) -- "All creatures able to block ~ do so." / "…, and all creatures able to block it do so." (Lure,
     # Nemesis Mask): every creature able to block it must (509.1c) — the rule "lure" on the attacker
-    body = re.sub(r"^All (?P<w>[A-Za-z ]+?) able to block (?P<o>~|this creature|enchanted creature|equipped creature) do so$",
-                  lambda m: f"{'~' if m['o'] in ('~', 'this creature') else m['o'].capitalize()} must be blocked by all {m['w']} able",
+    # (-- ability words (wave 46B) -- also after a condition: "Threshold — As long as there are seven or more cards in your graveyard, all creatures able to block this creature do so.")
+    body = re.sub(r"^(?P<c>As long as [^,]+, )?[Aa]ll (?P<w>[A-Za-z ]+?) able to block (?P<o>~|this creature|enchanted creature|equipped creature) do so$",
+                  lambda m: f"{m['c'] or ''}{'~' if m['o'] in ('~', 'this creature') else m['o'].capitalize()} must be blocked by all {m['w']} able",
                   body)
     body = re.sub(r"(?P<sep>, and| and|,) all creatures able to block it do so$", r"\g<sep> must be blocked by all creatures able", body)
     # -- counters (wave 44C) -- 510.1a: "If Loot's power is negative, he assigns combat damage as though his power were positive." (Loot, the Anomaly)
