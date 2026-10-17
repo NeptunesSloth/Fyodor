@@ -1137,6 +1137,11 @@ def _object_event(c: str) -> Condition | None:
                 **({"during": "you"} if m["d"] else {})}  # (``other``: the Vehicle or Mount, for "that Mount or Vehicle")
     if c == "~ becomes crewed":
         return {"event": "crewed", "subject": "self"}
+    # -- saga events (wave 45C) -- 714.2d: "Whenever the final chapter ability of a Saga you control resolves / triggers" (Tom Bombadil, Narci,
+    # Historian's Boon): the Saga's greatest-numbered chapter ability (rules/sagas.py emits it)
+    m = re.fullmatch(r"the final chapter ability of (?P<s>an? .+?) (?P<w>resolves|triggers)", c)
+    if m and (base := _subject(m["s"])) is not None and base["subject"] == "sel" and "Saga" in m["s"]:
+        return {**base, "event": "final_chapter", "when": m["w"]}
     # -- attachment events (wave 30S) -- 603.2e, 701.3: "Whenever this Equipment becomes attached to a creature" (Enormous Energy Blade),
     # "Whenever an Aura you control becomes attached to a creature you control" (Siona), "Whenever an Aura becomes attached to this
     # creature" (Brood Keeper: ``to`` self); 701.3d, 603.10c: "Whenever this Equipment becomes unattached from a permanent" (Grafted

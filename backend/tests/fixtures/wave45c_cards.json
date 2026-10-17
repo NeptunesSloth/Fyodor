@@ -140,5 +140,98 @@
     "oracle_text": "Target player sacrifices two attacking creatures of their choice."
    }
   ]
+ },
+ {
+  "name": "Narci, Fable Singer",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{B}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Bard",
+  "oracle_text": "Lifelink\nWhenever you sacrifice an enchantment, draw a card.\nWhenever the final chapter ability of a Saga you control resolves, each opponent loses X life and you gain X life, where X is that Saga's mana value.",
+  "colors": [
+   "B",
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Lifelink"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Tom Bombadil",
+  "layout": "normal",
+  "mana_cost": "{W}{U}{B}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — God Bard",
+  "oracle_text": "As long as there are four or more lore counters among Sagas you control, Tom Bombadil has hexproof and indestructible.\nWhenever the final chapter ability of a Saga you control resolves, reveal cards from the top of your library until you reveal a Saga card. Put that card onto the battlefield and the rest on the bottom of your library in a random order. This ability triggers only once each turn.",
+  "colors": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Historian's Boon",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever this enchantment or another nontoken enchantment you control enters, create a 1/1 white Soldier creature token.\nWhenever the final chapter ability of a Saga you control triggers, create a 4/4 white Angel creature token with flying and vigilance.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Founding of Omashu",
+  "layout": "saga",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Create two 1/1 white Ally creature tokens.\nII — You may discard a card. If you do, draw a card.\nIII — Creatures you control get +1/+0 until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Origin of Black Widow",
+  "layout": "saga",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Each opponent sacrifices a creature of their choice.\nII — Creatures you control gain deathtouch until end of turn.\nIII — Each opponent loses 1 life for each creature card in their graveyard.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
  }
 ]

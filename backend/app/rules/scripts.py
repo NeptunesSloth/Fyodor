@@ -445,6 +445,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
     if name == "state":
         return "self"  # -- state triggers (wave 19C) -- "When ~ has no ice counters on it, sacrifice it": the permanent itself (603.8)
     subject = cond.get("subject")
+    if event == "final_chapter":
+        return "event"  # -- saga events (wave 45C) -- Narci: "that Saga's mana value" ("that permanent"): the Saga whose final chapter ability it is
     if subject == "player" and event == "cast":
         return "event_spell"  # -- sized amounts (wave 3D) -- "that spell's mana value": read from the spell, never "it"
     if subject == "player" and event == "sacrifice" and cond.get("obj") and not cond.get("aggregate"):

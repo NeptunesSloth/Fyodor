@@ -3472,12 +3472,18 @@ def finish(plan: Plan, ctx: Context, *, countered: bool = False) -> None:
     stack = plan.state.zones.get("stack", [])
     if countered:  # -- spell copies (wave 31D) -- a spell with no legal target leaves the stack: a copy of it can still be made (608.2h)
         remember_stack(plan.state, stack_id)
-    plan.rules.stack.pop(stack_id, None)
+    entry = plan.rules.stack.pop(stack_id, None)
     plan.rules.answers_903_9b = {}  # (answers for moves that didn't happen after all)
     if stack_id in stack:
         from app.rules.engine import leave_stack  # engine imports this module
 
         leave_stack(plan, stack_id, ctx["controller"], countered=countered)
+    if not countered and entry is not None and entry.event is not None and entry.event.kind == "chapter" and entry.copy_of is None:
+        from app.rules import (
+            sagas,  # -- saga events (wave 45C) -- 714.2d: a final chapter ability finished resolving (and left the stack)
+        )
+
+        sagas.chapter_event(plan, entry.event, "resolves")
     _after_resolution(plan)
 
 
