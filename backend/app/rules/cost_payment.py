@@ -318,7 +318,9 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, cost: 
             found = _choose_power(plan, a, i, comp, cost, card, what, given.get(i), used)
         elif comp.kind == C.CRAFT:  # -- casting extras (wave 18E) -- the materials: one choice of at least ``amount`` objects
             found = _choose_craft(plan, a, i, comp, cost, card, what, given.get(i), used)
-        if comp.kind in (C.WATERBEND, "TAP_POWER", C.CRAFT):
+        elif comp.reduces:  # -- cost reductions paid with objects (wave 47C) -- any number, none too
+            found = _choose_any(plan, a, i, comp, cost, card, what, given.get(i), used)
+        if comp.kind in (C.WATERBEND, "TAP_POWER", C.CRAFT) or comp.reduces:
             if found is None:
                 return None
             out[i] = found
@@ -382,6 +384,34 @@ def _choose_waterbend(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFac
                    "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},
            source=card)
     return None
+
+
+def _choose_any(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, i: int, comp: CostComponent, cost: AbilityCost, card: CardInstance,
+                what: str, given: list[str] | None, used: set[str]) -> list[str] | None:
+    """-- cost reductions paid with objects (wave 47C) -- "you may sacrifice any number of creatures. This spell costs {2} less to cast for each" (601.2b): the payer picks
+    any number of the objects, none too; the cost is worked out from the pick (``reduction``, 601.2f) and paid with the rest (601.2h). Cards of the hand are asked
+    about even when there are none, so that skipping the question doesn't tell the others what the hand holds."""
+    usable = [c for c in candidates(plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card) and c not in used]
+    if given is not None:
+        if len(set(given)) != len(given) or any(c not in usable for c in given):
+            raise ActionError(f"Choose from what can pay “{comp.text}”")
+        used |= set(given)
+        return list(given)
+    if not usable and comp.kind != "EXILE_FROM_HAND":
+        return []
+    decide(plan, player=plan.actor, kind="choose_cards",
+           prompt=f"{what}: choose any number to {_VERBS.get(comp.kind, 'use')} (“{comp.text}”), each taking {{{comp.reduces}}} off the cost, or none",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in usable],
+           min_choices=0, max_choices=len(usable),
+           resume={"step": "ability_cost", "component": i, "amount": None, "empty_ok": True,
+                   "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},
+           source=card)
+    return None
+
+
+def reduction(cost: AbilityCost, chosen: dict[int, list[str]]) -> int:
+    """-- cost reductions paid with objects (wave 47C) -- 601.2f: the generic mana the objects chosen for the parts that reduce the total cost take off it."""
+    return sum(c.reduces * len(chosen.get(i, [])) for i, c in enumerate(cost.components))
 
 
 def _choose_power(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, i: int, comp: CostComponent, cost: AbilityCost, card: CardInstance,

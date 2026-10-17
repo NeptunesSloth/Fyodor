@@ -1,0 +1,335 @@
+[
+ {
+  "name": "Torgaar, Famine Incarnate",
+  "layout": "normal",
+  "mana_cost": "{6}{B}{B}",
+  "cmc": 8.0,
+  "type_line": "Legendary Creature — Avatar",
+  "oracle_text": "As an additional cost to cast this spell, you may sacrifice any number of creatures. This spell costs {2} less to cast for each creature sacrificed this way.\nWhen Torgaar enters, up to one target player's life total becomes half their starting life total, rounded down.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "7",
+  "toughness": "6"
+ },
+ {
+  "name": "Gorex, the Tombshell",
+  "layout": "normal",
+  "mana_cost": "{6}{B}{B}",
+  "cmc": 8.0,
+  "type_line": "Legendary Creature — Zombie Turtle",
+  "oracle_text": "As an additional cost to cast this spell, you may exile any number of creature cards from your graveyard. This spell costs {2} less to cast for each card exiled this way.\nDeathtouch\nWhenever Gorex attacks or dies, choose a card at random exiled with Gorex and put that card into its owner's hand.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Deathtouch"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Explosive Singularity",
+  "layout": "normal",
+  "mana_cost": "{8}{R}{R}",
+  "cmc": 10.0,
+  "type_line": "Sorcery",
+  "oracle_text": "As an additional cost to cast this spell, you may tap any number of untapped creatures you control. This spell costs {1} less to cast for each creature tapped this way.\nExplosive Singularity deals 10 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "March of Wretched Sorrow",
+  "layout": "normal",
+  "mana_cost": "{X}{B}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "As an additional cost to cast this spell, you may exile any number of black cards from your hand. This spell costs {2} less to cast for each card exiled this way.\nMarch of Wretched Sorrow deals X damage to target creature or planeswalker and you gain X life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "March of Swirling Mist",
+  "layout": "normal",
+  "mana_cost": "{X}{U}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "As an additional cost to cast this spell, you may exile any number of blue cards from your hand. This spell costs {2} less to cast for each card exiled this way.\nUp to X target creatures phase out. (While they're phased out, they're treated as though they don't exist. Each one phases in before its controller untaps during their next untap step.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "March of Otherworldly Light",
+  "layout": "normal",
+  "mana_cost": "{X}{W}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "As an additional cost to cast this spell, you may exile any number of white cards from your hand. This spell costs {2} less to cast for each card exiled this way.\nExile target artifact, creature, or enchantment with mana value X or less.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "March of Reckless Joy",
+  "layout": "normal",
+  "mana_cost": "{X}{R}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "As an additional cost to cast this spell, you may exile any number of red cards from your hand. This spell costs {2} less to cast for each card exiled this way.\nExile the top X cards of your library. You may play up to two of those cards until the end of your next turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "March of Burgeoning Life",
+  "layout": "normal",
+  "mana_cost": "{X}{G}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "As an additional cost to cast this spell, you may exile any number of green cards from your hand. This spell costs {2} less to cast for each card exiled this way.\nChoose target creature with mana value less than X. Search your library for a creature card with the same name as that creature, put it onto the battlefield tapped, then shuffle.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Dargo, the Shipwrecker",
+  "layout": "normal",
+  "mana_cost": "{6}{R}",
+  "cmc": 7.0,
+  "type_line": "Legendary Creature — Giant Pirate",
+  "oracle_text": "As an additional cost to cast this spell, you may sacrifice any number of artifacts and/or creatures. This spell costs {2} less to cast for each permanent sacrificed this way and {2} less to cast for each other artifact or creature you've sacrificed this turn.\nTrample\nPartner (You can have two commanders if both have partner.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Partner",
+   "Trample"
+  ],
+  "power": "7",
+  "toughness": "5"
+ },
+ {
+  "name": "Hierophant Bio-Titan",
+  "layout": "normal",
+  "mana_cost": "{10}{G}{G}",
+  "cmc": 12.0,
+  "type_line": "Creature — Tyranid",
+  "oracle_text": "Frenzied Metabolism — As an additional cost to cast this spell, you may remove any number of +1/+1 counters from among creatures you control. This spell costs {2} less to cast for each counter removed this way.\nReach, vigilance, ward {2}\nTitanic — This creature can't be blocked by creatures with power 2 or less.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Reach",
+   "Vigilance",
+   "Ward",
+   "Titanic",
+   "Frenzied Metabolism"
+  ],
+  "power": "12",
+  "toughness": "12"
+ },
+ {
+  "name": "Rottenmouth Viper",
+  "layout": "normal",
+  "mana_cost": "{5}{B}",
+  "cmc": 6.0,
+  "type_line": "Creature — Elemental Snake",
+  "oracle_text": "As an additional cost to cast this spell, you may sacrifice any number of nonland permanents. This spell costs {1} less to cast for each permanent sacrificed this way.\nWhenever this creature enters or attacks, put a blight counter on it. Then for each blight counter on it, each opponent loses 4 life unless that player sacrifices a nonland permanent of their choice or discards a card.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Extus, Oriq Overlord // Awaken the Blood Avatar",
+  "layout": "modal_dfc",
+  "mana_cost": "{1}{W}{B}{B} // {6}{B}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Warlock // Sorcery",
+  "oracle_text": "Double strike\nMagecraft — Whenever you cast or copy an instant or sorcery spell, return target nonlegendary creature card from your graveyard to your hand.\n//\nAs an additional cost to cast this spell, you may sacrifice any number of creatures. This spell costs {2} less to cast for each creature sacrificed this way.\nEach opponent sacrifices a creature of their choice. Create a 3/6 black and red Avatar creature token with haste and \"Whenever this token attacks, it deals 3 damage to each opponent.\"",
+  "colors": [
+   "B",
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Magecraft",
+   "Double strike"
+  ],
+  "power": "2",
+  "toughness": "4",
+  "card_faces": [
+   {
+    "name": "Extus, Oriq Overlord",
+    "mana_cost": "{1}{W}{B}{B}",
+    "type_line": "Legendary Creature — Human Warlock",
+    "oracle_text": "Double strike\nMagecraft — Whenever you cast or copy an instant or sorcery spell, return target nonlegendary creature card from your graveyard to your hand.",
+    "power": "2",
+    "toughness": "4",
+    "colors": [
+     "B",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/7/8/786156ce-544c-4aa4-8381-756042d0bcda.jpg?1783927246",
+     "normal": "https://cards.scryfall.io/normal/front/7/8/786156ce-544c-4aa4-8381-756042d0bcda.jpg?1783927246",
+     "large": "https://cards.scryfall.io/large/front/7/8/786156ce-544c-4aa4-8381-756042d0bcda.jpg?1783927246",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/7/8/786156ce-544c-4aa4-8381-756042d0bcda.jpg?1783927246"
+    }
+   },
+   {
+    "name": "Awaken the Blood Avatar",
+    "mana_cost": "{6}{B}{R}",
+    "type_line": "Sorcery",
+    "oracle_text": "As an additional cost to cast this spell, you may sacrifice any number of creatures. This spell costs {2} less to cast for each creature sacrificed this way.\nEach opponent sacrifices a creature of their choice. Create a 3/6 black and red Avatar creature token with haste and \"Whenever this token attacks, it deals 3 damage to each opponent.\"",
+    "colors": [
+     "B",
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/7/8/786156ce-544c-4aa4-8381-756042d0bcda.jpg?1783927246",
+     "normal": "https://cards.scryfall.io/normal/back/7/8/786156ce-544c-4aa4-8381-756042d0bcda.jpg?1783927246",
+     "large": "https://cards.scryfall.io/large/back/7/8/786156ce-544c-4aa4-8381-756042d0bcda.jpg?1783927246",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/7/8/786156ce-544c-4aa4-8381-756042d0bcda.jpg?1783927246"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Hill Giant",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Giant",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Goblin Piker",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Goblin Warrior",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Gray Ogre",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Ogre",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Savannah Lions",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Creature — Cat",
+  "oracle_text": "",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Wall of Omens",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Wall",
+  "oracle_text": "Defender\nWhen this creature enters, draw a card.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Defender"
+  ],
+  "power": "0",
+  "toughness": "4"
+ }
+]

@@ -2233,10 +2233,13 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
         if offer.kind and cost_payment.problem(permissions._view(state, player, info),
                                                costs.AbilityCost(components=(cost_changes.keyword_component(offer),)), card, player):
             continue  # (-- static_other sweep (wave 17C) -- conspire / teamwork: the creatures to tap aren't there)
-        try:
+        part = cost_changes.keyword_component(offer) if offer.kind == "reduce" else None  # -- cost reductions paid with objects (wave 47C) -- the most the objects it can take
+        try:  # off (601.2f; the hint goes to its player alone, who knows their own hand)
             cost = cost_changes.reduce_only(spell_cost(state, card, ch, info=info, player=player,
                                                        free=grant is not None and grant.free,
-                                                       alternative=M.parse_cost(grant.alt_mana) if grant is not None and grant.alt_mana else None),
+                                                       alternative=M.parse_cost(grant.alt_mana) if grant is not None and grant.alt_mana else None,
+                                                       reduce=part.reduces * len(cost_payment.candidates(permissions._view(state, player, info), part, player, card))
+                                                       if part is not None else 0),
                                             (offer.mana,))
         except ActionError:
             continue
@@ -2598,7 +2601,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     # changers read the targets chosen (wave 4I)
     cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info, player=plan.actor, alternative=alternative,
                       free=free, kicker=a.kicker, additional=tuple(additional), face_down=a.face_down, targets=tuple(t.id for t in chosen),
-                      reduce=emerge_reduction)
+                      reduce=emerge_reduction + (cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0))  # (wave 47C: "you may sacrifice any number of …")
     cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional if o.mana))  # ("reduces only the amount of green mana")
     cost = M.spend_as(cost, grant.spend) if grant is not None and grant.spend else cost  # -- as long as (wave 9B) -- 118.14
     helper, helper_pays = None, 0  # -- casting extras (wave 18E) -- 702.132a assist: another player pays some generic mana (601.2g-h)
@@ -3532,7 +3535,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     cost = spell_cost(plan.state, card, ch, 0 if paid else (a.x_value or 0), plan.info, player=plan.actor, free=alt is None,
                       alternative=M.parse_cost(alt) if alt is not None else None, kicker=a.kicker,
                       targets=tuple(t.id for t in chosen),  # (wave 4I: "spells that target …")
-                      additional=(*((M.parse_cost(either.mana),) if either is not None and either.mana else ()), *mode_costs))  # (wave 6E)
+                      additional=(*((M.parse_cost(either.mana),) if either is not None and either.mana else ()), *mode_costs),  # (wave 6E)
+                      reduce=cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0)  # (wave 47C: 118.9d, 601.2f)
     cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional if o.mana))  # (wave 41D, as the cast with its cost)
     cost = _locked(plan, cost)  # (wave 4I: 601.2f)
     if paid and pending is not None and pending["e"].get("spend"):  # -- cast-permission riders (wave 38C) -- 118.14: "…, and mana of any type can be spent to cast that spell" (Quistis)

@@ -111,6 +111,7 @@ class CostComponent:
     up_to: bool = False  # -- casting extras (wave 18E) -- "up to N" (harmonize 702.180a: "tapping up to one untapped creature"): none is a choice
     every: bool = False  # -- activated sweep (wave 26C) -- "Remove all oil counters from ~": X is every such counter there is, set as it's activated
     among: bool = False  # -- activated sweep (wave 26C) -- "Remove two +1/+1 counters from among creatures you control": any permanents, one pick per counter
+    reduces: int = 0  # -- cost reductions paid with objects (wave 47C) -- "you may sacrifice any number of creatures. This spell costs {2} less for each": any number, none too; each takes this much generic off the total cost
 
     @property
     def chosen(self) -> bool:
@@ -653,6 +654,23 @@ def _extra_part(part: str) -> CostComponent | None:
                               or (found.kind == EXILE and found.selector is not None and not found.x)):
         return found
     return None
+
+
+# -- cost reductions paid with objects (wave 47C) -- 601.2b, 601.2f: "you may sacrifice any number of creatures" / "exile any number of blue cards from your hand" / "tap any
+# number of untapped creatures you control": the part is paid with the rest (601.2h) and each object chosen takes ``per`` generic mana off the total cost
+_ANY_NUMBER = re.compile(r"^(?P<verb>sacrifice|exile|tap) any number of (?P<what>.+?)(?: from your (?P<zone>hand|graveyard))?$", re.IGNORECASE)
+
+
+def any_number_part(text: str, per: int) -> CostComponent | None:
+    m = _ANY_NUMBER.match(text.strip())
+    if m is None or per <= 0:
+        return None
+    verb, zone = m["verb"].lower(), (m["zone"] or "battlefield").lower()
+    if (verb == "exile") == (zone == "battlefield"):
+        return None  # (sacrifice and tap are of permanents; exile is of the hand or the graveyard)
+    key = _selector(m["what"].replace(" and/or ", " or ") + (" from your graveyard" if zone == "graveyard" else ""), zone=zone)
+    kind = {"sacrifice": SACRIFICE, "tap": TAP_OTHER}.get(verb) or (EXILE_FROM_GRAVEYARD if zone == "graveyard" else "EXILE_FROM_HAND")
+    return CostComponent(kind, amount=0, selector=key, up_to=True, reduces=per, text=text[:1].upper() + text[1:]) if key else None
 
 
 def additional_cost_text(line: str) -> str | None:

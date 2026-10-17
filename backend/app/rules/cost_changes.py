@@ -596,9 +596,23 @@ def own_cost(text: str) -> Any:
     return parsed.components[0] if parsed is not None and not parsed.unsupported and len(parsed.components) == 1 else None
 
 
+# -- cost reductions paid with objects (wave 47C) -- 601.2b: "As an additional cost to cast this spell, you may sacrifice any number of creatures. This spell costs {2} less to cast
+# for each creature sacrificed this way." (Torgaar), the March cycle ("exile any number of blue cards from your hand"), Gorex, Explosive Singularity: announced with the other
+# additional costs, the objects chosen as the total cost is determined (601.2f: each takes N generic off, never below {0}, 118.7a) and paid with the rest (601.2h)
+ANY_COST = re.compile(r"^as an additional cost to cast this spell, you may (?P<cost>(?:sacrifice|exile|tap) any number of [^.]+)\. this spell costs \{(?P<n>\d+)\} less to cast "
+                      r"for each (?P<noun>card|creature|permanent) (?:sacrificed|exiled|tapped) this way$", re.IGNORECASE)
+
+
 def optional_definition(t: str) -> dict[str, Any] | None:
     from app.rules.permissions import spell_filter
 
+    if (any_cost := ANY_COST.fullmatch(t)) is not None:
+        from app.rules import costs as C
+
+        if C.any_number_part(any_cost["cost"], int(any_cost["n"])) is None:
+            return None
+        text = any_cost["cost"][0].upper() + any_cost["cost"][1:]
+        return {"kind": "static", "static": "own_optional", "optional": "reduce", "cost": text, "n": int(any_cost["n"]), "effects": []}
     if (own := OWN_OPTIONAL.fullmatch(t)) is not None:
         text = own["cost"][0].upper() + own["cost"][1:]
         parsed = own_cost(text)
@@ -642,6 +656,8 @@ def keyword_component(o: Optional) -> Any:
         return C.CostComponent(C.SACRIFICE, amount=1, selector=Selector(either=either).key(), text="Sacrifice an artifact, enchantment, or token")
     if o.kind in ("evidence", "behold"):  # -- casting costs (wave 22F) --
         return own_cost(o.text)
+    if o.kind == "reduce":  # -- cost reductions paid with objects (wave 47C) --
+        return C.any_number_part(o.text, o.n)
     if o.kind == "casualty":  # -- casting extras (wave 18E) -- 702.153a: "you may sacrifice a creature with power N or greater"
         key = C._selector(f"creature you control with power {o.n} or greater", zone="battlefield")
         return C.CostComponent(C.SACRIFICE, amount=1, selector=key, text=f"Sacrifice a creature with power {o.n} or greater")
@@ -691,7 +707,8 @@ def optional_offers(state: GameState, player: str, card: CardInstance, ch: Chara
         out.append(Optional(f"{card.id}:gift", "Gift: promise an opponent a gift", 0, "", "gift"))
     for d in permissions._definitions(ch).values():  # -- casting costs (wave 22F) -- collect evidence / behold on the spell itself
         if d.get("static") == "own_optional":
-            out.append(Optional(f"{card.id}:{d['optional']}", f"{d['cost']} (additional cost)", 0, "", d["optional"], text=d["cost"]))
+            label = f"This spell costs {{{d['n']}}} less for each: {d['cost'][0].lower() + d['cost'][1:]}" if d["optional"] == "reduce" else f"{d['cost']} (additional cost)"
+            out.append(Optional(f"{card.id}:{d['optional']}", label, 0, "", d["optional"], d.get("n", 0), d["cost"]))
     return out
 
 
