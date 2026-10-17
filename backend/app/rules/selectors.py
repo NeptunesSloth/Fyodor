@@ -324,6 +324,11 @@ def _drawn_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "drawn_this_turn"))
 
 
+@_suffix(r"with one or more (?P<c>white|blue|black|red|green) mana symbols? in its mana cost")  # -- trigger other (wave 44B) -- Namor the Sub-Mariner: 202.1, 107.4e
+def _with_color_symbols(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "cost_symbol:" + COLORS[m["c"]]))
+
+
 @_suffix(r"with a legendary Equipment attached to it")  # -- trigger other (wave 44B) -- Kassandra, Eagle Bearer: 301.5, an Equipment attached to it that is legendary
 def _with_legendary_equipment(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "legendary_equipped"))
@@ -1783,6 +1788,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "equipped" and not _has_attached(plan, card, "Equipment"):
             return False
+        if extra.startswith("cost_symbol:") and extra[12:] not in {x for sym in re.findall(r"\{([^}]+)\}", ch.mana_cost or "") for x in sym.split("/")}:
+            return False  # (wave 44B)
         if extra == "legendary_equipped" and not any(c.attached_to == card.id and "Equipment" in plan.ch(c).subtypes and "Legendary" in plan.ch(c).supertypes
                                                      for c in plan.state.cards.values()):
             return False  # (wave 44B)

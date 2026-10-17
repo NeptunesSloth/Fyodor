@@ -320,6 +320,9 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"life": "target"}
     if what in ("the highest life total among your opponents", "the greatest life total among your opponents"):
         return {"life": "opponent_max"}
+    m = re.fullmatch(r"(?:the number of )?(?P<c>white|blue|black|red|green) mana symbols? in that spell's mana cost", what)
+    if m:  # -- trigger other (wave 44B) -- Namor the Sub-Mariner: the symbols of that color in the mana cost of the spell a cast trigger is about (202.1, 107.4e hybrid counts for each color)
+        return {"cast_symbols": _COLOR_WORDS[m["c"]]}
     m = re.fullmatch(r"(?P<c>white|blue|black|red|green) mana symbols? (?:in|among) the mana costs? of permanents you control", what)
     if m:  # -- value grammar (wave 23C) -- 700.5: that IS devotion (chroma)
         return {"devotion": [_COLOR_WORDS[m["c"]]]}
@@ -693,6 +696,13 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         where = ctx.get("source_card") if not sel.other and any(x.startswith(("samename_src", "nosamename_src", "samename_exiled_with")) for x in sel.extras) \
             else _other_than(ctx)
         return sum(1 for c in selectors.candidates(plan, sel, you, where) if c not in away)
+    if "cast_symbols" in v:  # -- trigger other (wave 44B) -- the spell the trigger is about, on the stack (a cast trigger resolves with it still there or as it was)
+        from app.rules import context
+
+        refs = context._object_refs(ctx, context.EVENT)
+        card = plan.state.cards.get(refs[0].card) if refs else None
+        cost = plan.ch(card).mana_cost if card is not None else ""
+        return sum(1 for sym in re.findall(r"\{([^}]+)\}", cost or "") if v["cast_symbols"] in sym.split("/"))
     if "cast_types" in v:  # -- trigger other (wave 44B) -- 205.2a: the different card types among the spells you cast this turn (a spell of two types counts both)
         from app.rules import history
 

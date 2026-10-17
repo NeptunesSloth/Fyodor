@@ -34,7 +34,8 @@ COMMANDERS = ["Zagras, Thief of Heartbeats", "Merry, Esquire of Rohan", "Kazuul,
               "Amalia Benavides Aguirre", "Jenson Carthalion, Druid Exile", "Michelangelo, Improviser", "Danitha, Sword of Hope", "Rose Noble",
               "Tameshi, Reality Architect", "The Beast, Deathless Prince", "Ultron the Annihilator", "Kolodin, Triumph Caster",
               "Mirko Vosk, Mind Drinker", "Gornog, the Red Reaper", "Whirlwind, Killer Cyclone", "Vraska, the Cutting Glare", "Splinter, Aging Champion",
-              "April O'Neil, Hacktivist", "Daredevil, Man Without Fear", "Shizuko, Caller of Autumn", "Kassandra, Eagle Bearer"]
+              "April O'Neil, Hacktivist", "Daredevil, Man Without Fear", "Shizuko, Caller of Autumn", "Kassandra, Eagle Bearer", "Kynaios and Tiro of Meletis",
+              "Namor the Sub-Mariner"]
 
 
 @pytest.fixture()
@@ -641,4 +642,54 @@ def test_kassandra_draws_when_a_creature_with_a_legendary_equipment_deals_combat
         else:
             break
     assert before - library(s, "p1") == draws
+    check(s)
+
+
+# -- Kynaios and Tiro of Meletis ---------------------------------------------------------------------------------------------------------------------
+def test_kynaios_and_tiro_opponents_who_put_no_land_draw_a_card(cards):
+    """Kynaios and Tiro: "At the beginning of your end step, draw a card. Each player may put a land card from their hand onto the battlefield, then each
+    opponent who didn't draws a card." Alice and Bob put a land, Carol (none in hand) doesn't: only Carol draws (and Alice's own draw)."""
+    s = table(cards, ["Kynaios and Tiro of Meletis"], [], players=3)
+    put(s, "Kynaios and Tiro of Meletis")
+    for pid, land in (("p1", "Forest"), ("p2", "Island")):
+        act(s, pid, type="move", card_ids=[next(c.id for c in s.state.cards.values() if c.name == land and c.owner == pid and c.zone == f"{pid}:library")],
+            to={"zone": "hand"})
+    before = {p: library(s, p) for p in ("p1", "p2", "p3")}
+    asked = []
+    for _ in range(60):
+        d = s.state.rules.decision
+        if s.state.turn.number > 1:
+            break
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None and d.kind == "choose_cards":
+            asked.append(d.player)
+            hand_lands = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=hand_lands[:1] if d.player in ("p1", "p2") else [])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert sorted(asked) == ["p1", "p2", "p3"]
+    assert {p: before[p] - library(s, p) for p in ("p1", "p2", "p3")} == {"p1": 1, "p2": 0, "p3": 1}
+    on_field = {p: sum(1 for c in s.state.cards.values() if c.zone == f"{p}:battlefield" and c.name in ("Forest", "Island", "Swamp")) for p in ("p1", "p2", "p3")}
+    assert on_field == {"p1": 1, "p2": 1, "p3": 0}
+    check(s)
+
+
+# -- Namor the Sub-Mariner ---------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize(("spell", "extra", "tokens"), [("Mental Note", {}, 1), ("Mind Spring", {"x_value": 1}, 2), ("Lightning Bolt", {"targets": ["p2"]}, 0)])
+def test_namor_makes_a_merfolk_for_each_blue_mana_symbol_in_the_cost_of_a_noncreature_spell(cards, spell, extra, tokens):
+    """Namor: "Whenever you cast a noncreature spell with one or more blue mana symbols in its mana cost, create that many 1/1 blue Merfolk creature tokens."
+    {U} is one, {X}{U}{U} two, and a red spell with none doesn't trigger."""
+    s = table(cards, ["Namor the Sub-Mariner", "Mental Note", "Mind Spring", "Lightning Bolt"])
+    put(s, "Namor the Sub-Mariner")
+    c = card_named(s, spell)
+    act(s, "p1", type="move", card_ids=[c.id], to={"zone": "hand"})
+    mana(s, "p1", U=3, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, **extra)
+    settle(s)
+    assert sum(1 for x in s.state.cards.values() if x.name == "Merfolk" and x.is_token and x.zone == "p1:battlefield") == tokens
     check(s)

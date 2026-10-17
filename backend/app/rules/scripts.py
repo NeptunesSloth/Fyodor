@@ -337,6 +337,9 @@ def self_text(text: str, name: str) -> str:
     # target opponent each draw"; "destroy target permanent an opponent controls. They create a Treasure token." (Vraska): "they" is the player who controlled it
     out = re.sub(r"\byou and another target player each draw a card\b", "you and target opponent each draw a card", out)
     out = re.sub(r"(destroy target permanent an opponent controls\.) They create a Treasure token\.", r"\1 Its controller creates a Treasure token.", out)
+    # -- trigger other (wave 44B) -- Namor the Sub-Mariner: "that many" is the number of those mana symbols in the cast spell's mana cost
+    out = re.sub(r"(with one or more (\w+) mana symbols in its mana cost, create) that many ([^.]+? tokens)\.",
+                 r"\1 X \3, where X is the number of \2 mana symbols in that spell's mana cost.", out)
     # -- trigger other (wave 44B) -- Daredevil: the permission to play the exiled card doesn't depend on the "If that card is a Hero card, ~ gets +2/+1" before it, and
     # the permission reads no condition, so the pump goes last (608.2c: the card is still the exiled one)
     out = re.sub(r"(If that card is an? \w+ card, ~ gets [^.]+\.) (You may play that card this turn\.)", r"\2 \1", out)
@@ -8179,6 +8182,11 @@ _CHOSEN["copy_cards"] = "n"
 # -- if you do (wave 5G) -- "Whenever a player casts a spell, if no mana was spent to cast it, counter that spell."
 # (Vexing Bauble, Boromir): the trigger event's spell (701.6a), while it is still that object on the stack (400.7;
 # effects.counter); only in a cast trigger (``_event_spell_ok``).
+@effect(r"each opponent who didn't draws a card")  # -- trigger other (wave 44B) -- Kynaios and Tiro of Meletis: after "Each player may put a land card from their hand onto the battlefield"
+def _opponents_who_didnt_draw(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "draw", "who": "put_none_opponents", "n": 1}], None
+
+
 @effect(r"it becomes saddled until end of turn")  # -- trigger other (wave 44B) -- Kolodin: the Mount that entered (702.171b)
 def _it_becomes_saddled(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "saddle_it", "who": "it"}], None

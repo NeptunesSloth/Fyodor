@@ -93,6 +93,8 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return list(plan.live())
     if who == "each_opponent":
         return [p for p in plan.live() if p != me]
+    if who == "put_none_opponents":  # -- trigger other (wave 44B) -- 101.4: the opponents who chose no card in the "each player may put" just before (put_from_hand.each_put)
+        return [p for p in plan.live() if p != me and p in ctx.get("_put_none", ())]
     if who == "gifted":  # -- gift (wave 23D) -- 702.174d-i: the opponent the gift was promised to
         from app.rules import gift
 
