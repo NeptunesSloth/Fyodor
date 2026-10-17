@@ -22,7 +22,7 @@ from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, zone
 from tests.test_rules_effects import pass_until_stack_empty, run_until
-from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand
+from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave44a_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
@@ -303,6 +303,55 @@ def test_gitrog_does_nothing_when_the_sacrifice_is_declined(cards):
     choose(s, ["decline"], resolve=True)
     assert s.state.cards[bears.id].zone == "p1:battlefield" and len(zone(s.state, "p1", "hand")) == before
     assert all(s.state.cards[c].zone == "p1:hand" for c in hand) and s.state.rules.decision is None
+    check(s)
+
+
+# ---- "if you have more cards in hand than each opponent, you may sacrifice a Swamp. If you do, return Akuta from your graveyard" (Akuta, Born of Ash) ---
+AKUTA = "Akuta, Born of Ash"
+
+
+def akuta_upkeep(s):
+    """Akuta in the graveyard, a Swamp out; Alice's next upkeep (turn 3) stops at the first question of the trigger (or at her draw if none)."""
+    act(s, "p1", type="move", card_ids=[card_named(s, AKUTA).id], to={"zone": "graveyard"})
+    swamp = put(s, "Swamp")
+    for _ in range(40):
+        d = s.state.rules.decision
+        if (d is not None and d.player == "p1") or (s.state.turn.number == 3 and s.state.turn.phase == "draw"):
+            break
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    return swamp
+
+
+def test_akuta_returns_for_a_swamp_when_you_hold_more_cards_than_each_opponent(cards):
+    s = build(cards, [AKUTA, "Swamp"], [])
+    forests_to_hand(s, 5)  # (Alice 12 cards, Bob 7 and one more drawn on his turn)
+    swamp = akuta_upkeep(s)
+    d = decision(s)
+    assert d.prompt.startswith("Akuta, Born of Ash: pay Sacrifice a Swamp")
+    choose(s, ["pay"], resolve=True)
+    assert s.state.cards[swamp.id].zone == "p1:graveyard" and zone_of(s, AKUTA) == "p1:battlefield"
+    check(s)
+
+
+def test_akuta_stays_down_when_the_sacrifice_is_declined(cards):
+    s = build(cards, [AKUTA, "Swamp"], [])
+    forests_to_hand(s, 5)
+    swamp = akuta_upkeep(s)
+    choose(s, ["decline"], resolve=True)
+    assert s.state.cards[swamp.id].zone == "p1:battlefield" and zone_of(s, AKUTA) == "p1:graveyard"
+    check(s)
+
+
+def test_akuta_does_not_trigger_when_an_opponent_holds_as_many_cards(cards):
+    s = build(cards, [AKUTA, "Swamp"], [])
+    swamp = akuta_upkeep(s)  # (Alice holds 7 or fewer, Bob 8: not more than each opponent)
+    assert s.state.rules.decision is None or s.state.rules.decision.prompt != "Akuta, Born of Ash: pay Sacrifice a Swamp?"
+    assert s.state.cards[swamp.id].zone == "p1:battlefield" and zone_of(s, AKUTA) == "p1:graveyard"
     check(s)
 
 

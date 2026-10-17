@@ -152,7 +152,7 @@ _VERSUS = re.compile(r"an opponent (?:(?P<controls>controls)|has) more (?P<what>
 _AS = {"that player": "event", "defending player": "defended", "a player": "any"}
 _VERSUS_WHO = re.compile(r"(?P<who>that player|defending player) (?:(?P<controls>controls)|has) more (?P<what>.+?) than you")
 _NO_MORE_LIFE = re.compile(r"no opponent has more life than (?P<who>that player|defending player)")
-_VERSUS_REV = re.compile(r"you (?:(?P<controls>control)|have) more (?P<what>.+?) than an opponent")
+_VERSUS_REV = re.compile(r"you (?:(?P<controls>control)|have) more (?P<what>.+?) than (?P<which>an|each) opponent")  # (wave 44A: "each opponent", Akuta)
 _COMMANDER = re.compile(r"you control (?P<which>your commander|a commander)")
 # -- named permanents (wave 35C) -- 201.2: "if you control creatures named Mine Worker and Power Plant Worker" (Tower Worker, Mine Worker, Power Plant
 # Worker), "artifacts named Crown of Empires and Scepter of Empires" (Throne / Scepter / Crown of Empires), "a creature named Bogbrew Witch" (Festering
@@ -456,7 +456,7 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         gd = m.groupdict()
         if gd.get("who"):
             return {"versus": {"value": quantity, "op": ">", "who": _AS[gd["who"]]}}
-        return {"versus": {"value": quantity, "op": "<" if m.re is _VERSUS_REV else ">"}}
+        return {"versus": {"value": quantity, "op": "<" if m.re is _VERSUS_REV else ">", **({"every": True} if gd.get("which") == "each" else {})}}
     found = designation_condition(t)  # -- counters & designations (wave 3E) --
     if found is not None:
         return found
