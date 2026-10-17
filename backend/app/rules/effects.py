@@ -1048,6 +1048,8 @@ def surveil(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def _look(plan: Plan, ctx: Context, e: dict[str, Any], where: str) -> bool:
     pid = ctx["controller"]
+    if e.get("who") == "target" and (named := _players(plan, ctx, "target")):  # -- most-played modal spells (wave 50I) -- "Target player scries 3": that player looks
+        pid = named[0]
     n = _amount(plan, ctx, e["n"])
     if where == "bottom" and n > 0 and (replaced := replace.keyword_replace(plan, ctx, e, "scry", pid, n=n)) is not None:
         return replaced  # -- keyword actions (wave 35C) -- "If you would scry a number of cards, draw that many cards instead." (Eligeth)
@@ -2244,7 +2246,13 @@ def resume_search(plan: Plan, d: Any, chosen: list[str]) -> None:
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in chosen],
                min_choices=1, max_choices=1, resume={"step": "search_split", "ctx": ctx, "e": e, "found": list(chosen)})
         return
-    _finish_search(plan, ctx, e, d.player, list(chosen), {c: e["to"] for c in chosen})
+    to_if = e.get("to_if")  # -- most-played modal spells (wave 50I) -- "Put it onto the battlefield tapped if it's a land card. Otherwise, put it into your hand." (Archdruid's Charm)
+    from app.rules import characteristics as chars
+
+    _finish_search(plan, ctx, e, d.player, list(chosen),
+                   {c: to_if["to"] if to_if is not None and selectors.matches(plan, selectors.from_key(to_if["sel"]), plan.state.cards[c],
+                                                                              chars.of(plan.state.cards[c], plan.info), d.player, None) else e["to"]
+                    for c in chosen})
 
 
 def resume_search_split(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -4453,6 +4461,8 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     import secrets
 
     pid = ctx["controller"]
+    if e.get("chooser") == "target" and (named := _players(plan, ctx, "target")):  # -- commanders (wave 50I) -- "Target player returns a … card from their graveyard to their hand": they choose
+        pid = named[0]
     found = (_cards(plan, ctx, e["who"]) if e.get("who") else  # (-- wave 22D -- "a creature card put into a graveyard this way")
              selectors.candidates(plan, selectors.from_key(e["sel"]), pid, ctx.get("source_card")))
     # -- reanimation (wave 37B) -- "the top creature card of your graveyard": the last matching card of the graveyard's order (index -1 is the top), nothing chosen
@@ -4482,7 +4492,7 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def resume_return_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
     pool = set(_cards(plan, ctx, e["who"]) if e.get("who") else
-               selectors.candidates(plan, selectors.from_key(e["sel"]), ctx["controller"], ctx.get("source_card")))
+               selectors.candidates(plan, selectors.from_key(e["sel"]), d.player if e.get("chooser") else ctx["controller"], ctx.get("source_card")))
     cards = [c for c in chosen if c in pool]  # (still there and still matching)
     if e.get("different"):  # -- refused zones/sized (wave 3R4) -- "… cards with different names / mana values"
         from app.rules.targets import _different

@@ -812,6 +812,7 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
     else asked. A mode whose target can't be chosen can't be chosen (700.2a). ``exclude``: modes that
     can't be chosen either ("choose one that hasn't been chosen"). Returns None while waiting."""
     modal, modes = definition["modal"], definition["modes"]
+    plan.x_choice = getattr(a, "x_value", None)  # -- most-played modal spells (wave 50I) -- 601.2b: X is announced before the modes; a mode's "creature with mana value X or less" reads it
     lo, hi, repeat = modal["min"], modal["max"], modal["repeat"]
     allowed = choosable_modes(plan, definition, a.card_id, exclude, isinstance(a, A.CastSpell))
     if (inst := modal.get("instead")) is not None and _instead_holds(plan, a, inst["cond"]):
@@ -821,6 +822,8 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
         if len(allowed) < lo:
             raise ActionError(f"{what} can't have {lo} modes chosen (a mode has no legal target)")
     if a.modes:
+        if (w := modal.get("weights")) is not None and sum(w[i] for i in a.modes if 0 <= i < len(w)) > modal["budget"]:  # -- most-played modal spells (wave 50I) -- the Seasons' pawprints
+            raise ActionError(f"The modes you chose add up to more than {modal['budget']} pawprints")
         if not lo <= len(a.modes) <= hi:
             raise ActionError(f"Choose {lo if lo == hi else f'{lo} to {hi}'} mode{'s' if hi > 1 else ''} for {what}")
         if not repeat and len(set(a.modes)) != len(a.modes):

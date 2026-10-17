@@ -729,7 +729,8 @@ _SEARCH = re.compile(
     rf"(?:(?P<who>{'|'.join(sorted(_SEARCHERS, key=len, reverse=True))}) (?:may |(?=searches ))?)?"  # (wave 19E: "searches")
     rf"searche?s? (?P<lib>your|their) library for (?:(?P<upto>up to) )?(?P<n>any number of|{AMT}) (?P<sel>.+?)(?:,? and |, )"
     rf"(?:(?P<reveal>reveal {_PRON})(?:,? and |, ))?"
-    rf"(?:puts? (?:(?P<one>one)(?: of them)? (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE})(?: attached to (?P<host>~|this creature|this equipment))?)(?P<shuf>, then shuffles?)?"
+    rf"(?:puts? (?:(?P<one>one)(?: of them)? (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE})(?: attached to (?P<host>~|this creature|this equipment))?"
+    rf"(?P<cond> if it's (?P<cq>an? [a-z ]+? card) and (?P<els>{_PLACE}) otherwise)?)(?P<shuf>, then shuffles?)?"  # (cond: wave 50I)
     rf"|(?P<exile>exile {_PRON}(?P<fd> face down)?)(?P<shuf2>, then shuffle)?"
     rf"|then shuffles? and puts? {_PRON} (?:on top(?: in any order)?|(?P<third>third from the top)))")  # (wave 42C: "searches …, then shuffles and puts that card on top")  # ("in any order": wave 3R4; third: wave 20D)
 _DESTS = {"into your hand": "hand", "into their hand": "hand", "onto the battlefield tapped": "battlefield_tapped", "onto the battlefield": "battlefield",
@@ -981,6 +982,13 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
         if not to.startswith("battlefield") or n != 1 or m["one"]:
             raise _Fail
         extra["host"] = "self"
+    if m["cond"]:  # -- most-played modal spells (wave 50I) -- "Put it onto the battlefield tapped if it's a land card. Otherwise, put it into your hand." (Archdruid's Charm): the card found
+        # goes where its kind says (701.23, 608.2c); it is revealed, so where it goes is public
+        kind = _card_selector(re.sub(r"^an? ", "", m["cq"]))
+        if kind is None or n != 1 or anything or m["one"] or m["host"] or "parts" in extra or not m["reveal"]:
+            raise _Fail
+        extra["to_if"] = {"sel": kind, "to": to}
+        to = _DESTS[m["els"]]
     if to != "top" and not (m["shuf"] or m["shuf2"]):
         extra["shuffle"] = False  # (only when the text says so: 701.23e)
     return [{"do": "search", "who": _SEARCHERS[m["who"]] if m["who"] else "you", "label": m["sel"], "max": n,
@@ -1682,6 +1690,19 @@ def _parse(text: str) -> tuple[Effects, Any]:
             n = _stat(m["stat"])
             return [{"do": verb, "who": who, "n": n}], _value_target(n, target)
         return [{"do": verb, "who": who, "n": _apply(_amount(m["n"]), rider)}], target
+    # -- most-played modal spells (wave 50I) -- 701.22a, 701.25a: "Target player scries X, then draws a card." (Kozilek's Command): the named player looks (effects._look)
+    m = re.fullmatch(rf"(?P<s>target player|target opponent) (?P<v>scries|surveils) (?P<n>{AMT})", text)
+    if m and rider is None:
+        who, target = _subject(m)
+        return [{"do": m["v"][:-1] if m["v"] == "surveils" else "scry", "who": who, "n": _amount(m["n"])}], target
+    # -- commanders (wave 50I) -- "Target player returns an artifact, instant, or sorcery card from their graveyard to their hand." (Donnie & April): that player chooses the card
+    # from their own graveyard (608.2d), as "return a … card from your graveyard to your hand" reads for its controller (effects.return_choice, "chooser")
+    m = re.fullmatch(r"(?P<s>target player|target opponent) returns (?P<rest>(?:an?|up to \w+) .+? cards? from their graveyard to their hand)", text)
+    if m and rider is None:
+        found = parse_sentence("return " + m["rest"].replace("their graveyard to their hand", "your graveyard to your hand"))
+        if found is not None and found[1] is None and len(found[0]) == 1 and found[0][0]["do"] == "return_choice" and found[0][0]["to"] == "hand" \
+                and not found[0][0].get("random") and not found[0][0].get("optional") and not found[0][0].get("who"):
+            return [{**found[0][0], "chooser": "target"}], _LEGACY_TARGETS[m["s"]]
     m = re.fullmatch(_SUBJ + rf"sacrifices? (?P<n>{AMT}|another) (?P<sel>.+)", text)
     if m and rider is None:
         who, target = _subject(m)
@@ -3616,7 +3637,7 @@ _RA_RETURN = re.compile(rf"return (?P<o>.+?) to (?:(?P<h>your hand|its owner's h
                         rf"the battlefield{_RA_TAPPED}(?P<xf> transformed)?(?P<fd> face down)?{_RA_UNDER}{_RA_TAPPED2}{_RA_WITH}{_RA_HOST})")  # (face down: wave 18A, 708.4; transformed: wave 37B, 712.14a)
 _RA_PUT = re.compile(rf"put (?P<o>.+?) onto the battlefield{_RA_TAPPED}{_RA_UNDER}{_RA_TAPPED2}{_RA_WITH}{_RA_HOST}")
 _RA_ZONE = r"(?:your graveyard|your hand or graveyard|a graveyard|an opponent's graveyard)"  # (-- reanimation (wave 37B) -- Danitha: "from your hand or graveyard")
-_RA_CHOICE = re.compile(rf"(?:(?:an?|one) |up to (?P<upto>{AMT}) |(?P<any>any number of )|(?P<n>{AMT}) )(?P<what>[^,]+?)(?P<rand> at random)?"
+_RA_CHOICE = re.compile(rf"(?:(?:an?|one) |up to (?P<upto>{AMT}) |(?P<any>any number of )|(?P<n>{AMT}) )(?P<what>(?:[^,]|,(?= [^,]+, or | or ))+?)(?P<rand> at random)?"  # (wave 50I: "an artifact, instant, or sorcery card")
                         rf" from (?P<z>{_RA_ZONE})")
 _RA_SELF = re.compile(r"(?:this card|~) from your graveyard")
 _RA_SELF_EXILE = re.compile(r"(?:this card|~) from your graveyard or from exile")  # -- activated other (wave 42C) -- 113.6m: Mister Immortal works from either zone

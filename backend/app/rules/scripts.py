@@ -1207,7 +1207,7 @@ def _free_cast_source(e: dict[str, Any], pronoun: str, intro: _Introducer | None
     return True
 
 
-_TARGET_REFS = ("who", "library", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player", "cards")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
+_TARGET_REFS = ("who", "library", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player", "cards", "for_player")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)  # (for_player: wave 50I, "Target player gains X life, where X is the greatest power among creatures they control" in a mode with other groups)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:
@@ -1832,8 +1832,10 @@ def _scry_x(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": m["verb"], "who": "you", "n": _x_amount(m["xdef"])}], None  # (wave 4K: 701.22, 701.25)
 
 
-@effect(r"(?P<src>~|it) explores, then (?:it|~) explores again")
+@effect(r"(?P<src>~|it|target creature you control) explores, then (?:it|~) explores again")
 def _explore_twice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    if m["src"] == "target creature you control":  # -- most-played modal spells (wave 50I) -- "Target creature you control explores, then it explores again." (Over the Edge): the same creature twice (701.44a)
+        return [{"do": "explore", "who": "target"}, {"do": "explore", "who": "target"}], "creature_you_control"
     return [{"do": "explore", **_it_source(m["src"])}, {"do": "explore", **_it_source(m["src"])}], None  # -- triggers (wave 17D) -- 701.44a twice
 
 
@@ -2457,6 +2459,11 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # and the other into your graveyard. Then shuffle." (Final Parting, Fork in the Road), "… for a white card, …, and a green card. Reveal
     # those cards, put them into your hand, then shuffle." (Conflux), "…. Put those cards into your graveyard, then shuffle.": one search
     # sentence (701.23), read by language._search
+    # (-- most-played modal spells (wave 50I) -- the destination by kind: "Put it onto the battlefield tapped if it's a land card. Otherwise, put it into your hand."
+    # (Archdruid's Charm) is one clause of the search, language._search)
+    body = re.sub(r"((?i:search) your library for [^.]+?)(?: and (reveal it))?\. Put it (onto the battlefield(?: tapped)?) if it's (an? [a-z ]+? card)\. "
+                  r"Otherwise, put it into your hand\. Then shuffle\b",
+                  lambda m: f"{m[1]}, {m[2] + ', ' if m[2] else ''}put it {m[3]} if it's {m[4]} and into your hand otherwise, then shuffle", body)
     body = re.sub(r"((?i:search) your library for [^.]+?)(?: and (reveal (?:them|it)))?\. ((?:Reveal (?:those cards|them|that card|it), )?"
                   r"[Pp]ut (?:one(?: of them)?|those cards|them|that card|it) [^.]+?)(?:, then shuffle|\. Then shuffle)\b",
                   lambda m: f"{m[1]}, {m[2] + ', ' if m[2] else ''}{m[3][:1].lower()}{m[3][1:]}, then shuffle", body)
@@ -5671,7 +5678,7 @@ _MODAL_HEADERS = {
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 _REPEAT_HEADER = re.compile(r"^Choose (?P<n>three|four|five)\. You may choose the same mode more than once\.$")
 _INSTEAD_HEADER = re.compile(r"^(?:[A-Z][a-z]+(?: \d+)? — )?Choose one\. If (?P<c>.+?)(?: as you cast this spell)?, (?P<may>you may )?"
-                             r"choose (?P<k>both|two|one or more) instead\.$")
+                             r"choose (?P<k>both|two|one or more|any number) instead\.$")
 
 
 def modal_header(text: str) -> tuple[int, int, bool, dict[str, Any] | None] | None:
@@ -5688,7 +5695,9 @@ def modal_header(text: str) -> tuple[int, int, bool, dict[str, Any] | None] | No
     if cond is None or set(conditions.objects_in(cond)) - {"self"} or ('"cast"' in json.dumps(cond) and cond not in (
             {"object": "self", "cast": {"kicked": True}}, {"object": "self", "cast": {"optional": "teamwork"}})):
         return None
-    both = m["k"] != "one or more"
+    both = m["k"] not in ("one or more", "any number")
+    # (-- most-played modal spells (wave 50I) -- "If this spell was kicked, choose any number instead." (Inscription of Abundance) reads as "one or more";
+    # ponytail: choosing no mode at all, which does nothing, isn't offered)
     return 1, 1, False, {"cond": cond, "min": 1 if m["may"] or not both else 2, "max": 2 if both else 99}
 
 
@@ -5704,7 +5713,9 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
     for ab in lines[1:]:
         if not ab.text.startswith("• "):
             return None
-        parsed = parse_effects(self_text(ab.text[2:], name))
+        # (-- most-played modal spells (wave 50I) -- a mode that is all "You may put a land card from your hand onto the battlefield." (Atarka's Command) is the
+        # instruction's own choice, as for a one-line spell (_own_choice); "This spell deals X damage" is the spell itself)
+        parsed = _own_choice(parse_effects(self_text(ab.text[2:], name).replace("This spell deals ", "~ deals ")))
         if parsed is None or parsed[2]:  # ("you may" inside a mode: not yet)
             return None
         effects, target, _ = parsed
@@ -5743,6 +5754,31 @@ def spree_definition(ch: Characteristics, lines: list[AbilityText]) -> Definitio
         if m is not None:
             mode["cost"] = m["cost"]
             mode["text"] = f"{m['label'] + ' — ' if m['label'] else ''}{m['cost']} — {m['text']}"
+    return modal
+
+
+# -- most-played modal spells (wave 50I) -- Bloomburrow's Seasons: "Choose up to five {P} worth of modes. You may choose the same mode more than once." and a line per mode,
+# "{P}{P} — …": the pawprints are not a cost (ruling 2024-07-26), they only bound the choice, 700.2d (a mode may be chosen more than once; each time with its own target, 601.2c)
+_PAWPRINT_HEADER = re.compile(r"^Choose up to (?P<n>one|two|three|four|five|six) \{P\} worth of modes\. You may choose the same mode more than once\.$")
+_PAWPRINT_MODE = re.compile(r"^(?P<p>(?:\{P\})+) — (?P<text>.+)$")
+
+
+def pawprint_definition(lines: list[AbilityText], name: str) -> Definition | None:
+    m = _PAWPRINT_HEADER.match(lines[0].text) if lines else None
+    found = [_PAWPRINT_MODE.fullmatch(ab.text) for ab in lines[1:]]
+    if m is None or len(lines) < 3 or None in found:
+        return None
+    modal = modal_definition([replace(lines[0], text="Choose five. You may choose the same mode more than once."),
+                              *(replace(ab, text=f"• {f['text']}") for ab, f in zip(lines[1:], found, strict=True) if f)], name)
+    if modal is None:
+        return None
+    weights = [f["p"].count("{P}") for f in found if f]
+    budget = _NUMBERS.get(m["n"], 6)
+    # ponytail: choosing no mode at all (allowed, ruling 2024-07-26, but it does nothing) isn't offered
+    modal["modal"] = {**modal["modal"], "min": 1, "max": budget // min(weights), "weights": weights, "budget": budget}
+    for mode, f in zip(modal["modes"], found, strict=True):
+        if f:
+            mode["text"] = f"{f['p']} — {f['text']}"
     return modal
 
 
@@ -5785,6 +5821,8 @@ def spell_definition(ch: Characteristics) -> Definition | None:
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
                       and (defs[ab.index].get("free") or defs[ab.index].get("zone") in ("graveyard", "exile")
                            or defs[ab.index].get("flash")))]  # (wave 17C: retrace, 702.81a; wave 22F: "cast this spell as though it had flash if …", 601.3d)
+    if lines and (pawed := pawprint_definition(lines, ch.name)) is not None:  # (-- most-played modal spells (wave 50I) -- the Seasons)
+        return pawed if _event_refs_ok(pawed) else None
     if lines and modal_header(lines[0].text) is not None:  # (-- modal frames (wave 33B) -- after the lines about casting it: "Cast this spell only during combat.")
         from app.rules import gift
 
@@ -8170,7 +8208,7 @@ def _for_each_of_them_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]
 
 
 @_first
-@effect(r"(?P<may>you may )?put (?:a|an|any number of|up to \d+) [^.]+? from your hand onto the battlefield(?: tapped(?: and attacking"
+@effect(r"(?P<may>you may )?put (?:a|an|any number of|up to (?:\d+|one|two|three|four|five)) [^.]+? from your hand onto the battlefield(?: tapped(?: and attacking"
         r"(?: (?:that player|that opponent|defending player))?)?)?(?:, where X is [^.]+)?")
 def _put_from_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     """"You may put an Equipment card from your hand onto the battlefield." (Stoneforge Mystic): app/rules/put_from_hand.py.
