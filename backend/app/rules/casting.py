@@ -3830,6 +3830,9 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
             _activation_limit(plan, card, ch)
             activate_to_stack(plan, card, ch, ability, a)
             return
+        if (ninja := ninjutsu.cost_of(ch, a.ability, command=True)) is not None and not plan.manual(card):  # -- commander ninjutsu (wave 50J) -- 702.49d
+            activate_to_stack(plan, card, ch, ninjutsu.ability(ch, a.ability, ninja), a, definition=ninjutsu.DEFINITION)
+            return
         raise ActionError("That card has no ability to use from the command zone")
     ch = plan.ch(card)
     # -- activation wordings (wave 7B) -- 602.2: "Any player may activate this ability."
@@ -4409,11 +4412,11 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
                     ability_problem(state, player, card, ch, ab, ability_cost(ch, ab, state=state, card=card, info=info),
                                     check_priority=check_priority, info=info) is None:
                 out.append({"card_id": cid, "ability": ab.index})
-    for cid in state.zones.get(zone_key(player, "hand"), []):  # -- keywords (wave 15E) -- ninjutsu (702.49a)
+    for cid in [*state.zones.get(zone_key(player, "hand"), []), *state.zones.get(zone_key(player, "command"), [])]:  # -- keywords (wave 15E) -- ninjutsu (702.49a; wave 50J: commander ninjutsu, 702.49d)
         card = state.cards[cid]
         ch = chars.of(card, info)
         for ab in ch.abilities:
-            if (cost_text := ninjutsu.cost_of(ch, ab.index)) is not None:
+            if (cost_text := ninjutsu.cost_of(ch, ab.index, command=card.zone == zone_key(player, "command"))) is not None:
                 made = ninjutsu.ability(ch, ab.index, cost_text)
                 if ability_problem(state, player, card, ch, made, ability_cost(ch, made, state=state, card=card, info=info),
                                    check_priority=check_priority, info=info) is None:

@@ -40,7 +40,7 @@ KEYWORDS = frozenset({
     "forestwalk", "mountainwalk", "plainswalk", "snow landwalk", "nonbasic landwalk", "legendary landwalk", "artifact landwalk", "snow plainswalk", "snow islandwalk", "snow swampwalk", "snow mountainwalk", "snow forestwalk", "desertwalk", "exalted", "undying", "persist", "wither", "infect", "toxic",
     "annihilator", "evolve", "extort", "unearth", "embalm", "eternalize", "afflict", "riot", "escape", "mutate",
     "companion", "foretell", "disturb", "daybound", "nightbound", "training", "casualty", "blitz", "backup",
-    "bargain", "craft", "disguise", "offspring", "saddle", "crew", "ninjutsu", "morph", "megamorph", "suspend",
+    "bargain", "craft", "disguise", "offspring", "saddle", "crew", "ninjutsu", "commander ninjutsu", "morph", "megamorph", "suspend",
     "rebound", "overload", "surge", "emerge", "madness", "miracle", "dash", "evoke", "bestow", "outlast", "dethrone",
     "fabricate", "improvise", "ascend", "mentor", "jump-start", "spectacle", "encore", "boast", "sneak",
     "champion", "horsemanship", "shadow", "banding", "rampage", "flanking", "bushido", "provoke", "fading", "vanishing", "echo",

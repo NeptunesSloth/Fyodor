@@ -491,7 +491,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(line) is not None
-    if kw == "ninjutsu":  # -- keywords (wave 15E) -- app/rules/ninjutsu.py: a mana ninjutsu cost on a line of its own
+    if kw in ("ninjutsu", "commander ninjutsu"):  # -- keywords (wave 15E; commander ninjutsu: wave 50J) -- app/rules/ninjutsu.py: a mana ninjutsu cost on a line of its own
         from app.rules import ninjutsu
 
         return ninjutsu.supported(line)

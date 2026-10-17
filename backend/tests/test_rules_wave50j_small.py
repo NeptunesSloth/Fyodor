@@ -81,7 +81,8 @@ def combat(s):
                                   "Concerted Effort", "Thunderous Orator", "Wonder Man, Hollywood Hero", "Kang the Conqueror",
                                   "Thanos, the Mad Titan", "Extinction Event", "Gollum, Riddle Master",
                                   "Satya, Aetherflux Genius", "Hulk, Gamma Goliath", "Rex, Cyber-Hound",
-                                  "Rayami, First of the Fallen", "Skrelv, Defector Mite"])
+                                  "Rayami, First of the Fallen", "Skrelv, Defector Mite",
+                                  "Yuriko, the Tiger's Shadow"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -440,6 +441,55 @@ def test_skrelv_gives_toxic_hexproof_from_the_chosen_color_and_evasion_from_crea
     with pytest.raises(ActionError):  # (a white creature can't block it)
         act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": angel.id, "attacker_id": bears.id}])
     block(s, (elves, bears))  # (a green one can)
+    check(s)
+
+
+# -- commander ninjutsu ---------------------------------------------------------------------------------------------------------------------------------
+# 702.49d: "Commander ninjutsu {U}{B}" (Yuriko, the Tiger's Shadow): ninjutsu that can also be activated from the command zone
+def yuriko_table(cards):
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    alice = deck(cards, "Yuriko, the Tiger's Shadow", [(1, "Grizzly Bears"), (9, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    return s
+
+
+def test_yuriko_enters_attacking_from_the_command_zone_for_an_unblocked_attacker(cards):
+    s = yuriko_table(cards)
+    bears = put(s, "Grizzly Bears")
+    yuriko = card_named(s, "Yuriko, the Tiger's Shadow")
+    assert s.state.cards[yuriko.id].zone == "p1:command"
+    next_turn(s)
+    stops(s)
+    attack(s, bears)
+    to_phase(s, "declare_blockers")
+    mana(s, U=1, B=1)
+    ninja = next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[yuriko.id]).abilities if "commander ninjutsu" in a.keywords)
+    act(s, "p1", type="activate_ability", card_id=yuriko.id, ability=ninja)
+    if (d := s.state.rules.decision) is not None:
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id])  # the unblocked attacker returned
+    settle(s)
+    y = s.state.cards[yuriko.id]
+    assert y.zone == "p1:battlefield" and y.attacking is not None and y.attacking.id == "p2" and zone_of(s, "Grizzly Bears") == "p1:hand"
+    check(s)
+
+
+def test_commander_ninjutsu_is_refused_before_blockers_are_declared(cards):
+    s = yuriko_table(cards)
+    bears = put(s, "Grizzly Bears")
+    yuriko = card_named(s, "Yuriko, the Tiger's Shadow")
+    next_turn(s)
+    stops(s)
+    attack(s, bears)
+    mana(s, U=1, B=1)
+    ninja = next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[yuriko.id]).abilities if "commander ninjutsu" in a.keywords)
+    with pytest.raises(ActionError):  # 702.49a: no attacker is unblocked until blockers are declared
+        act(s, "p1", type="activate_ability", card_id=yuriko.id, ability=ninja)
+    assert s.state.cards[yuriko.id].zone == "p1:command"
     check(s)
 
 
