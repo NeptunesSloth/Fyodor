@@ -121,6 +121,50 @@ def test_a_siege_defeated_by_a_spell_casts_its_enchantment_back_face_with_the_tr
     check(s)
 
 
+@pytest.mark.parametrize("name", [c["name"] for c in DATA])
+def test_every_siege_is_cast_transformed_as_its_back_face_permanent(cards, name):
+    """Each real Siege of the fixture: its last three defense counters are bolted off, the question is asked, and its back face is cast and
+    resolves as a permanent with the back face's name (an enters-as-a-copy, a Vehicle, a God, a Saga-less enchantment, a planeswalker)."""
+    s = three(cards, ["Lightning Bolt", name])
+    put(s, "Forest")  # (Winnowing Forces is as big as the lands you control: 0/0 and dead without one)
+    siege = put(s, name)
+    drive(s, stop_at=())  # (its enters ability, if it has a target or a choice: the first option)
+    act(s, "p1", type="counter", card_ids=[siege.id], kind="defense", delta=3 - s.state.cards[siege.id].counters.get("defense", 0))
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=[siege.id])
+    d = drive(s, pick=["p2"], stop_at=("choose_one",))
+    if "has no protector" in d.prompt:  # (310.11: put onto the battlefield by hand)
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])
+        d = drive(s, stop_at=("choose_one",))
+    assert "was defeated" in d.prompt and s.state.cards[siege.id].zone == "p1:exile"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["yes@1"])
+    drive(s, stop_at=())
+    back = s.state.cards[siege.id]
+    assert back.zone == "p1:battlefield" and back.face == 1 and ch(s, back).name == name.split(" // ")[1]
+    assert "Battle" not in ch(s, back).types and not back.counters.get("defense")
+    check(s)
+
+
+def test_a_siege_whose_back_face_is_a_planeswalker_enters_with_its_loyalty(cards):
+    """Invasion of New Phyrexia // Teferi Akosa of Zhalfir: cast transformed (712.11a), the spell is the planeswalker and enters with 4 loyalty."""
+    s = three(cards, ["Lightning Bolt", "Invasion of New Phyrexia // Teferi Akosa of Zhalfir"])
+    siege = put(s, "Invasion of New Phyrexia // Teferi Akosa of Zhalfir")
+    drive(s, stop_at=())
+    act(s, "p1", type="counter", card_ids=[siege.id], kind="defense", delta=3)  # (by hand: three of its six)
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=[siege.id])
+    d = drive(s, stop_at=("choose_one",))
+    assert "has no protector" in d.prompt  # (310.11: put onto the battlefield by hand)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])
+    d = drive(s, stop_at=("choose_one",))
+    assert "was defeated" in d.prompt
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["yes@1"])
+    drive(s, stop_at=())
+    back = s.state.cards[siege.id]
+    assert back.zone == "p1:battlefield" and "Planeswalker" in ch(s, back).types and back.counters.get("loyalty") == 4
+    check(s)
+
+
 def test_a_token_siege_defeated_is_exiled_and_can_not_be_cast(cards):
     """The rulings: a token that is a Siege is exiled as its trigger resolves; it can't be cast, so nothing is asked (it ceases to exist)."""
     s = three(cards, ["Lightning Bolt"])
