@@ -200,6 +200,12 @@ def parse(text: str) -> Definition | None:
     # -- commander sweep (wave 49B) -- "Survivors your opponents control can't block, and they can't attack you or planeswalkers you control." (Varchild): "they" is the group, so
     # the second restriction joins the first ("… can't block and can't attack …")
     body = re.sub(r"^(?P<s>.+? control) (?P<a>can't [a-z ]+), and they (?P<b>can't .+)$", r"\g<s> \g<a> and \g<b>", body)
+    # -- commander sweep (wave 49B) -- "Humans you control have each of the chosen abilities." (Greymond, Avacyn's Stalwart): the keywords its permanent chose as it entered,
+    # read afresh by layers (``chosen_keywords``; chosen.chosen_value_ok: the one choice)
+    m = re.fullmatch(r"(?P<s>[A-Z][A-Za-z ,'-]+? you control) have each of the chosen abilities", body)
+    if m is not None:
+        who, kind = _subject(m["s"], plural=True)
+        return None if who is None or who in ("self", "attached") or who.startswith(UNION) else {**_definition(who, kind, []), "chosen_keywords": True}
     # -- static statics (wave 10B) -- "Creatures your opponents control lose flying and can't have or gain flying."
     # (the Archetypes): lose it now (613.1f, in timestamp order) and never have or gain it (the deny is applied last)
     m = _DENY.fullmatch(body)

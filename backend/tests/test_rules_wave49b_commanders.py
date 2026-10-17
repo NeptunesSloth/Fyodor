@@ -36,8 +36,8 @@ EXTRA = [card(c["name"], set_code="w49b", number=f"B{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 HINATA, DARIEN, ARCHELOS, GRAVEMOTHER = "Hinata, Dawn-Crowned", "King Darien XLVIII", "Archelos, Lagoon Mystic", "Sliver Gravemother"
 KATILDA, MYCOTYRANT, ULAMOG, STOMP = "Katilda, Dawnhart Martyr // Katilda's Rising Dawn", "The Mycotyrant", "Ulamog, the Defiler", "Savage Stomp"
-VARCHILD, SABSUNEN, MIRRI, MORAUG, SARKHAN, ASMO, TALION = "Varchild, Betrayer of Kjeldor", "Sab-Sunen, Luxa Embodied", "Mirri, Weatherlight Duelist", "Moraug, Fury of Akoum", "Sarkhan, Dragon Ascendant", "Asmoranomardicadaistinaculdacar", "Talion, the Kindly Lord"
-NAMES = [HINATA, DARIEN, ARCHELOS, GRAVEMOTHER, KATILDA, MYCOTYRANT, ULAMOG, VARCHILD, SABSUNEN, MIRRI, MORAUG, SARKHAN, ASMO, TALION]
+VARCHILD, SABSUNEN, MIRRI, MORAUG, SARKHAN, ASMO, TALION, GREYMOND = "Varchild, Betrayer of Kjeldor", "Sab-Sunen, Luxa Embodied", "Mirri, Weatherlight Duelist", "Moraug, Fury of Akoum", "Sarkhan, Dragon Ascendant", "Asmoranomardicadaistinaculdacar", "Talion, the Kindly Lord", "Greymond, Avacyn's Stalwart"
+NAMES = [HINATA, DARIEN, ARCHELOS, GRAVEMOTHER, KATILDA, MYCOTYRANT, ULAMOG, VARCHILD, SABSUNEN, MIRRI, MORAUG, SARKHAN, ASMO, TALION, GREYMOND]
 
 
 @pytest.fixture()
@@ -387,6 +387,27 @@ def test_elven_passage_leaves_the_land_tapped_without_an_elf(cards):
     settle(s)
     lands = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:battlefield"]
     assert len(lands) == 1 and lands[0].tapped
+    check(s)
+
+
+# ---- Greymond, Avacyn's Stalwart -----------------------------------------------------------------------------------------------------------------
+def test_greymond_gives_your_humans_the_two_abilities_chosen_as_it_entered(cards):
+    s = build(cards, [GREYMOND, "Thalia's Lieutenant", "Grizzly Bears"], ["Thalia's Lieutenant"])
+    human, bears, theirs = put(s, "Thalia's Lieutenant"), put(s, "Grizzly Bears"), put(s, "Thalia's Lieutenant", "p2")
+    mana(s, W=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, GREYMOND).id)
+    d = ask(s)
+    assert [o.label for o in d.options] == ["first strike and vigilance", "first strike and lifelink", "vigilance and lifelink"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["first strike and lifelink"])
+    settle(s)
+    from app.rules.plan import Plan
+
+    def has(card):
+        return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card.id]).keywords
+
+    greymond = card_named(s, GREYMOND)
+    assert {"first strike", "lifelink"} <= has(human) and "vigilance" not in has(human) and {"first strike", "lifelink"} <= has(greymond)
+    assert not {"first strike", "lifelink", "vigilance"} & has(bears) and not {"first strike", "lifelink"} & has(theirs)  # not a Human; not yours
     check(s)
 
 
