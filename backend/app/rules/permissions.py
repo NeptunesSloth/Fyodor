@@ -513,6 +513,12 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     t = _lower_first(text.strip().rstrip("."))
     if kind not in ("static", "spell"):
         return None
+    if kind == "static":  # -- cant restrictions (wave 50G) -- "As long as Haakon is on the battlefield, you may cast Knight spells from your graveyard.": a static of a permanent works only there anyway (113.6)
+        t = re.sub(r"^as long as ~ is on the battlefield, (?=you may cast )", "", t)
+        if t in ("you may cast this card from your graveyard, but not from anywhere else", "you may cast ~ from your graveyard, but not from anywhere else"):
+            # 2006-07-15 ruling: it can't be cast from any other zone, the command zone or one an effect opens included (casting.cast_grant reads ``only``)
+            return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": True, "play": False, "cast": True,
+                    "filter": None, "only": True, "effects": []}
     # -- cost changers (wave 44D) -- "Spells you cast with mana value 5 or greater cost {1} less to cast and can't be countered." (Thryx, the Sudden Storm): the cost change
     # (601.2f), whose spells also can't be countered (101.2: ``spell_uncounterable`` reads the mark)
     if (both := re.fullmatch(r"(spells you cast with mana value \d+ or greater cost \{\d+\} less to cast) and can't be countered", t)) is not None:

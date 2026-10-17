@@ -1918,6 +1918,8 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
     only a free permission lets them cast isn't castable that way."""
     from app.rules import keyword_actions
 
+    if card.zone != zone_key(player, "graveyard") and any(d.get("only") for d in scripts.definitions(ch).values()):
+        return None  # -- cant restrictions (wave 50G) -- Haakon, Stromgald Scourge: "You may cast this card from your graveyard, but not from anywhere else."
     how = "hand" if card.zone == zone_key(player, "hand") else "command" if from_command_zone(card, player) else \
         "flashback" if from_graveyard(card, player, ch, state, info) else None
     if how is None and card.is_token and (perm := keyword_actions.prepared_permanent(state, card.id)) is not None \

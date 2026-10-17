@@ -532,3 +532,67 @@ def test_ketramose_ignores_a_token_exiled_from_the_battlefield(cards):
     settle(s)
     assert len(s.state.zones["p1:library"]) == lib - 1 and life(s, "p1") == hp + 1  # (the Swords went to the hand; a token is no card: nothing drawn, no life lost, the 1 life is Swords')
     check(s)
+
+
+# -- Haakon, Stromgald Scourge -----------------------------------------------------------------------------------------------------------------------
+def to_graveyard(s, name, pid="p1"):
+    c = card_named(s, name, pid)
+    act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "graveyard"})
+    return c
+
+
+def test_haakon_is_cast_from_the_graveyard_not_the_hand(cards):
+    """"You may cast this card from your graveyard, but not from anywhere else" (the 2006-07-15 ruling: not from the hand, whatever else would allow it)."""
+    s = build(cards, ["Haakon, Stromgald Scourge"], [])
+    haakon = to_graveyard(s, "Haakon, Stromgald Scourge")
+    mana(s, "p1", B=2, G=1)
+    act(s, "p1", type="cast_spell", card_id=haakon.id)
+    settle(s)
+    assert s.state.cards[haakon.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_haakon_cant_be_cast_from_the_hand(cards):
+    s = build(cards, ["Haakon, Stromgald Scourge"], [])
+    haakon = to_hand(s, "Haakon, Stromgald Scourge")
+    mana(s, "p1", B=2, G=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=haakon.id)
+    check(s)
+
+
+def test_haakon_cant_be_cast_from_the_command_zone(cards):
+    """As a commander he stays in the command zone: "not from anywhere else" includes it."""
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    alice = deck(cards, "Haakon, Stromgald Scourge", [(9, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    haakon = card_named(s, "Haakon, Stromgald Scourge")
+    assert haakon.zone == "p1:command"
+    mana(s, "p1", B=2, G=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=haakon.id)
+    check(s)
+
+
+@pytest.mark.parametrize("haakon_in_play, castable", [(True, True), (False, False)])
+def test_haakon_lets_you_cast_knights_from_the_graveyard_while_he_is_in_play(cards, haakon_in_play, castable):
+    s = build(cards, ["Haakon, Stromgald Scourge", "Fallen Askari", "Grizzly Bears"], [])
+    if haakon_in_play:
+        put(s, "Haakon, Stromgald Scourge")
+    knight, bears = to_graveyard(s, "Fallen Askari"), to_graveyard(s, "Grizzly Bears")
+    mana(s, "p1", B=1, G=1)
+    with pytest.raises(ActionError):  # (a Bears isn't a Knight)
+        act(s, "p1", type="cast_spell", card_id=bears.id)
+    if castable:
+        act(s, "p1", type="cast_spell", card_id=knight.id)
+        settle(s)
+        assert s.state.cards[knight.id].zone == "p1:battlefield"
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="cast_spell", card_id=knight.id)
+    check(s)
