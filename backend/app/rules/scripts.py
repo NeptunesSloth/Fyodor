@@ -382,6 +382,9 @@ def self_text(text: str, name: str) -> str:
     # -- trigger other (wave 50F) -- "target creature gets +1/+0 until end of turn for each creature you control and can't be blocked this turn" (Invisible Woman): two
     # instructions on the one target (608.2c); "destroy target nonbasic land defending player controls, and creatures that player controls without flying can't block
     # this turn" (The Motherlode): the second is a sentence of its own, "that player" being the defending player the first names
+    # -- recursion & tutors (wave 50F) -- "That creature is black and is a Nightmare in addition to its other creature types." (Chainer, Dementia Master): its colors are
+    # replaced by black (105.3) and it gains the type (205.1b)
+    out = re.sub(r"\bThat creature is black and is (an? [A-Z][a-z]+) in addition to its other creature types\.", r"It becomes black. That creature is \1 in addition to its other types.", out)
     out = re.sub(r"(\btarget creature(?: you control)? gets [+-]\d+/[+-]\d+ until end of turn for each [^,.]+?) and (can't be blocked this turn)\.", r"\1. It \2.", out)
     out = re.sub(r"(\btarget [^,.]+? defending player controls), and creatures that player controls (without [a-z]+ can't block this turn)\.",
                  r"\1. Creatures defending player controls \2.", out)
@@ -6919,10 +6922,10 @@ def _become_colored(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # -- durations (wave 30M) -- also "That land is an Island in addition to its other types for as long as it has a flood counter on it." (Xolatoyac,
 # Aquitect's Will): the duration wrapper reads the clause with "until end of turn" (delayed.duration_clause)
 @effect(r"(?P<o>it|that creature|that land|each of them|each of those creatures)(?:'s| is) (?P<desc>an? [^.]+? in addition to its other "
-        r"(?:colors and )?types)(?P<eot> until end of turn)?")
+        r"(?:colors and |creature )?types)(?P<eot> until end of turn)?")  # (wave 50F: "its other creature types", Sorin, Vengeful Bloodlord)
 def _is_in_addition(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     o = "each of them" if m["o"].startswith("each of") else "it"
-    found = _language.parse_become(f"{o} becomes {m['desc']}{m['eot'] or ''}")
+    found = _language.parse_become(f"{o} becomes {m['desc'].replace('other creature types', 'other types')}{m['eot'] or ''}")
     if found is None or any(e["do"] != "become" or e.get("abilities") or e.get("lose_abilities") for e in found[0]):
         raise _NoMatch
     return found

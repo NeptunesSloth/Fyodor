@@ -733,8 +733,8 @@ def x_selector_ok(ch: Characteristics, d: dict[str, Any]) -> bool:
     own = {**d, "effects": [e for e in d.get("effects") or [] if not (e.get("do") == "reflexive" and e.get("x_from") and (e.get("ability") or {}).get("x_event"))]}
     if not _X_SELECTOR.search(json.dumps(own, default=str).replace('\\"', '"')):
         return True
-    if d.get("kind") == "activated":
-        return "{X}" in str(d.get("cost") or "")
+    if d.get("kind") == "activated":  # (-- reanimation (wave 50F) -- 606.4, 601.2b: a loyalty ability's "−X" is announced before its targets, like an {X} cost: Sorin, Vengeful Bloodlord)
+        return "{X}" in str(d.get("cost") or "") or (bool(d.get("loyalty")) and str(d.get("cost") or "").endswith("X"))
     if d.get("kind") == "triggered":  # -- X from the triggering object (wave 34C) -- the X of the spell cast / the cycling cost (triggers.x_source)
         from app.rules import triggers
 

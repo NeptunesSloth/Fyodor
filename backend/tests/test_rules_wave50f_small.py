@@ -24,6 +24,7 @@ from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.errors import ActionError
 from app.rules import coverage
+from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, attack, next_turn, stops, to_phase
@@ -44,7 +45,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["The Balrog of Moria", "Elektra, Femme Fatale", "Invisible Woman", "The Motherlode, Excavator", "Lich's Relic", "Tasha, the Witch Queen", "Sepulchral Primordial"])
+@pytest.mark.parametrize("name", ["The Balrog of Moria", "Elektra, Femme Fatale", "Invisible Woman", "The Motherlode, Excavator", "Lich's Relic", "Tasha, the Witch Queen", "Sepulchral Primordial", "Sorin, Vengeful Bloodlord", "Chainer, Dementia Master"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -243,4 +244,48 @@ def test_sepulchral_primordial_takes_a_creature_from_the_opponents_graveyard(car
     cast_from_hand(s, "Sepulchral Primordial", B=2, G=5)
     settle(s, answer="yes", target="Grizzly Bears")
     assert s.state.cards[bears.id].zone == "p1:battlefield"
+    check(s)
+
+
+def chars(s, c):
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id])
+
+
+def test_sorin_minus_x_returns_a_creature_with_exactly_that_mana_value_as_a_vampire(cards):
+    s = build(cards, ["Sorin, Vengeful Bloodlord", "Grizzly Bears", "Kitchen Finks"], [])
+    sorin = put(s, "Sorin, Vengeful Bloodlord")
+    act(s, "p1", type="counter", card_ids=[sorin.id], kind="loyalty", delta=4)  # (put there by hand: no loyalty of its own)
+    bears = card_named(s, "Grizzly Bears")
+    finks = card_named(s, "Kitchen Finks")
+    for c in (bears, finks):
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    activate(s, "p1", sorin, "−X", x_value=2, targets=[bears.id])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.cards[finks.id].zone == "p1:graveyard"
+    assert "Vampire" in chars(s, s.state.cards[bears.id]).subtypes and s.state.cards[sorin.id].counters.get("loyalty") == 2
+    check(s)
+
+
+def test_sorin_minus_x_refuses_a_creature_of_another_mana_value(cards):
+    s = build(cards, ["Sorin, Vengeful Bloodlord", "Kitchen Finks"], [])
+    sorin = put(s, "Sorin, Vengeful Bloodlord")
+    act(s, "p1", type="counter", card_ids=[sorin.id], kind="loyalty", delta=4)  # (put there by hand: no loyalty of its own)
+    finks = card_named(s, "Kitchen Finks")
+    act(s, "p1", type="move", card_ids=[finks.id], to={"zone": "graveyard"})
+    with pytest.raises(ActionError):
+        activate(s, "p1", sorin, "−X", x_value=2, targets=[finks.id])
+
+
+def test_chainer_returns_a_creature_black_and_a_nightmare(cards):
+    s = build(cards, ["Chainer, Dementia Master"], ["Grizzly Bears"])
+    chainer = put(s, "Chainer, Dementia Master")
+    bears = card_named(s, "Grizzly Bears", "p2")
+    act(s, "p2", type="move", card_ids=[bears.id], to={"zone": "graveyard"})
+    mana(s, B=3)
+    activate(s, "p1", chainer, "Pay 3 life", targets=[bears.id])
+    settle(s)
+    got = s.state.cards[bears.id]
+    assert got.zone == "p1:battlefield" and life(s) == 37
+    c = chars(s, got)
+    assert list(c.colors) == ["B"] and "Nightmare" in c.subtypes and "Bear" in c.subtypes  # black only (105.3), a Nightmare in addition (205.1b)
     check(s)
