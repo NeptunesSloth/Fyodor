@@ -249,6 +249,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"minus": [a, b]} if a is not None and b is not None else None
     if what in ("cards in their hand", "cards in that player's hand", "card in their hand", "card in that player's hand"):
         return {"hand": "that_player"}  # (scripts._that_players_hand binds it: the target player, or the trigger's)
+    if what in ("cards in their library", "cards in that player's library"):  # -- most-played cards II (wave 45A) -- Peer into the Abyss: the same binding, a library's public count
+        return {"library": "that_player"}
     m = re.match(r"^twice (?P<v>.+)$", what)
     if m:
         inner = parse_count(m["v"], it=it)

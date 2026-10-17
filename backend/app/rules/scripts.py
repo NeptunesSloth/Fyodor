@@ -2723,17 +2723,19 @@ def _that_players_hand(found: tuple[list[dict[str, Any]], Any, bool] | None) -> 
     selectors' trigger-bound "that player" beside a target player (rewritten to that player's own count)."""
     text = json.dumps(found[0]) if found is not None else ""
     marker, relative = '{"hand": "that_player"}', '"for_player": "that_player"'
+    library = '{"library": "that_player"}'  # -- most-played cards II (wave 45A) -- "half the number of cards in their library" (Peer into the Abyss): bound the same way
+    marked = marker in text or library in text
     selects = re.search(r'"count": "sel:.*?\\"(?:controller|zone_owner)\\":\\"that_player\\"', text) is not None
-    if found is None or not (marker in text or relative in text or selects):
+    if found is None or not (marked or relative in text or selects):
         return found
     if (found[1] in ("player", "opponent") or str(found[1]).startswith("opponent_as:")) and '"event_player"' not in text:
         bound = "target"
-    elif found[1] is None and (marker in text or relative in text) and (any(e.get("who") == "event_player" for e in found[0]) or all(
-            e.get("who", "you") == "you" for e in found[0] if marker in json.dumps(e) or relative in json.dumps(e))):
+    elif found[1] is None and (marked or relative in text) and (any(e.get("who") == "event_player" for e in found[0]) or all(
+            e.get("who", "you") == "you" for e in found[0] if marker in json.dumps(e) or library in json.dumps(e) or relative in json.dumps(e))):
         bound = "event"  # -- value grammar (wave 30N) -- ... or you: "you gain 1 life for each artifact that player controls" (the trigger's player; _event_refs_ok checks it has one)
     else:
-        return None if marker in text or relative in text else found
-    effects = json.loads(text.replace(marker, '{"hand": "' + bound + '"}').replace(relative, f'"for_player": "{bound}"'))
+        return None if marked or relative in text else found
+    effects = json.loads(text.replace(marker, '{"hand": "' + bound + '"}').replace(library, '{"library": "' + bound + '"}').replace(relative, f'"for_player": "{bound}"'))
     return (_own_counts(effects) if bound == "target" else effects), found[1], found[2]
 
 
@@ -2990,6 +2992,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # end of turn." is one choice made as it resolves (608.2d): read as "… becomes the creature type [other than Wall] of your choice …"
     body = re.sub(r"([^.]+?) (gets [+−-]\d+/[+−-]\d+) and (becomes the color of your choice) until end of turn\.",
                   r"\1 \2 until end of turn. \1 \3 until end of turn.", body)  # (Wild Mongrel: two instructions in order)
+    # -- most-played cards II (wave 45A) -- 107.1a: "Each player loses half their life, then discards half the cards in their hand, then sacrifices half the … . Round up each time."
+    # (Fraying Omnipotence, Pox Plague, Peer into the Abyss): every "half …" of the sentence is rounded that way
+    body = re.sub(r"((?:Each|Target) (?:player|opponent) [^.]*\bhalf [^.]*)\. Round (up|down) each time\.",
+                  lambda m: re.sub(r"(\bhalf [^,.]+?)(, then | and (?=(?:loses|draws|discards|sacrifices)\b)|$)",
+                                   lambda k: f"{k[1]}, rounded {m[2]}" + ("," if k[2].startswith(" and") else "") + k[2], m[1]) + ".", body)
     body = re.sub(r"Until end of turn, (double [^.\"]+?) and it (gains? [^.\"]+?)\.", r"\1 until end of turn. It \2 until end of turn.", body)  # -- most-played cards II (wave 45A) -- Legion Leadership: two instructions, "it" the one target
     body = re.sub(r"Choose a creature type( other than [A-Z][a-z]+)?\. ([^.]+?) becomes? that type until end of turn\.",
                   r"\2 becomes the creature type\1 of your choice until end of turn.", body)
