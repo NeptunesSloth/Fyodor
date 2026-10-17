@@ -27,7 +27,7 @@ KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w46a", number=f"A{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 PUNK, OBOSH = "Spider-Punk", "Obosh, the Preypiercer"
-FULL = [PUNK, OBOSH, "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained", "Edgewalker", "Ragemonger", "Morophon, the Boundless"]
+FULL = [PUNK, OBOSH, "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained", "Edgewalker", "Ragemonger", "Morophon, the Boundless", "Eluge, the Shoreless Sea"]
 
 
 @pytest.fixture()
@@ -279,4 +279,28 @@ def test_morophon_reduces_every_color_of_the_chosen_type(cards):
     assert on_table_or_hand(s, MOROPHON).zone == "p1:battlefield"
     assert cost(s, "Elvish Visionary") == "{1}"  # an Elf, {1}{G}: the {G} goes
     assert cost(s, "Grizzly Bears") == "{1}{G}"  # a Bear
+    check(s)
+
+
+# ---- 118.7b, 601.2i: Eluge ---------------------------------------------------------------------------------------------------------------------------
+ELUGE = "Eluge, the Shoreless Sea"
+
+
+def flood(s, n):
+    for _ in range(n):
+        land = put(s, "Forest")
+        act(s, "p1", type="set_counter", card_id=land.id, kind="flood", value=1)
+
+
+def test_eluge_takes_a_blue_symbol_off_the_first_instant_or_sorcery_for_each_flooded_land(cards):
+    s = build(cards, [ELUGE, "Counterspell", "Lightning Bolt", "Grizzly Bears"], [])
+    put(s, ELUGE)
+    assert cost(s, "Counterspell") == "{U}{U}"  # no land with a flood counter yet
+    flood(s, 1)
+    assert cost(s, "Counterspell") == "{U}"
+    assert cost(s, "Grizzly Bears") == "{1}{G}"  # not an instant or sorcery
+    mana(s, R=1)
+    cast(s, "Lightning Bolt", targets=["p2"])  # {R}: no {U} in it and no generic, so nothing to take off (118.7b)
+    pass_until_stack_empty(s)
+    assert cost(s, "Counterspell") == "{U}{U}"  # only the first instant or sorcery each turn
     check(s)

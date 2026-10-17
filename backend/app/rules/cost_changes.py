@@ -347,7 +347,7 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
             return None
         turn, rest = "not_caster", rest[: -len(_EXCEPT)]
     change = parse_change(m["n"], m["dir"], rest)
-    if change is None or change.get("mana") and change.get("value"):
+    if change is None:  # (-- cant restrictions (wave 46A) -- a colored amount per count is read too: Eluge, 118.7b/c)
         return None
     # ("… as long as there are three or more Lesson cards in your graveyard": the static's condition, read with its
     # source's controller as "you" each time a total cost is determined: amount())
@@ -474,19 +474,17 @@ def _ordinal_definition(o: re.Match[str]) -> dict[str, Any] | None:
     from app.rules import history, selectors
     from app.rules.permissions import spell_filter
 
-    if not o["n"].isdigit():
-        return None
     tail = "with {X} in its mana cost" if o["xc"] else None
     key = spell_filter(o["sel"], tail) if o["sel"] or tail else None
     if (o["sel"] or tail) and (key is None or not history.note_selector_ok(selectors.from_key(key), spell=True)):
         return None  # (a kind of spell the turn's cast records can't answer: "kicked", "face-down", "with flying")
     if o["ord"] == "second" and key is not None:
         return None
-    n = int(o["n"])
+    n = int(o["n"]) if o["n"].isdigit() else 1  # (wave 46A: a colored symbol, "{U} less for each …", Eluge)
     if o["flash"] and o["ord"] != "first":
         return None
     change = parse_change(o["n"], "less", o["each"] or "")
-    if change is None or change.get("mana"):
+    if change is None:
         return None
     from app.rules import cast_limits
 
