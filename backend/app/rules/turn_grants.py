@@ -44,13 +44,18 @@ def _unblocked(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     rules = statics._rule(f"can't be blocked except by {ex}" if ex else f"can't be blocked {by}")
     if not rules:
         raise _fail()
-    try:
-        kind, key, group = language.ref(m["o"])
-    except language._Fail:
-        raise _fail() from None
-    if kind not in ("target", "it", "them", "self", "each"):
-        raise _fail()
-    return [{"do": "restrict", "who": language._who(kind, key), "rules": rules}], language._one(group)
+    out: list[dict[str, Any]] = []
+    found: Any = None
+    for subject in re.split(r" and (?=target )", m["o"], maxsplit=1):  # (wave 45D: "Tatsunari and target Frog you control can't be blocked this turn except by …")
+        try:
+            kind, key, group = language.ref(subject)
+        except language._Fail:
+            raise _fail() from None
+        if kind not in ("target", "it", "them", "self", "each") or (kind == "target" and found is not None):
+            raise _fail()
+        out.append({"do": "restrict", "who": language._who(kind, key), "rules": rules})
+        found = language._one(group) if kind == "target" else found
+    return out, found
 
 
 def _shared(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:

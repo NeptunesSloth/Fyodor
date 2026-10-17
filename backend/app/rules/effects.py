@@ -1069,7 +1069,10 @@ def add_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # (Geralf): "other" is than IT, the object the counters go on, not than the ability's source
         counted = e["who"] == "event" and len(cards) == 1 and isinstance(e["n"], dict) and "count" in e["n"]
         n = _amount(plan, {**ctx, "other_than": cards[0]} if counted else ctx, e["n"])
-        puts = [(cid, e["kind"], n) for cid in cards] if n else []
+        if isinstance(e["n"], dict) and e["n"].get("colors") == e["who"] and len(cards) > 1:  # (wave 45D) "equal to the number of colors it is": each one's own
+            puts = [(cid, e["kind"], k) for cid in cards if (k := len(plan.ch(plan.state.cards[cid]).colors))]
+        else:
+            puts = [(cid, e["kind"], n) for cid in cards] if n else []
         for more in e.get("also") or ():  # -- counters (wave 5H) -- several kinds at once (one event, 122.6)
             k = _amount(plan, ctx, more["n"])
             more_cards = _cards(plan, ctx, more["who"]) if more.get("who") else cards

@@ -687,9 +687,19 @@ _WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "h
 # an activated ability and statics by app/rules/levelers.py, so it is no keyword of the object and stays unread)
 
 
+@_suffix(r"with (?P<a>" + "|".join(_WITH_KEYWORDS) + r") or (?P<b>" + "|".join(_WITH_KEYWORDS) + r")")  # (wave 45D: "creatures you control with flash or haste", Sonic, Shadow)
+def _with_kw_any(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, f"any_kw:{m['a']},{m['b']}"))  # either keyword
+
+
 @_suffix(r"(?:with|that has) (?P<kw>" + "|".join(_WITH_KEYWORDS) + r")")  # (wave 15B: "a spell that has convoke")
 def _with_kw(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, with_keywords=(*s.with_keywords, m["kw"]))
+
+
+@_suffix(r"with (?:a|an) mana abilit(?:y|ies)")  # (wave 45D) 605.1a: an activated ability that could add mana ("creatures you control with a mana ability", Raggadragga)
+def _with_mana_ability(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "mana_ability"))
 
 
 @_suffix(r"with (?:a )?(?:cycling|cycling abilit(?:y|ies))")  # -- reanimation (wave 20C) -- 702.29f: typecycling abilities are cycling abilities (wave 32C: "a cycling ability", Rooting Moloch)
@@ -1744,6 +1754,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if sel.multicolored is not None and (len(ch.colors) > 1) != sel.multicolored:
         return False
     if sel.with_keywords and not set(sel.with_keywords) <= ch.keywords:
+        return False
+    if any(x.startswith("any_kw:") and not set(x[7:].split(",")) & ch.keywords for x in sel.extras):  # (wave 45D)
+        return False
+    if "mana_ability" in sel.extras and not any(a.kind == "mana" for a in ch.abilities):  # (wave 45D)
         return False
     if set(sel.without_keywords) & ch.keywords:
         return False
