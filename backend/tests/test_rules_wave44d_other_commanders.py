@@ -663,3 +663,15 @@ def test_oskar_may_leave_the_discarded_card_in_the_graveyard(cards):
     decide(s, [])
     assert len(s.state.zones["p1:hand"]) == hand and s.state.cards[div.id].zone == "p1:graveyard"
     check(s)
+
+
+def test_masters_councillors_count_the_graveyards_with_seven_or_more_cards(cards):
+    """The same count as The Master of Lake-town's, read by a static (a card the new count also made FULL)."""
+    s = build(cards, ["Master's Councillors"], [])
+    put(s, "Master's Councillors")
+    base = view_ch(s, "Master's Councillors").pt[0]
+    fill_graveyard(s, "p2", 7)
+    assert view_ch(s, "Master's Councillors").pt[0] == base + 2
+    fill_graveyard(s, "p1", 7)
+    assert view_ch(s, "Master's Councillors").pt[0] == base + 4
+    check(s)
