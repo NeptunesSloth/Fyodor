@@ -422,8 +422,8 @@ def clause(text: str) -> tuple[Effects, Any] | None:
         return ([restricted[0][0]] if m["eot"] else [{**restricted[0][0], "each_combat": True}]), restricted[1]
     m = _MUST_THAT.fullmatch(text)
     if m:  # 508.1d, Ruhan ruling 2011-09-22: that player, not a planeswalker of theirs; this combat only (611.2), the player bound by random_choice
-        found = _restrict(m["o"], [f"{ATTACK_PLAYER}:@that"])
-        return ([{**found[0][0], "player": "that_player", "duration": "end_of_combat"}], found[1]) if found is not None else None
+        that = _restrict(m["o"], [f"{ATTACK_PLAYER}:@that"])
+        return ([{**that[0][0], "player": "that_player", "duration": "end_of_combat"}], that[1]) if that is not None else None
     m = _MUST_YOU.fullmatch(text)
     if m:  # 508.1d: it attacks the effect's controller ("you") if able (ATTACK_PLAYER, as encore's tokens)
         return _restrict(m["o"], [f"{ATTACK_PLAYER}:@you"])

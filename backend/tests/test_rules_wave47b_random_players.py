@@ -16,8 +16,8 @@ import pytest
 
 from app.game.errors import ActionError
 from app.rules import coverage
-from tests.test_rules_conditionals import until
 from tests.game_helpers import act
+from tests.test_rules_conditionals import until
 from tests.test_rules_wave34b_activated import ask, settle
 from tests.wave9c_kit import card_named, check, mana, put, to_hand
 from tests.wave47b_kit import FULL, build3, cast, life, open_cards, pin_random

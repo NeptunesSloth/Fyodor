@@ -315,6 +315,8 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
     if p in ("enchanted creature", "equipped creature", "enchanted permanent", "enchanted land", "enchanted artifact") \
             or re.fullmatch(r"enchanted (?:Plains|Island|Swamp|Mountain|Forest)", p):  # (wave 25D: the Genju: "Enchant Forest")
         return "host", "", None  # what the source Aura / Equipment is attached to
+    if p == "your Ring-bearer":  # -- random choices (wave 47B) -- 701.54a: the creature the Ring chose for its controller, if it still is (effects._cards)
+        return "each", "ring_bearer", None
     if p in PLAYER_GROUPS:
         return "players", PLAYER_GROUPS[p], None
     group = target_group(p)

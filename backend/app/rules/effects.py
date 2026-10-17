@@ -191,6 +191,9 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         from app.rules import defending
 
         return defending.attacked(plan, ctx)[1]
+    if who == "ring_bearer":  # -- random choices (wave 47B) -- "your Ring-bearer" (701.54a): the creature the Ring chose for the controller, while it still is
+        bearer = designations._bearer_card(plan, ctx["controller"])
+        return [bearer.id] if bearer is not None else []
     if who == "self":
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):

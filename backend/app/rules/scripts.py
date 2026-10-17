@@ -549,13 +549,14 @@ _TOKEN_MAKERS = {"create_token", "create_attacking"}  # (what they introduce are
 _RECORDING["rest_looked"] = None  # (wave 44A: its verb is _verb_of's)
 _RECORDING["linked_cards"] = "exiled"  # -- resolution memory (wave 22D) -- exiled_with.linked_cards
 _MOVERS.add("linked_cards")
+_RECORDING["reveal_random"] = "revealed"  # -- random choices (wave 47B) -- "that card" is the card revealed at random
 _RECORDING["choose_random"] = None  # -- random choices (wave 47B) -- the pick is bound as the player "that player" names
 _RECORDING["transform"] = None  # -- most-played cards II (wave 45A) -- "Transform this land, then untap it." (Westvale Abbey): "it" is the permanent that transformed (701.28: the same object)
 _RECORDING["double_pt"] = None  # -- trigger other (wave 41C) -- "double the power of each other creature you control until end of turn. Those creatures gain vigilance …"
 _RECORDING["create_attacking"] = None  # -- keywords (wave 15E) -- "create … tokens that are tapped and attacking. Sacrifice them …":
 _MOVERS.add("create_attacking")  # the pronoun names the tokens made, not the ability's source (was bound to the source)
 _CHOSEN = {"sacrifice_choice": "n", "edict": "n", "discard": "n", "mill": "n", "create_token": "n", "search": "max", "pick_looked": "n",
-           "create_attacking": "n"}
+           "create_attacking": "n", "reveal_random": "n"}  # (reveal_random, wave 47B: a targeted player's reveal names cards, not only the player)
 # ("on": "for each +1/+1 counter on it" — the object a pronoun names, as for its power. Not "hand":
 # "that player's hand" names a player, which _bind_stats (objects only) can't bind — values reads
 # only "you" / "target" hands, so the phrase stays manual.)
@@ -2053,7 +2054,7 @@ def _one_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         return combat_found
     from app.rules import random_choice  # -- random choices (wave 47B) -- "choose an opponent at random"
 
-    if (picked := random_choice.clause(text)) is not None:
+    if (picked := random_choice.clause(text) or random_choice.reveal_clause(text)) is not None:
         return picked
     # -- token & pump wordings (wave 6C) -- "create a Monster Role token attached to it"
     from app.rules import roles
@@ -2503,7 +2504,7 @@ def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tup
         # -- top of library (wave 5I) -- "If it's a …, you may reveal it" (private)
         from app.rules import top_library
 
-        return random_choice.post(pw=or_pw, got=_source_owner_draws(_entered_after_delayed(_no_regen_scope(top_library.private_gate(_excess_redirect(_value_targets(
+        return random_choice.post(mode=or_pw, got=_source_owner_draws(_entered_after_delayed(_no_regen_scope(top_library.private_gate(_excess_redirect(_value_targets(
             _that_players_hand(_attached_host(_gy_shuffle(_life_lost(this_way.dealt_to(this_way.excess_dealt(this_way.damage_dealt(_energy_paid(
                 _parse_effects(body, it, event_player))))))), it)))))))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C; random_choice: wave 47B)
     except _NoMatch:

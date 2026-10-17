@@ -19,7 +19,7 @@ DATA = json.loads((Path(__file__).parent / "fixtures" / "wave47b_cards.json").re
 KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w47b", number=f"A{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
-SUPPORT = ("Jace Beleren", "Lightning Bolt", "Counterspell", "Ugin, the Spirit Dragon", "Hill Giant", "Grizzly Bears", "Shock", "Sol Ring")  # (cards the scenarios need, not under test)
+SUPPORT = ("Jace Beleren", "Lightning Bolt", "Ugin, the Spirit Dragon", "Hill Giant", "Shivan Dragon", "Llanowar Elves", "Blaze")  # (cards the scenarios need, not under test)
 FULL = [c["name"] for c in DATA if c["name"] not in SUPPORT]
 
 
@@ -46,9 +46,13 @@ def build3(cards, mine=(), bobs=(), carols=(), forests=9):
 
 
 def pin_random(monkeypatch, index=-1):
-    """Every "at random" pick of the table takes the item at ``index`` of what it picks among (a fixed source for the scenario; the engine's own is a
-    system source)."""
+    """Every "at random" pick of the table takes the item at ``index`` of what it picks among (the last one when it is beyond; a fixed source for the
+    scenario, the engine's own is a system source)."""
     from app.game import resolve
 
-    monkeypatch.setattr(resolve._rng, "choice", lambda seq: list(seq)[index])
-    monkeypatch.setattr(resolve._rng, "sample", lambda seq, k: list(seq)[index:][:k] if index >= 0 else list(seq)[len(seq) + index:][:k])
+    def at(seq):
+        seq = list(seq)
+        return min(index, len(seq) - 1) if index >= 0 else max(index, -len(seq))
+
+    monkeypatch.setattr(resolve._rng, "choice", lambda seq: list(seq)[at(seq)])
+    monkeypatch.setattr(resolve._rng, "sample", lambda seq, k: [list(seq)[(at(seq) + j) % len(seq)] for j in range(k)] if seq else [])

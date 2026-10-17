@@ -29,6 +29,8 @@ if TYPE_CHECKING:
 
 Context = dict[str, Any]
 _CLAUSE = re.compile(r"choose (?P<w>an opponent|a player) at random")
+_REVEAL = re.compile(r"(?:(?P<s>.+?) )?reveals? (?P<n>a|one|two|three|X|\d+) cards? at random (?:from|in) (?:their|your|that player's) hand")
+_LOOK = re.compile(r"look at (?P<n>a) card at random in (?P<s>target (?:player|opponent))'s hand")
 _OR_PW = re.compile(r"(?<=\. )(?P<d>[^.]*?) to that player or a planeswalker that player controls\.")
 INLINE = "random_opponent"  # the group token of "an opponent chosen at random" (scripts: post() makes it a pick and a binding)
 
@@ -39,26 +41,57 @@ def clause(text: str) -> tuple[list[dict[str, Any]], None] | None:
     return None if m is None else ([{"do": "choose_random", "pool": "opponent" if m["w"] == "an opponent" else "player"}], None)
 
 
-def strip_pw(body: str) -> tuple[str, bool]:
+def reveal_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
+    """"Target player reveals a card at random from their hand" (Ignite Memories, Friendly Fire, Singe-Mind Ogre, Merfolk Spy), "Reveal two cards at
+    random from your hand" (Rise // Fall), "Look at a card at random in target player's hand" (Urza's Bauble): the cards are revealed to everyone
+    (701.20a), or to the looker alone (701.20e); the later instructions read them as "that card"."""
+    from app.rules import language
+    from app.rules.values import NUMBERS
+
+    m = _REVEAL.fullmatch(text) or _LOOK.fullmatch(text)
+    if m is None:
+        return None
+    n: Any = {"x": 1} if m["n"] == "X" else int(m["n"]) if m["n"].isdigit() else 1 if m["n"] in ("a", "one") else NUMBERS.get(m["n"])
+    try:
+        kind, key, group = language.ref(m["s"] or "you")
+    except language._Fail:
+        return None
+    if kind not in ("target", "players") or (kind == "players" and key not in ("you", "that_player")):
+        return None
+    return [{"do": "reveal_random", "who": language._who(kind, key), "n": n, **({"private": True} if text.startswith("look") else {})}], \
+        language._one(group)
+
+
+def strip_pw(body: str) -> tuple[str, str]:
     """"Choose an opponent at random. ~ deals N damage to that player or a planeswalker that player controls." (Vial Smasher): the
     sentence read as "… to that player." and the pick marked (``post(pw=True)``) to be followed by the controller's choice."""
+    if "at random" in body and "repeat this process" in body:  # (Sin: "exile a permanent card from your graveyard at random, then create a tapped token that's a copy of
+        # that card. If the exiled card is a land card, repeat this process.": it is the exiled card that is asked about, not the token ``post`` sets that right)
+        new = re.sub(r"\bIf the exiled card is (an? [\w ]+? card), repeat this process\.", r"If that card is \1, repeat this process.", body)
+        return new, "exiled" if new != body else ""
     if not re.search(r"(?i)\bchoose (?:an opponent|a player) at random\. ", body):
-        return body, False
+        return body, ""
     new = _OR_PW.sub(lambda m: f"{m['d']} to that player.", body)
-    return new, new != body
+    return new, "pw" if new != body else ""
 
 
-def post(got: Any, pw: bool = False) -> Any:
+def post(got: Any, mode: str = "") -> Any:
     """"… to an opponent chosen at random" (the group token ``INLINE`` as an instruction's ``who``): the pick is made right before the
     instruction (inside its "if" gate, if it has one), bound as ``ref:rp<k>``. The token anywhere else keeps the card manual."""
     if got is None:
         return got
     effects = got[0]
-    if pw:  # (the one pick of the ability: ``strip_pw`` found a single sentence)
+    if mode == "pw":  # (the one pick of the ability: ``strip_pw`` found a single sentence)
         picks = [e for e in effects if e.get("do") == "choose_random"]
         if len(picks) != 1:
             return None
         picks[0]["pw"] = True
+    if mode == "exiled":  # the condition names the card exiled at random (the first instruction), whatever the pronoun bound to since
+        first = effects[0] if effects else {}
+        gates = [e for e in effects if e.get("do") == "only_if" and str((e.get("cond") or {}).get("object", "")).startswith("ref:")]
+        if first.get("do") != "return_choice" or not first.get("as") or len(gates) != 1:
+            return None
+        gates[0]["cond"]["object"] = f"ref:{first['as']}"
     k = 0
     while k < len(effects):
         if effects[k].get("who") == INLINE:
@@ -107,5 +140,29 @@ def resume_choose_random(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
-PRIMITIVES = {"choose_random": choose_random}
+def reveal_random(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Each player named reveals N cards of their hand picked at random (fewer if the hand is smaller): the table picks among cards nobody has
+    seen, and the only thing anyone learns is the cards picked, shown as they are revealed (to everyone, or the looker alone: ``private``). They
+    stay revealed while this resolution needs them and are hidden again after it (effects.hide_revealed)."""
+    from app.rules.effects import _amount, _players
+
+    me = ctx["controller"]
+    rng = plan.rng or secrets.SystemRandom()
+    picked: list[str] = []
+    for pid in _players(plan, ctx, e["who"]):
+        hand = sorted(plan.state.zones.get(f"{pid}:hand", []))
+        mine = rng.sample(hand, min(_amount(plan, ctx, e["n"]), len(hand)))
+        if mine:
+            plan.do({"type": "reveal", "card_ids": mine, **({"to": [me]} if e.get("private") else {})}, actor=pid if not e.get("private") else me)
+        picked += mine
+    ctx["revealed"] = [*(ctx.get("revealed") or []), *picked]
+    if not ctx.get("hide_queued"):  # (appended in place: the resolver walks the same list)
+        ctx["hide_queued"] = True
+        ctx["effects"].append({"do": "hide_revealed"})
+    if e.get("as"):
+        context.bind_objects(plan, ctx, e["as"], picked)
+    return True
+
+
+PRIMITIVES = {"choose_random": choose_random, "reveal_random": reveal_random}
 RESUME: dict[str, Any] = {"choose_random": resume_choose_random}
