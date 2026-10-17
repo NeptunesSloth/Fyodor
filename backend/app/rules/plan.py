@@ -131,7 +131,7 @@ class Plan:
                 if entry.types is None and card is not None and self.oid(card) == entry.object_id:
                     now = self.ch(card)
                     entry.types, entry.subtypes = sorted(now.types), sorted(now.subtypes)
-        for oid, (pt, abilities, keywords, traits, base) in leaving.items():  # last known information (608.2h)
+        for oid, (pt, abilities, keywords, traits, base, goaded) in leaving.items():  # last known information (608.2h)
             snap = self.rules.lki.get(oid)
             if snap is not None:
                 if pt is not None:  # power / toughness
@@ -140,6 +140,7 @@ class Plan:
                     snap.base_power, snap.base_toughness = base
                 # -- quoted grants (wave 2D) -- its abilities, keywords and types as they last existed (603.10a)
                 snap.abilities, snap.keywords, snap.traits = abilities, keywords, traits
+                snap.goaded = sorted(goaded)  # (-- goad (wave 48D) -- 701.15b)
         self.state.renames().clear()
         self.steps.append(resolved.model_dump(mode="json"))
         if payload.get("type") == "rules_mana" and self.rules.kept_mana:  # -- refused copy/mana (wave 3R3) --
@@ -172,22 +173,23 @@ class Plan:
                 out[cid] = sorted(self.ch(card).types)
         return out
 
-    def _battlefield_lki(self, payload: dict[str, Any]) -> dict[str, tuple[Any, Any, Any, Any, Any]]:
+    def _battlefield_lki(self, payload: dict[str, Any]) -> dict[str, tuple[Any, Any, Any, Any, Any, Any]]:
         """What a step may move off the battlefield looks like right now: the current power /
         toughness of the creatures (608.2h) and — quoted grants, wave 2D — the abilities, keywords
         and types of any permanent when they differ from the printed ones (603.10a: abilities that
         trigger as it leaves look back at the abilities it had; 700.4: an animated land dies as a
         creature)."""
-        from app.rules import granted  # (granted → plan for type hints only)
+        from app.rules import granted, keyword_actions  # (granted → plan for type hints only)
 
-        out: dict[str, tuple[Any, Any, Any, Any, Any]] = {}
+        out: dict[str, tuple[Any, Any, Any, Any, Any, Any]] = {}
         for cid in payload.get("card_ids") or []:
             card = self.state.cards.get(cid) if isinstance(cid, str) else None
             if card is not None and card.zone.endswith(":battlefield"):
                 now = self.ch(card)
                 abilities, keywords, traits = granted.last_existed(chars.of(card, self.info), now)
-                if now.pt is not None or abilities is not None or keywords is not None or traits is not None:
-                    out[self.oid(card)] = (now.pt, abilities, keywords, traits, now.base_pt)
+                goaded = keyword_actions.goaded_by(now)  # -- goad (wave 48D) -- 701.15b, 608.2h: a goaded creature that dies was goaded as it last existed
+                if now.pt is not None or abilities is not None or keywords is not None or traits is not None or goaded:
+                    out[self.oid(card)] = (now.pt, abilities, keywords, traits, now.base_pt, goaded)
         return out
 
     def note(self, message: str, card_ids: list[str] | tuple[str, ...] = (), *, actor: str | None = None) -> None:

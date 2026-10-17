@@ -181,10 +181,7 @@ def parse_condition(cond: str) -> Condition | None:
             r"enchanted_or_equipped" if found.get("event") in ("die", "leave") and found.get("subject") in ("sel", "self_or") and not found.get("aggregate") else
             r"modified|enchanted_or_equipped", str(found)):
         return None
-    # -- history (wave 22E) -- 701.15b: a goaded creature is read live, as it attacks; an object that has left (a creature that died as it
-    # dealt damage, or dies) is rebuilt from its last known information, which doesn't keep the goad: such triggers stay manual
-    if found is not None and "goaded" in str(found) and not (found.get("event") == "attack" and found.get("subject") == "sel"):
-        return None
+    # (-- goad (wave 48D) -- 701.15b: an object that has left (a creature that died as it dealt damage, or dies) keeps the goad in its last known information)
     return found
 
 

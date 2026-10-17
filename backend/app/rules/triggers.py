@@ -115,7 +115,8 @@ def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
     # -- quoted grants (wave 2D) -- the abilities and keywords it had (603.10a): granted ones too
     from app.rules import granted
 
-    return granted.as_last_existed(ch, snap)
+    ch = granted.as_last_existed(ch, snap)
+    return replace(ch, imposed=ch.imposed | {f"goaded:{p}" for p in snap.goaded}) if snap.goaded else ch  # -- goad (wave 48D) -- 701.15b, 608.2h
 
 
 def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, name: str, index: int,

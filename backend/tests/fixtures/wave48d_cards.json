@@ -136,5 +136,112 @@
   ],
   "power": "5",
   "toughness": "5"
+ },
+ {
+  "name": "Baeloth Barrityl, Entertainer",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Elf Shaman",
+  "oracle_text": "Creatures your opponents control with power less than Baeloth Barrityl's power are goaded. (They attack each combat if able and attack a player other than you if able.)\nWhenever a goaded attacking or blocking creature dies, you create a Treasure token.\nChoose a Background (You can have a Background as a second commander.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Goad",
+   "Choose a background",
+   "Treasure"
+  ],
+  "power": "2",
+  "toughness": "5"
+ },
+ {
+  "name": "Puppet Master, String Puller",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Artificer Villain",
+  "oracle_text": "Whenever you attack, goad target creature an opponent controls. It can't block this turn. (Until your next turn, that creature attacks each combat if able and attacks a player other than you if able.)\nWhenever one or more goaded creatures deal combat damage to one of your opponents, create a Treasure token.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Goad",
+   "Treasure"
+  ],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Disrupt Decorum",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Goad all creatures you don't control. (Until your next turn, those creatures attack each combat if able and attack a player other than you if able.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Goad"
+  ]
+ },
+ {
+  "name": "Hill Giant",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Giant",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Shock",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Shock deals 2 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Llanowar Elves",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Creature — Elf Druid",
+  "oracle_text": "{T}: Add {G}.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
  }
 ]
