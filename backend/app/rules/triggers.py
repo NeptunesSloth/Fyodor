@@ -127,7 +127,7 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
         trigger_multipliers,  # -- static_other sweep (wave 16B) -- "Creatures entering don't cause abilities to trigger"
     )
 
-    if trigger_multipliers.suppressed(plan, event if event is not None else cause):
+    if trigger_multipliers.suppressed(plan, event if event is not None else cause, controller):
         return None
     if definition.get("if_kicked"):  # 603.4: "When ~ enters, if it was kicked, …" (702.33e)
         record = plan.rules.payments.get(source_object)
@@ -623,7 +623,7 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
         dealt_info.update(other=got[0].id, other_oid=e.object_id)
     out.append(("deal_damage", src[0], src[1], src[0].controller, dealt_info))
     if e.player is not None and e.player != src[0].controller:
-        info = {**base, "recipient": e.player}
+        info = {**base, "recipient": e.player, "combat": e.combat}  # (wave 43A: combat, trigger_multipliers "dealing combat damage to a player")
         out.append(("deal_damage_opponent", src[0], src[1], src[0].controller, info))
         if e.combat:
             out.append(("deal_combat_damage_player", src[0], src[1], src[0].controller, info))
@@ -1100,7 +1100,7 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
     return TriggerEvent(kind=kind, batch=batch, objects=[ref] if ref else [], new_objects=new, players=players,
                         source=info.get("source_ref") or (
                             _source_ref(plan, info.get("source_oid")) if kind == "dealt_damage" else None),
-                        amount=int(info.get("amount") or 0), count=1, x=info.get("x") if kind == "cycle" else None,
+                        amount=int(info.get("amount") or 0), count=1, x=info.get("x") if kind == "cycle" else None, combat=info.get("combat"),  # (wave 43A)
                         defended=info.get("defended") if kind == "you_attack" else _attack_defended(plan, kind, obj),
                         # -- damage wordings (wave 6B) -- the creature on the other side of a block (509.3c-d)
                         other=_source_ref(plan, plan.oid(plan.state.cards[info["other"]]))
@@ -2006,7 +2006,7 @@ def blocked(plan: Plan, blockers: list[CardInstance], attackers: list[CardInstan
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i, definition=d)
 
 
-def dealt_combat_damage_to_player(plan: Plan, sources: list[CardInstance]) -> None:
+def dealt_combat_damage_to_player(plan: Plan, sources: list[CardInstance], hit: dict[str, list[str]] | None = None) -> None:
     """702.112 renown N: "When this creature deals combat damage to a player, if it isn't renowned,
     put N +1/+1 counters on it and it becomes renowned." (Checked again on resolution.)"""
     # -- counters & designations (wave 3E): the Ring's fourth ability (701.54c) --
@@ -2017,24 +2017,27 @@ def dealt_combat_damage_to_player(plan: Plan, sources: list[CardInstance]) -> No
         if plan.manual(card):
             continue
         ch = plan.ch(card)
+        # (wave 43A: the damage it triggered on — the players it hit — for a trigger multiplier that names it: Felix Five-Boots, 603.2d)
+        dealt = TriggerEvent(kind="deal_combat_damage_player", count=1, combat=True, players=list((hit or {}).get(card.id, [])),
+                             objects=[ObjectRef(card=card.id, object_id=plan.oid(card), zone=card.zone)])
         for i, d in abilities(plan, ch, "combat_damage_player_self"):
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
-                 index=i, definition=d)
+                 index=i, definition=d, cause=dealt)
         # -- static_other sweep (wave 17C) -- cipher 702.99a: "Whenever this creature deals combat damage to a player, you may copy the
         # encoded card and you may cast the copy without paying its mana cost." — one ability for each card encoded on it
         for k, oid in enumerate(plan.rules.exiled_with.get("cipher:" + plan.oid(card), [])):  # (recursion.CIPHER)
             enc = plan.state.cards.get(oid.rsplit(".", 1)[0])
             if enc is not None and enc.zone.endswith(":exile") and plan.oid(enc) == oid and not enc.face_down:
-                _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=7000 + k,
+                _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=7400 + k,  # (wave 43A: not 7000, a delayed trigger's — the creature's own ability, which a trigger multiplier multiplies)
                      definition={"kind": "triggered", "trigger": "cipher", "optional": True, "target": None, "effects": [
                          {"do": "copy_cards", "who": f"exiled_card:{oid}", "as": "e0"},
-                         {"do": "free_cast", "zone": "that", "who": "ref:e0", "filter": None, "optional": True, "mv": None, "n": 1}]})
+                         {"do": "free_cast", "zone": "that", "who": "ref:e0", "filter": None, "optional": True, "mv": None, "n": 1}]}, cause=dealt)
         if plan.oid(card) in plan.rules.renowned:
             continue
         for k, n in enumerate(_keyword_n(ch, "renown")):
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
                  index=4100 + k, definition={"kind": "triggered", "trigger": "renown", "optional": False, "target": None,
-                                             "effects": [{"do": "renown", "n": n}]})
+                                             "effects": [{"do": "renown", "n": n}]}, cause=dealt)
 
 
 def attacked(plan: Plan, attackers: list[CardInstance]) -> None:
@@ -2061,6 +2064,8 @@ def _exalted(plan: Plan, alone: CardInstance) -> None:
     """702.83: "Whenever a creature you control attacks alone, that creature gets +1/+1 until end of
     turn" — once for each instance of exalted among permanents its controller controls."""
     target = f"object:{plan.oid(alone)}"
+    # (wave 43A: the attack it triggered on, for a trigger multiplier that names a creature attacking — Isshin, 603.2d)
+    attack = TriggerEvent(kind="attack", count=1, objects=[ObjectRef(card=alone.id, object_id=plan.oid(alone), zone=alone.zone)])
     for card in list(plan.state.cards.values()):
         if not card.zone.endswith(":battlefield") or card.controller != alone.controller or plan.manual(card):
             continue
@@ -2071,7 +2076,7 @@ def _exalted(plan: Plan, alone: CardInstance) -> None:
         for i in range(n if "exalted" in ch.keywords else 0):
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
                  index=2000 + i, definition={"kind": "triggered", "trigger": "exalted", "optional": False, "target": None,
-                                             "effects": [{"do": "pump", "who": target, "p": 1, "t": 1}]})
+                                             "effects": [{"do": "pump", "who": target, "p": 1, "t": 1}]}, cause=attack)
 
 
 def apnap(plan: Plan) -> list[str]:
