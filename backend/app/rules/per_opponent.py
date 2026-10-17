@@ -23,9 +23,10 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 FLAG = "opponent_group"
-_FOR_EACH = re.compile(r"^[Ff]or each opponent, (?P<rest>.+?)\.?$")
+_FOR_EACH = re.compile(r"^(?P<pre>.*?\. )?[Ff]or each (?P<who>opponent|player), (?P<rest>.+?)\.?$", re.S)  # (-- per-player targets (wave 50F) -- "For each player" (Nils, Battle at the Helvault); a sentence before it (Tasha: "Draw a card.") happens once)
 _THOSE = re.compile(r"\b(?:[Ee]ach of )?[Tt]hose (?:creatures|permanents)\b")  # (the one chosen for this opponent: the copy's "it")
 _THAT_PLAYER = re.compile(r"\bthat (?:player|opponent) controls\b")
+_THAT_YARD = re.compile(r"\bthat (?:player|opponent)'s graveyard\b")  # (-- per-opponent targets (wave 50F) -- Tasha, Sepulchral Primordial: a card from that opponent's graveyard)
 Parsed = tuple[list[dict[str, Any]], Any, bool]
 
 
@@ -33,7 +34,7 @@ def parse(body: str, read: Callable[[str], Parsed | None]) -> Parsed | None:
     m = _FOR_EACH.match(body.strip())
     if m is None:
         return None
-    rest = _THOSE.sub("it", _THAT_PLAYER.sub("an opponent controls", m["rest"]).replace(". They gain ", ". It gains "))
+    rest = _THOSE.sub("it", _THAT_YARD.sub("an opponent's graveyard", _THAT_PLAYER.sub("an opponent controls", m["rest"])).replace(". They gain ", ". It gains "))
     if re.search(r"\b(?:that (?:player|opponent)|they|them|their)\b", rest):
         return None  # (another reference to the opponent: not read)
     found = read(rest + ".")
@@ -44,9 +45,15 @@ def parse(body: str, read: Callable[[str], Parsed | None]) -> Parsed | None:
         return None
     group = groups[0]
     sel = selectors.from_key(group["what"]) if str(group.get("what", "")).startswith(selectors.PREFIX) else None
-    if sel is None or sel.controller != "opponent" or group["max"] != 1 or group["min"] > 1 or set(group) - {"what", "min", "max"}:
+    if sel is None or (sel.controller != "opponent" and not (sel.zone_owner == "opponent" and sel.controller is None)) or group["max"] != 1 or group["min"] > 1 or set(group) - {"what", "min", "max"}:
         return None
-    return found[0], [{**group, FLAG: True}], found[2]
+    before: list[dict[str, Any]] = []
+    if m["pre"]:  # (once, not per opponent: an untargeted sentence of no choice and no payment of its own)
+        pre = read(m["pre"].strip())
+        if pre is None or pre[1] is not None or pre[2] or re.search(r'"(?:target|optional|bind|skip)', json.dumps(pre[0], default=str)):
+            return None
+        before = pre[0]
+    return before + found[0], [{**group, FLAG: m["who"], "from": len(before)}], found[2]
 
 
 def flagged(definition: dict[str, Any]) -> bool:
@@ -86,14 +93,15 @@ def expanded(plan: Plan, controller: str, source_card: str | None, ab: dict[str,
     group = ab["targets"][0]
     order = plan.state.seat_order
     start = order.index(controller) if controller in order else 0
-    opponents = [p for i in range(len(order)) if (p := order[(start + i) % len(order)]) in plan.live() and p != controller]
+    opponents = [p for i in range(len(order)) if (p := order[(start + i) % len(order)]) in plan.live() and (p != controller or group[FLAG] == "player")]
     sel = selectors.from_key(group["what"])
+    first = group.get("from", 0)  # (-- per-player targets (wave 50F) -- the sentences before the "For each …" one are carried out once)
     groups: list[dict[str, Any]] = []
     effects: list[dict[str, Any]] = []
     for p in opponents:
-        key = replace(sel, controller=f"player:{p}").key()
+        key = (replace(sel, zone_owner=f"player:{p}") if sel.zone_owner == "opponent" else replace(sel, controller=f"player:{p}")).key()
         if group["min"] and not legal_targets(plan, key, controller, source_of(plan, source_card), source_card):
             continue
-        effects += _renumber(ab["effects"], [len(groups)])
-        groups.append({k: v for k, v in group.items() if k != FLAG} | {"what": key})
-    return {**ab, "effects": effects, "targets": groups}
+        effects += _renumber(ab["effects"][first:], [len(groups)])
+        groups.append({k: v for k, v in group.items() if k not in (FLAG, "from")} | {"what": key})
+    return {**ab, "effects": [*ab["effects"][:first], *effects], "targets": groups}
