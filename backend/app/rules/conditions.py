@@ -1258,14 +1258,9 @@ def _object(t: str) -> Condition | None:
     if m:
         stats = [x for x in (m["a"], m["b"]) if x] if m["a"] else ["power"] + (["toughness"] if "toughness" in t else [])
         return {"object": "it", "beats_self": stats}
-<<<<<<< HEAD
-    if t == "its power is greater than each other creature's power":  # -- trigger other (wave 44B) -- Selvala: strictly more than every other creature on the battlefield
-        return {"object": "it", "beats_each_other": "power"}
-=======
     m = _BEATS_ALL.fullmatch(t)
     if m:
         return {"object": "it", "beats_all": m["stat"]}
->>>>>>> origin/claude/vibrant-hamilton-e00gs8
     if _LESS_SELF.fullmatch(t):  # -- counters (wave 33C) -- Shelinda, Yevon Acolyte: strictly less (an equal power is the "Otherwise")
         return {"object": "it", "beats_self": ["power"], "lt": True}
     m = _SAME_NAME_OF.fullmatch(t)  # -- same name (wave 32A) -- 201.2a: "if it doesn't have the same name as another creature you control or a creature card in your graveyard"
@@ -1610,11 +1605,6 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
             return False
         pairs = [(values._stat_of(ch, st), values._stat_of(mine[1], st)) for st in cond["beats_self"]]
         return any(a is not None and b is not None and (a < b if cond.get("lt") else a > b) for a, b in pairs)
-    if "beats_each_other" in cond:  # -- trigger other (wave 44B) -- Selvala's 2016 ruling: its power (as it last existed if it left) against each other creature on the battlefield now
-        own = values._stat_of(ch, cond["beats_each_other"])
-        return own is not None and all(
-            (theirs := values._stat_of(plan.ch(c), cond["beats_each_other"])) is None or own > theirs
-            for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.id != card.id and plan.ch(c).is_creature)
     if "counters" in cond:  # -- counters (wave 5H) -- as it is, or as it last existed (603.10a)
         kind = cond["counters"]
         if "op" in cond:  # -- counter counts (wave 30L) -- how many (122.1)
