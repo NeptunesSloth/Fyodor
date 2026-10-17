@@ -7,6 +7,7 @@ Every scenario checks the replay and a save and a load.
 * 701.26a: "untap each creature you control, then tap any number of creatures you control" (Augusta, Dean of Order: only an untapped creature can be tapped).
 * 611.2a, 613.1d, 613.4c: "target creature you control gets +3/+1 and becomes a Dinosaur in addition to its other types" until end of turn (Stegron, Thran Forge).
 * 702.189a, 611.2c: "each creature you control with a counter on it gains firebending 2 until end of turn" (Iroh, Dragon of the West).
+* 707.12, 608.2g: "exile up to one target legendary or Rat card from your graveyard and copy it. You may cast the copy." (Nashi, Moon's Legacy).
 * 602.2, 118.3: "Tap another untapped creature you control with flying: ~ gains protection from the color of your choice" (Radiant, Serra Archangel).
 """
 
@@ -35,7 +36,8 @@ EXTRA = [card(c["name"], set_code="w48c", number=f"C{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 GLISSA, SCARLETT, KRANG, PLARGG = "Glissa Sunseeker", "Headliner Scarlett", "Krang & Shredder", "Plargg, Dean of Chaos // Augusta, Dean of Order"
 STEGRON, RADIANT, FORGE, IROH = "Stegron the Dinosaur Man", "Radiant, Serra Archangel", "Thran Forge", "Iroh, Dragon of the West"
-NAMES = [GLISSA, SCARLETT, KRANG, PLARGG, STEGRON, RADIANT, IROH]
+NASHI = "Nashi, Moon's Legacy"
+NAMES = [GLISSA, SCARLETT, KRANG, PLARGG, STEGRON, RADIANT, IROH, NASHI]
 
 
 @pytest.fixture()
@@ -244,4 +246,38 @@ def test_iroh_gives_nothing_to_a_creature_without_a_counter(cards):
     attack(s, elves)
     pass_until_mana(s)
     assert not s.state.players["p1"].mana
+    check(s)
+
+
+# ---- 707.12: Nashi, Moon's Legacy ---------------------------------------------------------------------------------------------------------------
+def nashi_table(cards):
+    s = build(cards, [NASHI, GLISSA, "Grizzly Bears"], [], forests=30, islands=30)
+    nashi = put(s, NASHI)
+    dead = [card_named(s, GLISSA), card_named(s, "Grizzly Bears")]
+    act(s, "p1", type="move", card_ids=[c.id for c in dead], to={"player": "p1", "zone": "graveyard"})
+    next_turn(s)
+    stops(s)
+    attack(s, nashi)
+    return s, dead[0]
+
+
+def test_nashi_copies_a_legendary_card_from_the_graveyard_and_casts_the_copy(cards):
+    s, glissa = nashi_table(cards)
+    d = ask(s)
+    assert sorted(s.state.cards[o.card_id].name for o in d.options if o.card_id) == [GLISSA]  # Grizzly Bears is neither legendary nor a Rat
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.card_id == glissa.id])
+    mana(s, G=4)
+    settle(s)
+    assert s.state.cards[glissa.id].zone == "p1:exile"
+    copies = [c for c in s.state.cards.values() if c.name == GLISSA and c.zone == "p1:battlefield"]
+    assert len(copies) == 1 and copies[0].is_token  # "A copy of a permanent spell becomes a token"
+    check(s)
+
+
+def test_nashi_may_choose_no_card(cards):
+    s, glissa = nashi_table(cards)
+    d = ask(s)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[])
+    settle(s)
+    assert s.state.cards[glissa.id].zone == "p1:graveyard"
     check(s)
