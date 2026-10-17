@@ -184,3 +184,25 @@ def test_a_player_who_taps_their_own_mana_is_asked_before_the_tap_prompt(cards):
         assert s.state.cards[growth.id].zone in ("stack", "p1:graveyard") and s.state.cards[forest.id].tapped is tapped
         assert life(s) == (40 if tapped else 38)
         check(s)
+
+
+@pytest.mark.parametrize("mode", ["ask", "manual"])
+def test_the_announced_cost_is_what_the_payment_prompts_show(cards, mode):
+    s = build(cards, ["Mutagenic Growth"])
+    for prefs in s.state.rules.prefs.values():
+        prefs.payment = mode
+    growth = to_hand(s, "Mutagenic Growth")
+    forest = put(s, "Forest")
+    victim = creature(s, "p1", "Own Bear")
+    act(s, "p1", type="cast_spell", card_id=growth.id, targets=[victim.id])
+    pick(s, "0")  # {G} rather than 2 life
+    d = pending(s)
+    assert d.resume["cost"] == "{G}"  # the cost asked for is the announced one, not {G/P}
+    if mode == "ask":
+        assert d.resume["step"] == "payment" and d.display["suggested"] == [forest.id]
+        pick(s, "pay")
+    else:
+        assert d.resume["step"] == "payment_sources"
+        pick(s, forest.id)
+    assert s.state.cards[forest.id].tapped and life(s) == 40
+    check(s)

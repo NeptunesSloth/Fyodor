@@ -4653,7 +4653,6 @@ def special_action(state: GameState, player: str, info: CardInfo, *, instant: bo
     never one too few; ponytail: the hint of suspend, foretell and plot, 116.2f, h, k, isn't read)."""
     from app.rules import licids
     from app.rules.copying import room_printing
-    from app.rules.layers import derive
 
     r = state.rules
     main = not instant and state.turn.active_player == player and state.turn.phase in MAIN_PHASES and not state.zones.get(STACK)
@@ -4671,11 +4670,11 @@ def special_action(state: GameState, player: str, info: CardInfo, *, instant: bo
         if ends and r is not None and (found := licids.ending(state, card, player)) and found[0].end_cost \
                 and can_pay(state, player, M.parse_cost(found[0].end_cost), info, purpose=Purpose()):
             return True
-        if main and r is not None and derive(state, card, chars.of(card, info), info).doors is not None:
+        if main and r is not None:  # (a Room, or a copy of one: the printing whose halves it has, 709.5b)
             oid = r.object_id(card.id)
             data = info.get(room_printing(r, card, oid))
-            for door in (1, 2):
-                if data is not None and door not in r.unlocked.get(oid, []) and can_pay(
+            for door in (1, 2) if data is not None and chars.room(data) else ():
+                if door not in r.unlocked.get(oid, []) and can_pay(
                         state, player, M.parse_cost((half := chars.half_from_data(data, door - 1)).mana_cost), info, purpose=Purpose(ability_of=half)):
                     return True
     if main:
