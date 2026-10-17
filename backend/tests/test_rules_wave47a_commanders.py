@@ -416,3 +416,32 @@ def test_the_chosen_card_type_is_only_for_the_one_who_controls_the_permanent(car
     assert cost_of(s, mine, cards) == "{U}"
     assert cost_of(s, bobs, cards, "p2") == "{1}{U}"  # "Spells you cast": Bob's Mana Leak is not cheaper
     check(s)
+
+
+# ---- 122.1, 118.3: "Remove three counters from among other artifacts, creatures, and planeswalkers you control" (Tekuthal's cost; its proliferate line stays manual) ----
+TEKUTHAL = "Tekuthal, Inquiry Dominus"
+
+
+def tekuthal_ability(s, tek):
+    mana(s, U=2, G=1)
+    return dict(card_id=tek.id, ability=next(a.index for a in ch(s, tek).abilities if a.kind == "activated"))
+
+
+def test_tekuthals_cost_takes_counters_from_other_permanents_of_those_kinds_only(cards):
+    s = build(cards, [TEKUTHAL, "Grizzly Bears"], [])
+    tek, bears = put(s, TEKUTHAL), put(s, "Grizzly Bears")
+    act(s, "p1", type="counter", card_ids=[bears.id], kind="+1/+1", delta=3)
+    act(s, "p1", type="activate_ability", **tekuthal_ability(s, tek))
+    settle(s)
+    assert counters(s, "Grizzly Bears") == 0 and s.state.cards[tek.id].counters.get("indestructible") == 1
+    check(s)
+
+
+def test_tekuthals_own_counters_do_not_pay_for_its_cost(cards):
+    s = build(cards, [TEKUTHAL], [])
+    tek = put(s, TEKUTHAL)
+    act(s, "p1", type="counter", card_ids=[tek.id], kind="+1/+1", delta=3)  # ("other" permanents: not Tekuthal itself)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", **tekuthal_ability(s, tek))
+    assert s.state.cards[tek.id].counters.get("+1/+1") == 3 and not s.state.cards[tek.id].counters.get("indestructible")
+    check(s)
