@@ -36,7 +36,9 @@ KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="t50g", number=f"G{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 FULL = ["Kenessos, Priest of Thassa", "Maralen of the Mornsong", "Tetsuo Umezawa", "Bartel Runeaxe", "Valentina Allegra de Fontaine",
-        "Anje, Maid of Dishonor", "Hakbal of the Surging Soul", "Tamiyo, Inquisitive Student // Tamiyo, Seasoned Scholar", "Sneaky Snacker"]
+        "Anje, Maid of Dishonor", "Hakbal of the Surging Soul", "Tamiyo, Inquisitive Student // Tamiyo, Seasoned Scholar", "Sneaky Snacker",
+        "Ketramose, the New Dawn", "Haakon, Stromgald Scourge", "Dennick, Pious Apprentice // Dennick, Pious Apparition", "Tomik, Distinguished Advokist",
+        "King of the Oathbreakers", "Beluna Grandsquall // Seek Thrills"]
 
 
 @pytest.fixture()
@@ -735,4 +737,48 @@ def test_king_makes_a_spirit_when_it_phases_in_itself(cards):
     assert s.state.cards[king.id].zone == "p1:phased"
     to_main1(s, 3)
     assert s.state.cards[king.id].zone == "p1:battlefield" and len(spirits(s)) == 1
+    check(s)
+
+
+# -- Beluna Grandsquall // Seek Thrills ---------------------------------------------------------------------------------------------------------------
+BELUNA = "Beluna Grandsquall // Seek Thrills"
+GIANT = "Bonecrusher Giant // Stomp"
+
+
+@pytest.mark.parametrize("name, paid, cast", [(GIANT, {"R": 1, "G": 1}, True), (GIANT, {"R": 2}, True), ("Grizzly Bears", {"G": 1}, False)])
+def test_beluna_makes_permanent_spells_with_an_adventure_cost_one_less(cards, name, paid, cast):
+    """Bonecrusher Giant ({2}{R}) costs {1}{R}; a Bears ({1}{G}) full price. Without Beluna the Giant needs all three."""
+    s = build(cards, [BELUNA, GIANT, "Grizzly Bears"], [])
+    put(s, BELUNA)
+    card = to_hand(s, name)
+    mana(s, "p1", **paid)
+    if cast:
+        act(s, "p1", type="cast_spell", card_id=card.id)
+        settle(s)
+        assert s.state.cards[card.id].zone == "p1:battlefield"
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="cast_spell", card_id=card.id)
+    check(s)
+
+
+def test_the_giant_costs_three_without_beluna(cards):
+    s = build(cards, [GIANT], [])
+    giant = to_hand(s, GIANT)
+    mana(s, "p1", R=1, G=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=giant.id)
+    check(s)
+
+
+def test_seek_thrills_puts_the_adventure_cards_milled_into_the_hand(cards):
+    """"Mill seven cards. Then put all cards that have an Adventure from among the milled cards into your hand."  The Giant is milled and comes back to the hand; a Bears stays."""
+    s = build(cards, [BELUNA, GIANT, "Grizzly Bears"], [])
+    beluna = to_hand(s, BELUNA)
+    stack_top(s, [GIANT, "Grizzly Bears"])
+    mana(s, "p1", G=2, U=1, R=1, B=2)
+    act(s, "p1", type="cast_spell", card_id=beluna.id, face=1)
+    settle(s)
+    assert s.state.cards[card_named(s, GIANT).id].zone == "p1:hand"
+    assert s.state.cards[card_named(s, "Grizzly Bears").id].zone == "p1:graveyard"
     check(s)

@@ -396,7 +396,7 @@ def _block_pair_source(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "block_pair_this" if m["b"].startswith("blocking") else "blocked_by_this"))
 
 
-@_suffix(r"that has an Adventure")  # -- trigger other (wave 25B) -- 715.1: the card is an adventurer card ("It doesn't need to have gone on the adventure first")
+@_suffix(r"that (?:has|have) an Adventure")  # -- trigger other (wave 25B) -- 715.1: the card is an adventurer card ("It doesn't need to have gone on the adventure first")
 def _has_adventure(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "has_adventure"))
 

@@ -582,5 +582,45 @@
   ],
   "power": "3",
   "toughness": "3"
+ },
+ {
+  "name": "Beluna Grandsquall // Seek Thrills",
+  "layout": "adventure",
+  "mana_cost": "{G}{U}{R} // {2}{G}{U}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Giant Noble // Instant — Adventure",
+  "oracle_text": "Trample\nPermanent spells you cast that have an Adventure cost {1} less to cast.\n//\nMill seven cards. Then put all cards that have an Adventure from among the milled cards into your hand.",
+  "colors": [
+   "G",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Trample",
+   "Mill"
+  ],
+  "power": "4",
+  "toughness": "4",
+  "card_faces": [
+   {
+    "name": "Beluna Grandsquall",
+    "mana_cost": "{G}{U}{R}",
+    "type_line": "Legendary Creature — Giant Noble",
+    "oracle_text": "Trample\nPermanent spells you cast that have an Adventure cost {1} less to cast.",
+    "power": "4",
+    "toughness": "4"
+   },
+   {
+    "name": "Seek Thrills",
+    "mana_cost": "{2}{G}{U}{R}",
+    "type_line": "Instant — Adventure",
+    "oracle_text": "Mill seven cards. Then put all cards that have an Adventure from among the milled cards into your hand."
+   }
+  ]
  }
 ]
