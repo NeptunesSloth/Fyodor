@@ -465,5 +465,16 @@
    "W"
   ],
   "keywords": []
+ },
+ {
+  "name": "Elixir of Immortality",
+  "layout": "normal",
+  "mana_cost": "{1}",
+  "cmc": 1.0,
+  "type_line": "Artifact",
+  "oracle_text": "{2}, {T}: You gain 5 life. Shuffle this artifact and your graveyard into their owner's library.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
  }
 ]

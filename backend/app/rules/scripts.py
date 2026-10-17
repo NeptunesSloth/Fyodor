@@ -2997,6 +2997,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = re.sub(r"((?:Each|Target) (?:player|opponent) [^.]*\bhalf [^.]*)\. Round (up|down) each time\.",
                   lambda m: re.sub(r"(\bhalf [^,.]+?)(, then | and (?=(?:loses|draws|discards|sacrifices)\b)|$)",
                                    lambda k: f"{k[1]}, rounded {m[2]}" + ("," if k[2].startswith(" and") else "") + k[2], m[1]) + ".", body)
+    # (Elixir of Immortality: this artifact goes to its owner's library from the battlefield; a copy of it in your graveyard goes in with the graveyard - ruling 2011-09-22)
+    body = body.replace("Shuffle ~ and your graveyard into their owner's library.", "Shuffle ~ into its owner's library. Shuffle your graveyard into your library.")
     body = re.sub(r"Until end of turn, (double [^.\"]+?) and it (gains? [^.\"]+?)\.", r"\1 until end of turn. It \2 until end of turn.", body)  # -- most-played cards II (wave 45A) -- Legion Leadership: two instructions, "it" the one target
     body = re.sub(r"Choose a creature type( other than [A-Z][a-z]+)?\. ([^.]+?) becomes? that type until end of turn\.",
                   r"\2 becomes the creature type\1 of your choice until end of turn.", body)

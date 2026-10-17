@@ -17,7 +17,7 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from app.rules.plan import Plan
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import activate, settle
+from tests.test_rules_wave34b_activated import activate, settle, stops
 from tests.wave9c_kit import build, card_named, check, mana, pt, put, to_hand, zone_of
 from tests.wave45a_kit import FULL, cast, life, open_cards
 
@@ -118,4 +118,38 @@ def test_haven_cannot_target_another_kind_of_card(cards, name):
     with pytest.raises(ActionError):
         activate(s, "p1", haven, "Return target", targets=[card_named(s, name).id])  # 115.1: neither a Dragon creature card nor an Ugin planeswalker card
     assert zone_of(s, "Haven of the Spirit Dragon") == "p1:battlefield"
+    check(s)
+
+
+# ---- Elixir of Immortality [1447] ------------------------------------------------------------------------------------------------------------------------
+def elixir_table(cards):
+    s = build(cards, ["Elixir of Immortality", "Grizzly Bears", "Hill Giant"], [])
+    elixir = put(s, "Elixir of Immortality")
+    for name in ("Grizzly Bears", "Hill Giant"):
+        act(s, "p1", type="move", card_ids=[card_named(s, name).id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, C=2)
+    return s, elixir
+
+
+def test_elixir_of_immortality_gains_5_life_and_shuffles_itself_and_the_graveyard_into_the_library(cards):
+    s, elixir = elixir_table(cards)
+    library = len(s.state.zones["p1:library"])
+    activate(s, "p1", elixir, "gain 5 life")
+    settle(s)
+    assert life(s, "p1") == 45
+    assert zone_of(s, "Elixir of Immortality") == "p1:library" and not s.state.zones["p1:graveyard"]
+    assert len(s.state.zones["p1:library"]) == library + 3
+    check(s)
+
+
+def test_elixir_of_immortality_in_the_graveyard_when_it_resolves_is_shuffled_in_with_the_graveyard(cards):
+    # ruling 2011-09-22: it is in your graveyard as the ability resolves, so you shuffle it in with your whole graveyard
+    s, elixir = elixir_table(cards)
+    stops(s)  # (the ability stays on the stack: both players get priority)
+    activate(s, "p1", elixir, "gain 5 life")
+    assert s.state.zones["stack"]
+    act(s, "p1", type="move", card_ids=[elixir.id], to={"player": "p1", "zone": "graveyard"})
+    settle(s)
+    assert life(s, "p1") == 45
+    assert zone_of(s, "Elixir of Immortality") == "p1:library" and not s.state.zones["p1:graveyard"]
     check(s)
