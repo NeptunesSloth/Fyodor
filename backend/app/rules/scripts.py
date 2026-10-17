@@ -4619,8 +4619,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return paired
     if ability.kind == "static" and (rule := attached_rule(text)) is not None:
         return rule
-    if ability.kind == "static" and re.fullmatch(r"You control enchanted (?:creature|permanent|land|artifact)\.", text):
-        return {"kind": "static", "static": "control", "who": "host", "effects": []}  # -- control (wave 3K) -- layer 2 (613.1b)
+    if ability.kind == "static" and re.fullmatch(r"You control enchanted (?:creature|permanent|land|artifact|enchantment)\.", text):
+        return {"kind": "static", "static": "control", "who": "host", "effects": []}  # -- control (wave 3K) -- layer 2 (613.1b); (wave 46C: "enchanted enchantment", Steal Enchantment)
     if ability.kind == "static" and text == "If it's neither day nor night, it becomes day as ~ enters.":
         return {"kind": "static", "static": "day_as_enters", "effects": []}  # (wave 3E: app/rules/designations.py, 731.1)
     if ability.kind == "static" and text == "Creatures you control can boast twice during each of your turns rather than once.":

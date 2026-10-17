@@ -442,9 +442,12 @@ def _attacking_opponent(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_opponent"))
 
 
-@_suffix(r"(?:that(?:['’]s| are) )?attacking you")  # (wave 17D: also plural / bare)
+@_suffix(r"(?:that(?:['’]s| are) )?attacking you(?P<pw> or a planeswalker you control)?")  # (wave 17D: also plural / bare; wave 46C: "or a planeswalker you control", Soul Snare)
 def _attacking_you(s: Selector, m: re.Match[str]) -> Selector:
-    return replace(s, attacking=True, extras=(*s.extras, "attacking_you"))
+    return replace(s, attacking=True, extras=(*s.extras, "attacking_you_pw" if m["pw"] else "attacking_you"))
+
+
+_SUFFIXES.insert(0, _SUFFIXES.pop())  # (first: its "… you control" is also the controller suffix)
 
 
 @_suffix(r"that['’]s exactly two colors")
@@ -1928,6 +1931,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "attacking_alone" and sum(1 for c in plan.state.cards.values() if c.attacking is not None and c.zone.endswith(":battlefield")) != 1:
             return False  # -- activated other (wave 42C) -- 506.5 (the same count statics.py reads for "as long as it's attacking alone")
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
+            return False
+        if extra == "attacking_you_pw" and (card.attacking is None or not (  # -- most-played cards III (wave 46C) -- 506.3: attacks you, or a planeswalker you control
+                (card.attacking.kind == "player" and card.attacking.id == you) or (card.attacking.kind == "card" and (pw := plan.state.cards.get(card.attacking.id)) is not None
+                                                                                   and "Planeswalker" in plan.ch(pw).types and pw.controller == you))):
             return False
         if extra == "attacking_opponent" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id == you
                                               or card.attacking.id not in plan.live()):

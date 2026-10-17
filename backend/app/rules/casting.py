@@ -3877,7 +3877,7 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
 
 # -- other activated abilities (they use the stack) -----------------------------------------
 def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState | None = None,
-                 card: CardInstance | None = None, info: CardInfo | None = None) -> AbilityCost:
+                 card: CardInstance | None = None, info: CardInfo | None = None, target: str | None = None) -> AbilityCost:
     cost = parse_ability_cost(ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
     if state is not None and card is not None and info is not None and ability.kind == "activated":
         # -- costs (wave 3$) -- "Activated abilities of creatures you control cost {2} less to activate" (601.2f)
@@ -3891,7 +3891,7 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
             cost = replace(cost, mana=power_up.reduced(state, card, ch, cost.mana) or "")
         own = cost_changes.ability_delta(state, card.controller, card, ch, ability.text, info) \
             if "This ability costs " in ability.text else 0
-        reduced = permissions.ability_mana(state, card.controller, card, ch, cost.mana, info, own, ability.text)
+        reduced = permissions.ability_mana(state, card.controller, card, ch, cost.mana, info, own, ability.text, target)
         if reduced != cost.mana:
             cost = replace(cost, mana=reduced)
         from app.rules import (
@@ -4076,12 +4076,13 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     from app.rules import modal_abilities  # (a leaf module over this one)
     from app.rules.engine import advance  # the engine imports this module
 
-    cost = ability_cost(ch, ability, state=plan.state, card=card, info=plan.info)
+    cost = ability_cost(ch, ability, state=plan.state, card=card, info=plan.info, target="?")  # (wave 46C: the best case until the targets are chosen, below)
     problem = ability_problem(plan.state, plan.actor, card, ch, ability, cost, plan=plan)
     if problem:
         raise ActionError(problem)
     oid = plan.oid(card)  # the object activating (paying a cost may move it: it'd be a new object)
     mana = M.parse_cost(cost.mana)
+    was_locked = plan.locked_cost is not None
     if plan.locked_cost is not None and not mana.x:  # -- cost changers (wave 4I) -- 602.2b → 601.2f: locked in
         mana = _locked(plan, mana)
     if (mana.x or cost.loyalty_x or cost.energy_x or cost.x_chosen) and a.x_value is None:  # (wave 3E: "Pay X {E}"; x_chosen: wave 4H)
@@ -4108,6 +4109,10 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if picked_targets is None:
         return
     chosen = picked_targets.flat
+    if not was_locked:  # -- most-played cards III (wave 46C) -- 601.2f: the total cost once the targets are chosen (601.2c): "Equip abilities you activate that target this creature cost {2} less"
+        exact = ability_cost(ch, ability, state=plan.state, card=card, info=plan.info, target=chosen[0].id if chosen else None)
+        if exact.mana != cost.mana:
+            mana = M.parse_cost(exact.mana)
     problem = cost_payment.problem(plan, cost, card, plan.actor, a.x_value)  # 118.3 / 601.2h: nothing is paid unless all can be
     if problem:
         raise ActionError(problem)
