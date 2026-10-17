@@ -2896,6 +2896,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # -- activated other (wave 44D) -- "~ deals 2 damage to target player and gains indestructible until end of turn." (Ellie, Vengeful Hunter): two instructions of the same
     # source, in order (608.2c)
     body = re.sub(r"(^|\. )(~ deals \d+ damage to [^.,]+?) and (gains [a-z ]+ until end of turn)\.", r"\1\2. ~ \3.", body)
+    # -- trigger other (wave 44D) -- "If he's attacking, untap him and there is an additional combat phase after this phase." (The Incredible Hulk): both halves are the "if" clause's,
+    # so the condition is stated for each (nothing in between changes whether it is attacking)
+    body = re.sub(r"\bIf (?:he's|she's|it's|~ is) attacking, untap ~ and (there is an additional combat phase after this phase)\.",
+                  r"If ~ is attacking, untap ~. If ~ is attacking, \1.", body)
     # -- activated other (wave 44D) -- "Destroy all creatures except for ~. Those creatures can't be regenerated." (Mageta the Lion): all the others, the source being the only one
     # left out, as "Destroy all other creatures. They can't be regenerated." says
     body = re.sub(r"\b([Dd]estroy all) (creatures|artifacts|enchantments|lands) except for ~\. Those \2 can't be regenerated\.", r"\1 other \2. They can't be regenerated.", body)

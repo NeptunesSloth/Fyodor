@@ -1,0 +1,656 @@
+[
+ {
+  "name": "Brisela, Voice of Nightmares",
+  "layout": "meld",
+  "mana_cost": "",
+  "cmc": 11.0,
+  "type_line": "Legendary Creature — Eldrazi Angel",
+  "oracle_text": "Flying, first strike, vigilance, lifelink\nYour opponents can't cast spells with mana value 3 or less.",
+  "colors": [],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Lifelink",
+   "Vigilance",
+   "First strike"
+  ],
+  "power": "9",
+  "toughness": "10"
+ },
+ {
+  "name": "Nevinyrral, Urborg Tyrant",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{U}{B}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Zombie Wizard",
+  "oracle_text": "Hexproof from artifacts, creatures, and enchantments\nWhen Nevinyrral enters, create a tapped 2/2 black Zombie creature token for each creature that died this turn.\nWhen Nevinyrral dies, you may pay {1}. When you do, destroy all artifacts, creatures, and enchantments.",
+  "colors": [
+   "B",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Hexproof from",
+   "Hexproof"
+  ],
+  "power": "3",
+  "toughness": "6"
+ },
+ {
+  "name": "Knight of Grace",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Knight",
+  "oracle_text": "First strike (This creature deals combat damage before creatures without first strike.)\nHexproof from black (This creature can't be the target of black spells or abilities your opponents control.)\nThis creature gets +1/+0 as long as any player controls a black permanent.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Hexproof from",
+   "Hexproof",
+   "First strike"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Ellie, Vengeful Hunter",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Survivor",
+  "oracle_text": "Pay 2 life, Sacrifice another creature: Ellie deals 2 damage to target player and gains indestructible until end of turn.\nPartner—Survivors (You can have two commanders if both have this ability.)",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Partner"
+  ],
+  "power": "3",
+  "toughness": "1"
+ },
+ {
+  "name": "Meren of Clan Nel Toth",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Shaman",
+  "oracle_text": "Whenever another creature you control dies, you get an experience counter.\nAt the beginning of your end step, choose target creature card in your graveyard. If that card's mana value is less than or equal to the number of experience counters you have, return it to the battlefield. Otherwise, put it into your hand.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Bortuk Bonerattle",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{G}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Troll Shaman",
+  "oracle_text": "Domain — When Bortuk Bonerattle enters, if you cast it, choose target creature card in your graveyard. Return that card to the battlefield if its mana value is less than or equal to the number of basic land types among lands you control. Otherwise, put it into your hand.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Domain"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Jace, Vryn's Prodigy // Jace, Telepath Unbound",
+  "layout": "transform",
+  "mana_cost": "{1}{U} // ",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Wizard // Legendary Planeswalker — Jace",
+  "oracle_text": "{T}: Draw a card, then discard a card. If there are five or more cards in your graveyard, exile Jace, then return him to the battlefield transformed under his owner's control.\n//\n+1: Up to one target creature gets -2/-0 until your next turn.\n−3: You may cast target instant or sorcery card from your graveyard this turn. If that spell would be put into your graveyard, exile it instead.\n−9: You get an emblem with \"Whenever you cast a spell, target opponent mills five cards.\"",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Transform",
+   "Mill"
+  ],
+  "power": "0",
+  "toughness": "2",
+  "card_faces": [
+   {
+    "name": "Jace, Vryn's Prodigy",
+    "mana_cost": "{1}{U}",
+    "type_line": "Legendary Creature — Human Wizard",
+    "oracle_text": "{T}: Draw a card, then discard a card. If there are five or more cards in your graveyard, exile Jace, then return him to the battlefield transformed under his owner's control.",
+    "power": "0",
+    "toughness": "2",
+    "colors": [
+     "U"
+    ]
+   },
+   {
+    "name": "Jace, Telepath Unbound",
+    "mana_cost": "",
+    "type_line": "Legendary Planeswalker — Jace",
+    "oracle_text": "+1: Up to one target creature gets -2/-0 until your next turn.\n−3: You may cast target instant or sorcery card from your graveyard this turn. If that spell would be put into your graveyard, exile it instead.\n−9: You get an emblem with \"Whenever you cast a spell, target opponent mills five cards.\"",
+    "loyalty": "5",
+    "colors": [
+     "U"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Nissa, Vastwood Seer // Nissa, Sage Animist",
+  "layout": "transform",
+  "mana_cost": "{2}{G} // ",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Elf Scout // Legendary Planeswalker — Nissa",
+  "oracle_text": "When Nissa enters, you may search your library for a basic Forest card, reveal it, put it into your hand, then shuffle.\nWhenever a land you control enters, if you control seven or more lands, exile Nissa, then return her to the battlefield transformed under her owner's control.\n//\n+1: Reveal the top card of your library. If it's a land card, put it onto the battlefield. Otherwise, put it into your hand.\n−2: Create Ashaya, the Awoken World, a legendary 4/4 green Elemental creature token.\n−7: Untap up to six target lands. They become 6/6 Elemental creatures. They're still lands.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "power": "2",
+  "toughness": "2",
+  "card_faces": [
+   {
+    "name": "Nissa, Vastwood Seer",
+    "mana_cost": "{2}{G}",
+    "type_line": "Legendary Creature — Elf Scout",
+    "oracle_text": "When Nissa enters, you may search your library for a basic Forest card, reveal it, put it into your hand, then shuffle.\nWhenever a land you control enters, if you control seven or more lands, exile Nissa, then return her to the battlefield transformed under her owner's control.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+     "G"
+    ]
+   },
+   {
+    "name": "Nissa, Sage Animist",
+    "mana_cost": "",
+    "type_line": "Legendary Planeswalker — Nissa",
+    "oracle_text": "+1: Reveal the top card of your library. If it's a land card, put it onto the battlefield. Otherwise, put it into your hand.\n−2: Create Ashaya, the Awoken World, a legendary 4/4 green Elemental creature token.\n−7: Untap up to six target lands. They become 6/6 Elemental creatures. They're still lands.",
+    "loyalty": "3",
+    "colors": [
+     "G"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Sheoldred // The True Scriptures",
+  "layout": "transform",
+  "mana_cost": "{3}{B}{B} // ",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Phyrexian Praetor // Enchantment — Saga",
+  "oracle_text": "Menace\nWhen Sheoldred enters, each opponent sacrifices a nontoken creature or planeswalker of their choice.\n{4}{B}: Exile Sheoldred, then return it to the battlefield transformed under its owner's control. Activate only as a sorcery and only if an opponent has eight or more cards in their graveyard.\n//\n(As this Saga enters and after your draw step, add a lore counter.)\nI — For each opponent, destroy up to one target creature or planeswalker that player controls.\nII — Each opponent discards three cards, then mills three cards.\nIII — Put all creature cards from all graveyards onto the battlefield under your control. Exile this Saga, then return it to the battlefield (front face up).",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Transform",
+   "Menace",
+   "Mill"
+  ],
+  "power": "4",
+  "toughness": "5",
+  "card_faces": [
+   {
+    "name": "Sheoldred",
+    "mana_cost": "{3}{B}{B}",
+    "type_line": "Legendary Creature — Phyrexian Praetor",
+    "oracle_text": "Menace\nWhen Sheoldred enters, each opponent sacrifices a nontoken creature or planeswalker of their choice.\n{4}{B}: Exile Sheoldred, then return it to the battlefield transformed under its owner's control. Activate only as a sorcery and only if an opponent has eight or more cards in their graveyard.",
+    "power": "4",
+    "toughness": "5",
+    "colors": [
+     "B"
+    ]
+   },
+   {
+    "name": "The True Scriptures",
+    "mana_cost": "",
+    "type_line": "Enchantment — Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter.)\nI — For each opponent, destroy up to one target creature or planeswalker that player controls.\nII — Each opponent discards three cards, then mills three cards.\nIII — Put all creature cards from all graveyards onto the battlefield under your control. Exile this Saga, then return it to the battlefield (front face up).",
+    "colors": [
+     "B"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Zuko, Firebending Master",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Noble Ally",
+  "oracle_text": "First strike\nFirebending X, where X is the number of experience counters you have. (Whenever this creature attacks, add X {R}. This mana lasts until end of combat.)\nWhenever you cast a spell during combat, you get an experience counter.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "First strike",
+   "Firebending"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Mizzix of the Izmagnus",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Goblin Wizard",
+  "oracle_text": "Whenever you cast an instant or sorcery spell with mana value greater than the number of experience counters you have, you get an experience counter.\nInstant and sorcery spells you cast cost {1} less to cast for each experience counter you have.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "The Scarlet Witch",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Mutant Warlock Hero",
+  "oracle_text": "Instant and sorcery spells you cast with mana value 4 or greater cost {X} less to cast, where X is The Scarlet Witch's power.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Minn, Wily Illusionist",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Gnome Wizard",
+  "oracle_text": "Whenever you draw your second card each turn, create a 1/1 blue Illusion creature token with \"This token gets +1/+0 for each other Illusion you control.\"\nWhenever an Illusion you control dies, you may put a permanent card with mana value less than or equal to that creature's power from your hand onto the battlefield.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "The Master of Lake-town",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Advisor",
+  "oracle_text": "Deathtouch\nWhenever a player loses life, that player mills that many cards. (Damage causes loss of life.)\nWhen The Master of Lake-town dies, draw a card for each graveyard with seven or more cards in it.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Mill",
+   "Deathtouch"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Syr Vondam, Sunstar Exemplar",
+  "layout": "normal",
+  "mana_cost": "{W}{B}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Knight",
+  "oracle_text": "Vigilance, menace\nWhenever another creature you control dies or is put into exile, put a +1/+1 counter on Syr Vondam and you gain 1 life.\nWhen Syr Vondam dies or is put into exile while its power is 4 or greater, destroy up to one target nonland permanent.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [
+   "Vigilance",
+   "Menace"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Hisoka, Minamo Sensei",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "{2}{U}, Discard a card: Counter target spell if it has the same mana value as the discarded card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Mageta the Lion",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Spellshaper",
+  "oracle_text": "{2}{W}{W}, {T}, Discard two cards: Destroy all creatures except for Mageta. Those creatures can't be regenerated.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Jolrael, Empress of Beasts",
+  "layout": "normal",
+  "mana_cost": "{3}{G}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Spellshaper",
+  "oracle_text": "{2}{G}, {T}, Discard two cards: All lands target player controls become 3/3 creatures until end of turn. They're still lands.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Will, Scion of Peace",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "Vigilance\n{T}: Spells you cast this turn that are white and/or blue cost {X} less to cast, where X is the amount of life you gained this turn. Activate only as a sorcery.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Vigilance"
+  ],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Rowan, Scion of War",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "Menace\n{T}: Spells you cast this turn that are black and/or red cost {X} less to cast, where X is the amount of life you lost this turn. Activate only as a sorcery.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Menace"
+  ],
+  "power": "4",
+  "toughness": "2"
+ },
+ {
+  "name": "Zimone, Infinite Analyst",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "The first spell you cast with {X} in its mana cost each turn costs {1} less to cast for each +1/+1 counter on Zimone.\nWhenever you cast your first spell with {X} in its mana cost each turn, put two +1/+1 counters on Zimone.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "4"
+ },
+ {
+  "name": "Agatha of the Vile Cauldron",
+  "layout": "normal",
+  "mana_cost": "{R}{G}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Warlock",
+  "oracle_text": "Activated abilities of creatures you control cost {X} less to activate, where X is Agatha's power. This effect can't reduce the mana in that cost to less than one mana.\n{4}{R}{G}: Other creatures you control get +1/+1 and gain trample and haste until end of turn.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Tifa, Martial Artist",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{G}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Monk",
+  "oracle_text": "Melee (Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked this combat.)\nWhenever one or more creatures you control with power 7 or greater deal combat damage to a player, untap all creatures you control. If it's the first combat phase of your turn, there is an additional combat phase after this phase.",
+  "colors": [
+   "G",
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Melee"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Bruce Banner // The Incredible Hulk",
+  "layout": "modal_dfc",
+  "mana_cost": "{U} // {2}{R}{R}{G}{G}",
+  "cmc": 1.0,
+  "type_line": "Legendary Creature — Human Scientist Hero // Legendary Creature — Gamma Berserker Hero",
+  "oracle_text": "{X}{X}, {T}: Draw X cards. Activate only as a sorcery.\n{2}{R}{R}{G}{G}: Transform Bruce Banner. Activate only as a sorcery.\n//\nReach, trample\nEnrage — Whenever The Incredible Hulk is dealt damage, put a +1/+1 counter on him. If he's attacking, untap him and there is an additional combat phase after this phase.",
+  "colors": [
+   "G",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Reach",
+   "Enrage",
+   "Transform",
+   "Trample"
+  ],
+  "power": "1",
+  "toughness": "1",
+  "card_faces": [
+   {
+    "name": "Bruce Banner",
+    "mana_cost": "{U}",
+    "type_line": "Legendary Creature — Human Scientist Hero",
+    "oracle_text": "{X}{X}, {T}: Draw X cards. Activate only as a sorcery.\n{2}{R}{R}{G}{G}: Transform Bruce Banner. Activate only as a sorcery.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+     "U"
+    ]
+   },
+   {
+    "name": "The Incredible Hulk",
+    "mana_cost": "{2}{R}{R}{G}{G}",
+    "type_line": "Legendary Creature — Gamma Berserker Hero",
+    "oracle_text": "Reach, trample\nEnrage — Whenever The Incredible Hulk is dealt damage, put a +1/+1 counter on him. If he's attacking, untap him and there is an additional combat phase after this phase.",
+    "power": "8",
+    "toughness": "8",
+    "colors": [
+     "G",
+     "R"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Fireball",
+  "layout": "normal",
+  "mana_cost": "{X}{R}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "This spell costs {1} more to cast for each target beyond the first.\nFireball deals X damage divided evenly, rounded down, among any number of targets.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Plains",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Basic Land — Plains",
+  "oracle_text": "({T}: Add {W}.)",
+  "colors": [],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Divination",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Draw two cards.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Hill Giant",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Giant",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Nessian Asp",
+  "layout": "normal",
+  "mana_cost": "{4}{G}",
+  "cmc": 5.0,
+  "type_line": "Creature — Snake",
+  "oracle_text": "Reach\n{6}{G}: Monstrosity 4. (If this creature isn't monstrous, put four +1/+1 counters on it and it becomes monstrous.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Reach",
+   "Monstrosity"
+  ],
+  "power": "4",
+  "toughness": "5"
+ }
+]

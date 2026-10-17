@@ -266,6 +266,8 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         return {"combat_phase": "first"}
     if t in ("it's your main phase", "it is your main phase"):
         return {"main_phase": "yours"}
+    if t == "it's the first combat phase of your turn":  # -- trigger other (wave 44D) -- Tifa, Martial Artist: also this player's own turn (500.1)
+        return {"combat_phase": "first_yours"}
     if t == "it's combat":  # -- trigger other (wave 44D) -- 506.1: "Whenever you cast a spell during combat" (Zuko): the combat phase, any of its steps
         return {"combat_phase": "any"}
     # "you control a Forest", "you control two or more Islands", "you control another Elf",
@@ -1437,7 +1439,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if "combat_phase" in cond:  # -- combat (wave 5C) --
         from app.game.state import COMBAT_PHASES
 
-        return plan.state.turn.phase in COMBAT_PHASES and (cond["combat_phase"] == "any" or plan.rules.combats == 1)
+        return plan.state.turn.phase in COMBAT_PHASES and (cond["combat_phase"] == "any" or plan.rules.combats == 1) \
+            and (cond["combat_phase"] != "first_yours" or plan.state.turn.active_player == ctx["controller"])
     if "main_phase" in cond:  # -- combat (wave 5C) --
         return plan.state.turn.phase in ("main1", "main2") and plan.state.turn.active_player == ctx["controller"]
     v = cond["value"]
