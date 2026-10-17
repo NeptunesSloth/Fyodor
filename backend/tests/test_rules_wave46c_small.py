@@ -177,6 +177,33 @@ def test_darksteel_angel_bars_minus_one_counters_on_its_controllers_creatures(ca
     check(s)
 
 
+def equip_on_bobs_turn(s, hammer, target):
+    """Bob's upkeep (turn 2), Bob passes: Alice has priority and equips."""
+    stops(s)
+    to_phase(s, "upkeep", turn=2)
+    act(s, "p2", type="pass_priority")
+    mana(s, C=3)
+    equip_to(s, hammer, target)
+
+
+def test_leonin_shikari_lets_equip_abilities_be_activated_at_instant_speed(cards):
+    # 702.6a, 702.6: the sorcery timing of equip is lifted by "You may activate equip abilities any time you could cast an instant."
+    s = build(cards, ["Leonin Shikari", "Hill Giant", "Loxodon Warhammer"], [])
+    put(s, "Leonin Shikari")
+    giant, hammer = put(s, "Hill Giant"), put(s, "Loxodon Warhammer")
+    equip_on_bobs_turn(s, hammer, giant)
+    assert attached_to(s, hammer) == giant.id
+    check(s)
+
+
+def test_equip_stays_a_sorcery_speed_ability_without_leonin_shikari(cards):
+    s = build(cards, ["Hill Giant", "Loxodon Warhammer"], [])
+    giant, hammer = put(s, "Hill Giant"), put(s, "Loxodon Warhammer")
+    with pytest.raises(ActionError):
+        equip_on_bobs_turn(s, hammer, giant)  # 702.6a: only as a sorcery
+    check(s)
+
+
 def test_bladegraft_aspirant_reduces_the_activated_abilities_of_equipment_that_target_it(cards):
     s = build(cards, ["Bladegraft Aspirant", "Loxodon Warhammer"], [])
     aspirant, hammer = put(s, "Bladegraft Aspirant"), put(s, "Loxodon Warhammer")

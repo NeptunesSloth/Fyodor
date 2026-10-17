@@ -3981,6 +3981,8 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     # -- activation restrictions (602.5; app/rules/restrictions.py): "Activate only as a sorcery",
     # "… only once each turn" (per object, 602.5b / 400.7), "… only during your turn", "… only if …"
     limits = restrictions.parse(_own_text(ability.text, ch.name)) or []  # (a wording it doesn't read: the ability is manual anyway)
+    if limits and attachments.is_equip_text(ability.text) and cast_limits.loyalty_rule(state, card, info or (plan.info if plan is not None else None), "equip_instant"):
+        limits = [x for x in limits if x["kind"] != "sorcery"]  # -- most-played cards III (wave 46C) -- 702.6a: "You may activate equip abilities any time you could cast an instant."
     if limits:
         view = plan or (Plan.view(state, player, info) if info is not None else None)
         why = restrictions.problem(state, player, card, ability.index, limits, view, ch.name)

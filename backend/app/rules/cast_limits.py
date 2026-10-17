@@ -336,6 +336,8 @@ def static_definition(text: str) -> Definition | None:
         return {"kind": "static", "static": "loyalty_rule", "who": "you", "twice": True, "effects": []}
     if t == "you may activate loyalty abilities of ~ on any player's turn any time you could cast an instant":
         return {"kind": "static", "static": "loyalty_rule", "who": "self", "instant": True, "effects": []}
+    if t == "you may activate equip abilities any time you could cast an instant":  # -- most-played cards III (wave 46C) -- 702.6a: the sorcery timing of equip lifted (Leonin Shikari)
+        return {"kind": "static", "static": "loyalty_rule", "who": "you", "equip_instant": True, "effects": []}
     # -- unspent mana (wave 35C) -- 500.4, 614.1a: "If you would lose unspent mana, that mana becomes colorless instead." (Kruphix, Omnath, Horizon Stone:
     # app/rules/kept_mana.py): the mana stays in the pool, colorless, with its restrictions and riders (the Gatherer rulings)
     if t == "if you would lose unspent mana, that mana becomes colorless instead":

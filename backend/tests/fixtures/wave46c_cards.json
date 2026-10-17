@@ -343,5 +343,22 @@
   ],
   "power": "5",
   "toughness": "5"
+ },
+ {
+  "name": "Leonin Shikari",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Cat Soldier",
+  "oracle_text": "You may activate equip abilities any time you could cast an instant.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
  }
 ]
