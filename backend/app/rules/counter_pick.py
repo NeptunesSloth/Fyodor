@@ -1,8 +1,10 @@
 """-- if you do (wave 8C) -- "put your choice of a +1/+1, first strike, or trample counter on that creature" (Assaultron
 Dominator, T-45 Power Armor, Me, the Immortal): the controller chooses one of the kinds named as the instruction is
 carried out (608.2d: a choice the effect offers) and puts one counter of it on the object (122.6, through the counter
-choke point). A keyword counter gives its keyword (122.1b, 613.1f). Only +1/+1 and the keyword counters are kinds the
-engine models (values.UNMODELED_COUNTERS), so any other kind in the list leaves the ability manual.
+choke point). A keyword counter gives its keyword (122.1b, 613.1f). Only +1/+1, the keyword counters and charge counters are kinds
+read, so any other kind in the list leaves the ability manual.
+-- Station (wave 46D) -- a kind may come with a number ("a +1/+1 counter or two charge counters", Inspirit, Flagship Vessel) and the
+object may be a target ("on up to one other target artifact", "on target Dinosaur"): nothing is chosen when no target was.
 
 The chosen kind replaces this instruction in the resolution (an ordinary ``add_counters`` then runs in its place, so a
 replacement-order choice (616.1) can pause it like any other counter placement)."""
@@ -18,22 +20,24 @@ from app.rules.plan import Plan, decide
 
 Context = dict[str, Any]
 STEP = "pick_counter"
-_ITEM = re.compile(r"^(?:an? )?(?P<kind>\+1/\+1|[a-z]+(?: [a-z]+)?)$")
+_ITEM = re.compile(r"^(?:(?P<n>an?|one|two|three|four|five) )?(?P<kind>\+1/\+1|[a-z]+(?: [a-z]+)?)$")  # (-- Station (wave 46D) -- "two charge counters")
+_N = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 _WHO = {"~": "self", "this creature": "self", "it": "it", "that creature": "it"}
 
 
 def parse(kinds: str, who: str) -> list[dict[str, Any]] | None:
-    """The instruction for "[a/an] X, Y, or Z [counter]" on ``who``, or None (not read)."""
+    """The instruction for "[a/an/N] X, Y, or Z [counter]" on ``who`` (a word of _WHO, or an object the caller read: "target"), or None (not read)."""
     items = [i.strip() for i in re.split(r", or |, | or ", kinds.strip()) if i.strip()]
-    found = []
+    found, ns = [], []
     for item in items:
         m = _ITEM.match(re.sub(r" counters?$", "", item))
-        if m is None or (m["kind"] != "+1/+1" and m["kind"] not in KEYWORD_COUNTERS):
+        if m is None or (m["kind"] not in ("+1/+1", "charge") and m["kind"] not in KEYWORD_COUNTERS):  # (charge: Station, wave 46D)
             return None
         found.append(m["kind"])
-    if len(found) < 2 or len(set(found)) != len(found) or who not in _WHO:
+        ns.append(_N.get(m["n"] or "a", 1))
+    if len(found) < 2 or len(set(found)) != len(found):
         return None
-    return [{"do": "pick_counter", "who": _WHO[who], "kinds": found}]
+    return [{"do": "pick_counter", "who": _WHO.get(who, who), "kinds": found, **({"ns": ns} if any(n != 1 for n in ns) else {})}]
 
 
 def pick_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -54,7 +58,7 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     if len(chosen) != 1 or chosen[0] not in e["kinds"]:
         raise ActionError("Choose one of the kinds offered")
     plan.note(f"{plan.name(d.player)} chooses a {chosen[0]} counter", actor=d.player)
-    put = {"do": "add_counters", "who": e["who"], "kind": chosen[0], "n": 1}
+    put = {"do": "add_counters", "who": e["who"], "kind": chosen[0], "n": e["ns"][e["kinds"].index(chosen[0])] if "ns" in e else 1}
     at = ctx["next"] - 1
     ctx["effects"] = [*ctx["effects"][:at], put, *ctx["effects"][at + 1:]]
     ctx["next"] = at

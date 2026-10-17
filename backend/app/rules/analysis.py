@@ -108,7 +108,7 @@ def segments(data: dict[str, Any]) -> list[Segment]:
         type_line = str(part.get("type_line") or data.get("type_line") or "")
         spell = bool(re.search(r"\b(Instant|Sorcery)\b", type_line))
         name = str(part.get("name") or data.get("name") or "")
-        for ab in parse_abilities(part.get("oracle_text"), spell=spell):
+        for ab in parse_abilities(part.get("oracle_text"), spell=spell, pt=(part.get("power"), part.get("toughness"))):
             out.append(Segment(face=i, index=ab.index, text=ab.text, kind=feature_kind(ab.kind, ab.text),
                                template=template(ab.text, name), keywords=ab.keywords,
                                actions=tuple(keyword_actions_in(ab.text)) if ab.kind != "keywords" else ()))
