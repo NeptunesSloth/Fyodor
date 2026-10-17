@@ -4525,6 +4525,9 @@ from app.rules import player_control as _player_control  # noqa: E402  (wave 18H
 
 PRIMITIVES.update(_player_control.PRIMITIVES)  # 723.1 "You control target player during that player's next turn."
 PRIMITIVES.update(_extra_turns.PRIMITIVES)  # 500.7 "Take an extra turn after this one."
+from app.rules import end_turn as _end_turn  # noqa: E402  -- end the turn (wave 46C) --
+
+PRIMITIVES.update(_end_turn.PRIMITIVES)  # 724.1 "End the turn."
 from app.rules import land_plays as _land_plays  # noqa: E402  -- one-shot extra land plays (wave 8A) --
 
 PRIMITIVES.update(_land_plays.PRIMITIVES)  # 305.2 "You may play an additional land this turn."

@@ -8105,6 +8105,10 @@ EFFECTS[:0] = _next_untap.TEMPLATES
 from app.rules import extra_turns as _extra_turns  # noqa: E402
 
 EFFECTS[:0] = _extra_turns.TEMPLATES
+# -- end the turn (wave 46C) -- "End the turn." (app/rules/end_turn.py)
+from app.rules import end_turn as _end_turn  # noqa: E402
+
+EFFECTS[:0] = _end_turn.TEMPLATES
 # -- controlling another player (wave 18H) -- "You control target player during that player's next turn." (app/rules/player_control.py)
 from app.rules import player_control as _player_control  # noqa: E402
 
