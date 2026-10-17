@@ -841,6 +841,13 @@ def _same_name_now(plan: Plan, extra: str, card: CardInstance, ch: Characteristi
 
 # -- history (wave 22E) -- "a creature spell that shares a creature type with your commander" (Path of Ancestry): one of the creature types
 # of one of the matcher's commanders (903.3: the cards its owner's deck names, wherever they are), read as the cards are
+# -- most-played cards (wave 43B) -- "for each other attacking creature that shares a creature type with it" (Shared Animosity): one of the creature types of the
+# object "it" names (205.3m) — the source, or (scripts: ``shares_type_event``) the creature the trigger is about; "other" leaves that object out (the ``source``)
+@_suffix(r"that shares a creature type with (?:it|this creature|~)")
+def _shares_type_source(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "shares_type_source"))
+
+
 @_suffix(r"that shares a creature type with your commander")
 def _shares_commander_type(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "shares_commander_type"))
@@ -1282,6 +1289,9 @@ _CLAUSE_WORDS = re.compile(r"\b(?:with|without|that|who|you|your|they|their|an o
                            r"attached|enchanted|equipped|from|in|on|of)\b")
 
 
+_TRAILING_CONTROLLER = re.compile(r"^(?P<body>.+?) (?P<clause>an opponent controls|you control|your opponents control|you don't control)$")
+
+
 def _each_own_qualifier(phrase: str) -> Selector | None:
     """-- static_other sweep (wave 26A) -- "land or nonblack creature", "black creature or black planeswalker", "artifact or tapped creature",
     "Forest, green enchantment, or green planeswalker" (target phrases): a list of kinds, each with the qualifier written in front of it
@@ -1303,6 +1313,15 @@ def _each_own_qualifier(phrase: str) -> Selector | None:
 def parse_either(phrase: str) -> Selector | None:
     """"artifact, enchantment, or creature with flying" (a target phrase: 115.1): an artifact, an enchantment, or a creature with
     flying — the qualifier is the last kind's only."""
+    # -- most-played cards (wave 43B) -- "artifact, enchantment, or nonbasic land an opponent controls" (Boseiju, Who Endures): the controller clause closes the
+    # whole list (115.1: each kind is a legal target for the same player's permanents), the qualifier "nonbasic" stays the last kind's own
+    tail = _TRAILING_CONTROLLER.match(phrase.strip())
+    if tail is not None:
+        inner = parse_either(tail["body"])
+        ctl = _parse("permanent " + tail["clause"])
+        if inner is not None and inner.either and ctl is not None and ctl.controller is not None \
+                and all(from_key(k).controller is None for k in inner.either):
+            return Selector(either=tuple(replace(from_key(k), controller=ctl.controller).key() for k in inner.either))
     m = _EITHER.match(phrase.strip())
     if m is None:
         return _each_own_qualifier(phrase.strip())
@@ -1890,6 +1909,13 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 return False
             if (not card.blocks(src.id)) if extra == "blocking_source" else (not src.blocks(card.id)) if extra in ("blocked_by_source", "blocked_by_this") \
                     else not (card.blocks(src.id) or src.blocks(card.id)):  # (wave 31D: "blocking or blocked by this creature")
+                return False
+        if extra in ("shares_type_source", "shares_type_event"):  # -- most-played cards (wave 43B) -- a creature type in common with the object ``source`` names (205.3m)
+            from app.rules.creature_types import CREATURE_TYPES
+
+            src = plan.state.cards.get(source or "")
+            # ponytail: the source's current characteristics, not last-known information (no subtypes are stored in the LKI snapshot)
+            if src is None or not (ch.subtypes & plan.ch(src).subtypes & CREATURE_TYPES):
                 return False
         if extra == "has_adventure":  # (wave 25B) the printing is an adventurer card, whichever half it is as it is cast
             data = plan.info.get(card.card_id) if card.card_id else None

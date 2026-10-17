@@ -12,6 +12,8 @@ The proof that nothing else changed:
   player's turn, 3 spells on the stack) and 30 views along a turn and a half of play. The pass must give the same bytes.
   (Wave 30Q: Muldrotha's and Lurrus's lines are read now, so the ``permissions`` board and the ``play_through`` sequence list the land and the
   Mind Stone they allow from the graveyard; nothing else in the golden moved.)
+  (Wave 43B: Bolas's Citadel is read, so the ``permissions`` board lists the Eternal Witness on top of the library as a free cast for p1, paying
+  life; nothing else in the golden moved.)
 * the same boards with the pass switched off (the old code path, still there for every engine action) must give the same views;
 * a pass is read-only by construction: the table is the same at the end, and no value is stored in it while the table differs from its start;
 * it ends with the call (nothing survives to the next action), belongs to one thread, one table object and one card info, and a probe's copy of

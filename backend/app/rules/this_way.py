@@ -41,14 +41,14 @@ if TYPE_CHECKING:
 
 # The verbs, each with the recording effects' verbs (scripts._RECORDING) that it may name.
 _VERBS = {"destroyed": ("destroyed",), "exiled": ("exiled",), "sacrificed": ("sacrificed",),
-          "discarded": ("discarded",), "milled": ("milled",), "returned": ("returned",), "your_hand": ("returned",),
-          "graveyard": ("destroyed", "sacrificed", "milled", "discarded"), "your_graveyard": ("milled", "discarded"),
+          "discarded": ("discarded",), "milled": ("milled",), "returned": ("returned",), "your_hand": ("returned", "put_hand"),
+          "graveyard": ("destroyed", "sacrificed", "milled", "discarded", "put_graveyard"), "your_graveyard": ("milled", "discarded", "put_graveyard"),
           "died": ("destroyed", "sacrificed"), "tapped": ("tapped",),
           "revealed": ("revealed",), "shuffled": ("shuffled",),  # (wave 10C: reveal_hand.py)
           "created": ("created",)}  # -- reflexive this way (wave 30G) -- 603.12: "create a token. When you do, …" (the tokens it made)
 _PHRASE = re.compile(
     r"^(?P<what>.+?) (?:(?P<ctl>you controlled|they controlled) )?(?:that (?:was|were) |who )?"
-    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?"
+    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?|you put into your hand"
     r"|put into (?P<gy>a|your|their|its owner's|that player's|their owners') graveyards?|died|that died) this way$")
 _NOUN_ONLY = re.compile(r"^(?:cards?)$")
 _GREATEST = re.compile(r"^the greatest number of cards a player (?P<verb>discarded|milled) this way$")
@@ -63,6 +63,9 @@ def parse(phrase: str) -> dict[str, Any] | None:
     if most is not None:  # Windfall: "the greatest number of cards a player discarded this way" (each player's own)
         return {"this_way": most["verb"], "of": None, "max_by": "owner"}
     p = re.sub(r"^the number of ", "", p)
+    if (types := re.fullmatch(r"card types? among (cards? .+ this way)", p)) is not None:  # -- if you do (wave 44A) -- "a card for each card type among cards discarded this way" (Kefka)
+        inner = parse(types[1])
+        return {**inner, "distinct": "types"} if inner is not None and inner.get("of") is None else None
     m = _PHRASE.match(p)
     if m is None:
         return None
@@ -71,8 +74,8 @@ def parse(phrase: str) -> dict[str, Any] | None:
     what = m["what"].strip()
     what = re.sub(r" that$", "", what)  # ("creature that died this way")
     verb = m["verb"]
-    if verb.startswith("returned"):
-        kind = "your_hand" if verb.startswith("returned to your") else "returned"
+    if verb.startswith("returned") or verb.startswith("you put"):
+        kind = "your_hand" if verb.startswith(("returned to your", "you put")) else "returned"
     elif verb.startswith("put into"):
         kind = "your_graveyard" if m["gy"] == "your" else "graveyard"
     elif verb in ("died", "that died"):
@@ -287,6 +290,11 @@ def count(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     match the qualifier): see the module docstring. ``max_by: "owner"``: the most any one player had (a
     discarded or milled card is its owner's: 701.9a, 701.17a)."""
     found = _matched(plan, ctx, v)
+    if v.get("distinct"):  # "card types among cards discarded this way": the different types the cards have where they went (205.2a)
+        from app.rules import values
+
+        return len({"Kindred" if t == "Tribal" else t for new, _ in found if (c := plan.state.cards.get(new["card"])) is not None
+                    for t in plan.ch(c).types if t in values.CARD_TYPES})
     if v.get("delta"):  # -- static_other sweep (wave 16B) -- "draws that many cards plus / minus one"
         return max(0, len(found) + int(v["delta"]))
     if v.get("max_by") == "owner":
