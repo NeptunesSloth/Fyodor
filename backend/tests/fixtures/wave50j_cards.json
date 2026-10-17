@@ -396,5 +396,45 @@
   ],
   "power": "1",
   "toughness": "1"
+ },
+ {
+  "name": "Wonder Man, Hollywood Hero",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Performer Hero",
+  "oracle_text": "Flying\nEach power-up ability of permanents you control can be activated an additional time.\nPower-up — {5}{R}{R}: Put two +1/+1 counters on Wonder Man. (Activate each power-up ability only . . . once? Reduce the cost by his mana cost if he entered this turn.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying",
+   "Power-up"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Serpent Specialist",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Creature — Human Snake Villain",
+  "oracle_text": "Deathtouch\nPower-up — {3}{G}: Put two +1/+1 counters on this creature. (Activate each power-up ability only once. Reduce the cost by its mana cost if it entered this turn.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Power-up",
+   "Deathtouch"
+  ],
+  "power": "1",
+  "toughness": "1"
  }
 ]

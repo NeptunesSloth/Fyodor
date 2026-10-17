@@ -4828,6 +4828,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return {"kind": "static", "static": "day_as_enters", "effects": []}  # (wave 3E: app/rules/designations.py, 731.1)
     if ability.kind == "static" and text == "Creatures you control can boast twice during each of your turns rather than once.":
         return {"kind": "static", "static": "boast_twice", "effects": []}  # -- most-played cards (wave 43B) -- 702.142: read by restrictions ``per_turn`` (wave 4H, tested in test_rules_wave4h_activation_costs.py)
+    if ability.kind == "static" and text == "Each power-up ability of permanents you control can be activated an additional time.":
+        return {"kind": "static", "static": "power_up_again", "effects": []}  # -- power-up (wave 50J) -- read by restrictions ``per_game`` (Wonder Man)
     if ability.kind == "static" and text == "~ can be your commander.":
         return {"kind": "static", "static": "deckbuilding", "effects": []}  # 903.3a: deck construction only
     # -- static_other sweep (wave 19A) -- 510.1c: "You may have this creature assign its combat damage as though it weren't blocked."

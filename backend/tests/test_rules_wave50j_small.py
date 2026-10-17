@@ -18,6 +18,7 @@ import pytest
 from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
+from app.game.errors import ActionError
 from app.rules import coverage
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
@@ -68,7 +69,7 @@ def combat(s):
 
 @pytest.mark.parametrize("name", ["Odric, Lunarch Marshal", "Akroma, Vision of Ixidor", "Odric, Blood-Cursed", "Bleeding Effect", "Majestic Myriarch",
                                   "Kaima, the Fractured Calm", "Havoc Eater", "Pia Nalaar, Chief Mechanic", "Rampaging Aetherhood", "Sensei Golden-Tail", "Kathril, Aspect Warper",
-                                  "Concerted Effort", "Thunderous Orator"])
+                                  "Concerted Effort", "Thunderous Orator", "Wonder Man, Hollywood Hero"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -222,6 +223,36 @@ def test_sensei_golden_tail_does_not_give_bushido_to_another_creature(cards):
     activate(s, "p1", sensei, targets=[bears.id])
     settle(s)
     assert "bushido" not in keywords(s, "Llanowar Elves") and "Samurai" not in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[elves.id]).subtypes
+    check(s)
+
+
+# -- power-up: "Each power-up ability of permanents you control can be activated an additional time." (Wonder Man) ----------------------------------------
+# 702.193a: a power-up ability is activated only once; Wonder Man lets each one be activated one more time.
+def test_wonder_man_lets_a_power_up_ability_be_activated_twice(cards):
+    s = build(cards, mine=["Wonder Man, Hollywood Hero", "Serpent Specialist"])
+    put(s, "Wonder Man, Hollywood Hero")
+    snake = put(s, "Serpent Specialist")
+    next_turn(s)
+    for _ in range(2):
+        mana(s, G=4)
+        activate(s, "p1", snake)
+        settle(s)
+    assert counters(s, "Serpent Specialist") == {"+1/+1": 4}
+    mana(s, G=4)
+    with pytest.raises(ActionError, match="only twice"):
+        activate(s, "p1", snake)
+    check(s)
+
+
+def test_a_power_up_ability_is_activated_only_once_without_wonder_man(cards):
+    s = build(cards, mine=["Serpent Specialist"])
+    snake = put(s, "Serpent Specialist")
+    next_turn(s)
+    mana(s, G=8)
+    activate(s, "p1", snake)
+    settle(s)
+    with pytest.raises(ActionError, match="activated once"):
+        activate(s, "p1", snake)
     check(s)
 
 

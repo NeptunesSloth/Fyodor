@@ -277,8 +277,12 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
         elif kind == "per_game":
             if x.get("exhaust") and _exhaust_again(state, player):
                 continue  # (wave 4F) 702.177b: an effect lets exhaust abilities be activated again: the player decides
-            if uses(r, r.object_id(card.id), index, None) >= x["n"]:
-                return "That can only be activated once"
+            # -- power-up (wave 50J) -- "Each power-up ability of permanents you control can be activated an additional time." (Wonder Man; name-keyed like Birgi's, ponytail: it
+            # stays while he has lost his abilities)
+            n = x["n"] + (1 if x.get("power_up") and any((c := state.cards.get(cid)) is not None and _face_name(c) == "Wonder Man, Hollywood Hero"
+                                                         for cid in state.zones.get(f"{player}:battlefield", [])) else 0)
+            if uses(r, r.object_id(card.id), index, None) >= n:
+                return "That can only be activated once" if n == 1 else f"That can be activated only {_times(n)}"
         elif kind == "if":
             if plan is None:
                 return f"That can only be activated if {x['text']}"
