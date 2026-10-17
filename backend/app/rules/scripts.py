@@ -2336,6 +2336,9 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # -- static_other sweep (wave 19A) -- "Choose a creature type. Draw a card for each permanent you control of that type." (Distant
     # Melody): "that type" is the type just chosen, as in "of the chosen type" (app/rules/chosen.py)
     body = re.sub(r"(Choose a creature type\. [^.]*?) of that type\b", r"\1 of the chosen type", body)  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
+    # -- chosen type (wave 46B) -- "Creatures of the creature type of your choice get -3/-3 until end of turn." (Witch's Vengeance, Tribal Unity, Karona):
+    # chosen as it resolves, like "Choose a creature type. Creatures of the chosen type get …" (the objects are those on the battlefield then, 611.2c)
+    body = re.sub(r"(?i)(^|\. )creatures of the creature type of your choice get ", r"\1Choose a creature type. Creatures of the chosen type get ", body)
     body = _stack_interaction.rewrite(body)  # -- stack interaction (wave 23B) -- Ouphe Vandals: the rider of a counter of an ability
     # -- unless pays (wave 26D) -- 118.12a: "Each opponent sacrifices a permanent of their choice unless they pay {1}." (Rishadan Cutpurse) is
     # "Each opponent may pay {1}. Each opponent who doesn't sacrifices a permanent of their choice." (app/rules/each_may.py: each player
