@@ -125,7 +125,7 @@ TRIGGERS = [
     (re.compile(r"^When you cast this spell, (?P<body>.+)$"), "cast_self"),
     # -- state triggers (wave 6D) -- "When you control no Islands, …" (603.8: app/rules/state_triggers.py)
     (re.compile(r"^When (?P<state>you control (?:no|a|an|\w+ or more) [^,]+|there are no [^,]+ on the battlefield|"
-                r"you have \w+ or (?:more|less) life|"
+                r"you have \w+ or (?:more|less) life|an opponent (?:controls (?:a|an) [^,]+|has \d+ or (?:more|less) life)|"  # (wave 49C: Hidden Predators, Lurking Jackals)
                 r"(?:~|this [a-z]+) has [a-z]+(?: strike)?|"  # -- flip (wave 24C) -- "When this creature has flying, flip it." (Student of Elements)
                 r"(?:~|this [a-z]+) has (?:no|\w+ or more) [^,]+? counters on it|there are (?:\w+ or more|no) [^,]+? counters on (?:~|this [a-z]+)), "  # -- state triggers (waves 19C, 19D) -- its own counters
                 r"(?P<body>.+)$"), "state"),
@@ -568,6 +568,7 @@ _RECORDING["rest_looked"] = None  # (wave 44A: its verb is _verb_of's)
 _RECORDING["linked_cards"] = "exiled"  # -- resolution memory (wave 22D) -- exiled_with.linked_cards
 _MOVERS.add("linked_cards")
 _RECORDING["reveal_random"] = "revealed"  # -- random choices (wave 47B) -- "that card" is the card revealed at random
+_MOVERS.add("reveal_random")  # (wave 49C: "Target opponent reveals a card at random from their hand. If that card has the chosen name, that player discards it.": "it" is the card, not the player targeted)
 _RECORDING["choose_random_object"] = "chosen"  # (the object picked at random: "that creature", "it")
 _RECORDING["choose_random"] = None  # -- random choices (wave 47B) -- the pick is bound as the player "that player" names
 _RECORDING["transform"] = None  # -- most-played cards II (wave 45A) -- "Transform this land, then untap it." (Westvale Abbey): "it" is the permanent that transformed (701.28: the same object)
@@ -634,6 +635,8 @@ class _Introducer:
             self.number = 2
         if self.do == "choose_random":  # -- random choices (wave 47B) -- "Choose an opponent at random. … that player": a player, no object
             self.player, self.objects = True, False
+        if self.do == "choose_value" and str(e.get("what", "")).endswith("card name"):  # -- card names (wave 49C) -- a name is no object: "Choose a card name, then reveal a card at random from your hand. If it has …" (Cursed Scroll)
+            self.objects = False
         if self.do == "damage" and g is None and who in ("you", "each_player", "each_opponent", "each_other_opponent", "event_player", "that_player",
                                                          "chosen_player", "defending_player"):
             self.objects = False  # -- damage sized by a count (wave 42D) -- damage to a player names no object: "~ deals damage to you equal to that card's mana value. You may play it this turn." (Daredevil): "it" is still the card exiled before
@@ -5055,7 +5058,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     from app.rules import state_triggers
 
                     state = state_triggers.condition(m["state"])
-                    if state is None or intervening is not None or limit is not None:
+                    if state is None or limit is not None:  # (wave 49C: an intervening "if" is checked as it triggers, 603.4 + 603.8: triggers._add)
                         return None
                     out["state"] = state
                 return out

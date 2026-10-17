@@ -3200,7 +3200,7 @@ def _with_list(text: str, out: dict[str, Any]) -> None:
     toughness N/N", "power and toughness each equal to <value>"."""
     abilities = _QUOTED.findall(text)
     rest = _QUOTED.sub("", text)
-    rest = re.sub(r"(?:,? and |, )\s*$", "", rest.strip())
+    rest = re.sub(r"(?:,? and|,)$", "", rest.strip())  # (wave 49C: "with flying and \"…\"" leaves "flying and")
     m = re.search(r"(?:^|,? and |, )(?:base power and toughness (?P<p>\d+)/(?P<t>\d+)|"
                   r"power and toughness each equal to (?P<eq>.+))$", rest)
     if m:
@@ -3233,6 +3233,12 @@ def _with_list(text: str, out: dict[str, Any]) -> None:
         abilities.append(w[0].upper() + w[1:] + ".")
         rest = rest.replace(w, "", 1)
         rest = re.sub(r"^(?:,? and |, )|(?:,? and |, )$", "", rest.strip())
+    # -- layers (wave 49C) -- "becomes a 3/4 Gargoyle creature with flying and protection from red" (Opal Guardian): protection from a colour is a keyword
+    # ability line, granted like ward above
+    for w in re.findall(r"(?:^|,? and |, )(protection from (?:white|blue|black|red|green))(?=$|,? and |, )", rest):
+        abilities.append(w[0].upper() + w[1:] + ".")
+        rest = rest.replace(w, "", 1)
+        rest = re.sub(r"^(?:,? and|,)\s*|\s*(?:,? and|,)$", "", rest.strip()).strip()
     if rest:
         out["keywords"] = _animation_keywords(rest)
     if abilities:
