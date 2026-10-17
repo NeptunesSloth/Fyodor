@@ -13,7 +13,7 @@ import pytest
 
 from tests.game_helpers import act
 from tests.test_rules_conditionals import until
-from tests.test_rules_wave34b_activated import settle
+from tests.test_rules_wave34b_activated import ask, settle
 from tests.wave9c_kit import card_named, check, mana, to_hand
 from tests.wave47b_kit import build3, cast, open_cards, pin_random
 
@@ -58,6 +58,67 @@ def test_sin_exiles_a_permanent_card_at_random_and_repeats_after_a_land(cards, m
 def test_sin_takes_only_permanent_cards_and_stops_when_there_are_none(cards, monkeypatch):
     s, gone = sin_table(cards, monkeypatch, 0, ["Lightning Bolt"])  # an instant is no permanent card
     assert s.state.cards[gone[0].id].zone == "p1:graveyard" and tokens(s) == []
+    check(s)
+
+
+# -- "discard a card at random": the cards picked (nobody chooses, nobody is asked) go to the graveyard, public from then on --------------------------
+def hand_only(s, *keep, pid="p1"):
+    for c in list(s.state.zones[f"{pid}:hand"]):
+        if s.state.cards[c].name not in keep:
+            act(s, pid, type="move", card_ids=[c], to={"zone": "graveyard"})
+
+
+def test_cragganwick_cremator_deals_the_power_of_a_creature_card_discarded_at_random(cards):
+    s = build3(cards, ["Cragganwick Cremator", "Grizzly Bears"])
+    to_hand(s, "Cragganwick Cremator")
+    to_hand(s, "Grizzly Bears")
+    hand_only(s, "Cragganwick Cremator", "Grizzly Bears")
+    mana(s, R=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Cragganwick Cremator").id)
+    d = ask(s)  # the target of the enters trigger (a player or planeswalker): Bob
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])
+    settle(s)
+    assert s.state.cards[card_named(s, "Grizzly Bears").id].zone == "p1:graveyard"  # the only card in the hand
+    assert s.state.players["p2"].life == 38  # its power is 2
+    check(s)
+
+
+def test_cragganwick_cremator_deals_nothing_for_a_card_that_is_no_creature(cards):
+    s = build3(cards, ["Cragganwick Cremator"])
+    to_hand(s, "Cragganwick Cremator")
+    hand_only(s, "Cragganwick Cremator")
+    act(s, "p1", type="move", card_ids=[next(c.id for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library")], to={"zone": "hand"})
+    mana(s, R=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Cragganwick Cremator").id)
+    settle(s)
+    assert s.state.players["p2"].life == 40 and s.state.rules.decision is None
+    check(s)
+
+
+def test_skull_rend_makes_each_opponent_discard_two_cards_at_random(cards, monkeypatch):
+    pin_random(monkeypatch, 0)
+    s = build3(cards, ["Skull Rend"], bobs=["Grizzly Bears", "Hill Giant", "Shivan Dragon"], carols=["Grizzly Bears", "Hill Giant", "Shivan Dragon"])
+    for pid in ("p2", "p3"):
+        act(s, pid, type="draw", player=pid, count=3)
+    hands = {pid: sorted(s.state.zones[f"{pid}:hand"]) for pid in ("p2", "p3")}
+    to_hand(s, "Skull Rend")
+    mana(s, B=1, R=1, C=3)
+    cast(s, "Skull Rend")
+    for pid, hand in hands.items():
+        assert sorted(s.state.zones[f"{pid}:hand"]) == hand[2:] and s.state.players[pid].life == 38  # (two cards gone, the table picked them)
+    assert s.state.players["p1"].life == 40
+    check(s)
+
+
+def test_reckless_handling_discards_at_random_after_the_search_and_hurts_for_an_artifact(cards):
+    s = build3(cards, ["Reckless Handling", "Sol Ring"])
+    to_hand(s, "Reckless Handling")
+    hand_only(s, "Reckless Handling")  # (so Sol Ring is the only artifact card around, and the discard can be Sol Ring itself)
+    mana(s, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Reckless Handling").id)
+    settle(s)
+    assert s.state.cards[card_named(s, "Sol Ring").id].zone == "p1:graveyard"  # the only card in the hand
+    assert (s.state.players["p2"].life, s.state.players["p3"].life) == (38, 38)  # an artifact card was discarded this way
     check(s)
 
 

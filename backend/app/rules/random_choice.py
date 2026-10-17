@@ -65,6 +65,10 @@ def reveal_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
 def strip_pw(body: str) -> tuple[str, str]:
     """"Choose an opponent at random. ~ deals N damage to that player or a planeswalker that player controls." (Vial Smasher): the
     sentence read as "… to that player." and the pick marked (``post(pw=True)``) to be followed by the controller's choice."""
+    body = re.sub(r"\bIf you discard (an? [\w ]+? card) this way\b", r"If you discarded \1 this way", body)  # (the same condition as the past tense: Cragganwick Cremator, Aether Rift)
+    if "at random" in body:  # (the sentence as the grammar has it: Skull Rend's "Those players" are the opponents it dealt damage to; Reckless Handling's "shuffle, then discard")
+        body = re.sub(r"(deals \d+ damage to each opponent)\. Those players each (discard )", r"\1. Each opponent \2", body)
+        body = re.sub(r"(Search your library [^.]*?into your hand), shuffle, then (discard [^.]*\.)", r"\1, then shuffle. \2", body)
     if "at random" in body and "repeat this process" in body:  # (Sin: "exile a permanent card from your graveyard at random, then create a tapped token that's a copy of
         # that card. If the exiled card is a land card, repeat this process.": it is the exiled card that is asked about, not the token ``post`` sets that right)
         new = re.sub(r"\bIf the exiled card is (an? [\w ]+? card), repeat this process\.", r"If that card is \1, repeat this process.", body)
