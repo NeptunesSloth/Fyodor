@@ -799,7 +799,7 @@ SOURCE_COUNTERS = "counters:"  # a comparison with the number of a kind of count
 # Wills), "… with mana value less than or equal to the number of Vampires you control" (Dominating Vampire): a comparison with the
 # number of permanents the ability's controller controls that fit a selector, counted when the target is chosen and again as it resolves
 COUNT_STAT = "cnt:"
-_COUNT_CMP = re.compile(r"(?:,)? with (?P<what>mana value|power|toughness) (?P<op>less than or equal to|less than) the number of "
+_COUNT_CMP = re.compile(r"(?:,)? with (?P<what>mana value|power|toughness) (?P<op>less than or equal to|less than|greater than or equal to|greater than) the number of "  # (wave 50J: greater, Lavinia)
                         r"(?P<k>[A-Za-z' -]+? you control)$")
 
 
@@ -809,7 +809,7 @@ def _compare_count(s: Selector, m: re.Match[str]) -> Selector:
             or counted.compare or counted.extras:
         raise ValueError("a count this comparison doesn't read")
     return replace(s, compare=(*s.compare, ({"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]],
-                                            "<=" if m["op"] == "less than or equal to" else "<", COUNT_STAT + counted.key())))
+                                            {"less than or equal to": "<=", "less than": "<", "greater than or equal to": ">=", "greater than": ">"}[m["op"]], COUNT_STAT + counted.key())))
 
 
 _SUFFIXES.insert(0, (_COUNT_CMP, _compare_count))  # (first: "… you control" is also the controller suffix)

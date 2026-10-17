@@ -1,7 +1,8 @@
 """-- keyword soups (wave 50J) -- "creatures you control gain first strike until end of turn if a creature you control has first strike. The same is
 true for flying, deathtouch, …" (Odric, Lunarch Marshal; Majestic Myriarch, Bleeding Effect, Concerted Effort), "each other creature you control gets
 +1/+1 if it has flying, +1/+1 if it has first strike, and so on for …" (Akroma, Vision of Ixidor), "the number of abilities from among flying, … found
-among creatures you control" (Odric, Blood-Cursed).
+among creatures you control" (Odric, Blood-Cursed), "put a flying counter on any creature you control if a creature card in your graveyard has flying. Repeat this
+process for …" (Kathril, Aspect Warper: a keyword counter, 122.1b, on a creature of the controller's choice for each keyword, then +1/+1 counters for the number put).
 
 Each listed keyword is its own check, all made as the ability resolves (611.2c: the creatures affected and what they gain are fixed then; Odric's rulings).
 A creature "has" a keyword by any variant of it (702.11d: "hexproof from white" is a variant of hexproof) and the objects gain the variant as the holder
@@ -77,10 +78,13 @@ def lines(plan: Plan, card: CardInstance, ks: list[str]) -> dict[str, dict[str, 
     """The abilities ``card`` has among ``ks``: word → {the ability as written → whether it is the plain keyword (granted as a keyword, not a line)}."""
     ch = plan.ch(card)
     found: dict[str, dict[str, bool]] = {}
-    for ab in ch.abilities:
+    for ab in ch.abilities:  # (a face-down permanent's characteristics are the face-down ones: 708.2, ``characteristics.of``)
         if ab.kind != "keywords":
             continue
-        for name, piece in zip(ab.keywords, oracle.keyword_pieces(ab.text) if len(ab.keywords) > 1 else [ab.text], strict=True):
+        pieces = oracle.keyword_pieces(ab.text) if len(ab.keywords) > 1 else [ab.text]
+        if len(pieces) != len(ab.keywords):  # (a line whose pieces can't be told apart: not read)
+            continue
+        for name, piece in zip(ab.keywords, pieces, strict=True):
             for w in ks:
                 if name in ch.keywords and _matches(w, name, piece.strip()):
                     found.setdefault(w, {})[piece.strip(" .")] = piece.strip(" .").lower() == name

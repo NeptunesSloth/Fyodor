@@ -82,7 +82,7 @@ def combat(s):
                                   "Thanos, the Mad Titan", "Extinction Event", "Gollum, Riddle Master",
                                   "Satya, Aetherflux Genius", "Hulk, Gamma Goliath", "Rex, Cyber-Hound",
                                   "Rayami, First of the Fallen", "Skrelv, Defector Mite",
-                                  "Yuriko, the Tiger's Shadow", "Brimaz, King of Oreskos"])
+                                  "Yuriko, the Tiger's Shadow", "Brimaz, King of Oreskos", "Lavinia, Azorius Renegade"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -526,6 +526,23 @@ def test_brimaz_blocking_nothing_makes_no_token(cards):
     bob_attacks_and_alice_blocks(s, bears)
     settle(s)
     assert not [c for c in s.state.cards.values() if c.name == "Cat Soldier"]
+    check(s)
+
+
+# -- Lavinia: "Each opponent can't cast noncreature spells with mana value greater than the number of lands that player controls." ------------------------------
+# 601.3: judged for the player casting it, as it is proposed
+def test_lavinia_stops_a_noncreature_spell_costing_more_than_its_casters_lands(cards):
+    s = build(cards, mine=["Lavinia, Azorius Renegade"], theirs=["Sol Ring", "Serra Angel", "Island"])
+    put(s, "Lavinia, Azorius Renegade")
+    to_phase(s, "main1", turn=2)
+    to_hand(s, "Sol Ring", "p2")
+    to_hand(s, "Serra Angel", "p2")
+    mana(s, "p2", W=2, C=6)
+    with pytest.raises(ActionError, match="can't cast"):
+        act(s, "p2", type="cast_spell", card_id=card_named(s, "Sol Ring", "p2").id)  # (mana value 1, no land)
+    act(s, "p2", type="cast_spell", card_id=card_named(s, "Serra Angel", "p2").id)  # (a creature spell: not stopped)
+    put(s, "Island", "p2")
+    act(s, "p2", type="cast_spell", card_id=card_named(s, "Sol Ring", "p2").id)  # (one land, mana value 1)
     check(s)
 
 
