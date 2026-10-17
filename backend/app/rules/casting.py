@@ -709,7 +709,7 @@ def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: d
 
         specs = kicked_instead.applicable(specs, a.kicker or int(a.awaken) or int(f"{a.card_id}:gift" in a.optional_costs) or int(f"{a.card_id}:bargain" in a.optional_costs))  # (awaken: wave 16B; bargain: 30E;
         # gift: wave 23D, 702.174m: the targets only a promised spell chooses)
-    found = choose_groups(plan, specs, plan.actor, source_of(plan, a.card_id), a.card_id, list(a.targets),
+    found = choose_groups(plan, specs, plan.actor, source_of(plan, a.card_id, isinstance(a, A.CastSpell)), a.card_id, list(a.targets),  # (review 41: 115.2)
                           list(a.target_counts), list(a.division), a.x_value, what, exclude)
     if found.ask is not None:
         ask_targets(plan, plan.actor, found, specs, what, _announcing(plan, "cast_group", a, counts=found.counts))
@@ -813,7 +813,7 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
     can't be chosen either ("choose one that hasn't been chosen"). Returns None while waiting."""
     modal, modes = definition["modal"], definition["modes"]
     lo, hi, repeat = modal["min"], modal["max"], modal["repeat"]
-    allowed = choosable_modes(plan, definition, a.card_id, exclude)
+    allowed = choosable_modes(plan, definition, a.card_id, exclude, isinstance(a, A.CastSpell))
     if (inst := modal.get("instead")) is not None and _instead_holds(plan, a, inst["cond"]):
         # -- modal frames (wave 33B) -- 700.2a, 601.2b: "If [condition] as you cast this spell, [you may] choose both instead." — judged as the
         # modes are chosen; a "both" the table can't give (a mode with no legal target, 700.2a) is not cast that way
@@ -840,9 +840,9 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
     return None
 
 
-def choosable_modes(plan: Plan, definition: dict[str, Any], card_id: str | None, exclude: tuple[int, ...] = ()) -> list[int]:
-    """700.2a: the modes ``plan.actor`` can choose for this spell / ability now (each target it requires can be chosen)."""
-    src = source_of(plan, card_id)
+def choosable_modes(plan: Plan, definition: dict[str, Any], card_id: str | None, exclude: tuple[int, ...] = (), spell: bool = False) -> list[int]:
+    """700.2a: the modes ``plan.actor`` can choose for this spell / ability now (each target it requires can be chosen; ``spell``: 115.2)."""
+    src = source_of(plan, card_id, spell)
     return [i for i, m in enumerate(definition["modes"]) if i not in exclude
             and (not m["target"] or legal_targets(plan, m["target"]["what"], plan.actor, src, card_id))
             and all(len(legal_targets(plan, g["what"], plan.actor, src, card_id)) >= g.get("min", 1)  # (several groups: wave 16B)
@@ -1146,13 +1146,14 @@ def _player_protected(plan: Plan, card: CardInstance, who: str) -> bool:
 
 
 def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[str] | None = None,
-        exclude: tuple[str, ...] = (), purpose: Purpose | None = None) -> M.Payment | None:
-    if cost.is_free and not sources:
+        exclude: tuple[str, ...] = (), purpose: Purpose | None = None, life_due: int = 0) -> M.Payment | None:
+    """``life_due``: -- phyrexian mana (wave 50B) -- the life announced for Phyrexian symbols (601.2b), paid with the rest; it is already in ``plan.reserved_life``."""
+    if cost.is_free and not sources and not life_due:
         return None
     payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose,
                            reserve=plan.reserved_life)
     extras: list[tuple[CardInstance, int, M.ManaAbility]] = []
-    life = payment.life
+    life = payment.life + life_due
     for cid, index in payment.used:
         card = plan.state.cards[cid]
         ability = dict(mana_abilities(plan.state, card, plan.info)).get(index)
@@ -1163,7 +1164,7 @@ def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[
             life += parse_ability_cost(ability.extra_cost, card_name=plan.ch(card).name).life
     # -- life payments (wave 29C) -- 119.4: all the life this payment takes (Phyrexian mana, "Pay 1 life" mana abilities) and the spell's other
     # life costs together can't be more than the life total (each source was checked on its own when it was listed): refused, not carried out
-    if life > max(0, plan.state.players[player].life - plan.reserved_life) and life > payment.life:  # (the true total: Karn's Sylex bans only spells')
+    if life > max(0, plan.state.players[player].life - plan.reserved_life + life_due) and life > payment.life + life_due:  # (the true total: Karn's Sylex bans only spells')
         raise ActionError(f"Those sources would take {life} life to pay {cost.text()}, and you can't pay more life than you have (119.4): "
                           "tap other sources")
     oids = {card.id: plan.oid(card) for card, _, _ in extras}  # (wave 5A: the objects as they were tapped)
@@ -1251,14 +1252,16 @@ def pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristic
     if delved:
         plan.do({"type": "move", "card_ids": delved, "to": {"player": player, "zone": "exile"}}, actor=player)
     rest = P.remaining(cost, assignment)
-    payment = pay(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose)
+    n_life = len(a.life_symbols or ())  # -- phyrexian mana (wave 50B) -- announced in 601.2b: 2 life each, paid with the rest
+    payment = pay(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose, life_due=2 * n_life)
     from app.rules import mana_units
 
     return PaymentRecord(card=card.id, controller=player, total_cost=cost.text(),
                          mana_spent=dict(payment.spent) if payment else {}, contributions=contributions,
                          mana_tags=payment.tags if payment else [],
                          mana_riders=mana_units.matching(plan, payment.riders, card, spell_ch, player) if payment else [],
-                         life=payment.life if payment else 0, phyrexian=payment.life // 2 if payment else 0,  # (wave 43D: compleated)
+                         life=payment.life if payment else 0,  # (wave 43D: compleated; wave 50B: the symbols announced, else the life the solver took)
+                         phyrexian=n_life if a.life_symbols is not None else payment.life // 2 if payment else 0,
                          tapped=list(payment.tapped) if payment else [],
                          sacrificed=list(payment.sacrificed) if payment else [], x=a.x_value)
 
@@ -1332,6 +1335,80 @@ def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility | A.EndEffect, c
                     DecisionOption(id="cancel", label="Cancel")],
            resume=resume)
     return True
+
+
+# -- phyrexian mana (wave 50B) -- 601.2b, 107.4f: the payer announces, for each Phyrexian symbol, one mana of its color or 2 life, and the
+# announced cost is paid as it is (601.2h): the solver no longer picks life where mana would do. ``life_symbols`` (on the intent): the symbols
+# (their colors, "G/W" for {G/W/P}) paid with life; None until announced. Kept legacy: an explicit ``sources`` list, and every other payer of a
+# cost (unless-pays, special actions), where the solver pays mana first and life only where mana falls short (ponytail ceiling).
+def split_phyrexian(cost: M.ManaCost, life: list[str]) -> M.ManaCost:
+    """``cost`` with the symbols paid with life taken out and the others made plain colored (hybrid for {G/W/P}) mana; a symbol already gone
+    (a locked cost, split before) is skipped."""
+    rest = list(cost.phyrexian)
+    for c in life:
+        if c in rest:
+            rest.remove(c)
+    return M.ManaCost(cost.generic, cost.colored + tuple(c for c in rest if "/" not in c),
+                      cost.hybrid + tuple(tuple(c.split("/")) for c in rest if "/" in c), (), cost.x, cost.unsupported)
+
+
+def phyrexian_options(plan: Plan, cost: M.ManaCost, exclude: tuple[str, ...], purpose: Purpose | None) -> list[tuple[str, ...]]:
+    """The ways to pay the Phyrexian symbols of ``cost`` that can be paid now (the sorted symbols paid with life, fewest first): 119.4 the life
+    (less what the other costs of it pay), and the mana for the rest from the pool and the untapped sources."""
+    from itertools import combinations
+
+    life = spendable_life(plan.state, plan.actor, plan.info) - plan.reserved_life
+    ways = dict.fromkeys(tuple(sorted(cost.phyrexian[i] for i in ix)) for k in range(len(cost.phyrexian) + 1)
+                         for ix in combinations(range(len(cost.phyrexian)), k))
+    return [w for w in ways if 2 * len(w) <= life and can_pay(plan.state, plan.actor, split_phyrexian(cost, list(w)), plan.info, exclude=exclude,
+                                                              purpose=purpose, reserve=plan.reserved_life + 2 * len(w))]
+
+
+def _phyrexian_label(cost: M.ManaCost, way: tuple[str, ...]) -> str:
+    rest = list(way)
+    out = []
+    for c in cost.phyrexian:
+        if c in rest:
+            rest.remove(c)
+            out.append(f"{{{c}/P}}: 2 life")
+        else:
+            out.append(f"{{{c}/P}}: " + " or ".join(f"{{{x}}}" for x in c.split("/")))
+    return ", ".join(out)
+
+
+def announce_phyrexian(plan: Plan, a: A.CastSpell | A.ActivateAbility, cost: M.ManaCost, what: str, *, exclude: tuple[str, ...] = (),
+                       purpose: Purpose | None = None, trusted: bool = False) -> M.ManaCost | None:
+    """The cost with the announced Phyrexian choices applied, or None while the payer is asked (nothing has moved yet). Asked only when more than one
+    way can be paid; the one way left is announced for them. ``trusted``: a payment resumed with its locked cost (``a.life_symbols`` was checked)."""
+    life = a.life_symbols
+    if life is None and (not cost.phyrexian or a.sources is not None):
+        return cost  # nothing to announce, or the payer named their sources (MANUAL PAY): the legacy payment
+    ways = [] if trusted and life is not None else phyrexian_options(plan, cost, exclude, purpose)
+    if life is None:
+        if len(ways) > 1:
+            decide(plan, player=plan.actor, kind="choose_one", prompt=f"Pay {cost.text()} for {what}: mana or 2 life for each Phyrexian symbol (601.2b)",
+                   options=[DecisionOption(id=str(i), label=_phyrexian_label(cost, w)) for i, w in enumerate(ways)],
+                   resume=_announcing(plan, "phyrexian", a, options=[list(w) for w in ways]))
+            return None
+        if not ways:
+            return cost  # neither way can be paid: the payment says why
+        life = a.life_symbols = list(ways[0])
+    elif not trusted and tuple(sorted(life)) not in ways:
+        raise ActionError(f"{cost.text()} can't be paid with 2 life for {', '.join(life) or 'no symbol'}: choose Phyrexian symbols of the cost you can pay")
+    plan.reserved_life += 2 * len(life)  # 119.4: the life is paid with the rest, so the sources' life payments leave it
+    return split_phyrexian(cost, life)
+
+
+def resume_phyrexian(plan: Plan, d: Any, chosen: list[str]) -> None:
+    if cancelled(plan, d, chosen):
+        return
+    from app.rules.engine import INTENTS  # the engine imports this module
+
+    intent = A.parse_action(d.resume["intent"])
+    intent.life_symbols = d.resume["options"][int(chosen[0])]  # type: ignore[union-attr]
+    plan.rules.priority = d.player
+    plan.rules.passed = []
+    INTENTS[intent.type](plan, intent)
 
 
 def pool_covers(state: GameState, player: str, cost: M.ManaCost, purpose: Purpose | None = None, info: CardInfo | None = None) -> bool:
@@ -2282,7 +2359,7 @@ def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Character
         definition = None if manual else per_opponent.for_cast(plan, card.id, scripts.spell_definition(ch))
         if definition is not None and definition.get("modes"):
             modal = definition["modal"]
-            allowed = choosable_modes(plan, definition, card.id)
+            allowed = choosable_modes(plan, definition, card.id, spell=True)
             if not allowed or (not modal["repeat"] and len(allowed) < modal["min"]):
                 return f"{ch.name or 'It'} has no mode you can choose"
         elif not manual:
@@ -2451,8 +2528,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if grant is not None and grant.how == "escape" and not escaping:
         raise ActionError(f"{ch.name} can be cast from your graveyard only for its escape cost (702.138a)")
     # -- commander sweep (wave 49B) -- 118.6, 202.1b: a card with no mana cost has an unpayable cost; one with an alternative cost of its own (Asmoranomardicadaistinaculdacar) is cast for that
-    # cost alone (118.6a), and not at all while it doesn't apply
-    if not ch.mana_cost and a.alt_cost is None and not free and alternative is None and not a.face_down and not plan.manual(card) and card.zone == zone_key(plan.actor, "hand") \
+    # cost alone (118.6a), and not at all while it doesn't apply (review 41: from any zone, the command zone above all: it is a commander)
+    if not ch.mana_cost and a.alt_cost is None and not free and alternative is None and not a.face_down and not plan.manual(card) \
             and any(d.get("static") == "alt_cost" and not d.get("table") for d in permissions._definitions(ch).values()):
         ways = alt_costs.offers(plan.state, plan.actor, card, ch, plan.info)
         if len(ways) != 1:
@@ -2622,12 +2699,17 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             return
         helper, helper_pays = found_helper
         cost = cost.plus_generic(-helper_pays)
+    was_locked = plan.locked_cost is not None
     cost = _locked(plan, cost)  # -- cost changers (wave 4I) -- 601.2f: locked in once the payment was asked for (the caster's share, after assist)
     not_mana = cost_payment.excluded(add_cost, card, add_objects) if add_cost is not None else ()
     origin = card.zone  # (wave 17B: where it is cast from, before it moves to the stack)
     from_oid = plan.oid(card)  # -- as long as (wave 37A) -- the object it is before it becomes the spell (400.7): "until this card is cast from exile"
-    if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana,
-                    purpose=Purpose(spell=ch, zone=origin, player=plan.actor, kicked=bool(kicked))):
+    purpose = Purpose(spell=ch, zone=origin, player=plan.actor, kicked=bool(kicked))
+    announced_cost = announce_phyrexian(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=purpose, trusted=was_locked)  # (wave 50B: 601.2b)
+    if announced_cost is None:
+        return
+    cost = announced_cost
+    if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=purpose):
         return
     commander_cast = from_command_zone(card, plan.actor)
     harmonized = alt_offer is not None and alt_offer.tag == "harmonize"  # -- casting extras (wave 18E) -- 702.180a: exiled as it leaves the stack
@@ -3021,6 +3103,20 @@ def foretell(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateA
     plan.rules.passed = []
 
 
+def companion_problem(state: GameState, player: str, card: CardInstance, info: CardInfo) -> str | None:
+    """Why ``player`` can't take this companion by the special action (116.2g, 103.2b, 702.139b), or None. (-- special actions (wave 50B) -- shared with ``can_act``.)"""
+    mine = [c for c in state.cards.values() if c.owner == player and c.origin == "companion"]
+    if len(mine) != 1:
+        return "You may reveal no more than one companion (103.2b)"
+    start = [c for c in state.cards.values() if c.owner == player and c.origin in ("library", "command") and c.card_id
+             and not (c.is_token or c.copy_of or c.ability or c.test_object)]  # (702.139b: the commander too)
+    deck = [info.get(c.card_id) for c in start if c.card_id]
+    data = info.get(card.card_id) if card.card_id else None
+    if data is None or any(d is None for d in deck):
+        return "Fyodor doesn't know every card of your starting deck: take your companion by hand"
+    return cmdr.companion_problem(data, [d for d in deck if d is not None])
+
+
 def companion_action(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility) -> None:
     """-- companion (wave 38D) -- 116.2g, 702.139a: a player who has chosen a companion may pay {3} to put it from outside the game into
     their hand, any time they have priority and the stack is empty during a main phase of their turn, once per game (a card that has
@@ -3034,17 +3130,7 @@ def companion_action(plan: Plan, card: CardInstance, ch: Characteristics, a: A.A
         raise ActionError("Only a card's companion ability puts it into your hand from outside the game")
     if state.turn.active_player != plan.actor or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK):
         raise ActionError("You can take your companion only in your main phase while the stack is empty (116.2g)")
-    mine = [c for c in state.cards.values() if c.owner == plan.actor and c.origin == "companion"]
-    if len(mine) != 1:
-        raise ActionError("You may reveal no more than one companion (103.2b)")
-    start = [c for c in state.cards.values() if c.owner == plan.actor and c.origin in ("library", "command") and c.card_id
-             and not (c.is_token or c.copy_of or c.ability or c.test_object)]  # (702.139b: the commander too)
-    deck = [plan.info.get(c.card_id) for c in start if c.card_id]
-    data = plan.info.get(card.card_id) if card.card_id else None
-    if data is None or any(d is None for d in deck):
-        raise ActionError("Fyodor doesn't know every card of your starting deck: take your companion by hand")
-    problem = cmdr.companion_problem(data, [d for d in deck if d is not None])
-    if problem:
+    if (problem := companion_problem(state, plan.actor, card, plan.info)) is not None:
         raise ActionError(problem)
     cost = M.parse_cost("{3}")
     if payment_step(plan, a, cost, f"taking {ch.name}", purpose=Purpose()):
@@ -3553,12 +3639,17 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
                       additional=(*((M.parse_cost(either.mana),) if either is not None and either.mana else ()), *mode_costs),  # (wave 6E)
                       reduce=cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0)  # (wave 47C: 118.9d, 601.2f)
     cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional if o.mana))  # (wave 41D, as the cast with its cost)
+    was_locked = plan.locked_cost is not None
     cost = _locked(plan, cost)  # (wave 4I: 601.2f)
     if paid and pending is not None and pending["e"].get("spend"):  # -- cast-permission riders (wave 38C) -- 118.14: "…, and mana of any type can be spent to cast that spell" (Quistis)
         cost = M.spend_as(cost, pending["e"]["spend"])
     if alt is not None or not cost.is_free:
-        if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana,
-                        purpose=Purpose(spell=ch, zone=card.zone, player=plan.actor, kicked=bool(a.kicker))):
+        purpose = Purpose(spell=ch, zone=card.zone, player=plan.actor, kicked=bool(a.kicker))
+        announced_cost = announce_phyrexian(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=purpose, trusted=was_locked)  # (wave 50B: 601.2b)
+        if announced_cost is None:
+            return
+        cost = announced_cost
+        if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=purpose):
             return
         kind = "miracle" if card.id in r.miracled else "madness"  # -- casting extras (wave 18E) -- 702.94a: its miracle cost
         record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name}" + (f" ({kind})" if alt and not paid else ""),
@@ -4195,8 +4286,12 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
 
         own = cost_changes.ability_delta(plan.state, card.controller, card, ch, ability.text, plan.info) if "This ability costs " in ability.text else 0
         due = M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, due.text(), plan.info, own, ability.text))
-    if payment_step(plan, a, due, f"{ch.name}’s ability",
-                    exclude=not_mana, purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana, special=_special(ability))):
+    purpose = Purpose(ability_of=ch, cost_x="{X}" in cost.mana, special=_special(ability))
+    announced_due = announce_phyrexian(plan, a, due, f"{ch.name}’s ability", exclude=not_mana, purpose=purpose, trusted=was_locked)  # (wave 50B: 602.2b → 601.2b)
+    if announced_due is None:
+        return
+    due = announced_due
+    if payment_step(plan, a, due, f"{ch.name}’s ability", exclude=not_mana, purpose=purpose):
         return
     effect = ability.text.split(":", 1)[1].strip() if ":" in ability.text else ability.text
     # -- review (wave 27D) -- 602.2a / 701.20a: a card whose ability is activated from the hand is revealed, so the ability on the stack
@@ -4222,7 +4317,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
         _replace_life.lose_life(plan, [(plan.actor, cost.life)])
     paid = pay(plan, plan.actor, due, f"paid {due.text()} to activate {ch.name}",
-               sources=a.sources, exclude=not_mana, purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana, special=_special(ability)))
+               sources=a.sources, exclude=not_mana, purpose=purpose, life_due=2 * len(a.life_symbols or ()))
     record = PaymentRecord(card=ability_id or card.id, controller=plan.actor, total_cost=ability.cost or "",
                            mana_spent=dict(paid.spent) if paid else {}, life=cost.life + (paid.life if paid else 0),
                            tapped=list(paid.tapped) if paid else [], x=a.x_value)
@@ -4548,7 +4643,7 @@ def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
             if ("Instant" in ch.types or ch.has_flash or "sneak" in ch.keywords) \
                     and alt_castable(state, player, card, info, check_priority=False):  # (-- keywords (wave 30I) -- sneak: 702.190a)
                 return True
-    return bool(activatable(state, player, info, check_priority=False))
+    return bool(activatable(state, player, info, check_priority=False)) or special_action(state, player, info, instant=True)  # (wave 50B: 116.2b, c: any time, so a response too)
 
 
 def _flash_granted(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> bool:
@@ -4559,8 +4654,50 @@ def _flash_granted(state: GameState, player: str, card: CardInstance, ch: Charac
     return grant is not None and grant.flash
 
 
+def special_action(state: GameState, player: str, info: CardInfo, *, instant: bool = False) -> bool:
+    """-- special actions (wave 50B) -- 116.2: could ``player`` take a special action now that isn't a land, a cast or an ability, and pay for it: turn a
+    face-down permanent up (116.2b: any time they have priority), end an effect of theirs that lets them (a Licid, 116.2c: likewise), unlock a door of a Room
+    (116.2m) or pay {3} for the companion (116.2g): those two in their main phase with the stack empty (``instant``: only the first two, a response).
+    For the auto-pass (``can_act``, ``has_responses``): a player who can must not be passed over. A morph cost that isn't mana is counted without checking it can be paid (a stop too many,
+    never one too few; ponytail: the hint of suspend, foretell and plot, 116.2f, h, k, isn't read)."""
+    from app.rules import licids
+    from app.rules.copying import room_printing
+
+    r = state.rules
+    main = not instant and state.turn.active_player == player and state.turn.phase in MAIN_PHASES and not state.zones.get(STACK)
+    ends = r is not None and any(x.end_cost for x in r.effects)
+    for cid in state.zones.get(zone_key(player, "battlefield"), []):
+        card = state.cards[cid]
+        if card.controller != player:
+            continue
+        if card.face_down:
+            ways = face_up_ways(card, chars.of(card.model_copy(update={"face_down": False}), info))
+            if any(not cost.startswith("{") or can_pay(state, player, M.parse_cost(cost), info, purpose=Purpose(special="turn_up"))
+                   for cost, _ in ways.values()):
+                return True
+            continue
+        if ends and r is not None and (found := licids.ending(state, card, player)) and found[0].end_cost \
+                and can_pay(state, player, M.parse_cost(found[0].end_cost), info, purpose=Purpose()):
+            return True
+        if main and r is not None:  # (a Room, or a copy of one: the printing whose halves it has, 709.5b)
+            oid = r.object_id(card.id)
+            data = info.get(room_printing(r, card, oid))
+            if data is not None and chars.room(data):
+                for door in (1, 2):
+                    if door not in r.unlocked.get(oid, []) and can_pay(
+                            state, player, M.parse_cost((half := chars.half_from_data(data, door - 1)).mana_cost), info, purpose=Purpose(ability_of=half)):
+                        return True
+    if main:
+        for cid in state.zones.get(zone_key(player, "companion"), []):
+            card = state.cards[cid]
+            if card.owner == player and any("companion" in ab.keywords for ab in chars.of(card, info).abilities) \
+                    and companion_problem(state, player, card, info) is None and can_pay(state, player, M.parse_cost("{3}"), info, purpose=Purpose()):
+                return True
+    return False
+
+
 def can_act(state: GameState, player: str, info: CardInfo) -> bool:
-    """Could ``player`` do anything at all right now (a land, a spell, an ability)?"""
+    """Could ``player`` do anything at all right now (a land, a spell, an ability, a special action)?"""
     from app.rules.engine import land_play_problem  # engine imports this module
 
     for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard")):
@@ -4571,4 +4708,4 @@ def can_act(state: GameState, player: str, info: CardInfo) -> bool:
             if key.endswith(":hand") and land_play_problem(state, player, card, chars.of(card, info), check_priority=False,
                                                                  info=info) is None:  # (info: wave 4J, additional land plays)
                 return True
-    return bool(activatable(state, player, info, check_priority=False))
+    return bool(activatable(state, player, info, check_priority=False)) or special_action(state, player, info)  # (wave 50B: 116.2b, c, g, m)

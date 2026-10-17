@@ -81,8 +81,18 @@ def unless_holds(plan: Plan, controller: str, card: CardInstance, cond: dict[str
 def others_enter_untapped(plan: Plan, card: CardInstance, controller: str) -> bool:
     """-- most-played cards II (wave 45A) -- 614.1d: "Lands you control enter untapped." (Horizon Explorer): the same reading as ``others_enter_tapped``. Its ruling
     (2025-07-25): a permanent put onto the battlefield tapped by an instruction always enters untapped; against its own "enters tapped" the controller chooses the
-    order, so can have either. ponytail: modelled as always choosing untapped, so a shock land is not asked to pay life (a payoff for entering tapped isn't modelled)."""
+    order, so can have either. ponytail: a land that "enters tapped" is modelled as always entering untapped; wave 50B: a shock land still asks for its life (that is
+    the one choice with a payoff: "don't pay" applies the shock effect first and Spelunking after, untapped; never offered: the order that leaves it tapped)."""
     return others_enter_tapped(plan, card, controller, "enters_untapped_others")
+
+
+def shock_prompt(name: str, n: int, untapped: bool = False) -> tuple[str, list[DecisionOption]]:
+    """The question of a shock land's life (614.1c, 614.12a); ``untapped``: it enters untapped either way (-- Spelunking (wave 50B) -- 616.1)."""
+    if untapped:
+        return (f"{name}: pay {n} life? It enters untapped either way (lands you control enter untapped)",
+                [DecisionOption(id="pay", label=f"Pay {n} life"), DecisionOption(id="tapped", label="Don't pay (still untapped)")])
+    return (f"{name}: pay {n} life, or it enters tapped?",
+            [DecisionOption(id="pay", label=f"Pay {n} life (untapped)"), DecisionOption(id="tapped", label="Enters tapped")])
 
 
 def entry_plan(plan: Plan, card: CardInstance, controller: str, **kw: Any) -> dict[str, Any]:
@@ -138,8 +148,9 @@ def _entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bo
         if d["replacement"] != "pay_life_or_tapped":
             continue
         life = int(d["life"])
-        if out["tapped"] or "choice" in out or others_enter_untapped(plan, card, controller):
-            continue  # it enters tapped anyway ("put it onto the battlefield tapped"), or another choice comes first (wave 45A: or it enters untapped whatever it says)
+        if out["tapped"] or "choice" in out:
+            continue  # it enters tapped anyway ("put it onto the battlefield tapped"), or another choice comes first
+        untapped = others_enter_untapped(plan, card, controller)  # -- Spelunking (wave 50B) -- the life is still the controller's choice (616.1, ruling 2023-11-10)
         player = plan.state.players.get(controller)
         from app.rules import (
             life_lock,  # -- can't lose life (wave 29D) -- 119.8: nor by a player who can't lose life
@@ -149,7 +160,7 @@ def _entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bo
             out["tapped"] = True  # 119.4: life can be paid only from a life total of at least that much
             continue
         if pay_life is None:
-            out["choice"] = {"life": life}
+            out["choice"] = {"life": life, "untapped": untapped}
         elif pay_life:
             out["life"] = out.get("life", 0) + life
         else:
@@ -404,9 +415,7 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
     if "order" in choice:  # -- replacement effects stage 2 (wave 2E): 616.1 before it enters (614.12a) --
         return choice["order"]["prompt"], [DecisionOption(id=cid, label=label) for cid, label in choice["order"]["options"]]
     if "life" in choice:
-        n = choice["life"]
-        return (f"{card.name}: pay {n} life, or it enters tapped?",
-                [DecisionOption(id="pay", label=f"Pay {n} life (untapped)"), DecisionOption(id="tapped", label="Enters tapped")])
+        return shock_prompt(card.name, choice["life"], bool(choice.get("untapped")))
     from app.rules.effects import _choice_options
 
     what = choice["what"]
