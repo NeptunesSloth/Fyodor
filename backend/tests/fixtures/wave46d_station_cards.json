@@ -1,0 +1,255 @@
+[
+ {
+  "name": "The Seriema",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Artifact — Spacecraft",
+  "oracle_text": "When The Seriema enters, search your library for a legendary creature card, reveal it, put it into your hand, then shuffle.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 7+.)\n7+ | Flying\nOther tapped legendary creatures you control have indestructible.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Station"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Evendo, Waking Haven",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land — Planet",
+  "oracle_text": "This land enters tapped.\n{T}: Add {G}.\nStation (Tap another creature you control: Put charge counters equal to its power on this Planet. Station only as a sorcery.)\n12+ | {G}, {T}: Add {G} for each creature you control.",
+  "colors": [],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Station"
+  ]
+ },
+ {
+  "name": "Hearthhull, the Worldseed",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{R}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Artifact — Spacecraft",
+  "oracle_text": "Station (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 8+.)\n2+ | {1}, {T}, Sacrifice a land: Draw two cards. You may play an additional land this turn.\n8+ | Flying, vigilance, haste\nWhenever you sacrifice a land, each opponent loses 2 life.",
+  "colors": [
+   "B",
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Station"
+  ],
+  "power": "6",
+  "toughness": "7"
+ },
+ {
+  "name": "Uthros Research Craft",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Artifact — Spacecraft",
+  "oracle_text": "Station (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 12+.)\n3+ | Whenever you cast an artifact spell, draw a card. Put a charge counter on this Spacecraft.\n12+ | Flying\nThis Spacecraft gets +1/+0 for each artifact you control.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Station"
+  ],
+  "power": "0",
+  "toughness": "8"
+ },
+ {
+  "name": "Galvanizing Sawship",
+  "layout": "normal",
+  "mana_cost": "{5}{R}",
+  "cmc": 6.0,
+  "type_line": "Artifact — Spacecraft",
+  "oracle_text": "Station (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 3+.)\n3+ | Flying, haste",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Station"
+  ],
+  "power": "6",
+  "toughness": "5"
+ },
+ {
+  "name": "Lumen-Class Frigate",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Artifact — Spacecraft",
+  "oracle_text": "Station (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 12+.)\n2+ | Other creatures you control get +1/+1.\n12+ | Flying, lifelink",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Station"
+  ],
+  "power": "3",
+  "toughness": "5"
+ },
+ {
+  "name": "Dawnsire, Sunstar Dreadnought",
+  "layout": "normal",
+  "mana_cost": "{5}",
+  "cmc": 5.0,
+  "type_line": "Legendary Artifact — Spacecraft",
+  "oracle_text": "Station (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 20+.)\n10+ | Whenever you attack, Dawnsire deals 100 damage to up to one target creature or planeswalker.\n20+ | Flying",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Station"
+  ],
+  "power": "20",
+  "toughness": "20"
+ },
+ {
+  "name": "The Eternity Elevator",
+  "layout": "normal",
+  "mana_cost": "{5}",
+  "cmc": 5.0,
+  "type_line": "Legendary Artifact — Spacecraft",
+  "oracle_text": "{T}: Add {C}{C}{C}.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery.)\n20+ | {T}: Add X mana of any one color, where X is the number of charge counters on The Eternity Elevator.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Station"
+  ]
+ },
+ {
+  "name": "Entropic Battlecruiser",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Artifact — Spacecraft",
+  "oracle_text": "Station (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 8+.)\n1+ | Whenever an opponent discards a card, they lose 3 life.\n8+ | Flying, deathtouch\nWhenever this Spacecraft attacks, each opponent discards a card. Each opponent who can't loses 3 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Station"
+  ],
+  "power": "3",
+  "toughness": "10"
+ },
+ {
+  "name": "Wurmwall Sweeper",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact — Spacecraft",
+  "oracle_text": "When this Spacecraft enters, surveil 2.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 4+.)\n4+ | Flying",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Surveil",
+   "Station"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Doubling Season",
+  "layout": "normal",
+  "mana_cost": "{4}{G}",
+  "cmc": 5.0,
+  "type_line": "Enchantment",
+  "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Infinite Guideline Station",
+  "layout": "normal",
+  "mana_cost": "{W}{U}{B}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Artifact — Spacecraft",
+  "oracle_text": "When Infinite Guideline Station enters, create a tapped 2/2 colorless Robot artifact creature token for each multicolored permanent you control.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 12+.)\n12+ | Flying\nWhenever Infinite Guideline Station attacks, draw a card for each multicolored permanent you control.",
+  "colors": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Station"
+  ],
+  "power": "7",
+  "toughness": "15"
+ },
+ {
+  "name": "Debris Field Crusher",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Artifact — Spacecraft",
+  "oracle_text": "When this Spacecraft enters, it deals 3 damage to any target.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 8+.)\n8+ | Flying\n{1}{R}: This Spacecraft gets +2/+0 until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Station"
+  ],
+  "power": "1",
+  "toughness": "5"
+ },
+ {
+  "name": "Adagia, Windswept Bastion",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land — Planet",
+  "oracle_text": "This land enters tapped.\n{T}: Add {W}.\nStation (Tap another creature you control: Put charge counters equal to its power on this Planet. Station only as a sorcery.)\n12+ | {3}{W}, {T}: Create a token that's a copy of target artifact or enchantment you control, except it's legendary. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Station"
+  ]
+ }
+]
