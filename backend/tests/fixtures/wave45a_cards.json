@@ -968,5 +968,20 @@
    "Goad",
    "Enchant"
   ]
+ },
+ {
+  "name": "Jaws of Defeat",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever a creature you control enters, target opponent loses life equal to the difference between that creature's power and its toughness.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
  }
 ]

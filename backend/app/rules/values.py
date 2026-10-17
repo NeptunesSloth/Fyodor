@@ -725,6 +725,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return context.amount(ctx, v["ref_amount"])
     if "event_count" in v:  # how many objects the "one or more" batch had
         return max(0, int((ctx.get("event") or {}).get("count") or 0))
+    if "diff" in v:  # -- most-played cards II (wave 45A) -- "the difference between A and B": how far apart, never negative
+        return abs(evaluate(plan, ctx, v["diff"][0]) - evaluate(plan, ctx, v["diff"][1]))
     if "minus" in v:  # -- refused zones/sized (wave 3R4) -- 107.1b: a negative result is 0
         return max(0, evaluate(plan, ctx, v["minus"][0]) - evaluate(plan, ctx, v["minus"][1]))
     if "hand" in v and v["hand"] == "event":  # -- refused zones/sized (wave 3R4) -- the trigger's player ("that player")

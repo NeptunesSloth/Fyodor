@@ -359,6 +359,12 @@ def _stat(phrase: str, its: str = "it") -> Any:
     its own subject ("~ deals damage equal to its power": ~'s). Also any quantity the value
     grammar reads ("the number of lands you control", "your devotion to red", "twice its power":
     app/rules/values.py), and "~'s power" (the source's, 608.2h)."""
+    if (d := re.fullmatch(r"the difference between (?P<a>that creature's power|its power|~'s power) and (?P<b>its toughness|that creature's toughness|~'s toughness)", phrase)) is not None:
+        # -- most-played cards II (wave 45A) -- "the difference between that creature's power and its toughness" (Jaws of Defeat): how far apart they are, one object's own (608.2h)
+        a, b = d["a"], d["b"]
+        if b.startswith("its ") and not a.startswith("its "):
+            b = a.rsplit(" ", 1)[0] + " " + b[len("its "):]  # ("that creature's power and its toughness": the same creature)
+        return {"diff": [_stat(a, its), _stat(b, its)]}
     m = re.fullmatch(r"the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (?P<stat>power|toughness|mana value)", phrase)
     if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
         return {_STATS[m["stat"]]: "cost:sacrificed"}
