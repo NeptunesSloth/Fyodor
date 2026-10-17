@@ -19,6 +19,7 @@ from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.errors import ActionError
 from app.rules import coverage
+from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_effects import pass_until_stack_empty
@@ -324,4 +325,253 @@ def test_tifa_untaps_and_adds_a_combat_phase_after_a_big_hit_in_the_first_combat
     pass_until_stack_empty(s)
     assert s.state.rules.extra_phases[:1] == ["begin_combat"]
     assert not s.state.cards[t.id].tapped  # (untapped by the trigger)
+    check(s)
+
+
+# ---- abilities -------------------------------------------------------------------------------------------------------------------------------------------
+def view_ch(s, name, pid="p1"):
+    return Plan.view(s.state, "p1", s.cards).ch(s.state.cards[card_named(s, name, pid).id])
+
+
+def lands(s, n, pid="p1"):
+    """The first ``n`` basic lands of the library onto the battlefield."""
+    basics = [c for c in s.state.zones[f"{pid}:library"] if s.state.cards[c].name in ("Forest", "Island")]
+    for cid in basics[:n]:
+        act(s, pid, type="move", card_ids=[cid], to={"player": pid, "zone": "battlefield"})
+
+
+def play_forest(s, pid="p1"):
+    """A Forest from the library into the hand, then played as a land (305.1: it enters, so landfall-style triggers see it)."""
+    cid = next(c for c in s.state.zones[f"{pid}:library"] if s.state.cards[c].name == "Forest")
+    act(s, pid, type="move", card_ids=[cid], to={"player": pid, "zone": "hand"})
+    act(s, pid, type="play_land", card_id=cid)
+
+
+def to_hand_n(s, n, pid="p1"):
+    """The first ``n`` cards of the library into the hand (what a cost may discard)."""
+    ids = list(s.state.zones[f"{pid}:library"][:n])
+    act(s, pid, type="move", card_ids=ids, to={"player": pid, "zone": "hand"})
+    return ids
+
+
+def settle_all(s):
+    """Answer what is asked with the first option and let the stack resolve (never passing into another step)."""
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+def test_ellie_pays_life_and_a_creature_to_deal_2_damage_and_gain_indestructible(cards):
+    s = build(cards, [ELLIE, "Grizzly Bears"], [])
+    ellie, bears = put(s, ELLIE), put(s, "Grizzly Bears")
+    act(s, "p1", type="activate_ability", card_id=ellie.id, ability=0, targets=["p2"])
+    pass_until_stack_empty(s)
+    assert life(s, "p2") == 38 and life(s) == 38 and zone_of(s, "Grizzly Bears") == "p1:graveyard"
+    assert "indestructible" in view_ch(s, ELLIE).keywords
+    check(s)
+
+
+def test_jace_exiles_and_returns_transformed_once_the_graveyard_holds_five_cards(cards):
+    s = build(cards, [JACE], [])
+    put(s, JACE)
+    next_turn(s)
+    fill_graveyard(s, "p1", 4)
+    act(s, "p1", type="activate_ability", card_id=card_named(s, JACE).id, ability=0)
+    pass_until_stack_empty(s)
+    decide(s, [s.state.zones["p1:hand"][0]])  # (the discard makes the fifth card)
+    jace = s.state.cards[card_named(s, JACE).id]
+    assert jace.zone == "p1:battlefield" and jace.face == 1
+    check(s)
+
+
+def test_jace_stays_put_with_fewer_than_five_cards_in_the_graveyard(cards):
+    s = build(cards, [JACE], [])
+    put(s, JACE)
+    next_turn(s)
+    fill_graveyard(s, "p1", 3)
+    act(s, "p1", type="activate_ability", card_id=card_named(s, JACE).id, ability=0)
+    pass_until_stack_empty(s)
+    decide(s, [s.state.zones["p1:hand"][0]])
+    jace = s.state.cards[card_named(s, JACE).id]
+    assert jace.zone == "p1:battlefield" and jace.face == 0
+    check(s)
+
+
+def test_nissa_transforms_when_a_land_makes_seven(cards):
+    s = build(cards, [NISSA], [])
+    lands(s, 6)
+    put(s, NISSA)
+    play_forest(s)
+    settle_all(s)
+    nissa = s.state.cards[card_named(s, NISSA).id]
+    assert nissa.zone == "p1:battlefield" and nissa.face == 1
+    check(s)
+
+
+def test_nissa_waits_for_the_seventh_land(cards):
+    s = build(cards, [NISSA], [])
+    lands(s, 5)
+    put(s, NISSA)
+    play_forest(s)
+    settle_all(s)
+    assert s.state.cards[card_named(s, NISSA).id].face == 0
+    check(s)
+
+
+def test_sheoldred_transforms_for_four_and_black_when_an_opponent_has_eight_cards_in_the_graveyard(cards):
+    s = build(cards, [SHEOLDRED], [])
+    put(s, SHEOLDRED)
+    fill_graveyard(s, "p2", 8)
+    mana(s, B=1, C=4)
+    act(s, "p1", type="activate_ability", card_id=card_named(s, SHEOLDRED).id, ability=2)
+    pass_until_stack_empty(s)
+    sheoldred = s.state.cards[card_named(s, SHEOLDRED).id]
+    assert sheoldred.zone == "p1:battlefield" and sheoldred.face == 1
+    check(s)
+
+
+def test_sheoldred_cannot_be_activated_with_seven_cards_in_each_opponents_graveyard(cards):
+    s = build(cards, [SHEOLDRED], [])
+    put(s, SHEOLDRED)
+    fill_graveyard(s, "p2", 7)
+    mana(s, B=1, C=4)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=card_named(s, SHEOLDRED).id, ability=2)
+    check(s)
+
+
+def hisoka_table(cards, discard):
+    """Alice casts a Lightning Bolt at Bob; Bob (Hisoka's controller, who then has priority) discards ``discard`` to counter it."""
+    s = build(cards, ["Lightning Bolt"], [HISOKA, "Lightning Bolt"])
+    put(s, HISOKA, "p2")
+    mana(s, R=1)
+    bolt = to_hand(s, "Lightning Bolt")
+    spare = to_hand(s, discard, "p2")
+    mana(s, "p2", U=3)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    act(s, "p2", type="activate_ability", card_id=card_named(s, HISOKA, "p2").id, ability=0, targets=[bolt.id])  # (the one card in hand is discarded)
+    return s, bolt
+
+
+def test_hisoka_counters_a_spell_with_the_mana_value_of_the_discarded_card(cards):
+    s, bolt = hisoka_table(cards, "Lightning Bolt")  # (mana value 1 on both)
+    pass_until_stack_empty(s)
+    assert life(s, "p2") == 40 and s.state.cards[bolt.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_hisoka_lets_a_spell_through_when_the_mana_values_differ(cards):
+    s, bolt = hisoka_table(cards, "Island")  # (mana value 0)
+    pass_until_stack_empty(s)
+    assert life(s, "p2") == 37
+    check(s)
+
+
+def test_mageta_destroys_every_creature_but_itself(cards):
+    s = build(cards, [MAGETA, "Grizzly Bears"], ["Grizzly Bears"])
+    put(s, MAGETA)
+    mine, theirs = put(s, "Grizzly Bears"), put(s, "Grizzly Bears", "p2")
+    next_turn(s)
+    mana(s, W=2, C=2)
+    hand = to_hand_n(s, 2)
+    act(s, "p1", type="activate_ability", card_id=card_named(s, MAGETA).id, ability=0)
+    decide(s, hand)
+    assert zone_of(s, MAGETA) == "p1:battlefield" and s.state.cards[mine.id].zone == "p1:graveyard" and s.state.cards[theirs.id].zone == "p2:graveyard"
+    check(s)
+
+
+def test_jolrael_makes_the_lands_of_a_player_3_3_creatures(cards):
+    s = build(cards, [JOLRAEL], [])
+    put(s, JOLRAEL)
+    lands(s, 2, "p2")
+    next_turn(s)
+    mana(s, G=3)
+    hand = to_hand_n(s, 2)
+    act(s, "p1", type="activate_ability", card_id=card_named(s, JOLRAEL).id, ability=0, targets=["p2"])
+    decide(s, hand)
+    island = next(c for c in s.state.cards.values() if c.owner == "p2" and c.zone == "p2:battlefield")
+    ch = Plan.view(s.state, "p1", s.cards).ch(island)
+    assert "Creature" in ch.types and "Land" in ch.types and ch.pt == (3, 3)
+    check(s)
+
+
+def test_meren_returns_the_chosen_card_to_the_battlefield_by_its_experience(cards):
+    s = build(cards, [MEREN, "Hill Giant"], [])
+    put(s, MEREN)
+    giant = to_hand(s, "Hill Giant")
+    act(s, "p1", type="move", card_ids=[giant.id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p1", type="resource", key="experience", delta=4)
+    stops(s)
+    to_phase(s, "end")
+    settle_all(s)
+    assert s.state.cards[giant.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_meren_puts_the_chosen_card_into_hand_when_it_costs_more_than_the_experience(cards):
+    s = build(cards, [MEREN, "Hill Giant"], [])
+    put(s, MEREN)
+    giant = to_hand(s, "Hill Giant")
+    act(s, "p1", type="move", card_ids=[giant.id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p1", type="resource", key="experience", delta=3)
+    stops(s)
+    to_phase(s, "end")
+    settle_all(s)
+    assert s.state.cards[giant.id].zone == "p1:hand"
+    check(s)
+
+
+def test_bortuk_returns_a_card_with_mana_value_up_to_the_basic_land_types(cards):
+    s = build(cards, [BORTUK, "Llanowar Elves"], [])
+    lands(s, 1)  # (one basic land type: Forest)
+    elves = to_hand(s, "Llanowar Elves")
+    act(s, "p1", type="move", card_ids=[elves.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, B=1, G=1, C=4)
+    cast(s, BORTUK)
+    settle_all(s)
+    assert s.state.cards[elves.id].zone == "p1:battlefield"  # (mana value 1)
+    check(s)
+
+
+def test_bortuk_puts_a_bigger_card_into_hand(cards):
+    s = build(cards, [BORTUK, "Grizzly Bears"], [])
+    lands(s, 1)
+    bears = to_hand(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, B=1, G=1, C=4)
+    cast(s, BORTUK)
+    settle_all(s)
+    assert s.state.cards[bears.id].zone == "p1:hand"  # (mana value 2 against one basic land type)
+    check(s)
+
+
+def test_the_incredible_hulk_only_counts_and_does_not_untap_when_not_attacking(cards):
+    s = build(cards, [HULK, "Lightning Bolt"], [])
+    hulk = put(s, HULK)
+    act(s, "p1", type="move", card_ids=[hulk.id], to={"player": "p1", "zone": "battlefield"}, back_ids=[hulk.id])
+    mana(s, R=1)
+    cast(s, "Lightning Bolt", targets=[hulk.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[hulk.id].counters.get("+1/+1") == 1 and not s.state.rules.extra_phases
+    check(s)
+
+
+def test_the_incredible_hulk_untaps_and_adds_a_combat_phase_when_dealt_damage_attacking(cards):
+    s = build(cards, [HULK, "Lightning Bolt"], [])
+    hulk = put(s, HULK)
+    act(s, "p1", type="move", card_ids=[hulk.id], to={"player": "p1", "zone": "battlefield"}, back_ids=[hulk.id])
+    next_turn(s)
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": hulk.id, "target": "p2"}])
+    mana(s, R=1)
+    cast(s, "Lightning Bolt", targets=[hulk.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[hulk.id].counters.get("+1/+1") == 1 and not s.state.cards[hulk.id].tapped
+    assert s.state.rules.extra_phases[:1] == ["begin_combat"]
     check(s)

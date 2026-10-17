@@ -1629,7 +1629,7 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         elif isinstance(bound, dict) and "count_value" in bound:  # (wave 26A) a count of the table, read as the spell resolves
             bound = values.evaluate(plan, ctx, bound["count_value"])
         elif isinstance(bound, dict):  # -- static_other sweep (wave 17C) -- the card a spell's cost revealed
-            bound = values.evaluate(plan, ctx, bound) if values._object(plan, ctx, "cost:revealed") is not None else None
+            bound = values.evaluate(plan, ctx, bound) if values._object(plan, ctx, next(iter(bound.values()))) is not None else None  # (wave 44D: also "cost:discarded")
         return value is not None and bound is not None and bool(_OPS[cond["op"]](value, bound))
     # "it's a land card" / "that creature is a Human": its characteristics, wherever it is (a card in
     # a library, a graveyard or exile, or a permanent as it last existed): the zone is not the test
