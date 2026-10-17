@@ -113,7 +113,7 @@ _CTRL = re.compile(r"(?P<who>you|an opponent) (?P<neg>don't |doesn't )?controls?
 _LIFE = re.compile(r"you have (?:(?P<n>\w+) or (?P<cmp>less|more|fewer|greater)|at least (?P<least>\w+)) life")
 _HAND = re.compile(r"you have (?:(?P<no>no)|(?P<n>\w+) or (?P<cmp>more|fewer|less)) cards in (?:your )?hand")
 _YOUR_TURN = re.compile(r"it(?:'s| is) (?P<neg>not |n't )?your turn|it isn't your turn|it(?:'s| is) an opponent's turn")
-_THEIR_TURN = re.compile(r"it(?:'s| is) (?P<neg>not )?(?:that player's|their) turn")  # (wave 17D: the trigger event's player, 500.1)
+_THEIR_TURN = re.compile(r"it(?:'s| is| isn't) (?P<neg>not )?(?:that player's|their) turn")  # (wave 17D: the trigger event's player, 500.1; wave 43B: "isn't", Tataru Taru)
 _STATUS = {"you're the monarch": "monarch", "you are the monarch": "monarch", "you have the initiative": "initiative",
            "you have the city's blessing": "city_blessing",
            "you own a card in exile": "own_exiled"}  # -- activated other (wave 21E) -- (Dreadlight Monstrosity)
@@ -178,6 +178,9 @@ _BEATS_SELF = re.compile(r"(?P<who>it|that creature) has greater (?P<a>power|tou
                          r"(?P<who3>it|that creature) had power greater than ~'s(?: power)?|"  # (-- counters (wave 41A) -- Drizzt Do'Urden: as it last existed, 608.2h)
                          r"(?P<who2>its|that creature's) power is greater than ~'s(?: power)?"
                          r"(?: (?:or|and/or) (?:its|that creature's) toughness is greater than ~'s toughness)?")  # (and/or: 702.100a, wave 15E)
+# -- most-played cards (wave 43B) -- "its power is greater than each other creature's power" (Selvala, Heart of the Wilds): strictly more than every other creature on the
+# battlefield (anyone's), the object's as it is or as it last existed (608.2h)
+_BEATS_ALL = re.compile(r"(?:its|that creature's) (?P<stat>power|toughness) is greater than each other creature's (?P=stat)")
 # -- counters (wave 33C) -- "put a +1/+1 counter on that creature if its power is less than Shelinda's power": the same comparison the other way
 _LESS_SELF = re.compile(r"(?:its|that creature's) power is less than ~'s(?: power)?")
 # -- static_other sweep (wave 17C) -- 608.2h: "If you controlled that permanent" (Boomerang Basics): the controller it had, as it is
@@ -380,7 +383,7 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     m = _THEIR_TURN.fullmatch(t)
     if m:  # -- triggers (wave 17D) -- "if it's not that player's turn" (Price of Glory): the player the trigger event is about
         theirs: Condition = {"turn": "event_player"}
-        return {"not": theirs} if m["neg"] else theirs
+        return {"not": theirs} if m["neg"] or t.startswith("it isn't") else theirs
     if t in _STATUS:
         return {"status": _STATUS[t]}
     if t.lower() == "you chose a creature other than ~ as your ring-bearer":  # -- triggers (wave 19B) -- 701.54a: the creature this tempt chose
@@ -1253,6 +1256,9 @@ def _object(t: str) -> Condition | None:
     if m:
         stats = [x for x in (m["a"], m["b"]) if x] if m["a"] else ["power"] + (["toughness"] if "toughness" in t else [])
         return {"object": "it", "beats_self": stats}
+    m = _BEATS_ALL.fullmatch(t)
+    if m:
+        return {"object": "it", "beats_all": m["stat"]}
     if _LESS_SELF.fullmatch(t):  # -- counters (wave 33C) -- Shelinda, Yevon Acolyte: strictly less (an equal power is the "Otherwise")
         return {"object": "it", "beats_self": ["power"], "lt": True}
     m = _SAME_NAME_OF.fullmatch(t)  # -- same name (wave 32A) -- 201.2a: "if it doesn't have the same name as another creature you control or a creature card in your graveyard"
@@ -1582,6 +1588,13 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
 
             return crew_saddle.is_saddled(plan, card)
         return plan.oid(card) in (plan.rules.monstrous if cond["designation"] == "monstrous" else plan.rules.renowned)
+    if "beats_all" in cond:  # -- most-played cards (wave 43B) -- strictly greater than every other creature on the battlefield (Selvala ruling 2016-08-23: ties draw nothing)
+        stat = values._stat_of(ch, cond["beats_all"])
+        if stat is None:
+            return False
+        others = [values._stat_of(plan.ch(c), cond["beats_all"]) for c in plan.state.cards.values()
+                  if c.id != card.id and c.zone.endswith(":battlefield") and plan.in_game(c) and plan.ch(c).is_creature]
+        return all(o is None or stat > o for o in others)
     if "beats_self" in cond:  # "its power is greater than ~'s": either stat named (as it is, or as it last existed, 608.2h)
         mine = values._object(plan, ctx, "self")
         if mine is None:

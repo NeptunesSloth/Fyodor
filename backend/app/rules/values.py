@@ -679,6 +679,13 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
             event_creatures = context.objects(plan, ctx, context.EVENT)
             sel = selectors.replace(sel, extras=tuple("blocking_source" if x == "blocking_event" else x for x in sel.extras))
             return sum(1 for c in selectors.candidates(plan, sel, you, event_creatures[0] if event_creatures else "") if c not in away)
+        if "shares_type_event" in sel.extras:  # -- most-played cards (wave 43B) -- "for each other attacking creature that shares a creature type with it" (Shared Animosity): "it"
+            from app.rules import (
+                context,  # is the creature the trigger is about, as this resolves; the others than IT are counted
+            )
+
+            event_creatures = context.objects(plan, ctx, context.EVENT)
+            return sum(1 for c in selectors.candidates(plan, sel, you, event_creatures[0] if event_creatures else "") if c not in away)
         # (wave 32A: "for each land with the same name as the exiled card" (Strata Scythe) compares with the ability's own source, not with the
         # object a static's "other" is about — the equipped creature)
         where = ctx.get("source_card") if not sel.other and any(x.startswith(("samename_src", "nosamename_src", "samename_exiled_with")) for x in sel.extras) \
@@ -762,6 +769,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "opponents_hand" in v:  # -- triggers (wave 21B) -- the opponents still in the game (800.4a), by hand size as it resolves
         size = {p: len(plan.state.zones.get(f"{p}:hand", [])) for p in plan.live() if p != you}
         return sum(1 for k in size.values() if (k >= v["n"] if v["opponents_hand"] == "more" else k <= v["n"]))
+    if "turns_taken" in v:  # -- most-played cards (wave 43B) -- "your first, second, or third turn of the game" (Starting Town): the turns you have begun, this one included
+        tt = plan.rules.turns_taken
+        return tt.get(you, 0) if tt else int(plan.state.turn.active_player == you)  # (before the first turn ends nothing is counted: it is the first player's first)
     if "commander_casts" in v:  # -- triggers (wave 19B) --
         return sum(plan.state.players[you].commander_casts.values())
     if "exiled_with" in v:  # -- resolution memory (wave 22D) -- Unlicensed Hearse: "the number of cards exiled with it"

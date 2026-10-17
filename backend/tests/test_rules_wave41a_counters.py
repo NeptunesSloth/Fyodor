@@ -103,7 +103,7 @@ def test_the_promoted_cards_are_full(cards, name):
 def test_the_counters_cards_that_are_not_read_stay_manual(cards, name):
     """Brawn (a hybrid symbol in a power-up cost the cost is reduced by, 702.193b / 118.7e: unsettled), Kalain (mana from a Treasure spent to cast, not recorded
     by source), Gluntch (a different player for each of three choices), Super-Adaptoid (ten keywords, one each), Sensei (a numbered keyword given for good),
-    Rinoa ("one of them" from a batch of deaths), Wan Shi Tong (no search event), Tyvar (a mana ability resolving), Maria Hill (a teamwork cost) are refused."""
+    Rinoa ("one of them" from a batch of deaths), Tyvar (a mana ability resolving), Maria Hill (a teamwork cost) are refused."""
     assert coverage.of_card_data(cards.resolve(name)).level != "FULL", name
 
 

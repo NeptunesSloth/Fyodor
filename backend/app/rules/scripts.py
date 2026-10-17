@@ -475,6 +475,14 @@ def step_names_player(d: dict[str, Any]) -> bool:
 # -- end sagas & attached-object triggers (wave 3S) --
 
 
+def _opponent_controlled(what: Any) -> bool:
+    """-- most-played cards (wave 43B) -- does a target phrase's selector say "an opponent controls" (every kind of a list)?"""
+    if not isinstance(what, str) or not what.startswith(selectors.PREFIX):
+        return False
+    sel = selectors.from_key(what)
+    return all(selectors.from_key(k).controller == "opponent" for k in sel.either) if sel.either else sel.controller == "opponent"
+
+
 def _group_of(e: dict[str, Any]) -> int | None:
     """The target group an effect acts on ("target:<g>"; plain "target" is group 0)."""
     who = e.get("who")
@@ -733,6 +741,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             if verb == "card":  # "that card": a card, so not a token an instruction created (111.1)
                 if i.do == "look_top" and any(o.get("do") == "pick_looked" and o.get("to") == "exile" for o in out[i.index + 1:index]):
                     return False  # -- hidden exile (wave 18A) -- "look at …, exile two of them, … You may play those cards": the exiled ones
+                if i.do == "pick_looked" and out[i.index].get("to") != "exile" and out[index].get("do") in ("grant_play", "free_cast") \
+                        and any(o.get("do") == "pick_looked" and o.get("to") == "exile" for o in out[i.index + 1:index]):
+                    return False  # -- most-played cards (wave 43B) -- "Put one into your hand, one on the bottom, and exile one. You may play the exiled card" (Expressive Iteration)
                 return i.do not in _TOKEN_MAKERS and (i.number is None or number is None or i.number == number)
             if verb is not None:
                 return i.verb == verb or (verb in this_way._OBJECT_ZONE and i.verb in this_way.verbs(verb))  # (22D: "put into a graveyard this way")
@@ -771,7 +782,15 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         """The object "it" names in a condition (conditional / instead clauses, wave 1B): what an earlier
         instruction moved, chose or created (its recorded object, 400.7j), a plain target of one
         (the target itself), the source, or the trigger event's object."""
-        intro = objects(index, 1, None, skip_gated=True)
+        try:
+            intro = objects(index, 1, None, skip_gated=True)
+        except _NoMatch:
+            # -- most-played cards (wave 43B) -- "…, then reveals the top card of their library. If it's a permanent card, …" (Chaos Warp): two things were named in the
+            # sentence before (the permanent shuffled in, the card revealed), and "it" is the card whose type is asked — the card just revealed, the nearest one named
+            if index > 0 and cond is not None and '"card":true' in json.dumps(cond).replace('\\"', '"') and out[index - 1].get("do") == "look_top" \
+                    and out[index - 1].get("reveal") and not out[index - 1].get("until") and any(i.index == index - 1 for i in intros):
+                return "ref:" + bound(next(i for i in intros if i.index == index - 1))
+            raise
         if intro is not None and out[intro.index].get("who") == "self" and "beats_self" in json.dumps(cond):
             # -- counters (wave 33C) -- "put a +1/+1 counter on Yorvo. Then if that creature's power is greater than Yorvo's power, …": "that creature"
             # is compared with the source, so it is not the source the sentence before put a counter on, but the creature the trigger is about
@@ -809,6 +828,11 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 # Vengeance), "… counter target … spell. If it comes up tails, copy that spell" (Odds // Ends): outside a cast trigger "that spell" is
                 # the spell an earlier instruction targeted, as it was chosen (608.2b)
                 e["who"] = "target" if groups is None else f"target:{_group_of(out[named.index])}"
+            if e.get("player") in ("it.owner", "it.controller"):  # -- most-played cards (wave 43B) -- "reveals the top card of their library", their = the owner of
+                intro = objects(index, 1, None)  # the object the instruction before moved (Chaos Warp), as it was (608.2h)
+                if intro is None:
+                    return None
+                e["player"] = f"ref:{bound(intro)}.{e['player'][3:]}"
             if e.get("player") == "that_player":  # -- static wordings (wave 6E) -- "that player exiles the top card of
                 intro = find(lambda i: i.player, index)  # their library": whose library, bound like "who" below
                 if intro is not None:
@@ -888,6 +912,13 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                         return None  # the trigger's player or the target player? (manual)
                     g = _group_of(out[intro.index])
                     e["who"] = "target" if groups is None else f"target:{g}"
+                elif not event_player and (named := objects(index, 1, None)) is not None \
+                        and (tg := _group_of(out[named.index])) is not None and groups is not None and tg < len(groups) \
+                        and _opponent_controlled(groups[tg].get("what")):
+                    # -- most-played cards (wave 43B) -- "Destroy target artifact, enchantment, or nonbasic land an opponent controls. That player may
+                    # search their library …" (Boseiju, Who Endures; Volatile Fault): the target phrase names the one opponent who controls it, so "that
+                    # player" is its controller, as it last existed (608.2h) — the same player as "its controller"
+                    e["who"] = f"ref:{bound(named)}.controller"
                 else:
                     e["who"] = "event_player"  # (only a trigger about a player can: _event_refs_ok)
             elif isinstance(who, str) and who.startswith("controlled:that_player|"):
@@ -3503,6 +3534,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             src.setdefault("as", f"x{exiled_at}")
             resolved[k] = {"do": "rest_exiled", "who": f"ref:{src['as']}", "to": e["to"]}
             continue
+        if e["do"] == "pick_looked" and e.get("by_owner") and (
+                not looked or any(x["do"] == "look_top" and str(x.get("player")) in ("each_player", "each_opponent", "each_other_opponent")
+                                  or str(x.get("player")).startswith("sel:") for x in resolved[:k])):
+            return None  # -- most-played cards (wave 43B) -- "they put it": one library's owner (the cards looked at belong to one player)
         if e["do"] == "mill":
             mill_k = k
         if k and any(x.get("upto") and x["do"] == "sacrifice_choice" for x in resolved[:k]) and _reads_event_amount([e]):
@@ -4212,6 +4247,17 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         # turn for each creature blocking it" (General Marhault Elsdragon): the "it" of the event (not ~) is the creature whose blockers are counted, as this resolves
         d = {**d, "effects": [json.loads(json.dumps(e, default=str).replace("blocking_source", "blocking_event")) if e.get("who") == "event" else e
                               for e in d.get("effects") or []]}
+    if d is not None and "shares_type_source" in json.dumps(d, default=str):
+        # -- most-played cards (wave 43B) -- "…for each other attacking creature that shares a creature type with it" (Shared Animosity): "it" is the creature the trigger
+        # is about when the effect acts on that creature; with the source itself as "it" (a self trigger, an activated ability) the source's types are compared
+        cond_ = d.get("cond") or {}
+        if d.get("kind") == "triggered" and d.get("trigger") == "event" and cond_.get("subject") == "sel" and not cond_.get("aggregate"):
+            d = {**d, "effects": [json.loads(json.dumps(e, default=str).replace("shares_type_source", "shares_type_event")) if e.get("who") == "event" else e
+                                  for e in d.get("effects") or []]}
+        if "shares_type_source" in json.dumps(d, default=str) and not (
+                d.get("kind") == "activated" or d.get("kind") == "triggered" and (
+                    str(d.get("trigger", "")).endswith("_self") or cond_.get("subject") == "self")):
+            return None
     if d is not None and d.get("kind") == "static" and "flanking" in str(d.get("who")) and any(str(g).lower() == "flanking" for g in d.get("grants") or []):
         return None  # -- trigger other (wave 39A) -- "Other creatures you control with flanking have flanking" (Cavalry Master) is another instance of it for each: triggers.flanking counts printed ones only
     if d is not None and "blocking_source" in json.dumps(d, default=str) and not (
@@ -4409,13 +4455,14 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return sagas.chapter_definition(ability, ch)
         if ability.kind == "keywords":
             return sagas.read_ahead_definition(ability, ch)
-    if ability.kind == "triggered" and text.startswith("Whenever enchanted land is tapped for mana"):
+    if ability.kind == "triggered" and re.match(r"Whenever enchanted (?:land|Forest) is tapped for mana", text):  # (wave 43B: Utopia Sprawl)
         # -- attached events (wave 4L) -- a triggered mana ability (605.1b)
         from app.rules import attached_mana
 
         return attached_mana.definition(text)
     if ability.kind == "triggered" and (text.startswith(("Whenever you tap ", "Whenever a player taps "))
-                                        or re.match(r"Whenever an? [^,]+ is tapped for mana, its controller adds ", text)):
+                                        or re.match(r"Whenever an? [^,]+ is tapped for mana(?: of the chosen color)?, its controller adds ", text)
+                                        or text.startswith("Whenever a land's ability causes you to add one or more mana of the chosen color")):
         from app.rules import tap_mana  # -- mana riders (wave 5A) -- a triggered mana ability (605.1b)
 
         if (tapped := tap_mana.definition(text)) is not None:
@@ -4428,7 +4475,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import opening_hand
 
         return opening_hand.definition(text, ch)
-    if ability.kind == "static" and text.startswith("You may exert "):  # -- static wordings (wave 6E) -- 701.43d
+    if ability.kind == "static" and text.startswith(("You may exert ", "If ~ hasn't been exerted this turn, you may exert ")):  # -- static wordings (wave 6E) -- 701.43d
         from app.rules import exert
 
         return exert.definition(text, ch, ability.index)
@@ -4478,6 +4525,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return {"kind": "static", "static": "control", "who": "host", "effects": []}  # -- control (wave 3K) -- layer 2 (613.1b)
     if ability.kind == "static" and text == "If it's neither day nor night, it becomes day as ~ enters.":
         return {"kind": "static", "static": "day_as_enters", "effects": []}  # (wave 3E: app/rules/designations.py, 731.1)
+    if ability.kind == "static" and text == "Creatures you control can boast twice during each of your turns rather than once.":
+        return {"kind": "static", "static": "boast_twice", "effects": []}  # -- most-played cards (wave 43B) -- 702.142: read by restrictions ``per_turn`` (wave 4H, tested in test_rules_wave4h_activation_costs.py)
     if ability.kind == "static" and text == "~ can be your commander.":
         return {"kind": "static", "static": "deckbuilding", "effects": []}  # 903.3a: deck construction only
     # -- static_other sweep (wave 19A) -- 510.1c: "You may have this creature assign its combat damage as though it weren't blocked."
@@ -5483,6 +5532,8 @@ def _unless_condition(text: str) -> Definition | None:
         return {"value": {"life": "player_min"}, "op": "<=", "n": n} if n is not None else None
     if t == "it's your turn":  # -- static_other sweep (wave 19A) -- "This creature enters tapped unless it's your turn." (Horned Loch-Whale)
         return {"turn": "yours"}
+    if t == "it's your first, second, or third turn of the game":  # -- most-played cards (wave 43B) -- Starting Town: your own turn, and one of your first three
+        return {"all": [{"turn": "yours"}, {"value": {"turns_taken": "you"}, "op": "<=", "n": 3}]}
     m = re.fullmatch(r"your opponents control (?P<n>\w+) or more (?P<what>[a-z]+)", t)
     if m:
         n = _word_num(m["n"])
@@ -6304,6 +6355,18 @@ def _watch_whenever_leading(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any
     from app.rules import watches
 
     return _from_language(watches.parse_leading(m["rest"]))
+
+
+@effect(r"the next (?:(?P<sel>[a-z, ]+?) )?spell you cast this turn can't be countered")
+def _next_uncounterable(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    # -- most-played cards (wave 43B) -- "The next [creature] spell you cast this turn can't be countered." (Mistrise Village, Insist, Overmaster): a continuous effect that
+    # attaches to the next such spell as it is cast (601.2a, 611.2a) - not a trigger: nothing can respond between the cast and the effect (prohibitions.bind_next_uncounterable)
+    from app.rules import permissions
+
+    key = permissions.spell_filter(m["sel"]) if m["sel"] else None
+    if m["sel"] and key is None:
+        raise _NoMatch
+    return [{"do": "uncounterable_next", "filter": key}], None
 
 
 @effect(r"when you next cast (?P<spell>.+?) this turn, (?P<clause>.+)")

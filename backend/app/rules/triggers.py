@@ -495,6 +495,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
             return []
         return [("counters_put", got[0], got[1], got[0].controller,
                  {"oid": e.object_id, "counter": e.counter, "amount": e.amount, "actor": e.actor, "group": e.group,  # (5H, 7C)
+                  "total": got[0].counters.get(e.counter or "", 0),  # (wave 43B: "the twelfth hour counter", the count once they were put on)
                   "snap": None if _live(plan, got[0]) else r.lki.get(e.object_id or "")})]
     if e.kind == "counters" and e.amount < 0:  # -- keywords (wave 15E) -- 122.6: counters removed from a permanent ("the last time
         got = _object_then(plan, e.card, e.object_id)  # counter is removed", vanishing 702.63a); ``last``: none of that kind left
@@ -894,6 +895,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
     if event == "counters_put" and cond.get("counter") and info.get("counter") != cond["counter"]:
         return False
+    if event == "counters_put" and cond.get("nth") and not (info.get("total", 0) - info.get("amount", 0) < cond["nth"] <= info.get("total", 0)):
+        return False  # -- most-played cards (wave 43B) -- fewer than that many before the counters were put on, that many or more after
     if event == "counters_removed" and ((cond.get("counter") and info.get("counter") != cond["counter"])
                                         or (cond.get("last") and not info.get("last"))):  # (wave 15E)
         return False
@@ -906,6 +909,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     if event == "expend" and not info["before"] < cond["n"] <= info["after"]:
         return False
     if event == "to_graveyard" and cond.get("from") and info.get("from") != cond["from"]:  # -- into a graveyard (wave 6D)
+        return False
+    if event == "to_graveyard" and cond.get("not_from") and info.get("from") == cond["not_from"]:  # -- most-played cards (wave 43B) -- "from anywhere other than the battlefield"
         return False
     if event in ("to_exile", "to_library") and ((cond.get("froms") and info.get("from") not in cond["froms"])
                                                  or (cond.get("from_owner") == "you" and info.get("from_owner") != you)):

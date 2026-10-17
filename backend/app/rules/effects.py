@@ -2062,7 +2062,10 @@ def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int
         if not zones:  # nothing is searched; "then shuffle" is its own instruction (701.24) and still happens
             _finish_search(plan, ctx, e, pid, [], {})
             return False
-    library = [c for c in plan.state.zones.get(zone_key(owner, "library"), []) if c not in picked] if "library" in zones else []
+    if part == 0 and not picked and "library" in zones:
+        prohibitions.note_search(plan, pid, owner)  # -- most-played cards (wave 43B) -- "Whenever an opponent searches their library"
+    depth = prohibitions.search_depth(plan, pid)  # (wave 43B: Aven Mindcensor: only the top four cards of any library are searched)
+    library = [c for c in plan.state.zones.get(zone_key(owner, "library"), [])[:depth] if c not in picked] if "library" in zones else []
     if e.get("sel"):  # a structured card selector (app/rules/selectors.py)
         parts = e.get("parts")  # "a Forest card and a Plains card": one card of each kind, asked in turn
         matching = _search_matches(plan, ctx, e, owner, parts[part] if parts else e["sel"], library)
@@ -2735,6 +2738,8 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     pid = ctx["controller"]
     owner, looked = _looked(plan, ctx)
+    if e.get("by_owner"):  # -- most-played cards (wave 43B) -- "they put it onto the battlefield" / "that player puts it into their hand": the library's owner is the one who puts it
+        pid = owner
     ctx["looked"] = looked
     sel = selectors.from_key(e["sel"]) if e.get("sel") else None
     options = [c for c in looked if sel is None  # (the source: "of the chosen type", wave 5I)
@@ -2779,7 +2784,7 @@ def _picked(plan: Plan, ctx: Context, e: dict[str, Any], chosen: list[str]) -> b
     """Move the picked cards where the instruction says; False while an Aura entering chooses."""
     from app.rules import attachments  # attachments → effects (resume)
 
-    pid = ctx["controller"]
+    pid = _looked(plan, ctx)[0] if e.get("by_owner") else ctx["controller"]  # (wave 43B: the library's owner puts the card)
     if chosen and e.get("reveal"):
         plan.do({"type": "reveal", "card_ids": chosen}, actor=pid)  # to everyone
     ctx["looked"] = [c for c in ctx.get("looked") or [] if c not in chosen]

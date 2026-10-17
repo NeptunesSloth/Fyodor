@@ -481,7 +481,9 @@ def test_cost_modifier_wordings(text, expected):
     "If you do, it gains haste.",
     # (wave 4I: "The first creature spell you cast each turn costs {1} less" is read now: cost_changes.ORDINAL)
     "Spells your opponents cast that target this creature cost {1} more to cast.",
-    "You may cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.",
+    # (wave 43B: "You may play lands and cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its
+    # mana cost." is read now: Bolas's Citadel, tests/test_rules_wave43b_most_played.py - but only for the top of the library, as the graveyard's is not)
+    "You may cast spells from your graveyard. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.",
 ])
 def test_wordings_the_grammar_refuses(text):
     assert P.define_static(text, "static") is None
