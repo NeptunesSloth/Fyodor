@@ -2378,7 +2378,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     body = re.sub(r"\b(That creature) gains bushido (\d+) and becomes (an? [A-Z][a-z]+ in addition to its other creature types)\b", r'\1 gains "Bushido \2". \1 becomes \3', body)
     body = re.sub(r"(can't be blocked by creatures) of that color\b", r"\1 of the chosen color", body)  # -- chosen type (wave 50J) -- Skrelv: the color chosen before
     # -- exile with a counter (wave 50J) -- "Choose target creature card in a graveyard. Exile it with a brain counter on it." (Rex, Cyber-Hound): the counter goes on the card in exile
-    body = re.sub(r"\b(Exile (?:it|that card)) with an? ([a-z]+) counter on it\.", r"\1. Put a \2 counter on it.", body)
+    body = re.sub(r"\b([Ee]xile (?:it|that card)(?: from their graveyard)?) with an? ([a-z]+) counter on it\.", r"\1. Put a \2 counter on it.", body)
     if "one or more {E}" in body:  # -- energy X (wave 50J) --
         from app.rules import paid_x
 
