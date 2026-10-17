@@ -1486,7 +1486,7 @@ def _best_option(plan: Plan, options: tuple[tuple[str, ...], ...]) -> tuple[str,
             return opt
         except M.ManaError:
             pass
-    needed = set(cost.colored) | {c for h in cost.hybrid for c in h} | set(cost.phyrexian)
+    needed = set(cost.colored) | {c for h in cost.hybrid for c in h} | {c for p in cost.phyrexian for c in p.split("/")}
     return next((o for o in options if set(o) & needed - set(pool)), next((o for o in options if set(o) & needed), options[0]))
 
 
@@ -2365,6 +2365,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         a.x_value = 0  # 107.3b: X is 0 when a spell is cast without paying its mana cost (or for an alternative cost, wave 4I)
     elif base.x and a.x_value and (free or airbent):  # -- review (wave 25A) -- 107.3b: the only legal choice is 0
         raise ActionError(f"X is 0 when {ch.name} is cast without paying its mana cost or for an alternative cost without X (107.3b)")
+    from app.rules import cast_limits as _x_limits
+
+    if base.x and (limited := _x_limits.cast_problem(plan.state, plan.actor, card, ch, plan.info, announced=a.x_value or 0)):
+        raise ActionError(limited)  # -- review 38 -- 601.2e: the X announced counts in its mana value ("spells with mana value 3 or less", Brisela)
     kick_x = a.kicker and not a.face_down and (kc := kicker_cost(ch.abilities)) is not None and kc.x  # -- cast keywords (wave 43D) -- 107.3a: "Kicker {X}"
     if kick_x and (base.x or a.x_value is None or free):  # ponytail: a spell with another X, or cast free this way, pays a kicker X by hand
         raise ActionError(f"Choose a value for X to pay the kicker cost of {ch.name}" if a.x_value is None and not (base.x or free)
@@ -3433,6 +3437,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         return
     if announce_free_x(plan, a, card, ch):  # -- cast keywords (wave 43D) -- 107.3a: "Kicker {X}" kicked on a free cast, a miracle cost with {X}: X is announced with it
         return
+    if M.parse_cost(ch.mana_cost).x and (limited := cast_limits.cast_problem(plan.state, plan.actor, card, ch, plan.info, resolving=True, announced=a.x_value or 0)):
+        raise ActionError(limited)  # -- review 38 -- 601.2e, 107.3b: X is 0 unless a miracle cost with {X} announced it
     definition = None if plan.manual(card) else scripts.spell_definition(ch)
     definition = per_opponent.for_cast(plan, card.id, definition)  # -- per-opponent targets (wave 23A) --
     aura = None if plan.manual(card) else attachments.enchant_selector(ch)
