@@ -763,17 +763,18 @@ _WHO_OK = frozenset({"you", "self", "each_opponent", "each_player"})
 _COLORS_BY_WORD = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
 
 
-def rider_body(body: str, it: str | None = None, *, to_player: bool = False) -> list[dict[str, Any]] | None:
+def rider_body(body: str, it: str | None = None, *, to_player: bool = False, prevented: bool = False) -> list[dict[str, Any]] | None:
     """The effects of a rider sentence (first letter lower-cased, no final period), or None (not read). ``it``: what "it" /
     "him" / "her" mean in a static's rider: "self" (the permanent itself) or "to" (the creature the damage was dealt to).
-    ``to_player`` (-- damage bodies (wave 35C) --): "that player" is the player the damage would be dealt to (the replaced damage's)."""
+    ``to_player`` (-- damage bodies (wave 35C) --): "that player" is the player the damage would be dealt to (the replaced damage's). ``prevented``: the
+    sentence follows "If damage is prevented this way", so its "that many" is the damage prevented (review 39)."""
     from app.rules import scripts
 
     # -- static_other (wave 42A) -- 615.5: "prevent that damage, remove that many +1/+1 counters from Sekki, and create that many 1/1 colorless Spirit creature
     # tokens" (Sekki, Seasons' Guide): several additional effects, each read on its own and done in that order, each by the damage prevented
     pieces = re.split(r", and (?=create that many |remove that many |put that many )", body)
     if len(pieces) > 1:
-        found_pieces = [rider_body(piece, it, to_player=to_player) for piece in pieces]
+        found_pieces = [rider_body(piece, it, to_player=to_player, prevented=prevented) for piece in pieces]
         return None if any(f is None for f in found_pieces) else [e for f in found_pieces if f for e in f]
     text, target = body, None
     if it:
@@ -788,6 +789,9 @@ def rider_body(body: str, it: str | None = None, *, to_player: bool = False) -> 
             text, target = text.replace(phrase, surrogate), (surrogate, name)
     text = re.sub(r"^exile cards from the top of your library equal to the damage prevented this way$",  # (wave 35A: Bone Mask)
                   "exile the top X cards of your library", text)
+    # -- review 39 -- "that many" / "that much" is the damage the effect applied to, so damage that can't be prevented still counts (615.12; rulings:
+    # Polukranos 2020-01-24, Jared Carthalion True Heir 2020-11-10, Gloom Surgeon 2012-05-01), unlike "the damage prevented this way" (Phyrexian Hydra)
+    that = re.search(r"\bthat (?:many|much)\b", text) is not None and "prevented this way" not in text and not prevented
     text = re.sub(r"\bthat much (damage|life)\b", r"X \1", text)
     text = re.sub(r"\bthat many\b", "X", text)
     if re.search(r"\bX\b", text):
@@ -800,6 +804,8 @@ def rider_body(body: str, it: str | None = None, *, to_player: bool = False) -> 
     if found is None:
         return None
     effects, spec, optional = found
+    if that:
+        effects = json.loads(json.dumps(effects).replace('{"ref_amount": "prevented"}', '{"ref_amount": "that_damage"}'))
     if optional or spec != ({"from_ctrl": "player", "to": 'sel:{"types":["Creature"]}', "to_player": "player"}[target[1]] if target else None):
         return None
     out = []
@@ -832,7 +838,7 @@ def rider(text: str, effects: list[dict[str, Any]]) -> bool | None:
     scope = last.get("scope") or {}
     receives = last["do"] == "prevent" or (last["do"] == "prevent_all" and not any(k.startswith("by_") for k in scope)
                                            and any(k.startswith("to_") for k in scope))
-    found = rider_body(body)
+    found = rider_body(body, prevented=m is not None)
     if found is None or (not receives and "ref:to" in json.dumps(found)):  # ("that creature": the one the damage was dealt to)
         return False
     cols = [_COLORS_BY_WORD[m["col"].split()[1]]] if m and m["col"] else []
@@ -852,6 +858,7 @@ def run_rider(plan: Plan, r: dict[str, Any]) -> None:
     ctx: Context = {"controller": r["by"], "source_card": r["card"], "source_object": r["oid"], "name": r["name"],
                     "effects": rider_["effects"], "next": 0, "stack_id": ""}
     context.bind_amount(ctx, "prevented", n)
+    context.bind_amount(ctx, "that_damage", int(r.get("of", n)))  # (review 39: the damage it applied to, prevented or not)
     to = ev["target"]
     if to in plan.state.players:
         context.bind_players(ctx, "to", [to])

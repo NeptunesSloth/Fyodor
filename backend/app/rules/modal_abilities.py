@@ -177,7 +177,7 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
                 return {}  # (only modes that all target a player of the same kind)
             modal["different_players"] = True
         if "instead" in extra:
-            if n != 2 or m["count"] != "one" or ab.kind != "triggered":
+            if (n != 2 and not extra["instead"].get("pick")) or m["count"] != "one" or ab.kind != "triggered":
                 return {}
             modal["instead"] = extra["instead"]
     out: dict[int, Definition] = {ab.index: {**shape, "effects": [], "target": None, "optional": False,
@@ -197,6 +197,7 @@ def _plain_groups(ab: AbilityText, groups: list[Definition]) -> bool:
 
 # -- refused modal/conditional (wave 3R1) --
 _BOTH_INSTEAD =re.compile(r"^If (?P<c>.+), (?P<may>you may )?choose both instead\.$")
+_CHOOSE_INSTEAD = re.compile(r"^If (?P<c>.+), you choose one instead\.$")  # -- random choices (wave 47B) -- "choose one at random. If …, you choose one instead." (Typhoid Mary)
 _KICKED_CONDITION = re.compile(r"^(?:it|this spell|~) was kicked$")
 
 
@@ -212,6 +213,9 @@ def _header_extra(ab: AbilityText, m: re.Match[str]) -> dict[str, Any] | None:
     rest = m["rest"].strip()
     if rest == "Each mode must target a different player.":
         return {"different_players": True}
+    if (chose := _CHOOSE_INSTEAD.match(rest)) is not None and m["random"]:  # (the player picks the mode instead of the table; checked as it goes on the stack, as "both" is)
+        cond = conditions.parse(chose["c"], objects=True)
+        return {"instead": {"cond": cond, "min": 1, "max": 1, "pick": True}} if cond is not None and not set(conditions.objects_in(cond)) else None
     both = _BOTH_INSTEAD.match(rest)
     if both is None:
         return None
@@ -462,7 +466,8 @@ def put_trigger(plan: Plan, t: PendingTrigger, picks: dict[str, Any] | None = No
         if not allowed or len(allowed) < lo or hi < lo:  # 700.2b: no mode can be chosen: removed from the stack
             _remove(plan, t, "has no mode that can be chosen")
             return True
-        if modal.get("random"):  # "choose one at random": among the modes that can be chosen (Umaro ruling), public
+        picked = modal.get("instead") is not None and modal["instead"].get("pick") and _instead_holds(plan, t, modal["instead"]["cond"])
+        if modal.get("random") and not picked:  # "choose one at random": among the modes that can be chosen (Umaro ruling), public
             import secrets
 
             pick = (plan.rng or secrets.SystemRandom()).choice(allowed)

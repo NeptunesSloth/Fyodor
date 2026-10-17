@@ -193,6 +193,9 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         from app.rules import defending
 
         return defending.attacked(plan, ctx)[1]
+    if who == "ring_bearer":  # -- random choices (wave 47B) -- "your Ring-bearer" (701.54a): the creature the Ring chose for the controller, while it still is
+        bearer = designations._bearer_card(plan, ctx["controller"])
+        return [bearer.id] if bearer is not None else []
     if who == "self":
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
@@ -858,7 +861,7 @@ RESTRICTION_LABELS = {"cant_block": "Can't block", "cant_attack": "Can't attack"
 # -- attack restrictions (wave 32B) -- the marker of "can't attack you …" names the player (the rule's own text is "cant_attack_player:<id>")
 ATTACK_LABELS = {"cant_attack_player": "Can't attack {}", "cant_attack_player_pw": "Can't attack {} or their planeswalkers",
                  "cant_attack_player_perm": "Can't attack {} or their permanents", "attack_tax": "Attacking {} costs extra",
-                 "attack_tax_pw": "Attacking {} costs extra"}
+                 "attack_tax_pw": "Attacking {} costs extra", "attack_player": "Attacks {} if able"}  # (attack_player: wave 47B)
 
 
 def _restriction_label(plan: Plan, rule: str) -> str:
@@ -884,6 +887,11 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     who = _GROUPS.get(e["who"], e["who"])
     cards = _cards(plan, ctx, who)
     _remember(plan, ctx, e, cards)
+    if any("@that" in r for r in e["rules"]):  # -- random choices (wave 47B) -- "attacks that player": the player picked before (none left: nothing is required)
+        that = _players(plan, ctx, e["player"])
+        if not that:
+            return True
+        e = {**e, "rules": [r.replace("@that", that[0]) for r in e["rules"]]}
     e = {**e, "rules": [block_effects.args(ctx, r.replace("@you", ctx["controller"])
                         .replace("@src", f"e{plan.rules.timestamp + 1}" if r.startswith("block_extra:") else ctx.get("source_object") or ""))
                         for r in e["rules"]]}  # (@src: wave 7E; wave 13B: each "can block an additional creature" adds up, 509.1a; @it, @t1: wave 30P)  # -- combat (wave 5C) -- (Kardur)
@@ -3298,6 +3306,10 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             from app.game.rules_state import TriggerEvent
 
             event = TriggerEvent.model_validate(ctx["event"])
+        if e.get("players_from"):  # -- random choices (wave 47B) -- "Choose a player at random. When you do, … target creature that player controls" (Strax): the pick is the event's player
+            from app.game.rules_state import TriggerEvent
+
+            event = TriggerEvent(kind="reflexive", players=context.players(plan, ctx, e["players_from"]))
         if e.get("x_from"):  # -- if you do (wave 25C) -- "you may pay {X}. When you do, …": the X paid is the reflexive ability's amount
             from app.game.rules_state import TriggerEvent
             from app.rules import paid_x
@@ -4537,6 +4549,11 @@ from app.rules import refused_zones  # noqa: E402, I001
 
 PRIMITIVES.update(refused_zones.PRIMITIVES)
 RESUME.update(refused_zones.RESUME)
+# -- random choices (wave 47B): app/rules/random_choice.py (a leaf module over this one) --
+from app.rules import random_choice  # noqa: E402, I001
+
+PRIMITIVES.update(random_choice.PRIMITIVES)
+RESUME.update(random_choice.RESUME)
 # -- end counters & designations (wave 3E) --
 
 # -- refused grants/replacements (wave 3R2) -- source-of-your-choice shields (609.7a, 615.8) and "Damage can't be

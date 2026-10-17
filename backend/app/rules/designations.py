@@ -1095,15 +1095,13 @@ def ascend_permanents(plan: Plan) -> bool:
 def storied_permanents(plan: Plan) -> bool:
     """702.195a: any time a player controls a permanent with storied and three or more permanents that are artifacts, Sagas
     and/or legendary, they get the enduring story designation for the rest of the game (702.195b: no other rules meaning).
-    ponytail: the storied keyword is read off printed characteristics (no card grants it)."""
-    from app.rules import characteristics as chars
-
+    (-- review 39 -- the keyword as the permanent has it now, 613: one that lost all its abilities has no storied.)"""
     happened = False
     for pid in plan.live():
         if pid in plan.rules.enduring_story:
             continue
         mine = [c for c in plan.state.cards.values() if c.controller == pid and c.zone.endswith(":battlefield") and not plan.manual(c)]
-        if not any(ab.kind == "keywords" and "storied" in ab.keywords for c in mine for ab in chars.of(c, plan.info).abilities):
+        if not any("storied" in plan.ch(c).keywords for c in mine):
             continue
         n = sum(1 for c in mine if (ch := plan.ch(c)).supertypes & {"Legendary"} or ch.types & {"Artifact"} or "Saga" in ch.subtypes)
         if n >= 3:

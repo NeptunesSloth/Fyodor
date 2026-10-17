@@ -268,14 +268,39 @@ def own_changes(state: GameState, player: str, card: CardInstance, ch: Character
 def reduce_colored(cost: M.ManaCost, colors: tuple[str, ...], only: bool = False) -> M.ManaCost:
     """118.7b/c: each colored reduction takes one symbol of that color away; with none left, one generic (``only``: "reduces only the amount
     of colored mana you pay", wave 46A: nothing more)."""
-    colored = list(cost.colored)
+    colored, hybrid, phyrexian = list(cost.colored), list(cost.hybrid), list(cost.phyrexian)
     generic = cost.generic
+    left: list[str] = []
     for c in colors:
         if c in colored:
             colored.remove(c)
+        else:
+            left.append(c)
+    # -- review 39 -- 601.2b: a hybrid symbol is announced as one of its halves and a Phyrexian one as its colored mana before the reductions apply
+    # (Morophon's ruling 2019-06-14: {2}{W/U}{W/U} becomes {2}{W}{U}, then {2}; 118.7f), so each color left takes one off: halves matched to colors
+    # so that the most come off (augmenting paths), then a Phyrexian symbol of that color, then generic (118.7b/c) unless ``only``
+    match: dict[int, int] = {}
+
+    def augment(i: int, seen: set[int]) -> bool:
+        for j, h in enumerate(hybrid):
+            if left[i] in h and j not in seen:
+                seen.add(j)
+                if j not in match or augment(match[j], seen):
+                    match[j] = i
+                    return True
+        return False
+
+    for i in range(len(left)):
+        augment(i, set())
+    for i, c in enumerate(left):
+        if i in match.values():
+            continue
+        if c in phyrexian:
+            phyrexian.remove(c)
         elif generic and not only:
             generic -= 1
-    return M.ManaCost(generic, tuple(colored), cost.hybrid, cost.phyrexian, cost.x, cost.unsupported)
+    hybrid = [h for j, h in enumerate(hybrid) if j not in match]
+    return M.ManaCost(generic, tuple(colored), tuple(hybrid), tuple(phyrexian), cost.x, cost.unsupported)
 
 
 def add_colored(cost: M.ManaCost, colors: tuple[str, ...]) -> M.ManaCost:

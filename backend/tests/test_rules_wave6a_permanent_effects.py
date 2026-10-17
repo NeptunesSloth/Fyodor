@@ -62,7 +62,6 @@ FULL = ["Sleep", "Bontu's Last Reckoning", "Frost Breath", "Kefnet's Monument", 
         "Gingerbrute", "Tower of Coireall", "Pym Particles", "Water Wings",
         "Cloudcrest Lake", "Wizard Mentor"]
 STILL_MANUAL = {  # (card, the line that stays manual)
-    "Whelming Wave": "except for Krakens",  # (an exception list: not read)
 }
 
 
