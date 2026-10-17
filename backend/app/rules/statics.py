@@ -109,6 +109,7 @@ _QUOTED = re.compile(r'^"(?P<q>[^"]+)"$')
 _DEF_ATTACK = re.compile(r"^~ can't attack (?P<k>unless|if) (?:defending player (?:controls an? (?P<sel>.+)|(?P<pois>is poisoned)|(?P<mon>is the monarch)"
                          r"|has (?P<n>\w+) or more cards in their graveyard)|you control more (?P<more>creatures|lands) than defending player)$")
 _DENY = re.compile(r"^(?P<s>(?:Creatures|Permanents) .+? control) lose (?P<kw>[a-z ]+) and can't have or gain (?P=kw)$")  # (10B)
+_LOSE = re.compile(r"^(?P<s>(?:Creatures|Permanents) .+? control) lose (?P<kw>[a-z ]+)$")  # (wave 50C)
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 
 
@@ -196,12 +197,12 @@ def parse(text: str) -> Definition | None:
         x_phrase, body = m["x"], m["rest"]
     # -- static statics (wave 10B) -- "Creatures your opponents control lose flying and can't have or gain flying."
     # (the Archetypes): lose it now (613.1f, in timestamp order) and never have or gain it (the deny is applied last)
-    m = _DENY.fullmatch(body)
+    m = _DENY.fullmatch(body) or _LOSE.fullmatch(body)  # (wave 50C: "Creatures your opponents control lose infect." — only now, in timestamp order: Melira, Sylvok Outcast)
     if m is not None and m["kw"] in GRANTABLE_KEYWORDS:
         who, kind = _subject(m["s"], plural=True)
         if who is None or who == "self" or who.startswith(UNION):
             return None
-        return {**_definition(who, kind, []), "lose_keywords": [m["kw"]], "deny_keywords": [m["kw"]]}
+        return {**_definition(who, kind, []), "lose_keywords": [m["kw"]], **({"deny_keywords": [m["kw"]]} if m.re is _DENY else {})}
     # "Creatures with power less than ~'s power can't block it." (Wandering Wolf): an evasion ability
     # of the source, worded from the blockers' side.
     m = re.fullmatch(r"Creatures with power (?P<dir>less|greater) than ~'s power can't block it", body)

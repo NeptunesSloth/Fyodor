@@ -247,7 +247,8 @@ def _short_name(name: str, text: str = "") -> str | None:
         # the subject ("Elanor enters", "Elanor's power"), so a color or type word of a plain name is never read as it
         m = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]{2,}) [A-ZÀ-ÖØ-Þ]", name)
         # (wave 19D: also "put a +1/+1 counter on Legolas", the name after "counter(s) on")
-        if m is None or not re.search(rf"\b{re.escape(m[1])}(?: {_SELF_VERBS}|'s )|counters? on {re.escape(m[1])}\b", text):
+        # (wave 50C: "transform Henrika", "Remove a dream counter from Rasputin", "damage that would be dealt to Rasputin": the word after a verb or "from"/"to")
+        if m is None or not re.search(rf"\b{re.escape(m[1])}(?: {_SELF_VERBS}|'s )|(?:counters?|[Tt]ransform|[Cc]onvert|from|dealt to|damage to) {re.escape(m[1])}\b", text):
             return None
     if m[1] in CREATURE_TYPES or m[1].rstrip("s") in CREATURE_TYPES:
         return None
@@ -291,7 +292,7 @@ def self_text(text: str, name: str) -> str:
 
     short = _short_name(name, out)
     names = [n for n in sorted({name, name.split(",")[0].strip(), *([short] if short else [])}, key=len, reverse=True)
-             if len(n) >= 3 or (len(n) == 2 and n.isupper())]  # (wave 15D: "MJ")
+             if len(n) >= 3 or (len(n) == 2 and (n.isupper() or n == name.split(",")[0].strip()))]  # (wave 15D: "MJ"; wave 50C: "Ao", the name before the comma)
 
     def own(part: str) -> str:
         # -- activated wordings (wave 15D) -- a token's name is its own ("a Kobold token named Kobolds of Kher Keep" on Kher Keep)
@@ -2232,6 +2233,8 @@ def _clause(text: str, may_ok: bool = False) -> tuple[list[dict[str, Any]], Any]
     own target group (115.3); the halves' groups are numbered in order."""
     if re.match(r"choose [^,]*\btargets?\b[^,]*, then \w+ all other\b", text):
         return None  # (review 25B: "Choose up to one target creature, then airbend all other creatures": other than the chosen one, unread)
+    text = re.sub(r"^(target (?:player|opponent)) puts (an? [^,.]+? counters?) on each ([^,.]+?) they control$",
+                  r"put \2 on each \3 \1 controls", text)  # (-- commanders (wave 50C) -- "Target player puts a +1/+1 counter on each creature they control." (Shadrix Silverquill): the creatures that player controls)
     found = _one_clause(text) or _their_group_clause(text)
     if found is not None:
         return found

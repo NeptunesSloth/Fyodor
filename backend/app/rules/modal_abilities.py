@@ -40,8 +40,7 @@ guessed): "choose X" / "up to X", "choose two at random", a mode with "you may",
 target group (an activated ability's mode has one target slot; wave 33B: a *triggered* ability's mode may
 have target groups — "up to two target creatures" — which join into one list once the modes are chosen,
 601.2c, and the ability then goes on the stack as an ordinary one with those groups, 603.3d; with the plain
-"choose one —" header only), a triggered ability's mode starting with "If" (Venser, Corpse Puppet
-and Rankle and Torbran, the only such cards, need other grammar too), a header with anything else after it,
+"choose one —" header only), a header with anything else after it,
 a limit or restriction line after the modes, and "up to" / "any number" on an activated ability (choosing
 no mode isn't modelled there).
 
@@ -94,6 +93,7 @@ _INTERVENING = re.compile(r"^(?P<head>.+?), if (?P<cond>[^,]+), $")
 # A line after the modes that belongs to the ability ("This ability triggers only once each turn.", "Activate
 # only as a sorcery."): the limit would go unenforced, so the whole ability stays manual.
 _TRAILER = re.compile(r"^(?:This ability|Activate\b|Do this only)")
+_IF_WOULD = re.compile(r"^If (?P<head>.+? would .+?) this turn, (?P<rest>.+)$")  # (wave 50C)
 # A mode's name ("• Solar Beam — The Vision gains double strike …"): a label, not rules text (207.2c).
 _MODE_LABEL = re.compile(r"^[A-Z][\w'’\-]*(?: [\w'’\-]+){0,3} — (?=[A-Z0-9{])")
 
@@ -105,6 +105,14 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
     isn't understood — the whole ability is then manual."""
     from app.rules import scripts  # (scripts reads an ability here: a leaf module over it)
 
+    if ab.kind == "triggered" and ", you may choose two" in ab.text:
+        # -- commanders (wave 50C) -- "you may choose two" (Shadrix Silverquill ruling 2021-04-16): exactly zero modes or two modes, never one (700.2d)
+        from dataclasses import replace
+
+        sub = definitions(replace(ab, text=ab.text.replace(", you may choose two", ", choose two", 1)), ch)
+        if (md := sub.get(ab.index)) is not None and md.get("modal") is not None:
+            md["modal"] = {**md["modal"], "zero_or_all": True}
+        return sub
     m = _HEADER.match(ab.text)
     if m is not None and ab.kind == "triggered" and (rm := _REFLEXIVE.match(m["prefix"])) is not None:
         return _reflexive_definitions(ab, ch, rm["outer"], m)  # -- refused modal/conditional (wave 3R1) --
@@ -141,13 +149,18 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
     for k, bullet in enumerate(bullets):
         text = bullet.text[2:].strip()
         body = _MODE_LABEL.sub("", text, count=1)
-        if ab.kind == "triggered" and body.lower().startswith("if "):
-            # (it would read as an intervening "if" of the trigger, 603.4, not of the mode. Wave 3R1: kept refused —
-            # the only two cards with such a mode, Venser, Corpse Puppet and Rankle and Torbran, need other grammar
-            # too, so a reading of it couldn't be tested with a real card)
-            return {}
+        if_mode = ab.kind == "triggered" and body.lower().startswith("if ")
+        if if_mode and (w := _IF_WOULD.match(body)) is not None:
+            # -- commanders (wave 50C) -- "If a source would deal damage to a player or battle this turn, it deals that much damage plus 2
+            # instead." (Rankle and Torbran): a replacement effect for the turn (611.2a), read as "Until end of turn, if …"
+            body, if_mode = f"Until end of turn, if {w['head']}, {w['rest']}", False
+        elif if_mode:
+            body = "i" + body[1:]  # (read as a one-line ability; its "if" is a condition of the mode, checked as it resolves, 608.2c: below)
         one = AbilityText(index=ab.index, kind=ab.kind, cost=ab.cost, text=f"{prefix}{body}" + (f" {rest}" if rest else ""))
         d = scripts.define(one, ch)  # the mode as a non-modal ability with this header
+        if if_mode and d is not None and d.get("if") is not None and d["effects"] and d["effects"][0].get("do") == "only_if" \
+                and d["effects"][0].get("cond") == d["if"]:
+            d = {k: v for k, v in d.items() if k != "if"}  # (not an intervening "if" of the trigger, 603.4: the mode's own only_if effect checks it)
         if d is None or d["kind"] not in ("triggered", "activated") or d.get("optional") or (d.get("targets") and not _plain_groups(ab, d["targets"])) \
                 or d.get("limit") == "do_once" or d.get("if") is not None or not d["effects"]:
             return {}  # ("you may", a division, "Do this only once each turn": not in a mode)
@@ -463,6 +476,11 @@ def put_trigger(plan: Plan, t: PendingTrigger, picks: dict[str, Any] | None = No
             lo, hi = modal["instead"]["min"], min(modal["instead"]["max"], len(allowed))
         if modal.get("different_players") and allowed:  # each chosen mode needs a player no other one targets
             hi = min(hi, len(legal(allowed[0])))
+        if modal.get("zero_or_all"):  # -- commanders (wave 50C) -- "you may choose two": none, or exactly two (when two can't be chosen, none)
+            lo, hi = 0, (hi if hi >= modal["max"] else 0)
+            if hi == 0:
+                _remove(plan, t, "has no mode that can be chosen")
+                return True
         if not allowed or len(allowed) < lo or hi < lo:  # 700.2b: no mode can be chosen: removed from the stack
             _remove(plan, t, "has no mode that can be chosen")
             return True
@@ -558,6 +576,8 @@ def resume_trigger_modes(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules.triggers import flush
 
     t = _pending(plan, d.resume["trigger"])
+    if t is not None and t.ability["modal"].get("zero_or_all") and len(chosen) not in (0, t.ability["modal"]["max"]):
+        raise ActionError("Choose no mode, or exactly two")  # (wave 50C)
     if t is not None and not put_trigger(plan, t, {"modes": sorted({int(c.split(":")[0]) for c in chosen}),
                                                    "targets": []}):
         return

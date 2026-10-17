@@ -1188,7 +1188,6 @@ def test_the_lines_of_the_modes_belong_to_the_ability():
     # (wave 33B reads a triggered ability's mode with "up to N target …" groups, tests/test_rules_wave33b_modal.py; an activated ability's keeps one slot)
     "{T}: Choose one —\n• Put a +1/+1 counter on each of up to two target creatures.\n• You gain 1 life.",  # (a target group in an activated ability)
     "When this creature enters, choose one —\n• Put a +1/+1 counter on each of up to X target creatures.\n• You gain 1 life.",  # (X: not a plain group)
-    "When this creature enters, choose one —\n• If you control a Forest, draw a card.\n• You gain 1 life.",  # (would read as a trigger condition)
     "When this creature enters, choose one —\n• Draw a card.\n• You gain 1 life.\nThis ability triggers only once each turn.",  # (a limit that'd go unenforced)
     "{T}: Choose one —\n• Draw a card.\n• You gain 1 life.\nActivate only as a sorcery.",  # (a restriction that'd go unenforced)
     "{T}: Choose up to one —\n• Draw a card.\n• You gain 1 life.",  # (an activation choosing no mode: not modelled)
