@@ -322,6 +322,8 @@ class ObjectSnapshot(BaseModel):
     # -- stack interaction (wave 5B) -- the X a spell on the stack had (202.3e: its mana value counts it),
     # so "that spell's mana value" after it was countered reads it as it last existed (608.2h)
     x: int | None = None
+    # -- goad (wave 48D) -- 701.15b, 608.2h: the players who had goaded it as it last existed ("Whenever a goaded creature dies"), recorded by the rules engine as it moves it
+    goaded: list[str] = Field(default_factory=list)
 
 
 EventKind = Literal[
@@ -676,6 +678,8 @@ class TriggerEvent(BaseModel):
     # -- attacked object (wave 45A) -- 508.5: the planeswalker or battle an attacking creature's event is about, as it triggered ("deals 1 damage to the player or
     # planeswalker it's attacking"); None when it attacks a player (``defended``)
     attacked: ObjectRef | None = None
+    # -- voting (wave 48D) -- 701.38: "Whenever players finish voting": the [voter, choice] of every vote of the voting that finished, as cast
+    ballots: list[list[str]] = Field(default_factory=list)
 
 
 class PendingTrigger(BaseModel):
