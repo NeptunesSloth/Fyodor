@@ -512,6 +512,127 @@ def test_nyxborn_hydra_bestowed_with_x_gives_the_enchanted_creature_x_plus_x(car
     check(s)
 
 
+# ---- flashback with parts sized by X or by a count (702.34a, 107.3a, 701.4a) --------------------------------------------------------------------
+def test_firecat_blitz_flashback_sacrifices_x_mountains_and_x_is_the_spells_too(cards):
+    """"Flashback—{R}{R}, Sacrifice X Mountains." X = 2 is announced with the cast: two Mountains are sacrificed with the mana (601.2h) and the spell
+    ("Create X 1/1 red Elemental Cat creature tokens with haste") makes two Cats; it is exiled as it leaves the stack (702.34a)."""
+    s = build(cards, ["Firecat Blitz", "Mountain", "Mountain", "Mountain"])
+    mountains = lands(s, 3, name="Mountain")
+    to_graveyard(s, "Firecat Blitz")
+    mana(s, R=2)
+    with pytest.raises(ActionError):  # (X is part of the cost)
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Firecat Blitz").id)
+    with pytest.raises(ActionError):  # (four Mountains aren't there)
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Firecat Blitz").id, x_value=4)
+    assert zone_of(s, "Firecat Blitz") == "p1:graveyard" and sum(s.state.players["p1"].mana.values()) == 2
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Firecat Blitz").id, x_value=2, cost_choices=[{"component": 0, "cards": mountains[:2]}])
+    settle(s)
+    assert all(s.state.cards[m].zone == "p1:graveyard" for m in mountains[:2]) and s.state.cards[mountains[2]].zone == "p1:battlefield"
+    assert len([c for c in s.state.cards.values() if c.name == "Elemental Cat" and c.zone == "p1:battlefield"]) == 2
+    assert zone_of(s, "Firecat Blitz") == "p1:exile"
+    check(s)
+
+
+def test_flash_of_insight_flashback_cant_exile_itself_for_its_own_cost(cards):
+    """"Flashback—{1}{U}, Exile X blue cards from your graveyard. (You can't exile Flash of Insight to pay for its own flashback cost.)" With Flash and
+    one other blue card in the graveyard X = 2 can't be paid; X = 1 can (the Counterspell goes, the spell is exiled as it leaves the stack)."""
+    s = build(cards, ["Flash of Insight", "Counterspell", "Grizzly Bears", "Grizzly Bears"])
+    to_graveyard(s, "Flash of Insight")
+    to_graveyard(s, "Counterspell")
+    mana(s, U=1, C=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Flash of Insight").id, x_value=2)
+    assert zone_of(s, "Flash of Insight") == "p1:graveyard" and zone_of(s, "Counterspell") == "p1:graveyard"
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Flash of Insight").id, x_value=1)
+    settle(s)
+    assert zone_of(s, "Counterspell") == "p1:exile" and zone_of(s, "Flash of Insight") == "p1:exile"
+    check(s)
+
+
+def test_conflagrate_flashback_discards_x_cards_and_divides_x_damage(cards):
+    """"Flashback—{R}{R}, Discard X cards." X = 2: two cards discarded (a private choice), 2 damage divided between Bob and his Bear (601.2d)."""
+    s = build(cards, ["Conflagrate"])
+    victim = bear(s)
+    to_graveyard(s, "Conflagrate")
+    hand_of(s, "p1", 3, name="Forest")
+    mana(s, R=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Conflagrate").id, x_value=2, targets=["p2", victim.id], target_counts=[2], division=[1, 1])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and "Discard X cards" in d.prompt
+    assert "Discard X cards" not in json.dumps(s.view("p2")["rules"]["decision"])  # (the other player only sees that Alice is choosing)
+    pick(s, *[o.id for o in d.options][:2])
+    settle(s)
+    assert life(s, "p2") == 39 and zone_of(s, "Conflagrate") == "p1:exile"
+    assert len([c for c in s.state.cards.values() if c.zone == "p1:graveyard" and c.name == "Forest"]) == 2
+    check(s)
+
+
+def test_kindle_the_inner_flame_flashback_beholds_three_elementals(cards):
+    """"Flashback—{1}{R}, Behold three Elementals." — three objects, each a card revealed from the hand or a permanent you control (701.4a), none twice:
+    with two Elementals it is refused; with three the copy of one of them is made."""
+    s = build(cards, ["Kindle the Inner Flame"])
+    e1 = token_of(s, "p1", "Flame", "Token Creature — Elemental", "2/2")
+    e2 = token_of(s, "p1", "Spark", "Token Creature — Elemental", "1/1")
+    to_graveyard(s, "Kindle the Inner Flame")
+    mana(s, R=1, C=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Kindle the Inner Flame").id, targets=[e1.id])
+    assert zone_of(s, "Kindle the Inner Flame") == "p1:graveyard"
+    e3 = token_of(s, "p1", "Ember", "Token Creature — Elemental", "3/3")
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Kindle the Inner Flame").id, targets=[e3.id],
+        cost_choices=[{"component": 0, "cards": [e1.id, e2.id, e3.id]}])
+    settle(s)
+    assert zone_of(s, "Kindle the Inner Flame") == "p1:exile"
+    assert len([c for c in s.state.cards.values() if c.name == "Ember" and c.zone == "p1:battlefield"]) == 2  # (its copy has haste; the originals are only revealed)
+    check(s)
+
+
+# ---- compleated (702.150a) --------------------------------------------------------------------------------------------------------------------
+def loyalty(s, name):
+    return s.state.cards[card_named(s, name).id].counters.get("loyalty", 0)
+
+
+def test_ajani_paid_with_mana_enters_with_all_four_loyalty_counters(cards):
+    s = build(cards, ["Ajani, Sleeper Agent"])
+    to_hand(s, "Ajani, Sleeper Agent")
+    mana(s, G=2, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Ajani, Sleeper Agent").id)
+    settle(s)
+    assert loyalty(s, "Ajani, Sleeper Agent") == 4 and life(s) == 40
+    check(s)
+
+
+def test_ajani_paid_with_life_for_the_phyrexian_symbol_enters_with_two_fewer_loyalty_counters(cards):
+    """"{G/W/P} can be paid with {G}, {W}, or 2 life. If life was paid, this planeswalker enters with two fewer loyalty counters." With one mana short the
+    symbol is paid with 2 life (107.4f): Ajani (loyalty 4) enters with 2."""
+    s = build(cards, ["Ajani, Sleeper Agent"])
+    to_hand(s, "Ajani, Sleeper Agent")
+    mana(s, G=1, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Ajani, Sleeper Agent").id)
+    settle(s)
+    assert loyalty(s, "Ajani, Sleeper Agent") == 2 and life(s) == 38
+    s = reloaded_session(s)  # a save and a load: the counters are on the permanent
+    assert loyalty(s, "Ajani, Sleeper Agent") == 2
+    check(s)
+
+
+def test_lukka_paid_with_life_enters_with_three_and_with_mana_with_five(cards):
+    s = build(cards, ["Lukka, Bound to Ruin"])
+    to_hand(s, "Lukka, Bound to Ruin")
+    mana(s, R=1, G=1, C=2)  # ({2}{R}{R/G/P}{G}: one mana short, the Phyrexian symbol goes to 2 life)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Lukka, Bound to Ruin").id)
+    settle(s)
+    assert loyalty(s, "Lukka, Bound to Ruin") == 3 and life(s) == 38
+    check(s)
+    s = build(cards, ["Lukka, Bound to Ruin"])
+    to_hand(s, "Lukka, Bound to Ruin")
+    mana(s, R=2, G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Lukka, Bound to Ruin").id)
+    settle(s)
+    assert loyalty(s, "Lukka, Bound to Ruin") == 5 and life(s) == 40
+    check(s)
+
+
 # ---- demonstrate (702.144a) -------------------------------------------------------------------------------------------------------------------
 def destroyers(s):
     """Who moved a permanent from the battlefield to a graveyard, in the order it happened (the log's actors)."""

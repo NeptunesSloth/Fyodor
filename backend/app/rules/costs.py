@@ -629,7 +629,7 @@ _ADDITIONAL_KINDS = frozenset({SACRIFICE, DISCARD, PAY_LIFE, PAY_ENERGY, EXILE_F
                                EXILE_TO_GY,  # (EXILE_TO_GY: wave 15C)
                                "REVEAL_FROM_HAND", BEHOLD, PUT_COUNTER, FORAGE, EXILE})
 _REVEAL_HAND_COST = re.compile(r"^Reveal (?:a|an) (?P<what>.+? card) from your hand$")
-_BEHOLD_COST = re.compile(r"^Behold (?:a|an) (?P<q>[A-Z][a-z]+)$")
+_BEHOLD_COST = re.compile(r"^Behold (?:(?P<one>a|an)|(?P<n>two|three|four|five)) (?P<q>[A-Z][a-z]+)$")  # (-- cast keywords (wave 43D) -- "Behold three Elementals")
 
 
 def _extra_part(part: str) -> CostComponent | None:
@@ -638,8 +638,12 @@ def _extra_part(part: str) -> CostComponent | None:
         key = _selector(m["what"], zone="hand")
         return CostComponent("REVEAL_FROM_HAND", selector=key, text=part) if key else None
     if m := _BEHOLD_COST.match(part):
-        hand, field = _selector(f"{m['q']} card", zone="hand"), _selector(f"{m['q']} you control", zone="battlefield")
-        return CostComponent(BEHOLD, selector=hand, alt=field, text=part) if hand and field else None
+        from app.rules.selectors import _IRREGULAR
+
+        # (701.4a, wave 43D: "Behold three Elementals" — three objects, each a card revealed from your hand or a permanent you control, none twice)
+        quality = _IRREGULAR.get(m["q"].lower()) or (m["q"][:-1] if m["n"] and m["q"].endswith("s") else m["q"])
+        hand, field = _selector(f"{quality} card", zone="hand"), _selector(f"{quality} you control", zone="battlefield")
+        return CostComponent(BEHOLD, amount=_WORDS[m["n"]] if m["n"] else 1, selector=hand, alt=field, text=part) if hand and field else None
     found = _one_4h(part, "")
     if found is not None and (found.kind == FORAGE or (found.kind == PUT_COUNTER and part.startswith("Blight"))
                               or (found.kind == EXILE and found.selector is not None and not found.x)):

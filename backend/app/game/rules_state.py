@@ -801,6 +801,7 @@ class PaymentRecord(BaseModel):
     mana_riders: list[dict[str, Any]] = Field(default_factory=list)
     contributions: list[CostContribution] = Field(default_factory=list)
     life: int = 0  # life paid (Phyrexian mana, …)
+    phyrexian: int = 0  # -- cast keywords (wave 43D) -- the Phyrexian mana symbols of its cost paid with life (2 life each): compleated, 702.150a
     tapped: list[str] = Field(default_factory=list)  # permanents tapped for mana while paying (engine-paid)
     sacrificed: list[str] = Field(default_factory=list)
     sacrificed_objects: list[str] = Field(default_factory=list)  # (wave 3D) the object ids they were: last known information

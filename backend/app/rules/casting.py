@@ -1243,7 +1243,8 @@ def pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristic
                          mana_spent=dict(payment.spent) if payment else {}, contributions=contributions,
                          mana_tags=payment.tags if payment else [],
                          mana_riders=mana_units.matching(plan, payment.riders, card, spell_ch, player) if payment else [],
-                         life=payment.life if payment else 0, tapped=list(payment.tapped) if payment else [],
+                         life=payment.life if payment else 0, phyrexian=payment.life // 2 if payment else 0,  # (wave 43D: compleated)
+                         tapped=list(payment.tapped) if payment else [],
                          sacrificed=list(payment.sacrificed) if payment else [], x=a.x_value)
 
 
@@ -1586,11 +1587,18 @@ def flashback_parts(text: str) -> tuple[str, AbilityCost | None] | None:
     m = FLASHBACK_MORE.fullmatch(t)
     if m is None:
         return None
-    parts = [alt_costs._part(p.strip()) for p in m["rest"].split(", ")]
-    if any(p is None or isinstance(p, str) or getattr(p, "x", False) for p in parts):
+    parts = [alt_costs._part(p.strip()) or _sized_part(p.strip()) for p in m["rest"].split(", ")]  # (wave 43D: "Sacrifice X Mountains", "Behold three Elementals")
+    if any(p is None or isinstance(p, str) for p in parts) or sum(1 for p in parts if getattr(p, "x", False)) > 1:
         return None
     comps = tuple(p for p in parts if not isinstance(p, str) and p is not None)
     return m["mana"] or "{0}", AbilityCost(components=comps, life=sum(c.amount for c in comps if c.kind == costs.PAY_LIFE))
+
+
+def _sized_part(text: str) -> costs.CostComponent | None:
+    """-- cast keywords (wave 43D) -- a part of a flashback cost an alternative cost doesn't read: one sized by the announced X (107.3a: "Sacrifice X Mountains",
+    "Discard X cards", "Exile X blue cards from your graveyard") or by a count ("Behold three Elementals", 701.4a) — the parts a spell's additional cost reads."""
+    found = costs.parse_additional_cost(text[:1].lower() + text[1:])
+    return found.components[0] if found is not None and len(found.components) == 1 and not found.either else None
 
 
 # -- static_other sweep (wave 16B) -- 702.120a: "Escalate {cost}" / "Escalate—Discard a card.": "for each mode you choose beyond the first, you pay
