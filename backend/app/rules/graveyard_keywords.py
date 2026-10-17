@@ -21,7 +21,7 @@ from app.rules.oracle import AbilityText
 if TYPE_CHECKING:
     from app.rules.characteristics import Characteristics
 
-_LINE = re.compile(r"^(?P<kw>embalm|eternalize|encore) (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+_LINE = re.compile(r"^(?P<kw>embalm|eternalize|encore)(?: |—)(?P<cost>(?:\{[^}]+\})+(?:, Discard a card)?)$", re.IGNORECASE)  # (wave 49C: "Eternalize—{2}{W}{W}, Discard a card." — 702.129a, a cost of two parts; the discard comes from the hand, not the card itself, which is in the graveyard)
 _EFFECT = {
     "embalm": "Create a token that's a copy of the card exiled to activate this ability, except it's white, it has no mana cost, and it's a Zombie in addition to its "
               "other types. Activate only as a sorcery.",

@@ -304,7 +304,7 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     # (copy system, wave 2F / 3R3: "copy target spell", and "copy it / that spell" for the spell a cast trigger
     # was about, are read now: app/rules/copying.py)
     # ("target player shuffles up to N target cards from their graveyard into their library": read now, wave 46B — the graveyard_of target group)
-    (re.compile(r"\btarget creature with the greatest\b", re.I), "\"the greatest … among\" (a computed extreme): not modelled"),
+    # ("target creature with the greatest power among creatures on the battlefield": read now, wave 49C — selectors "ext:")
     (re.compile(r"(?<!switch )\btarget creature's power and toughness\b", re.I),  # (switching: wave 7E, choice_grants.switch_pt)
      "switching or reading a target's P/T pair: not modelled"),
     # -- conditional / instead clauses (wave 1B) --------------------------------------------------------
