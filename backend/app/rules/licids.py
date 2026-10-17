@@ -53,7 +53,7 @@ def licid(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if not cards or not hosts:  # (400.7: the Licid left; 608.2b: the target is gone and the ability did nothing)
         return True
     card = plan.state.cards[cards[0]]
-    gone = [a.index for a in plan.ch(card).abilities if a.kind == "activated" and THIS_ABILITY in a.text]
+    gone = [a.index for a in plan.ch(card).abilities if a.kind == "activated" and THIS_ABILITY in a.text]  # ponytail: "this ability" is found by its words (each Licid has it once)
     before = len(ctx.get("animated") or ())
     effects.become(plan, ctx, {"who": "self", "types": ["Enchantment"], "add_creature_types": ["Aura"], "abilities": ["Enchant creature"],
                                "lose_index": gone, "duration": "permanent",
@@ -73,7 +73,8 @@ def ending(state: GameState, card: CardInstance, player: str) -> list[Any]:
 
 
 def end_effect(plan: Plan, a: A.EndEffect) -> None:
-    """116.2c: the special action - pay the cost, the effect ends (any time the player has priority; it doesn't use the stack)."""
+    """116.2c: the special action - pay the cost, the effect ends (any time the player has priority; it doesn't use the stack). ponytail: like turning a creature face up
+    or unlocking a door it isn't in casting.can_act, so a player with nothing else to do keeps response stops on to get priority for it."""
     from app.rules import delayed, layers
     from app.rules import mana as M
     from app.rules.casting import Purpose, pay, payment_step
