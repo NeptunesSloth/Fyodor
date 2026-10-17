@@ -231,6 +231,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
     if e.counter == "roll_die" and e.player:  # -- dice (wave 24B) -- one die (706.2): its result, the natural result, the size, the turn's count
         return [("roll_die", None, None, e.player, {"amount": e.amount, "natural": e.natural, "sides": e.sides, "nth": e.nth,
                                                     "actor": e.player})]
+    if e.counter == "coin_flip" and e.player:  # -- coin events (wave 45C) -- 705.2: the flipper won (1) or lost (0) a flip (rules/coin_flips.py)
+        return [("coin_flip", None, None, e.player, {"won": bool(e.amount), "actor": e.player})]
     if e.counter == "crime" and e.player:  # -- crimes (wave 6D) -- 700.13
         return [("commit_crime", None, None, e.player, {})]
     if e.counter in ("monstrous", "renowned") and e.card in plan.state.cards:  # -- becomes monstrous (wave 6D) --

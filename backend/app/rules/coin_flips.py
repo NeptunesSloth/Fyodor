@@ -10,8 +10,14 @@ heads, …" (Odds // Ends). Researched against CR 2026-09-25, 705.
 * 608.2c: the instruction after the flip is followed in order, so "If you win the flip" is judged from this resolution's
   own flip (``ctx["coin"]``). A condition about a flip needs a flip earlier in the same ability (``refs_ok``).
 
-Refused (manual): flipping several coins or "until you lose a flip", "each player flips", ignoring flips (Krark's Thumb,
-Edgar), flipping at a later time ("at the beginning of the next end step") and "whenever you win a coin flip" triggers.
+* -- coin events (wave 45C) -- 705.2: a flip the effect reads as won or lost (or reads neither: "Flip a coin.") has a winner or loser, only the
+  player who flipped; a flip it reads as heads or tails ("If it comes up heads") has none ("Whenever you win a coin flip" doesn't see it,
+  Setzer's ruling). Each such flip is one ``designation`` event (counter "coin_flip", ``amount`` 1 won / 0 lost, ``player`` the flipper):
+  "Whenever you / a player win(s) / lose(s) a coin flip" (Setzer, Zndrsplt, Okaun).
+* "Flip a coin until you lose a flip" (Zndrsplt, Okaun): one flip at a time, each its own flip and event, until one is lost.
+
+Refused (manual): flipping several coins, "each player flips", ignoring flips (Krark's Thumb, Edgar), flipping at a later time
+("at the beginning of the next end step") and the number of flips won as an amount ("for each flip you won").
 """
 
 from __future__ import annotations
@@ -19,17 +25,19 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
+from app.game.rules_state import emit
+
 if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 Context = dict[str, Any]
 
-_FLIP = re.compile(r"^flip a coin$")
+_FLIP = re.compile(r"^flip a coin(?P<until> until you lose a flip)?$")
 _COND = re.compile(r"^(?:you (?P<w>win|lose) the flip|(?:it|the coin) comes up (?P<f>heads|tails)|(?P<c>you win))$")
 
 
 def _build(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    return [{"do": "coin_flip"}], None
+    return [{"do": "coin_flip", **({"until_lose": True} if m["until"] else {})}], None
 
 
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_FLIP, _build)]
@@ -42,7 +50,19 @@ def condition(text: str) -> dict[str, Any] | None:
         return None
     if m["c"]:  # -- clash (wave 12A) -- "If you win" (701.30d), judged from this resolution's own clash (app/rules/clash.py)
         return {"coin": "win", "of": "clash"}
-    return {"coin": "win" if (m["w"] == "win" or m["f"] == "heads") else "lose"}
+    return {"coin": "win" if (m["w"] == "win" or m["f"] == "heads") else "lose", **({"face": True} if m["f"] else {})}
+
+
+_EVENT = re.compile(r"(?P<p>you|a player|an opponent) (?P<v>win|lose|wins|loses) a coin flip")
+
+
+def event_condition(text: str) -> dict[str, Any] | None:
+    """-- coin events (wave 45C) -- "you win a coin flip" / "a player loses a coin flip" → the trigger event (705.2: the flipper alone)."""
+    m = _EVENT.fullmatch(text)
+    if m is None:
+        return None
+    return {"event": "coin_flip", "subject": "player", "player": {"you": "you", "a player": "any", "an opponent": "opponent"}[m["p"]],
+            "won": m["v"].startswith("win")}
 
 
 def holds(ctx: Context, cond: dict[str, Any]) -> bool:
@@ -55,8 +75,14 @@ def coin_flip(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     if plan.rng is None:
         plan.rng = secrets.SystemRandom()  # (the result is recorded on the step: the history replays it, not the generator)
-    done = plan.do({"type": "coin", "count": 1}, actor=ctx["controller"])
-    ctx["coin"] = bool(done.r.results[0])  # type: ignore[union-attr]
+    face = "'face': True" in str(ctx.get("effects"))  # (705.2: the effect reads heads or tails: no winner or loser)
+    for _ in range(1000 if e.get("until_lose") else 1):  # (ponytail: no game wins 1000 flips in a row)
+        done = plan.do({"type": "coin", "count": 1}, actor=ctx["controller"])
+        ctx["coin"] = bool(done.r.results[0])  # type: ignore[union-attr]
+        if not face:
+            emit(plan.state, "designation", counter="coin_flip", player=ctx["controller"], amount=int(ctx["coin"]))
+        if not ctx["coin"]:
+            break
     return True
 
 

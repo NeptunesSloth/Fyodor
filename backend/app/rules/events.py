@@ -544,6 +544,12 @@ def _parse(c: str) -> Condition | None:
 
     if (rolled := dice.event_condition(c)) is not None:
         return rolled
+    from app.rules import (
+        coin_flips,  # -- coin events (wave 45C) -- 705.2: "you win a coin flip", "a player loses a coin flip"
+    )
+
+    if (flipped := coin_flips.event_condition(c)) is not None:
+        return flipped
     for rx, event in _DESIGNATION_EVENTS:  # -- counters & designations (wave 3E) --
         m = rx.fullmatch(c)
         if m:
