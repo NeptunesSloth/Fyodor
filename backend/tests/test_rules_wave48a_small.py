@@ -11,6 +11,8 @@ Every scenario checks the replay and a save and a load.
   "you gain 5 life and incubate 5" (Tangled Skyline).
 * 608.2c, 702.33e: "Counter target spell if its mana value is 2 or less. If this spell was kicked, counter that spell if its mana value is 4 or less instead." (Prohibit, Overload) - the
   limit is judged as the spell resolves: a three-mana spell survives it unkicked and is countered kicked.
+* 608.2c: "Return target permanent to its owner's hand. Then that player discards a card." (Recoil, Compelling Deterrence) - that player is the permanent's owner, who
+  discards from the hand it just returned to; Compelling Deterrence checks for a Zombie after the return (ruling 2019-01-25).
 * 115.3, 611.2c: "Until end of turn, target creature gets +0/+2 and another target creature gets -2/-0." (Rookie Mistake, Skulduggery) - two different targets, each its own pump;
   "+X/+0 and -0/-X, where X is the number of artifacts you control" (Monoist Circuit-Feeder) - one X for both halves.
 """
@@ -228,4 +230,39 @@ def test_prohibit_does_not_counter_a_three_mana_spell_unless_kicked(cards):
 def test_kicked_prohibit_counters_a_three_mana_spell(cards):
     s = prohibit(cards, 1)
     assert s.state.cards[card_named(s, "Kitchen Finks").id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_recoil_makes_the_owner_discard_after_the_permanent_returns(cards):
+    s = build(cards, ["Recoil"], ["Grizzly Bears", "Elvish Visionary"])
+    put(s, "Grizzly Bears", "p2")
+    to_hand(s, "Elvish Visionary", "p2")
+    to_hand(s, "Recoil")
+    mana(s, U=1, B=1, C=1)
+    cast(s, "Recoil", targets=[card_named(s, "Grizzly Bears", "p2").id])
+    assert len(names_in(s, "hand", "p2")) == 1 and len(names_in(s, "graveyard", "p2")) == 1  # two cards in hand after the return, one discarded
+    assert life(s) == 40
+    check(s)
+
+
+def test_compelling_deterrence_discards_only_if_you_control_a_zombie(cards):
+    s = build(cards, ["Compelling Deterrence"], ["Grizzly Bears", "Elvish Visionary"])
+    put(s, "Grizzly Bears", "p2")
+    to_hand(s, "Elvish Visionary", "p2")
+    to_hand(s, "Compelling Deterrence")
+    mana(s, U=1, C=1)
+    cast(s, "Compelling Deterrence", targets=[card_named(s, "Grizzly Bears", "p2").id])
+    assert len(names_in(s, "hand", "p2")) == 2 and names_in(s, "graveyard", "p2") == []  # no Zombie: nothing is discarded
+    check(s)
+
+
+def test_compelling_deterrence_discards_when_you_control_a_zombie(cards):
+    s = build(cards, ["Compelling Deterrence", "Dregscape Zombie"], ["Grizzly Bears", "Elvish Visionary"])
+    put(s, "Dregscape Zombie")
+    put(s, "Grizzly Bears", "p2")
+    to_hand(s, "Elvish Visionary", "p2")
+    to_hand(s, "Compelling Deterrence")
+    mana(s, U=1, C=1)
+    cast(s, "Compelling Deterrence", targets=[card_named(s, "Grizzly Bears", "p2").id])
+    assert len(names_in(s, "hand", "p2")) == 1 and len(names_in(s, "graveyard", "p2")) == 1
     check(s)

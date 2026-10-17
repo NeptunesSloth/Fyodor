@@ -2318,6 +2318,8 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # cards." (Geth), "…, then exile that player's graveyard." (Nurgle's Conscription): that player is whose graveyard the card was in, its owner (400.3)
     body = re.sub(r"(from an opponent's graveyard[^.]*?\.) Then that player (mills [^.]*\.)", r"\1 Then its owner \2", body)
     body = re.sub(r"(from an opponent's graveyard[^.]*?), then exile that player's graveyard\.", r"\1. Exile its owner's graveyard.", body)
+    # -- activated sweep (wave 48A) -- "Return target permanent to its owner's hand. Then that player discards a card." (Recoil): "that player" is the owner the permanent was returned to
+    body = re.sub(r"(\b[Rr]eturn target [^.]*? to its owner's hand\.) Then that player (discards a card)", r"\1 Then its owner \2", body)
     # -- voting (wave 18C) -- "For each opponent, you create a 1/1 white Human Soldier creature token." (Vault 11): one token for each
     # opponent, the token grammar's "… for each opponent". (wave 38B: not "… tapped and attacking that opponent" (Stampede Surfer): each token attacks
     # its own opponent, combat_rules.create_attacking_each, not one count of them all attacking the trigger's)

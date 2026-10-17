@@ -575,5 +575,37 @@
   "keywords": [
    "Kicker"
   ]
+ },
+ {
+  "name": "Recoil",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{B}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Return target permanent to its owner's hand. Then that player discards a card.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Compelling Deterrence",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Return target nonland permanent to its owner's hand. Then that player discards a card if you control a Zombie.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
  }
 ]
