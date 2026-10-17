@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from app.rules.characteristics import CardInfo
 
 COLORS = ("W", "U", "B", "R", "G")
-_LINE = re.compile(r"^Whenever enchanted land is tapped for mana, its controller adds an additional (?P<m>.+)\.$")
+_LINE = re.compile(r"^Whenever enchanted (?:land|Forest) is tapped for mana, its controller adds an additional (?P<m>.+)\.$")  # (wave 43B: "Enchant Forest")
 
 
 def definition(text: str) -> dict[str, Any] | None:
@@ -49,6 +49,8 @@ def definition(text: str) -> dict[str, Any] | None:
         options = [[c] for c in COLORS]
     elif what == "two mana in any combination of colors":
         options = [list(pair) for pair in combinations_with_replacement(COLORS, 2)]
+    elif what == "one mana of the chosen color":
+        options = [["CHOSEN"]]  # -- most-played cards (wave 43B) -- the color the Aura chose as it entered (614.12a), read in ``_extras``
     else:
         return None
     return {"kind": "triggered", "trigger": "tapped_for_mana", "extra": options, "optional": False, "target": None,
@@ -71,7 +73,15 @@ def _extras(state: GameState, card: CardInstance, info: CardInfo) -> list[list[l
         ch = derive(state, c, chars_of(c, info), info)
         for d in scripts.definitions(ch).values():
             if d.get("trigger") == "tapped_for_mana":
-                out.append(d["extra"])
+                if d["extra"] == [["CHOSEN"]]:  # (wave 43B) no color chosen: the trigger adds nothing (Gauntlet of Power ruling 2022-12-08)
+                    from app.rules.casting import _chosen_color
+
+                    color = _chosen_color(c)
+                    if color is None:
+                        continue
+                    out.append([[color]])
+                else:
+                    out.append(d["extra"])
     return out
 
 

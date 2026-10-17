@@ -1026,6 +1026,10 @@ def spell_matches(state: GameState, player: str, card: CardInstance, ch: Charact
 def spell_uncounterable(state: GameState, info: CardInfo, card: CardInstance, ch: Characteristics) -> bool:
     """-- small wordings (wave 11E) -- does a static on the table say this spell, controlled by its caster, can't be
     countered (101.2, 701.6)?"""
+    turn = state.turn.number  # -- most-played cards (wave 43B) -- "Spells you control can't be countered this turn." (prohibitions.uncounterable_turn)
+    if state.rules is not None and any(x.get("what") == "uncounterable" and x["turn"] == turn and x["player"] == card.controller
+                                       and (not x.get("filter") or spell_matches(state, card.controller, card, ch, x["filter"], info)) for x in state.rules.results):
+        return True
     return any((d.get("any_player") or src.controller == card.controller) and (not d["filter"] or spell_matches(state, card.controller, card, ch, d["filter"], info))
                for src, _, d in _table_statics(state, info, {"spells_uncounterable"}))
 

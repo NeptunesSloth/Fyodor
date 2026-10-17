@@ -101,11 +101,11 @@ def _subject(plan: Plan, ctx: Context, e: dict[str, Any]) -> tuple[str, str] | N
     return (name, pid) if name and pid in plan.state.players else None
 
 
-def _matches(plan: Plan, name: str, pid: str, library: bool = True) -> list[str]:
+def _matches(plan: Plan, name: str, pid: str, library: bool = True, depth: int | None = None) -> list[str]:
     from app.rules import card_names
 
-    return [c for z in ZONES if library or z != "library" for c in plan.state.zones.get(zone_key(pid, z), [])
-            if plan.ch(plan.state.cards[c]).name == name or card_names.has_name(plan.ch(plan.state.cards[c]), name)]  # (709.4a)
+    return [c for z in ZONES if library or z != "library" for c in plan.state.zones.get(zone_key(pid, z), [])[:depth if z == "library" else None]
+            if plan.ch(plan.state.cards[c]).name == name or card_names.has_name(plan.ch(plan.state.cards[c]), name)]  # (709.4a; wave 43B: Aven Mindcensor, the top four)
 
 
 def _library_banned(plan: Plan, searcher: str, ctx: Context) -> bool:
@@ -122,7 +122,12 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True  # (the object is not known any more: nothing is searched for)
     name, pid = subject
     me = ctx["controller"]
-    found = _matches(plan, name, pid, not _library_banned(plan, me, ctx))
+    from app.rules import prohibitions
+
+    banned = _library_banned(plan, me, ctx)
+    if not banned:
+        prohibitions.note_search(plan, me, pid)  # -- most-played cards (wave 43B) -- "Whenever an opponent searches their library"
+    found = _matches(plan, name, pid, not banned, prohibitions.search_depth(plan, me))
     decide(plan, player=me, kind="choose_cards", prompt=f"{ctx.get('name') or 'Search'}: search {plan.name(pid)}'s graveyard, hand, "
            f"and library for cards named {name}", options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c)
                                                          for c in found],
@@ -136,7 +141,9 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules.effects import continue_effects
 
     pid = d.resume["pid"]
-    allowed = set(_matches(plan, d.resume["name"], pid, not _library_banned(plan, d.player, d.resume["ctx"])))
+    from app.rules import prohibitions
+
+    allowed = set(_matches(plan, d.resume["name"], pid, not _library_banned(plan, d.player, d.resume["ctx"]), prohibitions.search_depth(plan, d.player)))
     if finish(plan, d.resume["ctx"], pid, [c for c in chosen if c in allowed], bool((d.resume.get("e") or {}).get("draw"))):
         continue_effects(plan, d.resume["ctx"])
 
