@@ -2490,7 +2490,9 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
                                    "generic", actor=ctx["controller"], spec=e.get("spec"))
         _moved(plan, ctx, e, before)
         return True
-    entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
+    # -- commanders (wave 50C) -- "return it to the battlefield under an opponent's control" (Zuko, Sol'Kanar): under = "ref:<the opponent chosen before>"
+    entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else (_players(plan, ctx, e["under"]) or [plan.state.cards[cid].owner])[0]
+                if str(e.get("under")).startswith("ref:") else plan.state.cards[cid].owner,
                 "actor": ctx["controller"], "tapped": bool(e.get("tapped")),
                 **({"transformed": True} if e.get("transformed") else {}),  # (-- transform, wave 11A -- 712.14a)
                 **({"counter": e["counter"]} if e.get("counter") and (not e.get("counter_if") or selectors.matches(
@@ -3280,6 +3282,8 @@ def _did_r1(fn: Any, kind: str) -> Any:
                 else:
                     cards = [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
                 refs[name] = {"kind": "probe", "left": {c: plan.oid(plan.state.cards[c]) for c in cards}}
+            elif kind == "control":  # -- commanders (wave 50C) -- "Target opponent gains control of target Horse you control. If they do, …": a permanent now has another controller
+                refs[name] = {"kind": "probe", "control": {c: [plan.oid(plan.state.cards[c]), plan.state.cards[c].controller] for c in _cards(plan, ctx, e["who"])}}
             elif kind == "counters":
                 refs[name] = {"kind": "probe", "counter": e["kind"], "counters": {
                     c: [plan.oid(plan.state.cards[c]), plan.state.cards[c].counters.get(e["kind"], 0)]
@@ -3575,6 +3579,22 @@ def finish(plan: Plan, ctx: Context, *, countered: bool = False) -> None:
 from app.rules import keyword_actions  # noqa: E402, I001  (keyword actions, CR 701, and token wording: leaf modules over this one)
 
 PRIMITIVES.update(keyword_actions.PRIMITIVES)
+
+
+def _did_transform(fn: Any) -> Any:
+    """-- commanders (wave 50C) -- "Whenever you gain life, you may convert Ratchet. When you do, …": 701.28a / 118.12 — it is done when the permanent turned over (a
+    permanent that already turned since the ability went on the stack doesn't, 701.27f / 701.28e). Bound after the run, once."""
+    def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+        name = e.get("did")
+        before = {c: plan.state.cards[c].face for c in _cards(plan, ctx, e["who"])} if name and name not in context.refs(ctx) else {}
+        done = bool(fn(plan, ctx, e))
+        if name and before and name not in context.refs(ctx):
+            context.bind_payment(ctx, name, any(plan.state.cards[c].face != f for c, f in before.items()))
+        return done
+    return run
+
+
+PRIMITIVES["transform"] = _did_transform(PRIMITIVES["transform"])
 
 
 def describe(effects: list[dict[str, Any]]) -> str:
@@ -4523,7 +4543,7 @@ def resume_gain_control(plan: Plan, d: Any, chosen: list[str]) -> None:
         continue_effects(plan, ctx)
 
 
-PRIMITIVES.update({"gain_control": gain_control, "exchange_control": exchange_control})
+PRIMITIVES.update({"gain_control": _did_r1(gain_control, "control"), "exchange_control": exchange_control})  # (wave 50C: "If they do")
 RESUME["gain_control"] = resume_gain_control
 # -- end control (wave 3K) --
 

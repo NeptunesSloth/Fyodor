@@ -40,8 +40,7 @@ guessed): "choose X" / "up to X", "choose two at random", a mode with "you may",
 target group (an activated ability's mode has one target slot; wave 33B: a *triggered* ability's mode may
 have target groups — "up to two target creatures" — which join into one list once the modes are chosen,
 601.2c, and the ability then goes on the stack as an ordinary one with those groups, 603.3d; with the plain
-"choose one —" header only), a triggered ability's mode starting with "If" (Venser, Corpse Puppet
-and Rankle and Torbran, the only such cards, need other grammar too), a header with anything else after it,
+"choose one —" header only), a header with anything else after it,
 a limit or restriction line after the modes, and "up to" / "any number" on an activated ability (choosing
 no mode isn't modelled there).
 
@@ -88,12 +87,14 @@ _COUNTS: dict[str, tuple[int, int | None]] = {
 }
 _HEADER = re.compile(
     r"^(?P<prefix>.*?)[Cc]hoose (?P<count>one or both|one or more|any number|up to (?:one|two|three|four)|one|two|three|four)"
-    r"(?P<random> at random)?(?P<memory> that hasn['’]t been chosen(?: this turn)?)?(?P<end> —|\.)(?P<rest>.*)$")
+    r"(?P<random> at random)?(?P<memory> that hasn['’]t been chosen(?: this turn)?)?(?P<also> and [^—.]+)?(?P<end> —|\.)(?P<rest>.*)$")  # (wave 50C: also)
 # "…, if <condition>, " before the mode: a trigger's intervening "if" (603.4)
 _INTERVENING = re.compile(r"^(?P<head>.+?), if (?P<cond>[^,]+), $")
 # A line after the modes that belongs to the ability ("This ability triggers only once each turn.", "Activate
 # only as a sorcery."): the limit would go unenforced, so the whole ability stays manual.
 _TRAILER = re.compile(r"^(?:This ability|Activate\b|Do this only)")
+_X_IS = re.compile(r"^X is (?P<x>[^.]+)\.$")  # (wave 50C)
+_IF_WOULD = re.compile(r"^If (?P<head>.+? would .+?) this turn, (?P<rest>.+)$")  # (wave 50C)
 # A mode's name ("• Solar Beam — The Vision gains double strike …"): a label, not rules text (207.2c).
 _MODE_LABEL = re.compile(r"^[A-Z][\w'’\-]*(?: [\w'’\-]+){0,3} — (?=[A-Z0-9{])")
 
@@ -105,13 +106,26 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
     isn't understood — the whole ability is then manual."""
     from app.rules import scripts  # (scripts reads an ability here: a leaf module over it)
 
+    if ab.kind == "triggered" and ", you may choose two" in ab.text:
+        # -- commanders (wave 50C) -- "you may choose two" (Shadrix Silverquill ruling 2021-04-16): exactly zero modes or two modes, never one (700.2d)
+        from dataclasses import replace
+
+        sub = definitions(replace(ab, text=ab.text.replace(", you may choose two", ", choose two", 1)), ch)
+        if (md := sub.get(ab.index)) is not None and md.get("modal") is not None:
+            md["modal"] = {**md["modal"], "zero_or_all": True}
+        return sub
     m = _HEADER.match(ab.text)
     if m is not None and ab.kind == "triggered" and (rm := _REFLEXIVE.match(m["prefix"])) is not None:
         return _reflexive_definitions(ab, ch, rm["outer"], m)  # -- refused modal/conditional (wave 3R1) --
     # -- refused modal/conditional (wave 3R1) -- "choose one at random —"; "Choose one. If …, [you may] choose both
     # instead."; "Each mode must target a different player." after the header
     extra = _header_extra(ab, m) if m is not None else None
-    if m is None or (extra is None and not _header_ok(ab, m["prefix"], m["end"], m["rest"].strip())):
+    # -- commanders (wave 50C) -- "Choose one. X is the number of spells you've cast this turn." (Gnostro): X for every mode that says it, as ", where X is …" (read as it resolves)
+    xdef = _X_IS.match(m["rest"].strip()) if m is not None and m["end"] == "." and ab.kind != "triggered" else None
+    hrest = "" if xdef else m["rest"].strip() if m is not None else ""
+    if xdef and not any(re.search(r"\bX\b", b.text) for b in _bullets(ch, ab.index)):
+        return {}  # (an X that no mode uses: not read)
+    if m is None or (extra is None and not _header_ok(ab, m["prefix"], m["end"], hrest)):
         return {}
     if m["random"] and (ab.kind != "triggered" or m["count"] != "one" or m["memory"]):
         return {}
@@ -127,7 +141,7 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
     if ab.kind != "triggered" and lo == 0:
         return {}  # (an activation with no mode chosen: not modelled)
     memory = None if not m["memory"] else ("turn" if m["memory"].endswith("this turn") else "game")
-    rest = "" if extra is not None else m["rest"].strip()
+    rest = "" if extra is not None else hrest
     prefix, intervening = m["prefix"], None
     if ab.kind == "triggered" and (im := _INTERVENING.match(prefix)) is not None:
         from app.rules import conditions
@@ -136,18 +150,36 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
         if intervening is None:
             return {}
         prefix = f"{im['head']}, "
+    also: list[Definition] | None = None
+    also_shape: Definition | None = None
+    if m["also"]:  # -- commanders (wave 50C) -- "choose one that hasn't been chosen and you lose 2 life —" (Zuko), "choose one and ~ gets +1/+1 until end of turn": an
+        # instruction of the ability itself, carried out before the chosen modes (608.2c: in the order written); no targets, no choice
+        sentence = m["also"][5:].strip()
+        ad = scripts.define(AbilityText(index=ab.index, kind=ab.kind, cost=ab.cost, text=f"{prefix}{sentence[:1].upper()}{sentence[1:]}."), ch) \
+            if ab.kind == "triggered" else None
+        if ad is None or ad["kind"] != "triggered" or ad.get("optional") or ad.get("target") or ad.get("targets") or ad.get("if") is not None \
+                or not ad["effects"] or extra is not None:
+            return {}
+        also, also_shape = scripts.rename_bindings(ad["effects"], "a_"), {key: v for key, v in ad.items() if key not in ("effects", "target", "targets")}
     modes: list[Definition] = []
     shape: Definition | None = None
     for k, bullet in enumerate(bullets):
         text = bullet.text[2:].strip()
         body = _MODE_LABEL.sub("", text, count=1)
-        if ab.kind == "triggered" and body.lower().startswith("if "):
-            # (it would read as an intervening "if" of the trigger, 603.4, not of the mode. Wave 3R1: kept refused —
-            # the only two cards with such a mode, Venser, Corpse Puppet and Rankle and Torbran, need other grammar
-            # too, so a reading of it couldn't be tested with a real card)
-            return {}
+        if xdef and re.search(r"\bX\b", body):
+            body = f"{body.rstrip('.')}, where X is {xdef['x']}."
+        if_mode = ab.kind == "triggered" and body.lower().startswith("if ")
+        if if_mode and (w := _IF_WOULD.match(body)) is not None:
+            # -- commanders (wave 50C) -- "If a source would deal damage to a player or battle this turn, it deals that much damage plus 2
+            # instead." (Rankle and Torbran): a replacement effect for the turn (611.2a), read as "Until end of turn, if …"
+            body, if_mode = f"Until end of turn, if {w['head']}, {w['rest']}", False
+        elif if_mode:
+            body = "i" + body[1:]  # (read as a one-line ability; its "if" is a condition of the mode, checked as it resolves, 608.2c: below)
         one = AbilityText(index=ab.index, kind=ab.kind, cost=ab.cost, text=f"{prefix}{body}" + (f" {rest}" if rest else ""))
         d = scripts.define(one, ch)  # the mode as a non-modal ability with this header
+        if if_mode and d is not None and d.get("if") is not None and d["effects"] and d["effects"][0].get("do") == "only_if" \
+                and d["effects"][0].get("cond") == d["if"]:
+            d = {k: v for k, v in d.items() if k != "if"}  # (not an intervening "if" of the trigger, 603.4: the mode's own only_if effect checks it)
         if d is None or d["kind"] not in ("triggered", "activated") or d.get("optional") or (d.get("targets") and not _plain_groups(ab, d["targets"])) \
                 or d.get("limit") == "do_once" or d.get("if") is not None or not d["effects"]:
             return {}  # ("you may", a division, "Do this only once each turn": not in a mode)
@@ -155,19 +187,30 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
         if shape is None:
             shape = found
         elif found != shape:
-            return {}  # (the header says the same to every mode)
+            # -- commanders (wave 50C) -- "Whenever you cast an instant or sorcery spell, choose one — • That spell gains …" (Judith): a mode that reads the spell cast needs the
+            # generic cast event (it carries the spell), the others read as the plain "cast_you" trigger: the same trigger, so the event one is the ability's
+            ev = next((x for x in (found, shape) if x.get("trigger") == "event" and (x.get("cond") or {}).get("event") == "cast"), None)
+            other = shape if ev is found else found
+            if ev is None or other.get("trigger") != "cast_you" or {k: v for k, v in other.items() if k not in ("filter", "trigger")} \
+                    != {k: v for k, v in ev.items() if k not in ("cond", "trigger")}:
+                return {}  # (the header says the same to every mode)
+            shape = ev
         modes.append({"text": text, "effects": scripts.rename_bindings(d["effects"], f"m{k}_"), "target": d["target"],
                       **({"groups": d["targets"]} if d.get("targets") else {})})  # (-- modal frames (wave 33B) -- several or "up to N" targets)
     assert shape is not None
+    if also_shape is not None and also_shape != shape:
+        return {}  # (the instruction has the header the modes have)
     if intervening is not None:
         if scripts._trigger_antecedent(shape["trigger"], shape.get("cond")) != "self" \
                 and scripts._condition_says_other(intervening):
             return {}  # ("another …" than which object? not modelled, as for a plain trigger)
         shape = {**shape, "if": intervening}
-    modal = {"min": lo, "max": hi, "repeat": False, "condition": None, "memory": memory, "index": ab.index,
-             "form": ab.kind}
-    if any(x.get("groups") for x in modes) and (memory or m["random"] or extra is not None):
-        return {}  # -- modal frames (wave 33B) -- a mode's target groups are read only with the plain "choose one —" header
+    modal: dict[str, Any] = {"min": lo, "max": hi, "repeat": False, "condition": None, "memory": memory, "index": ab.index,
+                             "form": ab.kind}
+    if any(x.get("groups") for x in modes) and (m["random"] or extra is not None or also is not None):
+        return {}  # -- modal frames (wave 33B) -- a mode's target groups are read only with the plain "choose one —" header (wave 50C: or "that hasn't been chosen")
+    if also is not None:
+        modal["also"] = also  # (wave 50C)
     if m["random"]:
         modal["random"] = True  # -- refused modal/conditional (wave 3R1) --
     if extra is not None:  # -- refused modal/conditional (wave 3R1) --
@@ -369,7 +412,8 @@ def printed_order(definition: Definition, modes: list[int], targets: list[str]) 
 def mode_effects(definition: Definition, chosen: list[int]) -> list[dict[str, Any]]:
     """The effects of the chosen modes in printed order (608.2c), each with its own target slot
     ("use_targets"); a trigger's intervening "if" is checked again as it resolves (603.4)."""
-    out = [e for k, i in enumerate(chosen) for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]]]
+    out = [*((definition.get("modal") or {}).get("also") or ()),  # (wave 50C: "choose one and you lose 2 life": that first)
+           *(e for k, i in enumerate(chosen) for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]])]
     if definition.get("if") is not None:
         out = [{"do": "only_if", "cond": definition["if"], "skip": len(out)}, *out]
     return out
@@ -463,6 +507,11 @@ def put_trigger(plan: Plan, t: PendingTrigger, picks: dict[str, Any] | None = No
             lo, hi = modal["instead"]["min"], min(modal["instead"]["max"], len(allowed))
         if modal.get("different_players") and allowed:  # each chosen mode needs a player no other one targets
             hi = min(hi, len(legal(allowed[0])))
+        if modal.get("zero_or_all"):  # -- commanders (wave 50C) -- "you may choose two": none, or exactly two (when two can't be chosen, none)
+            lo, hi = 0, (hi if hi >= modal["max"] else 0)
+            if hi == 0:
+                _remove(plan, t, "has no mode that can be chosen")
+                return True
         if not allowed or len(allowed) < lo or hi < lo:  # 700.2b: no mode can be chosen: removed from the stack
             _remove(plan, t, "has no mode that can be chosen")
             return True
@@ -492,6 +541,7 @@ def put_trigger(plan: Plan, t: PendingTrigger, picks: dict[str, Any] | None = No
         t.ability = {**{k: v for k, v in d.items() if k not in ("modes", "modal")}, "target": None, "targets": casting.modal_groups(d, chosen),
                      "effects": [{"do": "only_if", "cond": d["if"], "skip": len(effects)}, *effects] if d.get("if") is not None else effects,
                      "chosen_modes": text}  # (the pending trigger is now an ordinary one with target groups: triggers.put chooses them, 603.3d)
+        remember(r, t.source_object, modal["index"], modal["memory"], plan.state.turn.number, chosen, _face(plan, t))  # (wave 50C: "that hasn't been chosen" with target groups)
         return triggers.put(plan, t)
     targets: list[str] = list(picks.get("targets") or [])
     need = [i for i in chosen if modes[i]["target"]]
@@ -558,6 +608,8 @@ def resume_trigger_modes(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules.triggers import flush
 
     t = _pending(plan, d.resume["trigger"])
+    if t is not None and t.ability["modal"].get("zero_or_all") and len(chosen) not in (0, t.ability["modal"]["max"]):
+        raise ActionError("Choose no mode, or exactly two")  # (wave 50C)
     if t is not None and not put_trigger(plan, t, {"modes": sorted({int(c.split(":")[0]) for c in chosen}),
                                                    "targets": []}):
         return
