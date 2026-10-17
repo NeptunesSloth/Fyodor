@@ -1145,13 +1145,14 @@ def _player_protected(plan: Plan, card: CardInstance, who: str) -> bool:
 
 
 def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[str] | None = None,
-        exclude: tuple[str, ...] = (), purpose: Purpose | None = None) -> M.Payment | None:
-    if cost.is_free and not sources:
+        exclude: tuple[str, ...] = (), purpose: Purpose | None = None, life_due: int = 0) -> M.Payment | None:
+    """``life_due``: -- phyrexian mana (wave 50B) -- the life announced for Phyrexian symbols (601.2b), paid with the rest; it is already in ``plan.reserved_life``."""
+    if cost.is_free and not sources and not life_due:
         return None
     payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose,
                            reserve=plan.reserved_life)
     extras: list[tuple[CardInstance, int, M.ManaAbility]] = []
-    life = payment.life
+    life = payment.life + life_due
     for cid, index in payment.used:
         card = plan.state.cards[cid]
         ability = dict(mana_abilities(plan.state, card, plan.info)).get(index)
@@ -1162,7 +1163,7 @@ def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[
             life += parse_ability_cost(ability.extra_cost, card_name=plan.ch(card).name).life
     # -- life payments (wave 29C) -- 119.4: all the life this payment takes (Phyrexian mana, "Pay 1 life" mana abilities) and the spell's other
     # life costs together can't be more than the life total (each source was checked on its own when it was listed): refused, not carried out
-    if life > max(0, plan.state.players[player].life - plan.reserved_life) and life > payment.life:  # (the true total: Karn's Sylex bans only spells')
+    if life > max(0, plan.state.players[player].life - plan.reserved_life + life_due) and life > payment.life + life_due:  # (the true total: Karn's Sylex bans only spells')
         raise ActionError(f"Those sources would take {life} life to pay {cost.text()}, and you can't pay more life than you have (119.4): "
                           "tap other sources")
     oids = {card.id: plan.oid(card) for card, _, _ in extras}  # (wave 5A: the objects as they were tapped)
@@ -1250,14 +1251,16 @@ def pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristic
     if delved:
         plan.do({"type": "move", "card_ids": delved, "to": {"player": player, "zone": "exile"}}, actor=player)
     rest = P.remaining(cost, assignment)
-    payment = pay(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose)
+    n_life = len(a.life_symbols or ())  # -- phyrexian mana (wave 50B) -- announced in 601.2b: 2 life each, paid with the rest
+    payment = pay(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose, life_due=2 * n_life)
     from app.rules import mana_units
 
     return PaymentRecord(card=card.id, controller=player, total_cost=cost.text(),
                          mana_spent=dict(payment.spent) if payment else {}, contributions=contributions,
                          mana_tags=payment.tags if payment else [],
                          mana_riders=mana_units.matching(plan, payment.riders, card, spell_ch, player) if payment else [],
-                         life=payment.life if payment else 0, phyrexian=payment.life // 2 if payment else 0,  # (wave 43D: compleated)
+                         life=payment.life if payment else 0,  # (wave 43D: compleated; wave 50B: the symbols announced, else the life the solver took)
+                         phyrexian=n_life if a.life_symbols is not None else payment.life // 2 if payment else 0,
                          tapped=list(payment.tapped) if payment else [],
                          sacrificed=list(payment.sacrificed) if payment else [], x=a.x_value)
 
@@ -1331,6 +1334,80 @@ def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility | A.EndEffect, c
                     DecisionOption(id="cancel", label="Cancel")],
            resume=resume)
     return True
+
+
+# -- phyrexian mana (wave 50B) -- 601.2b, 107.4f: the payer announces, for each Phyrexian symbol, one mana of its color or 2 life, and the
+# announced cost is paid as it is (601.2h): the solver no longer picks life where mana would do. ``life_symbols`` (on the intent): the symbols
+# (their colors, "G/W" for {G/W/P}) paid with life; None until announced. Kept legacy: an explicit ``sources`` list, and every other payer of a
+# cost (unless-pays, special actions), where the solver pays mana first and life only where mana falls short (ponytail ceiling).
+def split_phyrexian(cost: M.ManaCost, life: list[str]) -> M.ManaCost:
+    """``cost`` with the symbols paid with life taken out and the others made plain colored (hybrid for {G/W/P}) mana; a symbol already gone
+    (a locked cost, split before) is skipped."""
+    rest = list(cost.phyrexian)
+    for c in life:
+        if c in rest:
+            rest.remove(c)
+    return M.ManaCost(cost.generic, cost.colored + tuple(c for c in rest if "/" not in c),
+                      cost.hybrid + tuple(tuple(c.split("/")) for c in rest if "/" in c), (), cost.x, cost.unsupported)
+
+
+def phyrexian_options(plan: Plan, cost: M.ManaCost, exclude: tuple[str, ...], purpose: Purpose | None) -> list[tuple[str, ...]]:
+    """The ways to pay the Phyrexian symbols of ``cost`` that can be paid now (the sorted symbols paid with life, fewest first): 119.4 the life
+    (less what the other costs of it pay), and the mana for the rest from the pool and the untapped sources."""
+    from itertools import combinations
+
+    life = spendable_life(plan.state, plan.actor, plan.info) - plan.reserved_life
+    ways = dict.fromkeys(tuple(sorted(cost.phyrexian[i] for i in ix)) for k in range(len(cost.phyrexian) + 1)
+                         for ix in combinations(range(len(cost.phyrexian)), k))
+    return [w for w in ways if 2 * len(w) <= life and can_pay(plan.state, plan.actor, split_phyrexian(cost, list(w)), plan.info, exclude=exclude,
+                                                              purpose=purpose, reserve=plan.reserved_life + 2 * len(w))]
+
+
+def _phyrexian_label(cost: M.ManaCost, way: tuple[str, ...]) -> str:
+    rest = list(way)
+    out = []
+    for c in cost.phyrexian:
+        if c in rest:
+            rest.remove(c)
+            out.append(f"{{{c}/P}}: 2 life")
+        else:
+            out.append(f"{{{c}/P}}: " + " or ".join(f"{{{x}}}" for x in c.split("/")))
+    return ", ".join(out)
+
+
+def announce_phyrexian(plan: Plan, a: A.CastSpell | A.ActivateAbility, cost: M.ManaCost, what: str, *, exclude: tuple[str, ...] = (),
+                       purpose: Purpose | None = None, trusted: bool = False) -> M.ManaCost | None:
+    """The cost with the announced Phyrexian choices applied, or None while the payer is asked (nothing has moved yet). Asked only when more than one
+    way can be paid; the one way left is announced for them. ``trusted``: a payment resumed with its locked cost (``a.life_symbols`` was checked)."""
+    life = a.life_symbols
+    if life is None and (not cost.phyrexian or a.sources is not None):
+        return cost  # nothing to announce, or the payer named their sources (MANUAL PAY): the legacy payment
+    ways = [] if trusted and life is not None else phyrexian_options(plan, cost, exclude, purpose)
+    if life is None:
+        if len(ways) > 1:
+            decide(plan, player=plan.actor, kind="choose_one", prompt=f"Pay {cost.text()} for {what}: mana or 2 life for each Phyrexian symbol (601.2b)",
+                   options=[DecisionOption(id=str(i), label=_phyrexian_label(cost, w)) for i, w in enumerate(ways)],
+                   resume=_announcing(plan, "phyrexian", a, options=[list(w) for w in ways]))
+            return None
+        if not ways:
+            return cost  # neither way can be paid: the payment says why
+        life = a.life_symbols = list(ways[0])
+    elif not trusted and tuple(sorted(life)) not in ways:
+        raise ActionError(f"{cost.text()} can't be paid with 2 life for {', '.join(life) or 'no symbol'}: choose Phyrexian symbols of the cost you can pay")
+    plan.reserved_life += 2 * len(life)  # 119.4: the life is paid with the rest, so the sources' life payments leave it
+    return split_phyrexian(cost, life)
+
+
+def resume_phyrexian(plan: Plan, d: Any, chosen: list[str]) -> None:
+    if cancelled(plan, d, chosen):
+        return
+    from app.rules.engine import INTENTS  # the engine imports this module
+
+    intent = A.parse_action(d.resume["intent"])
+    intent.life_symbols = d.resume["options"][int(chosen[0])]  # type: ignore[union-attr]
+    plan.rules.priority = d.player
+    plan.rules.passed = []
+    INTENTS[intent.type](plan, intent)
 
 
 def pool_covers(state: GameState, player: str, cost: M.ManaCost, purpose: Purpose | None = None, info: CardInfo | None = None) -> bool:
@@ -2613,12 +2690,17 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             return
         helper, helper_pays = found_helper
         cost = cost.plus_generic(-helper_pays)
+    was_locked = plan.locked_cost is not None
     cost = _locked(plan, cost)  # -- cost changers (wave 4I) -- 601.2f: locked in once the payment was asked for (the caster's share, after assist)
     not_mana = cost_payment.excluded(add_cost, card, add_objects) if add_cost is not None else ()
     origin = card.zone  # (wave 17B: where it is cast from, before it moves to the stack)
     from_oid = plan.oid(card)  # -- as long as (wave 37A) -- the object it is before it becomes the spell (400.7): "until this card is cast from exile"
-    if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana,
-                    purpose=Purpose(spell=ch, zone=origin, player=plan.actor, kicked=bool(kicked))):
+    purpose = Purpose(spell=ch, zone=origin, player=plan.actor, kicked=bool(kicked))
+    announced_cost = announce_phyrexian(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=purpose, trusted=was_locked)  # (wave 50B: 601.2b)
+    if announced_cost is None:
+        return
+    cost = announced_cost
+    if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=purpose):
         return
     commander_cast = from_command_zone(card, plan.actor)
     harmonized = alt_offer is not None and alt_offer.tag == "harmonize"  # -- casting extras (wave 18E) -- 702.180a: exiled as it leaves the stack
@@ -3544,12 +3626,17 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
                       additional=(*((M.parse_cost(either.mana),) if either is not None and either.mana else ()), *mode_costs),  # (wave 6E)
                       reduce=cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0)  # (wave 47C: 118.9d, 601.2f)
     cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional if o.mana))  # (wave 41D, as the cast with its cost)
+    was_locked = plan.locked_cost is not None
     cost = _locked(plan, cost)  # (wave 4I: 601.2f)
     if paid and pending is not None and pending["e"].get("spend"):  # -- cast-permission riders (wave 38C) -- 118.14: "…, and mana of any type can be spent to cast that spell" (Quistis)
         cost = M.spend_as(cost, pending["e"]["spend"])
     if alt is not None or not cost.is_free:
-        if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana,
-                        purpose=Purpose(spell=ch, zone=card.zone, player=plan.actor, kicked=bool(a.kicker))):
+        purpose = Purpose(spell=ch, zone=card.zone, player=plan.actor, kicked=bool(a.kicker))
+        announced_cost = announce_phyrexian(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=purpose, trusted=was_locked)  # (wave 50B: 601.2b)
+        if announced_cost is None:
+            return
+        cost = announced_cost
+        if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=purpose):
             return
         kind = "miracle" if card.id in r.miracled else "madness"  # -- casting extras (wave 18E) -- 702.94a: its miracle cost
         record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name}" + (f" ({kind})" if alt and not paid else ""),
@@ -4186,8 +4273,12 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
 
         own = cost_changes.ability_delta(plan.state, card.controller, card, ch, ability.text, plan.info) if "This ability costs " in ability.text else 0
         due = M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, due.text(), plan.info, own, ability.text))
-    if payment_step(plan, a, due, f"{ch.name}’s ability",
-                    exclude=not_mana, purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana, special=_special(ability))):
+    purpose = Purpose(ability_of=ch, cost_x="{X}" in cost.mana, special=_special(ability))
+    announced_due = announce_phyrexian(plan, a, due, f"{ch.name}’s ability", exclude=not_mana, purpose=purpose, trusted=was_locked)  # (wave 50B: 602.2b → 601.2b)
+    if announced_due is None:
+        return
+    due = announced_due
+    if payment_step(plan, a, due, f"{ch.name}’s ability", exclude=not_mana, purpose=purpose):
         return
     effect = ability.text.split(":", 1)[1].strip() if ":" in ability.text else ability.text
     # -- review (wave 27D) -- 602.2a / 701.20a: a card whose ability is activated from the hand is revealed, so the ability on the stack
@@ -4213,7 +4304,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
         _replace_life.lose_life(plan, [(plan.actor, cost.life)])
     paid = pay(plan, plan.actor, due, f"paid {due.text()} to activate {ch.name}",
-               sources=a.sources, exclude=not_mana, purpose=Purpose(ability_of=ch, cost_x="{X}" in cost.mana, special=_special(ability)))
+               sources=a.sources, exclude=not_mana, purpose=purpose, life_due=2 * len(a.life_symbols or ()))
     record = PaymentRecord(card=ability_id or card.id, controller=plan.actor, total_cost=ability.cost or "",
                            mana_spent=dict(paid.spent) if paid else {}, life=cost.life + (paid.life if paid else 0),
                            tapped=list(paid.tapped) if paid else [], x=a.x_value)

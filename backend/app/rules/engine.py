@@ -1499,6 +1499,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "shuffle_library": effects.resume_shuffle_library,
     "cast_modes": casting.resume_cast_modes,
     "cast_slot_target": casting.resume_cast_slot_target,
+    "phyrexian": casting.resume_phyrexian,  # -- phyrexian mana (wave 50B) --
     "cast_group": casting.resume_cast_group,
     "cast_divide": casting.resume_cast_divide,
     "trigger_group": triggers.resume_group,

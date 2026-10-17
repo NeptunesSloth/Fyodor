@@ -1009,6 +1009,9 @@ class CastSpell(_Intent):
     # -- free-cast optional costs (wave 41D) -- 118.9d, 601.2b: a cast made as an effect resolves (cascade, discover, Gandalf …) asks its caster which optional
     # additional costs to pay (kicker, bargain, gift, casualty …); True once they were asked, so the answer "none" is not asked again
     optional_asked: bool = False
+    # -- phyrexian mana (wave 50B) -- 601.2b, 107.4f: the Phyrexian symbols of the cost (their colors, "G/W" for {G/W/P}) paid with 2 life each; the
+    # rest are paid with mana. None: not announced yet (asked when both ways can be paid); [] announces mana for every symbol
+    life_symbols: list[str] | None = Field(default=None, max_length=20)
 
 
 class MiracleReveal(_Intent):
@@ -1071,6 +1074,7 @@ class ActivateAbility(_Intent):
     # Objects chosen for cost parts ("Sacrifice a creature", "Discard a card" …); any part not
     # given is asked for as a private decision before anything is paid.
     cost_choices: list[CostChoice] = Field(default_factory=list, max_length=10)
+    life_symbols: list[str] | None = Field(default=None, max_length=20)  # -- phyrexian mana (wave 50B) -- as CastSpell.life_symbols
 
 
 class AttackDeclaration(BaseModel):
