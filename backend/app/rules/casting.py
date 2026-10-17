@@ -3094,6 +3094,20 @@ def foretell(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateA
     plan.rules.passed = []
 
 
+def companion_problem(state: GameState, player: str, card: CardInstance, info: CardInfo) -> str | None:
+    """Why ``player`` can't take this companion by the special action (116.2g, 103.2b, 702.139b), or None. (-- special actions (wave 50B) -- shared with ``can_act``.)"""
+    mine = [c for c in state.cards.values() if c.owner == player and c.origin == "companion"]
+    if len(mine) != 1:
+        return "You may reveal no more than one companion (103.2b)"
+    start = [c for c in state.cards.values() if c.owner == player and c.origin in ("library", "command") and c.card_id
+             and not (c.is_token or c.copy_of or c.ability or c.test_object)]  # (702.139b: the commander too)
+    deck = [info.get(c.card_id) for c in start if c.card_id]
+    data = info.get(card.card_id) if card.card_id else None
+    if data is None or any(d is None for d in deck):
+        return "Fyodor doesn't know every card of your starting deck: take your companion by hand"
+    return cmdr.companion_problem(data, [d for d in deck if d is not None])
+
+
 def companion_action(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility) -> None:
     """-- companion (wave 38D) -- 116.2g, 702.139a: a player who has chosen a companion may pay {3} to put it from outside the game into
     their hand, any time they have priority and the stack is empty during a main phase of their turn, once per game (a card that has
@@ -3107,17 +3121,7 @@ def companion_action(plan: Plan, card: CardInstance, ch: Characteristics, a: A.A
         raise ActionError("Only a card's companion ability puts it into your hand from outside the game")
     if state.turn.active_player != plan.actor or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK):
         raise ActionError("You can take your companion only in your main phase while the stack is empty (116.2g)")
-    mine = [c for c in state.cards.values() if c.owner == plan.actor and c.origin == "companion"]
-    if len(mine) != 1:
-        raise ActionError("You may reveal no more than one companion (103.2b)")
-    start = [c for c in state.cards.values() if c.owner == plan.actor and c.origin in ("library", "command") and c.card_id
-             and not (c.is_token or c.copy_of or c.ability or c.test_object)]  # (702.139b: the commander too)
-    deck = [plan.info.get(c.card_id) for c in start if c.card_id]
-    data = plan.info.get(card.card_id) if card.card_id else None
-    if data is None or any(d is None for d in deck):
-        raise ActionError("Fyodor doesn't know every card of your starting deck: take your companion by hand")
-    problem = cmdr.companion_problem(data, [d for d in deck if d is not None])
-    if problem:
+    if (problem := companion_problem(state, plan.actor, card, plan.info)) is not None:
         raise ActionError(problem)
     cost = M.parse_cost("{3}")
     if payment_step(plan, a, cost, f"taking {ch.name}", purpose=Purpose()):
@@ -4630,7 +4634,7 @@ def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
             if ("Instant" in ch.types or ch.has_flash or "sneak" in ch.keywords) \
                     and alt_castable(state, player, card, info, check_priority=False):  # (-- keywords (wave 30I) -- sneak: 702.190a)
                 return True
-    return bool(activatable(state, player, info, check_priority=False))
+    return bool(activatable(state, player, info, check_priority=False)) or special_action(state, player, info, instant=True)  # (wave 50B: 116.2b, c: any time, so a response too)
 
 
 def _flash_granted(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> bool:
@@ -4641,8 +4645,50 @@ def _flash_granted(state: GameState, player: str, card: CardInstance, ch: Charac
     return grant is not None and grant.flash
 
 
+def special_action(state: GameState, player: str, info: CardInfo, *, instant: bool = False) -> bool:
+    """-- special actions (wave 50B) -- 116.2: could ``player`` take a special action now that isn't a land, a cast or an ability, and pay for it: turn a
+    face-down permanent up (116.2b: any time they have priority), end an effect of theirs that lets them (a Licid, 116.2c: likewise), unlock a door of a Room
+    (116.2m) or pay {3} for the companion (116.2g): those two in their main phase with the stack empty (``instant``: only the first two, a response).
+    For the auto-pass (``can_act``, ``has_responses``): a player who can must not be passed over. A morph cost that isn't mana is counted without checking it can be paid (a stop too many,
+    never one too few; ponytail: the hint of suspend, foretell and plot, 116.2f, h, k, isn't read)."""
+    from app.rules import licids
+    from app.rules.copying import room_printing
+    from app.rules.layers import derive
+
+    r = state.rules
+    main = not instant and state.turn.active_player == player and state.turn.phase in MAIN_PHASES and not state.zones.get(STACK)
+    ends = r is not None and any(x.end_cost for x in r.effects)
+    for cid in state.zones.get(zone_key(player, "battlefield"), []):
+        card = state.cards[cid]
+        if card.controller != player:
+            continue
+        if card.face_down:
+            ways = face_up_ways(card, chars.of(card.model_copy(update={"face_down": False}), info))
+            if any(not cost.startswith("{") or can_pay(state, player, M.parse_cost(cost), info, purpose=Purpose(special="turn_up"))
+                   for cost, _ in ways.values()):
+                return True
+            continue
+        if ends and r is not None and (found := licids.ending(state, card, player)) and found[0].end_cost \
+                and can_pay(state, player, M.parse_cost(found[0].end_cost), info, purpose=Purpose()):
+            return True
+        if main and r is not None and derive(state, card, chars.of(card, info), info).doors is not None:
+            oid = r.object_id(card.id)
+            data = info.get(room_printing(r, card, oid))
+            for door in (1, 2):
+                if data is not None and door not in r.unlocked.get(oid, []) and can_pay(
+                        state, player, M.parse_cost((half := chars.half_from_data(data, door - 1)).mana_cost), info, purpose=Purpose(ability_of=half)):
+                    return True
+    if main:
+        for cid in state.zones.get(zone_key(player, "companion"), []):
+            card = state.cards[cid]
+            if card.owner == player and any("companion" in ab.keywords for ab in chars.of(card, info).abilities) \
+                    and companion_problem(state, player, card, info) is None and can_pay(state, player, M.parse_cost("{3}"), info, purpose=Purpose()):
+                return True
+    return False
+
+
 def can_act(state: GameState, player: str, info: CardInfo) -> bool:
-    """Could ``player`` do anything at all right now (a land, a spell, an ability)?"""
+    """Could ``player`` do anything at all right now (a land, a spell, an ability, a special action)?"""
     from app.rules.engine import land_play_problem  # engine imports this module
 
     for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard")):
@@ -4653,4 +4699,4 @@ def can_act(state: GameState, player: str, info: CardInfo) -> bool:
             if key.endswith(":hand") and land_play_problem(state, player, card, chars.of(card, info), check_priority=False,
                                                                  info=info) is None:  # (info: wave 4J, additional land plays)
                 return True
-    return bool(activatable(state, player, info, check_priority=False))
+    return bool(activatable(state, player, info, check_priority=False)) or special_action(state, player, info)  # (wave 50B: 116.2b, c, g, m)
