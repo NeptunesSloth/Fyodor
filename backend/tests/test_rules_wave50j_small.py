@@ -22,7 +22,7 @@ from app.rules import coverage
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import attach, stops, to_phase
+from tests.test_rules_wave34b_activated import activate, attach, attack, block, next_turn, stops, to_phase
 from tests.wave9c_kit import build, card_named, cast, check, mana, pt, put, to_hand
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave50j_cards.json").read_text("utf-8"))
@@ -66,7 +66,8 @@ def combat(s):
     settle(s)
 
 
-@pytest.mark.parametrize("name", ["Odric, Lunarch Marshal", "Akroma, Vision of Ixidor", "Odric, Blood-Cursed", "Bleeding Effect", "Majestic Myriarch"])
+@pytest.mark.parametrize("name", ["Odric, Lunarch Marshal", "Akroma, Vision of Ixidor", "Odric, Blood-Cursed", "Bleeding Effect", "Majestic Myriarch",
+                                  "Kaima, the Fractured Calm", "Havoc Eater", "Pia Nalaar, Chief Mechanic", "Rampaging Aetherhood", "Sensei Golden-Tail"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -182,6 +183,92 @@ def test_havoc_eater_counts_the_power_of_the_creature_it_goaded(cards):
     cast(s, "Havoc Eater")
     settle(s, target="Serra Angel")
     assert goaded(s, "Serra Angel") == {"p1"} and counters(s, "Havoc Eater") == {"+1/+1": 4}  # (Serra Angel's power)
+    check(s)
+
+
+# -- bushido grant ------------------------------------------------------------------------------------------------------------------------------------
+# 611.2a, 702.45a: "That creature gains bushido 1 and becomes a Samurai in addition to its other creature types." (Sensei Golden-Tail): no duration, so for good.
+def test_sensei_golden_tail_gives_bushido_and_samurai_for_good(cards):
+    s = build(cards, mine=["Sensei Golden-Tail", "Grizzly Bears"], theirs=["Grizzly Bears"])
+    sensei = put(s, "Sensei Golden-Tail")
+    bears = put(s, "Grizzly Bears")
+    put(s, "Grizzly Bears", "p2")
+    next_turn(s)
+    mana(s, W=2)
+    activate(s, "p1", sensei, targets=[bears.id])
+    settle(s)
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[bears.id])
+    assert "bushido" in ch.keywords and "Samurai" in ch.subtypes and s.state.cards[bears.id].counters == {"training": 1}
+    attack(s, bears)
+    block(s, (card_named(s, "Grizzly Bears", "p2"), bears))
+    settle(s)
+    assert pt(s, "Grizzly Bears") == (3, 3)  # (bushido 1: +1/+1 as it becomes blocked)
+    check(s)
+
+
+def test_sensei_golden_tail_does_not_give_bushido_to_another_creature(cards):
+    s = build(cards, mine=["Sensei Golden-Tail", "Grizzly Bears", "Llanowar Elves"])
+    sensei = put(s, "Sensei Golden-Tail")
+    bears = put(s, "Grizzly Bears")
+    elves = put(s, "Llanowar Elves")
+    next_turn(s)
+    mana(s, W=2)
+    activate(s, "p1", sensei, targets=[bears.id])
+    settle(s)
+    assert "bushido" not in keywords(s, "Llanowar Elves") and "Samurai" not in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[elves.id]).subtypes
+    check(s)
+
+
+# -- energy X: "pay one or more {E}" -----------------------------------------------------------------------------------------------------------------
+# 107.14, 107.3f: the payer chooses how many {E} to pay (one or more) as they pay, and that number is the X of the instructions after it.
+def energy(s, pid="p1"):
+    return s.state.players[pid].resources.get("energy", 0)
+
+
+def to_end_step(s):
+    stops(s)
+    to_phase(s, "end")
+
+
+def test_pia_nalaar_makes_a_vehicle_as_big_as_the_energy_paid(cards):
+    s = build(cards, mine=["Pia Nalaar, Chief Mechanic"])
+    put(s, "Pia Nalaar, Chief Mechanic")
+    act(s, "p1", type="resource", player="p1", key="energy", delta=5)
+    to_end_step(s)
+    d = s.state.rules.decision
+    while d is None:  # (the trigger resolves, then asks how much to pay)
+        act(s, s.state.rules.priority, type="pass_priority")
+        d = s.state.rules.decision
+    assert [o.label for o in d.options] == ["Pay 1 {E} (X = 1)", "Pay 2 {E} (X = 2)", "Pay 3 {E} (X = 3)", "Pay 4 {E} (X = 4)", "Pay 5 {E} (X = 5)", "Don't pay"]
+    settle(s, answer="x:3")
+    assert energy(s) == 2
+    (jet,) = [c for c in s.state.cards.values() if c.name == "Nalaar Aetherjet"]
+    assert pt(s, "Nalaar Aetherjet") == (3, 3) and keywords(s, "Nalaar Aetherjet") >= {"flying", "crew"}
+    check(s)
+
+
+def test_pia_nalaar_pays_nothing_and_makes_nothing_when_declined_or_without_energy(cards):
+    s = build(cards, mine=["Pia Nalaar, Chief Mechanic"])
+    put(s, "Pia Nalaar, Chief Mechanic")
+    act(s, "p1", type="resource", player="p1", key="energy", delta=2)
+    to_end_step(s)
+    settle(s, answer="decline")
+    assert energy(s) == 2 and not [c for c in s.state.cards.values() if c.name == "Nalaar Aetherjet"]
+    check(s)
+    s = build(cards, mine=["Pia Nalaar, Chief Mechanic"])
+    put(s, "Pia Nalaar, Chief Mechanic")
+    to_end_step(s)
+    settle(s)  # (no energy: nothing is asked)
+    assert energy(s) == 0 and not [c for c in s.state.cards.values() if c.name == "Nalaar Aetherjet"]
+    check(s)
+
+
+def test_rampaging_aetherhood_puts_that_many_counters_on_itself(cards):
+    s = build(cards, mine=["Rampaging Aetherhood"])
+    put(s, "Rampaging Aetherhood")
+    to_phase(s, "upkeep", turn=3)
+    settle(s, answer="x:3")  # (it gets energy equal to its power, 4, then pays three)
+    assert energy(s) == 1 and counters(s, "Rampaging Aetherhood") == {"+1/+1": 3}
     check(s)
 
 

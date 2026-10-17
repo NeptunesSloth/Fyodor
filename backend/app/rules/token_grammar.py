@@ -88,7 +88,7 @@ _SENTENCE = re.compile(
     rf"^create (?:(?P<n>{_QTY}) |(?P<lname>{_NAME}), an? (?P<legendary>legendary) )(?P<tapped>tapped (?P<atk0>and attacking )?)?"
     rf"(?:(?:(?P<pt>(?:\d+|X)/(?:\d+|X)) )?(?:(?P<colors>{_COLORS}) )?(?P<sub>{_CAPS}) (?P<ench>enchantment )?(?P<art>artifact )?"
     r"(?P<land>land )?creature tokens?"
-    rf"|(?:(?P<npt>\d+/\d+) )?(?P<ncolors>{_COLORS}) (?P<nsnow>snow )?(?:(?P<nsub>{_CAPS}) )?(?P<nkind>artifact|enchantment) tokens?"  # (wave 15B; wave 38B: a Vehicle's P/T)
+    rf"|(?:(?P<npt>(?:\d+|X)/(?:\d+|X)) )?(?P<ncolors>{_COLORS}) (?P<nsnow>snow )?(?:(?P<nsub>{_CAPS}) )?(?P<nkind>artifact|enchantment) tokens?"  # (wave 15B; wave 38B: a Vehicle's P/T)
     r"|(?P<pre>[A-Z][a-z]+) tokens?)"
     rf"(?: named (?P<name>{_NAME}))?"
     r"(?: with (?P<with>.+?))?"
@@ -298,7 +298,7 @@ def _vehicle(m: re.Match[str], *, n_word: str | None, plain: bool) -> list[Effec
     if parsed is None:
         return None
     kws, quoted = parsed
-    power, toughness = m["npt"].split("/")
+    power, toughness = (_qty(s) if s == "X" else s for s in m["npt"].split("/"))  # (wave 50J: X/X, Pia Nalaar)
     colors = [] if m["ncolors"] == "colorless" else [COLOR_WORDS[w] for w in re.findall(r"white|blue|black|red|green", m["ncolors"])]
     name = m["lname"] or m["name"] or m["name2"] or "Vehicle"
     effect: Effect = {"do": "create_token", "who": "you", "n": _qty(n_word) if n_word else 1,

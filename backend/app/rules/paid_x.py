@@ -38,6 +38,7 @@ CHOOSE = "x:"  # a decision option "x:<n>": pay {n}
 _MAX = 40  # (the most X offered: far beyond any real table's mana; the payer is never offered more than they can pay)
 _MANA_X = re.compile(r"^pay \{X\}(?P<extra>(?:\{[^}X]+\})*)(?:, where X is less than or equal to (?P<cap>.+))?$")  # (wave 26C: "{X}{W}{U}{B}", 118.12)
 _LIFE_X = re.compile(r"^pay X life, where X is (?P<v>.+)$")
+_ENERGY_X = re.compile(r"^pay X \{E\}$")  # -- energy X (wave 50J) -- see ``energy_text``
 _LIFE_EQUAL = re.compile(r"^pay life equal to (?P<v>.+)$")
 _CAP = re.compile(r"^x can't be greater than (?P<v>.+)$")
 
@@ -71,11 +72,26 @@ def payment(phrase: str) -> dict[str, Any] | None:
             return None
         # ("pay life equal to its power. If you do, put that many +1/+1 counters on it": "that many" is the life paid)
         return {"cost": "", "life_x": v, **({"that_many": True} if _LIFE_EQUAL.match(p) else {})}
+    if _ENERGY_X.match(p):
+        return {"cost": "", "choose_x": {"max": None, "energy": True}}
     if p == "pay that much life":
         return {"cost": "", "life_x": {"event_amount": 1}}
     if p == "pay any amount of life":  # -- if you do (wave 21C) -- Necrodominance: the payer chooses 0 up to their life total (119.4), "that many" is it
         return {"cost": "", "choose_x": {"max": {"life": "you"}, "life": True}, "that_many": True}
     return None
+
+
+_ENERGY_PAID = re.compile(r"(?P<pay>\bpay) one or more \{E\}\. (?P<if>If you do|When you do), (?P<rest>[^.]+)\.")
+
+
+def energy_text(body: str) -> str:
+    """-- energy X (wave 50J) -- 107.14, 107.3f: "you may pay one or more {E}. If you do, create an X/X … token, where X is the amount of {E} paid this way." (Pia Nalaar,
+    Aether Refinery), "… put that many +1/+1 counters on this creature." (Rampaging Aetherhood), "When you do, this creature deals that much damage to each other creature."
+    (Territorial Aetherkite): the payer chooses how many {E} to pay as they pay (one or more), and that number is the X after it, like "you may pay {X}"."""
+    def one(m: re.Match[str]) -> str:
+        rest = re.sub(r"\b(?:that (?:much|many)|the amount of \{E\} paid this way)\b", "X", re.sub(r", where X is the amount of \{E\} paid this way$", "", m["rest"]))
+        return f"{m['pay']} X {{E}}. {m['if']}, {rest}."
+    return _ENERGY_PAID.sub(one, body)
 
 
 def cap_sentence(text: str, effects: list[dict[str, Any]]) -> bool:
@@ -145,6 +161,18 @@ def start(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool | str:
             _record(ctx, bind, True, 0)
             return True
         return f"Pay {n} life"
+    if e["choose_x"].get("energy"):  # -- energy X (wave 50J) -- one or more of the {E} the payer has (118.3: no partial payment)
+        have = max(0, plan.state.players[payer].resources.get("energy", 0))
+        if have == 0:
+            plan.note(f"{plan.name(payer)} has no {{E}} to pay for {ctx.get('name') or 'it'}")
+            _record(ctx, bind, False, 0)
+            return True
+        options = [DecisionOption(id=f"{CHOOSE}{n}", label=f"Pay {n} {{E}} (X = {n})") for n in range(1, min(have, 250) + 1)]
+        options.append(DecisionOption(id=O.DECLINE, label="Don't pay"))
+        decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay {{E}}? Choose X (you have {have})", options=options,
+               source=plan.state.cards.get(ctx.get("source_card") or ""),
+               resume={"step": O.STEP, "ctx": ctx, "choose_x": {"bind": bind, "payer": payer, "energy": True}, "cost": ""})
+        return False
     cap = e["choose_x"].get("max")
     limit = min(_MAX, values.evaluate(plan, ctx, cap)) if cap is not None else _MAX
     extra = e["choose_x"].get("extra", "")  # (wave 26C: the rest of "{X}{W}{U}{B}", paid with the X: 118.3, no partial payment)
@@ -192,7 +220,7 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
         _record(ctx, bind, True, 0)
         effects.continue_effects(plan, ctx)
         return
-    text = f"Pay {n} life" if info.get("life") else (f"{{{n}}}{extra}" if n else extra)
+    text = f"Pay {n} life" if info.get("life") else "Pay " + "{E}" * n if info.get("energy") else (f"{{{n}}}{extra}" if n else extra)
     cost = O.parse(text)
     assert cost is not None
     ctx.setdefault("paid_x", {})[bind] = n

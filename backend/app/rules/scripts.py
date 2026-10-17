@@ -1997,7 +1997,7 @@ def _first(fn):  # type: ignore[no-untyped-def]
 @effect(r"create (?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X|twice X|half X) (?:tapped (?:and attacking )?)?"  # (half/twice, X/X: wave 4K; wave 30P: "tapped and attacking 1/1 …")
         r"(?:(?:(?:\d+|X)/(?:\d+|X) )?(?:colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*) "
         r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)* (?:enchantment )?(?:artifact )?(?:land )?creature tokens?|[A-Z][a-z]+ tokens?"
-        r"|\d+/\d+ (?:colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*) Vehicle artifact tokens?)"  # (wave 38B)
+        r"|(?:\d+|X)/(?:\d+|X) (?:colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*) Vehicle artifact tokens?)"  # (wave 38B; wave 50J: X/X, Pia Nalaar)
         r"(?: named [A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*)?(?: with (?:(?!, then | if | unless )[^\"])*(?:\"[^\"]+\")?)?"  # (wave 38B: nor a trailing " if …": _trailing_conditional)
         r"(?: that(?:'s| are) (?:tapped and )?attacking(?: (?:that player|that opponent|defending player))?)?"  # (wave 30P)
         r"(?: for each [^\"]+|, where [xX] is [^\"]+|, rounded (?:up|down))?")
@@ -2367,6 +2367,13 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
 
     if (soup := keyword_soup.bind(body, it)) is not None:
         return soup
+    # -- bushido grant (wave 50J) -- "That creature gains bushido 1 and becomes a Samurai in addition to its other creature types." (Sensei Golden-Tail): two continuous effects of
+    # one object (611.2a: no duration, so for good), the keyword given as the ability it is ("Bushido 1", 702.45a)
+    body = re.sub(r"\b(That creature) gains bushido (\d+) and becomes (an? [A-Z][a-z]+ in addition to its other creature types)\b", r'\1 gains "Bushido \2". \1 becomes \3', body)
+    if "one or more {E}" in body:  # -- energy X (wave 50J) --
+        from app.rules import paid_x
+
+        body = paid_x.energy_text(body)
     from app.rules import (
         resolve_exile,  # -- cast riders (wave 38C) -- "Exile that card instead of putting it into your graveyard as it resolves. If you do, …"
     )
