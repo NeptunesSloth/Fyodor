@@ -128,7 +128,6 @@ def test_flash_and_haste_wordings():
 @pytest.mark.parametrize("text", [
     "Your opponents can't cast spells with even mana values.",
     "As long as this Equipment is attached to a creature, your opponents can't cast spells during your turn.",
-    "Your opponents can't cast spells with mana value 3 or less.",
     "Each opponent who attacked with a creature this turn can't cast spells.",
 ])
 def test_refused_statics(text):

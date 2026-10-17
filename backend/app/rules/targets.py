@@ -83,6 +83,8 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
         return False
     if "hexproof" in ch.keywords and card.controller != chooser:
         return False
+    if card.controller != chooser and protection.hexproof_from(ch, source):  # -- keywords (wave 44D) -- 702.11d
+        return False
     for rule in ch.imposed:  # -- cant (wave 16F) -- "can't be the target of black spells or abilities from black sources"
         if rule.startswith("untargetable_by_opponents_of:") and chooser != rule.split(":", 1)[1]:
             return False  # (-- review 20A -- the Aura's controller's opponents; no teams: every other player, 102.2)

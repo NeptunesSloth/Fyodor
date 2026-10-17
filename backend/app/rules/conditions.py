@@ -266,6 +266,8 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         return {"combat_phase": "first"}
     if t in ("it's your main phase", "it is your main phase"):
         return {"main_phase": "yours"}
+    if t == "it's combat":  # -- trigger other (wave 44D) -- 506.1: "Whenever you cast a spell during combat" (Zuko): the combat phase, any of its steps
+        return {"combat_phase": "any"}
     # "you control a Forest", "you control two or more Islands", "you control another Elf",
     # "you control no creatures", "you don't control a …", "an opponent controls a …"
     # -- as long as (wave 9B) -- "If excess damage was dealt (to that creature) this way, …" (120.10: scripts bind it to the damage
@@ -466,9 +468,9 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     found = _more_ifs(t)  # -- intervening ifs (wave 11F) --
     if found is not None:
         return found
-    m = re.fullmatch(r"an opponent (?:(?P<has>has)|controls) (?P<rest>(?:no|\w+ or (?:more|fewer|less)) .+ in hand)", t)  # (wave 16F)
+    m = re.fullmatch(r"an opponent (?:(?P<has>has)|controls) (?P<rest>(?:no|\w+ or (?:more|fewer|less)) .+ in (?:hand|their graveyard))", t)  # (wave 16F; 44D: Sheoldred's graveyard)
     if m:  # "an opponent has no cards in hand": the same test read for some one opponent ("you" of it is them)
-        inner = _parse_one(f"you {'have' if m['has'] else 'control'} {m['rest']}", objects)
+        inner = _parse_one(f"you {'have' if m['has'] else 'control'} {m['rest'].replace('their graveyard', 'your graveyard')}", objects)
         if inner is not None and "value" in inner and not inner.get("per_opponent"):
             return {"as": "opponent", "cond": inner}
     if objects:
@@ -1434,7 +1436,7 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if "combat_phase" in cond:  # -- combat (wave 5C) --
         from app.game.state import COMBAT_PHASES
 
-        return plan.state.turn.phase in COMBAT_PHASES and plan.rules.combats == 1
+        return plan.state.turn.phase in COMBAT_PHASES and (cond["combat_phase"] == "any" or plan.rules.combats == 1)
     if "main_phase" in cond:  # -- combat (wave 5C) --
         return plan.state.turn.phase in ("main1", "main2") and plan.state.turn.active_player == ctx["controller"]
     v = cond["value"]

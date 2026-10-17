@@ -281,7 +281,7 @@ _FROM = {"from your graveyard": ("your_graveyard",), "from graveyards": ("gravey
          "from anywhere other than your hand": ("not_hand",)}
 STATIC = re.compile(
     r"^(?P<during>during your turn, |during turns other than yours, )?(?:each )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? "
-    r"(?:(?P<with>with (?:flying|flash)) )?(?P<who>you cast |your opponents cast )?(?P<own>but don't own )?(?P<chosen>of the chosen type )?"
+    r"(?:(?P<with>with (?:flying|flash|mana value \d+ or (?:greater|less))) )?(?P<who>you cast |your opponents cast )?(?:(?P<with2>with mana value \d+ or (?:greater|less)) )?(?P<own>but don't own )?(?P<chosen>of the chosen type )?"
     r"(?:(?P<from>from (?:your graveyard or from exile|graveyards or from exile|your graveyard|graveyards|exile"
     r"|anywhere other than your hand)) )?"
     rf"costs? {_SYMBOL} (?P<dir>less|more) to cast(?P<rest>.*)$")
@@ -304,7 +304,7 @@ def special(t: str) -> bool:
     if ORDINAL.fullmatch(t) or TARGETING.fullmatch(t) or TARGETING_LIFE.fullmatch(t) or PER_CASTER.fullmatch(t):
         return True
     m = STATIC.fullmatch(t)
-    return m is not None and bool(m["during"] or m["with"] or m["chosen"] or m["from"] or m["rest"] or m["own"] or not m["n"].isdigit())
+    return m is not None and bool(m["during"] or m["with"] or m["with2"] or m["chosen"] or m["from"] or m["rest"] or m["own"] or not m["n"].isdigit())
 
 
 def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
@@ -339,8 +339,9 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
     if m["chosen"] and not any(re.fullmatch(r"As .+ enters, choose a creature type\.?", x.strip()) for x in lines):
         return None
     sel = m["sel"]
-    key = spell_filter(sel, m["with"]) if sel or m["with"] else None
-    if (sel or m["with"]) and key is None:
+    with_ = m["with"] or m["with2"]  # (-- cost changers (wave 44D) -- "Instant and sorcery spells you cast with mana value 4 or greater cost {X} less …", The Scarlet Witch)
+    key = spell_filter(sel, with_) if sel or with_ else None
+    if (sel or with_) and key is None:
         return None
     caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[m["who"]]
     out: dict[str, Any] = {"kind": "static", "static": "cost_modifier", "delta": change["dir"] * int(change.get("n", 0)),

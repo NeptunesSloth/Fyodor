@@ -2023,8 +2023,10 @@ def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int
     tax = state.players[card.owner].commander_tax.get(card.commander_key, 0) \
         if from_command_zone(card, card.owner) and card.commander_key else 0
     affinity = (affinity_discount(state, player, ch, info, card) if info is not None else 0) + reduce  # (reduce: emerge, 18E)
-    total = permissions.total_cost(state, player, card, ch, info, base=base, additional=tuple(extras), tax=tax, affinity=affinity,
-                                   targets=targets)
+    # -- cost changers (wave 44D) -- 107.3f, 202.3e: the spell being cast has the X announced for it, so a cost changer reading its mana value ("spells with mana value 4 or
+    # greater cost {X} less") counts it (Thryx ruling 2020-01-24)
+    total = permissions.total_cost(state, player, card, replace(ch, mana_value=ch.mana_value + x * ch.mana_cost.count("{X}")) if x else ch, info, base=base,
+                                   additional=tuple(extras), tax=tax, affinity=affinity, targets=targets)
     from app.rules import (
         cast_limits,  # -- static_other sweep (wave 19A) -- Oath of Nissa: how the mana may be spent
     )

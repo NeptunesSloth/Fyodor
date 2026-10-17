@@ -401,6 +401,8 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return attachments.supported_keyword(kw, line)
     if kw == "protection":  # DEBT for the qualities app/rules/protection.py understands
         return protection.supported(line)
+    if kw == "hexproof from":  # -- keywords (wave 44D) -- 702.11d: the qualities app/rules/protection.py understands
+        return protection.hexproof(line) is not None
     if kw == "affinity":  # casting.affinity_filter
         from app.rules.casting import affinity_filter  # casting imports coverage (via engine)
 
