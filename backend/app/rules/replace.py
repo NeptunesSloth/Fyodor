@@ -256,6 +256,7 @@ class Planner:
     left: list[tuple[Event, list[str]]] = field(default_factory=list)  # (event, effects left to the players)
     used: list[str] = field(default_factory=list)  # (-- replacements: draws (wave 28B) -- the effects applied to the events, for "the next time")
     opt_n: int = 0  # (optional replacements met so far in this pass: each is its own question, wave 16B)
+    gate: Any = None  # (review 37: False for an event that can't happen at all: no replacement effect sees it, 101.2 — draw_cards' draw limit)
 
     # -- kind-specific rules ------------------------------------------------------------------------
     def applies(self, c: Candidate, ev: Event, sim: Sim) -> bool:
@@ -290,6 +291,8 @@ class Planner:
         """616.1: apply one effect at a time until none applies; each final event is performed in
         ``sim`` and handed to ``on_final`` in order (614.11a / 121.6b: a replacement's events
         complete before the sequence goes on)."""
+        if self.gate is not None and not self.gate(ev):
+            return
         if (opt := self.optional(ev, sim)) is not None:  # -- static_other sweep (wave 16B) -- dredge: the player took it
             self.used.append(opt.id)
             for nxt in self.apply(opt, ev, sim):
@@ -1164,6 +1167,36 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
                 rec["spent"] = True
         cands = [c for c in cands if c.op.get("do") != "body"]
     planner = Planner(plan, cands, answers, ask=then is not None)
+    # -- review 37 -- 101.2, 121.2 (Narset, Parter of Veils; Spirit of the Labyrinth): "can't draw more than one card each turn" is read one draw at a time, a
+    # replacement's draws too ("draw two cards instead": only the first is allowed); a draw not allowed is ignored and no replacement effect applies to it; a draw a
+    # replacement effect replaced (dredge, Notion Thief) was not drawn, so the next one may be (the Narset and Leovold rulings)
+    from app.rules import prohibitions
+
+    left: dict[str, list[int] | None] = {}
+
+    def allowed(ev: Event) -> bool:
+        if ev["kind"] != "draw":
+            return True
+        pid = ev["player"]
+        if pid not in left:
+            got = prohibitions.draw_left(plan, pid)
+            left[pid] = list(got) if got is not None else None
+        room = left[pid]
+        if room is None or room[0] > 0:
+            return True
+        if room[0] == 0:
+            plan.note(f"{plan.name(pid)} can't draw more than {room[1]} card{'s' if room[1] != 1 else ''} each turn", actor=pid)
+            room[0] = -1  # (noted once)
+        return False
+
+    def drawn(out: list[Event]) -> Any:
+        def add(f: Event) -> None:
+            out.append(f)
+            if f["kind"] == "draw" and (room := left.get(f["player"])) is not None:
+                room[0] -= 1
+        return add
+
+    planner.gate = allowed
     slots: list[str] = []
     marks: list[list[str]] = []  # -- replaced draws (wave 29C) -- parallel to ``slots``: the effects that changed the instruction a slot came from (121.2a)
     actions: list[tuple[Event, list[Event]]] = []
@@ -1172,11 +1205,7 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
     counts: list[tuple[Event, list[Event]]] = []  # (review 28B: the modified instructions, for the log)
     try:
         for pid in who:  # (a dict: each player's own count, wave 16B)
-            from app.rules import (
-                prohibitions,  # -- most-played cards (wave 43B) -- 101.2: "can't draw more than one card each turn"
-            )
-
-            k = prohibitions.draw_allowed(plan, pid, max(0, int(n[pid] if isinstance(n, dict) else n)))
+            k = max(0, int(n[pid] if isinstance(n, dict) else n))
             if k and count_planner.cands:  # -- replacements: draws (wave 28B) -- 121.2a: an instruction to draw N cards is modified first, 616.1g
                 cev: Event = {"kind": "draw_count", "player": pid, "n": k, "applied": list(exclude)}
                 counted_out: list[Event] = []
@@ -1196,7 +1225,7 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
             if counters & set(marks[i]):
                 ev["counted"] = True
             out: list[Event] = []
-            planner.settle(ev, sim, out.append)
+            planner.settle(ev, sim, drawn(out))
             actions.append((ev, out))
             if any(f["kind"] in ("dredge", "body") for f in out):
                 cut = i  # (-- static_other sweep (wave 16B) -- a dredge mills cards that may be dredged for the next draw: the draws after it

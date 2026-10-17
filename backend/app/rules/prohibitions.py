@@ -182,23 +182,18 @@ def search_depth(plan: Plan, searcher: str) -> int | None:
     return min(depths) if depths else None
 
 
-def draw_allowed(plan: Plan, player: str, k: int) -> int:
-    """-- most-played cards (wave 43B) -- 101.2, 121.2: how many of ``k`` cards ``player`` is told to draw they may, with "Each opponent can't draw more than one card each turn"
-    (Narset, Parter of Veils) in play: the limit less what they drew already this turn (the cards drawn before the permanent came count, the rulings). A draw not
-    allowed isn't made, so no replacement effect sees it; one that a replacement effect replaced was not drawn, which this count does not follow (it is made up front)."""
-    if not k:
-        return k
+def draw_left(plan: Plan, player: str) -> tuple[int, int] | None:
+    """-- most-played cards (wave 43B) -- 101.2, 121.2: with "Each opponent can't draw more than one card each turn" (Narset, Parter of Veils) in play, how many more
+    cards ``player`` may draw this turn and the limit (None: no limit): the limit less what they drew already this turn (the cards drawn before the permanent came
+    count, the rulings). -- review 37 -- read one draw at a time (replace.draw_cards): a draw not allowed isn't made, so no replacement effect sees it; one a replacement
+    effect replaced was not drawn and doesn't count (Narset and Leovold rulings: "if an opponent's first draw is replaced … Narset won't stop the next draw")."""
     caps = [int(d["n"]) for src, d in _statics(plan, "draw_cap") if d["who"] == "each" or src.controller != player]
-    # ponytail: the cap is applied up front, so a draw a replacement effect later replaces still uses up the allowance (no refund)
     if not caps:
-        return k
+        return None
     from app.game.rules_state import turn_log_now
 
     log = turn_log_now(plan.state)
-    allowed = max(0, min(caps) - (log.drew.get(player, 0) if log is not None else 0))
-    if allowed < k:
-        plan.note(f"{plan.name(player)} can't draw more than {min(caps)} card{'s' if min(caps) != 1 else ''} each turn", actor=player)
-    return min(k, allowed)
+    return max(0, min(caps) - (log.drew.get(player, 0) if log is not None else 0)), min(caps)
 
 
 def note_search(plan: Plan, searcher: str, owner: str) -> None:
