@@ -297,6 +297,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"players_attacked": 1}  # Food token for each player being attacked" (Apothecary White): the players some creature is attacking now (506.2, 506.6; not a player whose planeswalker or battle is attacked — Commander Liara Portyr's ruling of 2022-06-10, Suppressor Skyguard's of 2024-02-02)
     if re.fullmatch(r"times? (?:it|he|she|~|this (?:spell|creature|permanent|enchantment|artifact|land|planeswalker)) (?:was|were) kicked", what):
         return {"kicked": 1}  # (wave 23C: plural and "he"/"she"/"this permanent": 702.33d, a permanent remembers how its spell was kicked)
+    if what in ("times that spell was kicked", "time that spell was kicked"):  # -- cast keywords (wave 43D) -- Rumbling Aftershocks: the cast trigger's spell (its record, 702.33d)
+        return {"kicked": 1, "of": "cast_spell"}
     if what in ("times this creature has mutated", "times ~ has mutated", "times this permanent has mutated", "time this creature has mutated"):  # -- merged permanents (wave 18D)
         return {"mutated": 1}  # (702.140: how many spells merged with it)
     if what in ("creature it devoured", "creature ~ devoured"):  # -- keyword mechanics (wave 9D) -- 702.82b
@@ -622,6 +624,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "neg" in v:
         return 0  # a negative result of an effect is zero (107.1b); the sign is evaluate_signed's
     if "kicked" in v:
+        if v.get("of") == "cast_spell":  # -- cast keywords (wave 43D) -- "the number of times that spell was kicked" (702.33d): the spell a cast trigger is about
+            from app.rules import context
+
+            refs = context._object_refs(ctx, context.EVENT)
+            record = plan.rules.payments.get(refs[0].object_id) if refs else None
+            return record.kicked if record is not None else 0
         return kicked_count(plan, ctx)
     if "mutated" in v:  # -- merged permanents (wave 18D) --
         from app.rules import merged

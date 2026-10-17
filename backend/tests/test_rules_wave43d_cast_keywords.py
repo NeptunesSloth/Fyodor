@@ -467,6 +467,34 @@ def test_street_spasm_overloaded_hits_hexproof_creatures_and_pays_x_twice(cards)
     check(s)
 
 
+def test_counterflux_overloaded_counters_every_spell_you_dont_control_and_none_of_yours(cards):
+    """"Overload {1}{U}{U}{R}": "Counter each spell you don't control." — no target (702.96b), so Bob's two Lightning Bolts are both countered and Alice's own
+    Bolt (beneath them) still resolves."""
+    s = build(cards, ["Counterflux", "Lightning Bolt"], theirs=["Lightning Bolt", "Lightning Bolt"])
+    for pid in ("p1", "p2"):
+        act(s, pid, type="set_prefs", response="on")
+    act(s, "p2", type="set_prefs", hold_priority=True)  # (Bob casts both before Alice answers)
+    to_hand(s, "Counterflux")
+    to_hand(s, "Lightning Bolt")
+    bolts = [c for c in s.state.cards.values() if c.name == "Lightning Bolt" and c.owner == "p2"]
+    for b in bolts:
+        act(s, "p2", type="move", card_ids=[b.id], to={"zone": "hand"})
+    mana(s, "p2", R=2)
+    mana(s, R=2, U=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Lightning Bolt").id, targets=["p2"])
+    act(s, "p2", type="cast_spell", card_id=bolts[0].id, targets=["p1"])
+    act(s, "p2", type="cast_spell", card_id=bolts[1].id, targets=["p1"])
+    act(s, "p2", type="pass_priority")
+    assert s.state.rules.priority == "p1" and len(s.state.zones["stack"]) == 3
+    key = alt_key(s, "Counterflux", "overload")
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Counterflux").id, alt_cost=key)
+    s = reloaded_session(s)  # a save and a load with the overloaded Counterflux on the stack
+    until(s, lambda s: not s.state.zones.get("stack") and s.state.rules.decision is None)
+    assert life(s, "p1") == 40 and life(s, "p2") == 37  # (only Alice's Bolt resolved)
+    assert all(s.state.cards[b.id].zone == "p2:graveyard" for b in bolts)
+    check(s)
+
+
 def test_fall_of_the_titans_surge_pays_x_once_and_only_after_another_spell(cards):
     """"Surge {X}{R}" (printed {X}{X}{R}): only if another spell was cast this turn (702.117a); X = 3 costs {3}{R}, not {6}{R}."""
     s = build(cards, ["Fall of the Titans", "Lightning Bolt"])
@@ -512,6 +540,69 @@ def test_nyxborn_hydra_bestowed_with_x_gives_the_enchanted_creature_x_plus_x(car
     hydra = s.state.cards[card_named(s, "Nyxborn Hydra").id]
     assert hydra.attached_to == host.id and hydra.counters.get("+1/+1") == 2
     assert pt(s, "Bear") == (4, 4) and sum(s.state.players["p1"].mana.values()) == 0
+    check(s)
+
+
+# ---- cards that look for a kicker ability or at how often a spell was kicked (702.33) -------------------------------------------------------
+def test_murasa_sproutling_kicked_returns_a_card_with_a_kicker_ability_but_not_one_without(cards):
+    """"return target card with a kicker ability from your graveyard to your hand": Burst Lightning (kicker) and Gnarlid Pack (multikicker, "a kicker ability
+    includes the multikicker variant") are targets; a Bear isn't."""
+    s = build(cards, ["Murasa Sproutling", "Burst Lightning", "Gnarlid Pack", "Grizzly Bears"])
+    for n in ("Burst Lightning", "Gnarlid Pack", "Grizzly Bears"):
+        to_graveyard(s, n)
+    to_hand(s, "Murasa Sproutling")
+    mana(s, G=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Murasa Sproutling").id, kicker=1)
+    d = s.state.rules.decision
+    for _ in range(4):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and sorted(o.label for o in d.options) == ["Burst Lightning", "Gnarlid Pack"]
+    pick(s, next(o.id for o in d.options if o.label == "Gnarlid Pack"))
+    settle(s)
+    assert zone_of(s, "Gnarlid Pack") == "p1:hand" and zone_of(s, "Burst Lightning") == "p1:graveyard" and zone_of(s, "Grizzly Bears") == "p1:graveyard"
+    check(s)
+
+
+def test_coralhelm_chronicler_finds_a_card_with_a_kicker_ability_in_the_top_five(cards):
+    s = build(cards, ["Coralhelm Chronicler", "Burst Lightning", "Grizzly Bears", "Grizzly Bears"])
+    stack_top(s, ["Grizzly Bears", "Grizzly Bears", "Burst Lightning"])
+    to_hand(s, "Coralhelm Chronicler")
+    mana(s, U=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Coralhelm Chronicler").id)
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options]
+            burst = [o.id for o in d.options if o.label == "Burst Lightning"]
+            pick(s, *(burst or ids[: max(1, d.min_choices)]))
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert zone_of(s, "Burst Lightning") == "p1:hand"
+    check(s)
+
+
+def test_rumbling_aftershocks_deals_damage_equal_to_the_times_the_spell_was_kicked(cards):
+    """"Whenever you cast a kicked spell, you may have this enchantment deal damage to any target equal to the number of times that spell was kicked."
+    Gnarlid Pack kicked twice: 2 damage; an unkicked spell doesn't trigger it."""
+    s = build(cards, ["Rumbling Aftershocks", "Gnarlid Pack"])
+    put(s, "Rumbling Aftershocks")
+    to_hand(s, "Gnarlid Pack")
+    mana(s, G=3, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Gnarlid Pack").id, kicker=2)
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is not None:
+            pick(s, "p2" if any(o.id == "p2" for o in d.options) else "yes" if any(o.id == "yes" for o in d.options) else d.options[0].id)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert life(s, "p2") == 38 and s.state.cards[card_named(s, "Gnarlid Pack").id].counters.get("+1/+1") == 2
     check(s)
 
 
