@@ -872,3 +872,48 @@ def test_sanwell_exiles_six_and_casts_a_vehicle_or_artifact_creature_from_among_
     assert not [c for c in s.state.cards.values() if c.zone == "p1:exile"] and s.state.cards[card_named(s, "Grizzly Bears").id].zone == "p1:library"
     assert not any("Grizzly Bears" in o for options in offered for o in options)
     check(s)
+
+
+# -- shapes the promoted cards share (cards whose other lines are already read) ------------------------------------------------------------------------
+def play_out(s, declines=(), limit=40):
+    """Resolve everything; each decision is answered with its first option, but the "Don't …" option for a player in ``declines``."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            no = next((o for o in d.options if o.label.startswith("Don't")), None) if d.player in declines else None
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[(no or d.options[0]).id][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
+
+
+@pytest.mark.parametrize("bob_discards", [True, False])
+def test_borderland_explorer_each_player_who_discarded_searches_for_a_basic_land_into_their_hand(cards, bob_discards):
+    """"each player may discard a card. Each player who discarded a card this way may search their library for a basic land card, reveal it, put it into their hand, then
+    shuffle": "their hand" is the searcher's own (701.23)."""
+    s = build(cards, ["Borderland Explorer", "Grizzly Bears"], ["Lightning Bolt"])
+    explorer, bears, bolt = to_hand(s, "Borderland Explorer"), to_hand(s, "Grizzly Bears"), to_hand(s, "Lightning Bolt", "p2")
+    mana(s, "p1", G=2)
+    act(s, "p1", type="cast_spell", card_id=explorer.id)
+    play_out(s, declines=() if bob_discards else ("p2",))
+    lands = lambda pid: sorted(s.state.cards[c].name for c in s.state.zones[f"{pid}:hand"])  # noqa: E731
+    assert s.state.cards[bears.id].zone == "p1:graveyard" and lands("p1") == ["Forest"]
+    if bob_discards:
+        assert s.state.cards[bolt.id].zone == "p2:graveyard" and lands("p2") == ["Island"]
+    else:
+        assert s.state.cards[bolt.id].zone == "p2:hand" and lands("p2") == ["Lightning Bolt"]
+    check(s)
+
+
+def test_warping_wurm_grows_as_it_phases_in(cards):
+    """Phasing in is an event (702.26a): "Whenever this creature phases in, put a +1/+1 counter on it." It phases in before Alice untaps."""
+    s = build(cards, ["Warping Wurm"], [])
+    wurm = put(s, "Warping Wurm")
+    act(s, "p1", type="phase_shift", card_ids=[wurm.id], out=True)
+    assert s.state.cards[wurm.id].zone == "p1:phased"
+    finish_turn(s)
+    to_main1(s, 3)
+    assert s.state.cards[wurm.id].zone in ("p1:battlefield", "p1:phased") and s.state.cards[wurm.id].counters.get("+1/+1", 0) == 1
+    check(s)
