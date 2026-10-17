@@ -1342,7 +1342,7 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         m = None  # ("exile it" alone is the plain exile instruction, whatever "it" is: not a pick from among the cards looked at)
     if m and m["to"] == "into their hand" and not m["theyput"]:
         raise _Fail  # (wave 43B: "put it into their hand": whose hand? only the library's owner putting it is read)
-    if m and m["theyput"] and (not m["that"] or m["to"] not in ("onto the battlefield", "onto the battlefield tapped", "into their hand") or m["rest"]):
+    if m and m["theyput"] and (not m["that"] or m["to"] not in ("onto the battlefield", "onto the battlefield tapped", "into their hand", "into their graveyard") or m["rest"]):
         raise _Fail  # (wave 43B: the library's owner puts the one card looked at; a choice among several cards is not read)
     if m:
         optional = bool(m["may"] or m["mayput"] or m["theymay"] or (m["exile"] or "").startswith("you may"))
@@ -2930,8 +2930,8 @@ def _permanent_sel(phrase: str) -> str:
     """"creature", "creature or planeswalker", "nontoken artifact", "permanent" — a permanent
     selector (no player, not a card in another zone, no controller: the chooser's own)."""
     sel = selectors.parse(phrase)
-    if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.controller is not None:
-        raise _Fail
+    if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.controller is not None or any(e.startswith("ext:") for e in sel.extras):
+        raise _Fail  # (wave 49C: an extreme is among the chooser's own permanents here, not the whole table's: _GREATEST_OWN reads that)
     return sel.key()
 
 
@@ -3137,6 +3137,15 @@ def choose_value(m: re.Match[str]) -> tuple[Effects, Any]:
     return [{"do": "choose_value", "who": "you", "what": m["what"]}], None
 
 
+# -- card names (wave 49C) -- "Target player chooses a card name, then reveals the top card of their library." (Petra Sphinx, Vexing Arcanix): the target player names it as this resolves
+CHOOSE_NAME_TARGET = rf"(?P<s>target player|target opponent) chooses (?:a|an) (?P<what>{_NAME_WHAT})"
+
+
+def choose_name_target(m: re.Match[str]) -> tuple[Effects, Any]:
+    who, group = _chooser(m["s"])
+    return [{"do": "choose_value", "who": who, "what": m["what"]}], _one(group)
+
+
 def enters_choice(text: str) -> dict[str, Any] | None:
     """"As ~ enters, choose a color / a creature type / an opponent …" (614.1c: a replacement effect
     of the permanent; 614.12a: the choice is made before it enters; 603.6d: not a trigger). The
@@ -3206,7 +3215,7 @@ def _with_list(text: str, out: dict[str, Any]) -> None:
     toughness N/N", "power and toughness each equal to <value>"."""
     abilities = _QUOTED.findall(text)
     rest = _QUOTED.sub("", text)
-    rest = re.sub(r"(?:,? and |, )\s*$", "", rest.strip())
+    rest = re.sub(r"(?:,? and|,)$", "", rest.strip())  # (wave 49C: "with flying and \"…\"" leaves "flying and")
     m = re.search(r"(?:^|,? and |, )(?:base power and toughness (?P<p>\d+)/(?P<t>\d+)|"
                   r"power and toughness each equal to (?P<eq>.+))$", rest)
     if m:
@@ -3239,6 +3248,12 @@ def _with_list(text: str, out: dict[str, Any]) -> None:
         abilities.append(w[0].upper() + w[1:] + ".")
         rest = rest.replace(w, "", 1)
         rest = re.sub(r"^(?:,? and |, )|(?:,? and |, )$", "", rest.strip())
+    # -- layers (wave 49C) -- "becomes a 3/4 Gargoyle creature with flying and protection from red" (Opal Guardian): protection from a colour is a keyword
+    # ability line, granted like ward above
+    for w in re.findall(r"(?:^|,? and |, )(protection from (?:white|blue|black|red|green))(?=$|,? and |, )", rest):
+        abilities.append(w[0].upper() + w[1:] + ".")
+        rest = rest.replace(w, "", 1)
+        rest = re.sub(r"^(?:,? and|,)\s*|\s*(?:,? and|,)$", "", rest.strip()).strip()
     if rest:
         out["keywords"] = _animation_keywords(rest)
     if abilities:

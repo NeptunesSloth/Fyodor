@@ -812,9 +812,11 @@ def pump(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # (a literal keeps its sign: values.evaluate reads a *count*, never negative, 107.1b)
         p = e["p"] if isinstance(e["p"], int) else values.evaluate_signed(plan, ctx, e["p"])
         t = e["t"] if isinstance(e["t"], int) else values.evaluate_signed(plan, ctx, e["t"])
+        combat = e.get("duration") == "end_of_combat"  # -- durations (wave 49C) -- "until end of combat" (500.5a, 511.2: combat.end_combat)
         layers.add_effect(plan, affected=affected, layer="7c", source=ctx.get("source_object"), controller=ctx["controller"],
-                          power=p, toughness=t, label=f"{_stat_label(p)}/{_stat_label(t)} until end of turn ({ctx.get('name', '')})")
-        _mark(plan, _cards(plan, ctx, e["who"]), f"{_stat_label(p)}/{_stat_label(t)}")
+                          power=p, toughness=t, duration="end_of_combat" if combat else "end_of_turn",
+                          label=f"{_stat_label(p)}/{_stat_label(t)} {'this combat' if combat else 'until end of turn'} ({ctx.get('name', '')})")
+        _mark(plan, _cards(plan, ctx, e["who"]), f"{_stat_label(p)}/{_stat_label(t)}", text="this combat" if combat else "until end of turn")
     return True
 
 
@@ -841,14 +843,14 @@ def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if cards and (keywords or removed or abilities):
         words = [*keywords, *(f"loses {k}" for k in removed), *(f'"{a}"' for a in abilities)]
         duration = e.get("duration", "end_of_turn")
-        when = "until end of turn" if duration == "end_of_turn" else "for the rest of the game"
+        when = {"end_of_turn": "until end of turn", "end_of_combat": "this combat"}.get(duration, "for the rest of the game")  # (wave 49C: end_of_combat)
         layers.add_effect(plan, affected=[plan.oid(c) for c in cards], layer="6", source=ctx.get("source_object"),
                           controller=ctx["controller"], add_keywords=tuple(keywords), remove_keywords=tuple(removed),
                           duration=duration, label=f"{', '.join(words)} {when}", add_abilities=abilities)
         marker = ", ".join([*(k.capitalize() for k in keywords), *(f"No {k}" for k in removed),
                             *(f'Gains "{a}"' for a in abilities)])
         _mark(plan, cards, marker, value="Ability" if abilities and not (keywords or removed) else None,
-              text="until end of turn" if duration == "end_of_turn" else "as long as it's on the battlefield")
+              text={"end_of_turn": "until end of turn", "end_of_combat": "this combat"}.get(duration, "as long as it's on the battlefield"))
     return True
 
 
@@ -3416,7 +3418,7 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
                     "event": entry.event.model_dump(mode="json") if entry.event is not None else None}
     attacker = selectors.attacker_of(entry.event)  # (508.5: "defending player" of an attack trigger)
     if entry.slot_specs:  # a modal spell: each mode's target is checked on its own (608.2b)
-        src = source_of(plan, entry.source_card)
+        src = source_of(plan, entry.source_card, entry.kind == "spell")
         slots, targeted, legal_any = [], False, False
         for refs, sspec in zip(entry.slots, entry.slot_specs, strict=False):
             ok = [t for t in refs if sspec and still_legal(plan, sspec["what"], entry.controller, t, src, entry.source_card, attacker)]
@@ -3430,7 +3432,7 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
         ctx["slots"] = slots
         ctx["targets"] = []
     if entry.group_specs:  # target groups: every target is checked on its own (608.2b)
-        src = source_of(plan, entry.source_card)
+        src = source_of(plan, entry.source_card, entry.kind == "spell")
         groups: list[list[dict[str, Any] | None]] = []
         for refs, gspec in zip(entry.groups, entry.group_specs, strict=False):
             # an illegal target keeps its place (None), so the division stays as announced (115.7f)
@@ -3448,7 +3450,7 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
         ctx["targets"] = [t for t in groups[0] if t] if groups else []
     spec = entry.target_spec
     if spec and entry.targets:
-        src = source_of(plan, entry.source_card)
+        src = source_of(plan, entry.source_card, entry.kind == "spell")  # (wave 49C: 115.2)
         legal = [t for t in entry.targets if still_legal(plan, spec["what"], entry.controller, t, src, entry.source_card, attacker)]
         if not legal:
             plan.note(f"{entry.name or 'It'} does nothing: its target is no longer legal")
@@ -3930,7 +3932,10 @@ def choose_value(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True  # (no opponent left to choose: 800.4)
     src = plan.state.cards.get(ctx.get("source_card") or "")
     article = "an" if e["what"][0] in "aeiou" else "a"
-    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name', '') or 'Choose'}: choose {article} {e['what']}",
+    chooser = _players(plan, ctx, e["who"])  # -- card names (wave 49C) -- "Target player chooses a card name": the target player (a target who left the game chooses nothing, 800.4)
+    if not chooser:
+        return True
+    decide(plan, player=chooser[0], kind="choose_one", prompt=f"{ctx.get('name', '') or 'Choose'}: choose {article} {e['what']}",
            options=options, resume={"step": "choose_value", "ctx": ctx, "e": e}, source=src)
     return False
 
@@ -4149,7 +4154,7 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-_MARKER_TEXT = {"end_of_turn": "until end of turn", "next_turn": delayed.LABELS["next_turn"]}
+_MARKER_TEXT = {"end_of_turn": "until end of turn", "next_turn": delayed.LABELS["next_turn"], "end_of_combat": "this combat"}  # (wave 49C: end_of_combat)
 _COLOR_WORDS = {"W": "white", "U": "blue", "B": "black", "R": "red", "G": "green"}
 
 

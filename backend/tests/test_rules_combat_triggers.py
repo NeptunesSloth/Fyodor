@@ -80,7 +80,6 @@ def test_parse(cond, expected):
 
 
 @pytest.mark.parametrize("cond", [
-    "~ attacks a battle",  # (310: battles aren't modelled)
     "~ deals combat damage to a battle",
     "~ attacks while you control a foo",
 ])

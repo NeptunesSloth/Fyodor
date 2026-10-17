@@ -983,6 +983,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
     """Whom the attack was declared against (508.3a, 508.3e, 508.6): ``defended`` is the defending
     player (a planeswalker's controller), ``direct`` whether it was that player (not a planeswalker)."""
     defended, you = info.get("defended"), watcher.controller
+    if want == "battle":  # -- triggers (wave 49C) -- "attacks a battle": the attack's recipient is a battle (310.5)
+        return bool(info.get("battle"))
     if defended is None or (info.get("battle") and want in ("you_or_pw", "opponent_or_pw")):
         return False  # (-- review 34 -- 310.5, 508.5: a creature attacking a battle attacks no player and no planeswalker, Gahiji / Frontier Warmonger)
     if want == "you_or_pw":  # "attacks you or a planeswalker you control"

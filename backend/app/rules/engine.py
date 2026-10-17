@@ -82,7 +82,7 @@ from app.rules import (
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.leave import leave_game
 from app.rules.plan import Plan, decide, require_no_decision, require_priority
-from app.rules.targets import still_legal
+from app.rules.targets import as_spell, still_legal
 
 MAIN_PHASES = ("main1", "main2")
 
@@ -943,12 +943,12 @@ def resolve_top_of_stack(plan: Plan) -> None:
         or ("Aura" in ch.subtypes and aura_target is None)
     if aura_target is not None and not manual:
         selector = attachments.enchant_selector(ch)
-        if (selector is None or not still_legal(plan, selector, controller, aura_target, ch)) and bestow.is_bestowed(plan.state, top):
+        if (selector is None or not still_legal(plan, selector, controller, aura_target, as_spell(ch))) and bestow.is_bestowed(plan.state, top):
             bestow.cease(plan, top, "its target is illegal")  # -- keywords (wave 15E) -- 702.103e: it resolves as a creature spell
             aura_target = None
             ch = plan.ch(top)
             manual = ch.is_instant_or_sorcery or ch.is_ability or needs_manual_resolution(ch) or plan.manual(top)
-        elif selector is None or not still_legal(plan, selector, controller, aura_target, ch):
+        elif selector is None or not still_legal(plan, selector, controller, aura_target, as_spell(ch)):
             # 608.2b / 303.4g: its target is illegal: it doesn't resolve and goes to the graveyard
             plan.note(f"{ch.name or 'The Aura'} does nothing: its target is no longer legal")
             plan.do({"type": "move", "card_ids": [top_id], "to": {"player": top.owner, "zone": "graveyard"}}, actor=controller)
