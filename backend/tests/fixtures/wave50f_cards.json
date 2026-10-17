@@ -297,5 +297,64 @@
   "keywords": [
    "Proliferate"
   ]
+ },
+ {
+  "name": "Lim-Dûl the Necromancer",
+  "layout": "normal",
+  "mana_cost": "{5}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "Whenever a creature an opponent controls dies, you may pay {1}{B}. If you do, return that card to the battlefield under your control. If it's a creature, it's a Zombie in addition to its other creature types.\n{1}{B}: Regenerate target Zombie.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Regenerate"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Rubblebelt Braggart",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Creature — Lizard Warrior",
+  "oracle_text": "Whenever this creature attacks, if it's not suspected, you may suspect it. (A suspected creature has menace and can't block.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Suspect"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Retriever Phoenix",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Phoenix",
+  "oracle_text": "Flying, haste\nWhen this creature enters, if you cast it, learn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.)\nAs long as this card is in your graveyard, if you would learn, you may instead return this card to the battlefield.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying",
+   "Haste",
+   "Learn"
+  ],
+  "power": "2",
+  "toughness": "2"
  }
 ]

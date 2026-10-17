@@ -31,7 +31,8 @@ from tests.test_rules_wave34b_activated import activate, attack, next_turn, stop
 from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave50f_cards.json").read_text("utf-8"))
-KNOWN = {c["name"] for c in fixture_cards()}
+OVERRIDE = {"Lim-Dûl the Necromancer"}  # (the shared fixture has no Oracle text for it)
+KNOWN = {c["name"] for c in fixture_cards()} - OVERRIDE
 EXTRA = [card(c["name"], set_code="w50f", number=f"F{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 
@@ -39,13 +40,13 @@ EXTRA = [card(c["name"], set_code="w50f", number=f"F{i:02d}", **{k: v for k, v i
 @pytest.fixture()
 def cards(settings):
     settings.ensure_dirs()
-    build_database([*fixture_cards(), *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database([*(c for c in fixture_cards() if c["name"] not in OVERRIDE), *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
     repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
     yield repo
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["The Balrog of Moria", "Elektra, Femme Fatale", "Invisible Woman", "The Motherlode, Excavator", "Lich's Relic", "Tasha, the Witch Queen", "Sepulchral Primordial", "Sorin, Vengeful Bloodlord", "Chainer, Dementia Master", "Spider-Man, To the Rescue", "Ian the Reckless", "Tekuthal, Inquiry Dominus"])
+@pytest.mark.parametrize("name", ["The Balrog of Moria", "Elektra, Femme Fatale", "Invisible Woman", "The Motherlode, Excavator", "Lich's Relic", "Tasha, the Witch Queen", "Sepulchral Primordial", "Sorin, Vengeful Bloodlord", "Chainer, Dementia Master", "Spider-Man, To the Rescue", "Ian the Reckless", "Tekuthal, Inquiry Dominus", "Lim-Dûl the Necromancer", "Rubblebelt Braggart"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -375,6 +376,47 @@ def test_one_proliferate_without_tekuthal(cards):
     cast_from_hand(s, "Steady Progress", U=1, G=2)
     settle(s)
     assert s.state.cards[bears.id].counters.get("+1/+1") == 2
+    check(s)
+
+
+def test_lim_dul_returns_an_opponents_dead_creature_as_a_zombie(cards):
+    s = build(cards, ["Lim-Dûl the Necromancer", "Murder"], ["Grizzly Bears"])
+    put(s, "Lim-Dûl the Necromancer")
+    bears = put(s, "Grizzly Bears", "p2")
+    to_hand(s, "Murder")
+    mana(s, B=3, G=2)  # Murder {1}{B}{B}, and the {1}{B} for Lim-Dûl (the trigger resolves right after the spell)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Murder").id, targets=[bears.id])
+    settle(s, answer="pay")
+    got = s.state.cards[bears.id]
+    assert got.zone == "p1:battlefield" and "Zombie" in chars(s, got).subtypes and "Bear" in chars(s, got).subtypes
+    check(s)
+
+
+def test_lim_dul_declined_leaves_the_creature_in_the_graveyard(cards):
+    s = build(cards, ["Lim-Dûl the Necromancer", "Murder"], ["Grizzly Bears"])
+    put(s, "Lim-Dûl the Necromancer")
+    bears = put(s, "Grizzly Bears", "p2")
+    to_hand(s, "Murder")
+    mana(s, B=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Murder").id, targets=[bears.id])
+    settle(s, answer="decline")
+    assert s.state.cards[bears.id].zone == "p2:graveyard"
+    check(s)
+
+
+def test_rubblebelt_braggart_suspects_itself_only_if_it_is_not_suspected(cards):
+    s = build(cards, ["Rubblebelt Braggart"], [])
+    stops(s)
+    braggart = put(s, "Rubblebelt Braggart")
+    next_turn(s)
+    attack(s, braggart)
+    settle(s, answer="yes")
+    assert Plan(s.state, "p1", s.cards, None).oid(s.state.cards[braggart.id]) in s.state.rules.suspected  # 701.60
+    check(s)
+    to_phase(s, "end")
+    next_turn(s)
+    attack(s, braggart)  # already suspected: "if it's not suspected" fails, nothing triggers (603.4)
+    assert not s.state.zones.get("stack") and s.state.rules.decision is None
     check(s)
 
 
