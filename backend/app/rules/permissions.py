@@ -73,6 +73,7 @@ ABILITY_COST = re.compile(
 EQUIP_COST = re.compile(
     rf"^equip (?:abilities you activate(?P<other> of other equipment)?|costs you pay) costs? {_N} (?P<dir>less|more)(?: to activate)?$",
     re.IGNORECASE)
+POWER_UP_COST = re.compile(rf"^power-up abilities of (?P<sel>other creatures you control) cost {_N} less to activate$", re.IGNORECASE)
 # An effect's cost modifier with a duration (611.2a): "Artifact, instant, and sorcery spells you cast this turn cost {2}
 # less to cast." (Urza, Planeswalker) / "Until your next turn, instant and sorcery spells you cast cost {1} less to cast."
 # (Ral, Leyline Prodigy)
@@ -668,6 +669,11 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         return {"kind": "static", "static": "ability_cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1),
                 "filter": other.key() if m["other"] and (other := selectors.parse("other Equipment")) else None, "who": "you", "floor": False,
                 "equip": True, "effects": [], **({"target_self": True} if tgt else {})}
+    m = POWER_UP_COST.fullmatch(tt)
+    if m and (pu := selectors.parse(m["sel"])) is not None and pu.other and pu.controller == "you":
+        # -- power-up (wave 50J) -- "Power-up abilities of other creatures you control cost {3} less to activate." (Hulk, Gamma Goliath): after the reduction by the
+        # permanent's own mana cost (702.193a), on the generic component (118.7a)
+        return {"kind": "static", "static": "ability_cost_modifier", "delta": -int(m["n"]), "filter": pu.key(), "who": "you", "floor": False, "power_up": True, "effects": []}
     m = ABILITY_COST.fullmatch(tt)
     if m:  # -- costs (wave 3$) -- the source permanent is matched at the cost, relative to the ability's controller
         key = None
@@ -1507,6 +1513,8 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
         if d["who"] == "you" and src.controller != player:
             continue
         if d.get("equip") and not attachments.is_equip_text(ability_text):  # -- equip (wave 15E) --
+            continue
+        if d.get("power_up") and not ability_text.startswith("Power-up — "):  # (wave 50J)
             continue
         if d.get("target_self") and (target is None or target not in ("?", src.id) or (target == "?" and d["delta"] > 0)):
             continue  # -- most-played cards III (wave 46C) -- only for an ability that targets the source ("?": not chosen yet, the best case for a reduction)

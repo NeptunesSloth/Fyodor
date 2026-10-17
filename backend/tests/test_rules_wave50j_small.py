@@ -71,7 +71,7 @@ def combat(s):
                                   "Kaima, the Fractured Calm", "Havoc Eater", "Pia Nalaar, Chief Mechanic", "Rampaging Aetherhood", "Sensei Golden-Tail", "Kathril, Aspect Warper",
                                   "Concerted Effort", "Thunderous Orator", "Wonder Man, Hollywood Hero", "Kang the Conqueror",
                                   "Thanos, the Mad Titan", "Extinction Event", "Gollum, Riddle Master",
-                                  "Satya, Aetherflux Genius"])
+                                  "Satya, Aetherflux Genius", "Hulk, Gamma Goliath"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -266,6 +266,21 @@ def test_kang_takes_an_extra_turn_in_which_no_power_up_ability_can_be_activated(
     activate(s, "p1", snake)
     settle(s)
     assert counters(s, "Serpent Specialist") == {"+1/+1": 2}
+    check(s)
+
+
+def test_hulk_makes_the_power_up_abilities_of_other_creatures_cost_three_less(cards):
+    s = build(cards, mine=["Hulk, Gamma Goliath", "Serpent Specialist"])
+    hulk = put(s, "Hulk, Gamma Goliath")
+    snake = put(s, "Serpent Specialist")
+    next_turn(s)
+    mana(s, G=1)  # (Power-up — {3}{G}, three less)
+    activate(s, "p1", snake)
+    settle(s)
+    assert counters(s, "Serpent Specialist") == {"+1/+1": 2}
+    mana(s, R=1, G=1)
+    with pytest.raises(ActionError, match="Not enough mana"):
+        activate(s, "p1", hulk)  # (his own is not "other": {6}{R}{G})
     check(s)
 
 

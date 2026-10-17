@@ -539,5 +539,28 @@
   ],
   "power": "3",
   "toughness": "5"
+ },
+ {
+  "name": "Hulk, Gamma Goliath",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Gamma Berserker Hero",
+  "oracle_text": "Reach, trample\nPower-up abilities of other creatures you control cost {3} less to activate.\nPower-up — {6}{R}{G}: Put five +1/+1 counters on Hulk. (Activate each power-up ability only once. Reduce the cost by his mana cost if he entered this turn.)",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Power-up",
+   "Reach",
+   "Trample"
+  ],
+  "power": "6",
+  "toughness": "5"
  }
 ]
