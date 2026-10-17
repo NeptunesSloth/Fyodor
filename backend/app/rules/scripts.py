@@ -720,6 +720,12 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         return any(g.get("do") == "only_if" and g_i < k <= g_i + int(g.get("skip", 0)) < index
                    for g_i, g in enumerate(out[:index]))
 
+    def in_alt_branch(index: int) -> bool:
+        """-- if you do (wave 44A) -- Is effect ``index`` in the "instead" / "Otherwise" branch (the gate on the flag of a condition just judged)? Only one of the two
+        branches happens (608.2c): what the other one moved or chose is no antecedent of its "it" ("put a +1/+1 counter on it. If it's a Unicorn, put two … on it instead")."""
+        return any(g.get("do") == "only_if" and (g.get("cond") or {}).get("flag") is not None and g["cond"].get("negate") and g_i < index <= g_i + int(g.get("skip", 0))
+                   for g_i, g in enumerate(out[:index]))
+
     def objects(index: int, number: int | None, verb: str | None, skip_gated: bool = False) -> _Introducer | None:
         if verb == "card" and _exiled_with.linked() and effects and effects[0].get("do") == "linked_cards":
             # -- hideaway (wave 29D) -- 607.2a: in an ability that only refers to what another exiled, "the exiled card" ("that card" once the
@@ -830,7 +836,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     if intro is None:
                         return None
                 else:
-                    intro = objects(index, 1 if pronoun == "it" else 2, verb or None)
+                    intro = objects(index, 1 if pronoun == "it" else 2, verb or None, skip_gated=in_alt_branch(index))
                 if e.get("do") in ("grant_play", "free_cast", "look_exiled", "plotted") and (
                         intro is None or (intro.do not in _MOVERS and not _exiles_countered(out[intro.index]))):
                     # "You may play that card this turn": only what an earlier instruction of this
@@ -6756,7 +6762,7 @@ def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: 
 
         outer = None  # "If C1, X. If C2, Y instead." with C2 holding only when C1 does: Y replaces X inside C1's gate
         if (len(base) > 1 and base[0]["do"] == "only_if" and not base[0].get("bind") and base[0].get("skip") == len(base) - 1
-                and kicked_instead.implies(cond, base[0]["cond"])):
+                and (kicked_instead.implies(cond, base[0]["cond"]) or set(base[0]["cond"]) == {"succeeded"})):  # (wave 44A: "If you do, X. If C, Y instead.": Y replaces X, so it too needs the payment, 614.1)
             outer, base = base[0], base[1:]
             prev_start += 1
         rest = kicked_instead.plain_pronoun(rest)

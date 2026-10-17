@@ -182,7 +182,7 @@ _BEATS_SELF = re.compile(r"(?P<who>it|that creature) has greater (?P<a>power|tou
 _LESS_SELF = re.compile(r"(?:its|that creature's) power is less than ~'s(?: power)?")
 # -- static_other sweep (wave 17C) -- 608.2h: "If you controlled that permanent" (Boomerang Basics): the controller it had, as it is
 # or as it last existed
-_CONTROLLED = re.compile(r"you (?:(?P<neg>didn't|did not) control|controlled) (?:it|that (?:creature|permanent|card|land|token|artifact|enchantment|planeswalker))")
+_CONTROLLED = re.compile(r"you (?:(?P<neg>didn't|did not|don't|do not) control|control(?:led)?) (?:it|that (?:creature|permanent|card|land|token|artifact|enchantment|planeswalker))")
 _STATES = {"tapped": "tapped", "untapped": "untapped", "attacking": "attacking", "blocking": "blocking",
            "attached to a creature": "attached_to",  # (-- casting extras (wave 18E) -- reconfigure 702.151a: the source's own state)
            "suspected": "suspected", "prepared": "prepared"}  # (prepared: wave 13C, 722.3; suspected: wave 12A, 701.60 — a designation of the source, like its other states)
