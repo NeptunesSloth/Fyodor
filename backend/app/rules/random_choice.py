@@ -198,6 +198,8 @@ def choose_random(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         plan.note(f"{ctx.get('name') or 'It'}: {plan.name(pick)} is chosen at random", actor=me)
     if e.get("as"):
         context.bind_players(ctx, e["as"], [pick] if pick is not None else [])
+    if e.get("did"):  # ("When you do, …": the pick was made)
+        context.bind_payment(ctx, e["did"], pick is not None)
     if pick is not None and e.get("pw") and (walkers := _planeswalkers(plan, pick)):
         decide(plan, player=me, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose {plan.name(pick)} or a planeswalker they control",
                options=[DecisionOption(id=pick, label=plan.name(pick)),

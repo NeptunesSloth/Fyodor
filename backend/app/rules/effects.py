@@ -3305,6 +3305,10 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             from app.game.rules_state import TriggerEvent
 
             event = TriggerEvent.model_validate(ctx["event"])
+        if e.get("players_from"):  # -- random choices (wave 47B) -- "Choose a player at random. When you do, … target creature that player controls" (Strax): the pick is the event's player
+            from app.game.rules_state import TriggerEvent
+
+            event = TriggerEvent(kind="reflexive", players=context.players(plan, ctx, e["players_from"]))
         if e.get("x_from"):  # -- if you do (wave 25C) -- "you may pay {X}. When you do, …": the X paid is the reflexive ability's amount
             from app.game.rules_state import TriggerEvent
             from app.rules import paid_x

@@ -18,7 +18,7 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_conditionals import until
-from tests.test_rules_wave34b_activated import ask, settle
+from tests.test_rules_wave34b_activated import activate, ask, settle
 from tests.wave9c_kit import card_named, check, mana, put, to_hand
 from tests.wave47b_kit import FULL, build3, cast, life, open_cards, pin_random
 
@@ -113,6 +113,37 @@ def test_zaffai_deals_10_to_one_opponent_at_random_only_for_a_spell_of_mana_valu
     assert life(s, "p3") == 40 - damage and life(s, "p2") == 40
     log = json.dumps(s.view("p2")["log"])
     assert ("Carol is chosen at random" in log) is bool(damage)  # (nothing is picked when the condition fails)
+    check(s)
+
+
+# -- "Choose a player at random. When you do, Strax fights another target creature that player controls." ------------------------------------------
+def strax_table(cards, monkeypatch, index):
+    pin_random(monkeypatch, index)
+    s = build3(cards, ["Strax, Sontaran Nurse", "Sol Ring"], bobs=["Grizzly Bears"], carols=["Hill Giant"])
+    strax, ring = put(s, "Strax, Sontaran Nurse"), put(s, "Sol Ring")
+    bears, hill = put(s, "Grizzly Bears", "p2"), put(s, "Hill Giant", "p3")
+    until(s, lambda s: s.state.turn.number == 4 and s.state.turn.phase == "main1" and s.state.rules.decision is None)  # (no summoning sickness)
+    mana(s, C=2)
+    activate(s, "p1", strax, "Choose a player at random")
+    return s, strax, bears, hill
+
+
+def test_strax_fights_a_creature_of_the_player_chosen_at_random_and_no_other(cards, monkeypatch):
+    s, strax, bears, hill = strax_table(cards, monkeypatch, -1)  # Carol
+    d = s.state.rules.decision  # the reflexive ability's target: only Carol's creatures are legal
+    if d is not None and d.kind != "confirm":
+        assert [o.id for o in d.options] == [hill.id]
+    settle(s)
+    assert s.state.cards[hill.id].zone == "p3:graveyard" and s.state.cards[bears.id].zone == "p2:battlefield"  # 5 damage to a 3/3; Bob's creature untouched
+    assert s.state.cards[strax.id].damage == 3 and s.state.cards[strax.id].counters.get("+1/+1") == 1  # Glory of Battle
+    assert "Carol is chosen at random" in json.dumps(s.view("p2")["log"])
+    check(s)
+
+
+def test_strax_with_the_player_chosen_having_no_other_creature_fights_nothing(cards, monkeypatch):
+    s, strax, bears, hill = strax_table(cards, monkeypatch, 0)  # Alice herself: Strax is her only creature
+    settle(s)
+    assert (s.state.cards[bears.id].zone, s.state.cards[hill.id].zone) == ("p2:battlefield", "p3:battlefield") and s.state.cards[strax.id].damage == 0
     check(s)
 
 
