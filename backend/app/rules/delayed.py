@@ -81,7 +81,8 @@ WHEN_RE = "|".join(re.escape(k) for k in sorted(WHEN, key=len, reverse=True))
 # "when that creature dies / leaves the battlefield this turn": the object an earlier part named
 EVENT_SUBJECTS = ("it", "that creature", "that permanent", "that token", "that card", "~", "this creature",
                   "target creature", "target creature other than ~", "target permanent")  # (wave 35B: Adarkar Valkyrie)
-EVENT_VERBS = {"dies": "die", "leaves the battlefield": "leave", "is put into a graveyard": "die"}
+EVENT_VERBS = {"dies": "die", "leaves the battlefield": "leave", "is put into a graveyard": "die",
+               "is put into your graveyard": "die"}  # (-- this-turn state (wave 42B) -- Saffi: into ITS OWNER's graveyard, who is you: ``owner``)
 EVENT_RE = "|".join(re.escape(k) for k in sorted(EVENT_VERBS, key=len, reverse=True))
 
 # -- the wording of durations --------------------------------------------------------------------
@@ -275,7 +276,8 @@ def describe_when(when: dict[str, Any]) -> str:
     if when["kind"] == "event":
         if when["event"] == "die_or_exile":  # -- wave 3F -- (earthbend: no "this turn")
             return "when it dies or is put into exile"
-        return "when it " + ("dies" if when["event"] == "die" else "leaves the battlefield") + (" under your control" if when.get("ctl") else "") + ("" if when.get("open") else " this turn")
+        return "when it " + ("is put into your graveyard" if when.get("owner") else "dies" if when["event"] == "die" else "leaves the battlefield") + (
+            " under your control" if when.get("ctl") else "") + ("" if when.get("open") else " this turn")
     if when.get("step") == "end_combat":  # -- other side (wave 6D) --
         return "at end of combat"
     whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's", "owner": "its owner's next"}[when["whose"]]
@@ -371,6 +373,8 @@ def on_events(plan: Plan, events: list[Event]) -> None:
                 continue
             if t.when.get("ctl") and snap.controller != t.controller:
                 continue  # -- long tail (wave 16D) -- "dies under your control": who controlled it as it died (603.10a)
+            if t.when.get("owner") and snap.owner != t.controller:
+                continue  # -- this-turn state (wave 42B) -- "is put into your graveyard" (Saffi): a card goes to its owner's graveyard (400.3)
             if t.when["event"] == "die_or_exile" and not (died or _zone(e.to_zone) == "exile"):
                 continue  # -- keyword actions & face-down (wave 3F) -- earthbend's "dies or is put into exile" (701.66a)
             kind = "die" if t.when["event"] in ("die", "die_or_exile") and died else "leave"
@@ -633,7 +637,7 @@ def event_when(m: re.Match[str]) -> tuple[dict[str, Any], str]:
     """("when that creature dies this turn" → its trigger, the subject as a who-placeholder for
     scripts.resolve_it: "it" for a pronoun, "self" for ~, "target" for a target)."""
     subject = m["subject"]
-    when = {"kind": "event", "event": EVENT_VERBS[m["verb"]], **({"ctl": "you"} if m["ctl"] else {}),
+    when = {"kind": "event", "event": EVENT_VERBS[m["verb"]], **({"ctl": "you"} if m["ctl"] else {}), **({"owner": "you"} if "your graveyard" in m["verb"] else {}),
             **({} if m["turn"] else {"open": True})}  # (16D: "dies under your control"; 18A: no "this turn": for as long as it takes)
     if subject in ("~", "this creature"):
         return when, "self"

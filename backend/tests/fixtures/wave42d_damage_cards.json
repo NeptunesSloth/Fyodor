@@ -1,0 +1,392 @@
+[
+ {
+  "name": "Bolg of the North",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Goblin Soldier",
+  "oracle_text": "When Bolg enters, you may sacrifice another creature. When you do, Bolg deals damage equal to that creature's power to another target creature. If excess damage was dealt this way, amass Goblins X, where X is that excess damage. (Put X +1/+1 counters on an Army you control. It's also a Goblin. If you don't control an Army, create a 0/0 black Goblin Army creature token first.)",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Amass"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Vincent, Vengeful Atoner",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Assassin",
+  "oracle_text": "Menace\nWhenever one or more creatures you control deal combat damage to a player, put a +1/+1 counter on Vincent.\nChaos — Whenever Vincent deals combat damage to an opponent, it deals that much damage to each other opponent if Vincent's power is 7 or greater.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Chaos",
+   "Menace"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Daredevil, Fearless Fighter",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Hero",
+  "oracle_text": "Whenever a source you control deals damage to you, Daredevil deals that much damage to target opponent.\nWhenever Daredevil attacks, exile the top card of your library. Daredevil deals damage to you equal to that card's mana value. You may play it this turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Dong Zhou, the Tyrant",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Soldier",
+  "oracle_text": "When Dong Zhou enters, target creature an opponent controls deals damage equal to its power to that player.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Polukranos, World Eater",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Hydra",
+  "oracle_text": "{X}{X}{G}: Monstrosity X. (If this creature isn't monstrous, put X +1/+1 counters on it and it becomes monstrous.)\nWhen Polukranos becomes monstrous, it deals X damage divided as you choose among any number of target creatures your opponents control. Each of those creatures deals damage equal to its power to Polukranos.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Monstrosity"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Ayara, Widow of the Realm // Ayara, Furnace Queen",
+  "layout": "transform",
+  "mana_cost": "{1}{B}{B} // ",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Elf Noble // Legendary Creature — Phyrexian Elf Noble",
+  "oracle_text": "{T}, Sacrifice another creature or artifact: Ayara deals X damage to target opponent or battle and you gain X life, where X is the sacrificed permanent's mana value.\n{5}{R/P}: Transform Ayara. Activate only as a sorcery. ({R/P} can be paid with either {R} or 2 life.)\n//\nAt the beginning of combat on your turn, return up to one target artifact or creature card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "power": "3",
+  "toughness": "3",
+  "card_faces": [
+   {
+    "name": "Ayara, Widow of the Realm",
+    "mana_cost": "{1}{B}{B}",
+    "type_line": "Legendary Creature — Elf Noble",
+    "oracle_text": "{T}, Sacrifice another creature or artifact: Ayara deals X damage to target opponent or battle and you gain X life, where X is the sacrificed permanent's mana value.\n{5}{R/P}: Transform Ayara. Activate only as a sorcery. ({R/P} can be paid with either {R} or 2 life.)",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+     "B"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/9/9/99b2647f-e509-49c5-9dbd-d56fe0eda98d.jpg?1783916924",
+     "normal": "https://cards.scryfall.io/normal/front/9/9/99b2647f-e509-49c5-9dbd-d56fe0eda98d.jpg?1783916924",
+     "large": "https://cards.scryfall.io/large/front/9/9/99b2647f-e509-49c5-9dbd-d56fe0eda98d.jpg?1783916924",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/9/9/99b2647f-e509-49c5-9dbd-d56fe0eda98d.jpg?1783916924"
+    }
+   },
+   {
+    "name": "Ayara, Furnace Queen",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Phyrexian Elf Noble",
+    "oracle_text": "At the beginning of combat on your turn, return up to one target artifact or creature card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+     "B",
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/9/9/99b2647f-e509-49c5-9dbd-d56fe0eda98d.jpg?1783916924",
+     "normal": "https://cards.scryfall.io/normal/back/9/9/99b2647f-e509-49c5-9dbd-d56fe0eda98d.jpg?1783916924",
+     "large": "https://cards.scryfall.io/large/back/9/9/99b2647f-e509-49c5-9dbd-d56fe0eda98d.jpg?1783916924",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/9/9/99b2647f-e509-49c5-9dbd-d56fe0eda98d.jpg?1783916924"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Onakke Javelineer",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Creature — Ogre Spirit",
+  "oracle_text": "Reach\n{T}: This creature deals 2 damage to target player or battle.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Reach"
+  ],
+  "power": "5",
+  "toughness": "4"
+ },
+ {
+  "name": "Shielded Passage",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Prevent all damage that would be dealt to target creature this turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Invasion of Zendikar // Awakened Skyclave",
+  "layout": "transform",
+  "mana_cost": "{3}{G} // ",
+  "cmc": 4.0,
+  "type_line": "Battle — Siege // Creature — Elemental",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.\n//\nVigilance, haste\nAs long as this creature is on the battlefield, it's a land in addition to its other types.\n{T}: Add one mana of any color.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Vigilance",
+   "Transform",
+   "Haste"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Zendikar",
+    "mana_cost": "{3}{G}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.",
+    "defense": "3",
+    "colors": [
+     "G"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+     "normal": "https://cards.scryfall.io/normal/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+     "large": "https://cards.scryfall.io/large/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973"
+    }
+   },
+   {
+    "name": "Awakened Skyclave",
+    "mana_cost": "",
+    "type_line": "Creature — Elemental",
+    "oracle_text": "Vigilance, haste\nAs long as this creature is on the battlefield, it's a land in addition to its other types.\n{T}: Add one mana of any color.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+     "G"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+     "normal": "https://cards.scryfall.io/normal/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+     "large": "https://cards.scryfall.io/large/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Living Inferno",
+  "layout": "normal",
+  "mana_cost": "{6}{R}{R}",
+  "cmc": 8.0,
+  "type_line": "Creature — Elemental",
+  "oracle_text": "{T}: This creature deals damage equal to its power divided as you choose among any number of target creatures. Each of those creatures deals damage equal to its power to this creature.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "8",
+  "toughness": "5"
+ },
+ {
+  "name": "Tellah, Great Sage",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "Whenever you cast a noncreature spell, create a 1/1 colorless Hero creature token. If four or more mana was spent to cast that spell, draw two cards. If eight or more mana was spent to cast that spell, sacrifice Tellah and it deals that much damage to each opponent.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Ian the Reckless",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Warrior",
+  "oracle_text": "Whenever Ian the Reckless attacks, if it's modified, you may have it deal damage equal to its power to you and any target. (Equipment, Auras you control, and counters are modifications.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Iron Fist, Living Weapon",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Warrior Hero",
+  "oracle_text": "Whenever you cast a spell that targets a creature you control, Iron Fist gains \"{T}: Iron Fist deals damage equal to his power to any other target\" until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Imodane, the Pyrohammer",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Knight",
+  "oracle_text": "Whenever an instant or sorcery spell you control that targets only a single creature deals damage to that creature, Imodane deals that much damage to each opponent.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "The Lord of Pain",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Assassin",
+  "oracle_text": "Menace\nYour opponents can't gain life.\nWhenever a player casts their first spell each turn, choose another target player. The Lord of Pain deals damage equal to that spell's mana value to the chosen player.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Menace"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Vial Smasher the Fierce",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Goblin Berserker",
+  "oracle_text": "Whenever you cast your first spell each turn, choose an opponent at random. Vial Smasher deals damage equal to that spell's mana value to that player or a planeswalker that player controls.\nPartner (You can have two commanders if both have partner.)",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Partner"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Breeches, the Blastmaker",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Goblin Pirate",
+  "oracle_text": "Menace\nWhenever you cast your second spell each turn, you may sacrifice an artifact. If you do, flip a coin. When you win the flip, copy that spell. You may choose new targets for the copy. When you lose the flip, Breeches deals damage equal to that spell's mana value to any target.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Menace"
+  ],
+  "power": "3",
+  "toughness": "3"
+ }
+]

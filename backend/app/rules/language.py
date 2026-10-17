@@ -45,6 +45,7 @@ _LEGACY_TARGETS = {
     "any target": "any", "target player": "player", "target opponent": "opponent",
     # -- target forms (agent T) --  a player, or any planeswalker (whoever controls it)
     "target player or planeswalker": "player_or_planeswalker", "target opponent or planeswalker": "opponent_or_planeswalker",
+    "target player or battle": "player_or_battle", "target opponent or battle": "opponent_or_battle",  # (wave 42D: Onakke Javelineer, Ayara)
     "target permanent or player": "permanent_or_player",  # -- counter kinds (wave 24C) -- a permanent, or a player (115.1)
 }
 # -- activated other (wave 21E) -- "Choose target opponent who has more life than you do as you activate this ability.": the
@@ -592,6 +593,11 @@ def _with_rider(text: str) -> tuple[str, Any]:
     n = re.fullmatch(r"(put) (?:a number of )?([+-]\d+/[+-]\d+|[a-z]+) counters on (.+?) equal to (.+)", text)
     if n:
         return f"put X {n[2]} counters on {n[3]}", ("x", _rider_value(n[4]))
+    # -- counters (wave 41A) -- "manifest a number of cards from the top of your library equal to the number of counters on it" (Omarthis, Ghostfire Initiate):
+    # "manifest the top X cards of your library, where X is …" (701.40a)
+    n = re.fullmatch(r"manifest a number of cards from the top of your library equal to (.+)", text)
+    if n:
+        return "manifest the top x cards of your library", ("x", _rider_value(n[1]))
     m = re.search(r",? where [xX] is (.+)$", text)  # (Oracle writes X; the lowercase form is the older tests')
     if m:
         return text[: m.start()], ("x", _rider_value(m[1]))
@@ -606,6 +612,8 @@ def _rider_value(phrase: str) -> Any:
     else any counted phrase (values.parse_count; "counters on it" with "it" as a placeholder)."""
     if phrase == "the total amount of mana paid this way":  # -- trigger other (wave 25B) -- join forces (app/rules/join_forces.py)
         return {"paid_x": "jf"}
+    if phrase == "its power minus ~'s power":  # -- counters (wave 41A) -- Drizzt Do'Urden's "the difference" (107.1b: never below 0; scripts._define words it so)
+        return {"minus": [_stat("its power"), _stat("~'s power")]}
     if phrase == "the damage dealt":  # -- triggers (wave 30J) -- Primo: "a number of +1/+1 counters on it equal to the damage dealt": the trigger event's amount
         return {"event_amount": 1}
     if re.fullmatch(r"(?:(?:\d+|one|two|three) plus )?the sacrificed (?:creature|artifact|permanent|land|enchantment)'s "
@@ -1459,6 +1467,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
     kw_x = re.fullmatch(r"(?:you )?(?P<v>earthbend|incubate) [xX]", text) if rider is not None and rider[0] == "x" else None
     if kw_x:
         found = keyword_forms(f"{kw_x['v']} x")  # -- keyword actions & face-down (wave 3F) -- "earthbend X, where X is …"
+        if found is None:
+            raise _Fail
+        return [_bind_x(e, rider[1]) for e in found[0]], found[1]
+    if rider is not None and rider[0] == "x" and text == "manifest the top x cards of your library":  # -- counters (wave 41A) -- Omarthis
+        found = keyword_forms(text)
         if found is None:
             raise _Fail
         return [_bind_x(e, rider[1]) for e in found[0]], found[1]
@@ -2534,7 +2547,12 @@ def _bite(text: str) -> tuple[Effects, Any] | None:
         raise _Fail  # (a pronoun subject: which creature deals it isn't read here)
     src = "target" if group is not None else "host"
     groups = [group] if group is not None else []
-    whos, parts = _bite_recipients(m["o"])  # (wave 4E: "… to each other creature and each opponent")
+    if src == "target" and (m["o"] == "its controller" or (m["o"] == "that player" and m["s"].endswith(" an opponent controls"))):
+        # -- damage sized by a count (wave 42D) -- "target creature an opponent controls deals damage equal to its power to that player" (Dong Zhou): the player who
+        # controls the creature dealing it (the opponent the target phrase names), as it last existed if it left (608.2h, 108.4a): not the trigger event's player
+        whos, parts = ["target_player_or_controller"], []
+    else:
+        whos, parts = _bite_recipients(m["o"])  # (wave 4E: "… to each other creature and each opponent")
     if src != "target" and any(g.get("another") == "any" for g in parts):
         raise _Fail  # -- damage sized by a count (wave 34D) -- "enchanted creature deals … to any other target": other than the creature, not than the Aura
     n: Any = {stat: src} if not m["stat"].startswith("twice ") else {"times": [2, {stat: src}]}  # (sized amounts, wave 3D)
@@ -3127,15 +3145,19 @@ def _with_list(text: str, out: dict[str, Any]) -> None:
 def parse_loses_all(text: str) -> tuple[Effects, Any] | None:
     """"All creatures lose all abilities until end of turn" / "Until end of turn, target creature loses all abilities" (613.1f)."""
     m = re.fullmatch(r"(?:(?P<lead>until end of turn), )?(?P<o>.+?) loses? all abilities(?P<trail> until end of turn)?", text.strip())
-    if m is None or bool(m["lead"]) == bool(m["trail"]):
-        return None  # (no duration: not read; two: not Oracle wording)
+    if m is None or (m["lead"] and m["trail"]):
+        return None  # (two durations: not Oracle wording)
     try:
         kind, key, group = ref(m["o"])
     except _Fail:
         return None
     if kind in ("players", "them") or (kind == "it" and m["o"].lower() != "it"):  # (wave 35D: a bare "it" is the target of the sentence before; "that creature" is read by the event grammar)
         return None
-    return [{"do": "become", "who": _who(kind, key), "types": [], "lose_abilities": True, "duration": "end_of_turn"}], _one(group)
+    timed = bool(m["lead"] or m["trail"])
+    if not timed and kind not in ("target", "it"):
+        return None  # -- counters (wave 41A) -- 611.2a: no duration, the game — read for a chosen target, or the object the sentence before moved ("It loses all abilities.", Hellcat),
+        # only (its set is fixed as the effect begins, 611.2c); a group's isn't read
+    return [{"do": "become", "who": _who(kind, key), "types": [], "lose_abilities": True, "duration": "end_of_turn" if timed else "permanent"}], _one(group)
 
 
 def parse_become(text: str) -> tuple[Effects, Any] | None:

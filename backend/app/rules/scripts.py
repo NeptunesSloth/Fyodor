@@ -577,6 +577,9 @@ class _Introducer:
                 self.number = 1  # -- damage sized by a count (wave 20A) -- "until you reveal a nonland card. … that card's mana value": the one found
         if self.do == "destroy_all":
             self.number = 2
+        if self.do == "damage" and g is None and who in ("you", "each_player", "each_opponent", "each_other_opponent", "event_player", "that_player",
+                                                         "chosen_player", "defending_player"):
+            self.objects = False  # -- damage sized by a count (wave 42D) -- damage to a player names no object: "~ deals damage to you equal to that card's mana value. You may play it this turn." (Daredevil): "it" is still the card exiled before
         if self.do == "return_card" and who.startswith("ref:") and "|" in who:
             self.number = 2  # (-- wave 22D -- "Put each creature card milled this way onto the battlefield. They gain haste.": those cards)
         if self.do == "token_copy" and g is not None and groups is not None and g < len(groups) and groups[g]["max"] != 1:
@@ -2872,6 +2875,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = re.sub(r"(\b[Pp]ut [^.,]+? counters? on) each of those (?:creatures|permanents|cards|artifacts|lands|enchantments)\b", r"\1 each of them", body)
     body = re.sub(r"(^|\. )Each of those (creatures|permanents|cards|artifacts|lands|enchantments) (gains|gets|loses) ",
                   lambda m: f"{m[1]}Those {m[2]} {m[3][:-1]} ", body)
+    # -- damage sized by a count (wave 42D) -- "~ deals X damage divided as you choose among any number of target creatures your opponents control. Each of those creatures deals
+    # damage equal to its power to ~." (Polukranos, World Eater): the sentence before named them, one source each ("They each deal damage equal to their power", language._bite_many)
+    body = re.sub(r"(^|\. )Each of those creatures deals damage equal to its power to ", r"\1They each deal damage equal to their power to ", body)
     # -- counters (wave 33C) -- "Draw a card if that creature has a +1/+1 counter on it. If it doesn't, put a +1/+1 counter on it." (Marcus, Mutant Mayor):
     # "If it doesn't" is the other case of the condition just read, as "Otherwise" is (the sentence before is a trailing "if it has …")
     body = re.sub(r"(\bif (?:it|that creature) has [^.,]+?\.) If it doesn't, ", r"\1 Otherwise, ", body)
@@ -3148,6 +3154,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (paid := _may_pay_sentence(text, texts[i + 1:i + 2], it, effects)) is not None:
             effects.append(paid)
             continue
+        if (nth := _RESOLVES_NTH.match(text)) is not None:  # -- this-turn state (wave 42B) -- "When this ability resolves for the third time this turn, …" (Gimli)
+            reflex = _reflex_nth(nth, " ".join(texts[i:]), it)
+            if reflex is None:
+                return None
+            effects.append(reflex)
+            break  # (the rest of the ability is the reflexive trigger's)
         if text.startswith("when you do, ") or _REFLEX_THIS_WAY.match(text):  # -- refused modal/conditional (wave 3R1) -- a reflexive trigger (603.12)
             reflex = _reflexive(" ".join(texts[i:]), effects, prev_start, optional, it, groups)
             if reflex is None:
@@ -4058,6 +4070,26 @@ def _granter_bound(d: Definition, oid: str) -> Definition | None:
     return None if '"self"' in json.dumps(effects) else {**d, "effects": effects}
 
 
+# -- this-turn state (wave 42B) -- 603.2: "Whenever a creature you control becomes tapped during your turn, if it's the first time that creature has become
+# tapped this turn, untap it." (Captain America), "Whenever one or more counters are put on a creature you control, if it's the first time counters have been put
+# on that creature this turn, …" (Stalwart Successor, Botanical Brawler) is "… for the first time each turn": the first such event of THAT object this turn, asked
+# when the event happens (the turn's log / once-a-turn marks keep it, so an object that entered or an ability that began mid-turn counts what came before, 400.7)
+_FIRST_TIME = re.compile(r"^(?P<open>(?:Whenever|When) [^,]+?)(?P<during> during (?:your|an opponent's|their) turn)?, if it's the first time "
+                         r"(?:that (?P<tap>creature|permanent) has become tapped|(?P<k>(?:\+1/\+1 )?counters) have been put on that (?P<o>creature|permanent)) this turn, (?P<rest>.+)$")
+
+
+def _first_time_gate(text: str) -> str:
+    m = _FIRST_TIME.match(text)
+    if m is None:
+        return text
+    event = m["open"]
+    if m["tap"]:  # (the creature that became tapped is the event's subject: "a creature you control becomes tapped")
+        ok = event.endswith(" becomes tapped") and re.search(rf"\b(?:an?|another) {m['tap']}\b", event) is not None
+    else:
+        ok = re.search(rf"^(?:Whenever|When) (?:one or more |an? )?{re.escape(m['k'])} (?:are|is) put on (?:an?|another) {m['o']}\b[^,]*$", event) is not None
+    return f"{event} for the first time each turn{m['during'] or ''}, {m['rest']}" if ok else text
+
+
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     from app.rules import abilities_of
@@ -4296,6 +4328,26 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     text = self_text(merged.protect(ability.text), ch.name)
     # -- token copies (wave 31C) -- a plural name's own "they" / "them" (The Notary Hobbits: "When ~ enter, if they're not a token, create two tokens that are copies of them")
     text = re.sub(r"^(When ~ enter, if )they're( not a token, create [^.]+? cop(?:y|ies) of )them\b", r"\1it's\2it", text)
+    # -- counters (wave 41A) -- a plural name's own "them" after its own event ("Whenever Tui and La become untapped, put a +1/+1 counter on them."): the one object
+    # (201.5: the name is the object's own), written as ~ like its "they"/"Tui and La"
+    text = re.sub(r"^((?:When|Whenever) ~ (?:become|enter|attack|block|die|deal)\b[^,.]*, put (?:an?|\w+) [^.]*? counters? on) them\.", r"\1 ~.", text)
+    # -- counters (wave 41A) -- 608.2h, 603.10a: "…, if it had one or more +1/+1 counters on it, you may put that many +1/+1 counters on target creature" (Reyhan, Last of
+    # the Abzan): "that many" is the number of that kind it had as it last existed
+    text = re.sub(r"(\bif (?:it|that creature) had one or more (?P<k>\+1/\+1|-1/-1|[a-z]+) counters on it, (?:you may )?put) that many (?P=k) counters on "
+                  r"(?P<t>target creature)\b(?=[.,]|$)",
+                  lambda m: f"{m[1]} a number of {m['k']} counters on {m['t']} equal to the number of {m['k']} counters it had on it", text)
+    # -- counters (wave 41A) -- "Whenever a creature dies, if it had power greater than ~'s power, put a number of +1/+1 counters on ~ equal to the difference." (Drizzt
+    # Do'Urden): the dying creature's power as it last existed (608.2h) less ~'s own
+    text = re.sub(r"^(Whenever a creature dies, if it had power greater than ~'s power, put a number of \+1/\+1 counters on ~) equal to the difference\.$",
+                  r"\1 equal to its power minus ~'s power.", text)
+    # -- counters (wave 41A) -- 122.8, 608.2h: "When this creature leaves the battlefield, put its +1/+1 counters on target creature you control." (Selfless Police Captain)
+    # is the number of that kind it had as it last existed
+    text = re.sub(r"^(When ~ (?:dies|leaves the battlefield), (?:you may )?put) its (?P<k>\+1/\+1|-1/-1|[a-z]+) counters on (?P<t>target [^.,]+)\.$",
+                  lambda m: f"{m[1]} a number of {m['k']} counters on {m['t']} equal to the number of {m['k']} counters it had on it.", text)
+    # -- counters (wave 41A) -- "…, if … you control a prime number of lands, create Primo, the Indivisible, a legendary 0/0 green and blue Fractal creature token, then put
+    # that many +1/+1 counters on it." (Zimone, All-Questioning): "that many" is the prime number, how many lands you control as it resolves (608.2h)
+    text = re.sub(r"(, if [^,]*? you control a prime number of lands, create [^.]+?, a legendary [^,.]*? token), then put that many (\+1/\+1) counters on it\.",
+                  r"\1, then put a number of \2 counters on it equal to the number of lands you control.", text)
     text = half_x(text) if "half X" in text else text  # -- X arithmetic (wave 34C) -- 107.1a
     # -- trigger other (wave 36A) -- 702.29c: "When you cycle this card, it deals 1 damage to each opponent" (Magmakin Artillerist, Resounding Thunder), "you may
     # have it deal 1 damage to each creature" (Slice and Dice): "it" is the cycled card itself, the ability's source, whichever zone it went to
@@ -4456,6 +4508,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         # "Whenever a creature an opponent controls dealt damage by ~ this turn dies, …" (events: damaged_by_self): a fact of the past (120.3),
         # as true when the ability resolves as when it triggers (603.4)
         text = re.sub(r"^Whenever (an? [^,]+?) dies, if ~ dealt damage to it this turn, ", r"Whenever \1 dealt damage by ~ this turn dies, ", text)
+        text = _first_time_gate(text)  # (-- this-turn state (wave 42B) --)
         # -- counters sweep (wave 19D) -- "At the beginning of your upkeep and whenever you cast a white spell, …" (the Shrines): the same
         # two conditions as "Whenever you cast a white spell and at the beginning of your upkeep, …" (603.2: it triggers on each)
         text = re.sub(r"^At the beginning of your (upkeep|end step) and (?:when|whenever) ([^,]+), (.+)$",
@@ -4601,6 +4654,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if ante == "self_gone":  # -- trigger tail (wave 15B) -- "put her into her owner's library third from the top"
                     # (a gendered pronoun is written ~): the card after it left, found where it went (400.7e), like "it"
                     body = re.sub(r"\bput ~ into ~'s owner's library\b", "put it into its owner's library", body)
+                    # -- counters (wave 41A) -- "When Hellcat dies, return her to the battlefield under her owner's control with a +1/+1 counter on her. She loses all
+                    # abilities and gains haste." (a gendered pronoun is written ~): the card after it left, as "return it …"; the sentence after is of that object
+                    body = re.sub(r"\breturn ~ to the battlefield under ~'s owner's control(?P<w> with (?:an?|\w+) [^.]*? counters? on) ~(?=\.)",
+                                  r"return it to the battlefield under its owner's control\g<w> it", body)
+                    body = re.sub(r"(?<=\. )~ loses all abilities and gains (haste)\.$", r"It loses all abilities. It gains \1.", body)
                 body = _may_have(body, ante)  # -- trigger tail (wave 15B) --
                 to_gy = cond is not None and cond.get("event") == "to_graveyard" and cond.get("subject") == "self"
                 if to_gy:  # -- trigger tail (wave 15B) -- 603.6c: the card is in its owner's graveyard, whose owner controls the ability
@@ -4845,7 +4903,12 @@ def _intervening_may(body: str, it: str | None, event_player: bool) -> tuple[lis
     if m is None:
         return None
     cond = conditions.parse(m["c"], objects=True)
-    if cond is None or set(conditions.objects_in(cond)) - {"self"}:
+    # (-- counters (wave 41A) -- 603.4, 608.2h: "Whenever a creature you control dies, if it had one or more +1/+1 counters on it, you may put that many +1/+1
+    # counters on target creature" (Reyhan, Last of the Abzan): "it" is the event's object, which an intervening "if" reads as it last existed, as without a "may")
+    about_event = it in ("event", "event_gone")
+    if cond is not None and about_event:
+        cond = conditions.bind_objects(cond, "event")
+    if cond is None or set(conditions.objects_in(cond)) - ({"self", "event"} if about_event else {"self"}):
         return None
     # -- if you do (wave 10C) -- "At the beginning of your upkeep, if this creature has a +1/+1 counter on it, you may remove a
     # +1/+1 counter from it. If you do, draw a card." (Ingenious Prodigy): the only object the condition names is the source, so
@@ -4951,7 +5014,7 @@ def _event_refs_ok(d: Definition) -> bool:
         about_player = step_names_player(d) or (cond is not None and cond["event"] != "multi" and _has_player(cond))
         specs = [d.get("target") or {}, *(d.get("targets") or [])]
         if not about_player or any(str(s.get("what")) in ("player", "opponent", "any", "any_other", "player_or_planeswalker",
-                                                         "opponent_or_planeswalker") or str(s.get("what")).startswith("opponent_as:") for s in specs):
+                                                         "opponent_or_planeswalker", "player_or_battle", "opponent_or_battle") or str(s.get("what")).startswith("opponent_as:") for s in specs):
             return False
     from app.rules import watches  # -- turn watches (wave 7D) -- their deferred effects name their own event
 
@@ -5505,6 +5568,8 @@ def _for_each(phrase: str) -> Any:
         return {"colors_spent": 1}  # converge (its spell's payment record, read as it enters: replacements._counter_amount)
     if phrase in ("creature that convoked it", "creature that convoked ~"):  # -- counters (wave 26D) -- 702.51a
         return {"convoked": 1}
+    if phrase == "time you've cast your commander from the command zone this game":  # -- counters (wave 41A) -- 903.8: The Swarmlord (values: wave 19B)
+        return {"commander_casts": 1}
     if " and each " in phrase:  # -- counters (wave 21D) -- "for each other Zombie you control and each Zombie card in your graveyard": the sum
         halves = [_for_each(x) for x in phrase.split(" and each ")]
         return {"plus": halves} if len(halves) == 2 and all(h is not None and "count" in h for h in halves) else None
@@ -6649,7 +6714,7 @@ def _bind_subject(cond: dict[str, Any], found: tuple[list[dict[str, Any]], Any] 
     effects = []
     for e in found[0]:
         e = {**e, "who": "self" if objects == {"self"} else "host"} if e.get("who") == "it" else e
-        if _holds_pronoun(e):
+        if _holds_pronoun({k: x for k, x in e.items() if not (k == "src" and x == "it")}):  # -- damage sized by a count (wave 42D) -- "it deals that much damage … if ~'s power is 7 or greater" (Vincent): the damage's source "it" is the trigger's subject as ever (resolve_it), not rewritten
             return None
         effects.append(e)
     return effects, found[1]
@@ -7213,6 +7278,27 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     if lki is not None:
         out["lki"] = cond["succeeded"]  # -- reflexive LKI (wave 4J) --
     return out
+
+
+# -- this-turn state (wave 42B) -- 603.12, 603.7c: "Whenever another creature you control dies, put a +1/+1 counter on ~. When this ability resolves for the third
+# time this turn, ~ fights up to one target creature you don't control." (Gimli, Mournful Avenger): a REFLEXIVE ability — it triggers as the first resolves for the
+# Nth time that turn (a copy counts: history.note_resolution) and chooses its own target as it is put on the stack (the ruling: "You don't choose a target ... at the
+# time it triggers"); not the "If this is the third time" of one ability, whose targets are chosen before any resolution is known
+_RESOLVES_NTH = re.compile(r"^when this ability resolves for the (?P<nth>second|third|fourth|fifth) time this turn, (?P<rest>.+)$", re.I)
+
+
+def _reflex_nth(m: re.Match[str], rest: str, it: str | None) -> dict[str, Any] | None:
+    body = _RESOLVES_NTH.match(rest)
+    if body is None or it not in (None, "self", "event", "event_gone"):
+        return None
+    parsed = parse_effects(body["rest"][:1].upper() + body["rest"][1:], "self" if it == "self" else None)
+    if parsed is None or not parsed[0]:
+        return None
+    b_effects, b_target, b_optional = parsed
+    if re.search(r'"event|"that_|event_amount|"it"', json.dumps([b_effects, b_target], default=str)):
+        return None  # (the reflexive ability has no event of its own: a "that creature" or "that much" there names nothing)
+    return {"do": "reflexive", "cond": {"history": "resolution", "n": ["second", "third", "fourth", "fifth"].index(m["nth"].lower()) + 2},
+            "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects, "optional": b_optional, **target_fields(b_target)}}
 
 
 def _x_to_event(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:

@@ -577,6 +577,8 @@ def _object_history(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: 
         got = any(e.object_id in ids for e in log.entered)
     elif what == "blocked":
         got = any(a in ids for attacked in log.blocks.values() for a in attacked)
+    elif what == "died":  # -- counters (wave 41A) -- 700.4: it was put into a graveyard from the battlefield (Departure.to)
+        got = any(d.object_id in ids and d.to == "graveyard" for d in log.left)
     elif what == "enlisted":  # -- trailing & intervening ifs (wave 38A) -- 702.154a: in this combat phase (500.8), fixed once it was (603.4: still so as it resolves)
         got = any(log.enlisted.get(i) == plan.rules.combats for i in ids)
     elif what == "attacked_or_blocked":
@@ -616,6 +618,19 @@ def _cast_nth(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLo
 # -- end this-turn state (wave 33D) --
 
 
+def _source_damage(ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
+    """-- this-turn state (wave 42B) -- "if a source you controlled dealt 5 or more damage this turn" (Dragon Cultist): one source's total, whoever or
+    whatever it hurt and in however many events (a double striker's two steps, damage to a player and to a blocker: 120.3), counting only damage that was
+    dealt (a prevented point never was). The source need only have been under your control as it dealt it (608.2i: the ruling for Dragon Cultist); the log
+    keeps the source of damage to a player (``damage`` facts) and to a permanent (``damaged`` facts) by its object, so a source that has left still counts."""
+    per: dict[str, int] = {}
+    for f in log.facts:
+        src = f.object_id if f.kind == "damage" else f.source if f.kind == "damaged" else None
+        if src is not None and f.amount > 0 and f.source_controller == ctx["controller"]:
+            per[src] = per.get(src, 0) + f.amount
+    return any(n >= int(cond["n"]) for n in per.values())
+
+
 def _prowl(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
     """-- static_other sweep (wave 17C) -- 702.76a: a player was dealt combat damage this turn by a source that, at the time it dealt that
     damage, was under your control and had any of this spell's creature types (the spell being the condition's source)."""
@@ -648,9 +663,21 @@ def _departed(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLo
             continue
         _, ch = _snapshot_card(plan, snap)
         types = d.types if d.types is not None else ch.types
+        if cond.get("not_named") and named_like(plan, ctx, ch):
+            continue
         if note_matches(sel, types, ch.subtypes, ch.supertypes, ch.colors, float(ch.mana_value), snap.is_token):
             n += 1
     return _cmp(n, cond)
+
+
+def named_like(plan: Plan, ctx: dict[str, Any], ch: Any) -> bool:
+    """-- this-turn state (wave 42B) -- 201.2a: does this object (as it last existed) share a name with the condition's source? "A creature not named
+    Ebondeath, Dracolich died this turn" reads the name it had on the battlefield — a copy of Ebondeath that died is named so, a face-down creature
+    (708.2a) and a token with another name are not — whether or not the source was in the graveyard yet (the ruling for Ebondeath)."""
+    from app.rules import card_names
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    return src is not None and card_names.share(ch, plan.ch(src))
 
 
 _WAVE_4D: dict[str, Any] = {
@@ -660,6 +687,7 @@ _WAVE_4D: dict[str, Any] = {
     "facts": _facts_holds,
     "damage": _damage,
     "prowl": _prowl,
+    "source_damage": lambda plan, ctx, cond, log: _source_damage(ctx, cond, log),  # (wave 42B)
     "object": _object_history,  # (wave 33D)
     "cast_nth": _cast_nth,  # (wave 33D)
     "departed": _departed,
@@ -696,6 +724,8 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         return log.gained.get(me, 0)
     if kind == "lost":
         return log.lost.get(me, 0)
+    if kind == "life_greater":  # -- this-turn state (wave 42B) -- 119.3: the larger of the life you gained and the life you lost this turn (Willowdusk)
+        return max(log.gained.get(me, 0), log.lost.get(me, 0))
     if kind == "drew":
         return log.drew.get(me, 0)
     if kind == "died":
