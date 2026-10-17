@@ -243,6 +243,9 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     found_extreme = extremes.parse(t)  # -- extremes (wave 8B) -- "you control the creature with the greatest power or tied …"
     if found_extreme is not None:
         return found_extreme
+    m = re.fullmatch(r"(?:~|this [a-z]+) has an (?P<p>even|odd) number of counters on (?:it|~)", t)
+    if m:  # -- commander sweep (wave 49B) -- "~ has an even number of counters on it" (Sab-Sunen, Luxa Embodied): all kinds together (122.1); zero is even
+        return {"value": {"counters": None, "on": "self"}, "op": "parity", "n": int(m["p"] == "odd")}
     m = _SELF_COUNTS.fullmatch(t)
     if m and m["k"] not in ("any", "more", "fewer"):
         n = 0 if m["no"] else _num(m["ex"] or m["n"])

@@ -75,8 +75,8 @@ def allowed(state: GameState, player: str, info: CardInfo | None) -> int:
     if info is None or state.rules is None:
         return 1
     from app.rules import characteristics as chars
-    from app.rules import scripts
-    from app.rules.layers import derive
+    from app.rules import scripts, statics
+    from app.rules.layers import _view, derive
 
     n = 1 + one_shot(state, player)  # (-- one-shot extra land plays (wave 8A) --)
     for c in list(state.cards.values()):  # (wave 15A: "each player may …" works from anyone's battlefield)
@@ -84,7 +84,8 @@ def allowed(state: GameState, player: str, info: CardInfo | None) -> int:
             continue
         ch = derive(state, c, chars.of(c, info), info)
         n += sum(int(d.get("n") or 0) for d in scripts.definitions(ch).values()
-                 if d.get("kind") == "static" and d.get("static") == EXTRA_LANDS and (c.controller == player or d.get("all")))
+                 if d.get("kind") == "static" and d.get("static") == EXTRA_LANDS and (c.controller == player or d.get("all"))
+                 and statics.static_if_holds(_view(state, info), d, c))  # (-- station (wave 48D) -- 611.3a: "As long as this permanent has 3 or more charge counters on it, …")
     return n
 
 

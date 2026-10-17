@@ -194,6 +194,18 @@ def parse(text: str) -> Definition | None:
     m = re.match(r"^(?P<rest>.+), where X is (?P<x>.+)$", body)
     if m and m["rest"].count('"') % 2 == 0:  # (not inside a quoted granted ability)
         x_phrase, body = m["x"], m["rest"]
+    # -- commander sweep (wave 49B) -- "Enchanted creature has flying, lifelink, and protection from Vampires, and it gets +X/+X, where X is …" (Katilda's Rising Dawn): "it" is the
+    # same creature, so the second verb joins the first ("… Vampires and gets +X/+X, where X is …")
+    body = re.sub(r"^((?:Enchanted|Equipped) (?:creature|permanent|land|artifact) has .+?), and it (gets? [+−-]\w+/[+−-]\w+(?:,|$))", r"\1 and \2", body)
+    # -- commander sweep (wave 49B) -- "Survivors your opponents control can't block, and they can't attack you or planeswalkers you control." (Varchild): "they" is the group, so
+    # the second restriction joins the first ("… can't block and can't attack …")
+    body = re.sub(r"^(?P<s>.+? control) (?P<a>can't [a-z ]+), and they (?P<b>can't .+)$", r"\g<s> \g<a> and \g<b>", body)
+    # -- commander sweep (wave 49B) -- "Humans you control have each of the chosen abilities." (Greymond, Avacyn's Stalwart): the keywords its permanent chose as it entered,
+    # read afresh by layers (``chosen_keywords``; chosen.chosen_value_ok: the one choice)
+    m = re.fullmatch(r"(?P<s>[A-Z][A-Za-z ,'-]+? you control) have each of the chosen abilities", body)
+    if m is not None:
+        who, kind = _subject(m["s"], plural=True)
+        return None if who is None or who in ("self", "attached") or who.startswith(UNION) else {**_definition(who, kind, []), "chosen_keywords": True}
     # -- static statics (wave 10B) -- "Creatures your opponents control lose flying and can't have or gain flying."
     # (the Archetypes): lose it now (613.1f, in timestamp order) and never have or gain it (the deny is applied last)
     m = _DENY.fullmatch(body)
@@ -638,6 +650,8 @@ def _relative_count(each: str, group: str | None = None) -> dict[str, Any] | Non
         return {"relative": "counters", "kind": c["k"] or "any"}
     if group == "it" and each == "point of bushido it has":  # -- counters (wave 44C) -- 702.45a: the bushido numbers the object modified has (Takeno, Samurai General)
         return {"relative": "bushido"}
+    if group == "it" and each == "time it has attacked this turn":  # -- commander sweep (wave 49B) -- 508.1: the combats it was declared an attacker in this turn (Moraug, Fury of Akoum)
+        return {"relative": "attacks"}
     if each == "of its colors":  # -- attached events (wave 16F) -- 105.1: the colors of the object modified (Civic Saber)
         return {"relative": "colors"}
     m = _SHARING.match(each) or _SAME_NAME.match(each)
@@ -1229,6 +1243,9 @@ def _condition(text: str) -> dict[str, Any] | None:
     if m:
         n = _num(m["n"])
         return {"static": "graveyard", "op": "<", "n": n} if n is not None else None
+    m = re.fullmatch(r"(?:it|~) has an (?P<p>even|odd) number of counters on (?:it|~)", c)
+    if m:  # -- commander sweep (wave 49B) -- "~ can't attack or block unless it has an even number of counters on it." (Sab-Sunen): counters of every kind together, zero is even
+        return {"value": {"counters": None, "on": "self"}, "op": "parity", "n": int(m["p"] == "odd")}
     m = re.fullmatch(r"(?:it|~) has (?P<n>\w+) or fewer (?P<kind>[a-z]+) counters on (?:it|him|her|~)", c)
     if m and _num(m["n"]) is not None:
         return {"static": "self_counter", "counter": m["kind"], "op": ">=", "n": 0, "max": _num(m["n"])}  # (the "max" of wave 9D)

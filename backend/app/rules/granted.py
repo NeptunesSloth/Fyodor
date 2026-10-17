@@ -164,6 +164,13 @@ def with_final_stop(text: str) -> str:
     return text if text.endswith((".", "!", "?")) else text + "."
 
 
+def _enchant(line: str) -> AbilityText | None:
+    """-- licids (wave 50A) -- 702.5: "enchant creature", given by a resolved effect that makes the object an Aura (app/rules/licids.py)."""
+    from app.rules.attachments import enchant_selector_of
+
+    return AbilityText(index=0, text=line, kind="keywords", keywords=("enchant",)) if enchant_selector_of(line) is not None else None
+
+
 def layer6(ch: Characteristics, effects: list[ContinuousEffect], wipe: tuple[int, int, int] | None) -> Characteristics:
     """The abilities resolved effects granted (613.1f), numbered from each effect's timestamp, after
     the printed and static-granted ones. An effect a later "loses all abilities" follows is gone
@@ -175,7 +182,7 @@ def layer6(ch: Characteristics, effects: list[ContinuousEffect], wipe: tuple[int
         if e.layer != "6" or not e.add_abilities or (wipe is not None and (e.object_seq, 1, e.timestamp) <= wipe):
             continue
         for k, text in enumerate(e.add_abilities[:MAX_GRANTED]):
-            ab = granted_ability(with_final_stop(text))
+            ab = granted_ability(line := with_final_stop(text)) or _enchant(line)
             if ab is not None:
                 extra.append(replace(ab, index=index_of(e.timestamp, k)))
     return replace(ch, abilities=ch.abilities + tuple(extra)) if extra else ch

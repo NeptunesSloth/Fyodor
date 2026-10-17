@@ -182,7 +182,8 @@ def left_battlefield(plan: Plan, ctx: Context, who: str, their: bool) -> list[tu
         if recipe is None and snap.is_token and not snap.printing and snap.token_type_line:  # -- review 32 -- a token's copiable values:
             # what the effect that created it defined (707.2, 111.3; copying.base_recipe), as it last existed
             recipe = CopyRecipe(token={"name": snap.name, "power": snap.token_power, "toughness": snap.token_toughness,
-                                       "colors": list(snap.token_colors), "type_line": snap.token_type_line, "text": snap.text}, source=name[:200])
+                                       "colors": list(snap.token_colors), "type_line": snap.token_type_line, "text": snap.text,
+                                       "mana_cost": snap.token_mana_cost}, source=name[:200])
         if recipe is None:
             out.append((f"a copy of {name} as it last existed (608.2h: its text isn't recorded)", ""))
             continue

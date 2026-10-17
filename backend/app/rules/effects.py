@@ -1093,7 +1093,8 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
             if each is not None and pid not in plan.live():
                 continue
             spec = {"name": t["name"], "power": pt["power"], "toughness": pt["toughness"],
-                    "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
+                    "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or "",
+                    **({"mana_cost": t["mana_cost"]} if t.get("mana_cost") else {})}  # (wave 49D: 111.3)
             # a token enters tapped when its creator says so ("create a tapped …") or its own text does
             # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
             tapped = (bool(tapped_by_creator) or replacements.token_enters_tapped(plan, pid, spec)) and not replacements.token_enters_untapped(plan, pid, spec)  # (wave 45A)
@@ -2968,6 +2969,8 @@ def exile_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                 ctx["found"] = library[at]
         elif e.get("keep_bottom") is not None:  # -- hidden exile (wave 18A) -- "all but the bottom six cards of their library"
             n = max(0, len(library) - int(e["keep_bottom"]))
+        elif e.get("half"):  # -- commander sweep (wave 49B) -- 107.1a: "the top half of their library, rounded up" (Ulamog, the Defiler): half the cards in it now
+            n = (len(library) + 1) // 2 if e["half"] == "up" else len(library) // 2
         else:
             n = min(_amount(plan, ctx, e["n"]), len(library))
         if not n:
@@ -3873,7 +3876,9 @@ CHOICE_OPTIONS: dict[str, list[str]] = {
 }
 CHOICE_LABELS = {"color": "Chosen color", "creature type": "Chosen creature type", "basic land type": "Chosen basic land type",
                  "opponent": "Chosen opponent", "player": "Chosen player", "card type": "Chosen card type",
-                 "card type other than creature or land": "Chosen card type", "artifact, creature, enchantment, instant, or sorcery": "Chosen card type"}
+                 "card type other than creature or land": "Chosen card type", "artifact, creature, enchantment, instant, or sorcery": "Chosen card type",
+                 "number between 1 and 10": "Chosen number",  # (wave 49B: Talion, the Kindly Lord)
+                 "two abilities from among first strike, vigilance, and lifelink": "Chosen abilities"}  # (wave 49B: Greymond, Avacyn's Stalwart)
 CHOICE_LABELS.update(entry_forms.CHOICE_LABELS)  # -- entry forms (wave 5F) -- "a color other than blue"
 CHOICE_LABELS.update({w: card_names.LABEL for w in card_names.ALL_WHATS})  # -- card names (wave 22B) -- 201.4
 
@@ -3887,6 +3892,12 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
         return copying.entry_options(plan, ctx["controller"], what, ctx.get("source_card"))  # (wave 5F: the entering card)
     if what == "creature type":
         return [DecisionOption(id=t, label=t) for t in sorted(CREATURE_TYPES)]
+    if what == "number between 1 and 10":  # (wave 49B) a number chosen as the permanent enters (614.12a)
+        return [DecisionOption(id=str(n), label=str(n)) for n in range(1, 11)]
+    if what.startswith("two abilities from among "):  # (wave 49B) every pair of the three (Greymond)
+        from itertools import combinations
+
+        return [DecisionOption(id=f"{a} and {b}", label=f"{a} and {b}") for a, b in combinations(("first strike", "vigilance", "lifelink"), 2)]
     from app.rules import chosen as _picked
 
     if (named := _picked.words(what)) is not None:  # -- linked words (wave 33B) -- 607.2f: "choose Khans or Dragons"
@@ -4113,9 +4124,9 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if e.get("colors") is not None or e.get("add_colors"):
             made.append(layers.add_effect(plan, layer="5", **common, set_colors=e.get("colors"),
                                           add_colors=list(e.get("add_colors") or [])).id)
-        if e.get("keywords") or e.get("abilities") or e.get("lose_abilities"):
+        if e.get("keywords") or e.get("abilities") or e.get("lose_abilities") or e.get("lose_index"):  # (-- licids (wave 50A) -- lose_index: "loses this ability", 613.1f)
             made.append(layers.add_effect(plan, layer="6", **common, add_keywords=tuple(e.get("keywords") or ()),
-                                          add_abilities=list(e.get("abilities") or []),
+                                          add_abilities=list(e.get("abilities") or []), lose_index=list(e.get("lose_index") or ()),
                                           remove_abilities=bool(e.get("lose_abilities"))).id)
         if p is not None or t is not None:
             made.append(layers.add_effect(plan, layer="7b", **common, power=p, toughness=t).id)
@@ -4129,10 +4140,10 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                     effect.source_card, effect.until_player = ctx.get("source_card"), ctx["controller"]
         ctx["animated"] = [*ctx.get("animated", []), *made]  # (for a following "It's still a land.")
         markers: list[str] = []
-        for cid in group:  # the table marker (cleared at cleanup for "until end of turn", 514.2; by a zone change, 400.7)
+        for cid in group:  # the table marker (cleared at cleanup for "until end of turn", 514.2; by a zone change, 400.7); (-- licids (wave 50A) -- ``marker``: its own words)
             markers += delayed.marker_ids(plan.do({"type": "add_effect", "card_ids": [cid], "name": label[:60],
                                                    "value": f"{p}/{t}" if p is not None and t is not None else None,
-                                                   "text": _MARKER_TEXT.get(duration) or (delayed.LABELS[duration].replace("~", name or "its source")  # (review 23B: whose)
+                                                   "text": e.get("marker") or _MARKER_TEXT.get(duration) or (delayed.LABELS[duration].replace("~", name or "its source")  # (review 23B: whose)
                                                            if duration.startswith("source_") else "as long as it's on the battlefield")}))
         for effect in plan.rules.effects:  # ending the effects removes these markers (app/rules/delayed.py)
             if effect.id in made:
@@ -4710,6 +4721,9 @@ from app.rules import attach_entry as _attach_entry  # noqa: E402, I001
 
 PRIMITIVES.update(_attach_entry.PRIMITIVES)
 RESUME.update(_attach_entry.RESUME)  # (wave 25A: attach_choose)
+from app.rules import licids as _licids  # noqa: E402, I001  -- licids (wave 50A) --
+
+PRIMITIVES["licid"] = _licids.licid
 from app.rules import populate as _populate  # noqa: E402, I001
 
 PRIMITIVES.update(_populate.PRIMITIVES)

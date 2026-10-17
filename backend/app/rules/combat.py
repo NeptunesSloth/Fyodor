@@ -380,6 +380,12 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
     # -- combat (wave 5C) -- 508.1h-j: the total cost to attack, locked in, then paid (mana abilities allowed meanwhile);
     # creatures declared as attackers are tapped before it's paid (508.1f), so they don't tap for it
     tax = combat_rules.attack_cost(plan, declared)
+    life = combat_rules.attack_life(plan, declared)  # -- life attack costs (wave 49D) -- 508.1h: paid with the mana (508.1j); 119.4: only with the life to pay it
+    if life:
+        from app.rules import life_lock
+
+        if plan.state.players[plan.actor].life < life or life_lock.pay_problem(plan.state, plan.info, plan.actor, life) is not None:
+            raise ActionError(f"Attacking costs {life} life (508.1h): {plan.name(plan.actor)} can't pay it")
     if tax:
         from app.rules import casting
 
@@ -392,6 +398,11 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         if casting.payment_step(plan, a, cost, "attacking", exclude=exclude):  # type: ignore[arg-type]
             return  # (the declaration is made again once it's paid; cancelling asks for attackers again)
         casting.pay(plan, plan.actor, cost, f"paid {cost.text()} to attack", sources=a.sources, exclude=exclude)
+    if life:
+        from app.rules import replace as _replace_life
+
+        _replace_life.lose_life(plan, [(plan.actor, life)], actor=plan.actor)
+        plan.note(f"{plan.name(plan.actor)} paid {life} life to attack")
     # -- end combat (wave 5C) --
     r.decision = None
     if not a.attackers:
@@ -654,6 +665,9 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         if problem:
             raise ActionError(problem)
         per_attacker[decl.attacker_id] = per_attacker.get(decl.attacker_id, 0) + 1
+    cap = r.block_caps.get(plan.actor)  # -- commander sweep (wave 49B) -- 509.1b: "Each opponent can't block with more than one creature this combat." (Mirri)
+    if cap is not None and len(used) > cap:
+        raise ActionError(f"You can't block with more than {cap} creature{'s' if cap != 1 else ''} this combat")
     for aid, n in per_attacker.items():
         ach = plan.ch(plan.state.cards[aid])
         least = min_blockers(ach)
@@ -1105,5 +1119,6 @@ def end_combat(plan: Plan) -> None:
     r.blocked = []
     r.block_split = {}
     r.assign_unblocked = {}
+    r.block_caps = {}  # (wave 49B) "this combat"
     r.no_attackers = False
     r.combat_round = ""

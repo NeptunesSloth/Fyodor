@@ -174,6 +174,12 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
         onClick: () => void send({ type: "unlock_door", card_id: card.id, door: i + 1 }) });
     });
   }
+  // -- licids (wave 50A) -- 116.2c: "You may pay {W} to end this effect" is a special action of the effect's player (any time they have priority, no stack); the
+  // server lists the cost only to that player, on the permanent the effect is on
+  const endCost = rules.stats?.[card.id]?.end_cost;
+  if (zone === "battlefield" && endCost) {
+    items.push({ label: `End the effect (${endCost}, special action)`, disabled: !hints.has_priority, onClick: () => void send({ type: "end_effect", card_id: card.id }) });
+  }
   if (mine && zone === "battlefield" && card.face_down && morph) {
     items.push({ label: `Turn face up (${morph})`, onClick: () => void send({ type: "turn_face_up", card_id: card.id }) });
   }

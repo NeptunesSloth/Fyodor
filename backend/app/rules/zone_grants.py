@@ -30,7 +30,8 @@ if TYPE_CHECKING:
 
 KEYWORDS = ("cycling", "unearth", "miracle", "encore", "dredge", "scavenge", "jump-start")  # (wave 42A: dredge; 44C: scavenge, jump-start)
 _LINE = re.compile(r"^(?:each )?(?P<sel>[A-Za-z][A-Za-z ,'/-]*?) in your (?P<zone>hand|graveyard)(?P<tail> that's [A-Za-z ,/-]+?)? (?:has|have) (?P<kw>" + "|".join((*KEYWORDS, "warp")) + r")"
-                   r"(?: (?P<cost>(?:\{[^}X]+\})+)| (?P<num>\d+)|(?P<eq> ?\. (?:its|the) [a-z]+ cost is equal to its mana cost(?: reduced by (?P<red>\{\d+\}))?))?$",
+                   r"(?: (?P<cost>(?:\{[^}X]+\})+)| (?P<num>\d+)|(?P<eq> ?\. (?:its|the) [a-z]+ cost is equal to its mana cost(?: reduced by (?P<red>\{\d+\}))?)"
+                   r"| (?P<mv>\{X\}, where X is its mana value))?$",  # (wave 49B: "encore {X}, where X is its mana value", Sliver Gravemother)
                    re.IGNORECASE)  # (wave 44C: the tail is optional: jump-start has none, 702.133a)
 
 
@@ -52,14 +53,14 @@ def define(t: str) -> dict[str, Any] | None:
     if m["kw"].lower() == "jump-start":  # -- static_other (wave 44C) -- 702.133a: no cost of its own, the card's cost is paid and a card is discarded
         return {"kind": "static", "static": "zone_grant", "filter": sel.key(), "keyword": "jump-start", "cost": None, "reduce": 0, "effects": []} \
             if not (m["cost"] or m["num"] or m["eq"]) else None
-    if m["cost"] is None and not m["num"] and not m["eq"]:
+    if m["cost"] is None and not m["num"] and not m["eq"] and not m["mv"]:
         return None
     if m["cost"] is None and m["kw"].lower() not in ("miracle", "encore", "dredge", "scavenge"):
         return None
     if (m["num"] is not None) != (m["kw"].lower() == "dredge"):  # (702.52a: "Dredge N", a number and no cost)
         return None
     return {"kind": "static", "static": "zone_grant", "filter": sel.key(), "keyword": m["kw"].lower(), "cost": m["cost"],
-            "reduce": int(m["red"][1:-1]) if m["red"] else 0, "effects": [], **({"num": int(m["num"])} if m["num"] else {})}
+            "reduce": int(m["red"][1:-1]) if m["red"] else 0, "effects": [], **({"num": int(m["num"])} if m["num"] else {}), **({"mv": True} if m["mv"] else {})}
 
 
 def _warp(m: re.Match[str]) -> dict[str, Any] | None:
@@ -85,6 +86,8 @@ def _line(d: dict[str, Any], ch: Characteristics, card: CardInstance) -> str | N
         return "Jump-start"
     if d.get("num"):
         return f"{d['keyword'].capitalize()} {d['num']}"
+    if d.get("mv"):  # (wave 49B) "{X}, where X is its mana value": that much generic mana (an {X} in the card's own cost is 0 there, 107.3g); a card with two ways to read it isn't given it
+        return None if "//" in ch.mana_cost or _two_ways(card) else f"{d['keyword'].capitalize()} {{{int(ch.mana_value)}}}"
     if d["cost"]:
         return f"{d['keyword'].capitalize()} {d['cost']}"
     if not ch.mana_cost or "//" in ch.mana_cost or _two_ways(card):

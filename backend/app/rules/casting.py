@@ -1291,7 +1291,7 @@ def record_payment(plan: Plan, card_id: str, record: PaymentRecord) -> None:
     r.payments[plan.oid(card_id)] = record
 
 
-def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility, cost: M.ManaCost, what: str, *,
+def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility | A.EndEffect, cost: M.ManaCost, what: str, *,  # (-- licids (wave 50A) -- EndEffect)
                  exclude: tuple[str, ...] = (), purpose: Purpose | None = None) -> bool:
     """Before a spell or ability is put on the stack: does the player want to see or choose the
     payment first? Returns True if a decision was opened (the intent then waits for it; nothing
@@ -2450,6 +2450,14 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         o.key == a.alt_cost for o in _escape_offers(plan.state, plan.actor, card, ch, plan.info))
     if grant is not None and grant.how == "escape" and not escaping:
         raise ActionError(f"{ch.name} can be cast from your graveyard only for its escape cost (702.138a)")
+    # -- commander sweep (wave 49B) -- 118.6, 202.1b: a card with no mana cost has an unpayable cost; one with an alternative cost of its own (Asmoranomardicadaistinaculdacar) is cast for that
+    # cost alone (118.6a), and not at all while it doesn't apply
+    if not ch.mana_cost and a.alt_cost is None and not free and alternative is None and not a.face_down and not plan.manual(card) and card.zone == zone_key(plan.actor, "hand") \
+            and any(d.get("static") == "alt_cost" and not d.get("table") for d in permissions._definitions(ch).values()):
+        ways = alt_costs.offers(plan.state, plan.actor, card, ch, plan.info)
+        if len(ways) != 1:
+            raise ActionError(f"{ch.name} has no mana cost (118.6): it can be cast only for its alternative cost, and only while that applies")
+        a.alt_cost = ways[0].key
     if a.alt_cost is not None:  # (a foretold card: no other alternative cost, 118.9a)
         if free or alternative is not None or a.face_down or (grant is not None and grant.how == "flashback" and not escaping):
             raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
@@ -2855,6 +2863,11 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
     if found is None:
         raise ActionError("That card has no ability to use from your hand")
     kind, mana_text = found
+    if _first_alt(plan, "cycling") and mana_text != "{0}":  # -- first activation (wave 48D) -- 118.9: "You may pay {0} rather than pay the cycling cost of the first card you cycle each turn" (typecycling too, 702.29f)
+        side = _equip_side(plan, card, ch, a, [mana_text, "{0}"], cycling=True)  # (601.2b: announced before the cost is determined)
+        if side is None:
+            return  # waiting for the choice
+        mana_text = side
     # 702.29a: cycling is an activated ability — "Abilities you activate that aren't mana abilities cost {1} less"
     # applies to it (602.2b -> 601.2f; app/rules/permissions.py ability_mana)
     mana = M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, mana_text, plan.info))
@@ -2874,6 +2887,7 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
     oid = plan.oid(card)
     ability_id = _new_ability(plan, card, text)
     pay(plan, plan.actor, mana, f"paid {mana.text()} to cycle {ch.name}", sources=a.sources, purpose=Purpose(ability_of=ch, cost_x=cycling_x is not None))
+    _activated(plan, "cycling")  # (-- first activation (wave 48D) -- the card is discarded to pay a cycling cost, 702.29c)
     plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "graveyard"}})
     emit(plan.state, "cycled", object_id=oid, card=card.id, player=plan.actor, amount=cycling_x or 0)  # (wave 34C: amount: the X, for triggers.x_source)
     _stacked(plan, card, oid, ch, ability_id, effects)
@@ -3927,7 +3941,9 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
             cost = replace(cost, mana=M.spend_as(M.parse_cost(cost.mana), mode).text())
     # -- reanimation (wave 3R) -- 113.6m: "{1}{B}: Return this card from your graveyard to the battlefield" moves the
     # card out of the graveyard, so the ability works only there
-    if ability.kind == "activated" and ":" in ability.text and (_GRAVEYARD_SELF.match(ability.text.split(":", 1)[1].strip().replace(ch.name, "~"))
+    # (review 40: anywhere in the effect, "Exile five target cards from an opponent's graveyard. Return this card from your graveyard to your hand." on
+    # Lochmere Serpent; ponytail: no card's earlier part puts it into the graveyard first, the 113.6m exception)
+    if ability.kind == "activated" and ":" in ability.text and (_GRAVEYARD_SELF.search(ability.text.split(":", 1)[1].strip().replace(ch.name, "~"))
                                                                  or "Activate only if this card is in your graveyard" in ability.text):
         cost = replace(cost, graveyard_only=True,  # (review 20E: Glory's "Activate only if this card is in your graveyard.", 113.6m)
                        exile_too=_GRAVEYARD_OR_EXILE.match(ability.text.split(":", 1)[1].strip().replace(ch.name, "~")) is not None)  # (wave 42C)
@@ -4054,7 +4070,10 @@ def equip_ability(plan: Plan, card: CardInstance, ch: Characteristics, a: A.Acti
     cost, target, tail = equip
     if "Equipment" not in ch.subtypes or ch.is_creature:
         raise ActionError(f"{ch.name} can't equip a creature" + (" while it's a creature" if ch.is_creature else ""))
-    if len(sides := attachments.equip_sides(cost)) > 1:  # -- cast keywords (wave 43D) -- "Equip {2} or {B}", "Equip—Pay {3} or discard a card.": the cost is announced (601.2b)
+    sides = attachments.equip_sides(cost)
+    if _first_alt(plan, "equip") and "{0}" not in sides:  # -- first activation (wave 48D) -- 118.9: "You may pay {0} rather than pay the equip cost of the first equip ability you activate"
+        sides = [*sides, "{0}"]
+    if len(sides) > 1:  # -- cast keywords (wave 43D) -- "Equip {2} or {B}", "Equip—Pay {3} or discard a card.": the cost is announced (601.2b)
         picked = _equip_side(plan, card, ch, a, sides)
         if picked is None:
             return  # waiting for the choice
@@ -4066,7 +4085,20 @@ def equip_ability(plan: Plan, card: CardInstance, ch: Characteristics, a: A.Acti
     activate_to_stack(plan, card, ch, ability, a, definition=definition, exclude_targets=(card.id,))
 
 
-def _equip_side(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, sides: list[str]) -> str | None:
+def _first_alt(plan: Plan, act: str) -> bool:
+    """-- first activation (wave 48D) -- 118.9, 602.2b: may the actor pay {0} rather than the ``act`` ("equip" / "cycling") cost? A static says so (cast_limits.first_alt)
+    and they haven't activated one this turn (``_activated`` keeps the log, whoever's static is there: Gavi's ruling, the whole turn counts)."""
+    from app.rules import cast_limits
+
+    return plan.rules.once_per_turn.get(f"activated:{plan.actor}:{act}") != plan.state.turn.number and cast_limits.first_alt(plan.state, plan.actor, act, plan.info)
+
+
+def _activated(plan: Plan, act: str) -> None:
+    """-- first activation (wave 48D) -- the per-turn log of the actor's activations by kind, at the choke point (equip: activate_to_stack; cycling: cycle)."""
+    plan.rules.once_per_turn[f"activated:{plan.actor}:{act}"] = plan.state.turn.number
+
+
+def _equip_side(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, sides: list[str], cycling: bool = False) -> str | None:
     """-- cast keywords (wave 43D) -- 601.2b: the cost the activator announced for an equip ability that lets them pay one of several ("{2} or {B}",
     "Pay {3} or discard a card"; 702.6a, 118.3: a side that can't be paid can't be chosen), or None while they're asked. What is public decides whether one is
     offered (mana, the permanents, the counters): a side that discards a card from the hand is always offered, so that no omission tells the table what the
@@ -4081,16 +4113,22 @@ def _equip_side(plan: Plan, card: CardInstance, ch: Characteristics, a: A.Activa
         if not 0 <= i < len(sides):
             raise ActionError("Choose one of the costs of the equip ability")
         return sides[i]
-    paid = [ability_cost(ch, ability_of(side), state=plan.state, card=card, info=plan.info) for side in sides]
-    problems = [ability_problem(plan.state, plan.actor, card, ch, ability_of(side), cost, check_priority=False, info=plan.info, plan=plan)
-                for side, cost in zip(sides, paid, strict=True)]
-    offered = [i for i, cost in enumerate(paid) if problems[i] is None or any(c.kind in _HAND_PARTS for c in cost.components)]
+    if cycling:  # -- first activation (wave 48D) -- the mana sides of a cycling cost: each is offered if it can be paid (mana is public)
+        paid = []
+        problems = [None if can_pay(plan.state, plan.actor, M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, side, plan.info)).with_x(0), plan.info,
+                                    purpose=Purpose(ability_of=ch, cost_x="{X}" in side)) else "Not enough mana" for side in sides]
+        offered = [i for i, why in enumerate(problems) if why is None]
+    else:
+        paid = [ability_cost(ch, ability_of(side), state=plan.state, card=card, info=plan.info) for side in sides]
+        problems = [ability_problem(plan.state, plan.actor, card, ch, ability_of(side), cost, check_priority=False, info=plan.info, plan=plan)
+                    for side, cost in zip(sides, paid, strict=True)]
+        offered = [i for i, cost in enumerate(paid) if problems[i] is None or any(c.kind in _HAND_PARTS for c in cost.components)]
     if not offered:
         raise ActionError(problems[0] or "You can't pay the cost of that ability")
     if len(offered) == 1:  # (118.3: the other can't be paid — nothing to choose)
         a.cost_choices = [*a.cost_choices, A.CostChoice(component=costs.EITHER_SLOT, cards=[f"either:{offered[0]}"])]
         return sides[offered[0]]
-    decide(plan, player=plan.actor, kind="choose_cards", prompt=f"{ch.name or 'It'}: choose the cost of its equip ability (601.2b), or none to cancel",
+    decide(plan, player=plan.actor, kind="choose_cards", prompt=f"{ch.name or 'It'}: choose the cost of its {'cycling' if cycling else 'equip'} ability (601.2b), or none to cancel",
            options=[DecisionOption(id=f"either:{i}", label=sides[i]) for i in offered], min_choices=0, max_choices=1,
            resume={"step": "ability_cost", "component": costs.EITHER_SLOT, "amount": 1, "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},
            source=card)
@@ -4211,6 +4249,8 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         from app.rules.triggers import targeted
 
         targeted(plan, ability_id, plan.actor, chosen)
+    if ability.special == "equip":  # -- first activation (wave 48D) --
+        _activated(plan, "equip")
     if ability_id:  # -- activation (wave 11F) -- 602.2: "Whenever a player activates an ability …"
         from app.rules.triggers import activated
 

@@ -561,7 +561,7 @@ RESTRICTIONS = {"block": ["cant_block"], "attack": ["cant_attack"], "attack or b
 # effect with a duration (611.2a): this turn / this combat / "during their next turn" (a player's, ``their_turn``) -- or, with "unless their controller pays
 # {2} for each of those creatures", an attack cost (508.1d, 508.1h-j: app/rules/combat_rules.py)
 _CANT_ATTACK_YOU = re.compile(r"(?P<o>.+?) can't attack (?P<t>you|you or planeswalkers you control|you or permanents you control)"
-                              r"(?: unless their controller pays (?P<cost>(?:\{[^}]+\})+) for each of those creatures)?"
+                              r"(?: unless their controller pays (?P<cost>(?:\{[^}]+\})+|[1-9]\d* life) for each of those creatures)?"  # (wave 49D: life, Sivitri)
                               r" (?P<d>this turn|this combat|during their next turn)")
 _ATTACK_YOU = {"you": "cant_attack_player", "you or planeswalkers you control": "cant_attack_player_pw",
                "you or permanents you control": "cant_attack_player_perm"}
@@ -578,8 +578,8 @@ def _cant_attack_you(m: re.Match[str]) -> tuple[Effects, Any]:
     if m["cost"]:  # (508.1d: nobody has to pay, so this never forces an attack; one rule per source, so two of them cost twice)
         from app.rules import mana as M
 
-        cost = M.parse_cost(m["cost"])
-        if m["t"] not in _TAX_YOU or cost.unsupported or cost.is_free or cost.x:
+        cost = M.parse_cost("{0}" if m["cost"].endswith(" life") else m["cost"])  # -- life attack costs (wave 49D) -- 508.1g-h, 119.4: "pays 2 life for each of those creatures"
+        if m["t"] not in _TAX_YOU or cost.unsupported or (cost.is_free and not m["cost"].endswith(" life")) or cost.x:
             raise _Fail
         rules = [f"{_TAX_YOU[m['t']]}:@you:{m['cost']}:@src"]
     else:
@@ -1280,6 +1280,11 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
                 raise _Fail  # ("each player's library … put them back": who orders whose? not read)
             out.append({"do": "rest_looked", "to": "top_any"})
         return out, _one(group)
+    # -- commander sweep (wave 49B) -- "target opponent exiles the top half of their library, rounded up" (Ulamog, the Defiler): 107.1a, half the library as it is now
+    m = re.fullmatch(r"(?P<subj>target opponent|target player) exiles the top half of their library, rounded (?P<r>up|down)", text)
+    if m and rider is None:
+        kind, key, group = ref(m["subj"])
+        return [{"do": "exile_top", "n": 0, "half": m["r"], "player": _who(kind, key)}], _one(group)
     m = _SUBJ_TOP.fullmatch(text)
     if m:
         kind, key, group = ref(m["subj"])
@@ -1797,6 +1802,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if recipients == "itself" and m["src"] == "~":  # -- chosen player (wave 4J) -- "~ deals 1 damage to itself" (Stuffy Doll)
             recipients = "~"
         recipients = re.sub(r"^(each opponent and each .+?) they control$", r"\1 your opponents control", recipients)
+        recipients = re.sub(r"^(target (?:player|opponent) and each .+?) they control$", r"\1 that player controls", recipients)  # (wave 49B: "target opponent and each creature they control", The Great Work)
         recipients = re.sub(r"(creatures?) and (planeswalkers?|battles?) (?=you control|your opponents control|an opponent controls)",
                             r"\1 or \2 ", recipients)
         # -- damage sized by a count (wave 4E) -- "each creature and planeswalker you don't control / that player controls"
@@ -2723,19 +2729,19 @@ def _sized_damage_forms(text: str, rider: Any) -> tuple[Effects, Any] | None:
             raise _Fail
         return [{"do": "damage", "who": "itself", "n": _amount(each_ctrl["n"]), "src": "each:" + key, "to": "controller"}], None
     m = sized_damage.SELF_DAMAGE.fullmatch(text)
-    if m is None:
+    if m is None or (m["c"] and not m["s"].startswith("target ")):  # (wave 49B: a fixed amount only for a target; "this creature deals 1 damage to itself" is read elsewhere)
         return None
     if rider is not None:
         raise _Fail
-    stat = "toughness" if "toughness" in (m["a"] or m["b"]) else "power"
+    stat = "toughness" if "toughness" in (m["a"] or m["b"] or "") else "power"
     kind, key, group = ref(m["s"])
     if kind == "each":
         if selectors.from_key(key).player is not None:
             raise _Fail
-        return [{"do": "damage", "who": "itself", "n": {stat: "each"}, "src": "each:" + key}], None
+        return [{"do": "damage", "who": "itself", "n": int(m["c"]) if m["c"] else {stat: "each"}, "src": "each:" + key}], None
     if kind != "target" or group is None or group.get("max", 1) != 1:
         raise _Fail
-    return [{"do": "damage", "who": "target", "n": {stat: "target"}, "src": "target"}], _one(group)
+    return [{"do": "damage", "who": "target", "n": int(m["c"]) if m["c"] else {stat: "target"}, "src": "target"}], _one(group)  # (wave 49B: a fixed amount, "deals 6 damage to itself")
 # -- end damage sized by a count (wave 4E) --
 
 
@@ -2896,7 +2902,7 @@ DISCARD_NAMED = r"(?:that player|they|its owner) discards? (?P<o>that card|those
 CHOICE_KINDS = ("color", "creature type", "basic land type", "opponent", "player")
 CHOOSE_VALUE = rf"choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player|{_NAME_WHAT})"
 CARD_TYPE_FIVE = "artifact, creature, enchantment, instant, or sorcery"  # -- commanders (wave 47A) -- Cloud Key: the five card types it offers
-ENTERS_CHOICE = re.compile(rf"^As ~ enters, choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|card type(?: other than creature or land)?|{CARD_TYPE_FIVE})\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key)
+ENTERS_CHOICE = re.compile(rf"^As ~ enters, choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink)\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key)
 
 
 # -- choose own (wave 32A) -- "Then you may choose a token you control." (Brudiclad), "Choose a Giant creature you control. It deals damage equal to its

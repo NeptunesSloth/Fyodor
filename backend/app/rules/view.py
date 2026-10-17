@@ -17,7 +17,7 @@ from app.game.rules_state import cancelable, preset_name
 from app.game.state import GameState, zone_key
 from app.game.visibility import OMNISCIENT, can_see, mask_face_down
 from app.rules import characteristics as chars
-from app.rules import read_pass
+from app.rules import licids, read_pass
 from app.rules.casting import (
     activatable,
     alt_castable,
@@ -168,6 +168,8 @@ def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, 
             data = info.get(room_printing(state.rules, card, state.rules.object_id(card.id))) if state.rules else None
             if data is not None and chars.room(data):
                 entry["halves"] = [{"name": h.name, "mana_cost": h.mana_cost} for h in (chars.half_from_data(data, i) for i in (0, 1))]
+        if end := licids.ending(state, card, viewer):  # -- licids (wave 50A) -- 116.2c: the cost of the special action that ends the viewer's effect on it
+            entry["end_cost"] = end[0].end_cost
         if not now.is_creature:
             if entry:
                 out[cid] = entry

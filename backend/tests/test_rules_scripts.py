@@ -52,7 +52,7 @@ def test_templates(name, type_line, text, expected):
 
 @pytest.mark.parametrize("text", [
     "Destroy target creature of the chosen type.",  # a selector the engine doesn't know: never guessed
-    "Whenever players finish voting, you gain 1 life.",  # a trigger event the engine doesn't model yet
+    # ("Whenever players finish voting" is an event since wave 48D)
     "When this creature enters, draw a card for each foo you control.",
     "Counter target spell.",
     "When this creature enters, if you control the most creatures, draw a card.",  # (a condition not read yet)

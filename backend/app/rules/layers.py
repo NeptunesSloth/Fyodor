@@ -369,6 +369,8 @@ def _hits(view: Plan, table: list[Static], card: CardInstance, ch: Characteristi
         elif not grammar.applies(view, d, source=source, controller=st.controller, card=card, ch=ch, conditions=True):
             continue
         if solved or _conditions(view, st, tkey):  # (a solved static's conditions were read as it was solved)
+            if d.get("chosen_keywords"):  # -- commander sweep (wave 49B) -- "have each of the chosen abilities" (Greymond): the pair its permanent chose as it entered (614.12a), read now (the table is cached)
+                st = replace(st, definition={**d, "keywords": (source.choices.get("Chosen abilities") or "").split(" and ") if source.choices.get("Chosen abilities") else []})
             hits.append(st)
     return hits, imposed
 
@@ -432,6 +434,8 @@ def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEff
             lost |= gone
             granted -= gone
         elif isinstance(item, ContinuousEffect):
+            if item.lose_index:  # -- licids (wave 50A) -- 613.1f: "This creature loses this ability" (only that printed one)
+                abilities = tuple(a for a in abilities if a.index not in item.lose_index)
             if item.remove_abilities:
                 abilities = ()
                 lost |= {k for a in printed if a.kind == "keywords" for k in a.keywords} | granted
@@ -933,7 +937,7 @@ def _grants(d: dict[str, Any]) -> bool:
     """Does the static change characteristics (layers 6-7)? A rules-only static ("Creatures your
     opponents control can't block.") is applied by ``_with_rules`` instead."""
     return bool(d["p"] or d["t"] or d.get("base") or d.get("base_mv") or d["keywords"] or d["grants"] or d.get("each") or d.get("abilities_of")
-                or d.get("lose_keywords") or d.get("lose_all") or d.get("deny_keywords"))  # -- attached events (wave 4L) --
+                or d.get("lose_keywords") or d.get("lose_all") or d.get("deny_keywords") or d.get("chosen_keywords"))  # -- attached events (wave 4L) -- (wave 49B: the chosen abilities)
 
 
 def _attached45(state: GameState, card: CardInstance, info: CardInfo | None,

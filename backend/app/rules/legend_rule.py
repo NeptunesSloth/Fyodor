@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 KIND = "no_legend_rule"
 _TEXT = re.compile(r'^The "legend rule" doesn\'t apply(?: to (?P<what>permanents|tokens|creatures) you control)?\.$')
+_KIND = re.compile(r'^The "legend rule" doesn\'t apply to (?P<what>[A-Za-z ]+?) you control\.$')  # (wave 49B) "… to Slivers you control." (Sliver Gravemother), "… to creature tokens you control." (The Master, Multiplied)
 
 
 _NAMED_TWO = re.compile(r'^If there are exactly two permanents named (?:~|this creature) on the battlefield, the "legend rule" doesn\'t apply to them\.$')
@@ -35,13 +36,18 @@ def static_definition(text: str) -> dict[str, Any] | None:
         return {"kind": "static", "static": KIND, "scope": "named_two", "effects": []}
     m = _TEXT.match(t)
     if m is None:
-        return None
+        from app.rules import selectors
+
+        k = _KIND.match(t)
+        sel = selectors.parse(f"{k['what']} you control") if k is not None else None
+        return {"kind": "static", "static": KIND, "scope": "sel", "sel": sel.key(), "effects": []} \
+            if sel is not None and sel.controller == "you" and sel.zones == ("battlefield",) and sel.player is None else None
     return {"kind": "static", "static": KIND, "scope": m["what"] or "all", "effects": []}
 
 
 def exempt_cards(plan: Plan, group: list[CardInstance]) -> set[str]:
     """The cards of one same-named group the rule doesn't apply to."""
-    from app.rules import scripts
+    from app.rules import scripts, selectors
     from app.rules.replace import conditional_lines
 
     out: set[str] = set()
@@ -58,6 +64,10 @@ def exempt_cards(plan: Plan, group: list[CardInstance]) -> set[str]:
                 out |= {card.id for card in group if card.id in same} if len(same) == 2 else set()
                 continue
             for card in group:
+                if d["scope"] == "sel":  # (wave 49B) the permanents the selector names, the source's controller's (704.5j: "you control")
+                    if selectors.matches(plan, selectors.from_key(d["sel"]), card, plan.ch(card), src.controller, src.id):
+                        out.add(card.id)
+                    continue
                 if d["scope"] == "all" or card.controller == src.controller and (
                         d["scope"] == "permanents" or (d["scope"] == "tokens" and card.is_token)
                         or (d["scope"] == "creatures" and plan.ch(card).is_creature)):

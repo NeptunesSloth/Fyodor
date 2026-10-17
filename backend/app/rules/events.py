@@ -148,6 +148,7 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"a spell or ability (?P<p>you) control counters a spell"), "counters_spell"),  # -- counter events (wave 19C) -- 701.6a
     (re.compile(r"(?P<p>you|an opponent|a player) commits? a crime"), "commit_crime"),  # -- crimes (wave 6D) -- 700.13
     (re.compile(r"day becomes night or night becomes day"), "day_night"),
+    (re.compile(r"players finish voting"), "voted"),  # -- voting (wave 48D) -- 701.38 (triggers.voted)
     (re.compile(r"(?P<p>you) forage"), "forage"),  # -- if you do (wave 26C) -- 701.61: the cost was paid (cost_payment.pay)
     (re.compile(r"(?P<p>you) collect evidence"), "collect_evidence"),  # 701.59
     # -- most-played cards (wave 43B) -- 701.23: "Whenever an opponent searches their library" (Archivist of Oghma, Wan Shi Tong, Ob Nixilis, Unshackled): a search of
@@ -182,10 +183,7 @@ def parse_condition(cond: str) -> Condition | None:
             r"enchanted_or_equipped" if found.get("event") in ("die", "leave") and found.get("subject") in ("sel", "self_or") and not found.get("aggregate") else
             r"modified|enchanted_or_equipped", str(found)):
         return None
-    # -- history (wave 22E) -- 701.15b: a goaded creature is read live, as it attacks; an object that has left (a creature that died as it
-    # dealt damage, or dies) is rebuilt from its last known information, which doesn't keep the goad: such triggers stay manual
-    if found is not None and "goaded" in str(found) and not (found.get("event") == "attack" and found.get("subject") == "sel"):
-        return None
+    # (-- goad (wave 48D) -- 701.15b: an object that has left (a creature that died as it dealt damage, or dies) keeps the goad in its last known information)
     return found
 
 
@@ -281,6 +279,15 @@ _PLAY_FROM = r" from (?:exile|your graveyard|a graveyard|anywhere other than (?:
 
 
 def _parse(c: str) -> Condition | None:
+    # -- either with a batch half (wave 49D) -- "Whenever an opponent discards a card or mills one or more cards" (Lo and Li, Royal Advisors): one player's two
+    # actions, each its own event (603.2c); the "one or more" half is once per batch of its own (triggers.py reads the half that matched)
+    m = re.fullmatch(r"(?P<p>you|an opponent|a player) (?P<a>[a-z]+ an? [^,]+?) or (?P<b>[a-z]+ one or more [^,]+)", c)
+    if m:
+        a, b = _parse(f"{m['p']} {m['a']}"), _parse(f"{m['p']} {m['b']}")
+        if a is None or b is None or a.get("aggregate") or not b.get("aggregate") or a["event"] == b["event"] or a.get("subject") != "player" \
+                or b.get("subject") != "player" or a.get("player") != b.get("player") or {a["event"], b["event"]} & {"either", "multi"}:
+            return None
+        return {"event": "either", "subject": "player", "player": a["player"], "conds": [a, b]}
     # -- trigger other (wave 25B) -- 701.18b: to play a card is to play it as a land or cast it as a spell, whichever is appropriate
     # (-- trigger from (wave 30F) -- "Whenever you play a card from exile" (Prosper): a land played from there or a spell cast from there)
     m = re.fullmatch(rf"(?P<p>you|a player|an opponent) plays? a card(?P<f>{_PLAY_FROM})?", c)

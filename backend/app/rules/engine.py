@@ -58,6 +58,7 @@ from app.rules import (
     hideaway,  # -- hideaway (wave 29D) --
     kinship,  # -- kinship (wave 9C) --
     layers,
+    licids,  # -- licids (wave 50A) --
     looking,
     merged,  # -- merged permanents (wave 18D) --
     miracle,  # -- casting extras (wave 18E) --
@@ -92,7 +93,7 @@ NOT_YET: dict[str, str] = {}
 RULES_ENGINE_VERSION = 2  # bump when the rules engine's behaviour changes (saved with scenarios/diagnostics)
 PREF_INTENTS = frozenset({"set_stops", "set_prefs", "set_card_automation"})  # allowed any time
 ACTION_INTENTS = frozenset({"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers",
-                            "repeat_sequence", "turn_face_up", "unlock_door"})
+                            "repeat_sequence", "turn_face_up", "unlock_door", "end_effect"})
 
 
 def automation_on(state: GameState) -> bool:
@@ -683,6 +684,7 @@ def on_step_start(plan: Plan) -> None:
         effects.designations.rad_trigger(plan)
     elif phase == "begin_combat":  # -- combat (wave 5C) -- "if it's the first combat phase of the turn"
         combat_rules.combat_began(plan)
+        delayed.at_step(plan, "begin_combat")  # -- commander sweep (wave 49B) -- 603.7: "At the beginning of that combat" (Moraug), the one combat phase a tagged trigger waits for
     elif phase == "end_combat":  # -- (wave 3E) delayed triggers "at end of combat" (511.2, 603.7: the Ring's sacrifice) --
         delayed.at_step(plan, "end_combat")
     elif phase == "declare_attackers":
@@ -1449,6 +1451,7 @@ INTENTS: dict[str, Callable[[Plan, Any], None]] = {
     "cast_spell": casting.cast_spell,
     "turn_face_up": casting.turn_face_up,
     "unlock_door": rooms.unlock_action,
+    "end_effect": licids.end_effect,  # -- licids (wave 50A) -- 116.2c
     "miracle_reveal": miracle.reveal,  # -- casting extras (wave 18E) --
     "activate_ability": casting.activate_ability,
     "declare_attackers": combat.declare_attackers,

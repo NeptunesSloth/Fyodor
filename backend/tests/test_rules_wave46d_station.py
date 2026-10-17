@@ -69,17 +69,16 @@ def ready(s, *names):
         s.state.rules.controlled_since[card_named(s, n).id].turn = 0
 
 
-@pytest.mark.parametrize("name", [c["name"] for c in DATA if c["name"] not in ("Doubling Season", "Exploration Broodship", "Tapestry Warden")])
+@pytest.mark.parametrize("name", [c["name"] for c in DATA if c["name"] not in ("Doubling Season", "Tapestry Warden")])  # (wave 48D: Exploration Broodship is FULL: tests/test_rules_wave48d_broodship.py)
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
 
-@pytest.mark.parametrize("name", ["Exploration Broodship", "Tapestry Warden"])
+@pytest.mark.parametrize("name", ["Tapestry Warden"])
 def test_what_is_not_read_stays_partial(cards, name):
-    """Exploration Broodship: an additional land play and a graveyard permission that depend on charge counters (no condition on those
-    statics yet); Tapestry Warden (702.184c): stations using toughness, checked as the ability resolves, a departed creature as it last existed."""
+    """Tapestry Warden (702.184c): stations using toughness, checked as the ability resolves, a departed creature as it last existed."""
     cov = coverage.of_card_data(cards.resolve(name))
-    assert cov.level == "PARTIAL" and len(cov.manual_parts) == (2 if name == "Exploration Broodship" else 1)
+    assert cov.level == "PARTIAL" and len(cov.manual_parts) == 1
 
 
 def test_station_puts_counters_equal_to_the_tapped_creatures_power(cards):

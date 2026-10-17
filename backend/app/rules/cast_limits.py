@@ -246,6 +246,13 @@ def _conditional_flash(cond_text: str, rest: str) -> Definition | None:
     return {**inner, "if": cond}
 
 
+# -- first activation (wave 48D) -- 118.9, 602.2b: "You may pay {0} rather than pay the equip cost of the first equip ability you activate each turn." (Bruenor
+# Battlehammer; Kíli's "As long as you have an enduring story, …" is scripts._conditional_static; Forge Anew: "during each of your turns") and "You may pay {0}
+# rather than pay the cycling cost of the first card you cycle each turn." (Gavi, Nest Warden)
+FIRST_ALT = re.compile(r"you may pay \{0\} rather than pay the (?:(?P<eq>equip) cost of the first equip ability you activate|cycling cost of the first card you cycle)"
+                       r" (?:each turn|(?P<own>during each of your turns))")
+
+
 def static_definition(text: str) -> Definition | None:
     """The definition of a static line of this grammar (``permissions.define_static`` asks), or None."""
     t = _lower_first(text.strip().rstrip("."))
@@ -344,8 +351,11 @@ def static_definition(text: str) -> Definition | None:
         return {"kind": "static", "static": "loyalty_rule", "who": "you", "twice": True, "effects": []}
     if t == "you may activate loyalty abilities of ~ on any player's turn any time you could cast an instant":
         return {"kind": "static", "static": "loyalty_rule", "who": "self", "instant": True, "effects": []}
-    if t == "you may activate equip abilities any time you could cast an instant":  # -- most-played cards III (wave 46C) -- 702.6a: the sorcery timing of equip lifted (Leonin Shikari)
-        return {"kind": "static", "static": "loyalty_rule", "who": "you", "equip_instant": True, "effects": []}
+    if t in ("you may activate equip abilities any time you could cast an instant", "during your turn, you may activate equip abilities any time you could cast an instant"):
+        # -- most-played cards III (wave 46C) -- 702.6a: the sorcery timing of equip lifted (Leonin Shikari); (wave 48D: Forge Anew, only during your turn)
+        return {"kind": "static", "static": "loyalty_rule", "who": "you", "equip_instant": True, "effects": [], **({"own_turn": True} if t.startswith("during") else {})}
+    if (m := FIRST_ALT.fullmatch(t)) is not None:  # -- first activation (wave 48D) -- 118.9: an alternative cost for the first activation (casting.py _first_alt)
+        return {"kind": "static", "static": "first_alt", "act": "equip" if m["eq"] else "cycling", "own_turn": bool(m["own"]), "effects": []}
     # -- unspent mana (wave 35C) -- 500.4, 614.1a: "If you would lose unspent mana, that mana becomes colorless instead." (Kruphix, Omnath, Horizon Stone:
     # app/rules/kept_mana.py): the mana stays in the pool, colorless, with its restrictions and riders (the Gatherer rulings)
     if t == "if you would lose unspent mana, that mana becomes colorless instead":
@@ -549,7 +559,7 @@ _KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "s
           "cant_enter", "cant_counters", "cant_play_lands", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap",  # (wave 22B: app/rules/prohibitions.py; 43B: Aven Mindcensor)
           "zone_grant",  # (wave 25A: app/rules/zone_grants.py)
           "life_lock",  # (wave 29D: app/rules/life_lock.py)
-          "rad_gain", "venture_limit")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
+          "rad_gain", "venture_limit", "first_alt")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
@@ -785,7 +795,15 @@ def loyalty_rule(state: GameState, card: CardInstance, info: CardInfo | None, ke
     """-- static_other sweep (wave 19A) -- does a static let this planeswalker's loyalty abilities be activated ``key`` ("twice" each turn, at
     "instant" speed on any player's turn)? Its controller's "planeswalkers you control", or its own."""
     return info is not None and any(d.get(key) and (src.id == card.id if d["who"] == "self" else src.controller == card.controller)
+                                    and (not d.get("own_turn") or state.turn.active_player == card.controller)  # (wave 48D: "During your turn, …")
                                     for src, d in _statics(state, info, "loyalty_rule"))
+
+
+def first_alt(state: GameState, player: str, act: str, info: CardInfo | None) -> bool:
+    """-- first activation (wave 48D) -- does a static let ``player`` pay {0} rather than the ``act`` ("equip" / "cycling") cost of their first such activation (the
+    caller checks that none was activated this turn)?"""
+    return any(d["act"] == act and src.controller == player and (not d["own_turn"] or state.turn.active_player == player)
+               for src, d in _statics(state, info, "first_alt"))
 
 
 def spend_mode(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> str | None:

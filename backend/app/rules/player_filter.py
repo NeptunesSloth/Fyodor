@@ -63,6 +63,8 @@ def parse_pred(text: str, prior: dict[str, Any] | None = None) -> Pred | None:
     """The predicate a "who …" phrase states, or None. ``prior``: the earlier instruction a "this way" form is about (resolve_it binds
     its recording to the placeholder)."""
     t = text.strip().rstrip(".").strip()
+    if m := re.fullmatch(r"voted for a choice you (?:(didn't) vote|voted) for", t):  # -- voting (wave 48D) -- 701.38: against the ballots of the trigger's voting
+        return {"voted": "other" if m[1] else "same"}
     if not t or _BAD.search(t.replace("this way", "").replace("this turn", "")):
         return None
     if re.search(r"\byou(?:r|rs|rself)?\b", re.sub(r" than you(?: do)?$", "", t)):
@@ -113,6 +115,8 @@ def holds(plan: Plan, ctx: Context, pred: Pred, pid: str) -> bool:
     """Is the predicate true of this player now (608.2h)?"""
     if "any" in pred:
         return True
+    if "you_or" in pred:  # (-- voting (wave 48D) --)
+        return pid == ctx["controller"] or holds(plan, ctx, pred["you_or"], pid)
     if "cond" in pred:
         return conditions.holds(plan, {**ctx, "controller": pid}, pred["cond"])
     if "vs" in pred:
@@ -123,6 +127,10 @@ def holds(plan: Plan, ctx: Context, pred: Pred, pid: str) -> bool:
         got = {p: values.evaluate(plan, {**ctx, "controller": p}, pred["extreme"]) for p in plan.live()}
         best = max(got.values(), default=0) if pred["most"] else min(got.values(), default=0)
         return pid in got and got[pid] == best
+    if "voted" in pred:  # (-- voting (wave 48D) -- the choices this player voted for against the controller's, in the ballots the trigger carries; several votes: both can hold)
+        ballots = (ctx.get("event") or {}).get("ballots") or []
+        yours, them = ({c for v, c in ballots if v == p} for p in (ctx["controller"], pid))
+        return bool(them & yours) if pred["voted"] == "same" else bool(them - yours)
     if "votes" in pred:  # (the vote of this resolution: a player in no ballot has none)
         tally = (ctx.get("vote") or {}).get("tally")
         return tally is not None and int(tally.get(pid, 0)) == pred["votes"]
@@ -176,7 +184,7 @@ def allowed(definition: dict[str, Any]) -> bool:
     return True
 
 # -- activated other (wave 34B) -- "Each opponent with no cards in hand loses 10 life." (Tinybones, Trinket Thief): "with …" is "who has …"
-_SENTENCE = re.compile(r"^each (?P<b>opponent|player) (?:who|(?P<with>with)) (?P<rest>.+)$")
+_SENTENCE = re.compile(r"^(?P<you>you and )?each (?P<b>opponent|player) (?:who|(?P<with>with)) (?P<rest>.+)$")
 _FOR_EACH = re.compile(r"^for each (?P<b>opponent|player) who (?P<pred>[^,]+), (?P<rest>.+)$")
 _EACH_OPP = re.compile(r"^for each opponent, (?P<rest>.+)$")
 _THEN = re.compile(r"(?i)(?<=[a-z]), then (each (?:opponent|player) who )")
@@ -203,6 +211,8 @@ def sentence(text: str, effects: list[dict[str, Any]], read: Callable[[str], lis
     if m is None:
         return None
     base, words = m["b"], (("has " if m["with"] else "") + m["rest"]).split(" ")
+    if m["you"]:  # -- voting (wave 48D) -- "You and each opponent who voted for a choice you voted for may scry 2.": you always, and the opponents the predicate holds for
+        base = "player"
     for i in range(1, len(words)):
         pred = parse_pred(" ".join(words[:i]), prior)
         if pred is None:
@@ -215,7 +225,7 @@ def sentence(text: str, effects: list[dict[str, Any]], read: Callable[[str], lis
         aimed = [{**e, "who": f"ref:{name}"} if e.get("who") == key else e for e in inner]
         if aimed == inner or any(str(e.get("who", "")).startswith("each") for e in aimed):
             continue  # (nothing aimed at the group, or a part of the clause still addresses everyone)
-        return [{"do": "players_where", "as": name, "base": base, "pred": pred}, *aimed]
+        return [{"do": "players_where", "as": name, "base": base, "pred": {"you_or": pred} if m["you"] else pred}, *aimed]
     return None
 
 
