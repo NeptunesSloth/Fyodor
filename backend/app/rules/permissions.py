@@ -425,7 +425,7 @@ def spell_filter(phrase: str | None, tail: str | None = None) -> str | None:
         return None
     kinds = sum(bool(x) for x in (sel.types, sel.subtypes, sel.colors, sel.supertypes, sel.not_types, sel.colorless))
     # (-- cost changers (wave 20E) -- "red or green creature": any of those colors, and the type: the colors are one list, 105.1)
-    colors_then_type = re.fullmatch(r"(?:white|blue|black|red|green)(?:(?: or|,) (?:white|blue|black|red|green))+ [a-z]+", text, re.I)
+    colors_then_type = re.fullmatch(r"(?:white|blue|black|red|green)(?:(?: or|,) (?:white|blue|black|red|green))+ (?:instant or sorcery|[a-z]+)", text, re.I)  # (wave 44C: Wort, "red or green instant or sorcery")
     if re.search(r"\bor\b|,", text) and not sel.union and kinds > 1 and not (colors_then_type and len(sel.colors) > 1 and sel.types):
         return None  # "red or creature" can't be one selector: a list of one kind only
     return sel.key()

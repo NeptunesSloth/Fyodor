@@ -5747,6 +5747,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         return extra
     if (cant := cant_gain.static_definition(text)) is not None:  # "Players can't gain life." (614.17)
         return cant
+    from app.rules import designations  # -- counters (wave 44C) -- "You gain life rather than lose life from radiation." (728.1a)
+
+    if (rad := designations.static_definition(text)) is not None:
+        return rad
     from app.rules import (
         dice,  # -- dice (wave 24B) -- "If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll."
     )

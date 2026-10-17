@@ -86,6 +86,11 @@ def _add_trigger(plan: Plan, controller: str, name: str, effects: list[dict[str,
 
 
 # -- rad counters (728) -----------------------------------------------------------------------------
+def static_definition(text: str) -> dict[str, Any] | None:
+    """-- counters (wave 44C) -- 728.1a: "You gain life rather than lose life from radiation." (Strong, the Brutish Thespian)."""
+    return {"kind": "static", "static": "rad_gain", "effects": []} if text == "You gain life rather than lose life from radiation." else None
+
+
 def rad_trigger(plan: Plan) -> None:
     """728.1: at the beginning of the active player's precombat main phase (505.1a: the first main
     phase), if they have one or more rad counters."""
@@ -113,8 +118,13 @@ def rad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     nonland = sum(1 for cid in milled if cid in plan.state.cards and plan.state.cards[cid].zone == zone_key(pid, "graveyard")
                   and not plan.ch(plan.state.cards[cid]).is_land)
     if nonland:
+        from app.rules import cast_limits
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-        _replace_life.lose_life(plan, [(pid, nonland)], actor=pid)  # (728.1a: life lost "from radiation")
+
+        # -- counters (wave 44C) -- 728.1a, 614.1: "You gain life rather than lose life from radiation." (Strong, the Brutish Thespian): the loss is replaced by a gain of the
+        # same amount, applied after the other "would lose life" replacements (the player chooses the order, 616.1: the better one for them)
+        gains = any(src.controller == pid for src, _ in cast_limits._statics(plan.state, plan.info, "rad_gain"))
+        _replace_life.lose_life(plan, [(pid, nonland)], actor=pid, as_gain=gains)  # (728.1a: life lost "from radiation")
         plan.do({"type": "resource", "player": pid, "key": "rad", "delta": -min(nonland, n)}, actor=pid)
     return True
 
