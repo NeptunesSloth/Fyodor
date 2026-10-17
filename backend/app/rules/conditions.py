@@ -1151,6 +1151,11 @@ def _object_enlisted(m: re.Match[str]) -> Condition:
     return _obj(m, "enlisted")  # -- trailing & intervening ifs (wave 38A) -- 702.154a: it was the attacker a creature was tapped for, in this combat phase (Aradesh)
 
 
+@_history_pattern(rf"{_HO} dealt damage to another creature this turn")
+def _object_dealt_creature(m: re.Match[str]) -> Condition:
+    return _obj(m, "dealt_creature")  # -- commanders (wave 47A) -- Wolverine, Best There Is: some creature other than it was dealt damage by it this turn (120.3)
+
+
 @_history_pattern(rf"{_HO} (?:dealt|has dealt) (?:(?P<n>\w+) or more )?(?P<kind>combat )?damage to (?P<p>a player|that player) this turn")
 def _object_dealt_player(m: re.Match[str]) -> Condition | None:
     n = _num(m["n"]) if m["n"] else 1

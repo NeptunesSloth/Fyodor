@@ -593,6 +593,8 @@ def _object_history(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: 
     elif what == "damaged_by":  # -- trigger damage (wave 39B) -- a Giant, Wizard or spell you controlled dealt it damage (the source as it was, 608.2i)
         got = any(f.kind == "damaged" and f.object_id in ids and f.amount > 0 and f.source_controller == ctx["controller"]
                   and ((cond.get("spell") and f.source_spell) or set(cond.get("subtypes", ())) & set(f.source_subtypes)) for f in log.facts)
+    elif what == "dealt_creature":  # -- commanders (wave 47A) -- it dealt damage (more than 0, 120.3) to a creature other than itself, as that creature was
+        got = any(f.kind == "damaged" and f.source in ids and f.amount > 0 and f.object_id not in ids and "Creature" in f.types for f in log.facts)
     elif what == "dealt_player":
         to = set(context.players(plan, ctx, context.EVENT)) if cond.get("to") == "event" else None
         got = total("damage", lambda f: f.object_id in ids and (to is None or f.player in to)) >= n
@@ -747,6 +749,8 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         return max(log.gained.get(me, 0), log.lost.get(me, 0))
     if kind == "drew":
         return log.drew.get(me, 0)
+    if kind == "opp_drew":  # -- commanders (wave 47A) -- "for each card your opponents have drawn this turn" (Heliod, the Radiant Dawn)
+        return sum(n for p, n in log.drew.items() if p != me and p in plan.live())
     if kind == "died":
         return sum(1 for d in log.left if (v.get("left") or d.to == v.get("to", "graveyard")) and (snap := plan.rules.lki.get(d.object_id)) is not None
                    and (v.get("who") != "you" or d.controller == me)  # (-- X actions (wave 9A) -- "under your control")

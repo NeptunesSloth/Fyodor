@@ -68,6 +68,7 @@ _LIFE_VS_START = {
     f"your life total is greater than or equal to {_START}": (">=", 0, False),
     f"your life total is less than or equal to half {_START}": ("<=", 0, True),
     f"your life total is less than {_START}": ("<", 0, False),  # (-- trailing & intervening ifs (wave 38A) -- Resolute Archangel)
+    f"your life total is less than half {_START}": ("<", 0, True),  # (-- commanders (wave 47A) -- 119.1, 903.7: strictly less than half)
 }
 _LIFE_MORE = re.compile(r"you have at least (?P<n>\w+) life more than your starting life total"
                         r"|your life total is at least (?P<m>\w+) greater than your starting life total")
@@ -193,6 +194,8 @@ def parse(text: str) -> Condition | None:
     if t in _LIFE_VS_START:
         op, plus, half = _LIFE_VS_START[t]
         return {"static": "life_vs_start", "op": op, "plus": plus, "half": half}
+    if t == "an opponent's life total is less than half their starting life total":  # -- commanders (wave 47A) -- Anya: some one opponent, 119.1, 903.7
+        return {"static": "life_vs_start", "op": "<", "plus": 0, "half": True, "opp": True}
     m = _LIFE_MORE.fullmatch(t)
     if m:
         n = _num(m["n"] or m["m"])
@@ -437,10 +440,12 @@ def holds(plan: Plan, cond: Condition, *, source: CardInstance, controller: str)
 
 def life_vs_start(plan: Plan, cond: Condition, controller: str) -> bool:
     """119.1, 903.7: ``controller``'s life total against the game's starting life total (also read by an ability's own "if", conditions.holds)."""
-    life = plan.state.players[controller].life
     start = plan.state.settings.starting_life
-    if cond.get("half"):  # "less than or equal to half your starting life total" (no rounding needed: compare doubled)
-        return 2 * life <= start
+    if cond.get("opp"):  # -- commanders (wave 47A) -- "an opponent's life total is less than half their starting life total" (Anya): some one opponent
+        return any(life_vs_start(plan, {**cond, "opp": False}, p) for p in plan.live() if p != controller)
+    life = plan.state.players[controller].life
+    if cond.get("half"):  # "less than (or equal to) half your starting life total" (no rounding needed: compare doubled)
+        return 2 * life < start if cond["op"] == "<" else 2 * life <= start
     want = start + int(cond.get("plus") or 0)
     return {">": life > want, ">=": life >= want, "<=": life <= want, "<": life < want}[cond["op"]]
 

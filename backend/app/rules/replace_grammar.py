@@ -611,6 +611,8 @@ def _damage_plain(text: str) -> Definition | None:
         noun = "source" if dbl["src"] == "sources" else "creature"  # (wave 44C: "creature sources", Absorbing Man and Titania)
         text = (f"If a {noun} {dbl['ctl']}{' with a counter on it' if dbl['with'] else ''} would deal damage to a permanent or player, "
                 "it deals double that damage instead.")
+    if text == "Double all damage ~ would deal.":  # -- commanders (wave 47A) -- Wolverine, Best There Is: "If ~ would deal damage to a permanent or player, it deals double that damage instead." (every recipient there is)
+        text = "If ~ would deal damage to a permanent or player, it deals double that damage instead."
     if (d := _damage_to(text)) is not None:
         return d
     m = _DAMAGE.match(text)
