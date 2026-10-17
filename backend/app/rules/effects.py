@@ -3996,6 +3996,9 @@ RESUME = {"edict": resume_edict, "player_chooses": resume_player_chooses, "choos
 from app.rules import counter_pick as _counter_pick  # noqa: E402, I001
 
 PRIMITIVES["pick_counter"] = _counter_pick.pick_counter
+from app.rules import keyword_soup as _keyword_soup  # noqa: E402, I001  # -- keyword soups (wave 50J) --
+
+PRIMITIVES["keyword_soup"] = _keyword_soup.soup
 RESUME["pick_counter"] = _counter_pick.resume
 RESUME.update(_voting.RESUME)  # -- voting (wave 18C) --
 RESUME.update(_tempting.RESUME)

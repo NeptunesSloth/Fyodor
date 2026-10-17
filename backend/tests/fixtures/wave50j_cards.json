@@ -1,0 +1,265 @@
+[
+ {
+  "name": "Odric, Lunarch Marshal",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Soldier",
+  "oracle_text": "At the beginning of each combat, creatures you control gain first strike until end of turn if a creature you control has first strike. The same is true for flying, deathtouch, double strike, haste, hexproof, indestructible, lifelink, menace, reach, skulk, trample, and vigilance.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Akroma, Vision of Ixidor",
+  "layout": "normal",
+  "mana_cost": "{5}{W}{W}",
+  "cmc": 7.0,
+  "type_line": "Legendary Creature — Angel",
+  "oracle_text": "Flying, first strike, vigilance, trample\nAt the beginning of each combat, until end of turn, each other creature you control gets +1/+1 if it has flying, +1/+1 if it has first strike, and so on for double strike, deathtouch, haste, hexproof, indestructible, lifelink, menace, protection, reach, trample, vigilance, and partner.\nPartner",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Vigilance",
+   "First strike",
+   "Partner",
+   "Trample"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Odric, Blood-Cursed",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Vampire Soldier",
+  "oracle_text": "When Odric enters, create X Blood tokens, where X is the number of abilities from among flying, first strike, double strike, deathtouch, haste, hexproof, indestructible, lifelink, menace, reach, trample, and vigilance found among creatures you control. (Count each ability only once.)",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Deathtouch",
+   "Lifelink",
+   "Reach",
+   "Indestructible",
+   "Hexproof",
+   "First strike",
+   "Haste",
+   "Trample",
+   "Menace",
+   "Double strike"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Serra Angel",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature — Angel",
+  "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Vigilance"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Sporeweb Weaver",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Spider",
+  "oracle_text": "Reach, hexproof from blue\nWhenever this creature is dealt damage, you gain 1 life and create a 1/1 green Saproling creature token.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Reach",
+   "Hexproof from",
+   "Hexproof"
+  ],
+  "power": "1",
+  "toughness": "4"
+ },
+ {
+  "name": "Thrasios, Triton Hero",
+  "layout": "normal",
+  "mana_cost": "{G}{U}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Merfolk Wizard",
+  "oracle_text": "{4}: Scry 1, then reveal the top card of your library. If it's a land card, put it onto the battlefield tapped. Otherwise, draw a card.\nPartner (You can have two commanders if both have partner.)",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Partner",
+   "Scry"
+  ],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Donatello, the Brains",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Mutant Ninja Turtle",
+  "oracle_text": "If one or more tokens would be created under your control, those tokens plus a Mutagen token are created instead.\nPartner—Character select (You can have two commanders if both have this ability.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Partner"
+  ],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Order of the White Shield",
+  "layout": "normal",
+  "mana_cost": "{W}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Knight",
+  "oracle_text": "Protection from black\n{W}: This creature gains first strike until end of turn.\n{W}{W}: This creature gets +1/+0 until end of turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Protection"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Bleeding Effect",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{B}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of combat on your turn, creatures you control gain flying until end of turn if a creature card in your graveyard has flying. The same is true for first strike, double strike, deathtouch, hexproof, indestructible, lifelink, menace, reach, trample, and vigilance.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Majestic Myriarch",
+  "layout": "normal",
+  "mana_cost": "{4}{G}",
+  "cmc": 5.0,
+  "type_line": "Creature — Chimera",
+  "oracle_text": "Majestic Myriarch's power and toughness are each equal to twice the number of creatures you control.\nAt the beginning of each combat, this creature gains flying until end of turn if you control a creature with flying. The same is true for first strike, double strike, deathtouch, haste, hexproof, indestructible, lifelink, menace, reach, trample, and vigilance.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "*",
+  "toughness": "*"
+ },
+ {
+  "name": "Kaima, the Fractured Calm",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Spirit",
+  "oracle_text": "At the beginning of your end step, goad each creature your opponents control that's enchanted by an Aura you control. Put a +1/+1 counter on Kaima for each creature goaded this way. (Until your next turn, the goaded creatures attack each combat if able and attack a player other than you if able.)",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Goad"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Havoc Eater",
+  "layout": "normal",
+  "mana_cost": "{5}{R}{R}",
+  "cmc": 7.0,
+  "type_line": "Creature — Elemental",
+  "oracle_text": "Flying\nWhen this creature enters, for each opponent, goad up to one target creature that opponent controls. Put X +1/+1 counters on this creature, where X is the total power of creatures goaded this way.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying",
+   "Goad"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Pacifism",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature can't attack or block.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ }
+]

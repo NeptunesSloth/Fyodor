@@ -122,6 +122,18 @@ def keyword_name(piece: str) -> str | None:
     return typecycling[1] if typecycling else None
 
 
+def keyword_pieces(line: str) -> list[str]:
+    """The keyword abilities a keyword line lists, each as written ("Flying, hexproof from artifacts, creatures, and enchantments" → two)."""
+    pieces: list[str] = []
+    for p in (p for p in re.split(r"[,;]\s*", line) if p.strip()):
+        # -- keywords (wave 44D) -- 702.11d, 702.11f: the commas of "hexproof from artifacts, creatures, and enchantments" list the qualities of one keyword
+        if pieces and pieces[-1].lower().startswith("hexproof from") and keyword_name(p) is None:
+            pieces[-1] += f", {p}"
+        else:
+            pieces.append(p)
+    return pieces
+
+
 def _keywords_line(line: str) -> tuple[str, ...] | None:
     if re.fullmatch(r"partner with [^;.]+", line.strip(), re.IGNORECASE):  # -- keyword pieces (wave 8A) -- 702.124j: the name has a comma
         return ("partner",)
@@ -137,13 +149,7 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
         return ("eternalize",)
     if re.fullmatch(r"companion\s*—.+", line.strip(), re.IGNORECASE):  # -- companion (wave 38D) -- 702.139a: one keyword (Kaheera's condition lists creature types)
         return ("companion",)
-    pieces: list[str] = []
-    for p in (p for p in re.split(r"[,;]\s*", line) if p.strip()):
-        # -- keywords (wave 44D) -- 702.11d, 702.11f: the commas of "hexproof from artifacts, creatures, and enchantments" list the qualities of one keyword
-        if pieces and pieces[-1].lower().startswith("hexproof from") and keyword_name(p) is None:
-            pieces[-1] += f", {p}"
-        else:
-            pieces.append(p)
+    pieces = keyword_pieces(line)
     names = [keyword_name(p) for p in pieces]
     if names and all(names):
         return tuple(n for n in names if n)

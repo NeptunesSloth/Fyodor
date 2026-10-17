@@ -363,6 +363,7 @@ def goad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
              and pid not in goaded_by(plan.ch(plan.state.cards[c]))]
     if fresh:
         _until_next_turn(plan, ctx, fresh, (GOADED + pid,), "Goaded", "goads")
+        ctx.setdefault("goaded", []).extend(plan.oid(c) for c in fresh)  # -- goad (wave 50J) -- "goaded this way" (this_way.py)
     return True
 
 

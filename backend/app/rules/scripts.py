@@ -2363,6 +2363,10 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     body = re.sub(r"(\. |^)It's (an? [^.]+? for as long as it has an? [^.]+? counter on it)(?=\.|$)", r"\1It becomes \2", body)  # (-- commanders (wave 50C) -- Sauron, Dino Devotee: "It's a green Dinosaur with base power and toughness 5/5 for as long as it has a saurian counter on it" is a duration effect on the creature just given the counter, 611.2a)
     if (gifts := refused_zones.gifts_ability(body)) is not None:
         return gifts
+    from app.rules import keyword_soup  # -- keyword soups (wave 50J) --
+
+    if (soup := keyword_soup.bind(body, it)) is not None:
+        return soup
     from app.rules import (
         resolve_exile,  # -- cast riders (wave 38C) -- "Exile that card instead of putting it into your graveyard as it resolves. If you do, …"
     )
@@ -4318,6 +4322,10 @@ def granted_ability(text: str) -> AbilityText | None:
         line = ab.text.rstrip(".")  # -- protection grants (wave 5E) -- (a resolved grant's text ends with a period)
         if re.fullmatch(statics.MEANING_GRANTS, line.lower()) or line.lower() in ("riot", "unleash"):  # -- static grants (wave 15A) -- (wave 42A: unleash, the same)
             return ab  # "Extort", "Afflict 2": their CR meaning; (wave 17C) riot: read as it enters (app/rules/riot.py)
+        if ab.keywords == ("hexproof from",):  # -- keyword soups (wave 50J) -- 702.11d: a variant of hexproof, given as its holder has it (Odric, Lunarch Marshal)
+            from app.rules import protection
+
+            return ab if protection.hexproof(line) is not None else None
         if ab.keywords == ("cumulative upkeep",):  # -- attached events (wave 20A) -- 702.24a: a triggered ability of whatever has it (triggers._cumulative_upkeep)
             from app.rules.coverage import _keyword_supported
 
@@ -8323,7 +8331,7 @@ def _exile_until_monarch(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # -- keyword actions & face-down (wave 3F) -- goad names its objects ("goad it" after a target, "tap it and goad
 # it"); manifest / cloak put cards onto the battlefield ("then put X +1/+1 counters on it": the face-down
 # permanent it made, app/rules/facedown.py binds it)
-_RECORDING.update({"goad": None, "manifest": None, "detain": None, "suspect": None, "exile_hand_down": "exiled"})  # (detain, suspect: wave 12A; exile_hand_down: 18A)
+_RECORDING.update({"goad": "goaded", "manifest": None, "detain": None, "suspect": None, "exile_hand_down": "exiled"})  # (detain, suspect: wave 12A; exile_hand_down: 18A)
 _MOVERS.update({"manifest", "exile_hand_down"})  # (exile_hand_down: wave 18A)
 _CHOSEN.update({"manifest": "n", "exile_hand_down": "n"})
 
