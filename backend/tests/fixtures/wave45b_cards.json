@@ -1,0 +1,157 @@
+[
+ {
+  "name": "Invasion of Gobakhan // Lightshield Array",
+  "layout": "transform",
+  "mana_cost": "{1}{W} // ",
+  "cmc": 2.0,
+  "type_line": "Battle — Siege // Enchantment",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, look at target opponent's hand. You may exile a nonland card from it. For as long as that card remains exiled, its owner may play it. A spell cast this way costs {2} more to cast.\n//\nAt the beginning of your end step, put a +1/+1 counter on each creature that attacked this turn.\nSacrifice this enchantment: Creatures you control gain hexproof and indestructible until end of turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Gobakhan",
+    "mana_cost": "{1}{W}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, look at target opponent's hand. You may exile a nonland card from it. For as long as that card remains exiled, its owner may play it. A spell cast this way costs {2} more to cast.",
+    "defense": "3",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/1/1/11798730-6788-4e0b-a828-b46cab1a4fa7.jpg?1783917064",
+     "normal": "https://cards.scryfall.io/normal/front/1/1/11798730-6788-4e0b-a828-b46cab1a4fa7.jpg?1783917064",
+     "large": "https://cards.scryfall.io/large/front/1/1/11798730-6788-4e0b-a828-b46cab1a4fa7.jpg?1783917064",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/1/1/11798730-6788-4e0b-a828-b46cab1a4fa7.jpg?1783917064"
+    }
+   },
+   {
+    "name": "Lightshield Array",
+    "mana_cost": "",
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your end step, put a +1/+1 counter on each creature that attacked this turn.\nSacrifice this enchantment: Creatures you control gain hexproof and indestructible until end of turn.",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/1/1/11798730-6788-4e0b-a828-b46cab1a4fa7.jpg?1783917064",
+     "normal": "https://cards.scryfall.io/normal/back/1/1/11798730-6788-4e0b-a828-b46cab1a4fa7.jpg?1783917064",
+     "large": "https://cards.scryfall.io/large/back/1/1/11798730-6788-4e0b-a828-b46cab1a4fa7.jpg?1783917064",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/1/1/11798730-6788-4e0b-a828-b46cab1a4fa7.jpg?1783917064"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Kamigawa // Rooftop Saboteurs",
+  "layout": "transform",
+  "mana_cost": "{3}{U} // ",
+  "cmc": 4.0,
+  "type_line": "Battle — Siege // Creature — Moonfolk Ninja",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, tap target artifact or creature an opponent controls and put a stun counter on it. (If a permanent with a stun counter would become untapped, remove one from it instead.)\n//\nFlying\nWhenever this creature deals combat damage to a player or battle, draw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Kamigawa",
+    "mana_cost": "{3}{U}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, tap target artifact or creature an opponent controls and put a stun counter on it. (If a permanent with a stun counter would become untapped, remove one from it instead.)",
+    "defense": "4",
+    "colors": [
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/3/1/3140320d-b932-441f-bff3-9bdf4419b88a.jpg?1783917040",
+     "normal": "https://cards.scryfall.io/normal/front/3/1/3140320d-b932-441f-bff3-9bdf4419b88a.jpg?1783917040",
+     "large": "https://cards.scryfall.io/large/front/3/1/3140320d-b932-441f-bff3-9bdf4419b88a.jpg?1783917040",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/3/1/3140320d-b932-441f-bff3-9bdf4419b88a.jpg?1783917040"
+    }
+   },
+   {
+    "name": "Rooftop Saboteurs",
+    "mana_cost": "",
+    "type_line": "Creature — Moonfolk Ninja",
+    "oracle_text": "Flying\nWhenever this creature deals combat damage to a player or battle, draw a card.",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/3/1/3140320d-b932-441f-bff3-9bdf4419b88a.jpg?1783917040",
+     "normal": "https://cards.scryfall.io/normal/back/3/1/3140320d-b932-441f-bff3-9bdf4419b88a.jpg?1783917040",
+     "large": "https://cards.scryfall.io/large/back/3/1/3140320d-b932-441f-bff3-9bdf4419b88a.jpg?1783917040",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/3/1/3140320d-b932-441f-bff3-9bdf4419b88a.jpg?1783917040"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Invasion of Mercadia // Kyren Flamewright",
+  "layout": "transform",
+  "mana_cost": "{1}{R} // ",
+  "cmc": 2.0,
+  "type_line": "Battle — Siege // Creature — Goblin Spellshaper",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, you may discard a card. If you do, draw two cards.\n//\n{2}{R}, {T}, Discard a card: Create two 1/1 blue and red Elemental creature tokens. Creatures you control get +1/+0 and gain haste until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Mercadia",
+    "mana_cost": "{1}{R}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, you may discard a card. If you do, draw two cards.",
+    "defense": "4",
+    "colors": [
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+     "normal": "https://cards.scryfall.io/normal/front/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+     "large": "https://cards.scryfall.io/large/front/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993"
+    }
+   },
+   {
+    "name": "Kyren Flamewright",
+    "mana_cost": "",
+    "type_line": "Creature — Goblin Spellshaper",
+    "oracle_text": "{2}{R}, {T}, Discard a card: Create two 1/1 blue and red Elemental creature tokens. Creatures you control get +1/+0 and gain haste until end of turn.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+     "normal": "https://cards.scryfall.io/normal/back/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+     "large": "https://cards.scryfall.io/large/back/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993"
+    }
+   }
+  ]
+ }
+]
