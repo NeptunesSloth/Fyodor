@@ -165,6 +165,7 @@ def parse_condition(cond: str) -> Condition | None:
     # -- attached events (wave 25D) -- the Genju: "When enchanted Forest is put into a graveyard" — what an Aura is attached to is on the battlefield,
     # so being put into a graveyard is dying (700.4); "enchanted Forest" is the land it's attached to
     cond = re.sub(r"\benchanted (?:Plains|Island|Swamp|Mountain|Forest)\b", "enchanted land", cond)
+    cond = cond.replace(" your team controls", " you control")  # -- triggers (wave 49C) -- 102.4: outside a team game "your team" is "you" (Decorated Champion)
     cond = re.sub(r"^(enchanted (?:creature|permanent|land|artifact)) is put into a graveyard(?: from the battlefield)?$", r"\1 dies", cond.strip())
     try:
         try:
@@ -278,6 +279,15 @@ _PLAY_FROM = r" from (?:exile|your graveyard|a graveyard|anywhere other than (?:
 
 
 def _parse(c: str) -> Condition | None:
+    # -- either with a batch half (wave 49D) -- "Whenever an opponent discards a card or mills one or more cards" (Lo and Li, Royal Advisors): one player's two
+    # actions, each its own event (603.2c); the "one or more" half is once per batch of its own (triggers.py reads the half that matched)
+    m = re.fullmatch(r"(?P<p>you|an opponent|a player) (?P<a>[a-z]+ an? [^,]+?) or (?P<b>[a-z]+ one or more [^,]+)", c)
+    if m:
+        a, b = _parse(f"{m['p']} {m['a']}"), _parse(f"{m['p']} {m['b']}")
+        if a is None or b is None or a.get("aggregate") or not b.get("aggregate") or a["event"] == b["event"] or a.get("subject") != "player" \
+                or b.get("subject") != "player" or a.get("player") != b.get("player") or {a["event"], b["event"]} & {"either", "multi"}:
+            return None
+        return {"event": "either", "subject": "player", "player": a["player"], "conds": [a, b]}
     # -- trigger other (wave 25B) -- 701.18b: to play a card is to play it as a land or cast it as a spell, whichever is appropriate
     # (-- trigger from (wave 30F) -- "Whenever you play a card from exile" (Prosper): a land played from there or a spell cast from there)
     m = re.fullmatch(rf"(?P<p>you|a player|an opponent) plays? a card(?P<f>{_PLAY_FROM})?", c)
@@ -862,6 +872,10 @@ def _combat(c: str) -> Condition | None:
         return {**base, "event": "attack", "first_each_turn": True}
     # 508.3a: "a creature attacks you or a planeswalker you control", "~ attacks a player", "one or
     # more creatures attack you", "equipped creature attacks", "~ or equipped creature attacks"
+    m = re.fullmatch(r"(?P<s>~|this creature) attacks a battle", c)  # -- triggers (wave 49C) -- 310.5, 508.1: the attack was declared against a battle (Thrashing Frontliner)
+    if m:
+        base = _subject("~", host=True, many=True)
+        return None if base is None else {**base, "event": "attack", "defender": "battle"}
     m = re.fullmatch(rf"(?P<s>.+?) attacks?(?: (?P<d>{_DEFENDER_RE}))?", c)
     if m and (m["d"] or m["s"] in _HOSTS or m["s"] in _SELF_OR_HOST):
         base = _subject(m["s"], host=True, many=True)

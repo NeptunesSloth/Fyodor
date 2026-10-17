@@ -50,11 +50,11 @@ FULL = ["Sting, the Glinting Dagger", "Frodo Baggins", "Balan, Wandering Knight"
 # * Manor Gargoyle, Warmonger's Chariot: a condition on the keywords of the very object it modifies (613.8: dependencies between layer-6 effects);
 # * Grond: a layer-4 type change whose condition reads other permanents' creature types (613.8, app/rules/statics.py ``_layer4_safe``);
 # * (Cloud, Midgar Mercenary - a trigger multiplier read with last known information (603.10) under a condition - is read since wave 43A: test_rules_wave43a_trigger_multipliers.py)
-# * Archelos: "enter tapped" and "enter untapped" replacements whose order the affected permanent's controller chooses (616.1);
+# * (Archelos - "enter tapped" and "enter untapped" replacements whose order the affected permanent's controller chooses (616.1) - is read since wave 49B, as Horizon Explorer's
+#   "enter untapped" is (wave 45A): the permanent's controller takes untapped: test_rules_wave49b_commanders.py)
 # * (Sting - "blocking or blocked by a Goblin or Orc", a relation between the equipped creature and the creature it fights - is read since wave 45A: test_rules_wave45a_attacked.py)
 # * Bronze Horse: "prevent all damage … by spells that target it" (its unconditional wording isn't read).
-MANUAL = ["Croakid Amphibonaut", "Manor Gargoyle", "Warmonger's Chariot", "Grond, the Gatebreaker",
-          "Archelos, Lagoon Mystic", "Bronze Horse"]
+MANUAL = ["Croakid Amphibonaut", "Manor Gargoyle", "Warmonger's Chariot", "Grond, the Gatebreaker", "Bronze Horse"]
 
 
 @pytest.fixture()

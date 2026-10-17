@@ -248,6 +248,8 @@ def others_enter_tapped(plan: Plan, card: CardInstance, controller: str, static:
                 continue
             if i in conditional_lines(src_ch) or "Room" in src_ch.subtypes:
                 continue  # (a level's or an unlocked door's ability: not tracked, never applied)
+            if not statics.conditions_hold(plan, d, source=src, controller=src.controller):
+                continue  # -- commander sweep (wave 49B) -- "As long as ~ is tapped, other permanents enter tapped." (Archelos, 611.3a)
             ch = ch if ch is not None else plan.ch(probe)
             if any(selectors.matches(plan, selectors.from_key(key), probe, ch, src.controller, src.id) for key in d["who"]):
                 return True

@@ -39,6 +39,8 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
         body = _THEY.sub(lambda m: f"{m['i'] or ''}that player {_VERBS[m['v']]}", body)
         # -- damage wordings (wave 6B) -- "At the beginning of each player's upkeep, ~ deals 1 damage to them."
         body = re.sub(r"\b(deals? (?:\d+|X) damage) to them\b", r"\1 to that player", body)
+        # -- trigger other (wave 49C) -- "…, if that player controls more lands than each other player, the player creates a 1/1 green Saproling creature token." (Greener Pastures)
+        body = re.sub(r"^(if that player (?:controls|has) more [^,]+? than each other player), the player (?=creates\b)", r"\1, that player ", body)
         # -- trigger other (wave 25B) -- "… deals 2 damage to that player unless they control two or more basic lands": they are that player
         body = re.sub(r"\b(unless|if) they (control|have)\b", lambda m: f"{m[1]} that player {'controls' if m[2] == 'control' else 'has'}", body)
     # -- intervening ifs (wave 11F) -- "if you have fewer than seven cards in hand, draw cards equal to the difference": the

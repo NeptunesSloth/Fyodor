@@ -125,7 +125,7 @@ TRIGGERS = [
     (re.compile(r"^When you cast this spell, (?P<body>.+)$"), "cast_self"),
     # -- state triggers (wave 6D) -- "When you control no Islands, …" (603.8: app/rules/state_triggers.py)
     (re.compile(r"^When (?P<state>you control (?:no|a|an|\w+ or more) [^,]+|there are no [^,]+ on the battlefield|"
-                r"you have \w+ or (?:more|less) life|"
+                r"you have \w+ or (?:more|less) life|an opponent (?:controls (?:a|an) [^,]+|has \d+ or (?:more|less) life)|"  # (wave 49C: Hidden Predators, Lurking Jackals)
                 r"(?:~|this [a-z]+) has [a-z]+(?: strike)?|"  # -- flip (wave 24C) -- "When this creature has flying, flip it." (Student of Elements)
                 r"(?:~|this [a-z]+) has (?:no|\w+ or more) [^,]+? counters on it|there are (?:\w+ or more|no) [^,]+? counters on (?:~|this [a-z]+)), "  # -- state triggers (waves 19C, 19D) -- its own counters
                 r"(?P<body>.+)$"), "state"),
@@ -238,6 +238,9 @@ def _short_name(name: str, text: str = "") -> str | None:
     first word), unless that word is also a creature type ("Soldier of the Pantheon")."""
     from app.rules.creature_types import CREATURE_TYPES
 
+    num = re.match(r"^(.+?) [IVXLC]{2,}$", name)  # -- commander sweep (wave 49B) -- "King Darien XLVIII" is "King Darien" in its own text (201.5c)
+    if num is not None and re.search(rf"\b{re.escape(num[1])}\b", text):
+        return num[1]
     two = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]+ [A-ZÀ-ÖØ-Þ][\w'-]+) (?:the|of) ", name)  # -- trigger tail (wave 15B) -- "Tor Wauki the Younger"
     if two is not None and re.search(rf"\b{re.escape(two[1])}\b", text):
         return two[1]
@@ -264,6 +267,7 @@ def _self_pronouns(part: str) -> str:
     part = re.sub(r"(~ enters (?:tapped )?with [^.]+? counters? on) (?:him|her)\b", r"\1 it", part)  # (as the "on it" form)
     part = re.sub(r"\b(?:[Hh]e|[Ss]he)'s (?=equipped\b)", "~ is ", part)  # (wave 41B: "if he's equipped", Whiplash: "he's" is "he is" before a state)
     part = re.sub(r"\b([Ii]f) (?:he|she) (wasn't|was|had|didn't have|hadn't)\b", r"\1 it \2", part)  # (wave 47D: "When Fang dies, if he wasn't a Spirit, return this card …": the dying object, as "if it was")
+    part = re.sub(r"\b(becomes? [^.,]+? in addition to) (?:his|her) (other (?:creature )?types)\b", r"\1 its \2", part)  # -- commander sweep (wave 49B) -- "Sarkhan becomes a Dragon in addition to his other types"
     part = re.sub(r"\b(?:[Hh]e|[Ss]he)\b(?! or |')", "~", part)
     part = re.sub(rf"\b(?:his|her) (?={_POSSESSED}\b)", "~'s ", part)
     part = re.sub(r"(?<!or )\b(?:him|her)\b(?=[.,;:)]|$| (?:and|until|this|then|to|from|into|onto|on|with|unless|if|as|equal|for)\b)",
@@ -568,6 +572,7 @@ _RECORDING["rest_looked"] = None  # (wave 44A: its verb is _verb_of's)
 _RECORDING["linked_cards"] = "exiled"  # -- resolution memory (wave 22D) -- exiled_with.linked_cards
 _MOVERS.add("linked_cards")
 _RECORDING["reveal_random"] = "revealed"  # -- random choices (wave 47B) -- "that card" is the card revealed at random
+_MOVERS.add("reveal_random")  # (wave 49C: "Target opponent reveals a card at random from their hand. If that card has the chosen name, that player discards it.": "it" is the card, not the player targeted)
 _RECORDING["choose_random_object"] = "chosen"  # (the object picked at random: "that creature", "it")
 _RECORDING["choose_random"] = None  # -- random choices (wave 47B) -- the pick is bound as the player "that player" names
 _RECORDING["transform"] = None  # -- most-played cards II (wave 45A) -- "Transform this land, then untap it." (Westvale Abbey): "it" is the permanent that transformed (701.28: the same object)
@@ -634,6 +639,8 @@ class _Introducer:
             self.number = 2
         if self.do == "choose_random":  # -- random choices (wave 47B) -- "Choose an opponent at random. … that player": a player, no object
             self.player, self.objects = True, False
+        if self.do == "choose_value" and str(e.get("what", "")).endswith("card name"):  # -- card names (wave 49C) -- a name is no object: "Choose a card name, then reveal a card at random from your hand. If it has …" (Cursed Scroll)
+            self.objects = False
         if self.do == "damage" and g is None and who in ("you", "each_player", "each_opponent", "each_other_opponent", "event_player", "that_player",
                                                          "chosen_player", "defending_player"):
             self.objects = False  # -- damage sized by a count (wave 42D) -- damage to a player names no object: "~ deals damage to you equal to that card's mana value. You may play it this turn." (Daredevil): "it" is still the card exiled before
@@ -1589,7 +1596,7 @@ def _someone_creates(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
             return [{**e, "who": "target"} for e in made], SELECTORS[m["s"]]
         return [{**e, "who": language.PLAYER_GROUPS[m["s"]]} for e in made], None
     for pattern, build in EFFECTS:
-        if build not in (_create_creature, _create_predefined):
+        if build not in (_create_creature, _create_predefined, _create_that_many):  # (wave 49B: "that player creates that many 1/1 red Survivor creature tokens", Varchild)
             continue
         found = pattern.match("create " + m["rest"])
         if found:
@@ -1611,6 +1618,18 @@ def _create_predefined(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | No
     return [{"do": "create_token", "who": "you", "n": num(m["n"]),
              "token": {"name": m["kind"], "power": None, "toughness": None, "colors": list(PREDEFINED_COLORS.get(m["kind"], ())),
                        "type_line": type_line, "text": text}}], None
+
+
+# -- named tokens (wave 49D) -- "Create a Tarmogoyf token." (Disa, Tarmogoyf Nest), "a Gingerbrute token" (Ginger), "a Spellgorger Weird token" (Ral):
+# the rulings read it as a token that's a copy of the card of that name, so it has the card's copiable values, mana cost included (707.2, 111.3)
+NAMED_TOKENS = {  # name: (mana cost, colors, power, toughness, type line, the card's Oracle text)
+    "Tarmogoyf": ("{1}{G}", ["G"], "*", "1+*", "Token Creature — Lhurgoyf",
+                  "Tarmogoyf's power is equal to the number of card types among cards in all graveyards and its toughness is equal to that number plus 1."),
+    "Gingerbrute": ("{1}", [], "1", "1", "Token Artifact Creature — Food Golem",
+                    "Haste\n{1}: This creature can't be blocked this turn except by creatures with haste.\n{2}, {T}, Sacrifice this creature: You gain 3 life."),
+    "Spellgorger Weird": ("{2}{R}", ["R"], "2", "2", "Token Creature — Weird",
+                          "Whenever you cast a noncreature spell, put a +1/+1 counter on this creature."),
+}
 
 
 # -- if you do (wave 8C) -- "put your choice of a +1/+1, first strike, or trample counter on that creature" (counter_pick.py)
@@ -1981,13 +2000,23 @@ def _create_tokens(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return found, None
 
 
+# (wave 49D) a named token before the general token grammar, which reads "a Tarmogoyf token" as a predefined one it doesn't know
+@_first
+@effect(r"create {N} (?P<kind>Tarmogoyf|Gingerbrute|Spellgorger Weird) tokens?")
+def _create_named(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    cost, colors, p, t, type_line, text = NAMED_TOKENS[m["kind"]]
+    return [{"do": "create_token", "who": "you", "n": num(m["n"]),
+             "token": {"name": m["kind"], "power": p, "toughness": t, "colors": list(colors), "type_line": type_line, "text": text,
+                       "mana_cost": cost}}], None
+
+
 # -- token & pump wordings (wave 6C) -- the token grammar's newer forms (app/rules/token_grammar.py): "For each …, create
 # …", "Create Voja, a legendary 2/2 …", "… named Kobolds of Kher Keep", "… with flying named Wasp", "… that's all
 # colors", "Create thirteen …" (never a copy, nor an instruction joined to another one)
 @_first
-@effect(r"(?!.*\b(?:cop(?:y|ies)|then|unless|instead|blocking|attached|attacking that|that player)\b)(?![^\"]*\bequal\b)"  # (wave 47D: "equal" only outside a quoted CDA, Beau)
+@effect(r"(?!.*\b(?:cop(?:y|ies)|then|unless|instead|blocking|attached|attacking that|that player|at the beginning of)\b)(?![^\"]*\bequal\b)"  # (wave 47D: "equal" only outside a quoted CDA, Beau)
         r"(?:(?:for each [^,\"]+, )?create (?:[A-Z][^\"]*?, an? legendary .+|(?:eleven|twelve|thirteen|fourteen|fifteen|"
-        r"sixteen|seventeen|eighteen|nineteen|twenty) .+|.+ named .+|.+ that's (?:all colors|colorless|white|blue|black|red|"
+        r"sixteen|seventeen|eighteen|nineteen|twenty) .+|.+ named .+|.+ that(?:'s| is| are) (?:all colors|colorless|white|blue|black|red|"
         r"green)(?:[ ,].+)?)|for each [^,\"]+, create .+)")
 def _create_tokens_6c(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     from app.rules import token_grammar
@@ -2104,6 +2133,12 @@ def _one_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         return spelled
     from app.rules import language  # the generic grammar (a leaf module)
 
+    if text.endswith(" until end of combat"):  # -- durations (wave 49C) -- 500.5a: "gets +2/+0 until end of combat" (Murk Dwellers), "becomes a 3/6 Golem … until end of combat" (Jade Statue): the
+        # clause with "until end of turn", lasting to the end of the combat phase instead (combat.end_combat); only the effects that carry a duration
+        found = _one_clause(text[: -len("combat")] + "turn")
+        if found is None or not found[0] or any(e["do"] not in ("pump", "grant", "become") for e in found[0]):
+            return None
+        return [{**e, "duration": "end_of_combat"} for e in found[0]], found[1]
     for pattern, build in EFFECTS:
         m = pattern.match(text)
         if m:
@@ -2223,6 +2258,9 @@ def _clause(text: str, may_ok: bool = False) -> tuple[list[dict[str, Any]], Any]
         left, right = _one_clause(f"{selfdmg['s']} {selfdmg['a']}"), _one_clause(f"~ deals {selfdmg['d']}")
         if left is not None and right is not None and left[1] is None and right[1] is None:
             return left[0] + right[0], None
+    # -- combat (wave 49C) -- "it assigns no combat damage this turn and defending player loses 4 life." (Lim-Dûl's Paladin): two instructions in order (608.2c)
+    if (both := re.fullmatch(r"(?P<a>(?:it|~|this creature) assigns no combat damage this turn) and (?P<b>defending player loses \d+ life)", text)) is not None:
+        return _clause(f"{both['a']}, then {both['b']}", may_ok)
     # -- if you do (wave 40A) -- "~ gets +2/+1 and creatures you control gain haste until end of turn" (Moku): two subjects, one duration (611.2a: each
     # effect lasts until end of turn) — the pump, then the group's grant, each with the duration (608.2c)
     if (duo := re.fullmatch(r"(?P<s>~|this creature) gets (?P<pt>[+−-]\d+/[+−-]\d+) and (?P<g>(?:other )?creatures [^.,\"]+? (?:gain|have) [^.,\"]+?) until end of turn",
@@ -2302,6 +2340,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     ``event_player``: the trigger event names a player ("that player" may mean them)."""
     from app.rules import refused_zones  # -- refused zones/sized (wave 3R4) -- Gifts piles (a leaf module)
 
+    body = body.replace(" your team controls", " you control")  # -- static_other (wave 49C) -- 102.4: outside a team game "your team" is "you" (Combo Attack, Dwarven Lightsmith)
     body = _licids.rewrite(body)  # -- licids (wave 50A) --
     if (gifts := refused_zones.gifts_ability(body)) is not None:
         return gifts
@@ -2617,6 +2656,8 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
         return (values.player_relative(text) or v) if v is None or "that_player" in json.dumps(v) else v
 
     text_def = m["def"]
+    if text_def.endswith(" at that time") and re.search(r"\bat the beginning of (?:your|the|each|their|its owner's) next\b", body[: m.start()]):
+        text_def = text_def[: -len(" at that time")]  # -- delayed counts (wave 49D) -- 603.7: "X is the number of lands you control at that time" (Hazezon Tamar): a delayed trigger counts as it resolves
     if re.search(r" as you (?:activate this ability|cast this spell)$", text_def) and len(re.findall(r"\bX\b", body[: m.start()])) == 1 \
             and re.search(r"(?i)\bup to X (?:other )?targets?\b|\bX damage divided as you choose among\b", body[: m.start()]):  # (wave 34D: divided)
         text_def = text_def.rsplit(" as you ", 1)[0]  # -- X target counts (wave 27C) -- "…, where X is the number of Bobbleheads you control as you activate this
@@ -2996,6 +3037,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # so the condition is stated for each (nothing in between changes whether it is attacking)
     body = re.sub(r"\bIf (?:he's|she's|it's|~ is) attacking, untap ~ and (there is an additional combat phase after this phase)\.",
                   r"If ~ is attacking, untap ~. If ~ is attacking, \1.", body)
+    # -- damage wordings (wave 49C) -- "~ deals 1 damage to each nonblack creature and an additional 1 damage to each green creature." (Kaervek's Hex), "… X damage to each creature with flying and 1 additional
+    # damage to each blue creature." (Tropical Storm), "~ deals 2 damage to each attacking creature and 1 damage to you and each creature you control." (Hail Storm): two instructions of one source, in order (608.2c)
+    body = re.sub(r"(~ deals (?:\d+|X) damage to each [^.]+?) and (?:an additional (\d+)|(\d+) additional|(\d+)) damage to ((?:you and )?each [^.]+?)\.",
+                  lambda m: f"{m[1]}. ~ deals {m[2] or m[3] or m[4]} damage to {m[5]}.", body)
+    # -- card names (wave 49C) -- "If that card has the chosen name, that player puts it into their hand. If it doesn't, the player puts it into their graveyard." (Petra Sphinx): the "Otherwise" of that condition
+    body = re.sub(r"(\bIf that card has the chosen name, [^.]+\.) If it doesn't, the player puts it into their graveyard\.", r"\1 Otherwise, that player puts it into their graveyard.", body)
     # -- tokens (wave 47D) -- "Create a white and black Spirit enchantment creature token. It has "This creature's power and toughness are each equal to …"" (Daxos): nothing
     # is printed for the token's P/T, so the CDA is the token's own quoted ability (111.4, 208.1), the grammar's "with"
     body = re.sub(r'(^|, |\. )((?i:create) [^."]+? creature token)\. It has "(?:This creature|~)(\'s power and toughness are each equal to [^"]+")', r'\1\2 with "This creature\3', body)
@@ -3065,7 +3112,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                   lambda m: f"{m[1]}. {m[2].capitalize()} {m[3]}.", body)
     from app.rules import combat_rules as _combat_rules  # -- keywords (wave 15E) -- myriad's two sentences
 
-    body = _combat_rules.merge_myriad(body)
+    body = _combat_rules.merge_extra(_combat_rules.merge_myriad(body))  # (wave 49B: Moraug's two sentences)
     from app.rules import kinship  # -- kinship (wave 9C) --
 
     if (kin := kinship.split(body)) is not None:
@@ -3630,6 +3677,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if effects and (bare := _language.bare_pronoun_grant(text)) is not None:  # -- recursion & tutors (wave 4M) --
             effects += bare  # ("It gains haste.": a whole sentence, after the instruction that names "it")
             continue
+        if text.endswith(" until end of combat") and (combat := _one_clause(text)) is not None:  # -- durations (wave 49C) -- _one_clause reads it with the duration
+            effects += _add_groups(groups, combat[0], combat[1])
+            continue
         for pattern, build in EFFECTS:
             m = pattern.match(text)
             if m:
@@ -3900,7 +3950,7 @@ _PICK_NEG = re.compile(r"^if you (don't|do) put (?:the card|that card|it|them) (
 _PICK_DIDNT = re.compile(r"^if you didn't put (?:a|the|that) card into your hand this way, ")
 _IF_YOU_DO = re.compile(r"^if you (?:(?P<neg>don't)|do), (?P<rest>.+)$")
 _UNLESS = re.compile(r"^(?P<lead>.+?) unless (?P<who>you|that player|they|its controller|that creature's controller|target opponent|target player) "
-                     r"(?P<act>(?:pays?|discards?|sacrifices?|returns?|exiles?|removes?|taps?) .+|has (?:~|this [a-z]+) deal \d+ damage to (?:them|you)"
+                     r"(?P<act>(?:pays?|discards?|sacrifices?|returns?|exiles?|removes?|taps?|mills?) .+|has (?:~|this [a-z]+) deal \d+ damage to (?:them|you)"
                      r"|has (?:~|this [a-z]+) deal (?:damage to (?:them|you) equal to .+|that much damage to (?:them|you)))$")  # (wave 27A: "has ~ deal 4 damage to them"; wave 1B: any cost the engine pays; wave 34D: sized)
 
 
@@ -3931,6 +3981,11 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
         return None
     else:
         phrase, payer = text[len("you may "):], "you"
+    # -- exile as a cost (wave 49D) -- "you may pay {1} and exile it" (Kinzu, Timothar): the dead card is exiled as part of the cost, so the payment
+    # is offered only while it's still in the graveyard it went to (118.3, 400.7: optional_payment ``needs``)
+    needs = None
+    if it in ("event", "event_gone") and (gate := re.fullmatch(r"(?P<pay>pay [^,]+?) and exile it", phrase)) is not None:
+        phrase, needs = gate["pay"], "event.new"
     if re.search(r"\bit\b", phrase) and it != "self":
         return None
     cost = optional_payment.cost_text(phrase)
@@ -3945,7 +4000,7 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
             return None
         cost, sized = found.pop("cost"), found
     bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
-    return {"do": "optional_payment", "who": payer, "cost": cost, "bind": bind, **sized}
+    return {"do": "optional_payment", "who": payer, "cost": cost, "bind": bind, **sized, **({"needs": needs} if needs else {})}
 
 
 _THAT_PLAYER_MAY = re.compile(r"^(?:that|that attacking) player may (?P<v>create|draw|put|discard|sacrifice|exile|return|add|gain|lose|mill) (?P<rest>.+)$")
@@ -4632,7 +4687,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     text = re.sub(r"^(Whenever you cast) a spell, if that spell was kicked, ", r"\1 a kicked spell, ", text)
     # "When ~ dies, it deals damage equal to its power divided as you choose …" (Orca, Siege Demon): "it" is the creature that died, ~ (language.py reads ~'s)
     text = re.sub(r"^(When ~ dies, )it deals (damage equal to its power divided as you choose among )", r"\1~ deals \2", text)
-    if ability.kind == "static" and re.match(r"(?i:(?:~ has )?(?:bushido|firebending|mobilize) X, where X is)", text):  # -- X keywords (wave 41B) --
+    if ability.kind == "static" and re.match(r"(?i:(?:~ has )?(?:bushido|firebending|mobilize|annihilator) X, where X is)", text):  # -- X keywords (wave 41B) --
         from app.rules import keyword_triggers
 
         return keyword_triggers.dynamic_x(text)
@@ -4785,7 +4840,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             if m:
                 name = step_trigger(m) if trigger == "step" else (
                     f"step:end_combat:{'you' if m['mine'] else 'any'}" if trigger == "end_combat_step" else trigger)  # (wave 31D: "any": no player named)
-                if name.startswith("step:") and not name.endswith(":you") and re.search(r"\beach other player\b", m["body"]):
+                if name.startswith("step:") and not name.endswith(":you") and re.search(r"\beach other player\b", re.sub(
+                        r"^if that player (?:controls|has) more [^,]+? than each other player, ", "", m["body"])):  # (wave 49C: the comparison is conditions._MOST, other than that player)
                     return None  # -- if you do (wave 5G) -- "other" than whose step it is, or than you? (not read)
                 # -- trigger limits (app/rules/restrictions.py): "This ability triggers only once
                 # each turn." is split off and enforced as it triggers (triggers._add); "Do this
@@ -5058,7 +5114,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     from app.rules import state_triggers
 
                     state = state_triggers.condition(m["state"])
-                    if state is None or intervening is not None or limit is not None:
+                    if state is None or limit is not None:  # (wave 49C: an intervening "if" is checked as it triggers, 603.4 + 603.8: triggers._add)
                         return None
                     out["state"] = state
                 return out
@@ -6740,7 +6796,7 @@ for _pattern, _build in ((_language.EDICT, _language.edict), (_language.EDICT_OT
                          (_language.PLAYER_CHOOSES, _language.player_chooses), (_language.CHOOSE_ANY, _language.choose_any),  # (wave 31B)
                          (_language.CHOOSE_OWN, _language.choose_own),  # (wave 32A)
                          (_language.REVEAL_HAND, _language.reveal_hand), (_language.CHOOSE_FROM_HAND, _language.choose_from_hand), (_language.DISCARD_NAMED, _language.discard_named),
-                         (_language.CHOOSE_VALUE, _language.choose_value),
+                         (_language.CHOOSE_VALUE, _language.choose_value), (_language.CHOOSE_NAME_TARGET, _language.choose_name_target),  # (wave 49C)
                          (_language.CHOOSE_FROM_HAND_GY, _language.choose_from_hand_gy), (_language.LOOK_HAND, _language.look_hand),  # (wave 11D)
                          (_language.DISCARD_ALL_REVEALED, _language.discard_all_revealed),
                          (_language.EXILE_FROM_HAND, _language.exile_from_hand)):
@@ -8184,6 +8240,22 @@ def _control(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
     return _from_language(language.control_forms(m["t"]))
+
+
+# -- extremes (wave 49C) -- "the player with the most life gains control of this creature." (Wild Dogs, Ghazbán Ogre), "the player who has the most cards in hand …" (Sokenzan
+# Renegade), "the player who controls the most creatures …" (Wild Mammoth), "… Wizards …" (Thoughtbound Primoc): the player whose quantity is greater than every other player's,
+# picked as it resolves (random_choice.pick_most), gains control for good (611.2a); none when they tie
+@_first  # (before the control templates, which decline "<player phrase> gains control of …" they half understand)
+@effect(r"the player (?:with the most (?P<life>life)|who has the most (?P<hand>cards in hand)|who controls the most (?P<what>[A-Za-z]+)) gains control of (?:~|this creature)")
+def _most_gains_control(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import conditions
+
+    key = conditions._count(m["what"], "you control") if m["what"] else None
+    value = {"life": "you"} if m["life"] else {"hand": "you"} if m["hand"] else {"count": key} if key else None
+    if value is None:
+        raise _NoMatch
+    return [{"do": "pick_most", "value": value, "as": "pm"}, {"do": "gain_control", "who": "self", "to": "ref:pm"}], None
+
 # -- counters & designations (wave 3E) -- Palace Jailer: "exile target creature an opponent controls until an
 # opponent becomes the monarch" — a delayed trigger (603.7) watching for a player who is an opponent of the
 # ability's controller to become the monarch (725.3; app/rules/designations.py), however long that takes and

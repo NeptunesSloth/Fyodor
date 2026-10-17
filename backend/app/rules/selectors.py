@@ -474,10 +474,11 @@ def _thats_colored(s: Selector, m: re.Match[str]) -> Selector:  # (wave 19D: "th
 # (-- counters (wave 33C) -- "each other creature you control that's a token or a Rabbit" (Finneas, Ace Archer): "token" is one of the alternatives, kept
 # as the word in the list and read as the object's being a token (111.7); alone it is no creature type: "that's a token" stays unread)
 # (-- cant restrictions (wave 46A) -- "each creature you control that's an artifact or Human" (Paladin Danse): a card type is one of the alternatives too, read from the object's types)
-_THAT_WORD = r"[A-Z][\w'’-]*|token|artifact|enchantment|land|planeswalker|battle"
+_THAT_WORD = r"[A-Z][\w'’-]*|token|artifacts?|enchantments?|lands?|planeswalkers?|battles?"
 
 
-@_suffix(rf"that['’]s (?P<list>an? (?:{_THAT_WORD})(?:(?:,|,? or|,? and/or) (?:an? )?(?:{_THAT_WORD}))*)")
+# (-- commander sweep (wave 49B) -- plural: "permanents you control that are Spirits and/or enchantments" (Katilda), "creatures you control that are Fungi and/or Saprolings" (The Mycotyrant))
+@_suffix(rf"that(?:['’]s| are) (?P<list>(?:an? )?(?:{_THAT_WORD})(?:(?:,|,? or|,? and/or) (?:an? )?(?:{_THAT_WORD}))*)")
 def _thats_types(s: Selector, m: re.Match[str]) -> Selector:
     words = [w for w in re.split(r",? (?:or|and/or) |, ", m["list"]) if w]
     subs = [("tok", "token") if re.sub(r"^an? ", "", w) == "token" else _core(re.sub(r"^an? ", "", w)) for w in words]
@@ -1024,7 +1025,28 @@ def _has_counter(card: CardInstance, kind: str) -> bool:
 # creature type. Destroy all creatures that aren't of the chosen type": bind_chosen substitutes that answer).
 # ``matches`` reads the source's record; without a source or a valid record nothing matches (never a guess).
 CHOSEN_EXTRAS = {"chosen_type": "creature type", "chosen_color": "color", "not_chosen_type": "creature type",
-                 "not_chosen_color": "color", "chosen_name": "card name", "chosen_card_type": "card type"}  # (wave 47A: card type, Umori)  # (-- card names (wave 22B) -- app/rules/card_names.py)
+                 "not_chosen_color": "color", "chosen_name": "card name", "chosen_card_type": "card type", "chosen_number": "number"}  # (wave 47A: card type, Umori; wave 49B: number, Talion)  # (-- card names (wave 22B) -- app/rules/card_names.py)
+
+
+# -- extremes (wave 49C) -- 115.1: "creature with the greatest power among creatures on the battlefield" (Topple), "nonland permanent with the lowest mana value" (Culling Scales): one
+# that no object of the scope beats (a tie is no beating: "target any one of them"), judged as it is chosen and again as it resolves (608.2b); the scope is the sentence's own
+# ("among creatures you control") or the selector itself
+@_suffix(r"with the (?P<which>greatest|lowest|least) (?P<what>power|toughness|mana value)(?: among (?P<scope>.+?))?")
+def _extreme(s: Selector, m: re.Match[str]) -> Selector:
+    scope = "self"
+    if m["scope"]:
+        if not re.search(r"(?:on the battlefield|you control|you don't control|your opponents control|an opponent controls)$", m["scope"]):
+            raise ValueError(m["scope"])  # (a bare "among creatures": whose? "Each opponent chooses a creature with the greatest mana value among creatures they control" strips the owner first)
+        base = _parse(m.string[: m.start()])  # (the kind is among its own kind: "a creature with the greatest power among artifacts" is no extreme of a group it isn't in)
+        scope_sel = _parse(re.sub(r"s( on the battlefield| you control| you don't control| an opponent controls)?$", r"\1", m["scope"]).replace(" on the battlefield", ""))
+        if scope_sel is None or scope_sel.player is not None or scope_sel.card or scope_sel.zones != ("battlefield",) \
+                or base is None or (base.types, base.not_types) != (scope_sel.types, scope_sel.not_types):
+            raise ValueError(m["scope"])  # (not a group of permanents of its kind: no selector)
+        scope = scope_sel.key()
+    return replace(s, extras=(*s.extras, f"ext:{'greatest' if m['which'] == 'greatest' else 'least'}:{ {'mana value': 'mv'}.get(m['what'], m['what']) }:{scope}"))
+
+
+_SUFFIXES.insert(0, _SUFFIXES.pop())  # (before the controller suffix, whose "you control" would be taken for the whole phrase's: "… among creatures you control")
 
 
 @_suffix(r"(?:with|that has) (?:the chosen|that) name")  # -- card names (wave 22B) -- 709.4a: one of its names is the chosen name
@@ -1035,6 +1057,11 @@ def _of_chosen_name(s: Selector, m: re.Match[str]) -> Selector:
 @_suffix(r"(?P<neg>that (?:aren't|isn't|are not|is not) )?of the chosen (?P<what>type|color)")
 def _of_chosen(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, ("not_" if m["neg"] else "") + f"chosen_{m['what']}"))
+
+
+@_suffix(r"with mana value, power, or toughness equal to the chosen number")  # -- commander sweep (wave 49B) -- Talion, the Kindly Lord: any of the three equals the number chosen as it entered
+def _of_chosen_number(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "chosen_number"))
 
 
 def chosen_what(sel: Selector) -> str | None:
@@ -1074,13 +1101,16 @@ def source_choice(plan: Plan, source: str | None, what: str) -> str | None:
     card = plan.state.cards.get(source or "")
     if card is None:
         return None
-    label = {"creature type": "Chosen creature type", "color": "Chosen color", "card name": "Chosen card name", "card type": "Chosen card type"}[what]
+    label = {"creature type": "Chosen creature type", "color": "Chosen color", "card name": "Chosen card name", "card type": "Chosen card type", "number": "Chosen number"}[what]
     value = card.choices.get(label)
     return value.strip() if value else None
 
 
 def _chosen_ok(plan: Plan, sel: Selector, ch: Characteristics, source: str | None) -> bool:
     what = chosen_what(sel)
+    if what == "number":  # (wave 49B) a spell's mana value, power or toughness is the number the source chose as it entered (a power or toughness of * is no number here)
+        n = source_choice(plan, source, "number")
+        return n is not None and n.isdigit() and (ch.mana_value == int(n) or (ch.pt is not None and int(n) in tuple(ch.pt)))
     if what == "card name":  # -- card names (wave 22B) -- the source permanent's recorded name
         from app.rules import card_names
 
@@ -1335,6 +1365,14 @@ def _type_and(phrase: str) -> str:
 
 def parse(phrase: str) -> Selector | None:
     """A noun phrase without its determiner ("nonland permanent an opponent controls") → Selector."""
+    # -- layers (wave 49C) -- "white creatures and blue creatures" (Magistrate's Veto): the creatures that are white or blue, as "white or blue creatures"
+    phrase = re.sub(r"^(white|blue|black|red|green) creatures and (white|blue|black|red|green) creatures$", r"\1 or \2 creatures", phrase.strip(), flags=re.I)
+    # -- layers (wave 49C) -- "nonattacking creature" (Alarum), "nonattacking, nonblocking creature" (Unlikely Alliance): not attacking / not blocking (506.4)
+    lead = re.match(r"^(?P<adj>nonattacking(?:,? (?:and )?nonblocking)?|nonblocking) (?P<rest>.+)$", phrase.strip())
+    if lead is not None:
+        base = _parse(_type_and(lead["rest"]))
+        flags = tuple(f for w, f in (("nonattacking", "not_attacking"), ("nonblocking", "not_blocking")) if w in lead["adj"])
+        return None if base is None else replace(base, extras=(*base.extras, *flags))
     return _parse(_type_and(phrase.strip()))
 
 
@@ -1901,6 +1939,15 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         # (700.6; set only by the look-and-distribute grammar: "a historic card from among them")
         if extra == "historic" and not ("Artifact" in ch.types or "Legendary" in ch.supertypes or "Saga" in ch.subtypes):
             return False
+        if extra.startswith("ext:"):  # -- extremes (wave 49C) -- no object of the scope has more (or less) of it
+            _, which, what, scope = extra.split(":", 3)
+            scope_sel = replace(sel, extras=tuple(x for x in sel.extras if not x.startswith("ext:"))) if scope == "self" else from_key(scope)
+            mine = _stat(ch, what)
+            if scope != "self" and not matches(plan, scope_sel, card, ch, you, source):
+                return False  # ("among creatures you control": it is one of them)
+            peers = [v for c in candidates(plan, scope_sel, you, source) if (v := _stat(plan.ch(plan.state.cards[c]), what)) is not None]
+            if mine is None or (which == "greatest" and any(v > mine for v in peers)) or (which == "least" and any(v < mine for v in peers)):
+                return False
         if extra.startswith("pot:"):  # (wave 15A) power or toughness (either) at most / at least n
             op, n = ("<=", int(extra[6:])) if extra[4:6] == "<=" else (">=", int(extra[6:]))
             vals = [v for v in (_stat(ch, "power"), _stat(ch, "toughness")) if v is not None]
@@ -1920,6 +1967,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if pw is None or tg is None or not (pw + tg <= int(extra[6:]) if extra[4:6] == "<=" else pw + tg >= int(extra[6:])):
                 return False
         if extra == "not_attacking" and card.attacking is not None:  # (wave 35D)
+            return False
+        if extra == "not_blocking" and card.blocking:  # (wave 49C)
             return False
         if extra.startswith("counter:") and not _has_counter(card, extra[8:]):  # (wave 5H: any kind, "*")
             return False

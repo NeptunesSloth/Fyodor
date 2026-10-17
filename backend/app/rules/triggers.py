@@ -96,7 +96,7 @@ def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, is_token=snap.is_token,
                         token=TokenDef(name=snap.name, text=snap.text, power=snap.token_power, toughness=snap.token_toughness,
-                                      colors=snap.token_colors, type_line=snap.token_type_line or "Token Creature")
+                                      colors=snap.token_colors, type_line=snap.token_type_line or "Token Creature", mana_cost=snap.token_mana_cost)
                         if snap.is_token and not snap.printing else None,
                         merged=[MergedPart(**p) for p in snap.merged], melded=snap.melded)  # (wave 18D: a merged permanent's cards)
     ch = chars.of(card, plan.info)
@@ -976,6 +976,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
     """Whom the attack was declared against (508.3a, 508.3e, 508.6): ``defended`` is the defending
     player (a planeswalker's controller), ``direct`` whether it was that player (not a planeswalker)."""
     defended, you = info.get("defended"), watcher.controller
+    if want == "battle":  # -- triggers (wave 49C) -- "attacks a battle": the attack's recipient is a battle (310.5)
+        return bool(info.get("battle"))
     if defended is None or (info.get("battle") and want in ("you_or_pw", "opponent_or_pw")):
         return False  # (-- review 34 -- 310.5, 508.5: a creature attacking a battle attacks no player and no planeswalker, Gahiji / Frontier Warmonger)
     if want == "you_or_pw":  # "attacks you or a planeswalker you control"
@@ -1170,10 +1172,12 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
     for (watcher, ch, i, d), lo, hi in (watchers if watchers is not None else [(w, -1, -1) for w in _event_watchers(plan)]):
         if batch >= 0 and not (lo <= batch <= hi or (lo, hi) == (-1, -1)):
             continue
-        cond = d["cond"]
+        whole = d["cond"]
         for fact in facts:
-            if not _cond_matches(plan, cond, watcher, fact):
+            if not _cond_matches(plan, whole, watcher, fact):
                 continue
+            # -- either with a batch half (wave 49D) -- 603.2c: "discards a card or mills one or more cards": the half this event is batches (or not) on its own
+            cond = next((x for x in whole["conds"] if _cond_matches(plan, x, watcher, fact)), whole) if whole["event"] == "either" and any(x.get("aggregate") for x in whole["conds"]) else whole
             nth = cond.get("nth") if cond["event"] == "draw" else None
             if nth and plan.rules.draws_this_turn.get(fact[3] or "", 0) != nth:
                 continue

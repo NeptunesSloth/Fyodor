@@ -673,6 +673,11 @@ def _enters_tapped(text: str) -> Definition | None:
     """"Creatures your opponents control enter tapped.", "Artifacts, creatures, and lands your
     opponents control enter tapped.", "Permanents enter tapped." — each item a group of the
     permanent as it would exist on the battlefield (614.12), under the player it would enter under."""
+    # -- commander sweep (wave 49B) -- "As long as ~ is tapped, other permanents enter tapped." (Archelos): the same replacement while the source is (un)tapped
+    # (611.3a; "other" is vacuous: the source isn't on the battlefield as it would enter itself, 614.12 and its ruling 2020-11-10)
+    held = re.fullmatch(r"As long as ~ is (un)?tapped, other (permanents enter (?:un)?tapped\.)", text)
+    if held is not None and (own := _enters_tapped(held[2].capitalize())) is not None:
+        return {**own, "conditions": [{"static": "self", "test": "untapped" if held[1] else "tapped"}]}
     m = _ENTER_TAPPED.match(text)
     if not m:
         return None

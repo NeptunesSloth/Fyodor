@@ -93,7 +93,7 @@ _SENTENCE = re.compile(
     rf"(?: named (?P<name>{_NAME}))?"
     r"(?: with (?P<with>.+?))?"
     rf"(?: named (?P<name2>{_NAME}))?"  # (wave 6C: "… with flying named Wasp")
-    rf"(?: that's (?P<thats>all colors|{_COLORS}))?"  # (wave 6C: "an 8/8 Beast creature token that's red, green, and white")
+    rf"(?: that(?:'s| is| are) (?P<thats>all colors|{_COLORS}))?"  # (wave 6C: "an 8/8 Beast creature token that's red, green, and white"; wave 49D: "X 1/1 Sand Warrior creature tokens that are red, green, and white")
     rf"(?P<attacking> that(?:'s| are) (?P<atapped>tapped and )?attacking{AT})?$")  # (wave 17D: untapped, "that's attacking": Brimaz)
 # (wave 6C) "For each creature your opponents control, create a 4/4 green Phyrexian Beast creature token.": the same
 # instruction as "Create a 4/4 … token for each creature your opponents control." (the count is read as it resolves)

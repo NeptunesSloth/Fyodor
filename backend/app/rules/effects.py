@@ -812,9 +812,11 @@ def pump(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # (a literal keeps its sign: values.evaluate reads a *count*, never negative, 107.1b)
         p = e["p"] if isinstance(e["p"], int) else values.evaluate_signed(plan, ctx, e["p"])
         t = e["t"] if isinstance(e["t"], int) else values.evaluate_signed(plan, ctx, e["t"])
+        combat = e.get("duration") == "end_of_combat"  # -- durations (wave 49C) -- "until end of combat" (500.5a, 511.2: combat.end_combat)
         layers.add_effect(plan, affected=affected, layer="7c", source=ctx.get("source_object"), controller=ctx["controller"],
-                          power=p, toughness=t, label=f"{_stat_label(p)}/{_stat_label(t)} until end of turn ({ctx.get('name', '')})")
-        _mark(plan, _cards(plan, ctx, e["who"]), f"{_stat_label(p)}/{_stat_label(t)}")
+                          power=p, toughness=t, duration="end_of_combat" if combat else "end_of_turn",
+                          label=f"{_stat_label(p)}/{_stat_label(t)} {'this combat' if combat else 'until end of turn'} ({ctx.get('name', '')})")
+        _mark(plan, _cards(plan, ctx, e["who"]), f"{_stat_label(p)}/{_stat_label(t)}", text="this combat" if combat else "until end of turn")
     return True
 
 
@@ -841,14 +843,14 @@ def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if cards and (keywords or removed or abilities):
         words = [*keywords, *(f"loses {k}" for k in removed), *(f'"{a}"' for a in abilities)]
         duration = e.get("duration", "end_of_turn")
-        when = "until end of turn" if duration == "end_of_turn" else "for the rest of the game"
+        when = {"end_of_turn": "until end of turn", "end_of_combat": "this combat"}.get(duration, "for the rest of the game")  # (wave 49C: end_of_combat)
         layers.add_effect(plan, affected=[plan.oid(c) for c in cards], layer="6", source=ctx.get("source_object"),
                           controller=ctx["controller"], add_keywords=tuple(keywords), remove_keywords=tuple(removed),
                           duration=duration, label=f"{', '.join(words)} {when}", add_abilities=abilities)
         marker = ", ".join([*(k.capitalize() for k in keywords), *(f"No {k}" for k in removed),
                             *(f'Gains "{a}"' for a in abilities)])
         _mark(plan, cards, marker, value="Ability" if abilities and not (keywords or removed) else None,
-              text="until end of turn" if duration == "end_of_turn" else "as long as it's on the battlefield")
+              text={"end_of_turn": "until end of turn", "end_of_combat": "this combat"}.get(duration, "as long as it's on the battlefield"))
     return True
 
 
@@ -1091,7 +1093,8 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
             if each is not None and pid not in plan.live():
                 continue
             spec = {"name": t["name"], "power": pt["power"], "toughness": pt["toughness"],
-                    "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
+                    "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or "",
+                    **({"mana_cost": t["mana_cost"]} if t.get("mana_cost") else {})}  # (wave 49D: 111.3)
             # a token enters tapped when its creator says so ("create a tapped …") or its own text does
             # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
             tapped = (bool(tapped_by_creator) or replacements.token_enters_tapped(plan, pid, spec)) and not replacements.token_enters_untapped(plan, pid, spec)  # (wave 45A)
@@ -2966,6 +2969,8 @@ def exile_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                 ctx["found"] = library[at]
         elif e.get("keep_bottom") is not None:  # -- hidden exile (wave 18A) -- "all but the bottom six cards of their library"
             n = max(0, len(library) - int(e["keep_bottom"]))
+        elif e.get("half"):  # -- commander sweep (wave 49B) -- 107.1a: "the top half of their library, rounded up" (Ulamog, the Defiler): half the cards in it now
+            n = (len(library) + 1) // 2 if e["half"] == "up" else len(library) // 2
         else:
             n = min(_amount(plan, ctx, e["n"]), len(library))
         if not n:
@@ -3413,7 +3418,7 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
                     "event": entry.event.model_dump(mode="json") if entry.event is not None else None}
     attacker = selectors.attacker_of(entry.event)  # (508.5: "defending player" of an attack trigger)
     if entry.slot_specs:  # a modal spell: each mode's target is checked on its own (608.2b)
-        src = source_of(plan, entry.source_card)
+        src = source_of(plan, entry.source_card, entry.kind == "spell")
         slots, targeted, legal_any = [], False, False
         for refs, sspec in zip(entry.slots, entry.slot_specs, strict=False):
             ok = [t for t in refs if sspec and still_legal(plan, sspec["what"], entry.controller, t, src, entry.source_card, attacker)]
@@ -3427,7 +3432,7 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
         ctx["slots"] = slots
         ctx["targets"] = []
     if entry.group_specs:  # target groups: every target is checked on its own (608.2b)
-        src = source_of(plan, entry.source_card)
+        src = source_of(plan, entry.source_card, entry.kind == "spell")
         groups: list[list[dict[str, Any] | None]] = []
         for refs, gspec in zip(entry.groups, entry.group_specs, strict=False):
             # an illegal target keeps its place (None), so the division stays as announced (115.7f)
@@ -3445,7 +3450,7 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
         ctx["targets"] = [t for t in groups[0] if t] if groups else []
     spec = entry.target_spec
     if spec and entry.targets:
-        src = source_of(plan, entry.source_card)
+        src = source_of(plan, entry.source_card, entry.kind == "spell")  # (wave 49C: 115.2)
         legal = [t for t in entry.targets if still_legal(plan, spec["what"], entry.controller, t, src, entry.source_card, attacker)]
         if not legal:
             plan.note(f"{entry.name or 'It'} does nothing: its target is no longer legal")
@@ -3871,7 +3876,9 @@ CHOICE_OPTIONS: dict[str, list[str]] = {
 }
 CHOICE_LABELS = {"color": "Chosen color", "creature type": "Chosen creature type", "basic land type": "Chosen basic land type",
                  "opponent": "Chosen opponent", "player": "Chosen player", "card type": "Chosen card type",
-                 "card type other than creature or land": "Chosen card type", "artifact, creature, enchantment, instant, or sorcery": "Chosen card type"}
+                 "card type other than creature or land": "Chosen card type", "artifact, creature, enchantment, instant, or sorcery": "Chosen card type",
+                 "number between 1 and 10": "Chosen number",  # (wave 49B: Talion, the Kindly Lord)
+                 "two abilities from among first strike, vigilance, and lifelink": "Chosen abilities"}  # (wave 49B: Greymond, Avacyn's Stalwart)
 CHOICE_LABELS.update(entry_forms.CHOICE_LABELS)  # -- entry forms (wave 5F) -- "a color other than blue"
 CHOICE_LABELS.update({w: card_names.LABEL for w in card_names.ALL_WHATS})  # -- card names (wave 22B) -- 201.4
 
@@ -3885,6 +3892,12 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
         return copying.entry_options(plan, ctx["controller"], what, ctx.get("source_card"))  # (wave 5F: the entering card)
     if what == "creature type":
         return [DecisionOption(id=t, label=t) for t in sorted(CREATURE_TYPES)]
+    if what == "number between 1 and 10":  # (wave 49B) a number chosen as the permanent enters (614.12a)
+        return [DecisionOption(id=str(n), label=str(n)) for n in range(1, 11)]
+    if what.startswith("two abilities from among "):  # (wave 49B) every pair of the three (Greymond)
+        from itertools import combinations
+
+        return [DecisionOption(id=f"{a} and {b}", label=f"{a} and {b}") for a, b in combinations(("first strike", "vigilance", "lifelink"), 2)]
     from app.rules import chosen as _picked
 
     if (named := _picked.words(what)) is not None:  # -- linked words (wave 33B) -- 607.2f: "choose Khans or Dragons"
@@ -3919,7 +3932,10 @@ def choose_value(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True  # (no opponent left to choose: 800.4)
     src = plan.state.cards.get(ctx.get("source_card") or "")
     article = "an" if e["what"][0] in "aeiou" else "a"
-    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name', '') or 'Choose'}: choose {article} {e['what']}",
+    chooser = _players(plan, ctx, e["who"])  # -- card names (wave 49C) -- "Target player chooses a card name": the target player (a target who left the game chooses nothing, 800.4)
+    if not chooser:
+        return True
+    decide(plan, player=chooser[0], kind="choose_one", prompt=f"{ctx.get('name', '') or 'Choose'}: choose {article} {e['what']}",
            options=options, resume={"step": "choose_value", "ctx": ctx, "e": e}, source=src)
     return False
 
@@ -4138,7 +4154,7 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-_MARKER_TEXT = {"end_of_turn": "until end of turn", "next_turn": delayed.LABELS["next_turn"]}
+_MARKER_TEXT = {"end_of_turn": "until end of turn", "next_turn": delayed.LABELS["next_turn"], "end_of_combat": "this combat"}  # (wave 49C: end_of_combat)
 _COLOR_WORDS = {"W": "white", "U": "blue", "B": "black", "R": "red", "G": "green"}
 
 

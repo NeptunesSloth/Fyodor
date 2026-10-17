@@ -243,6 +243,9 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     found_extreme = extremes.parse(t)  # -- extremes (wave 8B) -- "you control the creature with the greatest power or tied …"
     if found_extreme is not None:
         return found_extreme
+    m = re.fullmatch(r"(?:~|this [a-z]+) has an (?P<p>even|odd) number of counters on (?:it|~)", t)
+    if m:  # -- commander sweep (wave 49B) -- "~ has an even number of counters on it" (Sab-Sunen, Luxa Embodied): all kinds together (122.1); zero is even
+        return {"value": {"counters": None, "on": "self"}, "op": "parity", "n": int(m["p"] == "odd")}
     m = _SELF_COUNTS.fullmatch(t)
     if m and m["k"] not in ("any", "more", "fewer"):
         n = 0 if m["no"] else _num(m["ex"] or m["n"])
@@ -473,8 +476,9 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     found = _more_ifs(t)  # -- intervening ifs (wave 11F) --
     if found is not None:
         return found
-    m = re.fullmatch(r"an opponent (?:(?P<has>has)|controls) (?P<rest>(?:no|\w+ or (?:more|fewer|less)) .+ in (?:hand|their graveyard))", t)  # (wave 16F; 44D: Sheoldred's graveyard)
-    if m:  # "an opponent has no cards in hand": the same test read for some one opponent ("you" of it is them)
+    m = re.fullmatch(r"an opponent (?:(?P<has>has)|controls) (?P<rest>(?:no|\w+ or (?:more|fewer|less)) .+ in (?:hand|their graveyard)|\d+ or (?:more|less) life)", t)  # (wave 16F; 44D: Sheoldred's graveyard; 49C: "an opponent has 10 or less life")
+    if m and (objects or not m["rest"].endswith(" life")):  # "an opponent has no cards in hand": the same test read for some one opponent ("you" of it is them)
+        # (wave 49C: "has 10 or less life" only inside an ability, a trigger's: a static keeps its own ``opp_life`` form)
         inner = _parse_one(f"you {'have' if m['has'] else 'control'} {m['rest'].replace('their graveyard', 'your graveyard')}", objects)
         if inner is not None and "value" in inner and not inner.get("per_opponent"):
             return {"as": "opponent", "cond": inner}
@@ -1233,6 +1237,9 @@ def _object(t: str) -> Condition | None:
     it last existed); physical state (tapped, attacking) only of the source itself."""
     t = re.sub(r"^(it|~|that (?:creature|permanent)) has (power|toughness|mana value) (?=\w+ or (?:less|greater|more|fewer)|exactly \w+)",  # (wave 26D; 36A: ~, "exactly")
                lambda m: f"{'its' if m[1] == 'it' else m[1] + chr(39) + 's'} {m[2]} is ", t)  # "it has power 4 or greater" = "its power is 4 or greater"
+    t = re.sub(r"^it has the (least|greatest) (power|toughness) or is tied for (?:the )?(?:least|greatest) (?:power|toughness) among creatures on the battlefield$",
+               r"it's a creature with the \1 \2 among creatures on the battlefield", t)  # -- extremes (wave 49C) -- Wretched Banquet: no creature has less, 608.2c (selectors "ext:")
+    t = re.sub(r"^(?:it|that card) has the chosen name$", "it's a card with the chosen name", t)  # -- card names (wave 49C) -- Cursed Scroll: 201.4, the name answered earlier in the same resolution
     t = re.sub(r"^the creature had (?=(?:power|toughness|mana value) \w+ or )", "that creature had ", t)  # -- named permanents (wave 35C) -- Anax: the creature that died
     t = re.sub(r"^it had (power|toughness|mana value) (?=\w+ or )", r"its \1 was ", t)  # -- most-played cards (wave 49A) -- "If it had mana value 3 or less" (Consuming Ashes): as it last existed (608.2h)
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)) had (?=(?:power|toughness|mana value) \w+ or )", r"\1's ", t)
