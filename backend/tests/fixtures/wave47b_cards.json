@@ -452,5 +452,64 @@
    "R"
   ],
   "keywords": []
+ },
+ {
+  "name": "Círdan the Shipwright",
+  "layout": "normal",
+  "mana_cost": "{3}{G}{U}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Elf Noble",
+  "oracle_text": "Vigilance\nSecret council — Whenever Círdan enters or attacks, each player secretly votes for a player, then those votes are revealed. Each player draws a card for each vote they received. Each player who received no votes may put a permanent card from their hand onto the battlefield.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Vigilance",
+   "Secret council"
+  ],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Mob Verdict",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Secret council — Each player secretly votes for another player, then those votes are revealed. For each vote an opponent received, Mob Verdict deals 2 damage to that player and each creature that player controls. For each vote you received, draw a card.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Secret council"
+  ]
+ },
+ {
+  "name": "Petrified Wood-Kin",
+  "layout": "normal",
+  "mana_cost": "{6}{G}",
+  "cmc": 7.0,
+  "type_line": "Creature — Elemental Warrior",
+  "oracle_text": "This spell can't be countered.\nBloodthirst X (This creature enters with X +1/+1 counters on it, where X is the damage dealt to your opponents this turn.)\nProtection from instants",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Bloodthirst",
+   "Protection"
+  ],
+  "power": "3",
+  "toughness": "3"
  }
 ]

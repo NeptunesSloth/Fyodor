@@ -1179,6 +1179,8 @@ def rename_bindings(value: Any, prefix: str) -> Any:
             v = "ref:" + prefix + v[4:]
         elif isinstance(v, str) and v.startswith("graveyard_of:ref:") and not v.startswith("graveyard_of:ref:event"):
             v = "graveyard_of:ref:" + prefix + v[len("graveyard_of:ref:"):]  # -- reanimation (wave 37B) -- "exile its owner's graveyard": the player a binding names (a spell's line kept it unrenamed)
+        elif isinstance(v, str) and v.startswith("controlled:ref:") and not v.startswith("controlled:ref:event"):  # -- random choices (wave 47B) -- "each creature that player controls" (Mob Verdict)
+            v = "controlled:ref:" + prefix + v[len("controlled:ref:"):]
         elif isinstance(v, str) and v.startswith("except:"):  # -- refused modal/conditional (wave 3R1) -- (Martial Coup)
             v = "except:" + prefix + v[len("except:"):]
         else:
