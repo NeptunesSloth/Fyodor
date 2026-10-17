@@ -1379,6 +1379,8 @@ GRANTER = r"‹granter(?:#(?P<oid>[^›]+))?›"
 def _parse(phrase: str) -> Selector | None:
     if (g := re.fullmatch(GRANTER, phrase)) is not None:
         return Selector(extras=("oid:" + (g["oid"] or ""),))
+    if "non-outlaw" in phrase or "nonoutlaw" in phrase:  # -- most-played cards II (wave 45A) -- 700.12a: a non-outlaw has none of the five types (Shoot the Sheriff)
+        phrase = re.sub(r"\bnon-?outlaw\b", " ".join(f"non-{t}" for t in OUTLAW_TYPES.split("|")), phrase)
     if "outlaw" in phrase:
         return _outlaws(phrase)
     s = Selector()

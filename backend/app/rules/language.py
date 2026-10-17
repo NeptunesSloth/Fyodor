@@ -1749,6 +1749,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
         recipients = re.sub(r"(creatures?) and (planeswalkers?|battles?) (?=you don't control|that player controls)",
                             r"\1 or \2 ", recipients)
         for part in re.split(r" and (?=each |you$)|" + _AND_TARGET, recipients):
+            if re.fullmatch(r"the player or planeswalker (?:it's|that creature is) attacking", part):  # -- most-played cards II (wave 45A) -- 508.5 (defending.attacked)
+                effects.append({"do": "damage", "who": "attacked", "n": n, **src})
+                continue
             if part == "each other opponent":  # -- sized amounts (wave 3D) -- the opponents besides the one the event named
                 effects.append({"do": "damage", "who": "each_other_opponent", "n": n, **src})
                 continue
