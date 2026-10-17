@@ -87,7 +87,7 @@ def withheld(plan: Plan, comp: CostComponent, player: str, source: CardInstance)
 
 def candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstance) -> list[str]:
     """Objects that could pay ``comp`` (one part of a cost), in a stable order."""
-    spoken = _spoken_for(plan)
+    spoken = _spoken_for(plan) | plan.excluded  # (wave 47C: and what an earlier choice of the same resolution takes)
     found = _candidates(plan, comp, player, source)
     return [c for c in found if c not in spoken] if spoken else found
 

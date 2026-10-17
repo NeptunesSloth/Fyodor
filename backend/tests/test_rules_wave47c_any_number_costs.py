@@ -20,10 +20,13 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.errors import ActionError
+from app.game.factory import PlayerSetup, new_game
+from app.game.session import GameSession
 from app.rules import coverage
 from app.rules.view import hints
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, deck, enable
+from tests.test_rules_conditionals import until
 from tests.test_rules_wave30h_linked_exile import settle, stack_top
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_of
 from tests.wave9c_kit import reloaded as reloaded_session
@@ -44,11 +47,11 @@ def cards(settings):
     repo.close()
 
 
-FULL = ["Torgaar, Famine Incarnate", "Gorex, the Tombshell", "Dargo, the Shipwrecker", "Hierophant Bio-Titan", "Explosive Singularity", "March of Swirling Mist",
+FULL = ["Rottenmouth Viper", "Torment of Hailfire", "Torgaar, Famine Incarnate", "Gorex, the Tombshell", "Dargo, the Shipwrecker", "Hierophant Bio-Titan", "Explosive Singularity", "March of Swirling Mist",
         "March of Otherworldly Light", "March of Wretched Sorrow", "March of Reckless Joy", "March of Burgeoning Life",
         "Extus, Oriq Overlord // Awaken the Blood Avatar"]
 # (kept manual: Rottenmouth Viper's cost line is read, its blight-counter choices for every opponent are not; Scrap Welder's "mana value X" is the sacrificed artifact's, no X is announced for "less than X")
-PARTIAL = ["Rottenmouth Viper", "Scrap Welder"]
+PARTIAL = ["Scrap Welder"]
 
 
 @pytest.mark.parametrize("name", FULL)
@@ -509,3 +512,156 @@ def test_the_menu_offers_the_any_number_cost_when_the_most_it_takes_off_makes_th
     for x in crew:
         act(s, "p1", type="move", card_ids=[x.id], to={"zone": "graveyard"})
     assert c.id not in hints(s.state, "p1", cards).get("optional_costs", {})
+
+
+# ---- a choice for every counter, every opponent in turn order, paid together: Rottenmouth Viper ------------------------------------------------
+def viper_table(cards, bob=(), carol=()):
+    decks = [deck(cards, "Krenko, Mob Boss", [(1, "Rottenmouth Viper"), (20, "Forest")]),
+             deck(cards, "Atraxa, Praetors' Voice", [*((1, n) for n in bob), (20, "Island")]),
+             deck(cards, "Krenko, Mob Boss", [*((1, n) for n in carol), (20, "Mountain")])]
+    s = GameSession(enable(new_game([PlayerSetup(n, cards=d) for n, d in zip(("Alice", "Bob", "Carol"), decks, strict=True)], shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")  # → Alice's main phase
+    return s
+
+
+def viper_enters(s):
+    """Alice casts Rottenmouth Viper (nothing sacrificed); its trigger's first question waits."""
+    to_hand(s, "Rottenmouth Viper")
+    mana(s, B=1, C=5)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Rottenmouth Viper").id)
+    for _ in range(10):
+        if s.state.rules.decision is not None:
+            return s.state.rules.decision
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("never asked")
+
+
+def answer(s, *ids):
+    d = s.state.rules.decision
+    assert d is not None, "nothing was asked"
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=list(ids))
+    return s.state.rules.decision
+
+
+def test_viper_asks_each_opponent_in_turn_order_and_acts_on_all_the_choices_together(cards):
+    """Ruling 2024-07-26: each opponent in turn order chooses; the sacrifice, the discard and the life loss happen after the last choice. Bob sacrifices his Bears and
+    Carol declines: nothing has happened while Carol is asked, and then Bears is gone and only Carol loses 4."""
+    s = viper_table(cards, ["Grizzly Bears"])
+    put(s, "Grizzly Bears", "p2")
+    to_hand(s, "Mountain", "p3")  # (a player with nothing to sacrifice or discard isn't asked: they lose the life)
+    d = viper_enters(s)
+    assert d.player == "p2" and [o.id for o in d.options][:1] == ["pay:0"] and any(o.id == "decline" for o in d.options)
+    d = answer(s, "pay:0")  # (the only nonland permanent: no second question)
+    assert d is not None and d.player == "p3" and zone_of(s, "Grizzly Bears", "p2") == "p2:battlefield"
+    s = reloaded_session(s)  # a save and a load in the middle of the choices
+    answer(s, "decline")
+    settle(s)
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard" and zone_of(s, "Mountain", "p3") == "p3:hand"
+    assert s.state.players["p2"].life == 40 and s.state.players["p3"].life == 36
+    assert s.state.cards[card_named(s, "Rottenmouth Viper").id].counters.get("blight") == 1
+    check(s)
+
+
+def test_viper_lets_an_opponent_always_lose_the_life_instead(cards):
+    """Ruling 2024-07-26: "An opponent can always choose not to sacrifice a nonland permanent or discard a card (and therefore lose 4 life)\"."""
+    s = viper_table(cards, ["Grizzly Bears"])
+    put(s, "Grizzly Bears", "p2")
+    to_hand(s, "Mountain", "p3")
+    viper_enters(s)
+    answer(s, "decline")
+    answer(s, "decline")
+    settle(s)
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:battlefield" and s.state.players["p2"].life == 36 and s.state.players["p3"].life == 36
+    check(s)
+
+
+def test_viper_attacking_with_two_counters_asks_twice_and_never_the_same_object_again(cards):
+    """Two blight counters: each opponent chooses twice. Bob has two nonland permanents and sacrifices for both choices: the second can only be the one the first did
+    not take (previously chosen can't be chosen again); Carol, with one, can sacrifice for the first and only discard or lose the life for the second."""
+    s = viper_table(cards, ["Grizzly Bears", "Hill Giant"], ["Savannah Lions"])
+    bears, giant = put(s, "Grizzly Bears", "p2"), put(s, "Hill Giant", "p2")
+    put(s, "Savannah Lions", "p3")
+    viper_enters(s)
+    answer(s, "decline")
+    answer(s, "decline")  # (turn 1: both lose 4)
+    settle(s)
+    viper = card_named(s, "Rottenmouth Viper")
+    until(s, lambda s: s.state.turn.number == 4 and (d := s.state.rules.decision) is not None and d.kind == "declare_attackers" and d.player == "p1")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": viper.id, "target": "p2"}])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2"
+    d = answer(s, "pay:0")  # Bob, first choice: a sacrifice, which one
+    assert d is not None and d.player == "p2" and sorted(o.card_id for o in d.options) == sorted([bears.id, giant.id])
+    d = answer(s, bears.id)
+    assert d is not None and d.player == "p2" and [o.id for o in d.options][:1] == ["pay:0"]  # Bob, second choice
+    d = answer(s, "pay:0")  # (only Hill Giant is left to take: no question)
+    assert d is not None and d.player == "p3"
+    d = answer(s, "pay:0")  # Carol, first choice: her only nonland permanent
+    assert d is not None and d.player == "p3" and [o.id for o in d.options] == ["pay:1", "decline"]  # (the second: Savannah Lions is taken already, a discard or the life)
+    answer(s, "decline")
+    settle(s)
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard" and zone_of(s, "Hill Giant", "p2") == "p2:graveyard"
+    assert zone_of(s, "Savannah Lions", "p3") == "p3:graveyard"
+    assert s.state.players["p2"].life == 30 and s.state.players["p3"].life == 32  # (Bob: 36 less the Viper's 6 combat damage, nothing to the trigger; Carol: 36 less 4 for her second choice)
+    assert s.state.cards[viper.id].counters.get("blight") == 2
+    check(s)
+
+
+def test_viper_does_not_reveal_a_card_chosen_to_be_discarded_until_it_is_discarded(cards):
+    """Ruling 2024-07-26: "cards chosen to be discarded this way won't be revealed until they're discarded at the end of the process". While Carol is still being asked,
+    Alice and Carol see nothing of Bob's pick; afterwards the card is in his graveyard."""
+    s = viper_table(cards, ["Grizzly Bears"])
+    to_hand(s, "Grizzly Bears", "p2")
+    to_hand(s, "Mountain", "p3")
+    d = viper_enters(s)
+    assert d.player == "p2" and [o.id for o in d.options] == ["pay:1", "decline"]  # (no nonland permanent: a discard or the life)
+    d = answer(s, "pay:1")
+    assert d is not None and d.player == "p3"
+    for viewer in ("p1", "p3"):
+        assert "Grizzly Bears" not in json.dumps(s.view(viewer)), viewer
+    answer(s, "decline")
+    settle(s)
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard" and "Grizzly Bears" in json.dumps(s.view("p3"))
+    assert s.state.players["p2"].life == 40 and s.state.players["p3"].life == 36
+    check(s)
+
+
+# ---- "Repeat the following process X times": Torment of Hailfire ----------------------------------------------------------------------------
+def test_torment_of_hailfire_repeats_the_process_and_each_repetition_is_done_before_the_next(cards):
+    """Ruling 2017-07-14: each repetition is done separately (the choice, then the sacrifice, the discard or the life loss, then the next choice). X = 2: Bob sacrifices
+    his Bears for the first, which is gone when the second is asked, and declines the second."""
+    s = build(cards, ["Torment of Hailfire"], ["Grizzly Bears", "Hill Giant"])
+    put(s, "Grizzly Bears", "p2")
+    giant = put(s, "Hill Giant", "p2")
+    to_hand(s, "Torment of Hailfire")
+    mana(s, B=2, C=2)
+    c = card_named(s, "Torment of Hailfire")
+    act(s, "p1", type="cast_spell", card_id=c.id, x_value=2)
+    for _ in range(6):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2" and [o.id for o in d.options] == ["pay:0", "decline"]
+    d = answer(s, "pay:0")
+    assert d is not None and sorted(o.card_id for o in d.options) == sorted(x.id for x in s.state.cards.values() if x.zone == "p2:battlefield" and x.name != "Island")
+    d = answer(s, giant.id)  # (Hill Giant: the choice of the first repetition)
+    assert zone_of(s, "Hill Giant", "p2") == "p2:graveyard" and d is not None and d.player == "p2"  # (done before the second repetition asks)
+    assert [o.id for o in d.options][:1] == ["pay:0"]
+    s = reloaded_session(s)  # a save and a load between the repetitions
+    answer(s, "decline")
+    settle(s)
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:battlefield" and s.state.players["p2"].life == 37
+    check(s)
+
+
+def test_torment_of_hailfire_with_x_zero_does_nothing(cards):
+    """Ruling 2017-07-14: "If X is 0, Torment of Hailfire resolves with no effect.\""""
+    s = build(cards, ["Torment of Hailfire"], ["Grizzly Bears"])
+    put(s, "Grizzly Bears", "p2")
+    to_hand(s, "Torment of Hailfire")
+    mana(s, B=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Torment of Hailfire").id, x_value=0)
+    settle(s)
+    assert s.state.players["p2"].life == 40 and zone_of(s, "Grizzly Bears", "p2") == "p2:battlefield" and zone_of(s, "Torment of Hailfire") == "p1:graveyard"
+    check(s)

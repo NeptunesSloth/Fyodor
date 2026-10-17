@@ -3268,6 +3268,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (unless_each := _each_may.unless_sentence(text)) is not None:  # -- if you do (wave 15C) -- "Each opponent … unless they …"
             effects += unless_each
             continue
+        if (repeated := _each_may.repeat_sentence(text, texts[i + 1] if i + 1 < len(texts) else None)) is not None:  # -- cost reductions paid with objects (wave 47C) -- "Repeat the following process X times."
+            effects += repeated
+            skip_to = i + 2
+            continue
         if (each := _each_may.pair(text, texts[i + 1] if i + 1 < len(texts) else None, effects, _last_payment(effects))) is not None:
             effects += each[0]
             skip_to = i + each[1]  # (wave 23A: the one sentence, or it and the one after it)

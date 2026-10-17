@@ -344,5 +344,20 @@
   "keywords": [],
   "power": "3",
   "toughness": "3"
+ },
+ {
+  "name": "Torment of Hailfire",
+  "layout": "normal",
+  "mana_cost": "{X}{B}{B}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Repeat the following process X times. Each opponent loses 3 life unless that player sacrifices a nonland permanent of their choice or discards a card.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
  }
 ]
