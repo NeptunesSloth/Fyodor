@@ -36,8 +36,8 @@ EXTRA = [card(c["name"], set_code="w49b", number=f"B{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 HINATA, DARIEN, ARCHELOS, GRAVEMOTHER = "Hinata, Dawn-Crowned", "King Darien XLVIII", "Archelos, Lagoon Mystic", "Sliver Gravemother"
 KATILDA, MYCOTYRANT, ULAMOG, STOMP = "Katilda, Dawnhart Martyr // Katilda's Rising Dawn", "The Mycotyrant", "Ulamog, the Defiler", "Savage Stomp"
-VARCHILD, SABSUNEN, MIRRI, MORAUG, SARKHAN = "Varchild, Betrayer of Kjeldor", "Sab-Sunen, Luxa Embodied", "Mirri, Weatherlight Duelist", "Moraug, Fury of Akoum", "Sarkhan, Dragon Ascendant"
-NAMES = [HINATA, DARIEN, ARCHELOS, GRAVEMOTHER, KATILDA, MYCOTYRANT, ULAMOG, VARCHILD, SABSUNEN, MIRRI, MORAUG, SARKHAN]
+VARCHILD, SABSUNEN, MIRRI, MORAUG, SARKHAN, ASMO = "Varchild, Betrayer of Kjeldor", "Sab-Sunen, Luxa Embodied", "Mirri, Weatherlight Duelist", "Moraug, Fury of Akoum", "Sarkhan, Dragon Ascendant", "Asmoranomardicadaistinaculdacar"
+NAMES = [HINATA, DARIEN, ARCHELOS, GRAVEMOTHER, KATILDA, MYCOTYRANT, ULAMOG, VARCHILD, SABSUNEN, MIRRI, MORAUG, SARKHAN, ASMO]
 
 
 @pytest.fixture()
@@ -316,6 +316,44 @@ def test_varchild_deals_no_damage_to_a_blocker_so_nothing_is_created(cards):
     act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": elves.id, "attacker_id": varchild.id}])  # an Elf is no Survivor: it may block
     through_combat(s)
     assert not [c for c in s.state.cards.values() if c.name == "Survivor"] and s.state.players["p2"].life == 40
+    check(s)
+
+
+# ---- Asmoranomardicadaistinaculdacar -------------------------------------------------------------------------------------------------------------
+def test_asmoranomardicadaistinaculdacar_is_cast_for_its_alternative_cost_after_a_discard(cards):
+    s = build(cards, [ASMO, "Grizzly Bears"], [])
+    asmo = to_hand(s, ASMO)
+    bears = to_hand(s, "Grizzly Bears")
+    mana(s, B=1)
+    with pytest.raises(ActionError):  # no mana cost, and nothing discarded yet this turn: it can't be cast at all
+        act(s, "p1", type="cast_spell", card_id=asmo.id)
+    act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "graveyard"})  # discarded
+    act(s, "p1", type="cast_spell", card_id=asmo.id)  # {B/R}
+    settle(s)
+    assert s.state.cards[asmo.id].zone == "p1:battlefield" and not s.state.players["p1"].mana
+    check(s)
+
+
+def test_asmoranomardicadaistinaculdacar_makes_a_creature_deal_six_damage_to_itself(cards):
+    s = build(cards, [ASMO, "Grizzly Bears"], ["Llanowar Elves"])
+    asmo = put(s, ASMO)
+    elves = put(s, "Llanowar Elves", "p2")
+    token(s, "p1", "Food", "Token Artifact — Food")
+    token(s, "p1", "Food", "Token Artifact — Food")
+    activate(s, "p1", asmo, "Sacrifice two Foods", targets=[elves.id])
+    settle(s)
+    assert zone_of(s, "Llanowar Elves", "p2") == "p2:graveyard"
+    assert not [c for c in s.state.cards.values() if c.name == "Food" and c.zone == "p1:battlefield"]
+    check(s)
+
+
+def test_a_food_short_is_not_enough_for_asmoranomardicadaistinaculdacar(cards):
+    s = build(cards, [ASMO], ["Llanowar Elves"])
+    asmo = put(s, ASMO)
+    elves = put(s, "Llanowar Elves", "p2")
+    token(s, "p1", "Food", "Token Artifact — Food")
+    with pytest.raises(ActionError):
+        activate(s, "p1", asmo, "Sacrifice two Foods", targets=[elves.id])
     check(s)
 
 

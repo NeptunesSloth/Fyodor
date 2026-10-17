@@ -336,5 +336,24 @@
   ],
   "power": "5",
   "toughness": "5"
+ },
+ {
+  "name": "Asmoranomardicadaistinaculdacar",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Legendary Creature \u2014 Human Wizard",
+  "oracle_text": "As long as you've discarded a card this turn, you may pay {B/R} to cast this spell.\nWhen Asmoranomardicadaistinaculdacar enters, you may search your library for a card named The Underworld Cookbook, reveal it, put it into your hand, then shuffle.\nSacrifice two Foods: Target creature deals 6 damage to itself.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
  }
 ]

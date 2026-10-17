@@ -126,6 +126,9 @@ def define(t: str, x_ok: bool = False) -> dict[str, Any] | None:
     # its mana cost." (the Legates) is an alternative cost of {0}, used under that condition
     t = re.sub(r"^(if [^,]+), you may cast (?:this spell|~) without paying its mana cost$", r"\1, you may pay {0} rather than pay "
                r"this spell's mana cost", t)
+    # -- commander sweep (wave 49B) -- "As long as you've discarded a card this turn, you may pay {B/R} to cast this spell." (Asmoranomardicadaistinaculdacar): an alternative cost, used while the
+    # condition holds (its ruling 2021-06-18: with no mana cost it can't be cast any other way)
+    t = re.sub(r"^as long as ([^,]+), (you may pay [^,]+?) to cast (?:this spell|~)$", r"if \1, \2 rather than pay this spell's mana cost", t)
     m = SELF.fullmatch(t)
     if m:
         if m["c1"] and m["c2"]:

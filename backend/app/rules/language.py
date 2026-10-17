@@ -2733,15 +2733,15 @@ def _sized_damage_forms(text: str, rider: Any) -> tuple[Effects, Any] | None:
         return None
     if rider is not None:
         raise _Fail
-    stat = "toughness" if "toughness" in (m["a"] or m["b"]) else "power"
+    stat = "toughness" if "toughness" in (m["a"] or m["b"] or "") else "power"
     kind, key, group = ref(m["s"])
     if kind == "each":
         if selectors.from_key(key).player is not None:
             raise _Fail
-        return [{"do": "damage", "who": "itself", "n": {stat: "each"}, "src": "each:" + key}], None
+        return [{"do": "damage", "who": "itself", "n": int(m["c"]) if m["c"] else {stat: "each"}, "src": "each:" + key}], None
     if kind != "target" or group is None or group.get("max", 1) != 1:
         raise _Fail
-    return [{"do": "damage", "who": "target", "n": {stat: "target"}, "src": "target"}], _one(group)
+    return [{"do": "damage", "who": "target", "n": int(m["c"]) if m["c"] else {stat: "target"}, "src": "target"}], _one(group)  # (wave 49B: a fixed amount, "deals 6 damage to itself")
 # -- end damage sized by a count (wave 4E) --
 
 
