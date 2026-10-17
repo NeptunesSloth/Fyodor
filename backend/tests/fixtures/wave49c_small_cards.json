@@ -36,5 +36,120 @@
   ],
   "power": "2",
   "toughness": "2"
+ },
+ {
+  "name": "Gravity Sphere",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "World Enchantment",
+  "oracle_text": "All creatures lose flying.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Mystic Decree",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "World Enchantment",
+  "oracle_text": "All creatures lose flying and islandwalk.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Magistrate's Veto",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "White creatures and blue creatures can't block.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Flash of Defiance",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Green creatures and white creatures can't block this turn.\nFlashback—{1}{R}, Pay 3 life. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flashback"
+  ]
+ },
+ {
+  "name": "Spectral Shield",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{U}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets +0/+2 and can't be the target of spells.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Karplusan Strider",
+  "layout": "normal",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Creature — Yeti",
+  "oracle_text": "This creature can't be the target of blue or black spells.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Lurker",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Beast",
+  "oracle_text": "This creature can't be the target of spells unless it attacked or blocked this turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
  }
 ]

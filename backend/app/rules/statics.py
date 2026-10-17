@@ -202,6 +202,14 @@ def parse(text: str) -> Definition | None:
         if who is None or who == "self" or who.startswith(UNION):
             return None
         return {**_definition(who, kind, []), "lose_keywords": [m["kw"]], "deny_keywords": [m["kw"]]}
+    # -- layers (wave 49C) -- "All creatures lose flying." (Gravity Sphere), "All creatures lose flying and islandwalk." (Mystic Decree): 613.1f, in timestamp order
+    # (a flying granted later stays: the Gravity Sphere ruling); only the loss, nothing is denied
+    m = re.fullmatch(r"(?P<s>(?:All c|C)reatures(?: .+? control)?) lose (?P<kw>[a-z]+(?: and [a-z]+)?)", body)
+    if m is not None and all(k in GRANTABLE_KEYWORDS for k in m["kw"].split(" and ")):
+        who, kind = _subject(m["s"], plural=True)
+        if who is None or who == "self" or who.startswith(UNION):
+            return None
+        return {**_definition(who, kind, []), "lose_keywords": m["kw"].split(" and ")}
     # "Creatures with power less than ~'s power can't block it." (Wandering Wolf): an evasion ability
     # of the source, worded from the blockers' side.
     m = re.fullmatch(r"Creatures with power (?P<dir>less|greater) than ~'s power can't block it", body)
@@ -298,8 +306,8 @@ def parse(text: str) -> Definition | None:
                     it_is = re.fullmatch(r"it(?:'s| is) (?P<d>.+)", cond_text)
                     if host and it_is:
                         cond_text = f"{host['w'].lower()} {host['n']} is {it_is['d']}"
-                    if cond_text == "it attacked this turn" and rest_text.startswith("~ "):  # -- as long as (wave 20B) -- "it" is the source
-                        cond_text = "~ attacked this turn"
+                    if cond_text in ("it attacked this turn", "it attacked or blocked this turn") and rest_text.startswith("~ "):  # -- as long as (wave 20B; 49C: Lurker) -- "it" is the source
+                        cond_text = "~" + cond_text[2:]
                     # -- as long as (wave 35D) -- "it" / "they" in the condition is the object the sentence is about: the source ("~ has double
                     # strike as long as two or more Equipment are attached to it", "~ has hexproof as long as it hasn't dealt damage yet") or the
                     # object the source is attached to ("Equipped creature has double strike as long as two or more Equipment are attached to it")
@@ -1092,6 +1100,11 @@ def _rule(piece: str) -> list[str] | None:
     # -- cant (wave 16F) -- 115.2: "can't be the target of black spells or abilities from black sources" (Mercenary Informer) /
     # "… of nongreen spells or abilities from nongreen sources" (Gaea's Revenge), "… your opponents control" (Thrun): an object
     # whose source (a spell, or the source of an ability) has that color (or lacks it) can't target it. Colorless is nongreen.
+    # -- cant (wave 49C) -- 115.2: "can't be the target of spells" (Spectral Shield), "… of blue or black spells" (Karplusan Strider): no spell (of that color) may target it
+    # (anyone's, its controller's too); an ability still may
+    m = re.fullmatch(r"can't be the targets? of (?:(?P<c>(?:white|blue|black|red|green)(?: or (?:white|blue|black|red|green))*) )?spells", piece)
+    if m:
+        return ["untargetable_spells" + (":" + "".join({"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}[c] for c in m["c"].split(" or ")) if m["c"] else "")]
     m = re.fullmatch(r"can't be the targets? of (?P<n>non)?(?P<c>white|blue|black|red|green) spells(?: (?P<o1>your opponents control))? or "
                      r"abilities from (?P=n)?(?P=c) sources(?: (?P<o2>your opponents control))?", piece)
     if m:

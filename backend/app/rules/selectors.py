@@ -1335,6 +1335,8 @@ def _type_and(phrase: str) -> str:
 
 def parse(phrase: str) -> Selector | None:
     """A noun phrase without its determiner ("nonland permanent an opponent controls") → Selector."""
+    # -- layers (wave 49C) -- "white creatures and blue creatures" (Magistrate's Veto): the creatures that are white or blue, as "white or blue creatures"
+    phrase = re.sub(r"^(white|blue|black|red|green) creatures and (white|blue|black|red|green) creatures$", r"\1 or \2 creatures", phrase.strip(), flags=re.I)
     return _parse(_type_and(phrase.strip()))
 
 
