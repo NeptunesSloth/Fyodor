@@ -709,7 +709,7 @@ def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: d
 
         specs = kicked_instead.applicable(specs, a.kicker or int(a.awaken) or int(f"{a.card_id}:gift" in a.optional_costs) or int(f"{a.card_id}:bargain" in a.optional_costs))  # (awaken: wave 16B; bargain: 30E;
         # gift: wave 23D, 702.174m: the targets only a promised spell chooses)
-    found = choose_groups(plan, specs, plan.actor, source_of(plan, a.card_id), a.card_id, list(a.targets),
+    found = choose_groups(plan, specs, plan.actor, source_of(plan, a.card_id, isinstance(a, A.CastSpell)), a.card_id, list(a.targets),  # (review 41: 115.2)
                           list(a.target_counts), list(a.division), a.x_value, what, exclude)
     if found.ask is not None:
         ask_targets(plan, plan.actor, found, specs, what, _announcing(plan, "cast_group", a, counts=found.counts))
@@ -813,7 +813,7 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
     can't be chosen either ("choose one that hasn't been chosen"). Returns None while waiting."""
     modal, modes = definition["modal"], definition["modes"]
     lo, hi, repeat = modal["min"], modal["max"], modal["repeat"]
-    allowed = choosable_modes(plan, definition, a.card_id, exclude)
+    allowed = choosable_modes(plan, definition, a.card_id, exclude, isinstance(a, A.CastSpell))
     if (inst := modal.get("instead")) is not None and _instead_holds(plan, a, inst["cond"]):
         # -- modal frames (wave 33B) -- 700.2a, 601.2b: "If [condition] as you cast this spell, [you may] choose both instead." — judged as the
         # modes are chosen; a "both" the table can't give (a mode with no legal target, 700.2a) is not cast that way
@@ -840,9 +840,9 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
     return None
 
 
-def choosable_modes(plan: Plan, definition: dict[str, Any], card_id: str | None, exclude: tuple[int, ...] = ()) -> list[int]:
-    """700.2a: the modes ``plan.actor`` can choose for this spell / ability now (each target it requires can be chosen)."""
-    src = source_of(plan, card_id)
+def choosable_modes(plan: Plan, definition: dict[str, Any], card_id: str | None, exclude: tuple[int, ...] = (), spell: bool = False) -> list[int]:
+    """700.2a: the modes ``plan.actor`` can choose for this spell / ability now (each target it requires can be chosen; ``spell``: 115.2)."""
+    src = source_of(plan, card_id, spell)
     return [i for i, m in enumerate(definition["modes"]) if i not in exclude
             and (not m["target"] or legal_targets(plan, m["target"]["what"], plan.actor, src, card_id))
             and all(len(legal_targets(plan, g["what"], plan.actor, src, card_id)) >= g.get("min", 1)  # (several groups: wave 16B)
@@ -2282,7 +2282,7 @@ def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Character
         definition = None if manual else per_opponent.for_cast(plan, card.id, scripts.spell_definition(ch))
         if definition is not None and definition.get("modes"):
             modal = definition["modal"]
-            allowed = choosable_modes(plan, definition, card.id)
+            allowed = choosable_modes(plan, definition, card.id, spell=True)
             if not allowed or (not modal["repeat"] and len(allowed) < modal["min"]):
                 return f"{ch.name or 'It'} has no mode you can choose"
         elif not manual:
