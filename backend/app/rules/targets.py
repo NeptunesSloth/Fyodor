@@ -300,6 +300,8 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
         banned = {t for d in spec.get("distinct_from") or [] if d < len(out.groups) for t in out.groups[d]}
         options = [t for t in legal_targets(plan, spec["what"], chooser, source, source_card, attacker)
                    if t not in exclude and t not in banned]
+        if (owner := spec.get("graveyard_of")) is not None and owner < len(out.groups):  # -- shuffle target cards (wave 46B) -- "target cards from their graveyard":
+            options = [t for t in options if plan.state.cards[t].owner in out.groups[owner]]  # the graveyard of the player chosen for that group
         shaped = {**spec, "x_count": "upto"} if "x_value" in spec else spec
         counted = where_x(plan, spec, chooser, source_card, source_object, event) if "x_value" in spec else divide_x(
             plan, spec, chooser, source_card, source_object, event, x)
