@@ -18,7 +18,7 @@ abilities; of the commanders 46 / 2 / 0 / 4. Seven commanders and two more cards
 * 509.1b: "can't be blocked by creatures with power 2 or less and/or Walls" (Doorman): either kind can't block it.
 * 607.2a, 608.2d: "Put a creature card exiled with ~ onto the battlefield under your control." (Sisters of Stone Death, Yggdrasil, Northampton Farm): one of the cards the linked
   ability exiled, chosen as it resolves; the link outlives the source (608.2h).
-* 701.17 / 608.2d: "Choose a creature card at random from target opponent's graveyard. Put that card onto the battlefield under your control." (Tariel, Reckoner of
+* 400.7, 110.2a: "Choose a creature card at random from target opponent's graveyard. Put that card onto the battlefield under your control." (Tariel, Reckoner of
   Souls): the table picks (recorded, so a replay and a load pick the same), among the creature cards of the target opponent's graveyard only.
 * 701.23a: "Target player searches their library for a basic land card, puts it onto the battlefield tapped, then shuffles." (Fertilid, Fertilid's Favor, Restorative
   Technique) is the same search by the target player, whose land enters under their control.
@@ -46,7 +46,16 @@ from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave30h_linked_exile import put_in, stack_top
-from tests.test_rules_wave34b_activated import activate, ask, attack, block, next_turn, priority_to, settle, stops
+from tests.test_rules_wave34b_activated import (
+    activate,
+    ask,
+    attack,
+    block,
+    next_turn,
+    priority_to,
+    settle,
+    stops,
+)
 from tests.wave9c_kit import build, card_named, check, mana, pt, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave42c_cards.json").read_text("utf-8"))
