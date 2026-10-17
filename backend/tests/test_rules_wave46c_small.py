@@ -243,6 +243,23 @@ def test_ox_drover_gives_the_opponent_an_ox_and_draws_you_a_card(cards):
     check(s)
 
 
+def test_marina_vendrells_grimoire_keeps_its_controller_in_the_game_at_zero_life_until_it_leaves(cards):
+    # 704.5a, 104.3b: "You don't lose the game for having 0 or less life." - checked as a state-based action, so when the Grimoire is gone the player loses at once
+    s = build(cards, ["Marina Vendrell's Grimoire", "Shock"], [])
+    grimoire = put(s, "Marina Vendrell's Grimoire")
+    for cid in s.state.zones["p1:library"][:6]:  # (cards to discard to the Grimoire's "whenever you lose life")
+        act(s, "p1", type="move", card_ids=[cid], to={"zone": "hand"})
+    to_hand(s, "Shock")
+    act(s, "p1", type="life", player="p1", delta=-38)  # 2 left
+    mana(s, R=1)
+    cast(s, "Shock", targets=["p1"])
+    assert s.state.players["p1"].life == 0 and s.state.rules.winner is None
+    act(s, "p1", type="move", card_ids=[grimoire.id], to={"zone": "graveyard"})
+    act(s, "p1", type="pass_priority")  # (the state-based actions are checked before anyone gets priority)
+    assert s.state.rules.winner == "p2"
+    check(s)
+
+
 def test_gideon_blackblade_is_a_creature_only_during_its_controllers_turn(cards):
     # 613.1d, 613.4b, 205.1b: "During your turn, ~ is a 4/4 Human Soldier creature with indestructible that's still a planeswalker."
     s = build(cards, ["Gideon Blackblade"], [])

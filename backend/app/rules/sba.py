@@ -78,7 +78,9 @@ class Found:
 
 
 def game_result_zero_life_ok(plan: Plan, pid: str) -> bool:
-    from app.rules import game_result  # -- most-played cards III (wave 46C) -- "You don't lose the game for having 0 or less life." (704.5a)
+    from app.rules import (
+        game_result,  # -- most-played cards III (wave 46C) -- "You don't lose the game for having 0 or less life." (704.5a)
+    )
 
     return game_result.zero_life_ok(plan, pid)
 
