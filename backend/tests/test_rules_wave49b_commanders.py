@@ -319,6 +319,77 @@ def test_varchild_deals_no_damage_to_a_blocker_so_nothing_is_created(cards):
     check(s)
 
 
+# ---- the cards the same wordings unlocked, and the wordings they share with cards that must stay FULL ----------------------------------------------
+OTHERS = ["Druid's Call", "Chandra, Bold Pyromancer", "Elven Passage", "Graywater's Fixer"]
+PINNED = ["Stuffy Doll", "Fang, Roku's Companion", "Vrondiss, Rage of Ancients", "Goblin Kaboomist", "Goblin Bangchuckers"]  # ("this creature deals 1 damage to itself", "He's a Spirit in addition to his other types")
+
+
+@pytest.mark.parametrize("name", [*OTHERS, *PINNED])
+def test_the_shared_wordings_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def test_druids_call_gives_the_enchanted_creatures_controller_that_many_squirrels(cards):
+    s = build(cards, ["Druid's Call", "Staggershock"], ["Twisted Abomination"])
+    brute = put(s, "Twisted Abomination", "p2")
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Druid's Call").id, targets=[brute.id])
+    settle(s)
+    mana(s, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Staggershock").id, targets=[brute.id])
+    settle(s)
+    squirrels = [c for c in s.state.cards.values() if c.is_token and c.name == "Squirrel" and c.zone.endswith(":battlefield")]
+    assert s.state.cards[brute.id].zone == "p2:battlefield" and len(squirrels) == 2 and all(c.controller == "p2" for c in squirrels)  # the creature's controller, not the aura's
+    check(s)
+
+
+def test_chandra_bold_pyromancer_hits_the_player_and_what_they_control(cards):
+    s = build(cards, ["Chandra, Bold Pyromancer", "Grizzly Bears"], ["Llanowar Elves", "Gideon Jura"])
+    chandra = put(s, "Chandra, Bold Pyromancer")
+    mine, elves, gideon = put(s, "Grizzly Bears"), put(s, "Llanowar Elves", "p2"), put(s, "Gideon Jura", "p2")
+    act(s, "p1", type="counter", card_ids=[chandra.id], kind="loyalty", delta=7)  # (put onto the table by hand: no printed loyalty)
+    activate(s, "p1", chandra, "−7", targets=["p2"])
+    settle(s)
+    assert s.state.players["p2"].life == 30 and zone_of(s, "Llanowar Elves", "p2") == "p2:graveyard" and zone_of(s, "Gideon Jura", "p2") == "p2:graveyard"
+    assert s.state.cards[mine.id].zone == "p1:battlefield" and s.state.cards[elves.id].zone != "p2:battlefield" and s.state.cards[gideon.id].zone != "p2:battlefield"
+    check(s)
+
+
+def test_graywater_fixer_gives_an_outlaw_card_encore_for_its_mana_value(cards):
+    s = build(cards, ["Graywater's Fixer", "Merfolk Looter", "Grizzly Bears"], [])
+    put(s, "Graywater's Fixer")
+    looter, bears = card_named(s, "Merfolk Looter"), card_named(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[looter.id, bears.id], to={"zone": "graveyard"})
+    mana(s, C=2)
+    with pytest.raises(ActionError):  # a Bear is no outlaw
+        act(s, "p1", type="activate_ability", card_id=bears.id, ability=100)
+    act(s, "p1", type="activate_ability", card_id=looter.id, ability=100)  # a Rogue: encore {2}
+    settle(s)
+    assert zone_of(s, "Merfolk Looter") == "p1:exile" and any(c.is_token and c.name == "Merfolk Looter" for c in s.state.cards.values())
+    check(s)
+
+
+def test_elven_passage_untaps_the_land_when_an_elf_is_beheld(cards):
+    s = build(cards, ["Elven Passage", "Elvish Mystic"], [])
+    passage = put(s, "Elven Passage")
+    elf = to_hand(s, "Elvish Mystic")
+    activate(s, "p1", passage, "Search your library")
+    settle(s)
+    lands = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:battlefield"]
+    assert len(lands) == 1 and not lands[0].tapped and s.state.cards[elf.id].zone == "p1:hand"  # revealed, not moved
+    check(s)
+
+
+def test_elven_passage_leaves_the_land_tapped_without_an_elf(cards):
+    s = build(cards, ["Elven Passage"], [])
+    passage = put(s, "Elven Passage")
+    activate(s, "p1", passage, "Search your library")
+    settle(s)
+    lands = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:battlefield"]
+    assert len(lands) == 1 and lands[0].tapped
+    check(s)
+
+
 # ---- Asmoranomardicadaistinaculdacar -------------------------------------------------------------------------------------------------------------
 def test_asmoranomardicadaistinaculdacar_is_cast_for_its_alternative_cost_after_a_discard(cards):
     s = build(cards, [ASMO, "Grizzly Bears"], [])

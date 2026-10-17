@@ -267,7 +267,7 @@ def _self_pronouns(part: str) -> str:
     part = re.sub(r"(~ enters (?:tapped )?with [^.]+? counters? on) (?:him|her)\b", r"\1 it", part)  # (as the "on it" form)
     part = re.sub(r"\b(?:[Hh]e|[Ss]he)'s (?=equipped\b)", "~ is ", part)  # (wave 41B: "if he's equipped", Whiplash: "he's" is "he is" before a state)
     part = re.sub(r"\b([Ii]f) (?:he|she) (wasn't|was|had|didn't have|hadn't)\b", r"\1 it \2", part)  # (wave 47D: "When Fang dies, if he wasn't a Spirit, return this card …": the dying object, as "if it was")
-    part = re.sub(r"\b(in addition to) (?:his|her) (other (?:creature )?types)\b", r"\1 its \2", part)  # -- commander sweep (wave 49B) -- "Sarkhan becomes a Dragon in addition to his other types"
+    part = re.sub(r"\b(becomes? [^.,]+? in addition to) (?:his|her) (other (?:creature )?types)\b", r"\1 its \2", part)  # -- commander sweep (wave 49B) -- "Sarkhan becomes a Dragon in addition to his other types"
     part = re.sub(r"\b(?:[Hh]e|[Ss]he)\b(?! or |')", "~", part)
     part = re.sub(rf"\b(?:his|her) (?={_POSSESSED}\b)", "~'s ", part)
     part = re.sub(r"(?<!or )\b(?:him|her)\b(?=[.,;:)]|$| (?:and|until|this|then|to|from|into|onto|on|with|unless|if|as|equal|for)\b)",

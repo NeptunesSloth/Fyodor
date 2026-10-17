@@ -2729,7 +2729,7 @@ def _sized_damage_forms(text: str, rider: Any) -> tuple[Effects, Any] | None:
             raise _Fail
         return [{"do": "damage", "who": "itself", "n": _amount(each_ctrl["n"]), "src": "each:" + key, "to": "controller"}], None
     m = sized_damage.SELF_DAMAGE.fullmatch(text)
-    if m is None:
+    if m is None or (m["c"] and not m["s"].startswith("target ")):  # (wave 49B: a fixed amount only for a target; "this creature deals 1 damage to itself" is read elsewhere)
         return None
     if rider is not None:
         raise _Fail

@@ -355,5 +355,176 @@
   "keywords": [],
   "power": "3",
   "toughness": "3"
+ },
+ {
+  "name": "Druid's Call",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Enchantment \u2014 Aura",
+  "oracle_text": "Enchant creature\nWhenever enchanted creature is dealt damage, its controller creates that many 1/1 green Squirrel creature tokens.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Chandra, Bold Pyromancer",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Legendary Planeswalker \u2014 Chandra",
+  "oracle_text": "+1: Add {R}{R}. Chandra deals 2 damage to target player.\n\u22123: Chandra deals 3 damage to target creature or planeswalker.\n\u22127: Chandra deals 10 damage to target player and each creature and planeswalker they control.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "loyalty": "5"
+ },
+ {
+  "name": "Elven Passage",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land",
+  "oracle_text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle. You may behold an Elf. If you do, untap that land. (To behold an Elf, choose an Elf you control or reveal an Elf card from your hand.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Behold"
+  ]
+ },
+ {
+  "name": "Graywater's Fixer",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature \u2014 Lizard Mercenary",
+  "oracle_text": "Each outlaw creature card in your graveyard has encore {X}, where X is its mana value. (Exile it and pay its encore cost: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Stuffy Doll",
+  "layout": "normal",
+  "mana_cost": "{5}",
+  "cmc": 5.0,
+  "type_line": "Artifact Creature \u2014 Construct",
+  "oracle_text": "Indestructible\nAs this creature enters, choose a player.\nWhenever this creature is dealt damage, it deals that much damage to the chosen player.\n{T}: This creature deals 1 damage to itself.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Indestructible"
+  ],
+  "power": "0",
+  "toughness": "1"
+ },
+ {
+  "name": "Fang, Roku's Companion",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature \u2014 Dragon",
+  "oracle_text": "Flying\nWhenever Fang attacks, another target legendary creature you control gets +X/+0 until end of turn, where X is Fang's power.\nWhen Fang dies, if he wasn't a Spirit, return this card to the battlefield under your control. He's a Spirit in addition to his other types.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Vrondiss, Rage of Ancients",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature \u2014 Dragon Barbarian",
+  "oracle_text": "Enrage \u2014 Whenever Vrondiss is dealt damage, you may create a 5/4 red and green Dragon Spirit creature token with \"When this token deals damage, sacrifice it.\"\nWhenever you roll one or more dice, you may have Vrondiss deal 1 damage to itself.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Enrage"
+  ],
+  "power": "5",
+  "toughness": "4"
+ },
+ {
+  "name": "Goblin Kaboomist",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature \u2014 Goblin Warrior",
+  "oracle_text": "At the beginning of your upkeep, create a colorless artifact token named Land Mine with \"{R}, Sacrifice this token: This token deals 2 damage to target attacking creature without flying.\" Then flip a coin. If you lose the flip, this creature deals 2 damage to itself.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "2"
+ },
+ {
+  "name": "Goblin Bangchuckers",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature \u2014 Goblin Warrior",
+  "oracle_text": "{T}: Flip a coin. If you win the flip, this creature deals 2 damage to any target. If you lose the flip, this creature deals 2 damage to itself.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Elvish Mystic",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Creature \u2014 Elf Druid",
+  "oracle_text": "{T}: Add {G}.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
  }
 ]
