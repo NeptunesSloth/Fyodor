@@ -869,6 +869,8 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
     if (m["who"] is None) != (m["lib"] == "your"):
         raise _Fail  # ("their library" is a named player's; "your library" is the one who controls the effect's)
     forced = " searches " in text  # -- search (wave 19E) -- "Each player searches their library …, puts it …, then shuffles." (no "may")
+    if not forced and "into their hand" in text and m["who"] in ("each opponent", "each other player", "each player"):
+        return None  # -- search into their hand (wave 50G) -- "Each player may search their library … into their hand" is each_may's (101.4: all answer first; only searchers shuffle)
     if forced and (m["exile"] or " put " in text or text.count(" shuffle") != text.count(" shuffles")):
         raise _Fail
     extra: dict[str, Any] = {}
