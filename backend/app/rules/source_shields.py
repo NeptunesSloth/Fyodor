@@ -181,7 +181,7 @@ def _turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], None]:
 _NEXT_N = re.compile(r"prevent the next (?P<n>\d+|one|two|three|four|five|X) damage that would be dealt (?P<early>this turn )?to "
                      r"(?P<to>you|any target|target player or planeswalker|~|this creature|enchanted creature|"
                      r"each creature you control|each creature and each player|any number of targets, divided as you choose|"
-                     r"target (?P<sel>[a-z ]+?))(?P<late> this turn)?")
+                     r"target (?P<sel>[A-Za-z ]+?))(?P<late> this turn)?")  # (wave 50E: a creature type is capitalised: "target Cleric or Wizard creature", Wandering Mage)
 
 
 def _next_n(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:

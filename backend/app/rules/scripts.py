@@ -4506,7 +4506,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if d is not None and d.get("kind") == "static" and "flanking" in str(d.get("who")) and any(str(g).lower() == "flanking" for g in d.get("grants") or []):
         return None  # -- trigger other (wave 39A) -- "Other creatures you control with flanking have flanking" (Cavalry Master) is another instance of it for each: triggers.flanking counts printed ones only
     if d is not None and "blocking_source" in json.dumps(d, default=str) and not (
-            d.get("kind") == "activated" or d.get("kind") == "triggered" and (
+            d.get("kind") == "activated" or (d.get("kind"), d.get("static")) == ("static", "prevent") or d.get("kind") == "triggered" and (  # (wave 50E: a prevention shield)
                 str(d.get("trigger", "")).endswith("_self") or (d.get("cond") or {}).get("subject") == "self")):
         return None
     # -- combat (wave 5C) -- "attacks each combat if able" needs its duration
@@ -5363,7 +5363,8 @@ def _event_refs_ok(d: Definition) -> bool:
     if "blocking_source" in json.dumps(d) or "blocked_by_source" in json.dumps(d):
         self_trigger = d.get("kind") == "triggered" and _trigger_antecedent(str(d.get("trigger")), d.get("cond")) == "self"
         mine = d.get("kind") == "activated" and not re.search(r"\b[Ss]acrifice (?:this|~)", str(d.get("cost")))
-        if not (self_trigger or mine):
+        shield = d.get("kind") == "static" and d.get("static") == "prevent"  # -- damage wordings (wave 50E) -- 615.1: "Prevent all damage that would be dealt to this creature by creatures it's blocking" (Wall of Vapor): the shield's source is on the battlefield (replacements._object_matches)
+        if not (self_trigger or mine or shield):
             return False
     # (-- random choices (wave 47B) -- a reflexive ability that follows "Choose a player at random." binds its own: effects.reflexive ``players_from``)
     unbound = json.dumps({**d, "effects": [e for e in d.get("effects") or [] if not e.get("players_from")]})
