@@ -65,6 +65,13 @@ _PICK_RANDOM = re.compile(r"^(?:Then )?[Cc]hoose (?P<w>an opponent|a player) at 
 _EACH_RECEIVED = re.compile(r"^(?P<s>Each player|Each opponent) (?P<v>.+?) for each vote (?:they|that player) received\.$")
 _FOR_RECEIVED = re.compile(r"^For each vote (?P<s>an opponent|you) received, (?P<e>.+)\.$")
 _SCALED = ("add_counters", "create_token", "gain_life", "lose_life", "draw", "discard", "mill", "edict", "damage")  # (damage: wave 47B, "deals 3 damage to that player for each … vote": one amount)
+def _scalable(inner: list[dict[str, Any]]) -> bool:
+    """One counted instruction, or only damage (Mob Verdict's "deals 2 damage to that player and each creature that player controls"): damage dealt
+    "for each" of something is one event (Kazarov ruling), so the amounts are multiplied rather than the instructions repeated."""
+    return bool(inner) and all(type(x.get("n")) is int for x in inner) and (
+        (len(inner) == 1 and inner[0].get("do") in _SCALED) or all(x.get("do") == "damage" for x in inner))
+
+
 _COND = re.compile(r"^(?:(?P<w>[\w' ]+?) gets more votes(?P<tie> or the vote is tied)?|no (?P<none>[a-z ]+?) got votes)$")
 
 
@@ -168,7 +175,7 @@ def bind(head: dict[str, Any], parse: Any, split_sentences: Any) -> tuple[list[d
             return False
         # "X for each W vote" is one instruction for all the votes (Capital Punishment ruling: the creatures are sacrificed at
         # once): its amount is multiplied (one event: Hardened Scales adds one counter, a life-gain trigger triggers once)
-        one = scale and len(inner) == 1 and inner[0].get("do") in _SCALED and type(inner[0].get("n")) is int
+        one = scale and _scalable(inner)
         effects.extend([{"do": "vote_repeat", "choice": word.lower(), "skip": len(inner), **({"scale": True} if one else {})}, *inner])
         return True
 
@@ -183,7 +190,8 @@ def bind(head: dict[str, Any], parse: Any, split_sentences: Any) -> tuple[list[d
         inner = _vp(got[0])
         if inner is None:
             return False
-        one = scale and len(inner) == 1 and inner[0].get("do") in _SCALED and type(inner[0].get("n")) is int
+        # (a non-damage "for each vote you received, draw a card" stays repeated; damage "for each" is one event either way: Kazarov ruling)
+        one = _scalable(inner) if scale else bool(inner) and all(x.get("do") == "damage" and type(x.get("n")) is int for x in inner)
         effects.extend([{"do": "vote_each", "who": who, "skip": len(inner), "as": "vp", **({"scale": True} if one else {})}, *inner])
         return True
 
@@ -425,7 +433,7 @@ def repeat(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         ctx["next"] = at + n
         return True
     if e.get("scale"):
-        effects[at] = {**effects[at], "n": int(effects[at]["n"]) * times}
+        effects[at:at + n] = [{**x, "n": int(x["n"]) * times} for x in effects[at:at + n]]
         return True
     block = effects[at:at + n]
     effects[at + n:at + n] = [copy.deepcopy(x) for _ in range(times - 1) for x in block]
@@ -443,7 +451,7 @@ def each(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for p in (q for q in plan.apnap() if q in who):
         k = int(tally.get(p, 0))
         if k and e.get("scale"):
-            out += [{"do": "vote_bind", "player": p, "as": e["as"]}, {**block[0], "n": int(block[0]["n"]) * k}]
+            out += [{"do": "vote_bind", "player": p, "as": e["as"]}, *({**x, "n": int(x["n"]) * k} for x in block)]
         elif k:
             out += [{"do": "vote_bind", "player": p, "as": e["as"]}, *(copy.deepcopy(x) for _ in range(k) for x in block)]
     effects[at:at + n] = out
