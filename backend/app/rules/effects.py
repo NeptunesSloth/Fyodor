@@ -1092,7 +1092,7 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
                 continue
             spec = {"name": t["name"], "power": pt["power"], "toughness": pt["toughness"],
                     "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or "",
-                    **({"mana_cost": t["mana_cost"]} if t.get("mana_cost") else {})}  # (wave 49D: 111.4)
+                    **({"mana_cost": t["mana_cost"]} if t.get("mana_cost") else {})}  # (wave 49D: 111.3)
             # a token enters tapped when its creator says so ("create a tapped …") or its own text does
             # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
             tapped = (bool(tapped_by_creator) or replacements.token_enters_tapped(plan, pid, spec)) and not replacements.token_enters_untapped(plan, pid, spec)  # (wave 45A)

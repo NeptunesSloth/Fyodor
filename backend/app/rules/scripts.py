@@ -1614,7 +1614,7 @@ def _create_predefined(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | No
 
 
 # -- named tokens (wave 49D) -- "Create a Tarmogoyf token." (Disa, Tarmogoyf Nest), "a Gingerbrute token" (Ginger), "a Spellgorger Weird token" (Ral):
-# the rulings read it as a token that's a copy of the card of that name, so it has the card's copiable values, mana cost included (707.2, 111.4)
+# the rulings read it as a token that's a copy of the card of that name, so it has the card's copiable values, mana cost included (707.2, 111.3)
 NAMED_TOKENS = {  # name: (mana cost, colors, power, toughness, type line, the card's Oracle text)
     "Tarmogoyf": ("{1}{G}", ["G"], "*", "1+*", "Token Creature — Lhurgoyf",
                   "Tarmogoyf's power is equal to the number of card types among cards in all graveyards and its toughness is equal to that number plus 1."),

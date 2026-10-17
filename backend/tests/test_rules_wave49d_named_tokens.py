@@ -1,7 +1,7 @@
 """Wave 49D: tokens named for a card keep the card's mana cost (CR 2026-09-25), real Oracle text
 (tests/fixtures/wave49d_named_tokens_cards.json, from data/cards.sqlite). Every scenario checks the replay and a save and a load.
 
-* 111.4 / 707.2: "Create a Tarmogoyf token." (Disa the Restless, Tarmogoyf Nest) and "create a Gingerbrute token." (Ginger, Queen of Sweets) make a token that is a
+* 111.3 / 707.2: "Create a Tarmogoyf token." (Disa the Restless, Tarmogoyf Nest) and "create a Gingerbrute token." (Ginger, Queen of Sweets) make a token that is a
   copy of the card of that name (the rulings): the token has the card's mana cost {1}{G} / {1}, so its mana value is 2 / 1, and a copy of that token has it too.
 * Ral and the Implicit Maze's Spellgorger Weird token {2}{R} is the same case.
 """
@@ -164,7 +164,12 @@ def test_ginger_makes_a_gingerbrute_at_each_upkeep_while_she_is_monarch(cards):
     (brute,) = tokens(s, "Gingerbrute")
     c = ch(s, brute)
     assert (c.mana_cost, c.mana_value, str(c.power), str(c.toughness)) == ("{1}", 1.0, "1", "1") and c.subtypes == {"Food", "Golem"}
-    mana(s, "p1", C=2)
+    mana(s, "p1", C=3)
+    priority_to(s, "p1")
+    assert not any("cant_be_blocked" in r for r in ch(s, brute).imposed)
+    activate(s, "p1", brute, "can't be blocked")  # its card's ability: this turn only creatures with haste can block it
+    settle(s)
+    assert any("cant_be_blocked" in r for r in ch(s, brute).imposed)
     priority_to(s, "p1")
     activate(s, "p1", brute, "Sacrifice")
     settle(s)
@@ -184,7 +189,7 @@ def test_ginger_makes_nothing_without_the_monarchy(cards):
 
 
 def test_ral_makes_a_spellgorger_weird(cards):
-    s = build(cards, ["Ral and the Implicit Maze"], [], forests=40)
+    s = build(cards, ["Ral and the Implicit Maze", "Lightning Bolt"], [], forests=40)
     ral = to_hand(s, "Ral and the Implicit Maze")
     mana(s, R=2, C=3)
     act(s, "p1", type="cast_spell", card_id=ral.id)
@@ -195,4 +200,9 @@ def test_ral_makes_a_spellgorger_weird(cards):
     (weird,) = tokens(s, "Spellgorger Weird")
     c = ch(s, weird)
     assert (c.mana_cost, c.mana_value, c.colors) == ("{2}{R}", 3.0, frozenset({"R"}))
+    to_hand(s, "Lightning Bolt")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Lightning Bolt").id, targets=["p2"])  # a noncreature spell: the token's own ability puts a counter on it
+    settle(s)
+    assert s.state.cards[weird.id].counters.get("+1/+1") == 1
     check(s)

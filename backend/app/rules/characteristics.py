@@ -442,7 +442,7 @@ def _of(card: CardInstance, info: CardInfo) -> Characteristics:
         return Characteristics(
             name=t.name, supertypes=supertypes, types=types, subtypes=changeling(subtypes, abilities, t.name),
             colors=frozenset() if _devoid(abilities) else frozenset(t.colors), power=t.power, toughness=t.toughness, oracle_text=t.text, abilities=abilities,
-            mana_cost=t.mana_cost, mana_value=mana_value(t.mana_cost),  # (wave 49D: 111.4, 202.3)
+            mana_cost=t.mana_cost, mana_value=mana_value(t.mana_cost),  # (wave 49D: 111.3, 202.3)
         )
     data = info.get(card.card_id) if card.card_id else None
     if data is None:

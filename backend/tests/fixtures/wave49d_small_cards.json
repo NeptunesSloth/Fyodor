@@ -94,27 +94,6 @@
   "toughness": "1+*"
  },
  {
-  "name": "Vampire Nighthawk",
-  "layout": "normal",
-  "mana_cost": "{1}{B}{B}",
-  "cmc": 3.0,
-  "type_line": "Creature — Vampire Shaman",
-  "oracle_text": "Flying\nDeathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
-  "colors": [
-   "B"
-  ],
-  "color_identity": [
-   "B"
-  ],
-  "keywords": [
-   "Deathtouch",
-   "Flying",
-   "Lifelink"
-  ],
-  "power": "2",
-  "toughness": "3"
- },
- {
   "name": "Centaur Courser",
   "layout": "normal",
   "mana_cost": "{2}{G}",
@@ -130,22 +109,5 @@
   "keywords": [],
   "power": "3",
   "toughness": "3"
- },
- {
-  "name": "Lizard Warrior",
-  "layout": "normal",
-  "mana_cost": "{3}{R}",
-  "cmc": 4.0,
-  "type_line": "Creature — Lizard Warrior",
-  "oracle_text": "",
-  "colors": [
-   "R"
-  ],
-  "color_identity": [
-   "R"
-  ],
-  "keywords": [],
-  "power": "4",
-  "toughness": "2"
  }
 ]

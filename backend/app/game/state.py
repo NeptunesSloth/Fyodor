@@ -77,7 +77,7 @@ class TokenDef(BaseModel):
     colors: list[str] = Field(default_factory=list)
     type_line: str = "Token Creature"
     text: str = ""
-    mana_cost: str = ""  # -- named tokens (wave 49D) -- 111.4: a token has a mana cost only if its creating effect gives one (the Tarmogoyf token's {1}{G})
+    mana_cost: str = ""  # -- named tokens (wave 49D) -- 111.3: a token has a mana cost only if its creating effect defines one (the Tarmogoyf token's {1}{G})
     # -- keyword actions & face-down (wave 3F) -- a double-faced token's back face (111.10i: the Incubator's
     # "Phyrexian Token"); ``CardInstance.face`` 1 means it's transformed (701.27)
     back: TokenDef | None = None
