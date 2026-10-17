@@ -420,6 +420,9 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
                 or everywhere.zone_owner is not None:
             return None
         return {"value": {"count": everywhere.key()}, "op": ">=", "n": n}
+    m = re.fullmatch(r"there are (?P<n>\w+) or more cards in exile", t)
+    if m and (n := _num(m["n"])) is not None and (exiled := selectors.parse("cards in exile")) is not None:  # -- cant restrictions (wave 50G) -- "unless there are seven or
+        return {"value": {"count": exiled.key()}, "op": ">=", "n": n}  # or more cards in exile" (Ketramose): every player's exile zone, 400.1
     m = _GRAVEYARD_TYPES.fullmatch(t)
     if m:  # delirium: "there are four or more card types among cards in your graveyard" (205.2a)
         n = _num(m["n"])

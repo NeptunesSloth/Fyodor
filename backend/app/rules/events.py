@@ -642,7 +642,7 @@ def _parse(c: str) -> Condition | None:
     # graveyard]" (Rakshasa Vizier, Laelia), "… into a library from anywhere" (Dutiful Knowledge Seeker): a card (never a token,
     # 111.7) put there, as it is there (603.6c); "during your turn" is the generic qualifier
     m = re.fullmatch(r"(?P<o>one or more (?:.+? )?cards|an? .+? card|a card) (?:is|are) put into (?P<z>exile|a library)"
-                     r"(?: from (?P<f>your graveyard|your hand|your library and/or your graveyard|anywhere))?", c)
+                     r"(?: from (?P<f>your graveyard|your hand|your library and/or your graveyard|graveyards and/or the battlefield|anywhere))?", c)
     if m and (m["z"] == "exile" or m["f"] == "anywhere"):
         gsel = selectors.from_key(_object_sel(m["o"], card=True))
         if gsel.zones or gsel.zone_owner:
@@ -650,8 +650,11 @@ def _parse(c: str) -> Condition | None:
         out = {"event": "to_exile" if m["z"] == "exile" else "to_library", "subject": "sel",
                "aggregate": m["o"].startswith("one or more "), "sel": gsel.key()}
         if m["f"] and m["f"] != "anywhere":
-            out["froms"] = ["library", "graveyard"] if "library" in m["f"] else [m["f"].split()[1]]
-            out["from_owner"] = "you"
+            if m["f"].startswith("graveyards"):  # -- cant restrictions (wave 50G) -- "from graveyards and/or the battlefield" (Ketramose): anyone's graveyard, or the battlefield
+                out["froms"] = ["graveyard", "battlefield"]
+            else:
+                out["froms"] = ["library", "graveyard"] if "library" in m["f"] else [m["f"].split()[1]]
+                out["from_owner"] = "you"
         return out
     # -- graveyard owner (wave 6D) -- "a creature is put into an opponent's graveyard from the battlefield", "a nontoken
     # creature is put into your graveyard from the battlefield", "~ is put into your graveyard from the battlefield": it

@@ -124,7 +124,7 @@ def settle_pick(s, pick=None, limit=20):
     for _ in range(limit):
         d = s.state.rules.decision
         if d is not None:
-            answer(s, pick if any(pick in o.label for o in d.options) else None)
+            answer(s, pick if pick is not None and any(pick in o.label for o in d.options) else None)
         elif s.state.zones.get("stack"):
             act(s, s.state.rules.priority, type="pass_priority")
         else:
@@ -470,4 +470,65 @@ def test_sneaky_snacker_returns_from_the_graveyard_on_the_third_draw(cards, draw
     three_opts(s, draws)
     now = s.state.cards[snacker.id]
     assert (now.zone == "p1:battlefield") == returns and (not returns or now.tapped)
+    check(s)
+
+
+# -- Ketramose, the New Dawn -------------------------------------------------------------------------------------------------------------------------
+def exile_cards(s, n, pid="p1"):
+    """``n`` cards off the top of ``pid``'s library into exile (a manual move: no trigger reads it)."""
+    act(s, pid, type="move", card_ids=list(s.state.zones[f"{pid}:library"])[:n], to={"player": pid, "zone": "exile"})
+
+
+@pytest.mark.parametrize("exiled, can", [(6, False), (7, True)])
+def test_ketramose_attacks_only_with_seven_cards_in_exile(cards, exiled, can):
+    """"Ketramose can't attack or block unless there are seven or more cards in exile": cards in every player's exile zone count (400.1). Alice is asked who attacks only
+    when someone can."""
+    s = build(cards, ["Ketramose, the New Dawn"], [])
+    ketramose = put(s, "Ketramose, the New Dawn")
+    finish_turn(s)
+    finish_turn(s)
+    exile_cards(s, exiled - 2)
+    exile_cards(s, 2, "p2")
+    for _ in range(30):
+        d = s.state.rules.decision
+        if (d is not None and d.kind == "declare_attackers") or s.state.turn.phase == "main2":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    asked = s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers"
+    assert asked == can
+    if can:
+        act(s, "p1", type="declare_attackers", attackers=[{"card_id": ketramose.id, "target": "p2"}])
+    check(s)
+
+
+def test_ketramose_draws_when_cards_are_exiled_from_the_battlefield_or_a_graveyard(cards):
+    """On your turn: Swords to Plowshares exiling Bob's Bears from the battlefield, Relic of Progenitus exiling a card from a graveyard - one card and 1 life each."""
+    s = build(cards, ["Ketramose, the New Dawn", "Swords to Plowshares", "Relic of Progenitus", "Grizzly Bears"], ["Grizzly Bears"])
+    put(s, "Ketramose, the New Dawn")
+    bears, relic = put(s, "Grizzly Bears", "p2"), put(s, "Relic of Progenitus")
+    mana(s, "p1", W=1)
+    hand, lib, hp = len(s.state.zones["p1:hand"]), len(s.state.zones["p1:library"]), life(s, "p1")
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Swords to Plowshares").id, targets=[bears.id])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p2:exile"
+    assert (len(s.state.zones["p1:library"]), life(s, "p1")) == (lib - 2, hp - 1)  # (Swords left the library for the hand, Ketramose drew one; Alice lost 1)
+    act(s, "p1", type="move", card_ids=[card_named(s, "Grizzly Bears").id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p1", type="activate_ability", card_id=relic.id, ability=ability(s, relic, "exiles a card"), targets=["p1"])
+    settle_pick(s)
+    assert (len(s.state.zones["p1:library"]), life(s, "p1")) == (lib - 3, hp - 2)
+    check(s)
+
+
+def test_ketramose_ignores_a_token_exiled_from_the_battlefield(cards):
+    s = build(cards, ["Ketramose, the New Dawn", "Swords to Plowshares", "Raise the Alarm"], [])
+    put(s, "Ketramose, the New Dawn")
+    mana(s, "p1", W=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Raise the Alarm").id)
+    settle(s)
+    token = next(c for c in s.state.cards.values() if c.name == "Soldier" and c.zone == "p1:battlefield")
+    hp, lib = life(s, "p1"), len(s.state.zones["p1:library"])
+    mana(s, "p1", W=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Swords to Plowshares").id, targets=[token.id])
+    settle(s)
+    assert len(s.state.zones["p1:library"]) == lib - 1 and life(s, "p1") == hp + 1  # (the Swords went to the hand; a token is no card: nothing drawn, no life lost, the 1 life is Swords')
     check(s)

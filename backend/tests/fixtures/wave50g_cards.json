@@ -368,5 +368,39 @@
   ],
   "power": "2",
   "toughness": "1"
+ },
+ {
+  "name": "Ketramose, the New Dawn",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — God",
+  "oracle_text": "Menace, lifelink, indestructible\nKetramose can't attack or block unless there are seven or more cards in exile.\nWhenever one or more cards are put into exile from graveyards and/or the battlefield during your turn, you draw a card and lose 1 life.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [
+   "Lifelink",
+   "Indestructible",
+   "Menace"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Relic of Progenitus",
+  "layout": "normal",
+  "mana_cost": "{1}",
+  "cmc": 1.0,
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Target player exiles a card from their graveyard.\n{1}, Exile this artifact: Exile all graveyards. Draw a card.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
  }
 ]
