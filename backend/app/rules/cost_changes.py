@@ -385,7 +385,10 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
         if turn is not None:
             return None
         turn, rest = "not_caster", rest[: -len(_EXCEPT)]
-    change = parse_change(m["n"], m["dir"], rest)
+    # -- commander sweep (wave 49B) -- "Spells you cast cost {1} less to cast for each target." (Hinata): 601.2f comes after the targets are chosen (601.2c); the count is of
+    # distinct targets, not of the word (ruling 2022-02-18): static_delta
+    change = {"dir": -1 if m["dir"] == "less" else 1, "n": int(m["n"]), "per_target": True} if rest == " for each target" and m["n"].isdigit() \
+        else parse_change(m["n"], m["dir"], rest)
     if change is None:  # (-- cant restrictions (wave 46A) -- a colored amount per count is read too: Eluge, 118.7b/c)
         return None
     # ("… as long as there are three or more Lesson cards in your graveyard": the static's condition, read with its
@@ -597,6 +600,9 @@ def static_delta(state: GameState, info: CardInfo, src: CardInstance, d: dict[st
         if not (where in zones or "your_graveyard" in zones and card.zone == f"{player}:graveyard"
                 or "not_hand" in zones and card.zone != f"{player}:hand"):
             return None
+    if d["change"].get("per_target"):  # (wave 49B) a castability hint has no targets yet: no change either way (a reduction would be a guess)
+        n = d["change"]["n"] * (0 if targets == ANY_TARGET else len(set(targets)))
+        return d["change"]["dir"] * n if n else None
     if d["change"].get("per_caster"):  # -- casting costs (wave 22F) -- the spells this caster has cast so far this turn
         from app.rules import history
 

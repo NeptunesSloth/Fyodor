@@ -749,6 +749,8 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         return max(log.gained.get(me, 0), log.lost.get(me, 0))
     if kind == "drew":
         return log.drew.get(me, 0)
+    if kind == "descended":  # (wave 49B) 700.11: "the number of times you descended this turn" is the number of permanent cards put into your graveyard from anywhere
+        return permanent_cards_entered(plan, me)
     if kind == "opp_drew":  # -- commanders (wave 47A) -- "for each card your opponents have drawn this turn" (Heliod, the Radiant Dawn)
         return sum(n for p, n in log.drew.items() if p != me and p in plan.live())
     if kind == "died":

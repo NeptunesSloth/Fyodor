@@ -238,6 +238,9 @@ def _short_name(name: str, text: str = "") -> str | None:
     first word), unless that word is also a creature type ("Soldier of the Pantheon")."""
     from app.rules.creature_types import CREATURE_TYPES
 
+    num = re.match(r"^(.+?) [IVXLC]{2,}$", name)  # -- commander sweep (wave 49B) -- "King Darien XLVIII" is "King Darien" in its own text (201.5c)
+    if num is not None and re.search(rf"\b{re.escape(num[1])}\b", text):
+        return num[1]
     two = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]+ [A-ZÀ-ÖØ-Þ][\w'-]+) (?:the|of) ", name)  # -- trigger tail (wave 15B) -- "Tor Wauki the Younger"
     if two is not None and re.search(rf"\b{re.escape(two[1])}\b", text):
         return two[1]
@@ -264,6 +267,7 @@ def _self_pronouns(part: str) -> str:
     part = re.sub(r"(~ enters (?:tapped )?with [^.]+? counters? on) (?:him|her)\b", r"\1 it", part)  # (as the "on it" form)
     part = re.sub(r"\b(?:[Hh]e|[Ss]he)'s (?=equipped\b)", "~ is ", part)  # (wave 41B: "if he's equipped", Whiplash: "he's" is "he is" before a state)
     part = re.sub(r"\b([Ii]f) (?:he|she) (wasn't|was|had|didn't have|hadn't)\b", r"\1 it \2", part)  # (wave 47D: "When Fang dies, if he wasn't a Spirit, return this card …": the dying object, as "if it was")
+    part = re.sub(r"\b(becomes? [^.,]+? in addition to) (?:his|her) (other (?:creature )?types)\b", r"\1 its \2", part)  # -- commander sweep (wave 49B) -- "Sarkhan becomes a Dragon in addition to his other types"
     part = re.sub(r"\b(?:[Hh]e|[Ss]he)\b(?! or |')", "~", part)
     part = re.sub(rf"\b(?:his|her) (?={_POSSESSED}\b)", "~'s ", part)
     part = re.sub(r"(?<!or )\b(?:him|her)\b(?=[.,;:)]|$| (?:and|until|this|then|to|from|into|onto|on|with|unless|if|as|equal|for)\b)",
@@ -1589,7 +1593,7 @@ def _someone_creates(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
             return [{**e, "who": "target"} for e in made], SELECTORS[m["s"]]
         return [{**e, "who": language.PLAYER_GROUPS[m["s"]]} for e in made], None
     for pattern, build in EFFECTS:
-        if build not in (_create_creature, _create_predefined):
+        if build not in (_create_creature, _create_predefined, _create_that_many):  # (wave 49B: "that player creates that many 1/1 red Survivor creature tokens", Varchild)
             continue
         found = pattern.match("create " + m["rest"])
         if found:
@@ -3089,7 +3093,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                   lambda m: f"{m[1]}. {m[2].capitalize()} {m[3]}.", body)
     from app.rules import combat_rules as _combat_rules  # -- keywords (wave 15E) -- myriad's two sentences
 
-    body = _combat_rules.merge_myriad(body)
+    body = _combat_rules.merge_extra(_combat_rules.merge_myriad(body))  # (wave 49B: Moraug's two sentences)
     from app.rules import kinship  # -- kinship (wave 9C) --
 
     if (kin := kinship.split(body)) is not None:
@@ -4661,7 +4665,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     text = re.sub(r"^(Whenever you cast) a spell, if that spell was kicked, ", r"\1 a kicked spell, ", text)
     # "When ~ dies, it deals damage equal to its power divided as you choose …" (Orca, Siege Demon): "it" is the creature that died, ~ (language.py reads ~'s)
     text = re.sub(r"^(When ~ dies, )it deals (damage equal to its power divided as you choose among )", r"\1~ deals \2", text)
-    if ability.kind == "static" and re.match(r"(?i:(?:~ has )?(?:bushido|firebending|mobilize) X, where X is)", text):  # -- X keywords (wave 41B) --
+    if ability.kind == "static" and re.match(r"(?i:(?:~ has )?(?:bushido|firebending|mobilize|annihilator) X, where X is)", text):  # -- X keywords (wave 41B) --
         from app.rules import keyword_triggers
 
         return keyword_triggers.dynamic_x(text)

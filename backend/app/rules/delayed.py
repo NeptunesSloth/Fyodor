@@ -283,6 +283,8 @@ def describe_when(when: dict[str, Any]) -> str:
             " under your control" if when.get("ctl") else "") + ("" if when.get("open") else " this turn")
     if when.get("step") == "end_combat":  # -- other side (wave 6D) --
         return "at end of combat"
+    if when.get("tag") is not None:  # (wave 49B)
+        return "at the beginning of that combat"
     whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's", "owner": "its owner's next"}[when["whose"]]
     step = {"end": "end step", "main": "main phase", "cleanup": "cleanup step"}.get(when["step"], "upkeep")  # (main: wave 5B)
     return f"at the beginning of {whose} {step}"
@@ -319,6 +321,9 @@ def _fire(plan: Plan, t: DelayedTrigger, event: TriggerEvent | None) -> PendingT
 
 def _step_due(plan: Plan, t: DelayedTrigger, phase: str) -> bool:
     w = t.when
+    if w.get("tag") is not None:  # -- commander sweep (wave 49B) -- "At the beginning of that combat" (Moraug): the one combat phase it was made with, wherever it falls in the turn (500.8)
+        return w.get("kind") == "step" and w.get("step") == phase and plan.rules.combat_tag == w["tag"] and (
+            t.until_turn is None or plan.state.turn.number <= t.until_turn)
     main = w.get("step") == "main" and phase in ("main1", "main2")  # -- stack interaction (wave 5B) -- (505.1)
     if w.get("kind") != "step" or (w.get("step") != phase and not main):
         return False

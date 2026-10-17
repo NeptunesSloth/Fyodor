@@ -556,7 +556,8 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         from app.rules import alt_costs
 
         return alt_costs.grant_web_slinging(t)
-    if " rather than pay " in t or (" without paying its mana cost" in t and t.startswith("if ") and "commander" not in t):  # alternative costs (118.9): app/rules/alt_costs.py
+    if " rather than pay " in t or (" without paying its mana cost" in t and t.startswith("if ") and "commander" not in t) \
+            or (t.startswith("as long as ") and re.search(r", you may pay [^,]+? to cast (?:this spell|~)$", t)):  # alternative costs (118.9): app/rules/alt_costs.py (wave 49B: "As long as …, you may pay {B/R} to cast this spell")
         from app.rules import alt_costs
 
         found_alt = alt_costs.define(t)

@@ -506,6 +506,8 @@ def _turn_amount(what: str) -> Value | None:
     if m := _TURN_ENTERED.match(what):
         sel = selectors.parse(m["sel"])
         return {"turn_history": "entered", "sel": sel.key()} if sel is not None else None
+    if re.fullmatch(r"(?:the )?(?:number of )?times you descended this turn", what):  # -- commander sweep (wave 49B) -- 700.11: the permanent cards put into your graveyard from anywhere (The Mycotyrant)
+        return {"turn_history": "descended"}
     m = _TURN_LIFE.match(what)
     if m:
         return {"turn_history": "gained" if m["k"] == "gained" else "lost"}
@@ -996,6 +998,10 @@ def _relative(plan: Plan, ctx: dict[str, Any], v: Any) -> int:
         return evaluate(plan, {**ctx, "controller": card.controller}, v["of"])
     if v["relative"] == "counters":  # -- counters (wave 26D) -- "for each +1/+1 counter on it" (122.1): counters on the object modified
         return sum(n for k, n in card.counters.items() if v["kind"] in ("any", k))
+    if v["relative"] == "attacks":  # -- commander sweep (wave 49B) -- "for each time it has attacked this turn" (Moraug): this turn's record of the object
+        from app.rules import history
+
+        return history.log_for(plan).attack_counts.get(plan.oid(card), 0)
     mine = plan.ch(card)
     if v["relative"] == "bushido":  # -- counters (wave 44C) -- 702.45a: "for each point of bushido it has": the sum of its bushido abilities' numbers (each instance counts)
         return sum(int(n) for a in mine.abilities if "bushido" in a.keywords for n in re.findall(r"(?i)bushido (\d+)", a.text))

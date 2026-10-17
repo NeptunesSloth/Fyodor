@@ -2967,6 +2967,8 @@ def exile_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                 ctx["found"] = library[at]
         elif e.get("keep_bottom") is not None:  # -- hidden exile (wave 18A) -- "all but the bottom six cards of their library"
             n = max(0, len(library) - int(e["keep_bottom"]))
+        elif e.get("half"):  # -- commander sweep (wave 49B) -- 107.1a: "the top half of their library, rounded up" (Ulamog, the Defiler): half the cards in it now
+            n = (len(library) + 1) // 2 if e["half"] == "up" else len(library) // 2
         else:
             n = min(_amount(plan, ctx, e["n"]), len(library))
         if not n:
@@ -3872,7 +3874,9 @@ CHOICE_OPTIONS: dict[str, list[str]] = {
 }
 CHOICE_LABELS = {"color": "Chosen color", "creature type": "Chosen creature type", "basic land type": "Chosen basic land type",
                  "opponent": "Chosen opponent", "player": "Chosen player", "card type": "Chosen card type",
-                 "card type other than creature or land": "Chosen card type", "artifact, creature, enchantment, instant, or sorcery": "Chosen card type"}
+                 "card type other than creature or land": "Chosen card type", "artifact, creature, enchantment, instant, or sorcery": "Chosen card type",
+                 "number between 1 and 10": "Chosen number",  # (wave 49B: Talion, the Kindly Lord)
+                 "two abilities from among first strike, vigilance, and lifelink": "Chosen abilities"}  # (wave 49B: Greymond, Avacyn's Stalwart)
 CHOICE_LABELS.update(entry_forms.CHOICE_LABELS)  # -- entry forms (wave 5F) -- "a color other than blue"
 CHOICE_LABELS.update({w: card_names.LABEL for w in card_names.ALL_WHATS})  # -- card names (wave 22B) -- 201.4
 
@@ -3886,6 +3890,12 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
         return copying.entry_options(plan, ctx["controller"], what, ctx.get("source_card"))  # (wave 5F: the entering card)
     if what == "creature type":
         return [DecisionOption(id=t, label=t) for t in sorted(CREATURE_TYPES)]
+    if what == "number between 1 and 10":  # (wave 49B) a number chosen as the permanent enters (614.12a)
+        return [DecisionOption(id=str(n), label=str(n)) for n in range(1, 11)]
+    if what.startswith("two abilities from among "):  # (wave 49B) every pair of the three (Greymond)
+        from itertools import combinations
+
+        return [DecisionOption(id=f"{a} and {b}", label=f"{a} and {b}") for a, b in combinations(("first strike", "vigilance", "lifelink"), 2)]
     from app.rules import chosen as _picked
 
     if (named := _picked.words(what)) is not None:  # -- linked words (wave 33B) -- 607.2f: "choose Khans or Dragons"

@@ -2449,6 +2449,14 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         o.key == a.alt_cost for o in _escape_offers(plan.state, plan.actor, card, ch, plan.info))
     if grant is not None and grant.how == "escape" and not escaping:
         raise ActionError(f"{ch.name} can be cast from your graveyard only for its escape cost (702.138a)")
+    # -- commander sweep (wave 49B) -- 118.6, 202.1b: a card with no mana cost has an unpayable cost; one with an alternative cost of its own (Asmoranomardicadaistinaculdacar) is cast for that
+    # cost alone (118.6a), and not at all while it doesn't apply
+    if not ch.mana_cost and a.alt_cost is None and not free and alternative is None and not a.face_down and not plan.manual(card) and card.zone == zone_key(plan.actor, "hand") \
+            and any(d.get("static") == "alt_cost" and not d.get("table") for d in permissions._definitions(ch).values()):
+        ways = alt_costs.offers(plan.state, plan.actor, card, ch, plan.info)
+        if len(ways) != 1:
+            raise ActionError(f"{ch.name} has no mana cost (118.6): it can be cast only for its alternative cost, and only while that applies")
+        a.alt_cost = ways[0].key
     if a.alt_cost is not None:  # (a foretold card: no other alternative cost, 118.9a)
         if free or alternative is not None or a.face_down or (grant is not None and grant.how == "flashback" and not escaping):
             raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
