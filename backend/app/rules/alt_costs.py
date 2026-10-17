@@ -183,9 +183,9 @@ FREERUN_COND = ("a player was dealt combat damage this turn by a creature that, 
                 "under your control")  # -- cast keywords (wave 43D) -- 702.173a
 KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None, "bestow": None,
                  "prowl": PROWL_COND, "overload": None, "emerge": None, "foretell": None, "mutate": None, "freerunning": FREERUN_COND,
-                 "web-slinging": None, "sneak": None}  # (wave 17C: prowl; wave 18D: mutate, 702.140a)
+                 "web-slinging": None, "sneak": None, "more than meets the eye": None}  # (wave 17C: prowl; wave 18D: mutate, 702.140a; wave 50C: 702.162a, converted)
 # (-- casting extras (wave 18E) -- "Emerge {cost}" / "Emerge from artifact {cost}": 702.119a-b, the cost and a sacrifice)
-_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|emerge|foretell|mutate|web-slinging|sneak|freerunning)(?: from (?P<q>[A-Za-z]+))? "
+_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|emerge|foretell|mutate|web-slinging|sneak|freerunning|more than meets the eye)(?: from (?P<q>[A-Za-z]+))? "
                            r"(?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 X_KEYWORDS = frozenset({"surge", "warp", "bestow", "overload"})  # -- cast keywords (wave 43D) -- 107.3a: the cost may have {X} (the X announced for the spell is its too)
 # -- static_other sweep (wave 17C) -- "Dinosaur spells you cast have prowl {2}{R}." (Hunting Velociraptor): a table alternative cost, offered
@@ -295,6 +295,30 @@ def _ctx(state: GameState, player: str, source: CardInstance) -> dict[str, Any]:
     return {"controller": player, "source_card": source.id, "source_object": r.object_id(source.id) if r is not None else None}
 
 
+CONVERTED = "more than meets the eye"  # (the keyword: the definition's tag)
+CONVERTED_TAG = "converted"  # (the offer's tag, what the cast record says it was cast for: at most 20 characters)
+
+
+def converted_offers(state: GameState, player: str, card: CardInstance, info: CardInfo) -> list[Offer]:
+    """-- commanders (wave 50C) -- 702.162a: "More Than Meets the Eye [cost]" means "You may cast this card converted by paying [cost] rather than its mana cost"
+    (an alternative cost, 118.9; casting it converted is casting its back face, 701.28a / 712.8c: casting.cast_spell turns the intent to face 1). It works in
+    any zone the card may be cast from; offered from the hand and the command zone (a commander). Read from the front face's line."""
+    from app.rules import characteristics as chars
+    from app.rules import scripts
+
+    data = info.get(card.card_id) if card.card_id and card.token is None else None
+    r = state.rules
+    if data is None or data.get("layout") != "transform" or r is None or r.card_mode(card.id) == "manual" or card.owner != player \
+            or card.zone not in (f"{player}:hand", f"{player}:command"):
+        return []
+    front = chars.printed_from_data(data, 0)
+    out: list[Offer] = []
+    for index, d in scripts.definitions(front).items():
+        if d.get("static") == "alt_cost" and d.get("tag") == CONVERTED and (alt := parse_cost(d["cost"])) is not None:
+            out.append(Offer(f"{card.id}:{index}", f"{front.name}: {d['cost']} (converted)", alt, tag=CONVERTED_TAG))
+    return out
+
+
 def offers(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[Offer]:
     """The alternative costs ``player`` could use to cast this card now (conditions and "once each turn" included;
     whether the cast is allowed at all and the cost can be paid are the caller's)."""
@@ -306,8 +330,9 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
         return []
     view = Plan.view(state, player, info)
     out: list[Offer] = []
+    out += converted_offers(state, player, card, info)  # -- commanders (wave 50C) -- 702.162a: More Than Meets the Eye (read from the front face, whichever face ``ch`` is)
     for index, d in scripts.definitions(ch).items():
-        if d.get("static") != "alt_cost" or d.get("table"):
+        if d.get("static") != "alt_cost" or d.get("table") or d.get("tag") == CONVERTED:
             continue
         if d.get("hand_only") and card.zone != f"{player}:hand":
             continue

@@ -1,0 +1,138 @@
+[
+ {
+  "name": "Wall of Vapor",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Wall",
+  "oracle_text": "Defender (This creature can't attack.)\nPrevent all damage that would be dealt to this creature by creatures it's blocking.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Defender"
+  ],
+  "power": "0",
+  "toughness": "1"
+ },
+ {
+  "name": "Armored Transport",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact Creature — Construct",
+  "oracle_text": "Prevent all combat damage that would be dealt to this creature by creatures blocking it.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Wandering Mage",
+  "layout": "normal",
+  "mana_cost": "{W}{U}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Cleric Wizard",
+  "oracle_text": "{W}, Pay 1 life: Prevent the next 2 damage that would be dealt to target creature this turn.\n{U}: Prevent the next 1 damage that would be dealt to target Cleric or Wizard creature this turn.\n{B}, Put a -1/-1 counter on a creature you control: Prevent the next 2 damage that would be dealt to target player or planeswalker this turn.",
+  "colors": [
+   "B",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "3"
+ },
+ {
+  "name": "Hill Giant",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Giant",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Veteran Bodyguard",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature — Human",
+  "oracle_text": "As long as this creature is untapped, all damage that would be dealt to you by unblocked creatures is dealt to this creature instead.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "5"
+ },
+ {
+  "name": "Weathered Bodyguards",
+  "layout": "normal",
+  "mana_cost": "{5}{W}",
+  "cmc": 6.0,
+  "type_line": "Creature — Human Soldier",
+  "oracle_text": "As long as this creature is untapped, all combat damage that would be dealt to you by unblocked creatures is dealt to this creature instead.\nMorph {3}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Morph"
+  ],
+  "power": "2",
+  "toughness": "5"
+ },
+ {
+  "name": "Martyrs of Korlis",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature — Human",
+  "oracle_text": "As long as this creature is untapped, all damage that would be dealt to you by artifacts is dealt to this creature instead.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "6"
+ },
+ {
+  "name": "Granite Shard",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "{3}, {T} or {R}, {T}: This artifact deals 1 damage to any target.",
+  "colors": [],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ }
+]

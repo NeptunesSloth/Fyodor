@@ -110,7 +110,7 @@ def test_target_forms_are_parsed(text, effects_, target):
 @pytest.mark.parametrize("text", [
     # ("~ deals 2 damage to any other target.": read since wave 34D, any target but the source)
     "Tap each of up to two other targets.",
-    "~ deals 1 damage to any target, 2 damage to another target, and 3 damage to a third target.",  # (three-way: not read)
+    # ("… 1 damage to any target, 2 damage to another target, and 3 damage to a third target" is read since wave 50E: Cone of Flame)
     "Counter target creature.",  # (a permanent can't be countered, 701.6a)
     # ("Counter target activated or triggered ability from an artifact or enchantment source.": read since wave 23B, a source union —
     #  tests/test_rules_wave23b_stack.py, Green Slime)

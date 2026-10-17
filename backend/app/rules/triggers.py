@@ -657,7 +657,7 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
     if want == "multi":  # "Whenever ~ attacks or blocks" (this object; each event, 603.2)
         wanted = [(_PAIRED[x] if cond.get("other") else x) for x in cond["events"]]
         if cond.get("subject") == "host":  # -- attached events (wave 4L) -- what the source is attached to
-            return event in wanted and obj is not None and _hosted(plan, watcher, obj, info) and _other_ok(plan, cond, watcher, info)  # (other: wave 11E)
+            return event in wanted and obj is not None and _hosted(plan, watcher, obj, info, event) and _other_ok(plan, cond, watcher, info)  # (other: wave 11E)
         return event in wanted and obj is not None and obj.id == watcher.id and _other_ok(plan, cond, watcher, info)
     if want in _PAIRED and cond.get("other"):
         want = _PAIRED[want]  # 509.3b / 509.3d: once per creature on the other side
@@ -692,14 +692,14 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
             # 603.10a: looks back in time — what was attached to it as it last existed on the battlefield
             snap = info.get("snap")
             return snap is not None and watcher.id in snap.attached
-        return _hosted(plan, watcher, obj, info)
+        return _hosted(plan, watcher, obj, info, event)
     if subject == "source":  # -- source damage (wave 11F) -- "a source you control / an opponent controls deals damage": its controller
         if cond.get("color") and not (och is not None and (not och.colors if cond["color"] == "colorless"  # -- counters (wave 41A) -- "a red source": 105.2
                                                           else selectors.COLORS[cond["color"]] in och.colors)):
             return False
         return int(info.get("amount") or 0) > 0 and (cond.get("ctl", "any") == "any" or (cond["ctl"] == "you") == (player == you))
     if subject == "self_or_host":  # "~ or equipped creature"
-        return obj.id == watcher.id or _hosted(plan, watcher, obj, info)
+        return obj.id == watcher.id or _hosted(plan, watcher, obj, info, event)
     if subject in ("self", "self_or") and obj.id == watcher.id:
         return True
     if subject == "self":
@@ -715,12 +715,16 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
     return selectors.matches(plan, sel, obj, och, you, watcher.id)
 
 
-def _hosted(plan: Plan, watcher: CardInstance, obj: CardInstance, info: dict[str, Any]) -> bool:
+_LOOK_BACK = frozenset({"dealt_damage", "deal_damage", "deal_damage_opponent", "deal_combat_damage_player", "tapped"})
+
+
+def _hosted(plan: Plan, watcher: CardInstance, obj: CardInstance, info: dict[str, Any], event: str) -> bool:
     """-- attached triggers (wave 50D) -- 603.2, 704.3: "enchanted / equipped creature is dealt damage / deals damage": the event happened while the Aura / Equipment
     was attached. State-based actions come after it (704.5g, 704.5m, 704.5n), so by the time the trigger is looked at the creature may be gone and the Aura let go
     of it (or the Equipment unattached): the creature's last known information lists what was attached to it (603.10a).
-    ponytail: that list is as the creature left, not as the damage was dealt; they differ only if the Aura / Equipment moved between the two within one look."""
-    snap = plan.rules.lki.get(info.get("oid") or "")
+    ponytail: that list is as the creature left, not as the damage was dealt; they differ only if the Aura / Equipment moved between the two within one look.
+    Only for those events: an ability is activated once its costs are paid (602.2i), so a creature sacrificed to pay for it is no longer equipped (Illusionist's Bracers ruling)."""
+    snap = plan.rules.lki.get(info.get("oid") or "") if event in _LOOK_BACK else None
     return (watcher.attached_to is not None and obj.id == watcher.attached_to) or (snap is not None and watcher.id in snap.attached)
 
 
@@ -1228,6 +1232,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 per = ""  # -- life floor (wave 35C) -- "one or more opponents lose life": every player's loss of the batch is one event (603.2c)
             if cond.get("subject") == "source":  # "that source's controller" is the event's player
                 event.players = [fact[3]] if fact[3] else []
+            if cond.get("cause") == "opponent" and info.get("by"):  # -- discard causes (wave 50E) -- "that player loses 5 life" (Psychic Purge): the opponent whose spell or ability did it, not the discarder
+                event.players = [info["by"]]
             if anykind:  # (its steps are in batches of their own: keyed by the instruction, not the batch)
                 per, batch_key = f"{info.get('oid')}:{info['group']}", 0
             else:

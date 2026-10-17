@@ -117,6 +117,8 @@ def static_definition(text: str) -> Definition | None:
         return {"kind": "static", "static": "cant_counters", "sel": None, "effects": []}
     if t == "players can't get counters":  # (122.1: a player gets counters; poison, energy, experience, rad)
         return {"kind": "static", "static": "cant_counters", "sel": None, "players": True, "effects": []}
+    if t == "you can't get poison counters":  # -- commanders (wave 50C) -- 614.17, 122.1: Melira, Sylvok Outcast (infect damage to its controller still isn't dealt as life loss, 120.3b)
+        return {"kind": "static", "static": "cant_counters", "sel": None, "players": True, "who": "you", "counter": "poison", "effects": []}
     if t == "you can't play lands":  # -- most-played cards III (wave 46C) -- 305.1: its controller can't play a land (Aggressive Mining); read by engine.land_play_problem
         return {"kind": "static", "static": "cant_play_lands", "effects": []}
     return None
@@ -149,9 +151,11 @@ def cant_enter(plan: Plan, card: CardInstance, controller: str) -> tuple[str, bo
     return None
 
 
-def cant_get_counters(plan: Plan) -> str | None:
-    """The permanent saying players can't get counters (614.17), or None."""
-    return next((_label(src) for src, d in _statics(plan, "cant_counters") if d.get("players")), None)
+def cant_get_counters(plan: Plan, player: str | None = None, kind: str | None = None) -> str | None:
+    """The permanent saying players can't get counters (614.17), or None. -- commanders (wave 50C) -- a line about its controller only ("You can't get
+    poison counters.") and one kind of counter bars ``player`` getting that kind only."""
+    return next((_label(src) for src, d in _statics(plan, "cant_counters") if d.get("players")
+                 and (d.get("who") != "you" or src.controller == player) and d.get("counter") in (None, kind)), None)
 
 
 def cant_counters(plan: Plan, card_id: str, entering_for: str | None, counter: str | None = None) -> str | None:

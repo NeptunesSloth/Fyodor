@@ -283,6 +283,8 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     # instruction just before, this_way.excess_dealt)
     if re.fullmatch(r"excess damage was dealt (?:to (?:that|a) (?:creature|permanent) )?this way", t):
         return {"value": {"ref_amount": "excess_dealt"}, "op": ">=", "n": 1}
+    if t == "no other creatures are attacking that player":  # -- commanders (wave 50C) -- Jin Sakai, Ghost of Tsushima: 603.4, the creature that attacked is the only one attacking the player it attacked
+        return {"alone_on_player": True}
     m = _EVENT_ATTACKING.fullmatch(t)
     if m and (n := _num(m["n"])) is not None:  # -- trailing & intervening ifs (wave 38A) -- 508.5, 603.4 (Mangara, Tomik): read again as the ability resolves
         return {"event_attacking": n}
@@ -1340,6 +1342,8 @@ def _object(t: str) -> Condition | None:
             det = re.match(r"(?P<rest>another .+)", what)
         if det is None and re.fullmatch(r"(?:white|blue|black|red|green)(?: or (?:white|blue|black|red|green))*", what):
             det = re.match(r"(?P<rest>.+)", what + " permanent")  # "it's blue": a color test, on whatever it is
+        if det is None and what == "modified":  # -- trigger other (wave 50F) -- 700.9: "if it's modified" (Ian the Reckless): a counter on it, equipped, or enchanted by its controller's Aura
+            det = re.match(r"(?P<rest>.+)", "modified creature")
         if det is None and re.fullmatch(r"(?:non)?(?:basic|legendary|snow)", what):  # -- damage wordings (wave 6B) --
             det = re.match(r"(?P<rest>.+)", what + " permanent")  # "If that land was nonbasic": a supertype (205.4)
         sel = selectors.parse(det["rest"]) if det else None
@@ -1431,6 +1435,17 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return extremes.holds(plan, ctx, cond)
     if "event_attacking" in cond:  # -- trailing & intervening ifs (wave 38A) -- 603.4: as it triggers and as it resolves
         return _event_attacking(plan, ctx, cond["event_attacking"])
+    if "alone_on_player" in cond:  # -- commanders (wave 50C) -- the creature the trigger is about (an object of its event), and the player it attacks (as it last existed, 608.2h)
+        refs = (ctx.get("event") or {}).get("objects") or []
+        card = plan.state.cards.get(refs[0]["card"]) if refs else None
+        if card is not None and plan.oid(card) == refs[0]["object_id"] and card.zone.endswith(":battlefield"):
+            target = f"{card.attacking.kind}:{card.attacking.id}" if card.attacking is not None else None
+        else:
+            snap = plan.rules.lki.get(refs[0]["object_id"]) if refs else None
+            target = snap.attack_on if snap is not None else None
+        return target is not None and target.startswith("player:") and not any(
+            c.id != (card.id if card is not None else "") and c.zone.endswith(":battlefield") and c.attacking is not None
+            and f"{c.attacking.kind}:{c.attacking.id}" == target for c in plan.state.cards.values())
     if cond.get("static") == "life_vs_start":  # -- trailing & intervening ifs (wave 38A) -- 119.1, 903.7: read as it triggers and as it resolves (603.4)
         from app.rules import static_conditions
 

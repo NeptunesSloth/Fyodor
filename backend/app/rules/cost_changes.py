@@ -600,8 +600,10 @@ def static_delta(state: GameState, info: CardInfo, src: CardInstance, d: dict[st
         if not (where in zones or "your_graveyard" in zones and card.zone == f"{player}:graveyard"
                 or "not_hand" in zones and card.zone != f"{player}:hand"):
             return None
-    if d["change"].get("per_target"):  # (wave 49B) a castability hint has no targets yet: no change either way (a reduction would be a guess)
-        n = d["change"]["n"] * (0 if targets == ANY_TARGET else len(set(targets)))
+    if d["change"].get("per_target"):  # (wave 49B) a castability hint has no targets yet: an increase doesn't count, a reduction counts each "target" word (review 41:
+        # its best case, as for "spells that target …"; else a spell only Hinata makes affordable read as uncastable, and can_act passed for the player)
+        hint = len(re.findall(r"\btarget", ch.oracle_text, re.IGNORECASE)) if d["change"]["dir"] < 0 else 0  # ponytail: "two target creatures" is one word
+        n = d["change"]["n"] * (hint if targets == ANY_TARGET else len(set(targets)))
         return d["change"]["dir"] * n if n else None
     if d["change"].get("per_caster"):  # -- casting costs (wave 22F) -- the spells this caster has cast so far this turn
         from app.rules import history

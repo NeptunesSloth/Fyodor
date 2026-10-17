@@ -392,7 +392,7 @@ class Planner:
 def affected(plan: Plan, ev: Event) -> str | None:
     """616.1: the affected object's controller (its owner if it has none) or the affected player."""
     kind = ev["kind"]
-    if kind in ("tokens", "draw", "draw_count", "life", "life_loss", "mill", "player_counters", "scry", "explore", "connive"):
+    if kind in ("tokens", "draw", "draw_count", "life", "life_loss", "mill", "player_counters", "scry", "explore", "connive", "proliferate"):
         return ev.get("player")
     if kind == "counters":
         if ev.get("controller"):
@@ -459,6 +459,8 @@ def describe(plan: Plan, ev: Event) -> str:
         return f"{ev['name']} {kind}s"
     if kind == "scry":
         return f"{plan.name(ev['player'])} scries {ev['n']}"
+    if kind == "proliferate":
+        return f"{plan.name(ev['player'])} proliferates"
     if kind == "damage":  # (-- damage bodies (wave 35C) -- and what a replacement counts of it: "0 damage (Phytohydra counts 6)")
         return f"{ev['amount']} damage" + "".join(f" ({r['name']} counts {r['n']})" for r in ev.get("riders") or [])
     return kind
@@ -959,7 +961,7 @@ def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effe
             if ev["kind"] == "counters" and ev["n"] > 0 and (
                     barred := prohibitions.cant_counters(plan, ev["card"], ev.get("controller") if ev.get("entering") else None, ev["counter"])):
                 ev["prohibited"] = barred  # -- prohibitions (wave 22B) -- 614.17: no event: nothing replaces or triggers on it
-            elif ev["kind"] == "player_counters" and ev["n"] > 0 and (barred := prohibitions.cant_get_counters(plan)):
+            elif ev["kind"] == "player_counters" and ev["n"] > 0 and (barred := prohibitions.cant_get_counters(plan, ev["player"], ev["counter"])):
                 ev["prohibited"] = barred
             elif ev["n"] > 0 or (ev.get("entering") and extra_kinds):  # (wave 5H: a zero entering event too)
                 planner.settle(ev, {}, out.append)
@@ -1582,6 +1584,8 @@ def _action_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
         return False
     if ev["kind"] == "scry":
         return int(ev["n"]) >= 1
+    if ev["kind"] == "proliferate":  # (-- keyword actions (wave 50F) -- 701.34a: the player proliferates)
+        return True
     card = plan.state.cards.get(ev.get("card") or "")
     return card is not None and card.zone.endswith(":battlefield") and plan.ch(card).is_creature and card.controller == c.controller
 
@@ -1694,6 +1698,13 @@ def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -
     # -- end refused grants/replacements (wave 3R2) --
     if spec.get("self"):
         return ev.get("source_oid") is not None and ev.get("source_oid") == c.source_oid
+    if spec.get("sel"):  # -- redirection statics (wave 50E) -- "damage ... by unblocked creatures": the source, while it is that object on the battlefield, matched as a selector (509.1h)
+        from app.rules import selectors
+
+        source = plan.state.cards.get(ev.get("source_card") or "")
+        if source is None or plan.oid(source) != ev.get("source_oid") or not source.zone.endswith(":battlefield") or not selectors.matches(
+                plan, selectors.from_key(spec["sel"]), source, plan.ch(source), c.controller, c.source_card):
+            return False
     if spec.get("attached"):
         holder = plan.state.cards.get(c.source_card or "")
         return holder is not None and holder.attached_to is not None and holder.attached_to == ev.get("source_card") \
@@ -1780,6 +1791,8 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if m.get("combat") is not None and bool(m["combat"]) != bool(ev.get("combat")):
         return False
     if m.get("monarch") and plan.state.table.monarch != c.controller:  # (-- prevention riders (wave 17A) -- "while you're the monarch")
+        return False
+    if m.get("untapped") and ((holder := plan.state.cards.get(c.source_card or "")) is None or holder.tapped):  # -- redirection statics (wave 50E) -- "As long as this creature is untapped"
         return False
     if m.get("max_speed"):  # -- damage sized by a count (wave 34D) -- 702.178a: "As long as you have max speed, if a source you control would deal damage …"
         from app.rules import speed
@@ -2252,9 +2265,9 @@ def ask_shield(plan: Plan, s: ShieldAsk, resume: dict[str, Any], order: list[str
 # -- the kinds' rules (the loop dispatches on the event's kind) ------------------------------------
 _APPLIES: dict[str, Any] = {"tokens": _tokens_applies, "counters": _counters_applies, "player_counters": _player_counters_applies,
                             "draw": _draw_applies, "draw_count": _dcount_applies, "life": _life_applies, "life_loss": _loss_applies, "mill": _mill_applies,
-                            "damage": _damage_applies, "scry": _action_applies, "explore": _action_applies, "connive": _action_applies}
+                            "damage": _damage_applies, "scry": _action_applies, "explore": _action_applies, "connive": _action_applies, "proliferate": _action_applies}
 _APPLY: dict[str, Any] = {"tokens": _tokens_apply, "counters": _counters_apply, "player_counters": _counters_apply,
                           "draw": _draw_apply, "draw_count": _dcount_apply, "life": _life_apply, "life_loss": _loss_apply, "mill": _mill_apply,
-                          "damage": _damage_apply, "scry": _action_apply, "explore": _action_apply, "connive": _action_apply}
+                          "damage": _damage_apply, "scry": _action_apply, "explore": _action_apply, "connive": _action_apply, "proliferate": _action_apply}
 _PERFORM: dict[str, Any] = {"draw": _draw_perform, "dredge": _dredge_perform}
 SITES: dict[str, Any] = {"tokens": _run_tokens, "counters": _run_counters, "draw": _run_draw, "life": _run_life, "loss": _run_loss}

@@ -668,7 +668,7 @@ def _options(plan: Plan, entry: StackEntry, pos: Position, controller: str, copy
 
     spec = _spec(entry, pos)
     current = _current(entry, pos)
-    legal = targets.legal_targets(plan, spec.get("what", "any"), controller, targets.source_of(plan, entry.source_card),
+    legal = targets.legal_targets(plan, spec.get("what", "any"), controller, targets.source_of(plan, entry.source_card, entry.kind == "spell"),
                                   entry.source_card, selectors.attacker_of(entry.event))
     keep = DecisionOption(id="keep", label=f"Keep {targets.label(plan, current.id)}"[:200],
                           card_id=current.id if current.id in plan.state.cards else None)
@@ -862,7 +862,7 @@ def copy_each(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pos = positions(entry)
     if not pos or uncopyable(plan, card) is not None:
         return True if not pos else _manual_each(plan, ctx, pid, card)
-    source = targets.source_of(plan, entry.source_card)
+    source = targets.source_of(plan, entry.source_card, entry.kind == "spell")  # (review 41: a copy of a spell is a spell, 707.10, 115.2)
     legal = [set(targets.legal_targets(plan, _spec(entry, p).get("what", "any"), pid, source, entry.source_card, None)) for p in pos]
     victims = [c for c in plan.state.zones.get(f"{pid}:battlefield", []) if c != ctx.get("source_card") and plan.state.cards[c].controller == pid
                and plan.ch(plan.state.cards[c]).is_creature and all(c in ok for ok in legal)]

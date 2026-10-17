@@ -728,6 +728,12 @@ def _with_kw_any(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"any_kw:{m['a']},{m['b']}"))  # either keyword
 
 
+# -- commanders (wave 50C) -- "creature you control with flying, deathtouch, and/or lifelink" (Henrika Domnathi): any of the keywords listed
+@_suffix(r"with (?P<list>(?:(?:" + "|".join(_WITH_KEYWORDS) + r"), )+(?:and/or|or) (?:" + "|".join(_WITH_KEYWORDS) + r"))")
+def _with_kw_list(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "any_kw:" + ",".join(re.split(r", (?:and/or |or )?|, ", m["list"]))))
+
+
 @_suffix(r"(?:with|that has) (?P<kw>" + "|".join(_WITH_KEYWORDS) + r")")  # (wave 15B: "a spell that has convoke")
 def _with_kw(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, with_keywords=(*s.with_keywords, m["kw"]))
@@ -1106,11 +1112,13 @@ def source_choice(plan: Plan, source: str | None, what: str) -> str | None:
     return value.strip() if value else None
 
 
-def _chosen_ok(plan: Plan, sel: Selector, ch: Characteristics, source: str | None) -> bool:
+def _chosen_ok(plan: Plan, sel: Selector, ch: Characteristics, source: str | None, card: CardInstance | None = None) -> bool:
     what = chosen_what(sel)
     if what == "number":  # (wave 49B) a spell's mana value, power or toughness is the number the source chose as it entered (a power or toughness of * is no number here)
-        n = source_choice(plan, source, "number")
-        return n is not None and n.isdigit() and (ch.mana_value == int(n) or (ch.pt is not None and int(n) in tuple(ch.pt)))
+        from app.rules.stack_interaction import mana_value
+
+        n = source_choice(plan, source, "number")  # (review 41: a spell's X counts on the stack, 202.3e; Talion ruling 2023-09-01)
+        return n is not None and n.isdigit() and (mana_value(card, ch) == int(n) or (ch.pt is not None and int(n) in tuple(ch.pt)))
     if what == "card name":  # -- card names (wave 22B) -- the source permanent's recorded name
         from app.rules import card_names
 
@@ -1370,9 +1378,9 @@ def parse(phrase: str) -> Selector | None:
     # -- layers (wave 49C) -- "white creatures and blue creatures" (Magistrate's Veto): the creatures that are white or blue, as "white or blue creatures"
     phrase = re.sub(r"^(white|blue|black|red|green) creatures and (white|blue|black|red|green) creatures$", r"\1 or \2 creatures", phrase.strip(), flags=re.I)
     # -- layers (wave 49C) -- "nonattacking creature" (Alarum), "nonattacking, nonblocking creature" (Unlikely Alliance): not attacking / not blocking (506.4)
-    lead = re.match(r"^(?P<adj>nonattacking(?:,? (?:and )?nonblocking)?|nonblocking) (?P<rest>.+)$", phrase.strip())
+    lead = re.match(r"^(?P<pre>(?:another |other )?)(?P<adj>nonattacking(?:,? (?:and )?nonblocking)?|nonblocking) (?P<rest>.+)$", phrase.strip())  # (wave 50F: "another nonattacking creature you control", Spider-Man, To the Rescue)
     if lead is not None:
-        base = _parse(_type_and(lead["rest"]))
+        base = _parse(_type_and(lead["pre"] + lead["rest"]))
         flags = tuple(f for w, f in (("nonattacking", "not_attacking"), ("nonblocking", "not_blocking")) if w in lead["adj"])
         return None if base is None else replace(base, extras=(*base.extras, *flags))
     return _parse(_type_and(phrase.strip()))
@@ -2133,7 +2141,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if not merged.mergeable(plan, card):
                 return False
     # -- chosen type (wave 4J) --
-    return not any(e in CHOSEN_EXTRAS for e in sel.extras) or _chosen_ok(plan, sel, ch, source)
+    return not any(e in CHOSEN_EXTRAS for e in sel.extras) or _chosen_ok(plan, sel, ch, source, card)
 
 
 def drawn_now(plan: Plan, card: CardInstance) -> bool:

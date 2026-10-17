@@ -346,6 +346,8 @@ def _keyword_action(text: str) -> Definition | None:
         return _static("scry", {"who": "you"}, {"do": "draw"})
     if text == "If you would scry a number of cards, scry that many cards plus one instead.":  # -- keyword actions (wave 50G) -- Kenessos, Priest of Thassa
         return _static("scry", {"who": "you"}, {"do": "plus"})
+    if text == "If you would proliferate, proliferate twice instead.":  # -- keyword actions (wave 50F) -- Tekuthal, Inquiry Dominus: two proliferates, neither replaced again by this effect (614.5)
+        return _static("proliferate", {"who": "you"}, {"do": "again"})
     m = _ACTION.match(text)
     if not m:
         return None
@@ -501,6 +503,8 @@ def _recipient(phrase: str | None) -> dict[str, Any] | None:
     if m:
         out["players"] = players[m["p"]]
         phrase = m["o"]
+        if phrase in ("battle", "planeswalker"):  # -- commanders (wave 50C) -- "a player or battle" (Rankle and Torbran): the bare noun after "or"
+            phrase = f"a {phrase}"
     obj = _object(phrase)
     if obj is None:
         return None

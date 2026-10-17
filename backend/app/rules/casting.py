@@ -709,7 +709,7 @@ def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: d
 
         specs = kicked_instead.applicable(specs, a.kicker or int(a.awaken) or int(f"{a.card_id}:gift" in a.optional_costs) or int(f"{a.card_id}:bargain" in a.optional_costs))  # (awaken: wave 16B; bargain: 30E;
         # gift: wave 23D, 702.174m: the targets only a promised spell chooses)
-    found = choose_groups(plan, specs, plan.actor, source_of(plan, a.card_id), a.card_id, list(a.targets),
+    found = choose_groups(plan, specs, plan.actor, source_of(plan, a.card_id, isinstance(a, A.CastSpell)), a.card_id, list(a.targets),  # (review 41: 115.2)
                           list(a.target_counts), list(a.division), a.x_value, what, exclude)
     if found.ask is not None:
         ask_targets(plan, plan.actor, found, specs, what, _announcing(plan, "cast_group", a, counts=found.counts))
@@ -813,7 +813,7 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
     can't be chosen either ("choose one that hasn't been chosen"). Returns None while waiting."""
     modal, modes = definition["modal"], definition["modes"]
     lo, hi, repeat = modal["min"], modal["max"], modal["repeat"]
-    allowed = choosable_modes(plan, definition, a.card_id, exclude)
+    allowed = choosable_modes(plan, definition, a.card_id, exclude, isinstance(a, A.CastSpell))
     if (inst := modal.get("instead")) is not None and _instead_holds(plan, a, inst["cond"]):
         # -- modal frames (wave 33B) -- 700.2a, 601.2b: "If [condition] as you cast this spell, [you may] choose both instead." — judged as the
         # modes are chosen; a "both" the table can't give (a mode with no legal target, 700.2a) is not cast that way
@@ -840,9 +840,9 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
     return None
 
 
-def choosable_modes(plan: Plan, definition: dict[str, Any], card_id: str | None, exclude: tuple[int, ...] = ()) -> list[int]:
-    """700.2a: the modes ``plan.actor`` can choose for this spell / ability now (each target it requires can be chosen)."""
-    src = source_of(plan, card_id)
+def choosable_modes(plan: Plan, definition: dict[str, Any], card_id: str | None, exclude: tuple[int, ...] = (), spell: bool = False) -> list[int]:
+    """700.2a: the modes ``plan.actor`` can choose for this spell / ability now (each target it requires can be chosen; ``spell``: 115.2)."""
+    src = source_of(plan, card_id, spell)
     return [i for i, m in enumerate(definition["modes"]) if i not in exclude
             and (not m["target"] or legal_targets(plan, m["target"]["what"], plan.actor, src, card_id))
             and all(len(legal_targets(plan, g["what"], plan.actor, src, card_id)) >= g.get("min", 1)  # (several groups: wave 16B)
@@ -2361,7 +2361,7 @@ def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Character
         definition = None if manual else per_opponent.for_cast(plan, card.id, scripts.spell_definition(ch))
         if definition is not None and definition.get("modes"):
             modal = definition["modal"]
-            allowed = choosable_modes(plan, definition, card.id)
+            allowed = choosable_modes(plan, definition, card.id, spell=True)
             if not allowed or (not modal["repeat"] and len(allowed) < modal["min"]):
                 return f"{ch.name or 'It'} has no mode you can choose"
         elif not manual:
@@ -2400,6 +2400,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
 
         if disturb.cast_face(plan.state, plan.actor, card, plan.info, a.alt_cost):
             a.face = 1  # cast transformed: the spell is the back face (702.146b, 712.8c)
+    if a.face is None and a.alt_cost is not None and not a.fuse and not a.free and not plan.manual(card):  # -- commanders (wave 50C) -- 702.162a: cast converted = the back face is the spell (701.28a, 712.8c)
+        from app.rules import alt_costs as _converted
+
+        if any(o.key == a.alt_cost and o.tag == _converted.CONVERTED_TAG for o in _converted.converted_offers(plan.state, plan.actor, card, plan.info)):
+            a.face = 1
     ch = chars.as_cast(card, plan.info, a.face, a.fuse)  # split cards / adventures: the half being cast
     if a.fuse and (ch.name.count(" // ") != 1 or card.zone != zone_key(plan.actor, "hand")):  # -- static_other sweep (wave 16B) -- 702.102a
         raise ActionError("Only a split card with fuse can be cast as both halves, from your hand")
@@ -2530,8 +2535,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if grant is not None and grant.how == "escape" and not escaping:
         raise ActionError(f"{ch.name} can be cast from your graveyard only for its escape cost (702.138a)")
     # -- commander sweep (wave 49B) -- 118.6, 202.1b: a card with no mana cost has an unpayable cost; one with an alternative cost of its own (Asmoranomardicadaistinaculdacar) is cast for that
-    # cost alone (118.6a), and not at all while it doesn't apply
-    if not ch.mana_cost and a.alt_cost is None and not free and alternative is None and not a.face_down and not plan.manual(card) and card.zone == zone_key(plan.actor, "hand") \
+    # cost alone (118.6a), and not at all while it doesn't apply (review 41: from any zone, the command zone above all: it is a commander)
+    if not ch.mana_cost and a.alt_cost is None and not free and alternative is None and not a.face_down and not plan.manual(card) \
             and any(d.get("static") == "alt_cost" and not d.get("table") for d in permissions._definitions(ch).values()):
         ways = alt_costs.offers(plan.state, plan.actor, card, ch, plan.info)
         if len(ways) != 1:

@@ -1582,6 +1582,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
             if rider is not None:
                 raise _Fail
             pp = sized_damage.per_player(m["stat"]) if verb == "lose_life" and who in ("each_opponent", "each_player") else None
+            if pp is None and verb == "lose_life" and who == "target":  # (wave 50C: "target opponent loses life equal to the amount of life they lost this turn", Astarion: the old reading first, 'for_player')
+                try:
+                    _stat(m["stat"])
+                except _Fail:
+                    pp = sized_damage.per_player(m["stat"])
             if pp is not None:  # -- triggers (wave 17D) -- "each opponent loses life equal to the number of creatures attacking them"
                 return [{"do": verb, "who": who, "n": pp}], target
             n = _stat(m["stat"])
@@ -1753,13 +1758,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if rider is not None:
             raise _Fail
         return [{"do": "damage", "who": "target", "n": {"divided": 0}, **src}], _divided(m["o"], "damage", _amount(m["n"]))
-    m = re.fullmatch(rf"(?P<src>~|it) deals (?P<n>{AMT}) damage to (?P<o1>.+?) and (?P<m>{AMT}) damage to (?P<o2>.+)", text)
+    m = re.fullmatch(rf"(?P<src>~|it) deals (?P<n>{AMT}) damage to (?P<o1>.+?)(?:, (?P<k>{AMT}) damage to (?P<o3>.+?),)? and (?P<m>{AMT}) damage to (?P<o2>.+)", text)
     # -- damage sized by a count (wave 4E) -- "~ deals X damage to target creature and X damage to you, where X is …" (one X for
     # both: 107.3c), "… and X damage to itself" (~ itself: the source)
     if m and (rider is None or (rider[0] == "x" and m["n"].lower() == "x" == m["m"].lower())):
         effects: Effects = []
         groups: list[dict[str, Any]] = []
-        for o, n in ((m["o1"], m["n"]), (m["o2"], m["m"])):
+        for o, n in ((m["o1"], m["n"]), *(((m["o3"], m["k"]),) if m["k"] else ()), (m["o2"], m["m"])):  # (wave 50E: three, Cone of Flame)
             controlled = _that_player_controls(o) if groups else None  # -- damage wordings (wave 6B) -- "… and 1 damage
             # to each creature that player controls" (Radiating Lightning): the first part's target player's
             whos, parts = ([controlled], []) if controlled is not None else _objects("~" if o == "itself" and m["src"] == "~" else o)
@@ -1768,7 +1773,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
             effects.append({"do": "damage", "who": whos[0] if not parts else ("target" if not groups else f"target:{len(groups)}"),
                             "n": _apply(_amount(n), rider), **src})
             groups += parts
-        effects[0]["with_next"] = True  # (dealt at once: one damage event)
+        for joined in effects[:-1]:
+            joined["with_next"] = True  # (dealt at once: one damage event)
         _check_per_player(effects, groups)  # -- damage sized by a count (wave 4E) --
         return effects, _out(groups)
     m = re.fullmatch(rf"(?P<src>~|it) deals (?:(?P<n>{AMT}) damage|damage equal to (?P<stat>.+?)) to (?P<o>.+)", text)
@@ -4141,6 +4147,12 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
     if re.fullmatch(r"transform (?:this token|~|this (?:creature|artifact|land|enchantment|permanent|saga|vehicle))", text) \
             and has_primitive("transform"):
         return [{"do": "transform", "who": "self"}], None  # (701.27c: anything that isn't double-faced doesn't turn over)
+    if (m := re.fullmatch(r"transform all (?P<o>Incubator tokens you control)", text)) and has_primitive("transform"):
+        # -- commanders (wave 50C) -- 701.27a: "transform all Incubator tokens you control" (Glissa, Elesh Norn): every double-faced token the selector finds as this resolves,
+        # each one object that turns over (701.27f: not one that transformed since the ability went on the stack). (Other mass wordings - "Transform all Humans you
+        # control" - stay refused: tests/test_rules_wave11a_transform.py.)
+        sel = selectors.parse(m["o"])
+        return ([{"do": "transform", "who": sel.key()}], None) if sel is not None else None
     m = re.fullmatch(r"transform (?P<o>(?:up to one )?target .+)", text)
     if m and has_primitive("transform"):  # -- transform (wave 48A) -- "transform up to one target Werewolf you control" (Waxing Moon), "transform target Incubator token you control": a chosen permanent on the battlefield (701.27a)
         try:

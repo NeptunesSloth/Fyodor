@@ -1,0 +1,95 @@
+[
+ {
+  "name": "Guerrilla Tactics",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Guerrilla Tactics deals 2 damage to any target.\nWhen a spell or ability an opponent controls causes you to discard this card, it deals 4 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Psychic Purge",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Psychic Purge deals 1 damage to any target.\nWhen a spell or ability an opponent controls causes you to discard this card, that player loses 5 life.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Quagnoth",
+  "layout": "normal",
+  "mana_cost": "{5}{G}",
+  "cmc": 6.0,
+  "type_line": "Creature — Beast",
+  "oracle_text": "Split second (As long as this spell is on the stack, players can't cast spells or activate abilities that aren't mana abilities.)\nShroud (This creature can't be the target of spells or abilities.)\nWhen a spell or ability an opponent controls causes you to discard this card, return it to your hand.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Shroud",
+   "Split second"
+  ],
+  "power": "4",
+  "toughness": "5"
+ },
+ {
+  "name": "Mangara's Blessing",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "You gain 5 life.\nWhen a spell or ability an opponent controls causes you to discard this card, you gain 2 life, and you return this card from your graveyard to your hand at the beginning of the next end step.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Sand Golem",
+  "layout": "normal",
+  "mana_cost": "{5}",
+  "cmc": 5.0,
+  "type_line": "Artifact Creature — Golem",
+  "oracle_text": "When a spell or ability an opponent controls causes you to discard this card, return this card from your graveyard to the battlefield with a +1/+1 counter on it at the beginning of the next end step.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Mind Rot",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target player discards two cards.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ }
+]
