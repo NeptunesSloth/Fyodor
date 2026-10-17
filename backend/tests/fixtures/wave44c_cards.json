@@ -549,5 +549,24 @@
   ],
   "keywords": [],
   "loyalty": "6"
+ },
+ {
+  "name": "Gor Muldrak, Amphinologist",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Scout",
+  "oracle_text": "You and permanents you control have protection from Salamanders.\nAt the beginning of your end step, each player who controls the fewest creatures creates a 4/3 blue Salamander Warrior creature token.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "2"
  }
 ]
