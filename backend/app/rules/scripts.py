@@ -267,7 +267,7 @@ def _self_pronouns(part: str) -> str:
     part = re.sub(rf"\b(?:his|her) (?={_POSSESSED}\b)", "~'s ", part)
     part = re.sub(r"(?<!or )\b(?:him|her)\b(?=[.,;:)]|$| (?:and|until|this|then|to|from|into|onto|on|with|unless|if|as|equal|for)\b)",
                   "~", part)
-    part = re.sub(r"(?<=\bunder )~'s owner's control\b", "its owner's control", part)  # -- activated other (wave 44D) -- "return her to the battlefield transformed under her owner's control" (Nissa, Jace)
+    part = re.sub(r"(?<=\btransformed under )~'s owner's control\b", "its owner's control", part)  # -- activated other (wave 44D) -- "return her to the battlefield transformed under her owner's control" (Nissa, Jace)
     part = re.sub(r"(\bexile ~, then return )~(?= to the battlefield\b)", r"\1it", part)  # (-- activated other (wave 44D) -- "exile Nissa, then return her …": the card just exiled)
     return re.sub(r"(?<=return ~ to )~'s owner's hand\b", "its owner's hand", part)  # -- if you do (wave 40A) -- "return him to his owner's hand" (Bob): 400.3, the card's owner
 
@@ -2896,6 +2896,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # -- activated other (wave 44D) -- "~ deals 2 damage to target player and gains indestructible until end of turn." (Ellie, Vengeful Hunter): two instructions of the same
     # source, in order (608.2c)
     body = re.sub(r"(^|\. )(~ deals \d+ damage to [^.,]+?) and (gains [a-z ]+ until end of turn)\.", r"\1\2. ~ \3.", body)
+    # -- activated other (wave 44D) -- "Destroy all creatures except for ~. Those creatures can't be regenerated." (Mageta the Lion): all the others, the source being the only one
+    # left out, as "Destroy all other creatures. They can't be regenerated." says
+    body = re.sub(r"\b([Dd]estroy all) (creatures|artifacts|enchantments|lands) except for ~\. Those \2 can't be regenerated\.", r"\1 other \2. They can't be regenerated.", body)
     # -- trigger other (wave 44D) -- "Choose target creature card in your graveyard. If …, return it to the battlefield. Otherwise, put it into your hand." (Meren of Clan Nel
     # Toth, Bortuk Bonerattle): the chosen card moves from the graveyard to the hand, as "return it to your hand" does
     body = re.sub(r"(\b[Cc]hoose target [^.]*? in your graveyard\..*?\b)([Pp])ut it into your hand\b", lambda m: f"{m[1]}{'R' if m[2] == 'P' else 'r'}eturn it to your hand", body)
@@ -4584,6 +4587,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         text, while_attacking = re.subn(r"^(Whenever you cast [^,]+?) while ~ is attacking, ", r"\1, if ~ is attacking, ", text)
         # -- trigger other (wave 44D) -- 506.1, 603.2: "Whenever you cast a spell during combat, …" (Zuko), "… an instant or sorcery spell with mana value greater than the number of
         # experience counters you have, …" (Mizzix): facts of the cast event, judged as it triggers and not again as it resolves
+        text = re.sub(r"^(When ~ dies or is put into exile) while its power is (\d+ or greater), ", r"\1, if its power was \2, ", text)  # (Syr Vondam, Sunstar Exemplar: as it last existed, 603.10a)
         text, in_combat = re.subn(r"^(Whenever you cast [^,]+?) during combat, ", r"\1, if it's combat, ", text)
         text, over_counters = re.subn(r"^(Whenever you cast [^,]+?) with mana value greater than the number of experience counters you have, ",
                                       r"\1, if its mana value is greater than the number of experience counters you have, ", text)

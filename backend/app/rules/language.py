@@ -3283,10 +3283,14 @@ def _become(text: str) -> tuple[Effects, Any]:
     d = _DESC.fullmatch(m["desc"])
     if d is None:
         raise _Fail
-    kind, key, group = ref(m["o"])
-    if kind == "players":
-        raise _Fail
-    who = _who(kind, key)
+    tg: list[dict[str, Any]] = []
+    if (controlled := target_controls(m["o"], tg)) is not None:  # -- activated other (wave 44D) -- "All lands target player controls become 3/3 creatures" (Jolrael)
+        who, group = controlled, tg[0]
+    else:
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        who = _who(kind, key)
     kinds = (d["kinds"] or "").split()
     types = [k.capitalize() for k in kinds]
     subs = (d["subs"] or "").split()

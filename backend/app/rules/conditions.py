@@ -134,7 +134,7 @@ _OBJECT_STAT = re.compile(rf"(?P<who>its|that creature's|that permanent's|that c
                           r"(?:is|was) (?:(?P<n>\w+) or (?P<cmp>less|greater|more|fewer)|(?P<cmp2>less|greater|more|fewer) than (?P<n2>\w+)|exactly (?P<n3>\w+))")  # (17D: "than"; 36A: "exactly 20")
 _OBJECT_PARITY = re.compile(r"~'s (?P<stat>power|toughness) is (?P<p>even|odd)")
 _OBJECT_VS_REVEALED = re.compile(r"(?:its|that creature's|that permanent's) (?P<stat>power|toughness|mana value) (?:is|was) (?P<cmp>less than or equal to|less than|"
-                                 r"greater than or equal to|greater than|equal to) the revealed card's (?P<ref>power|toughness|mana value)")
+                                 r"greater than or equal to|greater than|equal to) the (?P<kind>revealed|discarded) card's (?P<ref>power|toughness|mana value)")  # (wave 44D: discarded)
 # -- trigger other (wave 25B) -- converge: "if its mana value is less than or equal to the number of colors of mana spent to cast this spell"
 _OBJECT_VS_COLORS = re.compile(r"(?:its|that creature's|that permanent's) (?P<stat>power|toughness|mana value) (?:is|was) (?P<cmp>less than or equal to|"
                                r"equal to) the number of colors of mana spent to cast (?:this spell|~)")
@@ -1206,13 +1206,14 @@ def _object(t: str) -> Condition | None:
     t = re.sub(r"^the creature had (?=(?:power|toughness|mana value) \w+ or )", "that creature had ", t)  # -- named permanents (wave 35C) -- Anax: the creature that died
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)) had (?=(?:power|toughness|mana value) \w+ or )", r"\1's ", t)
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)'s (?:power|toughness|mana value)) (\w+ or )", r"\1 was \2", t)
+    t = re.sub(r"^it has the same (power|toughness|mana value) as the (discarded|revealed) card$", r"its \1 is equal to the \2 card's \1", t)  # (wave 44D: Hisoka, Minamo Sensei)
     m = _OBJECT_VS_COLORS.fullmatch(t)
     if m:  # (wave 25B) the spell's own payment record, read as it resolves
         return {"object": "it", "stat": m["stat"].replace(" ", "_"), "op": _REF_OPS[m["cmp"]], "n": {"colors_spent": 1}}
     m = _OBJECT_VS_REVEALED.fullmatch(t)
     if m:  # -- static_other sweep (wave 17C) -- "its power is less than or equal to the revealed card's power" (Titan's Presence)
         return {"object": "it", "stat": m["stat"].replace(" ", "_"), "op": _REF_OPS[m["cmp"]],
-                "n": {_REF_STATS[m["ref"]]: "cost:revealed"}}
+                "n": {_REF_STATS[m["ref"]]: f"cost:{m['kind']}"}}
     m = _OBJECT_VS_COUNT.fullmatch(t)
     if m and (count := values.parse_count(m["v"])) is not None:
         return {"object": "it", "stat": m["stat"].replace(" ", "_"), "op": _REF_OPS[m["cmp"]], "n": {"count_value": count}}

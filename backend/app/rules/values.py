@@ -331,6 +331,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"player_counters": m["kind"]}
     if _EXCESS_DEALT.fullmatch(what):  # -- as long as (wave 9B) -- 120.10: scripts bind it to the damage just before (this_way.excess_dealt)
         return {"ref_amount": "excess_dealt"}
+    if (gv := re.fullmatch(r"graveyards? with (?P<n>\w+) or more cards? in (?:it|them)", what)) is not None and gv["n"] in NUMBERS:
+        return {"graveyards_with": NUMBERS[gv["n"]]}  # -- trigger other (wave 44D) -- "a card for each graveyard with seven or more cards in it" (The Master of Lake-town): every player's, 404.1
     if re.fullmatch(r"cards in all graveyards with the same name as (?:that|the) spell", what):  # -- value grammar (wave 23C) -- Cabal Shrine: 201.2
         return {"same_name": "event", "zone": "graveyard"}  # (the spell a cast trigger is about; scripts._event_refs_ok)
     if _DAMAGE_EVENT.fullmatch(what):  # -- value grammar (wave 23C) -- "the amount of damage it dealt to that player": the damage trigger's amount
@@ -651,6 +653,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sum(1 for t in record.mana_tags if v["mana_from"] in t)
     if "mana_spent" in v:  # -- X actions (wave 9A) -- a spell cast by hand: no mana known, 0 (and said so)
         return _mana_spent(plan, ctx, v["mana_spent"])
+    if "graveyards_with" in v:  # -- trigger other (wave 44D) -- the graveyards of the players still in the game
+        live = plan.live()
+        return sum(1 for key, ids in plan.state.zones.items() if key.endswith(":graveyard") and key.split(":")[0] in live and len(ids) >= v["graveyards_with"])
     if "named_self_in_graveyards" in v:  # -- mana riders (wave 5A) -- cards with the source's name in every graveyard
         from app.rules import characteristics as chars
 
