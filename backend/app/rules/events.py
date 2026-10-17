@@ -146,6 +146,7 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"(?P<p>you) fully unlock a room", re.IGNORECASE), "fully_unlock"),  # -- ability words (wave 20C) -- 709.5i (rooms.unlock)
     (re.compile(r"a spell or ability (?P<p>you) control counters a spell"), "counters_spell"),  # -- counter events (wave 19C) -- 701.6a
     (re.compile(r"(?P<p>you|an opponent|a player) commits? a crime"), "commit_crime"),  # -- crimes (wave 6D) -- 700.13
+    (re.compile(r"(?P<p>you|an opponent|a player) wins? a coin flip"), "win_flip"),  # -- coin flips (wave 45D) -- 705.2 (coin_flips.coin_flip)
     (re.compile(r"day becomes night or night becomes day"), "day_night"),
     (re.compile(r"(?P<p>you) forage"), "forage"),  # -- if you do (wave 26C) -- 701.61: the cost was paid (cost_payment.pay)
     (re.compile(r"(?P<p>you) collect evidence"), "collect_evidence"),  # 701.59

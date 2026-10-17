@@ -2,6 +2,7 @@
 Every scenario checks the replay and a save and a load.
 
 * 601.3b/601.3d: "You may cast legendary spells and artifact spells as though they had flash." (Gandalf the White, Liberator): a spell of either kind.
+* 705.2: Okaun and Zndrsplt flip until they lose and trigger on every flip a player wins.
 * 603.4: Liberator's intervening "if the amount of mana spent to cast that spell is greater than Liberator's power" (the amount actually spent: ruling 2022-10-14).
 """
 
@@ -20,9 +21,11 @@ from app.rules.casting import cast_problem
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
+from tests.test_rules_conditionals import settle
 from tests.test_rules_effects import pass_until_stack_empty
-from tests.test_rules_wave34b_activated import to_phase
-from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
+from tests.test_rules_wave7b_activation import ability_index
+from tests.test_rules_wave34b_activated import stops, to_phase
+from tests.wave9c_kit import build, card_named, check, mana, pt, put, to_hand
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave45d_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
@@ -51,6 +54,62 @@ def problem(s, name):
     c = to_hand(s, name)
     plan = Plan(s.state, "p1", s.cards, None)
     return cast_problem(s.state, "p1", c, plan.ch(c), info=plan.info, check_priority=False)
+
+
+OKAUN, ZNDRSPLT, SAUCER = "Okaun, Eye of Chaos", "Zndrsplt, Eye of Wisdom", "The Gold Saucer"
+
+
+def flips(monkeypatch, *results):
+    """The coins come up as given (1 heads, 0 tails), one per flip; the result is recorded on the step, so a replay doesn't flip again."""
+    left = iter(results)
+    monkeypatch.setattr("app.game.resolve._rng_int", lambda rng, lo, hi: next(left))
+
+
+def combat(s):
+    """Alice's beginning of combat: her triggers on the stack, then resolved."""
+    stops(s)
+    to_phase(s, "begin_combat")
+    settle(s)
+
+
+# ---- 705.2: "flip a coin until you lose a flip", "whenever a player wins a coin flip" (Okaun, Zndrsplt) -----------------------------------------------------
+@pytest.mark.parametrize("name", [OKAUN, ZNDRSPLT])
+def test_the_coin_commanders_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def test_okaun_doubles_for_each_won_flip_until_the_first_loss(cards, monkeypatch):
+    flips(monkeypatch, 1, 1, 0)  # two wins, then the loss that ends it
+    s = build(cards, [OKAUN], [])
+    put(s, OKAUN)
+    combat(s)
+    assert pt(s, OKAUN) == (12, 12)  # 3/3 doubled twice until end of turn
+    assert str(s.view("p1")["log"]).count("flipped a coin") == 3
+    check(s)
+
+
+def test_okaun_does_not_double_when_the_first_flip_is_lost(cards, monkeypatch):
+    flips(monkeypatch, 0)
+    s = build(cards, [OKAUN], [])
+    put(s, OKAUN)
+    combat(s)
+    assert pt(s, OKAUN) == (3, 3)
+    check(s)
+
+
+def test_zndrsplt_draws_for_each_won_flip_and_for_a_flip_of_another_card(cards, monkeypatch):
+    flips(monkeypatch, 1, 0, 1)
+    s = build(cards, [ZNDRSPLT, SAUCER], [])
+    put(s, ZNDRSPLT)
+    saucer = put(s, SAUCER)
+    hand = len(s.state.zones["p1:hand"])
+    combat(s)  # one win, then the loss
+    assert len(s.state.zones["p1:hand"]) == hand + 1
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=saucer.id, ability=ability_index(s, saucer, "Flip a coin"))
+    settle(s)  # the Saucer's flip is won too (705.2): another card
+    assert len(s.state.zones["p1:hand"]) == hand + 2
+    check(s)
 
 
 # ---- 601.3b: a spell of either kind may be cast as though it had flash ---------------------------------------------------------------------------------
