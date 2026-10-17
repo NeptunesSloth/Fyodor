@@ -541,6 +541,7 @@ class TurnLog(BaseModel):
     blockers: list[str] = Field(default_factory=list)  # -- combat state (wave 27A) -- creatures (objects) declared as blockers this turn (509.1g)
     blocks: dict[str, list[str]] = Field(default_factory=dict)  # -- combat history (wave 31D) -- blocker (object) -> the attackers (objects) it blocked this turn
     attacked_who: dict[str, list[str]] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker object -> players it attacked
+    attack_counts: dict[str, int] = Field(default_factory=dict)  # -- commander sweep (wave 49B) -- attacker object -> the combats it was declared an attacker in this turn (Moraug)
     # -- trailing & intervening ifs (wave 38A) -- 508.1, 500.8: attacker object -> the combat phase (RulesState.combats) it was last declared as an
     # attacker in ("~ attacked this combat"); attacker object -> the combat phase it enlisted a creature in (702.154a: "it enlisted a creature this combat")
     declared: dict[str, int] = Field(default_factory=dict)
@@ -1154,9 +1155,11 @@ class RulesState(BaseModel):
     # blocked by / blocks (creature card -> target card or player -> damage), answered before the round is dealt and dropped once it is
     block_split: dict[str, dict[str, int]] = Field(default_factory=dict)
     assign_unblocked: dict[str, bool] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker -> "as though it weren't blocked"
+    block_caps: dict[str, int] = Field(default_factory=dict)  # -- commander sweep (wave 49B) -- 509.1b: player -> "can't block with more than N creatures this combat" (Mirri), dropped at end of combat
     # -- combat (wave 5C) -- 500.8: the phases still to come after the current one when effects added some (the
     # last is the phase that would have come next), and how many combat phases began this turn
-    extra_phases: list[str] = Field(default_factory=list)
+    extra_phases: list[str] = Field(default_factory=list)  # (wave 49B: a combat phase added with a delayed trigger of its own is "begin_combat@<trigger id>")
+    combat_tag: str = ""  # -- commander sweep (wave 49B) -- the delayed trigger id of the combat phase now beginning, if it was added with one ("at the beginning of that combat")
     combats: int = 0
     # Commanders offered the move to the command zone, and from which zone (asked once per arrival).
     commander_offered: dict[str, str] = Field(default_factory=dict)
@@ -1424,6 +1427,8 @@ def note_attack(state: GameState, player: str, attackers: list[str] | None = Non
     if log is not None and attackers:  # -- this-turn history (wave 4D) --
         seen = log.attackers.setdefault(player, [])
         seen += [a for a in attackers if a not in seen]
+        for a in attackers:  # (wave 49B) 508.1: each declaration is one attack
+            log.attack_counts[a] = log.attack_counts.get(a, 0) + 1
         if state.rules is not None:  # (wave 38A: this combat phase, 506.1)
             log.declared.update({a: state.rules.combats for a in attackers})
         for a, t in zip(attackers, targets or (), strict=True):  # -- static_other sweep (wave 19A) -- 508.1c: "a player it has already attacked"

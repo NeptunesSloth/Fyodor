@@ -51,7 +51,7 @@ PAY, DECLINE = "pay", "decline"
 SUPPORTED = frozenset({C.MANA, C.PAY_LIFE, C.PAY_ENERGY, C.SACRIFICE, C.DISCARD, C.EXILE, C.EXILE_FROM_GRAVEYARD,
                        C.REMOVE_COUNTER, C.RETURN_PERMANENT, C.TAP_OTHER, C.PUT_COUNTER, C.DISCARD_HAND,
                        C.MILL, "EXILE_FROM_HAND", C.EXILE_TO_GY,  # (MILL, EXILE_FROM_HAND: wave 8C; EXILE_TO_GY: wave 15C)  # (PUT_COUNTER: wave 6F, blight)
-                       C.FORAGE, C.COLLECT_EVIDENCE, "SOURCE_DAMAGE"})  # (SOURCE_DAMAGE: wave 27A; wave 26C: "you may forage", "you may collect evidence 4": 701.61a, 701.59a)
+                       C.FORAGE, C.COLLECT_EVIDENCE, C.BEHOLD, "SOURCE_DAMAGE"})  # (C.BEHOLD: wave 49B)  # (SOURCE_DAMAGE: wave 27A; wave 26C: "you may forage", "you may collect evidence 4": 701.61a, 701.59a)
 FLEXIBLE = (C.FORAGE, C.COLLECT_EVIDENCE)  # (wave 26C) the cards that pay are chosen as a whole (cost_payment._flexible_options)
 _MANA_ONLY = re.compile(r"^(\{[^}]+\})+$")
 
@@ -154,6 +154,9 @@ def parse(text: str) -> AbilityCost | None:
     if (r := _REVEAL_FROM_HAND.match(text)) is not None:  # -- if you do (wave 15C) --
         key = C._selector(r["what"], zone="hand")
         return AbilityCost(components=(C.CostComponent(REVEAL_FROM_HAND, selector=key, text=text),)) if key else None
+    if text.startswith("Behold "):  # -- commander sweep (wave 49B) -- "You may behold a Dragon. If you do, …" (Sarkhan, Dragon Ascendant): 701.4a, a Dragon card revealed from your hand or a Dragon you control
+        behold = C._extra_part(text)
+        return AbilityCost(components=(behold,)) if behold is not None and behold.kind == C.BEHOLD else None
     if (m := _EXILE_FROM_HAND.match(text)) is not None:  # -- if you do (wave 8C) -- "Exile a creature card from your hand"
         from app.rules import alt_costs
 

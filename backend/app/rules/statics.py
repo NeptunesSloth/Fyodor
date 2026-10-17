@@ -109,7 +109,6 @@ _QUOTED = re.compile(r'^"(?P<q>[^"]+)"$')
 _DEF_ATTACK = re.compile(r"^~ can't attack (?P<k>unless|if) (?:defending player (?:controls an? (?P<sel>.+)|(?P<pois>is poisoned)|(?P<mon>is the monarch)"
                          r"|has (?P<n>\w+) or more cards in their graveyard)|you control more (?P<more>creatures|lands) than defending player)$")
 _DENY = re.compile(r"^(?P<s>(?:Creatures|Permanents) .+? control) lose (?P<kw>[a-z ]+) and can't have or gain (?P=kw)$")  # (10B)
-_LOSE = re.compile(r"^(?P<s>(?:Creatures|Permanents) .+? control) lose (?P<kw>[a-z ]+)$")  # (wave 50C)
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 
 
@@ -195,14 +194,34 @@ def parse(text: str) -> Definition | None:
     m = re.match(r"^(?P<rest>.+), where X is (?P<x>.+)$", body)
     if m and m["rest"].count('"') % 2 == 0:  # (not inside a quoted granted ability)
         x_phrase, body = m["x"], m["rest"]
+    # -- commander sweep (wave 49B) -- "Enchanted creature has flying, lifelink, and protection from Vampires, and it gets +X/+X, where X is …" (Katilda's Rising Dawn): "it" is the
+    # same creature, so the second verb joins the first ("… Vampires and gets +X/+X, where X is …")
+    body = re.sub(r"^((?:Enchanted|Equipped) (?:creature|permanent|land|artifact) has .+?), and it (gets? [+−-]\w+/[+−-]\w+(?:,|$))", r"\1 and \2", body)
+    # -- commander sweep (wave 49B) -- "Survivors your opponents control can't block, and they can't attack you or planeswalkers you control." (Varchild): "they" is the group, so
+    # the second restriction joins the first ("… can't block and can't attack …")
+    body = re.sub(r"^(?P<s>.+? control) (?P<a>can't [a-z ]+), and they (?P<b>can't .+)$", r"\g<s> \g<a> and \g<b>", body)
+    # -- commander sweep (wave 49B) -- "Humans you control have each of the chosen abilities." (Greymond, Avacyn's Stalwart): the keywords its permanent chose as it entered,
+    # read afresh by layers (``chosen_keywords``; chosen.chosen_value_ok: the one choice)
+    m = re.fullmatch(r"(?P<s>[A-Z][A-Za-z ,'-]+? you control) have each of the chosen abilities", body)
+    if m is not None:
+        who, kind = _subject(m["s"], plural=True)
+        return None if who is None or who in ("self", "attached") or who.startswith(UNION) else {**_definition(who, kind, []), "chosen_keywords": True}
     # -- static statics (wave 10B) -- "Creatures your opponents control lose flying and can't have or gain flying."
     # (the Archetypes): lose it now (613.1f, in timestamp order) and never have or gain it (the deny is applied last)
-    m = _DENY.fullmatch(body) or _LOSE.fullmatch(body)  # (wave 50C: "Creatures your opponents control lose infect." — only now, in timestamp order: Melira, Sylvok Outcast)
+    m = _DENY.fullmatch(body)
     if m is not None and m["kw"] in GRANTABLE_KEYWORDS:
         who, kind = _subject(m["s"], plural=True)
         if who is None or who == "self" or who.startswith(UNION):
             return None
-        return {**_definition(who, kind, []), "lose_keywords": [m["kw"]], **({"deny_keywords": [m["kw"]]} if m.re is _DENY else {})}
+        return {**_definition(who, kind, []), "lose_keywords": [m["kw"]], "deny_keywords": [m["kw"]]}
+    # -- layers (wave 49C) -- "All creatures lose flying." (Gravity Sphere), "All creatures lose flying and islandwalk." (Mystic Decree): 613.1f, in timestamp order
+    # (a flying granted later stays: the Gravity Sphere ruling); only the loss, nothing is denied
+    m = re.fullmatch(r"(?P<s>(?:All c|C)reatures(?: .+? control)?) lose (?P<kw>[a-z]+(?: and [a-z]+)?)", body)
+    if m is not None and all(k in GRANTABLE_KEYWORDS for k in m["kw"].split(" and ")):
+        who, kind = _subject(m["s"], plural=True)
+        if who is None or who == "self" or who.startswith(UNION):
+            return None
+        return {**_definition(who, kind, []), "lose_keywords": m["kw"].split(" and ")}
     # "Creatures with power less than ~'s power can't block it." (Wandering Wolf): an evasion ability
     # of the source, worded from the blockers' side.
     m = re.fullmatch(r"Creatures with power (?P<dir>less|greater) than ~'s power can't block it", body)
@@ -299,8 +318,8 @@ def parse(text: str) -> Definition | None:
                     it_is = re.fullmatch(r"it(?:'s| is) (?P<d>.+)", cond_text)
                     if host and it_is:
                         cond_text = f"{host['w'].lower()} {host['n']} is {it_is['d']}"
-                    if cond_text == "it attacked this turn" and rest_text.startswith("~ "):  # -- as long as (wave 20B) -- "it" is the source
-                        cond_text = "~ attacked this turn"
+                    if cond_text in ("it attacked this turn", "it attacked or blocked this turn") and rest_text.startswith("~ "):  # -- as long as (wave 20B; 49C: Lurker) -- "it" is the source
+                        cond_text = "~" + cond_text[2:]
                     # -- as long as (wave 35D) -- "it" / "they" in the condition is the object the sentence is about: the source ("~ has double
                     # strike as long as two or more Equipment are attached to it", "~ has hexproof as long as it hasn't dealt damage yet") or the
                     # object the source is attached to ("Equipped creature has double strike as long as two or more Equipment are attached to it")
@@ -631,6 +650,8 @@ def _relative_count(each: str, group: str | None = None) -> dict[str, Any] | Non
         return {"relative": "counters", "kind": c["k"] or "any"}
     if group == "it" and each == "point of bushido it has":  # -- counters (wave 44C) -- 702.45a: the bushido numbers the object modified has (Takeno, Samurai General)
         return {"relative": "bushido"}
+    if group == "it" and each == "time it has attacked this turn":  # -- commander sweep (wave 49B) -- 508.1: the combats it was declared an attacker in this turn (Moraug, Fury of Akoum)
+        return {"relative": "attacks"}
     if each == "of its colors":  # -- attached events (wave 16F) -- 105.1: the colors of the object modified (Civic Saber)
         return {"relative": "colors"}
     m = _SHARING.match(each) or _SAME_NAME.match(each)
@@ -1093,6 +1114,11 @@ def _rule(piece: str) -> list[str] | None:
     # -- cant (wave 16F) -- 115.2: "can't be the target of black spells or abilities from black sources" (Mercenary Informer) /
     # "… of nongreen spells or abilities from nongreen sources" (Gaea's Revenge), "… your opponents control" (Thrun): an object
     # whose source (a spell, or the source of an ability) has that color (or lacks it) can't target it. Colorless is nongreen.
+    # -- cant (wave 49C) -- 115.2: "can't be the target of spells" (Spectral Shield), "… of blue or black spells" (Karplusan Strider): no spell (of that color) may target it
+    # (anyone's, its controller's too); an ability still may
+    m = re.fullmatch(r"can't be the targets? of (?:(?P<c>(?:white|blue|black|red|green)(?: or (?:white|blue|black|red|green))*) )?spells", piece)
+    if m:
+        return ["untargetable_spells" + (":" + "".join({"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}[c] for c in m["c"].split(" or ")) if m["c"] else "")]
     m = re.fullmatch(r"can't be the targets? of (?P<n>non)?(?P<c>white|blue|black|red|green) spells(?: (?P<o1>your opponents control))? or "
                      r"abilities from (?P=n)?(?P=c) sources(?: (?P<o2>your opponents control))?", piece)
     if m:
@@ -1217,6 +1243,9 @@ def _condition(text: str) -> dict[str, Any] | None:
     if m:
         n = _num(m["n"])
         return {"static": "graveyard", "op": "<", "n": n} if n is not None else None
+    m = re.fullmatch(r"(?:it|~) has an (?P<p>even|odd) number of counters on (?:it|~)", c)
+    if m:  # -- commander sweep (wave 49B) -- "~ can't attack or block unless it has an even number of counters on it." (Sab-Sunen): counters of every kind together, zero is even
+        return {"value": {"counters": None, "on": "self"}, "op": "parity", "n": int(m["p"] == "odd")}
     m = re.fullmatch(r"(?:it|~) has (?P<n>\w+) or fewer (?P<kind>[a-z]+) counters on (?:it|him|her|~)", c)
     if m and _num(m["n"]) is not None:
         return {"static": "self_counter", "counter": m["kind"], "op": ">=", "n": 0, "max": _num(m["n"])}  # (the "max" of wave 9D)

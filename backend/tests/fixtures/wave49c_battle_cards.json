@@ -1,0 +1,41 @@
+[
+ {
+  "name": "Thrashing Frontliner",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Phyrexian Lizard",
+  "oracle_text": "Trample\nWhenever this creature attacks a battle, it gets +1/+1 until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "War-Trained Slasher",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Wolverine Dinosaur",
+  "oracle_text": "Menace (This creature can't be blocked except by two or more creatures.)\nWhenever this creature attacks a battle, double its power until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Menace",
+   "Double"
+  ],
+  "power": "4",
+  "toughness": "3"
+ }
+]

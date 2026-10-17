@@ -76,5 +76,5 @@ def evaluate(plan: Any, ctx: dict[str, Any], v: dict[str, Any]) -> int:
 
 
 # "Target creature deals damage to itself equal to its power." / "… deals damage equal to its power to itself."
-SELF_DAMAGE = re.compile(r"(?P<s>.+?) deals damage (?:to itself equal to (?P<a>its power|its toughness)|"
-                         r"equal to (?P<b>its power|its toughness) to itself)")
+SELF_DAMAGE = re.compile(r"(?P<s>.+?) deals (?:damage (?:to itself equal to (?P<a>its power|its toughness)|"
+                         r"equal to (?P<b>its power|its toughness) to itself)|(?P<c>\d+) damage to itself)")  # (wave 49B: "Target creature deals 6 damage to itself.")

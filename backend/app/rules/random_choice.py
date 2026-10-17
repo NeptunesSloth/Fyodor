@@ -250,5 +250,18 @@ def reveal_random(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"choose_random": choose_random, "choose_random_object": choose_random_object, "reveal_random": reveal_random, "discard_revealed": discard_revealed}
+def pick_most(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- extremes (wave 49C) -- "the player with the most life" (Wild Dogs), "the player who controls the most Wizards" (Thoughtbound Primoc): the one player whose quantity
+    (read as "you" of it) is greater than every other player's, bound as ``as`` as this resolves; a tie names no one (the ruling: the player may differ from the one the
+    intervening "if" saw as it triggered, 603.4)."""
+    from app.rules import values
+
+    got = {p: values.evaluate(plan, {**ctx, "controller": p}, e["value"]) for p in plan.live()}
+    top = [p for p, v in got.items() if v == max(got.values())]
+    context.bind_players(ctx, e["as"], top if len(top) == 1 else [])
+    return True
+
+
+PRIMITIVES = {"choose_random": choose_random, "choose_random_object": choose_random_object, "reveal_random": reveal_random, "discard_revealed": discard_revealed,
+              "pick_most": pick_most}
 RESUME: dict[str, Any] = {"choose_random": resume_choose_random}

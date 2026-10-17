@@ -145,7 +145,7 @@ def level_of(oracle: str, type_line: str = "Enchantment — Aura") -> str:
     ("When this Aura enters, if enchanted creature was tapped, untap it.", False),  # (the past tense is about what it was)
     ("When this Aura enters, untap it if enchanted creature is tapped.", True),
     ("{1}: Draw a card. Activate only if enchanted creature's power is 4 or greater.", True),
-    ("{1}: Draw a card. Activate only if enchanted creature is a creature with the greatest power among creatures on the battlefield.", False),
+    ("{1}: Draw a card. Activate only if enchanted creature is a creature with the greatest power among creatures on the battlefield.", True),  # (wave 49C: ties count, 115.1)
     ("Tap enchanted creature: Draw a card. Activate only if enchanted creature is untapped.", True),
     ("Enchanted creature gets +X/+1, where X is the number of artifacts you control.", True),
     ("Enchanted creature gets +X/+Y, where X is the number of artifacts you control.", False),

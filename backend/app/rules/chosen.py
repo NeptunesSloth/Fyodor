@@ -71,7 +71,7 @@ def _enters_choices(ch: Characteristics) -> list[str]:
 
     texts = [self_text(ab.text, ch.name) for ab in ch.abilities]
     named = [e["what"] for t in texts if (d := card_names.enters_choice(t)) is not None for e in d["effects"] if card_names.is_choice(e["what"])]
-    return ["card type" if m["what"].startswith(("card type", "artifact, ")) else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None] + ["card name" for _ in named]  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
+    return ["card type" if m["what"].startswith(("card type", "artifact, ")) else "number" if m["what"].startswith("number") else "abilities" if m["what"].startswith("two abilities") else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None] + ["card name" for _ in named]  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
 
 
 def _kind(what: str | None) -> str | None:
@@ -86,6 +86,9 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     """Whether every "of the chosen type / color" in this definition names a choice the engine knows (see above)."""
     if d.get("chosen_type") and _enters_choices(ch).count("basic land type" if d["chosen_type"] == "land" else "creature type") != 1:
         return False  # (wave 11E: "~ is the chosen type in addition to its other types" needs that one choice)
+
+    if d.get("chosen_keywords") and _enters_choices(ch).count("abilities") != 1:
+        return False  # (wave 49B: "Humans you control have each of the chosen abilities." needs that one choice, Greymond)
 
     dumped = json.dumps(d)
     if "Protection from the chosen color" in dumped and d.get("static") == "grant":  # -- attached events (wave 25D) -- an Aura's static: its own enters choice

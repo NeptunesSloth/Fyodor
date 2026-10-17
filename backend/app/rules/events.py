@@ -165,6 +165,7 @@ def parse_condition(cond: str) -> Condition | None:
     # -- attached events (wave 25D) -- the Genju: "When enchanted Forest is put into a graveyard" — what an Aura is attached to is on the battlefield,
     # so being put into a graveyard is dying (700.4); "enchanted Forest" is the land it's attached to
     cond = re.sub(r"\benchanted (?:Plains|Island|Swamp|Mountain|Forest)\b", "enchanted land", cond)
+    cond = cond.replace(" your team controls", " you control")  # -- triggers (wave 49C) -- 102.4: outside a team game "your team" is "you" (Decorated Champion)
     cond = re.sub(r"^(enchanted (?:creature|permanent|land|artifact)) is put into a graveyard(?: from the battlefield)?$", r"\1 dies", cond.strip())
     try:
         try:
@@ -871,6 +872,10 @@ def _combat(c: str) -> Condition | None:
         return {**base, "event": "attack", "first_each_turn": True}
     # 508.3a: "a creature attacks you or a planeswalker you control", "~ attacks a player", "one or
     # more creatures attack you", "equipped creature attacks", "~ or equipped creature attacks"
+    m = re.fullmatch(r"(?P<s>~|this creature) attacks a battle", c)  # -- triggers (wave 49C) -- 310.5, 508.1: the attack was declared against a battle (Thrashing Frontliner)
+    if m:
+        base = _subject("~", host=True, many=True)
+        return None if base is None else {**base, "event": "attack", "defender": "battle"}
     m = re.fullmatch(rf"(?P<s>.+?) attacks?(?: (?P<d>{_DEFENDER_RE}))?", c)
     if m and (m["d"] or m["s"] in _HOSTS or m["s"] in _SELF_OR_HOST):
         base = _subject(m["s"], host=True, many=True)
