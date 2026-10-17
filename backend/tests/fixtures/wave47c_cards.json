@@ -329,23 +329,20 @@
   "keywords": []
  },
  {
-  "name": "Hexdrinker",
-  "layout": "leveler",
-  "mana_cost": "{G}",
-  "cmc": 1.0,
-  "type_line": "Creature — Snake",
-  "oracle_text": "Level up {1} ({1}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 3-7\n4/4\nProtection from instants\nLEVEL 8+\n6/6\nProtection from everything",
+  "name": "Scrap Welder",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Goblin Artificer",
+  "oracle_text": "{T}, Sacrifice an artifact with mana value X: Return target artifact card with mana value less than X from your graveyard to the battlefield. It gains haste until end of turn.",
   "colors": [
-   "G"
+   "R"
   ],
   "color_identity": [
-   "G"
+   "R"
   ],
-  "keywords": [
-   "Level Up",
-   "Protection"
-  ],
-  "power": "2",
-  "toughness": "1"
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
  }
 ]

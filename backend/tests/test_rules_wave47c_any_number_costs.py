@@ -21,6 +21,7 @@ from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.errors import ActionError
 from app.rules import coverage
+from app.rules.view import hints
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave30h_linked_exile import settle, stack_top
@@ -46,8 +47,8 @@ def cards(settings):
 FULL = ["Torgaar, Famine Incarnate", "Gorex, the Tombshell", "Dargo, the Shipwrecker", "Hierophant Bio-Titan", "Explosive Singularity", "March of Swirling Mist",
         "March of Otherworldly Light", "March of Wretched Sorrow", "March of Reckless Joy", "March of Burgeoning Life",
         "Extus, Oriq Overlord // Awaken the Blood Avatar"]
-# (kept manual: the cost line is read, the rest of the card is not — a blight-counter choice for every opponent, each making several)
-PARTIAL = ["Rottenmouth Viper"]
+# (kept manual: Rottenmouth Viper's cost line is read, its blight-counter choices for every opponent are not; Scrap Welder's "mana value X" is the sacrificed artifact's, no X is announced for "less than X")
+PARTIAL = ["Rottenmouth Viper", "Scrap Welder"]
 
 
 @pytest.mark.parametrize("name", FULL)
@@ -492,3 +493,19 @@ def test_march_of_burgeoning_life_finds_the_same_name_for_a_target_with_mana_val
     assert zone_of(s, "Giant Growth") == "p1:exile" and zone_of(s, "Llanowar Elves") == "p1:exile"
     assert zone_of(s, "Grizzly Bears") == "p1:battlefield" and s.state.cards[card_named(s, "Grizzly Bears").id].tapped
     check(s)
+
+
+# ---- the hint the table menu is made from -----------------------------------------------------------------------------------------------------
+def test_the_menu_offers_the_any_number_cost_when_the_most_it_takes_off_makes_the_spell_payable(cards):
+    """Eight mana is too much for two floating, so the plain cast isn't offered; with three creatures to sacrifice ({6} off) the cost is payable, and the
+    option is listed with the id the cast names. With no creature to sacrifice it isn't."""
+    s, crew = torgaar_table(cards)
+    mana(s, B=2)
+    c = card_named(s, "Torgaar, Famine Incarnate")
+    found = hints(s.state, "p1", cards)
+    assert c.id not in found["castable"]
+    (opt,) = found["optional_costs"][c.id]
+    assert opt["id"] == f"{c.id}:reduce" and opt["label"] == "This spell costs {2} less for each: sacrifice any number of creatures"
+    for x in crew:
+        act(s, "p1", type="move", card_ids=[x.id], to={"zone": "graveyard"})
+    assert c.id not in hints(s.state, "p1", cards).get("optional_costs", {})
