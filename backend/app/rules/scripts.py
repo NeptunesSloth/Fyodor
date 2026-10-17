@@ -3008,6 +3008,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # so the condition is stated for each (nothing in between changes whether it is attacking)
     body = re.sub(r"\bIf (?:he's|she's|it's|~ is) attacking, untap ~ and (there is an additional combat phase after this phase)\.",
                   r"If ~ is attacking, untap ~. If ~ is attacking, \1.", body)
+    # -- card names (wave 49C) -- "If that card has the chosen name, that player puts it into their hand. If it doesn't, the player puts it into their graveyard." (Petra Sphinx): the "Otherwise" of that condition
+    body = re.sub(r"(\bIf that card has the chosen name, [^.]+\.) If it doesn't, the player puts it into their graveyard\.", r"\1 Otherwise, that player puts it into their graveyard.", body)
     # -- tokens (wave 47D) -- "Create a white and black Spirit enchantment creature token. It has "This creature's power and toughness are each equal to …"" (Daxos): nothing
     # is printed for the token's P/T, so the CDA is the token's own quoted ability (111.4, 208.1), the grammar's "with"
     body = re.sub(r'(^|, |\. )((?i:create) [^."]+? creature token)\. It has "(?:This creature|~)(\'s power and toughness are each equal to [^"]+")', r'\1\2 with "This creature\3', body)
@@ -6754,7 +6756,7 @@ for _pattern, _build in ((_language.EDICT, _language.edict), (_language.EDICT_OT
                          (_language.PLAYER_CHOOSES, _language.player_chooses), (_language.CHOOSE_ANY, _language.choose_any),  # (wave 31B)
                          (_language.CHOOSE_OWN, _language.choose_own),  # (wave 32A)
                          (_language.REVEAL_HAND, _language.reveal_hand), (_language.CHOOSE_FROM_HAND, _language.choose_from_hand), (_language.DISCARD_NAMED, _language.discard_named),
-                         (_language.CHOOSE_VALUE, _language.choose_value),
+                         (_language.CHOOSE_VALUE, _language.choose_value), (_language.CHOOSE_NAME_TARGET, _language.choose_name_target),  # (wave 49C)
                          (_language.CHOOSE_FROM_HAND_GY, _language.choose_from_hand_gy), (_language.LOOK_HAND, _language.look_hand),  # (wave 11D)
                          (_language.DISCARD_ALL_REVEALED, _language.discard_all_revealed),
                          (_language.EXILE_FROM_HAND, _language.exile_from_hand)):

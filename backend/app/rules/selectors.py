@@ -1036,9 +1036,11 @@ def _extreme(s: Selector, m: re.Match[str]) -> Selector:
     if m["scope"]:
         if not re.search(r"(?:on the battlefield|you control|you don't control|your opponents control|an opponent controls)$", m["scope"]):
             raise ValueError(m["scope"])  # (a bare "among creatures": whose? "Each opponent chooses a creature with the greatest mana value among creatures they control" strips the owner first)
+        base = _parse(m.string[: m.start()])  # (the kind is among its own kind: "a creature with the greatest power among artifacts" is no extreme of a group it isn't in)
         scope_sel = _parse(re.sub(r"s( on the battlefield| you control| you don't control| an opponent controls)?$", r"\1", m["scope"]).replace(" on the battlefield", ""))
-        if scope_sel is None or scope_sel.player is not None or scope_sel.card or scope_sel.zones != ("battlefield",):
-            raise ValueError(m["scope"])  # (not a group of permanents: no selector)
+        if scope_sel is None or scope_sel.player is not None or scope_sel.card or scope_sel.zones != ("battlefield",) \
+                or base is None or (base.types, base.not_types) != (scope_sel.types, scope_sel.not_types):
+            raise ValueError(m["scope"])  # (not a group of permanents of its kind: no selector)
         scope = scope_sel.key()
     return replace(s, extras=(*s.extras, f"ext:{'greatest' if m['which'] == 'greatest' else 'least'}:{ {'mana value': 'mv'}.get(m['what'], m['what']) }:{scope}"))
 
@@ -1932,6 +1934,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             _, which, what, scope = extra.split(":", 3)
             scope_sel = replace(sel, extras=tuple(x for x in sel.extras if not x.startswith("ext:"))) if scope == "self" else from_key(scope)
             mine = _stat(ch, what)
+            if scope != "self" and not matches(plan, scope_sel, card, ch, you, source):
+                return False  # ("among creatures you control": it is one of them)
             others = [v for c in candidates(plan, scope_sel, you, source) if (v := _stat(plan.ch(plan.state.cards[c]), what)) is not None]
             if mine is None or (which == "greatest" and any(v > mine for v in others)) or (which == "least" and any(v < mine for v in others)):
                 return False

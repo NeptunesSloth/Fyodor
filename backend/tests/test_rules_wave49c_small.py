@@ -535,3 +535,25 @@ def test_glyph_of_destruction_pumps_the_blocking_wall_for_the_combat_only(cards)
     assert s.state.cards[bears.id].zone == "p1:graveyard"  # 10 damage from the Wall
     assert s.state.cards[wall.id].damage == 0 and Plan(s.state, "p1", s.cards, None).ch(s.state.cards[wall.id]).pt == (0, 4)  # (prevented; and the +10/+0 ended with the combat)
     check(s)
+
+
+def test_an_ability_may_still_target_a_creature_spells_cannot_target(cards):
+    s = build(cards, ["Dense Foliage", "Granite Shard", "Grizzly Bears"])
+    put(s, "Dense Foliage")
+    shard = put(s, "Granite Shard")
+    bears = put(s, "Grizzly Bears")
+    mana(s, R=1)
+    act(s, "p1", type="activate_ability", card_id=shard.id, ability=1, targets=[bears.id])  # an ability: 115.2 names spells only
+    settle(s)
+    assert s.state.cards[bears.id].damage == 1
+    check(s)
+
+
+def test_an_aura_spell_cannot_target_a_creature_either(cards):
+    s = build(cards, ["Dense Foliage", "Pacifism", "Grizzly Bears"])
+    put(s, "Dense Foliage")
+    bears = put(s, "Grizzly Bears")
+    mana(s, W=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Pacifism").id, targets=[bears.id])  # 303.4a: an Aura spell targets
+    check(s)

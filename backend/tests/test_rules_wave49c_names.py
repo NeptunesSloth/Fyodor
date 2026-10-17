@@ -6,7 +6,9 @@ Every scenario checks the replay and a save and a load.
 * "Choose a card name, then reveal the top card of your library. If that card has the chosen name, sacrifice this artifact and draw three cards." (Diviner's Lockbox) - a wrong guess
   leaves the card on top.
 * "All Slivers have '{T}: Choose a card name. Target opponent reveals a card at random from their hand. If that card has the chosen name, that player discards it.'" (Dementia Sliver).
-* Petra Sphinx ("Target player chooses a card name, …") stays manual: the name is chosen by the target player, which choose_value does not model.
+* "Target player chooses a card name, then reveals the top card of their library. If that card has the chosen name, that player puts it into their hand. If it doesn't, the player puts it into
+  their graveyard." (Petra Sphinx) - the target player names it; the card is revealed after. Vexing Arcanix ("Otherwise, they put it into their graveyard and this artifact deals 2 damage to
+  them") stays manual: the damage belongs to the "otherwise" only.
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ from app.cards.repository import CardRepository
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import activate, to_phase
+from tests.test_rules_wave34b_activated import activate, ask, to_phase
 from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand
 from tests.wave43b_kit import on_top
 
@@ -30,7 +32,7 @@ DATA = json.loads((Path(__file__).parent / "fixtures" / "wave49c_names_cards.jso
 KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w49c", number=f"N{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
-FULL = ["Cursed Scroll", "Magus of the Scroll", "Diviner's Lockbox", "Dementia Sliver"]
+FULL = ["Cursed Scroll", "Magus of the Scroll", "Diviner's Lockbox", "Dementia Sliver", "Petra Sphinx"]
 
 
 @pytest.fixture()
@@ -67,10 +69,10 @@ def only_in_hand(s, name=None, pid="p1"):
     return keep
 
 
-def test_the_cards_are_full_and_petra_sphinx_is_not(cards):
+def test_the_cards_are_full_and_vexing_arcanix_is_not(cards):
     for name in FULL:
         assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
-    assert coverage.of_card_data(cards.resolve("Petra Sphinx")).level != "FULL"
+    assert coverage.of_card_data(cards.resolve("Vexing Arcanix")).level != "FULL"
 
 
 @pytest.mark.parametrize(("named", "damage"), [("Grizzly Bears", 2), ("Lightning Bolt", 0)])
@@ -130,4 +132,19 @@ def test_dementia_sliver_leaves_a_card_with_another_name(cards):
     activate(s, "p1", sliver, "Choose a card name", targets=["p2"])
     run(s, "Lightning Bolt")
     assert card_named(s, "Grizzly Bears", "p2").zone == "p2:hand"
+    check(s)
+
+
+@pytest.mark.parametrize(("named", "zone"), [("Grizzly Bears", "p2:hand"), ("Lightning Bolt", "p2:graveyard")])
+def test_petra_sphinx_has_the_target_player_name_a_card_and_reveal_the_top_card(cards, named, zone):
+    s = build(cards, ["Petra Sphinx"], ["Grizzly Bears"])
+    sphinx = put(s, "Petra Sphinx")
+    top = on_top(s, "Grizzly Bears", "p2")
+    to_phase(s, "main1", turn=3)
+    top = on_top(s, "Grizzly Bears", "p2")  # (Bob drew his card for turn 2: the Bears go back on top)
+    activate(s, "p1", sphinx, targets=["p2"])
+    d = ask(s)
+    assert d.player == "p2" and d.options[0].id == "__name__"  # Bob names the card, not Alice
+    run(s, named)
+    assert s.state.cards[top.id].zone == zone
     check(s)

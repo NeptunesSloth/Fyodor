@@ -663,7 +663,8 @@ def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: di
     spec = definition.get("target") if definition else None
     if not spec:
         return []
-    legal = [t for t in legal_targets(plan, spec["what"], plan.actor, source_of(plan, a.card_id), a.card_id) if t not in exclude]
+    legal = [t for t in legal_targets(plan, spec["what"], plan.actor, source_of(plan, a.card_id, isinstance(a, A.CastSpell)), a.card_id)
+             if t not in exclude]  # (wave 49C: a spell's targeting, 115.2)
     if a.targets:
         if len(a.targets) != 1 or a.targets[0] not in legal:
             raise ActionError("That isn't a legal target")
@@ -867,7 +868,7 @@ def choose_slot_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, specs: l
     need = [k for k, spec in enumerate(specs) if spec]
     if len(a.targets) > len(need):
         raise ActionError("Too many targets for the chosen modes")
-    src = source_of(plan, a.card_id)
+    src = source_of(plan, a.card_id, isinstance(a, A.CastSpell))
     out: list[list[TargetRef]] = [[] for _ in specs]
     for n, k in enumerate(need):
         spec = specs[k]
@@ -2286,7 +2287,7 @@ def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Character
                 return f"{ch.name or 'It'} has no mode you can choose"
         elif not manual:
             aura = attachments.enchant_selector(ch)
-            src = source_of(plan, card.id)
+            src = source_of(plan, card.id, True)  # (wave 49C: a spell)
             from app.rules import kicked_instead
             from app.rules.targets import group_limits
 

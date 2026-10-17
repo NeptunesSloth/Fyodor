@@ -48,6 +48,7 @@ class Characteristics:
     oracle_id: str | None = None
     face_down: bool = False
     is_ability: bool = False  # an ability object on the stack
+    is_spell: bool = False  # -- cant (wave 49C) -- the source of a targeting is a spell (115.2: "can't be the target of spells"); set by targets.source_of(spell=True)
     # Derived by app.rules.layers (never printed): current power/toughness, keywords gained/lost.
     pt: tuple[int, int] | None = None
     base_pt: tuple[int, int] | None = None  # -- base power (wave 30J) -- 208.4b: after layers 7a and 7b, before counters and 7c's modifications

@@ -1337,7 +1337,7 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         m = None  # ("exile it" alone is the plain exile instruction, whatever "it" is: not a pick from among the cards looked at)
     if m and m["to"] == "into their hand" and not m["theyput"]:
         raise _Fail  # (wave 43B: "put it into their hand": whose hand? only the library's owner putting it is read)
-    if m and m["theyput"] and (not m["that"] or m["to"] not in ("onto the battlefield", "onto the battlefield tapped", "into their hand") or m["rest"]):
+    if m and m["theyput"] and (not m["that"] or m["to"] not in ("onto the battlefield", "onto the battlefield tapped", "into their hand", "into their graveyard") or m["rest"]):
         raise _Fail  # (wave 43B: the library's owner puts the one card looked at; a choice among several cards is not read)
     if m:
         optional = bool(m["may"] or m["mayput"] or m["theymay"] or (m["exile"] or "").startswith("you may"))
@@ -3129,6 +3129,15 @@ def discard_named(m: re.Match[str]) -> tuple[Effects, Any]:
 
 def choose_value(m: re.Match[str]) -> tuple[Effects, Any]:
     return [{"do": "choose_value", "who": "you", "what": m["what"]}], None
+
+
+# -- card names (wave 49C) -- "Target player chooses a card name, then reveals the top card of their library." (Petra Sphinx, Vexing Arcanix): the target player names it as this resolves
+CHOOSE_NAME_TARGET = rf"(?P<s>target player|target opponent) chooses (?:a|an) (?P<what>{_NAME_WHAT})"
+
+
+def choose_name_target(m: re.Match[str]) -> tuple[Effects, Any]:
+    who, group = _chooser(m["s"])
+    return [{"do": "choose_value", "who": who, "what": m["what"]}], _one(group)
 
 
 def enters_choice(text: str) -> dict[str, Any] | None:

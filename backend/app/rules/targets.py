@@ -10,7 +10,7 @@ in their private decision, nobody else does.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from app.game.actions import MAX_TARGETS
@@ -88,7 +88,7 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
     for rule in ch.imposed:  # -- cant (wave 16F) -- "can't be the target of black spells or abilities from black sources"
         if rule.startswith("untargetable_by_opponents_of:") and chooser != rule.split(":", 1)[1]:
             return False  # (-- review 20A -- the Aura's controller's opponents; no teams: every other player, 102.2)
-        if rule.startswith("untargetable_spells") and source is not None and not source.is_ability:  # -- cant (wave 49C) -- 115.2: no spell (of those colors) may target it
+        if rule.startswith("untargetable_spells") and source is not None and source.is_spell:  # -- cant (wave 49C) -- 115.2: no spell (of those colors) may target it; an ability still may
             colors = rule.partition(":")[2]
             if not colors or set(colors) & source.colors:
                 return False
@@ -396,10 +396,14 @@ def _different(plan: Plan, chosen: list[str], what: str) -> bool:
     return len(set(seen)) == len(seen)
 
 
-def source_of(plan: Plan, card_id: str | None) -> Characteristics | None:
-    """The characteristics of a spell or of an ability's source, for protection checks."""
+def source_of(plan: Plan, card_id: str | None, spell: bool = False) -> Characteristics | None:
+    """The characteristics of a spell or of an ability's source, for protection checks (``spell``: it is a spell that targets, 115.2)."""
     card = plan.state.cards.get(card_id or "")
-    return plan.ch(card) if card is not None else None
+    return None if card is None else as_spell(plan.ch(card)) if spell else plan.ch(card)
+
+
+def as_spell(ch: Characteristics) -> Characteristics:
+    return replace(ch, is_spell=True)
 
 
 def label(plan: Plan, target: str) -> str:

@@ -3415,7 +3415,7 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
                     "event": entry.event.model_dump(mode="json") if entry.event is not None else None}
     attacker = selectors.attacker_of(entry.event)  # (508.5: "defending player" of an attack trigger)
     if entry.slot_specs:  # a modal spell: each mode's target is checked on its own (608.2b)
-        src = source_of(plan, entry.source_card)
+        src = source_of(plan, entry.source_card, entry.kind == "spell")
         slots, targeted, legal_any = [], False, False
         for refs, sspec in zip(entry.slots, entry.slot_specs, strict=False):
             ok = [t for t in refs if sspec and still_legal(plan, sspec["what"], entry.controller, t, src, entry.source_card, attacker)]
@@ -3429,7 +3429,7 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
         ctx["slots"] = slots
         ctx["targets"] = []
     if entry.group_specs:  # target groups: every target is checked on its own (608.2b)
-        src = source_of(plan, entry.source_card)
+        src = source_of(plan, entry.source_card, entry.kind == "spell")
         groups: list[list[dict[str, Any] | None]] = []
         for refs, gspec in zip(entry.groups, entry.group_specs, strict=False):
             # an illegal target keeps its place (None), so the division stays as announced (115.7f)
@@ -3447,7 +3447,7 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
         ctx["targets"] = [t for t in groups[0] if t] if groups else []
     spec = entry.target_spec
     if spec and entry.targets:
-        src = source_of(plan, entry.source_card)
+        src = source_of(plan, entry.source_card, entry.kind == "spell")  # (wave 49C: 115.2)
         legal = [t for t in entry.targets if still_legal(plan, spec["what"], entry.controller, t, src, entry.source_card, attacker)]
         if not legal:
             plan.note(f"{entry.name or 'It'} does nothing: its target is no longer legal")
@@ -3921,7 +3921,10 @@ def choose_value(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True  # (no opponent left to choose: 800.4)
     src = plan.state.cards.get(ctx.get("source_card") or "")
     article = "an" if e["what"][0] in "aeiou" else "a"
-    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name', '') or 'Choose'}: choose {article} {e['what']}",
+    chooser = _players(plan, ctx, e["who"])  # -- card names (wave 49C) -- "Target player chooses a card name": the target player (a target who left the game chooses nothing, 800.4)
+    if not chooser:
+        return True
+    decide(plan, player=chooser[0], kind="choose_one", prompt=f"{ctx.get('name', '') or 'Choose'}: choose {article} {e['what']}",
            options=options, resume={"step": "choose_value", "ctx": ctx, "e": e}, source=src)
     return False
 
