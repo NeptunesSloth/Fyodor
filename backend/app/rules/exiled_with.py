@@ -146,9 +146,12 @@ _AMONG = re.compile(r"\bfrom among (?:the )?cards exiled with (?:it\b|~)")
 _ANY_CARDS = re.compile(r"\b([Cc]ast any number of) cards exiled with (?:it\b|~) (without paying their mana costs)")
 
 
+_CAST_A_CARD = re.compile(r"\b([Cc]ast) a card exiled with (?:it\b|~)")  # -- activation words (wave 48C) -- Krang & Shredder: what is cast from exile is a spell
+
+
 def among(body: str) -> str:
     """The sentence(s) of a linked-referring ability with "cards exiled with ~" read as "them" (see the free-cast grammar, permissions.FREE_AMONG)."""
-    return _ANY_CARDS.sub(r"\1 spells from among them \2", _AMONG.sub("from among them", body))
+    return _ANY_CARDS.sub(r"\1 spells from among them \2", _AMONG.sub("from among them", _CAST_A_CARD.sub(r"\1 a spell from among cards exiled with ~", body)))
 
 
 def _exiles(d: dict[str, Any] | None) -> bool:

@@ -1396,6 +1396,8 @@ def parse_either(phrase: str) -> Selector | None:
         if inner is not None and inner.either and ctl is not None and ctl.controller is not None \
                 and all(from_key(k).controller is None for k in inner.either):
             return Selector(either=tuple(replace(from_key(k), controller=ctl.controller).key() for k in inner.either))
+    # -- trigger other (wave 48C) -- "legendary or Rat card from your graveyard" (Nashi, Moon's Legacy): the adjective is one kind's own, "legendary card or Rat card"
+    phrase = re.sub(r"^(legendary) or ([A-Za-z ]+? card from (?:your|a) graveyard)$", r"\1 card or \2", phrase.strip())
     # -- most-played cards II (wave 45A) -- "Dragon creature card or Ugin planeswalker card from your graveyard" (Haven of the Spirit Dragon): two kinds of card, each with
     # its own qualifier, in one zone the tail names (115.1: a card of either kind is a legal target)
     z = _CARD_EITHER.fullmatch(phrase.strip())

@@ -973,7 +973,7 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
 _FROM_JOIN = "\u0001from "
 _PIECE_VERB = r"gets?|ha(?:s|ve)|gains?|loses?|is|are|can't|can|attacks?|blocks?|must|doesn't|don't|becomes?|enters?|assigns?"  # (the verbs a predicate piece starts with)
 _PARAM_KEYWORDS = ("protection", "ward", "toxic", "annihilator", "afflict", "poisonous", "bushido", "mobilize", "frenzy",
-                   "soulshift", "afterlife", "crew", "equip", "renown")  # (wave 47A: renown, Aragorn Hornburg Hero; wave 15E: keywords whose line is carried out wherever it is: keyword_triggers; 17C: crew, equip)
+                   "soulshift", "afterlife", "crew", "equip", "renown", "firebending")  # (wave 48C: firebending, Iroh; wave 47A: renown, Aragorn Hornburg Hero; wave 15E: keywords whose line is carried out wherever it is: keyword_triggers; 17C: crew, equip)
 
 
 def keyword_line(rest: str) -> str | None:

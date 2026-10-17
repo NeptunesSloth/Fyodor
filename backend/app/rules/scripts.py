@@ -1916,7 +1916,7 @@ def _searchers_shuffle(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | No
     return [{"do": "searchers_shuffle"}], None  # (joined to the search before it: _gy_shuffle; alone it stays manual)
 
 
-@effect(r"tap any number of untapped (?P<sel>.+?) you control")
+@effect(r"tap any number of (?:untapped )?(?P<sel>.+?) you control")  # (wave 48C: Plargg, "tap any number of creatures you control": only an untapped one can be tapped, 701.26a)
 def _tap_choice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     """-- "this way" outcomes (wave 4A) -- "Tap any number of untapped creatures you control." (a choice of 0 or more,
     not a target: this_way.tap_choice), read for what "… tapped this way" counts."""
@@ -2399,7 +2399,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # -- control change (wave 26D) -- "It gains haste and myriad until end of turn." (Firbolg Flutist), "… and annihilator 2 …" (Flayer of Loyalties):
     # a keyword with its own triggered ability is granted as the ability line it is (613.1f, 702.116a, 702.86a), the quoted-grant grammar
     body = re.sub(r"((?:\bgains? |[Uu]ntil end of turn, [^.\"]*?\bgains? ))([^.\"]+?)( until end of turn|(?<=[a-z0-9])(?=\.|$))",
-                  lambda m: m[1] + re.sub(r"\b(myriad|extort|melee|(?:annihilator|afflict|poisonous|frenzy|afterlife) \d+)\b",
+                  lambda m: m[1] + re.sub(r"\b(myriad|extort|melee|(?:annihilator|afflict|poisonous|frenzy|afterlife|firebending) \d+)\b",  # (wave 48C: Iroh, Fire Nation Palace)
                                           lambda k: f'"{k[1].capitalize()}"', m[2]) + m[3]
                   if ("until end of turn" in m[3] or m[1].lower().startswith("until end of turn")) else m[0], body)
     # -- look top (wave 26D) -- "Put one of those cards into your hand, one on top of your library, and one on the bottom of your library."
@@ -2994,6 +2994,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # -- reanimation (wave 47D) -- "return this card to the battlefield under your control. He's a Spirit in addition to his other types." (Fang, Roku's Companion): the pronoun for the
     # object just returned, worded as "It's a Spirit in addition to its other types."
     body = re.sub(r"\b(?:He|She)'s an? ([A-Z][a-z]+) in addition to (?:his|her) other types\b", r"It's a \1 in addition to its other types", body)
+    # -- activated other (wave 48C) -- "Until end of turn, target creature you control gets +3/+1 and becomes a Dinosaur in addition to its other types." (Stegron the Dinosaur Man, Thran
+    # Forge): two continuous effects of the same duration on the same object (611.2a, 613.1d, 613.4c), each stated with the duration
+    body = re.sub(r"\bUntil end of turn, (target [a-z ]+?) gets ([+-]\d+/[+-]\d+) and becomes (an? [A-Za-z]+) in addition to its other types\.",
+                  r"Until end of turn, \1 gets \2. Until end of turn, it becomes \3 in addition to its other types.", body)
     # -- reanimation (wave 47D) -- "When you cast this spell, amass Orcs 5, mill five cards, then return a creature card from your graveyard to the battlefield." (Sauron, Lord of
     # the Rings): the instructions in order, 608.2c
     body = re.sub(r"\b(amass [A-Z][a-z]+ (?:\d+|X)), (?=(?:mill|draw|scry|surveil) )", r"\1, then ", body)
