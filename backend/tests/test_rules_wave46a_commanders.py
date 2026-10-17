@@ -19,6 +19,7 @@ from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_effects import pass_until_stack_empty
+from tests.test_rules_permissions import cost_of
 from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave46a_cards.json").read_text("utf-8"))
@@ -26,7 +27,7 @@ KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w46a", number=f"A{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 PUNK, OBOSH = "Spider-Punk", "Obosh, the Preypiercer"
-FULL = [PUNK, OBOSH, "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained"]
+FULL = [PUNK, OBOSH, "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained", "Edgewalker", "Ragemonger", "Morophon, the Boundless"]
 
 
 @pytest.fixture()
@@ -236,4 +237,46 @@ def test_polukranos_enters_with_six_counters_cast_and_twelve_escaped(cards):
     settle_decisions(s)
     assert on_table(s, POLUKRANOS, "p1").zone == "p1:battlefield"
     assert on_table(s, POLUKRANOS, "p1").counters.get("+1/+1") == 12  # escaped: the larger amount instead
+    check(s)
+
+
+# ---- 118.7b, 118.7c: colored reductions that spill nowhere (Edgewalker, Ragemonger, Morophon) ---------------------------------------------------------
+EDGEWALKER, RAGEMONGER, MOROPHON = "Edgewalker", "Ragemonger", "Morophon, the Boundless"
+
+
+def cost(s, name, pid="p1"):
+    return cost_of(s, on_table_or_hand(s, name, pid), s.cards)
+
+
+def on_table_or_hand(s, name, pid="p1"):
+    return s.state.cards[card_named(s, name, pid).id]
+
+
+def test_edgewalker_takes_only_the_white_and_black_symbols_off_cleric_spells(cards):
+    s = build(cards, [EDGEWALKER, "Monk Idealist", "Skirsdag High Priest", "Dune Diviner", "Grizzly Bears"], [])
+    put(s, EDGEWALKER)
+    assert cost(s, "Monk Idealist") == "{2}"  # {2}{W}: the {W} goes, the generic part stays
+    assert cost(s, "Skirsdag High Priest") == "{1}"  # {1}{B}
+    assert cost(s, "Dune Diviner") == "{2}{G}"  # a Cleric with neither color: "only the amount of colored mana", nothing is taken from generic
+    assert cost(s, "Grizzly Bears") == "{1}{G}"  # not a Cleric
+    check(s)
+
+
+def test_without_edgewalker_nothing_is_reduced(cards):
+    s = build(cards, [EDGEWALKER, "Monk Idealist"], [])
+    assert cost(s, "Monk Idealist") == "{2}{W}"
+    check(s)
+
+
+def test_morophon_reduces_every_color_of_the_chosen_type(cards):
+    s = build(cards, [MOROPHON, "Elvish Visionary", "Grizzly Bears"], [])
+    mana(s, R=7)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, MOROPHON).id)
+    pass_until_stack_empty(s)
+    d = s.state.rules.decision
+    choose(s, [next(o.id for o in d.options if o.label == "Elf" or o.id == "Elf")])
+    pass_until_stack_empty(s)
+    assert on_table_or_hand(s, MOROPHON).zone == "p1:battlefield"
+    assert cost(s, "Elvish Visionary") == "{1}"  # an Elf, {1}{G}: the {G} goes
+    assert cost(s, "Grizzly Bears") == "{1}{G}"  # a Bear
     check(s)
