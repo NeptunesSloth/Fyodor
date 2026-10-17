@@ -1310,6 +1310,9 @@ def _each_own_qualifier(phrase: str) -> Selector | None:
     return Selector(either=tuple(s.key() for s in subs))
 
 
+_CARD_EITHER = re.compile(r"(?P<a>[A-Za-z ]+? card) or (?P<b>[A-Za-z ]+? card) (?P<z>from (?:your|a) graveyard)")
+
+
 def parse_either(phrase: str) -> Selector | None:
     """"artifact, enchantment, or creature with flying" (a target phrase: 115.1): an artifact, an enchantment, or a creature with
     flying — the qualifier is the last kind's only."""
@@ -1322,6 +1325,14 @@ def parse_either(phrase: str) -> Selector | None:
         if inner is not None and inner.either and ctl is not None and ctl.controller is not None \
                 and all(from_key(k).controller is None for k in inner.either):
             return Selector(either=tuple(replace(from_key(k), controller=ctl.controller).key() for k in inner.either))
+    # -- most-played cards II (wave 45A) -- "Dragon creature card or Ugin planeswalker card from your graveyard" (Haven of the Spirit Dragon): two kinds of card, each with
+    # its own qualifier, in one zone the tail names (115.1: a card of either kind is a legal target)
+    z = _CARD_EITHER.fullmatch(phrase.strip())
+    if z is not None:
+        a, b = _parse(f"{z['a']} {z['z']}"), _parse(f"{z['b']} {z['z']}")
+        if a is None or b is None or not (a.card and b.card) or a.either or b.either or a.zones != b.zones or a.zone_owner != b.zone_owner:
+            return None
+        return Selector(either=(a.key(), b.key()), zones=a.zones, zone_owner=a.zone_owner, card=True)
     m = _EITHER.match(phrase.strip())
     if m is None:
         return _each_own_qualifier(phrase.strip())

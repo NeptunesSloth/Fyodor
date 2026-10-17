@@ -1558,6 +1558,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["s"] == "your":
             return [{"do": "set_life", "who": "you", "n": n}], None
         return [{"do": "set_life", "who": "target", "n": n}], _LEGACY_TARGETS["target player"]
+    # -- most-played cards II (wave 45A) -- 701.10d: "Double target player's life total." (Beacon of Immortality), "Double your life total." (Revenge): the player
+    # gains or loses what it takes to reach twice the total (119.5, effects.set_life: gain and loss events, so their triggers and replacements apply)
+    m = re.fullmatch(r"double (?P<s>target player's|your) life total", text)
+    if m and rider is None:
+        if m["s"] == "your":
+            return [{"do": "set_life", "who": "you", "n": {"times": [2, {"life": "you"}]}}], None
+        return [{"do": "set_life", "who": "target", "n": {"times": [2, {"for_player": "target", "of": {"life": "you"}}]}}], _LEGACY_TARGETS["target player"]
     # -- trigger other (wave 25B) -- 119.5: "Your life total becomes the number of creatures you control" (Touch of the Eternal), "… the number of
     # charge counters on this artifact" (Eternity Vessel), "… the total toughness of creatures you control" (Loxodon Lifechanter): a counted amount
     m = re.fullmatch(r"(?P<s>target player's|your) life total becomes (?:equal to )?(?P<v>the (?:number|total) .+)", text)

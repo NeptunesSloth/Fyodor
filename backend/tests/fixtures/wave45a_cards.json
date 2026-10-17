@@ -257,5 +257,132 @@
    "W"
   ],
   "keywords": []
+ },
+ {
+  "name": "Legion Leadership // Legion Stronghold",
+  "layout": "modal_dfc",
+  "mana_cost": "{1}{R/W} // ",
+  "cmc": 2.0,
+  "type_line": "Instant // Land",
+  "oracle_text": "Until end of turn, double target creature's power and it gains first strike.\n//\nThis land enters tapped.\n{T}: Add {R} or {W}.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Double"
+  ],
+  "card_faces": [
+   {
+    "name": "Legion Leadership",
+    "mana_cost": "{1}{R/W}",
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, double target creature's power and it gains first strike.",
+    "colors": [
+     "R",
+     "W"
+    ]
+   },
+   {
+    "name": "Legion Stronghold",
+    "mana_cost": "",
+    "type_line": "Land",
+    "oracle_text": "This land enters tapped.\n{T}: Add {R} or {W}.",
+    "colors": []
+   }
+  ]
+ },
+ {
+  "name": "Beacon of Immortality",
+  "layout": "normal",
+  "mana_cost": "{5}{W}",
+  "cmc": 6.0,
+  "type_line": "Instant",
+  "oracle_text": "Double target player's life total. Shuffle Beacon of Immortality into its owner's library.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Double"
+  ]
+ },
+ {
+  "name": "Revival // Revenge",
+  "layout": "split",
+  "mana_cost": "{W/B}{W/B} // {4}{W}{B}",
+  "cmc": 8.0,
+  "type_line": "Sorcery // Sorcery",
+  "oracle_text": "Return target creature card with mana value 3 or less from your graveyard to the battlefield.\n//\nDouble your life total. Target opponent loses half their life, rounded up.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [
+   "Double"
+  ],
+  "card_faces": [
+   {
+    "name": "Revival",
+    "mana_cost": "{W/B}{W/B}",
+    "type_line": "Sorcery",
+    "oracle_text": "Return target creature card with mana value 3 or less from your graveyard to the battlefield."
+   },
+   {
+    "name": "Revenge",
+    "mana_cost": "{4}{W}{B}",
+    "type_line": "Sorcery",
+    "oracle_text": "Double your life total. Target opponent loses half their life, rounded up."
+   }
+  ]
+ },
+ {
+  "name": "Haven of the Spirit Dragon",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land",
+  "oracle_text": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a Dragon creature spell.\n{2}, {T}, Sacrifice this land: Return target Dragon creature card or Ugin planeswalker card from your graveyard to your hand.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Ugin, the Spirit Dragon",
+  "layout": "normal",
+  "mana_cost": "{8}",
+  "cmc": 8.0,
+  "type_line": "Legendary Planeswalker — Ugin",
+  "oracle_text": "+2: Ugin deals 3 damage to any target.\n−X: Exile each permanent with mana value X or less that's one or more colors.\n−10: You gain 7 life, draw seven cards, then put up to seven permanent cards from your hand onto the battlefield.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "loyalty": "7"
+ },
+ {
+  "name": "Jace, the Mind Sculptor",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Jace",
+  "oracle_text": "+2: Look at the top card of target player's library. You may put that card on the bottom of that player's library.\n0: Draw three cards, then put two cards from your hand on top of your library in any order.\n−1: Return target creature to its owner's hand.\n−12: Exile all cards from target player's library, then that player shuffles their hand into their library.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "loyalty": "3"
  }
 ]

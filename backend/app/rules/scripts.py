@@ -2990,6 +2990,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # end of turn." is one choice made as it resolves (608.2d): read as "… becomes the creature type [other than Wall] of your choice …"
     body = re.sub(r"([^.]+?) (gets [+−-]\d+/[+−-]\d+) and (becomes the color of your choice) until end of turn\.",
                   r"\1 \2 until end of turn. \1 \3 until end of turn.", body)  # (Wild Mongrel: two instructions in order)
+    body = re.sub(r"Until end of turn, (double [^.\"]+?) and it (gains? [^.\"]+?)\.", r"\1 until end of turn. It \2 until end of turn.", body)  # -- most-played cards II (wave 45A) -- Legion Leadership: two instructions, "it" the one target
     body = re.sub(r"Choose a creature type( other than [A-Z][a-z]+)?\. ([^.]+?) becomes? that type until end of turn\.",
                   r"\2 becomes the creature type\1 of your choice until end of turn.", body)
     body = re.sub(r"(chooses [^.]*? they control)\. Destroy the rest\.", r"\1, then the rest are destroyed.", body)  # (wave 11D)

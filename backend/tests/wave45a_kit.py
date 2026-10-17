@@ -15,7 +15,7 @@ DATA = json.loads((Path(__file__).parent / "fixtures" / "wave45a_cards.json").re
 KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w45a", number=f"A{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
-SUPPORT = ("Hill Giant", "Grizzly Bears", "Goblin Piker", "Shivan Dragon", "Wall of Omens")  # (ordinary bodies the scenarios need, not under test)
+SUPPORT = ("Hill Giant", "Grizzly Bears", "Goblin Piker", "Shivan Dragon", "Wall of Omens", "Ugin, the Spirit Dragon", "Jace, the Mind Sculptor")  # (cards the scenarios need, not under test)
 FULL = [c["name"] for c in DATA if c["name"] not in SUPPORT]
 
 
