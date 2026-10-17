@@ -3952,6 +3952,11 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
         return None
     else:
         phrase, payer = text[len("you may "):], "you"
+    # -- exile as a cost (wave 49D) -- "you may pay {1} and exile it" (Kinzu, Timothar): the dead card is exiled as part of the cost, so the payment
+    # is offered only while it's still in the graveyard it went to (118.3, 400.7: optional_payment ``needs``)
+    needs = None
+    if it in ("event", "event_gone") and (gate := re.fullmatch(r"(?P<pay>pay [^,]+?) and exile it", phrase)) is not None:
+        phrase, needs = gate["pay"], "event.new"
     if re.search(r"\bit\b", phrase) and it != "self":
         return None
     cost = optional_payment.cost_text(phrase)
@@ -3966,7 +3971,7 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
             return None
         cost, sized = found.pop("cost"), found
     bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
-    return {"do": "optional_payment", "who": payer, "cost": cost, "bind": bind, **sized}
+    return {"do": "optional_payment", "who": payer, "cost": cost, "bind": bind, **sized, **({"needs": needs} if needs else {})}
 
 
 _THAT_PLAYER_MAY = re.compile(r"^(?:that|that attacking) player may (?P<v>create|draw|put|discard|sacrifice|exile|return|add|gain|lose|mill) (?P<rest>.+)$")
