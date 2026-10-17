@@ -305,7 +305,10 @@ _EXCEPT = " except during its controller's turn"
 # -- spell grants (wave 30T) -- "… costs {2} less to cast and can be cast as though it had flash." (Radagast of Rhosgobel): the first one's flash too
 # -- cost changers (wave 44D) -- "The first spell you cast with {X} in its mana cost each turn costs {1} less to cast for each +1/+1 counter on ~." (Zimone, Infinite Analyst): the
 # turn's cast records say whether a spell had {X} in its mana cost (history.CastNote.x_cost)
-ORDINAL = re.compile(rf"^the (?P<ord>first|second) (?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spell you cast(?P<xc> with \{{X\}} in its mana cost)? each turn costs {_SYMBOL} "
+# (-- cant restrictions (wave 46A) -- "The first non-Lemur creature spell with flying you cast during each of your turns costs {1} less to cast." (Momo, Friendly Flier): a keyword
+# the spell had as it was cast, and only the turns of the source's controller)
+ORDINAL = re.compile(rf"^the (?P<ord>first|second) (?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spell(?P<kw> with (?:flying|flash|haste|trample|vigilance|reach|menace|deathtouch|lifelink|first strike))? you cast"
+                     rf"(?P<xc> with \{{X\}} in its mana cost)?(?P<when> each turn| during each of your turns) costs {_SYMBOL} "
                      r"less to cast(?P<each> for each [^.]+?)?(?P<flash> and can be cast as though it had flash)?$")
 
 
@@ -474,9 +477,11 @@ def _ordinal_definition(o: re.Match[str]) -> dict[str, Any] | None:
     from app.rules import history, selectors
     from app.rules.permissions import spell_filter
 
-    tail = "with {X} in its mana cost" if o["xc"] else None
+    if o["xc"] and o["kw"]:
+        return None
+    tail = "with {X} in its mana cost" if o["xc"] else o["kw"].strip() if o["kw"] else None
     key = spell_filter(o["sel"], tail) if o["sel"] or tail else None
-    if (o["sel"] or tail) and (key is None or not history.note_selector_ok(selectors.from_key(key), spell=True)):
+    if (o["sel"] or tail) and (key is None or not history.note_selector_ok(selectors.from_key(key), spell=True, kept=True)):
         return None  # (a kind of spell the turn's cast records can't answer: "kicked", "face-down", "with flying")
     if o["ord"] == "second" and key is not None:
         return None
@@ -489,7 +494,7 @@ def _ordinal_definition(o: re.Match[str]) -> dict[str, Any] | None:
     from app.rules import cast_limits
 
     return {"kind": "static", "static": "cost_modifier", "delta": -n, "caster": "you", "filter": key,
-            "change": change, "ordinal": 1 if o["ord"] == "first" else 2, "effects": [],
+            "change": change, "ordinal": 1 if o["ord"] == "first" else 2, "effects": [], **({"turn": "yours"} if o["when"] != " each turn" else {}),
             **({"flash_perm": cast_limits.flash_def(key, first=True)} if o["flash"] else {})}  # (read by permissions.grants: 601.3b)
 
 
@@ -500,7 +505,8 @@ def _ordinal_ok(state: GameState, info: CardInfo, player: str, d: dict[str, Any]
     log = history.log_for(view_of(state, player, info))
     sel = selectors.from_key(d["filter"]) if d.get("filter") else None
     before = sum(1 for note in log.casts if note.player == player
-                 and (sel is None or history.note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv, x_cost=note.x_cost)))
+                 and (sel is None or history.note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv, x_cost=note.x_cost,
+                                                              keywords=note.keywords, face_down=note.face_down)))
     return before == d["ordinal"] - 1
 
 

@@ -1057,7 +1057,7 @@ def spell_matches(state: GameState, player: str, card: CardInstance, ch: Charact
                   source: str | None = None) -> bool:
     """Would the spell this card becomes match the selector ("creature spells", "red spells")? (``source``: the
     permanent whose "chosen type" the selector reads, wave 5I)"""
-    probe = card.model_copy(update={"zone": STACK, "controller": player})
+    probe = card.model_copy(update={"zone": STACK, "controller": player, **({"face_down": True} if ch.face_down else {})})  # (wave 46A: a spell being cast face down, 708.4)
     return selectors.matches(_view(state, player, info), selectors.from_key(key), probe, ch, player, source)
 
 

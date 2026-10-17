@@ -15,6 +15,7 @@ import pytest
 from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
@@ -27,7 +28,7 @@ KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w46a", number=f"A{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 PUNK, OBOSH = "Spider-Punk", "Obosh, the Preypiercer"
-FULL = [PUNK, OBOSH, "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained", "Edgewalker", "Ragemonger", "Morophon, the Boundless", "Eluge, the Shoreless Sea", "Jared Carthalion, True Heir"]
+FULL = [PUNK, OBOSH, "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained", "Edgewalker", "Ragemonger", "Morophon, the Boundless", "Eluge, the Shoreless Sea", "Jared Carthalion, True Heir", "Momo, Friendly Flier", "Kadena, Slinking Sorcerer"]
 
 
 @pytest.fixture()
@@ -330,4 +331,33 @@ def test_without_jared_the_same_creature_makes_alice_the_monarch(cards):
     cast(s, "Palace Sentinels")
     pass_until_stack_empty(s)
     assert s.state.table.monarch == "p1"
+    check(s)
+
+
+# ---- 601.2f, 601.2i, 708.2: Momo, Kadena (the first spell of a kind each turn, the keyword or face-down state recorded as it was cast) -----------------------------------------
+MOMO, KADENA = "Momo, Friendly Flier", "Kadena, Slinking Sorcerer"
+
+
+def test_momo_reduces_only_the_first_creature_spell_with_flying_on_its_controllers_turn(cards):
+    s = build(cards, [MOMO, "Wind Drake", "Storm Crow", "Grizzly Bears"], [])
+    put(s, MOMO)
+    drake, crow = to_hand(s, "Wind Drake"), to_hand(s, "Storm Crow")
+    assert cost_of(s, drake, s.cards) == "{1}{U}"  # {2}{U}: {1} less
+    assert cost_of(s, crow, s.cards) == "{U}"  # {1}{U}
+    assert cost(s, "Grizzly Bears") == "{1}{G}"  # no flying
+    mana(s, U=1, G=1)
+    act(s, "p1", type="cast_spell", card_id=drake.id)
+    pass_until_stack_empty(s)
+    assert cost_of(s, crow, s.cards) == "{1}{U}"  # not the first any more
+    check(s)
+
+
+def test_kadena_makes_the_first_face_down_creature_spell_each_turn_free_of_its_three(cards):
+    s = build(cards, [KADENA, "Exalted Angel", "Battering Craghorn"], [])
+    put(s, KADENA)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Exalted Angel").id, face_down=True)  # {3} less: no mana needed
+    pass_until_stack_empty(s)
+    assert on_table(s, "Exalted Angel", "p1").zone == "p1:battlefield" and on_table(s, "Exalted Angel", "p1").face_down
+    with pytest.raises(ActionError):  # the second one costs its {3}
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Battering Craghorn").id, face_down=True)
     check(s)
