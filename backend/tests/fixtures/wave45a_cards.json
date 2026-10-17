@@ -983,5 +983,47 @@
    "B"
   ],
   "keywords": []
+ },
+ {
+  "name": "Aettir and Priwen",
+  "layout": "normal",
+  "mana_cost": "{6}",
+  "cmc": 6.0,
+  "type_line": "Legendary Artifact — Equipment",
+  "oracle_text": "Equipped creature has base power and toughness X/X, where X is your life total.\nEquip {5}",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Dollmaker's Shop // Porcelain Gallery",
+  "layout": "split",
+  "mana_cost": "{1}{W} // {4}{W}{W}",
+  "cmc": 8.0,
+  "type_line": "Enchantment — Room // Enchantment — Room",
+  "oracle_text": "Whenever one or more non-Toy creatures you control attack a player, create a 1/1 white Toy artifact creature token.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)\n//\nCreatures you control have base power and toughness each equal to the number of creatures you control.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "card_faces": [
+   {
+    "name": "Dollmaker's Shop",
+    "mana_cost": "{1}{W}",
+    "type_line": "Enchantment — Room",
+    "oracle_text": "Whenever one or more non-Toy creatures you control attack a player, create a 1/1 white Toy artifact creature token.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)"
+   },
+   {
+    "name": "Porcelain Gallery",
+    "mana_cost": "{4}{W}{W}",
+    "type_line": "Enchantment — Room",
+    "oracle_text": "Creatures you control have base power and toughness each equal to the number of creatures you control.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)"
+   }
+  ]
  }
 ]

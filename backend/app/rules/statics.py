@@ -189,6 +189,8 @@ def parse(text: str) -> Definition | None:
         return _definition("self", None, [], rules=[f"cant_block_unless_more:@you:{key}"])
     # -- dynamic values (agent F): "~ gets +X/+X, where X is …" (the X of a static is defined by its text)
     x_phrase: str | None = None
+    # -- most-played cards II (wave 45A) -- "Creatures you control have base power and toughness each equal to the number of creatures you control." (Dollmaker's Shop): "X/X, where X is …"
+    body = re.sub(r"^(?P<s>.+? ha(?:s|ve)) base power and toughness each equal to (?P<x>[^,\"]+)$", r"\g<s> base power and toughness X/X, where X is \g<x>", body)
     m = re.match(r"^(?P<rest>.+), where X is (?P<x>.+)$", body)
     if m and m["rest"].count('"') % 2 == 0:  # (not inside a quoted granted ability)
         x_phrase, body = m["x"], m["rest"]
@@ -873,6 +875,9 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
                 continue
             p += _signed(pt["p"])
             t += _signed(pt["t"])
+            continue
+        if rest == "base power and toughness X/X" and x_value is not None and each is None and base is None and verb == "have":
+            each = {"p": 0, "t": 0, "set": True, "value": x_value}  # -- most-played cards II (wave 45A) -- 613.4b: layer 7b sets both to X, read now (611.3a): layers.py
             continue
         b = _BASE.match(rest)
         if b:
