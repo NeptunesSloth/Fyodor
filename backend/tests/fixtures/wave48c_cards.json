@@ -1,0 +1,167 @@
+[
+ {
+  "name": "Glissa Sunseeker",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Elf Warrior",
+  "oracle_text": "First strike\n{T}: Destroy target artifact if its mana value is equal to the amount of unspent mana you have.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "First strike"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Headliner Scarlett",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Warlock",
+  "oracle_text": "Haste\nWhen Headliner Scarlett enters, creatures target player controls can't block this turn.\nAt the beginning of your upkeep, exile the top card of your library face down. You may look at and play that card this turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Haste"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Krang & Shredder",
+  "layout": "normal",
+  "mana_cost": "{4}{U/B}{U/B}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Utrom Human Ninja",
+  "oracle_text": "Whenever Krang & Shredder enter or attack, each opponent exiles cards from the top of their library until they exile a nonland card.\nDisappear — At the beginning of your end step, if a permanent left the battlefield under your control this turn, you may cast a card exiled with Krang & Shredder without paying its mana cost.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Disappear"
+  ],
+  "power": "6",
+  "toughness": "7"
+ },
+ {
+  "name": "Plargg, Dean of Chaos // Augusta, Dean of Order",
+  "layout": "modal_dfc",
+  "mana_cost": "{1}{R} // {2}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Orc Shaman // Legendary Creature — Human Cleric",
+  "oracle_text": "{T}, Discard a card: Draw a card.\n{4}{R}, {T}: Reveal cards from the top of your library until you reveal a nonlegendary, nonland card with mana value 3 or less. You may cast that card without paying its mana cost. Put all revealed cards not cast this way on the bottom of your library in a random order.\n//\nOther tapped creatures you control get +1/+0.\nOther untapped creatures you control get +0/+1.\nWhenever you attack, untap each creature you control, then tap any number of creatures you control.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2",
+  "card_faces": [
+   {
+    "name": "Plargg, Dean of Chaos",
+    "mana_cost": "{1}{R}",
+    "type_line": "Legendary Creature — Orc Shaman",
+    "oracle_text": "{T}, Discard a card: Draw a card.\n{4}{R}, {T}: Reveal cards from the top of your library until you reveal a nonlegendary, nonland card with mana value 3 or less. You may cast that card without paying its mana cost. Put all revealed cards not cast this way on the bottom of your library in a random order.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+     "R"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/5/b/5bd9b5cf-f018-48af-a081-995ce8ecc539.jpg?1783927333",
+     "normal": "https://cards.scryfall.io/normal/front/5/b/5bd9b5cf-f018-48af-a081-995ce8ecc539.jpg?1783927333",
+     "large": "https://cards.scryfall.io/large/front/5/b/5bd9b5cf-f018-48af-a081-995ce8ecc539.jpg?1783927333",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/5/b/5bd9b5cf-f018-48af-a081-995ce8ecc539.jpg?1783927333"
+    }
+   },
+   {
+    "name": "Augusta, Dean of Order",
+    "mana_cost": "{2}{W}",
+    "type_line": "Legendary Creature — Human Cleric",
+    "oracle_text": "Other tapped creatures you control get +1/+0.\nOther untapped creatures you control get +0/+1.\nWhenever you attack, untap each creature you control, then tap any number of creatures you control.",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/5/b/5bd9b5cf-f018-48af-a081-995ce8ecc539.jpg?1783927333",
+     "normal": "https://cards.scryfall.io/normal/back/5/b/5bd9b5cf-f018-48af-a081-995ce8ecc539.jpg?1783927333",
+     "large": "https://cards.scryfall.io/large/back/5/b/5bd9b5cf-f018-48af-a081-995ce8ecc539.jpg?1783927333",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/5/b/5bd9b5cf-f018-48af-a081-995ce8ecc539.jpg?1783927333"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Stegron the Dinosaur Man",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Dinosaur Villain",
+  "oracle_text": "Menace (This creature can't be blocked except by two or more creatures.)\nDinosaur Formula — {1}{R}, Discard this card: Until end of turn, target creature you control gets +3/+1 and becomes a Dinosaur in addition to its other types.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Dinosaur Formula",
+   "Menace"
+  ],
+  "power": "5",
+  "toughness": "4"
+ },
+ {
+  "name": "Radiant, Serra Archangel",
+  "layout": "normal",
+  "mana_cost": "{6}{W}",
+  "cmc": 7.0,
+  "type_line": "Legendary Creature — Angel",
+  "oracle_text": "Flying\nTap another untapped creature you control with flying: Radiant gains protection from the color of your choice until end of turn.\nPartner (You can have two commanders if both have partner.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Partner"
+  ],
+  "power": "6",
+  "toughness": "4"
+ },
+ {
+  "name": "Thran Forge",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "{2}: Until end of turn, target nonartifact creature gets +1/+0 and becomes an artifact in addition to its other types.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ }
+]

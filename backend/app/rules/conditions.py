@@ -142,7 +142,7 @@ _OBJECT_VS_COLORS = re.compile(r"(?:its|that creature's|that permanent's) (?P<st
 # -- static_other sweep (wave 26A) -- "if its toughness is less than or equal to the number of cards in your graveyard", "if its mana value is
 # less than or equal to the greatest mana value among permanents you control": the object's characteristic against a count read as it resolves
 _OBJECT_VS_COUNT = re.compile(r"(?:its|that creature's|that permanent's|that card's|that spell's) (?P<stat>power|toughness|mana value) (?:is|was) (?P<cmp>less than or equal to|"
-                              r"less than|greater than or equal to|greater than|equal to) (?P<v>the (?:number of|greatest) .+)")
+                              r"less than|greater than or equal to|greater than|equal to) (?P<v>the (?:number of|greatest|amount of unspent) .+)")  # (wave 48C: Glissa Sunseeker)
 _REF_OPS = {"less than or equal to": "<=", "less than": "<", "equal to": "==", "greater than or equal to": ">=", "greater than": ">"}
 _REF_STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"}
 _X_IS = re.compile(r"x is (?P<n>\w+)(?: or (?P<cmp>more|greater|less|fewer))?", re.IGNORECASE)

@@ -881,6 +881,8 @@ def join_exile_play(body: str) -> str:
     # "put the exiled card into your hand" is the return of that card, 400.3)
     body = re.sub(r"([Ee]xile the top card of your library face down) and look at it\b", r"\1. You may look at it for as long as it remains exiled",
                   body)
+    body = re.sub(r"(face down\. )You may look at and play (that card) this turn\b", r"\1You may look at \2 for as long as it remains exiled. You may play \2 this turn",
+                  body)  # -- hidden exile (wave 48C) -- Headliner Scarlett: two permissions (the look stays, like Ugin's "and look at it")
     body = re.sub(r"For each card exiled this way, you may (play|cast) that card for as long as it remains exiled, and mana of any type can be "
                   r"spent to cast that spell\.", r"You may \1 those cards for as long as they remain exiled, and mana of any type can be spent to "
                   r"cast those spells.", body)  # (Heartless Conscription)

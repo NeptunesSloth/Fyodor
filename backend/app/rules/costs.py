@@ -54,7 +54,7 @@ _RETURN = re.compile(rf"^Return {_N} (?P<what>.+? you control) to (?:its|their) 
 _DISCARD_X = re.compile(r"^Discard X (?P<what>(?:[\w\-]+ )*cards?)(?P<random> at random)?$")
 _RETURN_X = re.compile(r"^Return X (?P<what>.+? you control) to (?:its|their) owner's hands?$")
 # -- static_other (wave 36B) -- "Tap two other untapped Halflings you control" (Saradoc, Spring-Loaded Sawblades): "other" than the source, as "another"
-_TAP_OTHER = re.compile(rf"^Tap {_N} (?P<another>another |other )?untapped (?P<what>.+ you control(?: other than (?:~|this creature))?)$")
+_TAP_OTHER = re.compile(rf"^Tap {_N} (?P<another>another |other )?untapped (?P<what>.+ you control(?: with [a-z ]+?)?(?: other than (?:~|this creature))?)$")  # (wave 48C: Radiant, "… you control with flying")
 # -- attached events (wave 40B) -- 303.4b, 301.5: "Tap enchanted land: …" (Earthlore), "Sacrifice enchanted creature: …" (Betrothed of Fire): the permanent the source
 # is attached to (selectors "host_of_source"), paid with it as the one choice, made for you
 _HOST_COST = re.compile(r"^(?P<verb>Tap|Sacrifice) (?:enchanted (?:creature|land|permanent)|equipped creature)$")
