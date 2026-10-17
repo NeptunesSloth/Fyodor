@@ -788,6 +788,9 @@ def rider_body(body: str, it: str | None = None, *, to_player: bool = False) -> 
             text, target = text.replace(phrase, surrogate), (surrogate, name)
     text = re.sub(r"^exile cards from the top of your library equal to the damage prevented this way$",  # (wave 35A: Bone Mask)
                   "exile the top X cards of your library", text)
+    # -- review 39 -- "that many" / "that much" is the damage the effect applied to, so damage that can't be prevented still counts (615.12; rulings:
+    # Polukranos 2020-01-24, Jared Carthalion True Heir 2020-11-10, Gloom Surgeon 2012-05-01), unlike "the damage prevented this way" (Phyrexian Hydra)
+    that = re.search(r"\bthat (?:many|much)\b", text) is not None and "prevented this way" not in text
     text = re.sub(r"\bthat much (damage|life)\b", r"X \1", text)
     text = re.sub(r"\bthat many\b", "X", text)
     if re.search(r"\bX\b", text):
@@ -800,6 +803,8 @@ def rider_body(body: str, it: str | None = None, *, to_player: bool = False) -> 
     if found is None:
         return None
     effects, spec, optional = found
+    if that:
+        effects = json.loads(json.dumps(effects).replace('{"ref_amount": "prevented"}', '{"ref_amount": "that_damage"}'))
     if optional or spec != ({"from_ctrl": "player", "to": 'sel:{"types":["Creature"]}', "to_player": "player"}[target[1]] if target else None):
         return None
     out = []
@@ -852,6 +857,7 @@ def run_rider(plan: Plan, r: dict[str, Any]) -> None:
     ctx: Context = {"controller": r["by"], "source_card": r["card"], "source_object": r["oid"], "name": r["name"],
                     "effects": rider_["effects"], "next": 0, "stack_id": ""}
     context.bind_amount(ctx, "prevented", n)
+    context.bind_amount(ctx, "that_damage", int(r.get("of", n)))  # (review 39: the damage it applied to, prevented or not)
     to = ev["target"]
     if to in plan.state.players:
         context.bind_players(ctx, "to", [to])

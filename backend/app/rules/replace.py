@@ -1855,7 +1855,7 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     if op.get("prevention"):
         out["prevented"] = int(ev.get("prevented") or 0) + (int(ev["amount"]) - n)
     if (op.get("prevention") or kind == "body") and op.get("rider"):  # -- prevention riders (wave 17A) -- 615.5: the additional effect, once the damage has been dealt
-        out["riders"] = [*(ev.get("riders") or []), {"rider": op["rider"], "n": int(ev["amount"]) - n, "by": c.controller,
+        out["riders"] = [*(ev.get("riders") or []), {"rider": op["rider"], "n": int(ev["amount"]) - n, "of": int(ev["amount"]), "by": c.controller,
                                                      "card": c.source_card, "oid": c.source_oid, "name": c.label,
                                                      **({"batch": c.id} if op.get("batch") else {})}]
     return [out]
@@ -2031,6 +2031,8 @@ def _merged_riders(riders: list[dict[str, Any]]) -> list[dict[str, Any]]:
         mine = next((m for m in out if r.get("batch") and m.get("batch") == r["batch"]), None)
         if mine is not None and not re.search(r"ref:to|from_ctrl", json.dumps(r["rider"])):
             mine["n"] += r["n"]
+            if "of" in r:  # (review 39)
+                mine["of"] = int(mine.get("of", 0)) + int(r["of"])
         else:
             out.append(dict(r))
     return out
