@@ -251,7 +251,7 @@ def own_changes(state: GameState, player: str, card: CardInstance, ch: Character
     out = Changes()
     view = None
     for d in definitions.values():
-        change = d.get("change") if d.get("static") == "self_cost" else None
+        change = d.get("change") if d.get("static") in ("self_cost", "own_optional") else None  # (own_optional: wave 47C, Dargo's second reduction)
         if not change:
             continue
         view = view or view_of(on_stack(state, card), player, info)
@@ -429,6 +429,9 @@ def _targeting_definition(m: re.Match[str]) -> dict[str, Any] | None:
 def _targeting_definition_of(who: str | None, what: str) -> dict[str, Any] | None:
     from app.rules import selectors
 
+    you = what.startswith("you or ")  # -- most-played cards III (wave 46C) -- "Spells your opponents cast that target you or a permanent you control cost {2} more to cast." (Monastery Siege): the player is a target too
+    if you:
+        what = what[len("you or "):]
     if what == "~":
         target = "self"
     else:
@@ -439,7 +442,7 @@ def _targeting_definition_of(who: str | None, what: str) -> dict[str, Any] | Non
             return None
         target = sel.key()
     caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[who]
-    return {"kind": "static", "static": "cost_modifier", "caster": caster, "filter": None, "target": target, "effects": []}
+    return {"kind": "static", "static": "cost_modifier", "caster": caster, "filter": None, "target": target, "effects": [], **({"target_you": True} if you else {})}
 
 
 def targeting_life(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo,
@@ -451,18 +454,20 @@ def targeting_life(state: GameState, player: str, card: CardInstance, ch: Charac
     for src, _, d in permissions._table_statics(state, info, {"cost_modifier"}):
         if not d.get("life") or (d["caster"] == "you" and src.controller != player) or (d["caster"] == "opponent" and src.controller == player):
             continue
-        if targets != ANY_TARGET and _targets_match(state, info, src, d["target"], targets):
+        if targets != ANY_TARGET and _targets_match(state, info, src, d["target"], targets, d.get("target_you", False)):
             total += int(d["life"])
     return total
 
 
-def _targets_match(state: GameState, info: CardInfo, src: CardInstance, target: str, targets: tuple[str, ...]) -> bool:
+def _targets_match(state: GameState, info: CardInfo, src: CardInstance, target: str, targets: tuple[str, ...], you: bool = False) -> bool:
     """Does one of the spell's chosen targets fit "that target …"? ("~": the source itself; else a permanent, read
-    relative to the source's controller: "a Merfolk you control" is one the changer's controller controls.)"""
+    relative to the source's controller: "a Merfolk you control" is one the changer's controller controls; ``you``: or the changer's controller, a player.)"""
     from app.rules import selectors
 
     view = None
     for tid in targets:
+        if you and tid == src.controller:
+            return True
         card = state.cards.get(tid)
         if card is None or not card.zone.endswith(":battlefield"):
             continue
@@ -534,7 +539,7 @@ def static_delta(state: GameState, info: CardInfo, src: CardInstance, d: dict[st
         if targets == ANY_TARGET:  # -- review (Codex) -- a castability hint, before targets: the best case
             if d["change"]["dir"] > 0:
                 return None
-        elif not _targets_match(state, info, src, d["target"], targets):
+        elif not _targets_match(state, info, src, d["target"], targets, d.get("target_you", False)):
             return None
     if d.get("ordinal") and not _ordinal_ok(state, info, player, d):
         return None
@@ -599,9 +604,27 @@ def own_cost(text: str) -> Any:
     return parsed.components[0] if parsed is not None and not parsed.unsupported and len(parsed.components) == 1 else None
 
 
+# -- cost reductions paid with objects (wave 47C) -- 601.2b: "As an additional cost to cast this spell, you may sacrifice any number of creatures. This spell costs {2} less to cast
+# for each creature sacrificed this way." (Torgaar), the March cycle ("exile any number of blue cards from your hand"), Gorex, Explosive Singularity: announced with the other
+# additional costs, the objects chosen as the total cost is determined (601.2f: each takes N generic off, never below {0}, 118.7a) and paid with the rest (601.2h)
+ANY_COST = re.compile(r"^as an additional cost to cast this spell, you may (?P<cost>(?:sacrifice|exile|tap|remove) any number of [^.]+)\. this spell costs \{(?P<n>\d+)\} less to cast "
+                      r"for each (?P<noun>card|creature|permanent|counter) (?:sacrificed|exiled|tapped|removed) this way"
+                      r"(?: and \{(?P<m>\d+)\} less to cast (?P<more>for each other artifact or creature you've sacrificed this turn))?$", re.IGNORECASE)
+
+
 def optional_definition(t: str) -> dict[str, Any] | None:
     from app.rules.permissions import spell_filter
 
+    if (any_cost := ANY_COST.fullmatch(t)) is not None:
+        from app.rules import costs as C
+
+        if C.any_number_part(any_cost["cost"], int(any_cost["n"])) is None:
+            return None
+        text = any_cost["cost"][0].upper() + any_cost["cost"][1:]
+        more = parse_change(any_cost["m"], "less", f" {any_cost['more']}") if any_cost["m"] else {}  # (Dargo: also for what was sacrificed before this cast, 601.2f)
+        if more is None:
+            return None
+        return {"kind": "static", "static": "own_optional", "optional": "reduce", "cost": text, "n": int(any_cost["n"]), "effects": [], **({"change": more} if more else {})}
     if (own := OWN_OPTIONAL.fullmatch(t)) is not None:
         text = own["cost"][0].upper() + own["cost"][1:]
         parsed = own_cost(text)
@@ -645,6 +668,8 @@ def keyword_component(o: Optional) -> Any:
         return C.CostComponent(C.SACRIFICE, amount=1, selector=Selector(either=either).key(), text="Sacrifice an artifact, enchantment, or token")
     if o.kind in ("evidence", "behold"):  # -- casting costs (wave 22F) --
         return own_cost(o.text)
+    if o.kind == "reduce":  # -- cost reductions paid with objects (wave 47C) --
+        return C.any_number_part(o.text, o.n)
     if o.kind == "casualty":  # -- casting extras (wave 18E) -- 702.153a: "you may sacrifice a creature with power N or greater"
         key = C._selector(f"creature you control with power {o.n} or greater", zone="battlefield")
         return C.CostComponent(C.SACRIFICE, amount=1, selector=key, text=f"Sacrifice a creature with power {o.n} or greater")
@@ -694,7 +719,8 @@ def optional_offers(state: GameState, player: str, card: CardInstance, ch: Chara
         out.append(Optional(f"{card.id}:gift", "Gift: promise an opponent a gift", 0, "", "gift"))
     for d in permissions._definitions(ch).values():  # -- casting costs (wave 22F) -- collect evidence / behold on the spell itself
         if d.get("static") == "own_optional":
-            out.append(Optional(f"{card.id}:{d['optional']}", f"{d['cost']} (additional cost)", 0, "", d["optional"], text=d["cost"]))
+            label = f"This spell costs {{{d['n']}}} less for each: {d['cost'][0].lower() + d['cost'][1:]}" if d["optional"] == "reduce" else f"{d['cost']} (additional cost)"
+            out.append(Optional(f"{card.id}:{d['optional']}", label, 0, "", d["optional"], d.get("n", 0), d["cost"]))
     return out
 
 

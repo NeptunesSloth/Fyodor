@@ -40,6 +40,8 @@ def static_definition(text: str) -> dict[str, Any] | None:
     t = text.strip()
     if t == "You have no maximum hand size.":
         return {"kind": "static", "static": NO_MAXIMUM, "effects": []}
+    if t == "You have no maximum hand size and don't lose the game for having 0 or less life.":  # -- most-played cards III (wave 46C) -- Marina Vendrell's Grimoire (game_result.zero_life_ok)
+        return {"kind": "static", "static": NO_MAXIMUM, "zero_life": True, "effects": []}
     if t == "Players have no maximum hand size.":  # -- static statics (wave 10B) --
         return {"kind": "static", "static": NO_MAXIMUM, "who": "each", "effects": []}
     if (s := _SET.match(t)) is not None:

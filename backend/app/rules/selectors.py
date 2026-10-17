@@ -450,9 +450,12 @@ def _attacking_opponent(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_opponent"))
 
 
-@_suffix(r"(?:that(?:['’]s| are) )?attacking you")  # (wave 17D: also plural / bare)
+@_suffix(r"(?:that(?:['’]s| are) )?attacking you(?P<pw> or a planeswalker you control)?")  # (wave 17D: also plural / bare; wave 46C: "or a planeswalker you control", Soul Snare)
 def _attacking_you(s: Selector, m: re.Match[str]) -> Selector:
-    return replace(s, attacking=True, extras=(*s.extras, "attacking_you"))
+    return replace(s, attacking=True, extras=(*s.extras, "attacking_you_pw" if m["pw"] else "attacking_you"))
+
+
+_SUFFIXES.insert(0, _SUFFIXES.pop())  # (first: its "… you control" is also the controller suffix)
 
 
 @_suffix(r"that['’]s exactly two colors")
@@ -578,6 +581,11 @@ def _compare(s: Selector, m: re.Match[str]) -> Selector:
         raise ValueError("X comparisons need a value")
     what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
     return replace(s, compare=(*s.compare, (what, "<=" if m["dir"] == "less" else ">=", n)))
+
+
+@_suffix(r"with (?P<what>mana value|power|toughness) less than [xX]")  # -- cost reductions paid with objects (wave 47C) -- "target creature with mana value less than X" (March of Burgeoning Life)
+def _less_than_x(s: Selector, m: re.Match[str]) -> Selector:  # (107.3f: the X of the spell, strictly; "X or less" is ``_compare``)
+    return replace(s, compare=(*s.compare, ({"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]], "<", X_VALUE)))
 
 
 @_suffix(r"with power or toughness (?P<n>\d+) or (?P<dir>less|greater)")  # (wave 15A: Tetsuko Umezawa — either one)
@@ -1402,6 +1410,9 @@ def parse_either(phrase: str) -> Selector | None:
     a, b = _parse(m["head"] or m["head2"]), _parse(m["last"] or m["last2"])
     if a is None or b is None or a.player or b.player or a.zones != ("battlefield",) or b.zones != ("battlefield",):
         return None
+    mv = tuple(c for c in b.compare if c[0] == "mv")
+    if mv and not a.compare:  # -- cost reductions paid with objects (wave 47C) -- "artifact, creature, or enchantment with mana value X or less" (March of Otherworldly Light): every permanent has a
+        a = replace(a, compare=mv)  # mana value, so it limits each kind (a power or a keyword belongs to the last kind alone, as for Exorcise)
     return Selector(either=(a.key(), b.key()))
 
 
@@ -1968,6 +1979,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "attacking_alone" and sum(1 for c in plan.state.cards.values() if c.attacking is not None and c.zone.endswith(":battlefield")) != 1:
             return False  # -- activated other (wave 42C) -- 506.5 (the same count statics.py reads for "as long as it's attacking alone")
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
+            return False
+        if extra == "attacking_you_pw" and (card.attacking is None or not (  # -- most-played cards III (wave 46C) -- 506.3: attacks you, or a planeswalker you control
+                (card.attacking.kind == "player" and card.attacking.id == you) or (card.attacking.kind == "card" and (target_walker := plan.state.cards.get(card.attacking.id)) is not None
+                                                                                   and "Planeswalker" in plan.ch(target_walker).types and target_walker.controller == you))):
             return False
         if extra == "attacking_opponent" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id == you
                                               or card.attacking.id not in plan.live()):

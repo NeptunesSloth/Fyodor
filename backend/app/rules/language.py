@@ -1020,7 +1020,7 @@ def _search_gy(text: str) -> tuple[Effects, str | None] | None:
 _LIB = r"(?P<lib>your|target player's|target opponent's|that player's|their|each player's|each opponent's) library"
 _LIB_WHO = {"your": "you", "target player's": "target player", "target opponent's": "target opponent",
             "that player's": "that player", "their": "that player", "each player's": "each player", "each opponent's": "each opponent"}
-_SUBJECTS = r"(?P<subj>target player|target opponent|that player|defending player|each player|each opponent|each of your opponents)"
+_SUBJECTS = r"(?P<subj>target player|target opponent|that player|its controller|that creature's controller|that permanent's controller|defending player|each player|each opponent|each of your opponents)"
 _N_CARDS = rf"(?:(?P<n>{AMT}) cards|card)"
 # (wave 26B: "reveal that many cards from the top of your library": the trigger event's amount, Ojer Kaslem)
 _TOP = re.compile(rf"(?P<verb>look at|reveal) (?:the top {_N_CARDS}|(?P<nm>that many) cards from the top) of {_LIB}"
@@ -1355,6 +1355,8 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     m = _REST_ALONE.fullmatch(text)
     if m:
         return [{"do": "rest_looked", "to": "exile"} if m["exile"] else _rest(m["rest"] or m["rest2"])], None
+    if text == "shuffle that library":  # -- most-played cards III (wave 46C) -- the library the instruction before revealed from, found card or not (Polymorph, Transmogrify: 701.24a)
+        return [{"do": "shuffle_library", "who": "looked_owner", "zones": []}], None
     m = _SHUFFLE_CARDS.fullmatch(text)
     if m:  # -- shuffle target cards (wave 46B) -- 701.24a: the target player's chosen graveyard cards go into their library, then it is shuffled (even with no card)
         cards = target_group(f"{m['q']} target cards from a graveyard")
@@ -1577,12 +1579,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return [{"do": "exchange_life", "who": "target"}], _one(target_group(m["o"]))
     # -- trigger tail (wave 16C) -- 119.5: "Target player's life total becomes 10." (Magister Sphinx), "Your life total becomes half your
     # starting life total, rounded up." (The Endstone): the player gains or loses the difference (effects.set_life)
-    m = re.fullmatch(r"(?P<s>target player's|your) life total becomes (?P<n>\d+|half your starting life total, rounded up)", text)
+    # (-- cost reductions paid with objects (wave 47C) -- "Up to one target player's life total becomes half their starting life total, rounded down." (Torgaar): 107.1a, 103.4)
+    m = re.fullmatch(r"(?P<s>(?:up to one )?target player's|your) life total becomes (?P<n>\d+|half (?:your|their) starting life total, rounded (?:up|down))", text)
     if m and rider is None:
-        n = "half_start" if m["n"][0] == "h" else int(m["n"])
+        n = ("half_start_down" if m["n"].endswith("down") else "half_start") if m["n"][0] == "h" else int(m["n"])
         if m["s"] == "your":
             return [{"do": "set_life", "who": "you", "n": n}], None
-        return [{"do": "set_life", "who": "target", "n": n}], _LEGACY_TARGETS["target player"]
+        return [{"do": "set_life", "who": "target", "n": n}], _one(target_group("up to one target player")) if m["s"].startswith("up") else _LEGACY_TARGETS["target player"]
     # -- most-played cards II (wave 45A) -- 701.10d: "Double target player's life total." (Beacon of Immortality), "Double your life total." (Revenge): the player
     # gains or loses what it takes to reach twice the total (119.5, effects.set_life: gain and loss events, so their triggers and replacements apply)
     m = re.fullmatch(r"double (?P<s>target player's|your) life total", text)
