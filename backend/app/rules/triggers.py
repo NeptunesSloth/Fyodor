@@ -1830,6 +1830,11 @@ def _suspend(plan: Plan) -> None:
                                      "effects": [{"do": "suspend_tick", "card": card.id}]})
 
 
+def haunt_spell(plan: Plan, card: CardInstance, controller: str, definition: dict[str, Any]) -> None:
+    """-- keywords (wave 50H) -- 702.55a: the haunt trigger of an instant or sorcery that resolved (app/rules/haunt.py): its controller is the spell's."""
+    _add(plan, controller=controller, source_card=card.id, source_object=plan.oid(card), name=card.name, index=5002, definition=definition)
+
+
 def exile_watch(plan: Plan, card: CardInstance) -> bool:
     """-- keywords (wave 50H) -- does the card have an ability of its own that functions in exile ("Whenever a time counter is removed from this card while it's exiled")?"""
     return any((d.get("cond") or {}).get("exiled") for _, d in abilities(plan, plan.ch(card), "event"))

@@ -281,7 +281,7 @@ _PLAY_FROM = r" from (?:exile|your graveyard|a graveyard|anywhere other than (?:
 def _parse(c: str) -> Condition | None:
     if c in ("a time counter is removed from ~ while it's exiled", "a time counter is removed from this card while it's exiled"):  # -- keywords (wave 50H) -- suspend's cards (702.62): functions in exile
         return {"event": "counters_removed", "subject": "self", "counter": "time", "exiled": True}
-    if re.fullmatch(r"the creature (?:it|this card) haunts dies", c):  # -- keywords (wave 50H) -- 702.55b-c: a haunt card in exile (triggers._cond_matches)
+    if re.fullmatch(r"the creature (?:it|this card|~) haunts dies", c):  # -- keywords (wave 50H) -- 702.55b-c: a haunt card in exile (triggers._cond_matches)
         return {"event": "die", "subject": "haunted"}
     # -- either with a batch half (wave 49D) -- "Whenever an opponent discards a card or mills one or more cards" (Lo and Li, Royal Advisors): one player's two
     # actions, each its own event (603.2c); the "one or more" half is once per batch of its own (triggers.py reads the half that matched)

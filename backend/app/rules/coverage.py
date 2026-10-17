@@ -655,6 +655,9 @@ def features_of(ch: Characteristics) -> list[Feature]:
 
                     add("keyword:overload", "Overload", _keyword_supported(kw, ab.text) and overload.supported(ch))
                     continue
+                if kw == "haunt":  # -- keywords (wave 50H) -- 702.55a: a creature dying, or an instant or sorcery put into a graveyard during its resolution (engine.leave_stack)
+                    add("keyword:haunt", "Haunt", bool({"Creature", "Instant", "Sorcery"} & ch.types) and _keyword_supported(kw, ab.text))
+                    continue
                 if kw == "cleave":  # -- keywords (wave 50H) -- 702.148a: the spell read without the words in square brackets too
                     from app.rules import cleave
 

@@ -124,6 +124,20 @@ def test_a_single_opponent_is_not_asked_to_be_chosen(cards):
     assert "choose an opponent" not in d.prompt  # 2 players: the only opponent is the chosen one
 
 
+def test_a_token_copy_leaves_the_opponents_tribute_decision_to_the_players(cards):
+    # 707.2, 707.6: a token copy of a creature with tribute is asked its tribute as it is created; the token path can't ask an opponent: it says so (never an unpaid tribute by default)
+    s = build(cards, ["Snake of the Golden Grove", "Cackling Counterpart"])
+    cast_snake(s)
+    act(s, "p2", type="choose", decision_id=until_asked(s).id, option_ids=["pay"])
+    settle(s)
+    copy = to_hand(s, "Cackling Counterpart")
+    mana(s, U=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=copy.id, targets=[card_named(s, "Snake of the Golden Grove").id])
+    d = until_asked(s)
+    assert d is not None and d.kind == "manual_resolution" and "tribute payment" in d.prompt
+    check(s)
+
+
 def test_a_creature_put_onto_the_battlefield_by_an_effect_asks_the_opponent_again(cards):
     s = build(cards, ["Snake of the Golden Grove", "Cloudshift"])
     mine = life(s)

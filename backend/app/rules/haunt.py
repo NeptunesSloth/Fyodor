@@ -46,6 +46,21 @@ def haunt(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def spell_resolved(plan: Plan, card_id: str, controller: str) -> None:
+    """702.55a: "When this spell is put into a graveyard during its resolution, exile it haunting target creature." — a spell that resolved and went to its owner's
+    graveyard (not countered, not exiled or returned instead, not a copy) gets the ability as a trigger of its own."""
+    from app.rules import keyword_triggers, triggers
+
+    card = plan.state.cards.get(card_id)
+    if card is None or card.is_token or card.copy_of is not None or not card.zone.endswith(":graveyard") or plan.manual(card):
+        return
+    ch = plan.ch(card)
+    ab = next((a for a in ch.abilities if a.kind == "keywords" and "haunt" in a.keywords), None)
+    if not ch.is_instant_or_sorcery or ab is None or not (defs := keyword_triggers.definitions("haunt", ab.text)):
+        return
+    triggers.haunt_spell(plan, card, controller, {**defs[0], "trigger": "haunt_spell"})
+
+
 def haunted(plan: Plan, watcher_id: str) -> str | None:
     """The object the card in exile haunts (702.55b), or None."""
     return plan.rules.haunting.get(plan.oid(watcher_id))

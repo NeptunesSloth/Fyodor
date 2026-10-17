@@ -5736,7 +5736,8 @@ def own_card_event_ability(d: Definition | None) -> bool:
     """-- trigger other (wave 36A) -- 702.29d, 701.9a: "When you cycle this card, …" / "When you discard this card, …" is a trigger of the card itself as it
     goes from the hand to the graveyard, not part of what the spell does as it resolves (Slice and Dice, Resounding Thunder, Edgar's Awakening)."""
     cond = (d or {}).get("cond") or {}
-    return d is not None and d.get("kind") == "triggered" and d.get("trigger") == "event" and cond.get("subject") == "self" and cond.get("event") in ("cycle", "discard")
+    return d is not None and d.get("kind") == "triggered" and d.get("trigger") == "event" and (
+        (cond.get("subject") == "self" and cond.get("event") in ("cycle", "discard")) or cond.get("subject") == "haunted")  # (-- keywords (wave 50H) -- 702.55c: and the haunt card's, from exile)
 
 
 def spell_definition(ch: Characteristics) -> Definition | None:

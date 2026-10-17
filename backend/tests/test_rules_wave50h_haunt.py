@@ -104,5 +104,44 @@ def test_a_haunt_card_with_no_creature_left_to_target_stays_in_the_graveyard(car
     check(s)
 
 
-def test_haunt_on_a_sorcery_is_not_read(cards):
-    assert coverage.of_card_data(cards.resolve("Cry of Contrition")).level != "FULL"
+def hand_count(s, pid):
+    return len([c for c in s.state.cards.values() if c.zone == f"{pid}:hand"])
+
+
+def test_haunt_on_a_sorcery_is_full(cards):
+    assert coverage.of_card_data(cards.resolve("Cry of Contrition")).level == "FULL"
+
+
+def test_a_sorcery_with_haunt_is_exiled_haunting_a_creature_as_it_resolves_and_its_death_triggers_it(cards):
+    # Cry of Contrition: "Target player discards a card." / Haunt (702.55a: "When this spell card is put into a graveyard after resolving, exile it haunting
+    # target creature.") / "When the creature this card haunts dies, target player discards a card."
+    s = build(cards, ["Cry of Contrition", "Lightning Bolt"], ["Runeclaw Bear", "Runeclaw Bear", "Runeclaw Bear"])
+    bear = put(s, "Runeclaw Bear", "p2")
+    for c in [c for c in s.state.cards.values() if c.owner == "p2" and c.name == "Runeclaw Bear" and c.zone == "p2:library"][:2]:
+        act(s, "p2", type="move", card_ids=[c.id], to={"zone": "hand"})
+    cry = to_hand(s, "Cry of Contrition")
+    mana(s, B=1)
+    act(s, "p1", type="cast_spell", card_id=cry.id, targets=["p2"])
+    answer(s, bear.id)  # the haunt ability's target
+    settle(s)
+    assert hand_count(s, "p2") == 1 and zone_of(s, "Cry of Contrition") == "p1:exile"  # Bob discarded one; the card haunts the Bear
+    check(s)
+    s = reloaded(s)
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[bear.id])
+    answer(s, "p2")  # the haunted Bear dies: "target player discards a card"
+    settle(s)
+    assert hand_count(s, "p2") == 0 and s.state.cards[bear.id].zone == "p2:graveyard"
+    check(s)
+
+
+def test_a_sorcery_with_haunt_and_no_creature_to_haunt_stays_in_the_graveyard(cards):
+    s = build(cards, ["Cry of Contrition"], ["Runeclaw Bear"])
+    to_hand(s, "Runeclaw Bear", "p2")
+    cry = to_hand(s, "Cry of Contrition")
+    mana(s, B=1)
+    act(s, "p1", type="cast_spell", card_id=cry.id, targets=["p2"])
+    settle(s)
+    assert zone_of(s, "Cry of Contrition") == "p1:graveyard" and not s.state.rules.haunting  # 603.3d: no creature on the battlefield: the trigger is removed
+    check(s)
