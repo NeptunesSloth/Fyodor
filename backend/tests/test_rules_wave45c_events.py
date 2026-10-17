@@ -52,6 +52,18 @@ def test_tavern_scoundrel_makes_two_treasures_when_you_win_a_flip(cards, monkeyp
     check(s)
 
 
+@pytest.mark.parametrize("win", [True, False])
+def test_chance_encounter_gets_a_luck_counter_for_each_flip_you_win(cards, monkeypatch, win):
+    flips(monkeypatch, int(win))
+    s = table(cards, ["Chance Encounter", "The Gold Saucer"])
+    encounter, saucer = put(s, "Chance Encounter"), put(s, "The Gold Saucer")
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=saucer.id, ability=ability(s, saucer, "Flip a coin"))
+    resolve_stack(s)
+    assert s.state.cards[encounter.id].counters.get("luck", 0) == int(win)
+    check(s)
+
+
 def test_the_flipper_alone_wins_an_opponents_flip_is_not_yours(cards, monkeypatch):
     """Chance Encounter ruling: "Your opponent losing a flip does not count as you winning one." Bob wins one: Alice's Scoundrel makes no Treasure."""
     flips(monkeypatch, 1)
