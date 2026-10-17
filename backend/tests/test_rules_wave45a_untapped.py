@@ -13,7 +13,8 @@ import pytest
 
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.wave9c_kit import build, check, put, to_hand
+from tests.test_rules_wave34b_activated import settle, stops, to_phase
+from tests.wave9c_kit import build, check, mana, put, to_hand
 from tests.wave45a_kit import FULL, cast, open_cards
 
 
@@ -37,16 +38,17 @@ def land(s, name, pid="p1"):
 def test_horizon_explorer_makes_every_land_you_control_enter_untapped(cards, name):
     s = build(cards, ["Horizon Explorer", name], [])
     put(s, "Horizon Explorer")
-    assert not land(s, name).tapped  # its own "enters tapped" (614.12), or a shock land's unpaid life: untapped (no question asked)
+    assert not land(s, name).tapped and s.state.rules.decision is None  # its own "enters tapped" (614.12), or a shock land's unpaid life: untapped (no question asked)
     check(s)
 
 
 def test_horizon_explorer_does_not_untap_a_land_an_opponent_controls(cards):
     s = build(cards, ["Horizon Explorer"], ["Blossoming Sands"])
+    stops(s)
     put(s, "Horizon Explorer")
-    act(s, "p1", type="pass_priority")
     c = to_hand(s, "Blossoming Sands", "p2")
-    act(s, "p2", type="move", card_ids=[c.id], to={"player": "p2", "zone": "battlefield"})
+    to_phase(s, "main1", turn=2)  # Bob's turn
+    act(s, "p2", type="play_land", card_id=c.id)
     assert s.state.cards[c.id].tapped  # "Lands you control": Bob's lands are his own
     check(s)
 
@@ -55,23 +57,18 @@ def test_horizon_explorer_makes_a_land_an_effect_puts_onto_the_battlefield_tappe
     s = build(cards, ["Horizon Explorer", "Cultivate"], [], forests=20)
     put(s, "Horizon Explorer")
     to_hand(s, "Cultivate")
-    from tests.wave9c_kit import mana
-
     mana(s, G=1, C=2)
     cast(s, "Cultivate")
-    from tests.test_rules_wave34b_activated import settle
-
     settle(s)
     lands = [c for c in s.state.zones["p1:battlefield"] if s.state.cards[c].name == "Forest"]
     assert len(lands) == 1 and not s.state.cards[lands[0]].tapped  # the ruling: no replacement effect is applied to "put it onto the battlefield tapped"
     check(s)
 
 
-def test_gond_gate_untaps_only_gates(cards):
-    s = build(cards, ["Gond Gate", "Dimir Guildgate", "Blossoming Sands"], [])
+def test_gond_gate_untaps_a_gate(cards):
+    s = build(cards, ["Gond Gate", "Dimir Guildgate"], [])
     put(s, "Gond Gate")
     assert not land(s, "Dimir Guildgate").tapped
-    # one land a turn: the second is the Sands, a land but no Gate - it stays tapped. (A second land drop needs another turn.)
     check(s)
 
 

@@ -1060,7 +1060,7 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
                     "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
             # a token enters tapped when its creator says so ("create a tapped …") or its own text does
             # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
-            tapped = bool(tapped_by_creator) or replacements.token_enters_tapped(plan, pid, spec)
+            tapped = (bool(tapped_by_creator) or replacements.token_enters_tapped(plan, pid, spec)) and not replacements.token_enters_untapped(plan, pid, spec)  # (wave 45A)
             requests.append((pid, spec, count * each[pid] if each is not None else count, source, tapped))
     # (the tokens are recorded as binding "as", the new objects they are: "they gain haste")
     if not requests:  # (every kind counted 0)
