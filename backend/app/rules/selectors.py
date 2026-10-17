@@ -1031,7 +1031,8 @@ def _has_counter(card: CardInstance, kind: str) -> bool:
 # creature type. Destroy all creatures that aren't of the chosen type": bind_chosen substitutes that answer).
 # ``matches`` reads the source's record; without a source or a valid record nothing matches (never a guess).
 CHOSEN_EXTRAS = {"chosen_type": "creature type", "chosen_color": "color", "not_chosen_type": "creature type",
-                 "not_chosen_color": "color", "chosen_name": "card name", "chosen_card_type": "card type", "chosen_number": "number"}  # (wave 47A: card type, Umori; wave 49B: number, Talion)  # (-- card names (wave 22B) -- app/rules/card_names.py)
+                 "not_chosen_color": "color", "chosen_name": "card name", "chosen_card_type": "card type", "chosen_number": "number",
+                 "chosen_parity_mv": "odd or even", "chosen_parity_power": "odd or even"}  # (wave 50J: the quality chosen as the ability resolves)  # (wave 47A: card type, Umori; wave 49B: number, Talion)  # (-- card names (wave 22B) -- app/rules/card_names.py)
 
 
 # -- extremes (wave 49C) -- 115.1: "creature with the greatest power among creatures on the battlefield" (Topple), "nonland permanent with the lowest mana value" (Culling Scales): one
@@ -1065,6 +1066,11 @@ def _of_chosen(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, ("not_" if m["neg"] else "") + f"chosen_{m['what']}"))
 
 
+@_suffix(r"with (?P<stat>mana value|power) of (?:the chosen|that) quality")  # -- chosen quality (wave 50J) -- "Choose odd or even. Destroy each creature with mana value of the chosen quality." (Thanos)
+def _of_chosen_parity(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "chosen_parity_mv" if m["stat"] == "mana value" else "chosen_parity_power"))
+
+
 @_suffix(r"with mana value, power, or toughness equal to the chosen number")  # -- commander sweep (wave 49B) -- Talion, the Kindly Lord: any of the three equals the number chosen as it entered
 def _of_chosen_number(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "chosen_number"))
@@ -1083,6 +1089,8 @@ def bind_chosen(sel: Selector, value: str) -> Selector | None:
     if what == "card name":  # -- card names (wave 22B) -- the answer given earlier in the same resolution
         return replace(sel, extras=(*rest, "name:" + value))
     neg = any(e.startswith("not_") for e in sel.extras if e in CHOSEN_EXTRAS)
+    if what == "odd or even" and value in ("Odd", "Even"):  # -- chosen quality (wave 50J) -- 107.1: zero is even
+        return replace(sel, extras=(*rest, f"parity:{'power' if 'chosen_parity_power' in sel.extras else 'mv'}:{value.lower()}"))
     if what == "creature type" and value in CREATURE_TYPES:
         if sel.subtypes or sel.not_subtypes or sel.union:
             return None
@@ -1107,7 +1115,7 @@ def source_choice(plan: Plan, source: str | None, what: str) -> str | None:
     card = plan.state.cards.get(source or "")
     if card is None:
         return None
-    label = {"creature type": "Chosen creature type", "color": "Chosen color", "card name": "Chosen card name", "card type": "Chosen card type", "number": "Chosen number"}[what]
+    label = {"creature type": "Chosen creature type", "color": "Chosen color", "card name": "Chosen card name", "card type": "Chosen card type", "number": "Chosen number", "odd or even": "Chosen quality"}[what]
     value = card.choices.get(label)
     return value.strip() if value else None
 
@@ -2017,6 +2025,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             from app.rules.keyword_actions import goaded_by
 
             if not goaded_by(ch):
+                return False
+        if extra.startswith("parity:"):  # -- chosen quality (wave 50J) -- the mana value (a spell's X counts on the stack, 202.3e) or power is odd / even as chosen earlier in this resolution
+            from app.rules.stack_interaction import mana_value
+
+            quality = mana_value(card, ch) if extra.split(":")[1] == "mv" else (ch.pt[0] if ch.pt is not None else None)
+            if quality is None or (int(quality) % 2 == 0) != (extra.endswith(":even")):
                 return False
         if extra.startswith("name:"):  # -- card names (wave 22B) -- 709.4a, a name chosen earlier in this resolution
             from app.rules import card_names

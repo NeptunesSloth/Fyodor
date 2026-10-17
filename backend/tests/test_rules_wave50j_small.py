@@ -24,7 +24,7 @@ from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, attach, attack, block, next_turn, stops, to_phase
-from tests.wave9c_kit import build, card_named, cast, check, mana, pt, put, to_hand
+from tests.wave9c_kit import build, card_named, cast, check, mana, pt, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave50j_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
@@ -69,7 +69,8 @@ def combat(s):
 
 @pytest.mark.parametrize("name", ["Odric, Lunarch Marshal", "Akroma, Vision of Ixidor", "Odric, Blood-Cursed", "Bleeding Effect", "Majestic Myriarch",
                                   "Kaima, the Fractured Calm", "Havoc Eater", "Pia Nalaar, Chief Mechanic", "Rampaging Aetherhood", "Sensei Golden-Tail", "Kathril, Aspect Warper",
-                                  "Concerted Effort", "Thunderous Orator", "Wonder Man, Hollywood Hero", "Kang the Conqueror"])
+                                  "Concerted Effort", "Thunderous Orator", "Wonder Man, Hollywood Hero", "Kang the Conqueror",
+                                  "Thanos, the Mad Titan", "Extinction Event"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -276,6 +277,53 @@ def test_a_power_up_ability_is_activated_only_once_without_wonder_man(cards):
     settle(s)
     with pytest.raises(ActionError, match="activated once"):
         activate(s, "p1", snake)
+    check(s)
+
+
+# -- odd or even -------------------------------------------------------------------------------------------------------------------------------------
+# 107.1: "Choose odd or even. Destroy each other creature with mana value of the chosen quality. (Zero is even.)" (Thanos, the Mad Titan; Extinction Event): the choice is
+# made as the ability or spell resolves, and the creatures are judged by it then.
+def odd_even_table(cards, theirs=("Grizzly Bears", "Serra Angel"), mine=("Llanowar Elves",)):
+    s = build(cards, mine=["Thanos, the Mad Titan", "Extinction Event", *mine], theirs=list(theirs))
+    for n in mine:
+        put(s, n)
+    for n in theirs:
+        put(s, n, "p2")
+    return s
+
+
+def test_thanos_destroys_the_other_creatures_with_even_mana_value(cards):
+    s = odd_even_table(cards)
+    thanos = put(s, "Thanos, the Mad Titan")
+    next_turn(s)
+    mana(s, C=1, W=1, U=1, B=1, R=1, G=1)
+    activate(s, "p1", thanos)
+    settle(s, answer="Even")
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard"  # (mana value 2)
+    assert zone_of(s, "Serra Angel", "p2") == "p2:battlefield" and zone_of(s, "Llanowar Elves") == "p1:battlefield"  # (5 and 1: odd)
+    assert zone_of(s, "Thanos, the Mad Titan") == "p1:battlefield" and counters(s, "Thanos, the Mad Titan") == {"+1/+1": 2}
+    check(s)
+
+
+def test_thanos_destroys_the_other_creatures_with_odd_mana_value_and_not_himself(cards):
+    s = odd_even_table(cards)
+    thanos = put(s, "Thanos, the Mad Titan")  # (mana value 3: odd, but "each other creature")
+    next_turn(s)
+    mana(s, C=1, W=1, U=1, B=1, R=1, G=1)
+    activate(s, "p1", thanos)
+    settle(s, answer="Odd")
+    assert zone_of(s, "Serra Angel", "p2") == "p2:graveyard" and zone_of(s, "Llanowar Elves") == "p1:graveyard"
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:battlefield" and zone_of(s, "Thanos, the Mad Titan") == "p1:battlefield"
+    check(s)
+
+
+def test_extinction_event_exiles_each_creature_with_the_chosen_quality(cards):
+    s = odd_even_table(cards)
+    to_hand(s, "Extinction Event")
+    mana(s, B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Extinction Event").id)
+    settle(s, answer="Odd")
+    assert zone_of(s, "Serra Angel", "p2") == "p2:exile" and zone_of(s, "Llanowar Elves") == "p1:exile" and zone_of(s, "Grizzly Bears", "p2") == "p2:battlefield"
     check(s)
 
 
