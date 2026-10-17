@@ -138,7 +138,8 @@ def test_the_wordings_are_read_and_the_rest_refused():
         assert scripts.parse_effects(text)[0] == [{"do": "transform", "who": "self"}]
     done = scripts.parse_effects("Return it to the battlefield tapped and transformed under its owner's control.")
     assert done is None or "transform" not in str(done)  # (no antecedent for "it" outside a trigger)
-    for text in ("Transform it.", "Transform target creature.", "Transform all Humans you control.",
+    assert scripts.parse_effects("Transform target creature.")[0] == [{"do": "transform", "who": "target"}]  # (wave 48A: a chosen permanent turns over too, 701.27a; one that can't transform does nothing, 701.27c)
+    for text in ("Transform it.", "Transform all Humans you control.",
                  "Transform up to one other target double-faced artifact you control."):
         assert scripts.parse_effects(text) is None, text
     for name in NAMES:
