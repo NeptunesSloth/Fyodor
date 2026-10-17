@@ -133,7 +133,6 @@ def test_parse_rules(text, who, rules, extra):
     "Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.",
     "~ gets +1/+1 if you control a Forest.",  # "if" belongs to restrictions only
     "No more than one creature can attack each combat.",
-    "~ must be blocked by two or more creatures if able.",
     "Creature spells you control can't be countered.",  # spells: not a battlefield selector
     "Players can't gain life.",  # a rule about players, not objects
     "~ can't be blocked by creatures that don't have a name.",

@@ -962,6 +962,8 @@ def _relative(plan: Plan, ctx: dict[str, Any], v: Any) -> int:
     if v["relative"] == "counters":  # -- counters (wave 26D) -- "for each +1/+1 counter on it" (122.1): counters on the object modified
         return sum(n for k, n in card.counters.items() if v["kind"] in ("any", k))
     mine = plan.ch(card)
+    if v["relative"] == "bushido":  # -- counters (wave 44C) -- 702.45a: "for each point of bushido it has": the sum of its bushido abilities' numbers (each instance counts)
+        return sum(int(n) for a in mine.abilities if "bushido" in a.keywords for n in re.findall(r"(?i)bushido (\d+)", a.text))
     if v["relative"] == "mana_value":  # -- attached events (wave 20A) -- 202.3: the object modified (a creature's X is 0 on the battlefield)
         from app.rules.stack_interaction import mana_value
 

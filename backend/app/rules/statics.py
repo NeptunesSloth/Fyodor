@@ -211,6 +211,11 @@ def parse(text: str) -> Definition | None:
                   lambda m: f"{'~' if m['o'] in ('~', 'this creature') else m['o'].capitalize()} must be blocked by all {m['w']} able",
                   body)
     body = re.sub(r"(?P<sep>, and| and|,) all creatures able to block it do so$", r"\g<sep> must be blocked by all creatures able", body)
+    # -- counters (wave 44C) -- 510.1a: "If Loot's power is negative, he assigns combat damage as though his power were positive." (Loot, the Anomaly)
+    body = re.sub(r"^If ~'s power is negative, (?:he|she|it|~) assigns combat damage as though (?:his|her|its|~'s) power were positive$",
+                  "~ assigns combat damage as though its power were positive", body)
+    # -- counters (wave 44C) -- 509.1c: "Gorm must be blocked if able, and Gorm must be blocked by two or more creatures if able." (Gorm the Great): two requirements on the attacker
+    body = re.sub(r"^~ must be blocked if able, and ~ (must be blocked by two or more creatures if able)$", r"~ must be blocked if able and \1", body)
     # -- borrowed abilities (wave 18F) -- "As long as ~ is on the battlefield, …": a static of a permanent works there only (611.3b)
     body = re.sub(r"^As long as (?:~|it) is on the battlefield, ", "", body)
     # -- static_other (wave 42A) -- 205.4, 613.1d: "Aeve isn't legendary if it's a token." (Aeve, Progenitor Ooze): the supertype taken off while it is a token (a layer 4
@@ -423,6 +428,7 @@ def parse(text: str) -> Definition | None:
 _NOT_CREATURE = re.compile(r"^(?:~|it) isn't a creature$")
 _IS_TYPES = re.compile(r"^(?:~|it)(?:'s| is) an? (?:(?P<pt>\d+)/(?P<tt>\d+) )?(?P<types>(?:(?:artifact|creature|land|enchantment) )*"
                        r"(?:artifact|creature|land|enchantment))(?P<add> in addition to its other types)?(?: and (?P<rest>(?:it|~) .+))?$")
+_SUB_CREATURE = re.compile(r"^(?:~|it)(?:'s| is) an? (?P<sub>[A-Z][a-z]+) creature in addition to its other types$")
 _IN_ADDITION = re.compile(r"^(?:(?P<pre>.+?),? and |(?:~|it) )is (?:a|an) (?P<sub>[A-Z][a-z]+) in addition to its other types$")
 
 
@@ -459,6 +465,11 @@ def _layer4_parts(body: str) -> tuple[str, dict[str, Any]] | None:
         if m["pt"]:
             parts["base"] = [int(m["pt"]), int(m["tt"])]
         return (m["rest"] or ""), parts
+    m = _SUB_CREATURE.fullmatch(body)  # -- counters (wave 44C) -- 205.1b: "it's a Phyrexian creature in addition to its other types" (Weatherlight Compleated)
+    if m:
+        from app.rules.creature_types import CREATURE_TYPES
+
+        return ("", {"remove_types": [], "add_types": ["Creature"], "add_subtypes": [m["sub"]]}) if m["sub"] in CREATURE_TYPES else None
     m = _IN_ADDITION.fullmatch(body)
     if m:
         from app.rules.creature_types import CREATURE_TYPES
@@ -593,6 +604,8 @@ def _relative_count(each: str, group: str | None = None) -> dict[str, Any] | Non
     # subject's own count, read for each object it modifies (611.3a); ``group``: the pronoun that agrees with its verb ("it" after "gets")
     if group is not None and (c := _COUNTERS_ON_IT.match(each)) is not None and each.endswith(f" on {group}"):
         return {"relative": "counters", "kind": c["k"] or "any"}
+    if group == "it" and each == "point of bushido it has":  # -- counters (wave 44C) -- 702.45a: the bushido numbers the object modified has (Takeno, Samurai General)
+        return {"relative": "bushido"}
     if each == "of its colors":  # -- attached events (wave 16F) -- 105.1: the colors of the object modified (Civic Saber)
         return {"relative": "colors"}
     m = _SHARING.match(each) or _SAME_NAME.match(each)
@@ -973,6 +986,7 @@ RULES: dict[str, tuple[str, ...]] = {
     "attack or block each combat if able": ("must_attack", "must_block"),
     "must be blocked if able": ("must_be_blocked",),
     "must be blocked by all creatures able": ("lure",),  # -- lure (wave 12B) -- 509.1c: combat.block_requirements
+    "must be blocked by two or more creatures if able": ("must_be_blocked_two",),  # (wave 44C: Gorm the Great, combat.block_requirements)
     "doesn't untap during your untap step": ("doesnt_untap",),
     "doesn't untap during its controller's untap step": ("doesnt_untap",),
     "don't untap during your untap step": ("doesnt_untap",),
@@ -997,7 +1011,8 @@ RULES.update({"can attack as though it didn't have defender": ("attack_despite_d
               "can attack as though they didn't have defender": ("attack_despite_defender",)})
 # -- damage wordings (wave 6B) -- 510.1a: "Each creature assigns combat damage equal to its toughness rather than its
 # power" (Doran): the amount it assigns in the combat damage step (app/rules/combat.py ``compute_combat_damage``)
-RULES.update({"assigns combat damage equal to its toughness rather than its power": ("assign_toughness",),
+RULES.update({"assigns combat damage as though its power were positive": ("assign_abs_power",),  # (wave 44C: Loot, the Anomaly)
+              "assigns combat damage equal to its toughness rather than its power": ("assign_toughness",),
               "assign combat damage equal to their toughness rather than their power": ("assign_toughness",)})
 
 

@@ -243,6 +243,11 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
             if color is None:
                 continue  # nothing chosen yet: that option can't be used
             out.append(tuple(color if m == "CHOSEN" else m for m in opt))
+        elif opt == ("OWN_COLORS",):  # -- counters (wave 44C) -- "one mana of any of this creature's colors" (Katilda): its colors now (613), none when it is colorless (106.1b: no mana)
+            from app.rules.layers import derive
+
+            own = derive(state, card, chars.of(card, info), info).colors
+            out += [(m,) for m in M.COLORS if m in own]
         elif opt == ("LANDS",):
             out += [(m,) for m in M.ALL_MANA if m in _land_mana(state, [card.controller], info, skip=card.id)]
         elif opt[0].startswith("LANDS:"):  # -- mana (wave 19E) -- any color / type a (basic / Gate) land you control could produce

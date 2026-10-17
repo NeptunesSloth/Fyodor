@@ -432,6 +432,11 @@ def _attacking_you(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_you"))
 
 
+@_suffix(r"that['’]s exactly two colors")
+def _exactly_two_colors(s: Selector, m: re.Match[str]) -> Selector:  # (wave 44C: Niv-Mizzet, Supreme) 105.2: two of the five colors, no more and no fewer
+    return replace(s, extras=(*s.extras, "two_colors"))
+
+
 @_suffix(r"that(?:['’]s| is| are) (?P<list>(?:" + "|".join(COLORS) + r")(?:, (?:" + "|".join(COLORS) + r"))*(?:,? or (?:" + "|".join(COLORS) + r"))?)")
 def _thats_colored(s: Selector, m: re.Match[str]) -> Selector:  # (wave 19D: "that's white, blue, black, or red")
     found = tuple(COLORS[c] for c in re.findall("|".join(COLORS), m["list"]))
@@ -1777,6 +1782,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
     for extra in sel.extras:
         if extra == "not_event" and card.id == attacker:  # (wave 23B) the event's own object (``attacker``: attacker_of)
+            return False
+        if extra == "two_colors" and len(ch.colors) != 2:  # (wave 44C)
             return False
         if extra == "enchanted" and not _has_attached(plan, card, "Aura"):
             return False

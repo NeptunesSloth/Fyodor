@@ -537,7 +537,8 @@ _CACHE: dict[tuple, list[tuple[str, int, Definition]]] = {}
 _KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "spell_keyword", "loyalty_rule", "spend_as", "keep_mana", "colorless_mana", "gy_flashback",
           "cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap",  # (wave 22B: app/rules/prohibitions.py; 43B: Aven Mindcensor)
           "zone_grant",  # (wave 25A: app/rules/zone_grants.py)
-          "life_lock")  # (wave 29D: app/rules/life_lock.py)
+          "life_lock",  # (wave 29D: app/rules/life_lock.py)
+          "rad_gain")  # (wave 44C: app/rules/designations.py)
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
