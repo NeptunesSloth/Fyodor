@@ -115,22 +115,37 @@
   "toughness": "3"
  },
  {
-  "name": "Wall of Omens",
+  "name": "Centaur Courser",
   "layout": "normal",
-  "mana_cost": "{1}{W}",
-  "cmc": 2.0,
-  "type_line": "Creature — Wall",
-  "oracle_text": "Defender\nWhen this creature enters, draw a card.",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Centaur Warrior",
+  "oracle_text": "",
   "colors": [
-   "W"
+   "G"
   ],
   "color_identity": [
-   "W"
+   "G"
   ],
-  "keywords": [
-   "Defender"
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Lizard Warrior",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Lizard Warrior",
+  "oracle_text": "",
+  "colors": [
+   "R"
   ],
-  "power": "0",
-  "toughness": "4"
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "2"
  }
 ]

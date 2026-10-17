@@ -380,6 +380,12 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
     # -- combat (wave 5C) -- 508.1h-j: the total cost to attack, locked in, then paid (mana abilities allowed meanwhile);
     # creatures declared as attackers are tapped before it's paid (508.1f), so they don't tap for it
     tax = combat_rules.attack_cost(plan, declared)
+    life = combat_rules.attack_life(plan, declared)  # -- life attack costs (wave 49D) -- 508.1h: paid with the mana (508.1j); 119.4: only with the life to pay it
+    if life:
+        from app.rules import life_lock
+
+        if plan.state.players[plan.actor].life < life or life_lock.pay_problem(plan.state, plan.info, plan.actor, life) is not None:
+            raise ActionError(f"Attacking costs {life} life (508.1h): {plan.name(plan.actor)} can't pay it")
     if tax:
         from app.rules import casting
 
@@ -392,6 +398,11 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         if casting.payment_step(plan, a, cost, "attacking", exclude=exclude):  # type: ignore[arg-type]
             return  # (the declaration is made again once it's paid; cancelling asks for attackers again)
         casting.pay(plan, plan.actor, cost, f"paid {cost.text()} to attack", sources=a.sources, exclude=exclude)
+    if life:
+        from app.rules import replace as _replace_life
+
+        _replace_life.lose_life(plan, [(plan.actor, life)], actor=plan.actor)
+        plan.note(f"{plan.name(plan.actor)} paid {life} life to attack")
     # -- end combat (wave 5C) --
     r.decision = None
     if not a.attackers:

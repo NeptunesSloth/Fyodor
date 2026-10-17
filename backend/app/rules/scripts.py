@@ -2007,9 +2007,9 @@ def _create_named(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 # …", "Create Voja, a legendary 2/2 …", "… named Kobolds of Kher Keep", "… with flying named Wasp", "… that's all
 # colors", "Create thirteen …" (never a copy, nor an instruction joined to another one)
 @_first
-@effect(r"(?!.*\b(?:cop(?:y|ies)|then|unless|instead|blocking|attached|attacking that|that player)\b)(?![^\"]*\bequal\b)"  # (wave 47D: "equal" only outside a quoted CDA, Beau)
+@effect(r"(?!.*\b(?:cop(?:y|ies)|then|unless|instead|blocking|attached|attacking that|that player|at the beginning of)\b)(?![^\"]*\bequal\b)"  # (wave 47D: "equal" only outside a quoted CDA, Beau)
         r"(?:(?:for each [^,\"]+, )?create (?:[A-Z][^\"]*?, an? legendary .+|(?:eleven|twelve|thirteen|fourteen|fifteen|"
-        r"sixteen|seventeen|eighteen|nineteen|twenty) .+|.+ named .+|.+ that's (?:all colors|colorless|white|blue|black|red|"
+        r"sixteen|seventeen|eighteen|nineteen|twenty) .+|.+ named .+|.+ that(?:'s| is| are) (?:all colors|colorless|white|blue|black|red|"
         r"green)(?:[ ,].+)?)|for each [^,\"]+, create .+)")
 def _create_tokens_6c(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     from app.rules import token_grammar
@@ -2638,6 +2638,8 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
         return (values.player_relative(text) or v) if v is None or "that_player" in json.dumps(v) else v
 
     text_def = m["def"]
+    if text_def.endswith(" at that time") and re.search(r"\bat the beginning of (?:your|the|each|their|its owner's) next\b", body[: m.start()]):
+        text_def = text_def[: -len(" at that time")]  # -- delayed counts (wave 49D) -- 603.7: "X is the number of lands you control at that time" (Hazezon Tamar): a delayed trigger counts as it resolves
     if re.search(r" as you (?:activate this ability|cast this spell)$", text_def) and len(re.findall(r"\bX\b", body[: m.start()])) == 1 \
             and re.search(r"(?i)\bup to X (?:other )?targets?\b|\bX damage divided as you choose among\b", body[: m.start()]):  # (wave 34D: divided)
         text_def = text_def.rsplit(" as you ", 1)[0]  # -- X target counts (wave 27C) -- "…, where X is the number of Bobbleheads you control as you activate this
