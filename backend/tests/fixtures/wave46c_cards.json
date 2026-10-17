@@ -375,5 +375,57 @@
    "U"
   ],
   "keywords": []
+ },
+ {
+  "name": "Thran Spider",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact Creature — Spider",
+  "oracle_text": "Reach\nWhen this creature enters, you and target opponent each create a tapped Powerstone token.\n{7}: Look at the top four cards of your library. You may reveal an artifact card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Reach"
+  ],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Oath of the Grey Host",
+  "layout": "saga",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — You and target opponent each create a Food token.\nII — Each opponent loses 3 life. Create a Treasure token.\nIII — Create three tapped 1/1 white Spirit creature tokens with flying.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Treasure",
+   "Food"
+  ]
+ },
+ {
+  "name": "Ox Drover",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Creature — Human Peasant",
+  "oracle_text": "Vigilance\nThis creature can't be blocked by Oxen.\nWhenever this creature enters or attacks, target opponent creates a 2/4 white Ox creature token and you draw a card.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Vigilance"
+  ],
+  "power": "4",
+  "toughness": "4"
  }
 ]

@@ -207,6 +207,41 @@ def test_monastery_siege_taxes_spells_that_target_its_controller_or_their_perman
     check(s)
 
 
+def on_table(s, zone, pid, name):
+    return [s.state.cards[c] for c in s.state.zones.get(f"{pid}:{zone}", []) if s.state.cards[c].name == name]
+
+
+def test_thran_spider_makes_a_tapped_powerstone_for_you_and_the_target_opponent(cards):
+    # 608.2c: "you and target opponent each create a tapped Powerstone token" - each of them creates their own token
+    s = build(cards, ["Thran Spider"], [])
+    to_hand(s, "Thran Spider")
+    mana(s, C=3)
+    cast(s, "Thran Spider")
+    mine, theirs = on_table(s, "battlefield", "p1", "Powerstone"), on_table(s, "battlefield", "p2", "Powerstone")
+    assert len(mine) == 1 and len(theirs) == 1 and mine[0].tapped and theirs[0].tapped
+    check(s)
+
+
+def test_oath_of_the_grey_host_chapter_one_makes_a_food_for_each(cards):
+    s = build(cards, ["Oath of the Grey Host"], [])
+    to_hand(s, "Oath of the Grey Host")
+    mana(s, B=1, C=3)
+    cast(s, "Oath of the Grey Host")
+    assert len(on_table(s, "battlefield", "p1", "Food")) == 1 and len(on_table(s, "battlefield", "p2", "Food")) == 1
+    check(s)
+
+
+def test_ox_drover_gives_the_opponent_an_ox_and_draws_you_a_card(cards):
+    s = build(cards, ["Ox Drover"], [])
+    to_hand(s, "Ox Drover")
+    mana(s, W=1, C=3)
+    before = len(s.state.zones["p1:library"])
+    cast(s, "Ox Drover")
+    assert len(on_table(s, "battlefield", "p2", "Ox")) == 1 and not on_table(s, "battlefield", "p1", "Ox")
+    assert len(s.state.zones["p1:library"]) == before - 1  # you draw a card
+    check(s)
+
+
 def equip_on_bobs_turn(s, hammer, target):
     """Bob's upkeep (turn 2), Bob passes: Alice has priority and equips."""
     stops(s)

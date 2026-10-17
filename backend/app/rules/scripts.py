@@ -340,6 +340,10 @@ def self_text(text: str, name: str) -> str:
     # target opponent each draw"; "destroy target permanent an opponent controls. They create a Treasure token." (Vraska): "they" is the player who controlled it
     out = re.sub(r"\byou and another target player each draw a card\b", "you and target opponent each draw a card", out)
     out = re.sub(r"(destroy target permanent an opponent controls\.) They create a Treasure token\.", r"\1 Its controller creates a Treasure token.", out)
+    # -- most-played cards III (wave 46C) -- "You and target opponent each create a Food token." (Oath of the Grey Host, Thran Spider): each creates their own token
+    # (608.2c: the instruction is carried out for each in turn), "target opponent creates a 2/4 white Ox creature token and you draw a card" (Ox Drover): two instructions
+    out = re.sub(r"\b([Yy])ou and target opponent each create (an? [^.,]+? token)\b", lambda m: f"{m[1]}ou create {m[2]} and target opponent creates {m[2]}", out)
+    out = re.sub(r"(\btarget opponent creates an? [^.,]+? token) and (you draw a card)\b", r"\1. \2", out)
     # -- trigger other (wave 44B) -- Namor the Sub-Mariner: "that many" is the number of those mana symbols in the cast spell's mana cost
     out = re.sub(r"(with one or more (\w+) mana symbols in its mana cost, create) that many ([^.]+? tokens)\.",
                  r"\1 X \3, where X is the number of \2 mana symbols in that spell's mana cost.", out)
