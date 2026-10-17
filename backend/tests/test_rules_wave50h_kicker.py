@@ -197,3 +197,42 @@ def test_a_free_cast_offers_only_the_kicker_masks_the_caster_can_pay(cards):
     assert all(c.tapped for c in s.state.cards.values() if c.name == "Mountain" and c.zone == "p1:battlefield")  # the {2}{R} kicker, paid by the three Mountains
     assert any("Kicked" in str(e) for e in s.state.log)  # cast kicked (once: 702.33d)
     check(s)
+
+
+# -- "Kicker—{2}{R}, Sacrifice a land." (702.33a): mana and a part, paid together ----------------------------------------------------------------------
+def test_dwarven_landslide_is_full(cards):
+    assert level(cards, "Dwarven Landslide") == "FULL"
+
+
+def lands_of(s, pid, n):
+    out = [c for c in s.state.cards.values() if c.owner == pid and c.name in ("Forest", "Island") and c.zone == f"{pid}:library"][:n]
+    for c in out:
+        act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "battlefield"})
+    return out
+
+
+def test_dwarven_landslide_kicked_pays_the_mana_and_sacrifices_a_land_and_destroys_two(cards):
+    s = build(cards, ["Dwarven Landslide"])
+    mine, theirs = lands_of(s, "p1", 1), lands_of(s, "p2", 2)
+    spell = to_hand(s, "Dwarven Landslide")
+    pool(s, R=2, C=5)  # {3}{R} and the {2}{R} of the kicker
+    act(s, "p1", type="cast_spell", card_id=spell.id, kicker=1, targets=[theirs[0].id, theirs[1].id], target_counts=[1, 1])
+    d = s.state.rules.decision
+    if d is not None:
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[mine[0].id])
+    settle(s)
+    assert zone_of(s, "Forest") == "p1:graveyard" or s.state.cards[mine[0].id].zone == "p1:graveyard"  # sacrificed to pay the kicker (601.2h)
+    assert all(s.state.cards[c.id].zone == "p2:graveyard" for c in theirs)  # "destroy another target land"
+    check(s)
+
+
+def test_dwarven_landslide_unkicked_destroys_one_and_sacrifices_nothing(cards):
+    s = build(cards, ["Dwarven Landslide"])
+    mine, theirs = lands_of(s, "p1", 1), lands_of(s, "p2", 2)
+    spell = to_hand(s, "Dwarven Landslide")
+    pool(s, R=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[theirs[0].id], target_counts=[1])
+    settle(s)
+    assert s.state.cards[mine[0].id].zone == "p1:battlefield"
+    assert [s.state.cards[c.id].zone for c in theirs] == ["p2:graveyard", "p2:battlefield"]
+    check(s)
