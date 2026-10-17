@@ -1,8 +1,10 @@
 """-- if you do (wave 8C) -- "put your choice of a +1/+1, first strike, or trample counter on that creature" (Assaultron
 Dominator, T-45 Power Armor, Me, the Immortal): the controller chooses one of the kinds named as the instruction is
 carried out (608.2d: a choice the effect offers) and puts one counter of it on the object (122.6, through the counter
-choke point). A keyword counter gives its keyword (122.1b, 613.1f). Only +1/+1 and the keyword counters are kinds the
-engine models (values.UNMODELED_COUNTERS), so any other kind in the list leaves the ability manual.
+choke point). A keyword counter gives its keyword (122.1b, 613.1f). Only +1/+1, the keyword counters and charge counters are kinds
+read, so any other kind in the list leaves the ability manual.
+-- Station (wave 46D) -- a kind may come with a number ("a +1/+1 counter or two charge counters", Inspirit, Flagship Vessel) and the
+object may be a target ("on up to one other target artifact", "on target Dinosaur"): nothing is chosen when no target was.
 
 The chosen kind replaces this instruction in the resolution (an ordinary ``add_counters`` then runs in its place, so a
 replacement-order choice (616.1) can pause it like any other counter placement)."""
@@ -13,9 +15,8 @@ import re
 from typing import Any
 
 from app.game.errors import ActionError
-from app.game.rules_state import DecisionOption
+from app.game.rules_state import KEYWORD_COUNTERS, DecisionOption
 from app.rules.plan import Plan, decide
-from app.rules.values import UNMODELED_COUNTERS
 
 Context = dict[str, Any]
 STEP = "pick_counter"
@@ -30,7 +31,7 @@ def parse(kinds: str, who: str) -> list[dict[str, Any]] | None:
     found, ns = [], []
     for item in items:
         m = _ITEM.match(re.sub(r" counters?$", "", item))
-        if m is None or m["kind"] in UNMODELED_COUNTERS:
+        if m is None or (m["kind"] not in ("+1/+1", "charge") and m["kind"] not in KEYWORD_COUNTERS):  # (charge: Station, wave 46D)
             return None
         found.append(m["kind"])
         ns.append(_N.get(m["n"] or "a", 1))
