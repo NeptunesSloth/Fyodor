@@ -267,6 +267,8 @@ def _self_pronouns(part: str) -> str:
     part = re.sub(rf"\b(?:his|her) (?={_POSSESSED}\b)", "~'s ", part)
     part = re.sub(r"(?<!or )\b(?:him|her)\b(?=[.,;:)]|$| (?:and|until|this|then|to|from|into|onto|on|with|unless|if|as|equal|for)\b)",
                   "~", part)
+    part = re.sub(r"(?<=\btransformed under )~'s owner's control\b", "its owner's control", part)  # -- activated other (wave 44D) -- "return her to the battlefield transformed under her owner's control" (Nissa, Jace)
+    part = re.sub(r"(\bexile ~, then return )~(?= to the battlefield\b)", r"\1it", part)  # (-- activated other (wave 44D) -- "exile Nissa, then return her …": the card just exiled)
     return re.sub(r"(?<=return ~ to )~'s owner's hand\b", "its owner's hand", part)  # -- if you do (wave 40A) -- "return him to his owner's hand" (Bob): 400.3, the card's owner
 
 
@@ -978,6 +980,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             if "n" in e:
                 e["n"] = _bind_stats(e["n"], lambda verb=None, at=index: stat_ref(at, verb),
                                      (lambda: "event") if antecedent == "event_spell" else None)  # (wave 3R3)
+            if e.get("do") == "put_from_hand" and isinstance(e.get("mv"), list) and isinstance(e["mv"][1], dict):  # -- trigger other (wave 44D) -- "… with mana value less than or
+                # equal to that creature's power" (Minn, Wily Illusionist): the creature the trigger is about, as it last existed (608.2h)
+                e["mv"] = [e["mv"][0], _bind_stats(e["mv"][1], lambda verb=None, at=index: stat_ref(at, verb), None)]
             if "life_x" in e:  # -- sized payments (wave 5G) -- "pay X life, where X is its power"
                 e["life_x"] = _bind_stats(e["life_x"], lambda verb=None, at=index: stat_ref(at, verb),
                                           (lambda: "event") if antecedent == "event_spell" else None)
@@ -2916,6 +2921,19 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # control also gain first strike until end of turn." (Swarm Surge), "It also gets +1/+0 until end of turn if …" (Might of the Meek): "also" only says the instruction
     # adds to the one before it (608.2c), as for "~ also deals" (language.py) — the same instruction without it
     body = _ALSO_SUBJECT.sub(r"\1 \2", body)
+    # -- activated other (wave 44D) -- "~ deals 2 damage to target player and gains indestructible until end of turn." (Ellie, Vengeful Hunter): two instructions of the same
+    # source, in order (608.2c)
+    body = re.sub(r"(^|\. )(~ deals \d+ damage to [^.,]+?) and (gains [a-z ]+ until end of turn)\.", r"\1\2. ~ \3.", body)
+    # -- trigger other (wave 44D) -- "If he's attacking, untap him and there is an additional combat phase after this phase." (The Incredible Hulk): both halves are the "if" clause's,
+    # so the condition is stated for each (nothing in between changes whether it is attacking)
+    body = re.sub(r"\bIf (?:he's|she's|it's|~ is) attacking, untap ~ and (there is an additional combat phase after this phase)\.",
+                  r"If ~ is attacking, untap ~. If ~ is attacking, \1.", body)
+    # -- activated other (wave 44D) -- "Destroy all creatures except for ~. Those creatures can't be regenerated." (Mageta the Lion): all the others, the source being the only one
+    # left out, as "Destroy all other creatures. They can't be regenerated." says
+    body = re.sub(r"\b([Dd]estroy all) (creatures|artifacts|enchantments|lands) except for ~\. Those \2 can't be regenerated\.", r"\1 other \2. They can't be regenerated.", body)
+    # -- trigger other (wave 44D) -- "Choose target creature card in your graveyard. If …, return it to the battlefield. Otherwise, put it into your hand." (Meren of Clan Nel
+    # Toth, Bortuk Bonerattle): the chosen card moves from the graveyard to the hand, as "return it to your hand" does
+    body = re.sub(r"(\b[Cc]hoose target [^.]*? in your graveyard\..*?\b)([Pp])ut it into your hand\b", lambda m: f"{m[1]}{'R' if m[2] == 'P' else 'r'}eturn it to your hand", body)
     # -- review (wave 7R) -- "Create a tapped 2/2 black Zombie creature token and exile that card." (Wight): "that card" is
     # the card the trigger is about, never the token just created (a token is no card), and the pronoun reader would bind it
     # to the token. The two instructions don't depend on each other: read as "Exile that card. Create …" (the trigger's
@@ -4610,6 +4628,13 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         # -- spell copies (wave 31D) -- "Whenever you cast a spell while ~ is attacking, …" (Fire Lord Azula): a condition of the cast event (603.2),
         # judged as it triggers and not again as it resolves (603.4 is for "if")
         text, while_attacking = re.subn(r"^(Whenever you cast [^,]+?) while ~ is attacking, ", r"\1, if ~ is attacking, ", text)
+        # -- trigger other (wave 44D) -- 506.1, 603.2: "Whenever you cast a spell during combat, …" (Zuko), "… an instant or sorcery spell with mana value greater than the number of
+        # experience counters you have, …" (Mizzix): facts of the cast event, judged as it triggers and not again as it resolves
+        text = re.sub(r"^(When ~ dies or is put into exile) while its power is (\d+ or greater), ", r"\1, if its power was \2, ", text)  # (Syr Vondam, Sunstar Exemplar: as it last existed, 603.10a)
+        text, in_combat = re.subn(r"^(Whenever you cast [^,]+?) during combat, ", r"\1, if it's combat, ", text)
+        text, over_counters = re.subn(r"^(Whenever you cast [^,]+?) with mana value greater than the number of experience counters you have, ",
+                                      r"\1, if its mana value is greater than the number of experience counters you have, ", text)
+        while_attacking += in_combat + over_counters
         # -- this-turn history (wave 30R) -- "Whenever a creature an opponent controls dies, if ~ dealt damage to it this turn, …" (Hawkeye) is
         # "Whenever a creature an opponent controls dealt damage by ~ this turn dies, …" (events: damaged_by_self): a fact of the past (120.3),
         # as true when the ability resolves as when it triggers (603.4)

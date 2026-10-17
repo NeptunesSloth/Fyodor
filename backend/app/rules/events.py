@@ -366,8 +366,9 @@ def _parse(c: str) -> Condition | None:
     m = re.fullmatch(r"(?P<s>.+?) (?:dies|(?:is|are) put into a graveyard from the battlefield) or (?:is|are) put into (?:exile"
                      r"(?: from the battlefield)?|(?P<cz>the command zone))", c)  # (wave 20A: "When enchanted permanent dies or is put into exile", Kaya's Ghostform)
     # (-- counters (wave 41A) -- 109.2: "a creature with a coin counter on it dies or is put into exile" (Athreos, Shroud-Veiled): a description with a card type
-    # and no "card" is a permanent on the battlefield, so "is put into exile" is from the battlefield too)
-    if m and not c.endswith("battlefield") and not m["s"].startswith(("enchanted ", "equipped ")) \
+    # and no "card" is a permanent on the battlefield, so "is put into exile" is from the battlefield too; wave 44D: nor is "~ dies or is put into exile" (Syr Vondam), an ability
+    # of a permanent, which functions on the battlefield only)
+    if m and not c.endswith("battlefield") and m["s"] != "~" and not m["s"].startswith(("enchanted ", "equipped ")) \
             and not re.match(r"(?:an?|another) (?!.*\bcards?\b)(?:[a-z-]+ )*(?:creature|permanent|artifact|enchantment|land|planeswalker)\b", m["s"]):
         return None  # (a bare "put into exile" is from the battlefield only for what an Aura / Equipment is attached to: it's there)
     if m:
