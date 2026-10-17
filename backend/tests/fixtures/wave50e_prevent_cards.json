@@ -68,5 +68,71 @@
   "keywords": [],
   "power": "3",
   "toughness": "3"
+ },
+ {
+  "name": "Veteran Bodyguard",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature — Human",
+  "oracle_text": "As long as this creature is untapped, all damage that would be dealt to you by unblocked creatures is dealt to this creature instead.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "5"
+ },
+ {
+  "name": "Weathered Bodyguards",
+  "layout": "normal",
+  "mana_cost": "{5}{W}",
+  "cmc": 6.0,
+  "type_line": "Creature — Human Soldier",
+  "oracle_text": "As long as this creature is untapped, all combat damage that would be dealt to you by unblocked creatures is dealt to this creature instead.\nMorph {3}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Morph"
+  ],
+  "power": "2",
+  "toughness": "5"
+ },
+ {
+  "name": "Martyrs of Korlis",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature — Human",
+  "oracle_text": "As long as this creature is untapped, all damage that would be dealt to you by artifacts is dealt to this creature instead.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "6"
+ },
+ {
+  "name": "Granite Shard",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "{3}, {T} or {R}, {T}: This artifact deals 1 damage to any target.",
+  "colors": [],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
  }
 ]

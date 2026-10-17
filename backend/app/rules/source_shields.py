@@ -416,7 +416,21 @@ _REDIRECT = re.compile(r"All damage that would be dealt to (?P<to>you|you and ot
                        r"is dealt to (?P<new>enchanted creature|equipped creature|~|its controller) instead\.")
 
 
+# -- redirection statics (wave 50E) -- 614.9: "As long as this creature is untapped, all combat damage that would be dealt to you by unblocked creatures is dealt to this creature instead."
+# (Weathered Bodyguards; Veteran Bodyguard without "combat"; the rulings: not a blocked creature's trample damage), "... by artifacts ..." (Martyrs of Korlis): only while the holder is
+# untapped (replace._damage_applies ``untapped``), and only for damage from sources of that kind (``sel``: the source as it is, an unblocked attacker, 509.1h)
+_REDIRECT_BY = re.compile(r"As long as ~ is untapped, all (?P<combat>combat )?damage that would be dealt to you by (?P<by>unblocked creatures|artifacts) is dealt to ~ instead\.")
+
+
 def redirect_definition(text: str) -> Definition | None:
+    if (b := _REDIRECT_BY.fullmatch(text.strip())) is not None:
+        from app.rules import selectors
+
+        sel = selectors.parse(b["by"])
+        assert sel is not None
+        return {"kind": "static", "static": "replace", "event": "damage", "op": {"do": "redirect", "to": "self"}, "effects": [],
+                "match": {"to": {"players": "you"}, "untapped": True, **({"combat": True} if b["combat"] else {}),
+                          "source": {"sel": sel.key()} if b["by"] == "unblocked creatures" else {"types": ["Artifact"]}}}
     m = _REDIRECT.fullmatch(text.strip())
     if m is None:
         return None

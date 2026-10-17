@@ -1692,6 +1692,13 @@ def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -
     # -- end refused grants/replacements (wave 3R2) --
     if spec.get("self"):
         return ev.get("source_oid") is not None and ev.get("source_oid") == c.source_oid
+    if spec.get("sel"):  # -- redirection statics (wave 50E) -- "damage ... by unblocked creatures": the source, while it is that object on the battlefield, matched as a selector (509.1h)
+        from app.rules import selectors
+
+        source = plan.state.cards.get(ev.get("source_card") or "")
+        if source is None or plan.oid(source) != ev.get("source_oid") or not source.zone.endswith(":battlefield") or not selectors.matches(
+                plan, selectors.from_key(spec["sel"]), source, plan.ch(source), c.controller, c.source_card):
+            return False
     if spec.get("attached"):
         holder = plan.state.cards.get(c.source_card or "")
         return holder is not None and holder.attached_to is not None and holder.attached_to == ev.get("source_card") \
@@ -1778,6 +1785,8 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if m.get("combat") is not None and bool(m["combat"]) != bool(ev.get("combat")):
         return False
     if m.get("monarch") and plan.state.table.monarch != c.controller:  # (-- prevention riders (wave 17A) -- "while you're the monarch")
+        return False
+    if m.get("untapped") and ((holder := plan.state.cards.get(c.source_card or "")) is None or holder.tapped):  # -- redirection statics (wave 50E) -- "As long as this creature is untapped"
         return False
     if m.get("max_speed"):  # -- damage sized by a count (wave 34D) -- 702.178a: "As long as you have max speed, if a source you control would deal damage …"
         from app.rules import speed
