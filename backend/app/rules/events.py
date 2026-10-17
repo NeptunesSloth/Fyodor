@@ -69,6 +69,7 @@ class _Refuse(Exception):
 
 _EVENT_VERBS = [
     (r"enters?", "enter"),
+    (r"phases? in", "phase_in"),  # -- trigger other (wave 50G) -- 702.26a
     (r"dies|die", "die"),
     (r"leaves? the battlefield", "leave"),
     (r"is put into a graveyard from the battlefield|are put into a graveyard from the battlefield", "die"),
@@ -1286,6 +1287,12 @@ def _object_event(c: str) -> Condition | None:
             if a is None or b is None or m["first"]:
                 raise _Refuse
             return {"event": "either", "subject": "mixed", "conds": [{**extra, **a}, {**extra, **b}]}
+        selfor = re.fullmatch(r"~ or another (?P<rest>[^,]+)", m["s"])
+        if selfor is not None and not m["first"]:  # -- trigger other (wave 50G) -- "Whenever ~ or another Spirit you control becomes the target of a spell" (King of the Oathbreakers): each object its own event
+            other = selectors.parse("another " + selfor["rest"])
+            if other is None or other.player is not None or other.card:
+                raise _Refuse
+            return {"subject": "self_or", "sel": other.key(), **extra}
         base = _subject(m["s"], host=True)
         if base is None or (m["first"] and base["subject"] != "self"):
             raise _Refuse

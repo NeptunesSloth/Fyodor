@@ -694,3 +694,45 @@ def test_tomik_stops_your_opponents_playing_lands_from_graveyards(cards, who, to
         with pytest.raises(ActionError):
             act(s, who, type="play_land", card_id=land.id)
     check(s)
+
+
+# -- King of the Oathbreakers ------------------------------------------------------------------------------------------------------------------------
+KING = "King of the Oathbreakers"
+
+
+def spirits(s):
+    return [c for c in s.state.cards.values() if c.name == "Spirit" and c.zone == "p1:battlefield"]
+
+
+@pytest.mark.parametrize("target, phased", [("Kami of Ancient Law", True), ("Grizzly Bears", False)])
+def test_king_phases_out_a_spirit_that_is_targeted_and_makes_a_spirit_as_it_phases_in(cards, target, phased):
+    """Bob's Lightning Bolt at Alice's Kami (a Spirit): it phases out in response (the Bolt fizzles), phases in as Alice untaps (702.26a) and the King makes a tapped 1/1
+    Spirit with flying for it. A Bears isn't a Spirit: nothing phases."""
+    s = build(cards, [KING, "Kami of Ancient Law", "Grizzly Bears"], ["Lightning Bolt"])
+    put(s, KING)
+    victim = put(s, target)
+    to_main1(s, 2)
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Lightning Bolt", "p2").id, targets=[victim.id])
+    settle(s)
+    assert (s.state.cards[victim.id].zone == "p1:phased") == phased and (s.state.cards[victim.id].zone == "p1:graveyard") == (not phased)
+    assert not spirits(s)
+    to_main1(s, 3)
+    assert s.state.cards[victim.id].zone == ("p1:battlefield" if phased else "p1:graveyard")
+    made = spirits(s)
+    assert len(made) == (1 if phased else 0) and all(t.tapped for t in made)
+    check(s)
+
+
+def test_king_makes_a_spirit_when_it_phases_in_itself(cards):
+    """The King is a Spirit: a spell at him phases him out and, as he phases in, "King of the Oathbreakers or another Spirit you control phases in" is about him too."""
+    s = build(cards, [KING], ["Lightning Bolt"])
+    king = put(s, KING)
+    to_main1(s, 2)
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Lightning Bolt", "p2").id, targets=[king.id])
+    settle(s)
+    assert s.state.cards[king.id].zone == "p1:phased"
+    to_main1(s, 3)
+    assert s.state.cards[king.id].zone == "p1:battlefield" and len(spirits(s)) == 1
+    check(s)
