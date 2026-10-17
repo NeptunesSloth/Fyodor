@@ -439,7 +439,7 @@ def _parse(c: str) -> Condition | None:
         return {"event": "attack", "subject": "self", "min_attackers": _count(m["n"]), "sel": sel.key(),
                 **({"others_only": True} if m["o"] else {})}
     # "you draw your second card each turn"
-    m = re.fullmatch(rf"{_P} draws? (?:their|your) (?P<nth>first|second|third) card each turn", c)
+    m = re.fullmatch(rf"{_P} draws? (?:their|your) (?P<nth>first|second|third) card (?:each|in a) turn", c)
     if m:
         return {"event": "draw", "subject": "player", "player": _PLAYERS[m["p"]], "nth": _NTH[m["nth"]]}
     m = re.fullmatch(rf"{_P} draws? (?:their|your) first or second card each turn", c)  # -- counters (wave 33C) -- Lady Octopus: the first two of the turn

@@ -76,7 +76,7 @@ def refs_ok(cond: dict[str, Any], effects: list[dict[str, Any]]) -> bool:
     return not (re.search(r'"(?:ref:)?event(?:\.\w+)?"', text) and cond["subject"] != "sel")
 
 
-def build(cond: dict[str, Any] | None, clause: str, *, once: bool, text: str, bound: str | None = None,
+def build(cond: dict[str, Any] | None, clause: str, *, once: bool, text: str, bound: str | None = None, next_turn: bool = False,
           ) -> tuple[list[dict[str, Any]], Any] | None:
     """The ``delayed`` effect and its deferred effects for "[whenever / when you next …] this turn, <clause>"."""
     from app.rules import scripts
@@ -103,7 +103,7 @@ def build(cond: dict[str, Any] | None, clause: str, *, once: bool, text: str, bo
     if own_target is not None:
         effects = delayed.mark_target(effects)  # ("target" is the deferred ability's own, not one of the creating ability's groups)
     head = {"kind": "watch", "cond": cond, "text": text, **({"bound": True} if bound else {})}
-    wrapped = delayed.wrap_when(effects, head, who=bound, this_turn=True)
+    wrapped = delayed.wrap_when(effects, head, who=bound, this_turn=not next_turn, next_turn=next_turn)  # (wave 50G: "Until your next turn, whenever …", 500.4)
     wrapped[0]["once"] = once
     if own_target is not None:
         wrapped[0]["target"] = own_target
@@ -136,23 +136,23 @@ def bound_cond(text: str) -> tuple[dict[str, Any], str, Any] | None:
     return None
 
 
-def parse(cond_text: str, clause: str) -> tuple[list[dict[str, Any]], Any] | None:
+def parse(cond_text: str, clause: str, *, next_turn: bool = False) -> tuple[list[dict[str, Any]], Any] | None:
     """"Whenever <cond> this turn, <clause>": a watch on players or objects, or on the one object the condition names."""
     from app.rules import events
 
     if (bound := bound_cond(cond_text)) is not None:
-        found = build(bound[0], clause, once=False, text=cond_text, bound=bound[1])
+        found = build(bound[0], clause, once=False, text=cond_text, bound=bound[1], next_turn=next_turn)
         return (found[0], bound[2]) if found is not None else None
-    return build(events.parse_condition(cond_text), clause, once=False, text=cond_text)
+    return build(events.parse_condition(cond_text), clause, once=False, text=cond_text, next_turn=next_turn)
 
 
-def parse_leading(rest: str) -> tuple[list[dict[str, Any]], Any] | None:
+def parse_leading(rest: str, *, next_turn: bool = False) -> tuple[list[dict[str, Any]], Any] | None:
     """"Until end of turn, whenever <cond>, <clause>" (611.2a): the condition is the shortest comma-separated start that reads."""
     from app.rules import events
 
     for at in [m.start() for m in re.finditer(", ", rest)]:
         if bound_cond(rest[:at]) is not None or events.parse_condition(rest[:at]) is not None:
-            return parse(rest[:at], rest[at + 2:])
+            return parse(rest[:at], rest[at + 2:], next_turn=next_turn)
     return None
 
 

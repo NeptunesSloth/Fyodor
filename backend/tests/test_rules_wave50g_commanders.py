@@ -36,7 +36,7 @@ KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="t50g", number=f"G{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 FULL = ["Kenessos, Priest of Thassa", "Maralen of the Mornsong", "Tetsuo Umezawa", "Bartel Runeaxe", "Valentina Allegra de Fontaine",
-        "Anje, Maid of Dishonor", "Hakbal of the Surging Soul"]
+        "Anje, Maid of Dishonor", "Hakbal of the Surging Soul", "Tamiyo, Inquisitive Student // Tamiyo, Seasoned Scholar", "Sneaky Snacker"]
 
 
 @pytest.fixture()
@@ -414,4 +414,60 @@ def test_hakbal_puts_a_land_from_your_hand_or_draws(cards, mode, lands, drawn):
     drive(s, {"put": ["Forest"], "decline": ["<none>"], "no land": []}[mode], lambda s: s.state.rules.decision is None and not s.state.zones.get("stack"))
     assert len(on_battlefield(s, "Forest")) - forests == lands and library - len(s.state.zones["p1:library"]) == drawn
     assert len(s.state.zones["p1:hand"]) == in_hand - lands + drawn
+    check(s)
+
+
+# -- Tamiyo, Inquisitive Student ---------------------------------------------------------------------------------------------------------------------
+TAMIYO = "Tamiyo, Inquisitive Student // Tamiyo, Seasoned Scholar"
+
+
+def three_opts(s, n=3):
+    """Alice casts Opt ``n`` times this turn: one draw each."""
+    for _ in range(n):
+        mana(s, "p1", U=1)
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Opt").id)
+        settle(s)
+
+
+@pytest.mark.parametrize("draws, flipped", [(3, True), (2, False)])
+def test_tamiyo_transforms_on_the_third_card_drawn_in_a_turn(cards, draws, flipped):
+    """"When you draw your third card in a turn, exile Tamiyo, then return her to the battlefield transformed" (701.28): the third card, not the second."""
+    s = build(cards, [TAMIYO, "Opt", "Opt", "Opt"], [])
+    put(s, TAMIYO)
+    three_opts(s, draws)
+    now = s.state.cards[card_named(s, TAMIYO).id]
+    assert (now.zone == "p1:battlefield" and now.face == 1) == flipped
+    check(s)
+
+
+def test_tamiyo_seasoned_scholar_shrinks_attackers_until_your_next_turn(cards):
+    """+2: "Until your next turn, whenever a creature attacks you or a planeswalker you control, it gets -1/-0 until end of turn." Bob's Bears hit for 1 on his turn;
+    the watch is gone when Alice's next turn begins (500.4)."""
+    s = build(cards, [TAMIYO, "Opt", "Opt", "Opt"], ["Grizzly Bears"])
+    put(s, TAMIYO)
+    bears = put(s, "Grizzly Bears", "p2")
+    three_opts(s)
+    scholar = card_named(s, TAMIYO)
+    act(s, "p1", type="activate_ability", card_id=scholar.id, ability=ability(s, scholar, "+2"))
+    settle(s)
+    assert [t for t in s.state.rules.delayed if t.until_player == "p1"]
+    until(s, lambda s: s.state.turn.number == 2 and s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    before = life(s, "p1")
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p1"}])
+    until(s, lambda s: s.state.turn.phase == "main2" and s.state.rules.decision is None)
+    assert before - life(s, "p1") == 1
+    finish_turn(s)
+    assert s.state.turn.number == 3 and not [t for t in s.state.rules.delayed if t.until_player == "p1"]
+    check(s)
+
+
+# -- Sneaky Snacker (the same "third card in a turn" wording, read from the graveyard) -------------------------------------------------------------
+@pytest.mark.parametrize("draws, returns", [(3, True), (2, False)])
+def test_sneaky_snacker_returns_from_the_graveyard_on_the_third_draw(cards, draws, returns):
+    s = build(cards, ["Sneaky Snacker", "Opt", "Opt", "Opt"], [])
+    snacker = card_named(s, "Sneaky Snacker")
+    act(s, "p1", type="move", card_ids=[snacker.id], to={"player": "p1", "zone": "graveyard"})
+    three_opts(s, draws)
+    now = s.state.cards[snacker.id]
+    assert (now.zone == "p1:battlefield") == returns and (not returns or now.tapped)
     check(s)

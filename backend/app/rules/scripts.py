@@ -6696,11 +6696,11 @@ def _watch_whenever(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 # -- turn-long triggers (wave 33A) -- "Until end of turn, whenever a creature you control dies, …" / "This turn, whenever …" (611.2a)
-@effect(r"(?:until end of turn|this turn), whenever (?P<rest>.+)")
+@effect(r"(?P<lead>until end of turn|this turn|until your next turn), whenever (?P<rest>.+)")  # (wave 50G: "Until your next turn, whenever …": a watch until its controller's next turn begins, 500.4)
 def _watch_whenever_leading(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import watches
 
-    return _from_language(watches.parse_leading(m["rest"]))
+    return _from_language(watches.parse_leading(m["rest"], next_turn=m["lead"] == "until your next turn"))
 
 
 @effect(r"the next (?:(?P<sel>[a-z, ]+?) )?spell you cast this turn can't be countered")

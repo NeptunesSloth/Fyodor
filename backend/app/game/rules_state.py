@@ -729,6 +729,7 @@ class DelayedTrigger(BaseModel):
     step: str = ""
     once: bool = True  # 603.7b: it triggers only once (an "each" duration would say otherwise)
     until_turn: int | None = None  # "this turn": it stops watching at that turn's cleanup (514.2)
+    until_player: str | None = None  # -- turn-long triggers (wave 50G) -- "until your next turn": it stops watching as that player's next turn begins (500.4)
     # -- if you do (wave 25C) -- a turn watch's deferred ability that has a target of its own ("Whenever you cast a spell this turn, put a +1/+1
     # counter on target creature you control"): the selector its controller chooses a target for each time it triggers (603.3d)
     target: dict[str, Any] | None = None
