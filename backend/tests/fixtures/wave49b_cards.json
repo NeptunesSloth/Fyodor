@@ -1,0 +1,221 @@
+[
+ {
+  "name": "Hinata, Dawn-Crowned",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{R}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature \u2014 Kirin Spirit",
+  "oracle_text": "Flying, trample\nSpells you cast cost {1} less to cast for each target.\nSpells your opponents cast cost {1} more to cast for each target.",
+  "colors": [
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Trample"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "King Darien XLVIII",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature \u2014 Human Soldier",
+  "oracle_text": "Other creatures you control get +1/+1.\n{3}{G}{W}: Put a +1/+1 counter on King Darien and create a 1/1 white Soldier creature token.\nSacrifice King Darien: Creature tokens you control gain hexproof and indestructible until end of turn.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Archelos, Lagoon Mystic",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{G}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature \u2014 Turtle Shaman",
+  "oracle_text": "As long as Archelos is tapped, other permanents enter tapped.\nAs long as Archelos is untapped, other permanents enter untapped.",
+  "colors": [
+   "B",
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "U"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "4"
+ },
+ {
+  "name": "Sliver Gravemother",
+  "layout": "normal",
+  "mana_cost": "{W}{U}{B}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature \u2014 Sliver",
+  "oracle_text": "The \"legend rule\" doesn't apply to Slivers you control.\nEach Sliver creature card in your graveyard has encore {X}, where X is its mana value.\nEncore {5} ({5}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+  "colors": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Encore"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Katilda, Dawnhart Martyr // Katilda's Rising Dawn",
+  "layout": "transform",
+  "mana_cost": "{1}{W}{W} // ",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature \u2014 Spirit Warlock // Legendary Enchantment \u2014 Aura",
+  "oracle_text": "Flying, lifelink, protection from Vampires\nKatilda's power and toughness are each equal to the number of permanents you control that are Spirits and/or enchantments.\nDisturb {3}{W}{W} (You may cast this card from your graveyard transformed for its disturb cost.)\n//\nEnchant creature\nEnchanted creature has flying, lifelink, and protection from Vampires, and it gets +X/+X, where X is the number of permanents you control that are Spirits and/or enchantments.\nIf Katilda's Rising Dawn would be put into a graveyard from anywhere, exile it instead.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Lifelink",
+   "Transform",
+   "Protection",
+   "Enchant",
+   "Disturb"
+  ],
+  "power": "*",
+  "toughness": "*",
+  "card_faces": [
+   {
+    "name": "Katilda, Dawnhart Martyr",
+    "mana_cost": "{1}{W}{W}",
+    "type_line": "Legendary Creature \u2014 Spirit Warlock",
+    "oracle_text": "Flying, lifelink, protection from Vampires\nKatilda's power and toughness are each equal to the number of permanents you control that are Spirits and/or enchantments.\nDisturb {3}{W}{W} (You may cast this card from your graveyard transformed for its disturb cost.)",
+    "power": "*",
+    "toughness": "*",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/e/4/e45300aa-02c4-4d4d-bf6d-e5d9342b471a.jpg?1783924313",
+     "normal": "https://cards.scryfall.io/normal/front/e/4/e45300aa-02c4-4d4d-bf6d-e5d9342b471a.jpg?1783924313",
+     "large": "https://cards.scryfall.io/large/front/e/4/e45300aa-02c4-4d4d-bf6d-e5d9342b471a.jpg?1783924313",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/e/4/e45300aa-02c4-4d4d-bf6d-e5d9342b471a.jpg?1783924313"
+    }
+   },
+   {
+    "name": "Katilda's Rising Dawn",
+    "mana_cost": "",
+    "type_line": "Legendary Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature has flying, lifelink, and protection from Vampires, and it gets +X/+X, where X is the number of permanents you control that are Spirits and/or enchantments.\nIf Katilda's Rising Dawn would be put into a graveyard from anywhere, exile it instead.",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/e/4/e45300aa-02c4-4d4d-bf6d-e5d9342b471a.jpg?1783924313",
+     "normal": "https://cards.scryfall.io/normal/back/e/4/e45300aa-02c4-4d4d-bf6d-e5d9342b471a.jpg?1783924313",
+     "large": "https://cards.scryfall.io/large/back/e/4/e45300aa-02c4-4d4d-bf6d-e5d9342b471a.jpg?1783924313",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/e/4/e45300aa-02c4-4d4d-bf6d-e5d9342b471a.jpg?1783924313"
+    }
+   }
+  ]
+ },
+ {
+  "name": "The Mycotyrant",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature \u2014 Elder Fungus",
+  "oracle_text": "Trample\nThe Mycotyrant's power and toughness are each equal to the number of creatures you control that are Fungi and/or Saprolings.\nAt the beginning of your end step, create X 1/1 black Fungus creature tokens with \"This token can't block,\" where X is the number of times you descended this turn. (You descend each time a permanent card is put into your graveyard from anywhere.)",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "*",
+  "toughness": "*"
+ },
+ {
+  "name": "Ulamog, the Defiler",
+  "layout": "normal",
+  "mana_cost": "{10}",
+  "cmc": 10.0,
+  "type_line": "Legendary Creature \u2014 Eldrazi",
+  "oracle_text": "When you cast this spell, target opponent exiles the top half of their library, rounded up.\nWard\u2014Sacrifice two permanents.\nUlamog enters with a number of +1/+1 counters on it equal to the greatest mana value among cards in exile.\nUlamog has annihilator X, where X is the number of +1/+1 counters on it.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Ward"
+  ],
+  "power": "7",
+  "toughness": "7"
+ },
+ {
+  "name": "Savage Stomp",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "This spell costs {2} less to cast if it targets a Dinosaur you control.\nPut a +1/+1 counter on target creature you control. Then that creature fights target creature you don't control. (Each deals damage equal to its power to the other.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Fight"
+  ]
+ },
+ {
+  "name": "Muscle Sliver",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature \u2014 Sliver",
+  "oracle_text": "All Sliver creatures get +1/+1.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ }
+]

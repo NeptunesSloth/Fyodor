@@ -2966,6 +2966,8 @@ def exile_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                 ctx["found"] = library[at]
         elif e.get("keep_bottom") is not None:  # -- hidden exile (wave 18A) -- "all but the bottom six cards of their library"
             n = max(0, len(library) - int(e["keep_bottom"]))
+        elif e.get("half"):  # -- commander sweep (wave 49B) -- 107.1a: "the top half of their library, rounded up" (Ulamog, the Defiler): half the cards in it now
+            n = (len(library) + 1) // 2 if e["half"] == "up" else len(library) // 2
         else:
             n = min(_amount(plan, ctx, e["n"]), len(library))
         if not n:

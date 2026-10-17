@@ -1280,6 +1280,11 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
                 raise _Fail  # ("each player's library … put them back": who orders whose? not read)
             out.append({"do": "rest_looked", "to": "top_any"})
         return out, _one(group)
+    # -- commander sweep (wave 49B) -- "target opponent exiles the top half of their library, rounded up" (Ulamog, the Defiler): 107.1a, half the library as it is now
+    m = re.fullmatch(r"(?P<subj>target opponent|target player) exiles the top half of their library, rounded (?P<r>up|down)", text)
+    if m and rider is None:
+        kind, key, group = ref(m["subj"])
+        return [{"do": "exile_top", "n": 0, "half": m["r"], "player": _who(kind, key)}], _one(group)
     m = _SUBJ_TOP.fullmatch(text)
     if m:
         kind, key, group = ref(m["subj"])
@@ -1797,6 +1802,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if recipients == "itself" and m["src"] == "~":  # -- chosen player (wave 4J) -- "~ deals 1 damage to itself" (Stuffy Doll)
             recipients = "~"
         recipients = re.sub(r"^(each opponent and each .+?) they control$", r"\1 your opponents control", recipients)
+        recipients = re.sub(r"^(target (?:player|opponent) and each .+?) they control$", r"\1 that player controls", recipients)  # (wave 49B: "target opponent and each creature they control", The Great Work)
         recipients = re.sub(r"(creatures?) and (planeswalkers?|battles?) (?=you control|your opponents control|an opponent controls)",
                             r"\1 or \2 ", recipients)
         # -- damage sized by a count (wave 4E) -- "each creature and planeswalker you don't control / that player controls"

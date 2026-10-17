@@ -237,7 +237,7 @@ def backup_definition(ch: Any, ab: AbilityText, nth: int = 0) -> dict[str, Any] 
 # bonus is calculated each time Fumiko's bushido trigger resolves, based on the number of attackers at that time." Soulshift X (Kodama of the
 # Center Tree) stays manual: its ruling reads the state "immediately before the Soulshift trigger", Kodama's own count included, which is not
 # when its trigger resolves. A bushido definition is carried by triggers.blocked, the others are ordinary triggers (triggers.abilities).
-_DYNAMIC_X = re.compile(r"(?P<kw>bushido|firebending|mobilize) X, where X is (?P<xdef>[^.]+?)\.?", re.IGNORECASE)
+_DYNAMIC_X = re.compile(r"(?P<kw>bushido|firebending|mobilize|annihilator) X, where X is (?P<xdef>[^.]+?)\.?", re.IGNORECASE)
 _NOT_ALONE = re.compile(r'"(?:it|that_player|this_way|event[a-z_]*|ref[a-z_]*|cost:[a-z]+)"|"x"')  # a value that needs what this line has not got
 
 
@@ -249,15 +249,15 @@ def dynamic_x(text: str) -> dict[str, Any] | None:
     if m is None:
         return None
     try:
-        value = scripts._x_amount(m["xdef"])
+        value = scripts._x_amount(re.sub(r"\bon it$", "on ~", m["xdef"]))  # (wave 49B: "counters on it", the creature that has the keyword)
     except scripts._NoMatch:
         return None
     if _NOT_ALONE.search(json.dumps(value)):
         return None
     kw = m["kw"].lower()
-    if kw == "mobilize":
-        d = json.loads(_definition("mobilize 2") or "[]")
-        if len(d) != 1 or d[0]["effects"][0].get("do") != "create_attacking":
+    if kw in ("mobilize", "annihilator"):  # (wave 49B: annihilator X, 702.86a, read as it resolves: Ulamog, the Defiler's ruling 2024-06-07)
+        d = json.loads(_definition(f"{kw} 2") or "[]")
+        if len(d) != 1 or d[0]["effects"][0].get("do") != ("create_attacking" if kw == "mobilize" else "sacrifice_choice"):
             return None
         d[0]["effects"][0]["n"] = value
         return d[0]

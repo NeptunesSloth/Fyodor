@@ -506,6 +506,8 @@ def _turn_amount(what: str) -> Value | None:
     if m := _TURN_ENTERED.match(what):
         sel = selectors.parse(m["sel"])
         return {"turn_history": "entered", "sel": sel.key()} if sel is not None else None
+    if re.fullmatch(r"(?:the )?(?:number of )?times you descended this turn", what):  # -- commander sweep (wave 49B) -- 700.11: the permanent cards put into your graveyard from anywhere (The Mycotyrant)
+        return {"turn_history": "descended"}
     m = _TURN_LIFE.match(what)
     if m:
         return {"turn_history": "gained" if m["k"] == "gained" else "lost"}

@@ -238,6 +238,9 @@ def _short_name(name: str, text: str = "") -> str | None:
     first word), unless that word is also a creature type ("Soldier of the Pantheon")."""
     from app.rules.creature_types import CREATURE_TYPES
 
+    num = re.match(r"^(.+?) [IVXLC]{2,}$", name)  # -- commander sweep (wave 49B) -- "King Darien XLVIII" is "King Darien" in its own text (201.5c)
+    if num is not None and re.search(rf"\b{re.escape(num[1])}\b", text):
+        return num[1]
     two = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]+ [A-ZÀ-ÖØ-Þ][\w'-]+) (?:the|of) ", name)  # -- trigger tail (wave 15B) -- "Tor Wauki the Younger"
     if two is not None and re.search(rf"\b{re.escape(two[1])}\b", text):
         return two[1]
@@ -4629,7 +4632,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     text = re.sub(r"^(Whenever you cast) a spell, if that spell was kicked, ", r"\1 a kicked spell, ", text)
     # "When ~ dies, it deals damage equal to its power divided as you choose …" (Orca, Siege Demon): "it" is the creature that died, ~ (language.py reads ~'s)
     text = re.sub(r"^(When ~ dies, )it deals (damage equal to its power divided as you choose among )", r"\1~ deals \2", text)
-    if ability.kind == "static" and re.match(r"(?i:(?:~ has )?(?:bushido|firebending|mobilize) X, where X is)", text):  # -- X keywords (wave 41B) --
+    if ability.kind == "static" and re.match(r"(?i:(?:~ has )?(?:bushido|firebending|mobilize|annihilator) X, where X is)", text):  # -- X keywords (wave 41B) --
         from app.rules import keyword_triggers
 
         return keyword_triggers.dynamic_x(text)

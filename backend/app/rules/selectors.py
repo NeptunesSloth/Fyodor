@@ -474,10 +474,11 @@ def _thats_colored(s: Selector, m: re.Match[str]) -> Selector:  # (wave 19D: "th
 # (-- counters (wave 33C) -- "each other creature you control that's a token or a Rabbit" (Finneas, Ace Archer): "token" is one of the alternatives, kept
 # as the word in the list and read as the object's being a token (111.7); alone it is no creature type: "that's a token" stays unread)
 # (-- cant restrictions (wave 46A) -- "each creature you control that's an artifact or Human" (Paladin Danse): a card type is one of the alternatives too, read from the object's types)
-_THAT_WORD = r"[A-Z][\w'’-]*|token|artifact|enchantment|land|planeswalker|battle"
+_THAT_WORD = r"[A-Z][\w'’-]*|token|artifacts?|enchantments?|lands?|planeswalkers?|battles?"
 
 
-@_suffix(rf"that['’]s (?P<list>an? (?:{_THAT_WORD})(?:(?:,|,? or|,? and/or) (?:an? )?(?:{_THAT_WORD}))*)")
+# (-- commander sweep (wave 49B) -- plural: "permanents you control that are Spirits and/or enchantments" (Katilda), "creatures you control that are Fungi and/or Saprolings" (The Mycotyrant))
+@_suffix(rf"that(?:['’]s| are) (?P<list>(?:an? )?(?:{_THAT_WORD})(?:(?:,|,? or|,? and/or) (?:an? )?(?:{_THAT_WORD}))*)")
 def _thats_types(s: Selector, m: re.Match[str]) -> Selector:
     words = [w for w in re.split(r",? (?:or|and/or) |, ", m["list"]) if w]
     subs = [("tok", "token") if re.sub(r"^an? ", "", w) == "token" else _core(re.sub(r"^an? ", "", w)) for w in words]

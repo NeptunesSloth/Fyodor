@@ -194,6 +194,9 @@ def parse(text: str) -> Definition | None:
     m = re.match(r"^(?P<rest>.+), where X is (?P<x>.+)$", body)
     if m and m["rest"].count('"') % 2 == 0:  # (not inside a quoted granted ability)
         x_phrase, body = m["x"], m["rest"]
+    # -- commander sweep (wave 49B) -- "Enchanted creature has flying, lifelink, and protection from Vampires, and it gets +X/+X, where X is …" (Katilda's Rising Dawn): "it" is the
+    # same creature, so the second verb joins the first ("… Vampires and gets +X/+X, where X is …")
+    body = re.sub(r"^((?:Enchanted|Equipped) (?:creature|permanent|land|artifact) has .+?), and it (gets? [+−-]\w+/[+−-]\w+(?:,|$))", r"\1 and \2", body)
     # -- static statics (wave 10B) -- "Creatures your opponents control lose flying and can't have or gain flying."
     # (the Archetypes): lose it now (613.1f, in timestamp order) and never have or gain it (the deny is applied last)
     m = _DENY.fullmatch(body)
