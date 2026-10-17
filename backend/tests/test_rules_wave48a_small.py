@@ -7,6 +7,8 @@ Every scenario checks the replay and a save and a load.
   opponent's graveyard; the ability cannot be activated without two of them.
 * 701.27a, 701.27f: "Transform up to one target Werewolf you control." (Waxing Moon), "{5}: Transform target Incubator token you control. Double the number of +1/+1
   counters on it." (Elvish Vatkeeper) - the chosen permanent turns over; a target that is not a Werewolf (an Incubator token) is no legal target.
+* 701.53a: "Incubate X twice, where X is the number of lands you control." (Glistening Dawn) - two Incubator tokens, each with X counters (X read as it resolves);
+  "you gain 5 life and incubate 5" (Tangled Skyline).
 * 115.3, 611.2c: "Until end of turn, target creature gets +0/+2 and another target creature gets -2/-0." (Rookie Mistake, Skulduggery) - two different targets, each its own pump;
   "+X/+0 and -0/-X, where X is the number of artifacts you control" (Monoist Circuit-Feeder) - one X for both halves.
 """
@@ -174,4 +176,28 @@ def test_elvish_vatkeeper_transforms_the_incubator_and_doubles_its_counters(card
     settle(s)
     now = s.state.cards[token.id]
     assert now.face == 1 and now.counters.get("+1/+1") == 4 and "Creature" in ch(s, now).types
+    check(s)
+
+
+def incubators(s):
+    return [c for c in s.state.cards.values() if c.name == "Incubator" and c.zone == "p1:battlefield"]
+
+
+def test_glistening_dawn_makes_two_incubators_with_x_counters_each(cards):
+    s = build(cards, ["Glistening Dawn"], [], forests=9)
+    for forest in [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"][:4]:
+        act(s, "p1", type="move", card_ids=[forest.id], to={"player": "p1", "zone": "battlefield"})
+    to_hand(s, "Glistening Dawn")
+    mana(s, G=2, C=2)
+    cast(s, "Glistening Dawn")
+    assert [c.counters.get("+1/+1") for c in incubators(s)] == [4, 4]  # four lands: X is 4 for both
+    check(s)
+
+
+def test_tangled_skyline_gains_life_and_incubates(cards):
+    s = build(cards, ["Tangled Skyline"], [])
+    to_hand(s, "Tangled Skyline")
+    mana(s, G=1, C=4)
+    cast(s, "Tangled Skyline")
+    assert life(s) == 45 and [c.counters.get("+1/+1") for c in incubators(s)] == [5]
     check(s)

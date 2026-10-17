@@ -1508,9 +1508,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if found is not None:
         return found
     text, rider = _with_rider(text)
-    kw_x = re.fullmatch(r"(?:you )?(?P<v>earthbend|incubate|empower Jace) [xX]", text) if rider is not None and rider[0] == "x" else None
+    kw_x = re.fullmatch(r"(?:you )?(?P<v>earthbend|incubate|empower Jace) [xX](?P<twice> twice)?", text) if rider is not None and rider[0] == "x" else None
     if kw_x:
-        found = keyword_forms(f"{kw_x['v']} x")  # -- keyword actions & face-down (wave 3F) -- "earthbend X, where X is …"
+        found = keyword_forms(f"{kw_x['v']} x{kw_x['twice'] or ''}")  # -- keyword actions & face-down (wave 3F) -- "earthbend X, where X is …"
         if found is None:
             raise _Fail
         return [_bind_x(e, rider[1]) for e in found[0]], found[1]
@@ -4094,9 +4094,9 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
         if m["spec"] and (up or spec is None):
             return None
         return [{"do": "turn_face_up" if up else "turn_face_down", "who": _who(kind, key), **({"spec": spec} if spec else {})}], _one(group)
-    m = re.fullmatch(r"(?:you )?incubate (?P<n>\d+|[xX])", text)
-    if m and has_primitive("incubate"):  # 701.53a
-        return [{"do": "incubate", "n": _amount(m["n"])}], None
+    m = re.fullmatch(r"(?:you )?incubate (?P<n>\d+|[xX])(?P<twice> twice)?", text)
+    if m and has_primitive("incubate"):  # 701.53a; -- keyword actions (wave 48A) -- "Incubate X twice" (Glistening Dawn): two separate Incubator tokens, one instruction after the other
+        return [*([{"do": "repeat", "n": 2, "span": 1}] if m["twice"] else []), {"do": "incubate", "n": _amount(m["n"])}], None
     m = re.fullmatch(r"(?:you )?empower Jace (?P<n>\d+|[xX])", text)
     if m and has_primitive("empower_jace"):  # -- keyword actions (wave 48A) -- 701.71a
         return [{"do": "empower_jace", "n": _amount(m["n"])}], None
