@@ -362,3 +362,57 @@ def test_shang_chi_draws_five_and_gains_five_for_the_tenth_counter_only_once(car
     assert life(s, "p1") == 45 and len(s.state.zones["p1:hand"]) >= 6  # the tenth counter: draw five and gain 5 life
     assert counters(s, SHANG) == 15  # (each of the five draws put another counter on it; none of them is the tenth)
     check(s)
+
+
+# ---- 205.2a, 614.12a, 601.2f: Umori, Stenn (and Cloud Key) choose a card type as they enter -------------------------------------------------------
+UMORI, STENN, KEY = "Umori, the Collector", "Stenn, Paranoid Partisan", "Cloud Key"
+
+
+@pytest.mark.parametrize("name", [UMORI, STENN, KEY])
+def test_the_card_type_choosers_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def enter_choosing(s, name, offered, pick, **paid):
+    """Cast ``name``; as it enters the card type is asked (and recorded); the options are exactly ``offered``."""
+    c = to_hand(s, name)
+    mana(s, **paid)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    d = None
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_one":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and [o.id for o in d.options] == offered
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+    settle(s)
+    assert s.state.cards[c.id].zone == "p1:battlefield" and s.state.cards[c.id].choices == {"Chosen card type": pick}
+    return c
+
+
+def test_stenn_cheapens_only_spells_of_the_chosen_type_and_offers_neither_creature_nor_land(cards):
+    s = build(cards, [STENN, "Mana Leak", "Grizzly Bears"], [])
+    enter_choosing(s, STENN, ["Artifact", "Battle", "Enchantment", "Instant", "Kindred", "Planeswalker", "Sorcery"], "Instant", W=1, U=1)
+    leak, bears = to_hand(s, "Mana Leak"), to_hand(s, "Grizzly Bears")
+    assert cost_of(s, leak, cards) == "{U}"  # an instant: {1} less
+    assert cost_of(s, bears, cards) == "{1}{G}"  # a creature: not the chosen type
+    check(s)
+
+
+def test_umori_offers_every_card_type_and_its_choice_may_be_creature(cards):
+    s = build(cards, [UMORI, "Mana Leak", "Grizzly Bears"], [])
+    enter_choosing(s, UMORI, ["Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery"], "Creature", B=2, G=2)
+    leak, bears = to_hand(s, "Mana Leak"), to_hand(s, "Grizzly Bears")
+    assert cost_of(s, bears, cards) == "{G}"
+    assert cost_of(s, leak, cards) == "{1}{U}"
+    check(s)
+
+
+def test_the_chosen_card_type_is_only_for_the_one_who_controls_the_permanent(cards):
+    s = build(cards, [KEY, "Mana Leak"], ["Mana Leak"])
+    enter_choosing(s, KEY, ["Artifact", "Creature", "Enchantment", "Instant", "Sorcery"], "Instant", C=3)
+    mine, bobs = to_hand(s, "Mana Leak"), to_hand(s, "Mana Leak", "p2")
+    assert cost_of(s, mine, cards) == "{U}"
+    assert cost_of(s, bobs, cards, "p2") == "{1}{U}"  # "Spells you cast": Bob's Mana Leak is not cheaper
+    check(s)

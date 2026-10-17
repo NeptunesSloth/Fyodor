@@ -1006,7 +1006,7 @@ def _has_counter(card: CardInstance, kind: str) -> bool:
 # creature type. Destroy all creatures that aren't of the chosen type": bind_chosen substitutes that answer).
 # ``matches`` reads the source's record; without a source or a valid record nothing matches (never a guess).
 CHOSEN_EXTRAS = {"chosen_type": "creature type", "chosen_color": "color", "not_chosen_type": "creature type",
-                 "not_chosen_color": "color", "chosen_name": "card name"}  # (-- card names (wave 22B) -- app/rules/card_names.py)
+                 "not_chosen_color": "color", "chosen_name": "card name", "chosen_card_type": "card type"}  # (wave 47A: card type, Umori)  # (-- card names (wave 22B) -- app/rules/card_names.py)
 
 
 @_suffix(r"(?:with|that has) (?:the chosen|that) name")  # -- card names (wave 22B) -- 709.4a: one of its names is the chosen name
@@ -1038,6 +1038,8 @@ def bind_chosen(sel: Selector, value: str) -> Selector | None:
         if neg:
             return replace(sel, extras=rest, not_subtypes=(value,))
         return replace(sel, extras=rest, subtypes=(value,))
+    if what == "card type" and value in CARD_TYPES.values():  # -- commanders (wave 47A) -- the card type chosen as the source entered (Umori, Stenn)
+        return None if sel.types or sel.not_types else replace(sel, extras=rest, types=(value,))
     color = COLORS.get(value.strip().lower())
     if what == "color" and color is not None:
         if sel.colors or sel.not_colors:
@@ -1054,7 +1056,7 @@ def source_choice(plan: Plan, source: str | None, what: str) -> str | None:
     card = plan.state.cards.get(source or "")
     if card is None:
         return None
-    label = {"creature type": "Chosen creature type", "color": "Chosen color", "card name": "Chosen card name"}[what]
+    label = {"creature type": "Chosen creature type", "color": "Chosen color", "card name": "Chosen card name", "card type": "Chosen card type"}[what]
     value = card.choices.get(label)
     return value.strip() if value else None
 
@@ -1072,6 +1074,8 @@ def _chosen_ok(plan: Plan, sel: Selector, ch: Characteristics, source: str | Non
     if bound.subtypes and not set(bound.subtypes) & ch.subtypes:
         return False
     if set(bound.not_subtypes) & ch.subtypes:
+        return False
+    if bound.types and not set(bound.types) & ch.types:  # (wave 47A: a card type)
         return False
     if bound.colors and not set(bound.colors) & ch.colors:
         return False

@@ -3836,9 +3836,14 @@ def discard_named(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 CHOICE_OPTIONS: dict[str, list[str]] = {
     "color": ["White", "Blue", "Black", "Red", "Green"],
     "basic land type": ["Plains", "Island", "Swamp", "Mountain", "Forest"],
+    # -- commanders (wave 47A) -- 205.2a: "As Umori enters, choose a card type." / "… other than creature or land." (Stenn): the card types a spell or a permanent can have
+    "card type": ["Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery"],
+    "card type other than creature or land": ["Artifact", "Battle", "Enchantment", "Instant", "Kindred", "Planeswalker", "Sorcery"],
+    "artifact, creature, enchantment, instant, or sorcery": ["Artifact", "Creature", "Enchantment", "Instant", "Sorcery"],  # (Cloud Key)
 }
 CHOICE_LABELS = {"color": "Chosen color", "creature type": "Chosen creature type", "basic land type": "Chosen basic land type",
-                 "opponent": "Chosen opponent", "player": "Chosen player"}
+                 "opponent": "Chosen opponent", "player": "Chosen player", "card type": "Chosen card type",
+                 "card type other than creature or land": "Chosen card type", "artifact, creature, enchantment, instant, or sorcery": "Chosen card type"}
 CHOICE_LABELS.update(entry_forms.CHOICE_LABELS)  # -- entry forms (wave 5F) -- "a color other than blue"
 CHOICE_LABELS.update({w: card_names.LABEL for w in card_names.ALL_WHATS})  # -- card names (wave 22B) -- 201.4
 

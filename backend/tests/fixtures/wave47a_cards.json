@@ -286,5 +286,56 @@
   "keywords": [],
   "power": "3",
   "toughness": "3"
+ },
+ {
+  "name": "Umori, the Collector",
+  "layout": "normal",
+  "mana_cost": "{2}{B/G}{B/G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Ooze",
+  "oracle_text": "Companion — Each nonland card in your starting deck shares a card type. (If this card is your chosen companion, you may put it into your hand from outside the game for {3} as a sorcery.)\nAs Umori enters, choose a card type.\nSpells you cast of the chosen type cost {1} less to cast.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Companion"
+  ],
+  "power": "4",
+  "toughness": "5"
+ },
+ {
+  "name": "Stenn, Paranoid Partisan",
+  "layout": "normal",
+  "mana_cost": "{W}{U}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "As Stenn enters, choose a card type other than creature or land.\nSpells you cast of the chosen type cost {1} less to cast.\n{1}{W}{U}: Exile Stenn. Return it to the battlefield under its owner's control at the beginning of the next end step.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Cloud Key",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "As this artifact enters, choose artifact, creature, enchantment, instant, or sorcery.\nSpells you cast of the chosen type cost {1} less to cast.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
  }
 ]

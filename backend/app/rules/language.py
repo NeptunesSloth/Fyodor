@@ -2857,7 +2857,8 @@ DISCARD_ALL_REVEALED = (rf"(?P<s>{CHOOSER}) reveals their hand and discards all 
 DISCARD_NAMED = r"(?:that player|they|its owner) discards? (?P<o>that card|those cards|it|them)"
 CHOICE_KINDS = ("color", "creature type", "basic land type", "opponent", "player")
 CHOOSE_VALUE = rf"choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player|{_NAME_WHAT})"
-ENTERS_CHOICE = re.compile(r"^As ~ enters, choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player)\.$")
+CARD_TYPE_FIVE = "artifact, creature, enchantment, instant, or sorcery"  # -- commanders (wave 47A) -- Cloud Key: the five card types it offers
+ENTERS_CHOICE = re.compile(rf"^As ~ enters, choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|card type(?: other than creature or land)?|{CARD_TYPE_FIVE})\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key)
 
 
 # -- choose own (wave 32A) -- "Then you may choose a token you control." (Brudiclad), "Choose a Giant creature you control. It deals damage equal to its

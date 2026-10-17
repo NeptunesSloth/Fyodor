@@ -338,9 +338,12 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
     # ("… as long as there are three or more Lesson cards in your graveyard": the static's condition, read with its
     # source's controller as "you" each time a total cost is determined: amount())
     # the chosen type is the permanent's "As ~ enters, choose a creature type." answer (614.12a): only with that line
-    if m["chosen"] and not any(re.fullmatch(r"As .+ enters, choose a creature type\.?", x.strip()) for x in lines):
+    card_type = m["chosen"] and any(re.fullmatch(r"As .+ enters, choose (?:a card type(?: other than creature or land)?|artifact, creature, enchantment, instant, or sorcery)\.?", x.strip()) for x in lines)  # (wave 47A: Umori, Stenn)
+    if m["chosen"] and not card_type and not any(re.fullmatch(r"As .+ enters, choose a creature type\.?", x.strip()) for x in lines):
         return None
     sel = m["sel"]
+    if card_type and (sel or m["with"] or m["with2"]):
+        return None  # ("creature spells of the chosen type" with a card type chosen: the type words would be the chosen one's and another's)
     with_ = m["with"] or m["with2"]  # (-- cost changers (wave 44D) -- "Instant and sorcery spells you cast with mana value 4 or greater cost {X} less …", The Scarlet Witch)
     key = spell_filter(sel, with_) if sel or with_ else None
     if (sel or with_) and key is None:
@@ -370,7 +373,7 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
         base = selectors.from_key(key) if key is not None else selectors.parse("spell")
         if base is None:
             return None
-        out["spell"] = replace(base, extras=(*base.extras, "chosen_type")).key()
+        out["spell"] = replace(base, extras=(*base.extras, "chosen_card_type" if card_type else "chosen_type")).key()
         out["filter"] = None
     if turn:
         out["turn"] = turn
