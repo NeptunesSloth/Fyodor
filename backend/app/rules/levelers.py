@@ -46,13 +46,50 @@ def rewrite(lines: list[str], is_keyword: Callable[[str], bool]) -> list[str]:
         out.append(f"As long as {when}, it has base power and toughness {lines[i + 1]}.")
         i += 2
         while i < len(lines) and not _SYMBOL.match(lines[i]):
-            line = lines[i].rstrip(".")
-            if is_keyword(line):
-                words = [w.strip().lower() for w in line.split(", ")]
-                out.append(f"As long as {when}, it has {', '.join(words[:-1]) + ' and ' if len(words) > 1 else ''}{words[-1]}.")
-            elif _STARTS_AS_ABILITY.search(lines[i]):
-                out.append(f'As long as {when}, it has "{lines[i]}"')
-            else:
-                out.append(f"As long as {when}, {lines[i][0].lower() + lines[i][1:]}")
+            out.append(granted(when, lines[i], is_keyword))
             i += 1
+    return out
+
+
+def granted(when: str, text: str, is_keyword: Callable[[str], bool]) -> str:
+    """One ability line of a section as "As long as [when], it has [it]." (711.2a, 721.2a): a keyword line, a quoted ability, or a static."""
+    line = text.rstrip(".")
+    if is_keyword(line):
+        words = [w.strip().lower() for w in line.split(", ")]
+        return f"As long as {when}, it has {', '.join(words[:-1]) + ' and ' if len(words) > 1 else ''}{words[-1]}."
+    if _STARTS_AS_ABILITY.search(text):
+        return f'As long as {when}, it has "{text}"'
+    return f"As long as {when}, {text[0].lower() + text[1:]}"
+
+
+# -- Station (wave 46D) -- 702.184a: "Station" means "Tap another untapped creature you control: Put a number of charge counters on this
+# permanent equal to the tapped creature's power. Activate only as a sorcery." (the power as the ability resolves: "the creature tapped
+# this way", 608.2h). 721.2a-b: a station symbol "N+" is "As long as this permanent has N or more charge counters on it, it has [abilities]"
+# (and, with a power/toughness box, "and is a creature with base power and toughness [P/T] in addition to its other types"); the box is the
+# one the reminder text names ("It's an artifact creature at N+."). 721.2c: a station card has no power or toughness off the battlefield.
+_STATION_SYMBOL = re.compile(r"^(\d+)\+ \| (.+)$")
+STATION = ("Tap another untapped creature you control: Put a number of charge counters on this permanent equal to the power of the creature "
+           "tapped this way. Activate only as a sorcery.")
+
+
+def station_creature(text: str) -> int | None:
+    """The N of "It's an artifact creature at N+." in a station card's reminder text."""
+    m = re.search(r"It's an artifact creature at (\d+)\+\.", text)
+    return int(m[1]) if m else None
+
+
+def station(lines: list[str], text: str, pt: tuple[str | None, str | None], is_keyword: Callable[[str], bool]) -> list[str]:
+    """The station card's lines with the station ability and the station symbols written out as CR 702.184a / 721.2 sentences."""
+    at, syms = station_creature(text), [i for i, line in enumerate(lines) if _STATION_SYMBOL.match(line)]
+    if lines.count("Station") != 1 or (at is None) != (pt == (None, None)) or not syms or syms[0] < lines.index("Station") \
+            or (at is not None and (at not in {int(_STATION_SYMBOL.match(lines[i])[1]) for i in syms} or not all(  # type: ignore[index]
+                (v or "").isdigit() for v in pt))):
+        return lines
+    out, when = [STATION if line == "Station" else line for line in lines[: syms[0]]], ""
+    for line in lines[syms[0]:]:
+        if m := _STATION_SYMBOL.match(line):
+            when, line = f"this permanent has {m[1]} or more charge counters on it", m[2]
+            if int(m[1]) == at:
+                out.append(f"As long as {when}, it is a {pt[0]}/{pt[1]} creature in addition to its other types.")
+        out.append(granted(when, line, is_keyword))
     return out
