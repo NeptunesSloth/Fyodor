@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 Definition = dict[str, Any]
-KINDS = ("cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top")
+KINDS = ("cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap")
 
 _ENTER = re.compile(r"^(?P<what>(?:nonland )?(?:permanent|creature) cards) in (?P<zones>graveyards|libraries|graveyards and libraries) "
                     r"can't enter the battlefield$")
@@ -82,6 +82,9 @@ def static_definition(text: str) -> Definition | None:
     if t == "if an opponent would search a library, that player searches the top four cards of that library instead":
         # -- most-played cards (wave 43B) -- 614.1a, 701.23 (Aven Mindcensor): the search sees only the top four cards; the whole library is shuffled afterwards if the text says so
         return {"kind": "static", "static": "search_top", "n": 4, "effects": []}
+    m = re.fullmatch(r"(?P<who>each opponent|each player) can't draw more than one card each turn", t)
+    if m:  # -- most-played cards (wave 43B) -- 101.2: Narset, Parter of Veils; Spirit of the Labyrinth; Leovold (see ``draw_allowed``)
+        return {"kind": "static", "static": "draw_cap", "who": "opponents" if m["who"] == "each opponent" else "each", "n": 1, "effects": []}
     if t in _SEARCH_STATICS:  # (Mindlock Orb, Stranglehold, Ashiok, Dream Render)
         return {"kind": "static", "static": "cant_search", "who": _SEARCH_STATICS[t], "effects": []}
     if t == "spells and abilities your opponents control can't cause you to sacrifice permanents":  # (Sigarda, Tajuru Preserver)
@@ -177,6 +180,24 @@ def search_depth(plan: Plan, searcher: str) -> int | None:
     outside the top are not seen and cannot be found, however they could be identified; the library is shuffled afterwards as the text says."""
     depths = [int(d["n"]) for src, d in _statics(plan, "search_top") if src.controller != searcher]
     return min(depths) if depths else None
+
+
+def draw_allowed(plan: Plan, player: str, k: int) -> int:
+    """-- most-played cards (wave 43B) -- 101.2, 121.2: how many of ``k`` cards ``player`` is told to draw they may, with "Each opponent can't draw more than one card each turn"
+    (Narset, Parter of Veils) in play: the limit less what they drew already this turn (the cards drawn before the permanent came count, the rulings). A draw not
+    allowed isn't made, so no replacement effect sees it; one that a replacement effect replaced was not drawn, which this count does not follow (it is made up front)."""
+    if not k:
+        return k
+    caps = [int(d["n"]) for src, d in _statics(plan, "draw_cap") if d["who"] == "each" or src.controller != player]
+    if not caps:
+        return k
+    from app.game.rules_state import turn_log_now
+
+    log = turn_log_now(plan.state)
+    allowed = max(0, min(caps) - (log.drew.get(player, 0) if log is not None else 0))
+    if allowed < k:
+        plan.note(f"{plan.name(player)} can't draw more than {min(caps)} card{'s' if min(caps) != 1 else ''} each turn", actor=player)
+    return min(k, allowed)
 
 
 def note_search(plan: Plan, searcher: str, owner: str) -> None:

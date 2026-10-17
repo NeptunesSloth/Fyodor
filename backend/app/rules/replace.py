@@ -1172,7 +1172,9 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
     counts: list[tuple[Event, list[Event]]] = []  # (review 28B: the modified instructions, for the log)
     try:
         for pid in who:  # (a dict: each player's own count, wave 16B)
-            k = max(0, int(n[pid] if isinstance(n, dict) else n))
+            from app.rules import prohibitions  # -- most-played cards (wave 43B) -- 101.2: "can't draw more than one card each turn"
+
+            k = prohibitions.draw_allowed(plan, pid, max(0, int(n[pid] if isinstance(n, dict) else n)))
             if k and count_planner.cands:  # -- replacements: draws (wave 28B) -- 121.2a: an instruction to draw N cards is modified first, 616.1g
                 cev: Event = {"kind": "draw_count", "player": pid, "n": k, "applied": list(exclude)}
                 counted_out: list[Event] = []

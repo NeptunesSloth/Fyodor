@@ -102,7 +102,9 @@ PERMISSION = re.compile(
     r"(?: by (?P<by>.+?) in addition to (?:paying )?(?:its|their) other costs)?"
     # -- cast from graveyard (wave 19C) -- 614.1a: "If a spell cast this way would be put into your graveyard, exile it instead."
     r"(?:\. If (?:(?P<exile>a|an instant or sorcery) spell cast this way would be put into your graveyard, exile it instead"
-    r"|(?:you cast a spell this way|you do), (?:that [a-z]+ enters (?:(?P<tapped>tapped)|(?P<fin>with a finality counter on it))|it gains \"(?P<gain>[^\"]+)\")))?$",
+    r"|(?:you cast a spell this way|you do), (?:that [a-z]+ enters (?:(?P<tapped>tapped)|(?P<fin>with a finality counter on it))|it gains \"(?P<gain>[^\"]+)\"))"
+    # -- most-played cards (wave 43B) -- "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost." (Bolas's Citadel)
+    r"|\. If you cast a spell this way, (?P<lmv>pay life equal to its mana value rather than pay its mana cost))?$",
     re.IGNORECASE)
 _GY_POOL = re.compile(r" from among cards in your graveyard that (?:were put there from (?P<from>anywhere other than the battlefield|your library)|"
                       r"(?P<milled>were milled)) this turn$")  # (-- free cast (wave 40D) --)
@@ -736,6 +738,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                 extras["slots"] = True
             if what.get("land_filter"):
                 extras["land_filter"] = what["land_filter"]
+        if m["lmv"]:  # -- most-played cards (wave 43B) -- 118.9, 119.4: the alternative cost of a spell cast from the top of the library, always paid (X is 0: 107.3b)
+            if zone != "library_top" or not what["cast"] or what.get("self"):
+                return None
+            extras["free"], extras["life_mv"] = True, True
         if zone == "library_top" and not any(_lower_first(x.strip().rstrip(".")) in (TOP_REVEAL, TOP_LOOK) for x in lines):
             # The engine offers a cast from the top of the library only when the player can see
             # that card (401.5; app/rules/view.hints): without a reveal / look line on the same
