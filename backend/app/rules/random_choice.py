@@ -29,6 +29,8 @@ if TYPE_CHECKING:
 
 Context = dict[str, Any]
 _CLAUSE = re.compile(r"choose (?P<w>an opponent|a player) at random")
+_OBJECT = re.compile(r"choose (?:a|an) (?P<w>[\w -]+?) at random(?: (?P<z>in your graveyard))?")
+_DAMAGE_AT_RANDOM = re.compile(r"(?P<s>~|[Ii]t) deals (?P<n>\d+) damage to a (?P<w>creature(?: an opponent controls| you control)?) chosen at random")
 _REVEAL = re.compile(r"(?:(?P<s>.+?) )?reveals? (?P<n>a|one|two|three|X|\d+) cards? at random (?:from|in) (?:their|your|that player's) hand")
 _LOOK = re.compile(r"look at (?P<n>a) card at random in (?P<s>target (?:player|opponent))'s hand")
 _OR_PW = re.compile(r"(?<=\. )(?P<d>[^.]*?) to that player or a planeswalker that player controls\.")
@@ -39,6 +41,20 @@ def clause(text: str) -> tuple[list[dict[str, Any]], None] | None:
     """"choose an opponent at random" / "choose a player at random" (one instruction, no final period)."""
     m = _CLAUSE.fullmatch(text)
     return None if m is None else ([{"do": "choose_random", "pool": "opponent" if m["w"] == "an opponent" else "player"}], None)
+
+
+def object_clause(text: str) -> tuple[list[dict[str, Any]], None] | None:
+    """"Choose a creature at random" / "choose a creature an opponent controls at random" / "choose a card at random in your graveyard": one object of a
+    public zone (the battlefield, a graveyard), the table's pick; the instructions after it name it ("that creature", "it", "the rest")."""
+    from app.rules import selectors
+
+    m = _OBJECT.fullmatch(text)
+    if m is None or m["w"].split()[0] in ("opponent", "player"):
+        return None
+    sel = selectors.parse(f"{m['w']} in your graveyard" if m["z"] else m["w"])
+    if sel is None or sel.player is not None or sel.zones not in ((), ("battlefield",), ("graveyard",)) or sel.ability is not None:
+        return None  # (a hidden zone, or not a plain object phrase: the pick would be among cards nobody has seen, or isn't one)
+    return [{"do": "choose_random_object", "sel": sel.key()}], None
 
 
 def reveal_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
@@ -65,6 +81,8 @@ def reveal_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
 def strip_pw(body: str) -> tuple[str, str]:
     """"Choose an opponent at random. ~ deals N damage to that player or a planeswalker that player controls." (Vial Smasher): the
     sentence read as "… to that player." and the pick marked (``post(pw=True)``) to be followed by the controller's choice."""
+    body = _DAMAGE_AT_RANDOM.sub(lambda m: f"Choose a {m['w']} at random. ~ deals {m['n']} damage to that creature", body)  # (Cinderheart Giant: not a target, 115.1; "it" is the creature that died)
+    body = re.sub(r"(?i)\b(choose a creature at random), then destroy the rest\b", r"\1. Destroy all other creatures", body)  # (Last One Standing)
     body = re.sub(r"\bIf you discard (an? [\w ]+? card) this way\b", r"If you discarded \1 this way", body)  # (the same condition as the past tense: Cragganwick Cremator, Aether Rift)
     if "at random" in body:  # (the sentence as the grammar has it: Skull Rend's "Those players" are the opponents it dealt damage to; Reckless Handling's "shuffle, then discard")
         body = re.sub(r"(deals \d+ damage to each opponent)\. Those players each (discard )", r"\1. Each opponent \2", body)
@@ -102,6 +120,15 @@ def post(got: Any, mode: str = "") -> Any:
         if first.get("do") != "return_choice" or not first.get("as") or len(gates) != 1:
             return None
         gates[0]["cond"]["object"] = f"ref:{first['as']}"
+    from app.rules import selectors
+
+    for i, e in enumerate(effects):  # "Choose a creature at random. … Destroy all other creatures.": the others are the creatures but the one picked
+        if e.get("do") == "choose_random_object":
+            e.setdefault("as", f"rc{i}")
+            for j in range(i + 1, len(effects)):
+                who = effects[j].get("who")
+                if effects[j].get("do") == "destroy" and isinstance(who, str) and who.startswith("sel:") and selectors.from_key(who).other:
+                    effects[j] = {**effects[j], "who": f"except:{e['as']}|{selectors.replace(selectors.from_key(who), other=False).key()}"}
     k = 0
     while k < len(effects):
         if effects[k].get("who") == INLINE:
@@ -113,6 +140,19 @@ def post(got: Any, mode: str = "") -> Any:
             k += 1
         k += 1
     return None if INLINE in json.dumps(effects) else got
+
+
+def choose_random_object(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """The table picks one of the objects the selector matches (a public zone) at random and binds it as ``as``; none matching: nothing is picked."""
+    from app.rules import selectors
+
+    found = sorted(selectors.candidates(plan, selectors.from_key(e["sel"]), ctx["controller"], ctx.get("source_card")))
+    pick = (plan.rng or secrets.SystemRandom()).choice(found) if found else None
+    if pick is not None:
+        plan.note(f"{ctx.get('name') or 'It'}: {plan.state.cards[pick].name or 'a card'} is chosen at random", [pick], actor=ctx["controller"])
+    if e.get("as"):
+        context.bind_objects(plan, ctx, e["as"], [pick] if pick is not None else [])
+    return True
 
 
 def choose_random(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -174,5 +214,5 @@ def reveal_random(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"choose_random": choose_random, "reveal_random": reveal_random}
+PRIMITIVES = {"choose_random": choose_random, "choose_random_object": choose_random_object, "reveal_random": reveal_random}
 RESUME: dict[str, Any] = {"choose_random": resume_choose_random}

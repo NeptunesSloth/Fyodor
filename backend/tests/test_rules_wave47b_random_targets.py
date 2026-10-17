@@ -83,6 +83,55 @@ def test_power_pack_exiles_an_instant_or_sorcery_at_random_and_casts_it_free_nex
     check(s)
 
 
+# -- "Choose a creature at random" (not a target): the pick is bound for the instructions after it ---------------------------------------------
+def three_creatures(cards, mine):
+    s = build3(cards, mine, bobs=["Grizzly Bears"], carols=["Hill Giant"])
+    put(s, "Llanowar Elves")
+    bears, hill = put(s, "Grizzly Bears", "p2"), put(s, "Hill Giant", "p3")
+    return s, sorted([card_named(s, "Llanowar Elves").id, bears.id, hill.id])
+
+
+@pytest.mark.parametrize("index", [0, 1, 2])
+def test_last_one_standing_destroys_every_creature_but_the_one_chosen_at_random(cards, monkeypatch, index):
+    pin_random(monkeypatch, index)
+    s, ids = three_creatures(cards, ["Last One Standing", "Llanowar Elves"])
+    to_hand(s, "Last One Standing")
+    mana(s, B=1, R=2)
+    cast(s, "Last One Standing")
+    alive = [c for c in ids if s.state.cards[c].zone.endswith(":battlefield")]
+    assert alive == [ids[index]]
+    assert "is chosen at random" in str(s.view("p2")["log"])
+    check(s)
+
+
+@pytest.mark.parametrize("index", [0, 2])
+def test_the_nipton_lottery_steals_the_creature_chosen_at_random_and_destroys_the_rest(cards, monkeypatch, index):
+    pin_random(monkeypatch, index)
+    s, ids = three_creatures(cards, ["The Nipton Lottery", "Llanowar Elves"])
+    to_hand(s, "The Nipton Lottery")
+    mana(s, B=1, R=1, C=2)
+    cast(s, "The Nipton Lottery")
+    chosen = ids[index]
+    assert [c for c in ids if s.state.cards[c].zone.endswith(":battlefield")] == [chosen]
+    assert s.state.cards[chosen].controller == "p1"  # until end of turn, whoever's it was
+    check(s)
+
+
+def test_cinderheart_giant_deals_7_to_a_creature_an_opponent_controls_chosen_at_random_when_it_dies(cards, monkeypatch):
+    pin_random(monkeypatch, 0)
+    s = build3(cards, ["Cinderheart Giant", "Blaze", "Llanowar Elves"], bobs=["Grizzly Bears"], carols=["Hill Giant"])
+    giant = put(s, "Cinderheart Giant")
+    mine = put(s, "Llanowar Elves")  # (its own controller's creatures are never the pick)
+    bears, hill = put(s, "Grizzly Bears", "p2"), put(s, "Hill Giant", "p3")
+    to_hand(s, "Blaze")
+    mana(s, R=8)
+    cast(s, "Blaze", targets=[giant.id], x_value=7)
+    assert s.state.cards[giant.id].zone == "p1:graveyard" and s.state.cards[mine.id].zone == "p1:battlefield"
+    picked = sorted([bears.id, hill.id])[0]
+    assert [c.id for c in (bears, hill) if s.state.cards[c.id].zone.endswith(":graveyard")] == [picked]
+    check(s)
+
+
 def test_witch_hunt_goes_to_the_opponent_picked_at_random_at_the_end_step(cards, monkeypatch):
     pin_random(monkeypatch)  # Carol
     s = build3(cards, ["Witch Hunt"])

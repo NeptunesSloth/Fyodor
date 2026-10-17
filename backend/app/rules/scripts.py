@@ -550,6 +550,7 @@ _RECORDING["rest_looked"] = None  # (wave 44A: its verb is _verb_of's)
 _RECORDING["linked_cards"] = "exiled"  # -- resolution memory (wave 22D) -- exiled_with.linked_cards
 _MOVERS.add("linked_cards")
 _RECORDING["reveal_random"] = "revealed"  # -- random choices (wave 47B) -- "that card" is the card revealed at random
+_RECORDING["choose_random_object"] = "chosen"  # (the object picked at random: "that creature", "it")
 _RECORDING["choose_random"] = None  # -- random choices (wave 47B) -- the pick is bound as the player "that player" names
 _RECORDING["transform"] = None  # -- most-played cards II (wave 45A) -- "Transform this land, then untap it." (Westvale Abbey): "it" is the permanent that transformed (701.28: the same object)
 _RECORDING["double_pt"] = None  # -- trigger other (wave 41C) -- "double the power of each other creature you control until end of turn. Those creatures gain vigilance …"
@@ -2056,7 +2057,7 @@ def _one_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         return combat_found
     from app.rules import random_choice  # -- random choices (wave 47B) -- "choose an opponent at random"
 
-    if (picked := random_choice.clause(text) or random_choice.reveal_clause(text)) is not None:
+    if (picked := random_choice.clause(text) or random_choice.reveal_clause(text) or random_choice.object_clause(text)) is not None:
         return picked
     # -- token & pump wordings (wave 6C) -- "create a Monster Role token attached to it"
     from app.rules import roles

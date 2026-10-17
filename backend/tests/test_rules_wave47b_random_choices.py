@@ -88,6 +88,22 @@ def test_bloodthirst_x_counts_the_damage_dealt_to_opponents_this_turn(cards):
     check(s)
 
 
+def test_bloodthirst_x_sums_the_damage_to_every_opponent_whoever_dealt_it(cards):
+    """702.54b: "the total damage your opponents have been dealt this turn" (Petrified Wood-Kin): Bob's 3 and Carol's 2, from sources of any controller."""
+    s = build3(cards, ["Petrified Wood-Kin", "Lightning Bolt", "Blaze"])
+    to_hand(s, "Lightning Bolt")
+    to_hand(s, "Blaze")
+    mana(s, R=1)
+    cast(s, "Lightning Bolt", targets=["p2"])
+    mana(s, R=3)
+    cast(s, "Blaze", targets=["p3"], x_value=2)
+    to_hand(s, "Petrified Wood-Kin")
+    mana(s, G=1, C=6)
+    cast(s, "Petrified Wood-Kin")
+    assert s.state.cards[card_named(s, "Petrified Wood-Kin").id].counters.get("+1/+1") == 5
+    check(s)
+
+
 def test_bloodthirst_x_is_zero_when_no_opponent_was_dealt_damage(cards):
     s = build3(cards, ["Indoraptor, the Perfect Hybrid"])
     to_hand(s, "Indoraptor, the Perfect Hybrid")
