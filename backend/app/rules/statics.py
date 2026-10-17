@@ -223,6 +223,8 @@ def parse(text: str) -> Definition | None:
     # block_by_all), not a condition; "has hexproof unless it's attacking or blocking" is "has hexproof as long as it isn't attacking or blocking" (611.3a)
     body = re.sub(r"^(?P<s>.+) can't be blocked unless all creatures defending player controls block (?:it|~)$", r"\g<s> can't be blocked by fewer than all creatures defending player controls", body)
     body = re.sub(r"^(?P<s>~|It) (?P<v>has|have) (?P<k>[a-z ]+?) unless it's (?P<c>attacking or blocking|attacking|blocking)$", r"\g<s> \g<v> \g<k> as long as it isn't \g<c>", body)
+    # -- keyword mechanics (wave 48B) -- 702.82b: "This creature has flying and trample if it devoured a creature." (Hellkite Hatchling) is "… as long as it devoured a creature" (611.3a)
+    body = re.sub(r"^(?P<s>~) (?P<v>has|have) (?P<k>[a-z ]+?) if (?P<c>it devoured an? creature)$", r"\g<s> \g<v> \g<k> as long as \g<c>", body)
     # -- borrowed abilities (wave 18F) -- "As long as ~ is on the battlefield, …": a static of a permanent works there only (611.3b)
     body = re.sub(r"^As long as (?:~|it) is on the battlefield, ", "", body)
     # -- static_other (wave 42A) -- 205.4, 613.1d: "Aeve isn't legendary if it's a token." (Aeve, Progenitor Ooze): the supertype taken off while it is a token (a layer 4
@@ -1191,6 +1193,8 @@ def _condition(text: str) -> dict[str, Any] | None:
         return {"static": "not", "cond": {"static": "self", "test": m["test"].replace(" ", "_")}}
     if c in ("it entered this turn", "~ entered this turn"):  # -- refused modal/conditional (wave 3R1) -- (Crew Captain)
         return {"history": "entered_self"}
+    if re.fullmatch(r"(?:it|this creature|~) devoured an? creature", c):  # -- keyword mechanics (wave 48B) -- 702.82b: "This creature has flying and trample if it devoured a creature." (Hellkite Hatchling)
+        return {"static": "self", "test": "devoured"}
     m = re.fullmatch(r"(?:it|this creature|~) has (?P<n>\d+) or more level counters on it but no more than (?P<m>\d+) level counters on it", c)
     if m:  # -- keyword mechanics (wave 9D) -- 711.2a: a leveler's level symbol with a range
         return {"static": "self_counter", "counter": "level", "op": ">=", "n": int(m["n"]), "max": int(m["m"])}
@@ -1265,6 +1269,8 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
             return source.tapped == (test == "tapped")
         if test == "a_token":  # (wave 42A) 111.1: a token is a permanent that was created, not a card
             return source.is_token
+        if test == "devoured":  # (wave 48B) sacrificed by its own devour as it entered, kept for that object (a new object, 400.7, devoured nothing)
+            return plan.rules is not None and plan.rules.devoured.get(plan.oid(source), 0) >= 1
         if test == "modified":  # -- conditional statics (wave 4B) -- 700.9
             from app.rules import static_conditions
 

@@ -70,7 +70,10 @@ def parse(phrase: str) -> dict[str, Any] | None:
     if most is not None:  # Windfall: "the greatest number of cards a player discarded this way" (each player's own)
         return {"this_way": most["verb"], "of": None, "max_by": "owner"}
     p = re.sub(r"^the number of ", "", p)
-    if (types := re.fullmatch(r"card types? among (cards? .+ this way)", p)) is not None:  # -- if you do (wave 44A) -- "a card for each card type among cards discarded this way" (Kefka)
+    if (dv := re.fullmatch(r"(?P<what>.+?) (?:it|~) devoured", p)) is not None and not re.fullmatch(r"creatures?", dv["what"]) \
+            and (sel := selectors.parse(dv["what"])) is not None and sel.player is None:  # -- keyword mechanics (wave 48B) -- 702.82b: "twice the number of Goblins it devoured" (Voracious
+        return {"this_way": "sacrificed", "of": sel.key(), "ref_count": DEVOURED}  # Dragon): the permanents its devour sacrificed as it entered, as they last existed (608.2h)
+    if (types :=re.fullmatch(r"card types? among (cards? .+ this way)", p)) is not None:  # -- if you do (wave 44A) -- "a card for each card type among cards discarded this way" (Kefka)
         inner = parse(types[1])
         return {**inner, "distinct": "types"} if inner is not None and inner.get("of") is None else None
     m = _PHRASE.match(p)
@@ -252,6 +255,7 @@ def verbs(kind: str) -> tuple[str, ...]:
 # -- any number as an additional cost (wave 48B) -- 601.2h: "As an additional cost to cast this spell, sacrifice any number of creatures. Target creature gets +2/+2 until end of turn for each
 # creature sacrificed this way.": no instruction of the spell sacrificed them, its cost did. The verbs of the spell's any-number cost (read while its text is defined) bind to the payment record.
 COST = "cost"
+DEVOURED = "devoured"
 _PAID: ContextVar[frozenset[str]] = ContextVar("paid_kinds", default=frozenset())
 _PAID_VERBS = {"SACRIFICE": "sacrificed", "TAP_OTHER": "tapped"}
 
@@ -378,11 +382,13 @@ def _still_there(plan: Plan, was: dict[str, Any]) -> tuple[Any, Any] | None:
     return card, plan.ch(card)
 
 
-def cost_objects(plan: Plan, ctx: dict[str, Any], kind: str) -> dict[str, Any]:
-    """-- any number as an additional cost (wave 48B) -- what the spell's cost sacrificed or tapped, from its payment record (a copy has the original's, 707.10)."""
+def cost_objects(plan: Plan, ctx: dict[str, Any], source: str, kind: str) -> dict[str, Any]:
+    """-- any number as an additional cost (wave 48B) -- what the spell's cost sacrificed or tapped, from its payment record (a copy has the original's, 707.10); or what the
+    source devoured as it entered (702.82b)."""
     sid = ctx.get("stack_id")
     record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
-    oids = [] if record is None else record.sacrificed_objects if kind == "sacrificed" else record.tapped_objects
+    oids = plan.rules.devoured_ids.get(ctx.get("source_object") or "", []) if source == DEVOURED else \
+        [] if record is None else record.sacrificed_objects if kind == "sacrificed" else record.tapped_objects
     return {"objects": [{"card": o.rsplit(".", 1)[0], "object_id": o, "zone": None} for o in oids]}
 
 
@@ -391,7 +397,7 @@ def _matched(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> list[tuple[d
     from app.rules import context
     from app.rules.triggers import _snapshot_card  # (triggers imports effects, which imports values → this)
 
-    b = cost_objects(plan, ctx, v["this_way"]) if v["ref_count"] == COST else (ctx.get("refs") or {}).get(v["ref_count"]) or {}
+    b = cost_objects(plan, ctx, v["ref_count"], v["this_way"]) if v["ref_count"] in (COST, DEVOURED) else (ctx.get("refs") or {}).get(v["ref_count"]) or {}
     news = b.get("objects") or []
     wases = b.get("was") or news
     you = ctx["controller"]

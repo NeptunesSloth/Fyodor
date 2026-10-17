@@ -1106,6 +1106,7 @@ class RulesState(BaseModel):
     # id -> {"color": "Blue"}), consumed by the entry (614.12a)
     entry_choices: dict[str, dict[str, str]] = Field(default_factory=dict)
     devoured: dict[str, int] = Field(default_factory=dict)  # -- keyword mechanics (wave 9D) -- object -> permanents it devoured (702.82b)
+    devoured_ids: dict[str, list[str]] = Field(default_factory=dict)  # (wave 48B: and the objects they were, for "the Goblins it devoured": their last known information, 608.2h)
     buyback: list[str] = Field(default_factory=list)  # stack objects cast with buyback
     dashed: list[str] = Field(default_factory=list)
     bestowed: list[str] = Field(default_factory=list)  # -- keywords (wave 15E) -- bestowed Aura spells / permanents (702.103b)

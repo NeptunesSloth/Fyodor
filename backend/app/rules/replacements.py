@@ -729,6 +729,7 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
 
     if choices and devour.picked(choices.get(devour.WHAT)):
         plan.rules.devoured[plan.oid(card)] = len(devour.picked(choices.get(devour.WHAT)))
+        plan.rules.devoured_ids[plan.oid(card)] = devour.picked(choices.get(devour.WHAT))  # (wave 48B: the objects they were, devour.sacrifice)
     from app.rules import layers, riot  # -- keywords (wave 15E) -- 702.136a: "If you don't, it gains haste."
 
     ch = dataclasses.replace(plan.ch(card), abilities=()) if bare else plan.ch(card)  # (-- review 35 -- ``bare``: no "enters with" of its own)

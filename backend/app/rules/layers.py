@@ -298,7 +298,7 @@ def _table_key(state: GameState) -> tuple:
                tuple(sorted((p, (c.turn, c.count)) for p, c in r.lands_played.items()))) if log is not None and r else ()
     designations = (tuple(r.monstrous), tuple(r.renowned), tuple(r.suspected),  # -- conditional statics (wave 4B) --
                     # -- as long as (wave 35D) -- what a static's condition reads of an object's past, the Ring-bearer, the unlocked doors
-                    tuple(r.dealt_damage), tuple(sorted(r.ring_bearers.items())), tuple(r.payments),
+                    tuple(r.dealt_damage), tuple(sorted(r.ring_bearers.items())), tuple(r.payments), tuple(sorted(r.devoured.items())),  # (wave 48B: "if it devoured a creature")
                     tuple(sorted((k, tuple(v)) for k, v in r.unlocked.items()))) if r else ()
     return (state.seq, state.turn.number, state.turn.active_player, players, field,
             r.timestamp if r else 0, len(r.effects) if r else 0, history, designations)
