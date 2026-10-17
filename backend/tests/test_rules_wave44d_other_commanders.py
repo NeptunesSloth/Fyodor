@@ -369,7 +369,8 @@ def settle_all(s):
 
 def test_ellie_pays_life_and_a_creature_to_deal_2_damage_and_gain_indestructible(cards):
     s = build(cards, [ELLIE, "Grizzly Bears"], [])
-    ellie, bears = put(s, ELLIE), put(s, "Grizzly Bears")
+    ellie = put(s, ELLIE)
+    put(s, "Grizzly Bears")
     act(s, "p1", type="activate_ability", card_id=ellie.id, ability=0, targets=["p2"])
     pass_until_stack_empty(s)
     assert life(s, "p2") == 38 and life(s) == 38 and zone_of(s, "Grizzly Bears") == "p1:graveyard"
@@ -452,7 +453,7 @@ def hisoka_table(cards, discard):
     put(s, HISOKA, "p2")
     mana(s, R=1)
     bolt = to_hand(s, "Lightning Bolt")
-    spare = to_hand(s, discard, "p2")
+    to_hand(s, discard, "p2")
     mana(s, "p2", U=3)
     act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
     act(s, "p2", type="activate_ability", card_id=card_named(s, HISOKA, "p2").id, ability=0, targets=[bolt.id])  # (the one card in hand is discarded)

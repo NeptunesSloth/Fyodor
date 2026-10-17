@@ -652,17 +652,17 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                 return None
             key = sel.key()
         sign = -1 if m["dir"] == "less" else 1
-        extra: dict[str, Any] = {}
+        xtra: dict[str, Any] = {}
         if m["x"]:  # -- cost changers (wave 44D) -- "{X} less to activate, where X is ~'s power": the source's power, read as each cost is determined (601.2f)
             value = cost_changes._value(m["xv"] or "")
             if value is None:
                 return None
-            extra = {"value": value, "sign": sign}
+            xtra = {"value": value, "sign": sign}
         elif m["xv"]:
             return None
         return {"kind": "static", "static": "ability_cost_modifier", "delta": 0 if m["x"] else int(m["n"]) * sign,
                 "filter": key, "who": "you" if m["yours"] or (m["sel"] and "you control" in m["sel"]) else "any",
-                "floor": bool(m["floor"]), "effects": [], **extra}
+                "floor": bool(m["floor"]), "effects": [], **xtra}
     # -- conditional statics (wave 4B) -- "You may cast this card from your graveyard as long as you control a Zombie."
     # (Gravecrawler; 113.6f: functions from the graveyard; 611.3a: checked whenever the cast is offered or begun)
     m = RETRACE_GRANT.fullmatch(t)
@@ -905,7 +905,9 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         from app.rules import values
 
         key, value = spell_filter(f"{x['sel']} or {x['sel2']}"), values.parse_count(x["v"])
-        return None if key is None or value is None or "turn_history" not in value else [{"do": "cost_modifier", "delta": value, "dir": -1, "filter": key, "until": "end_of_turn"}], None
+        if key is None or not isinstance(value, dict) or "turn_history" not in value:
+            return None
+        return [{"do": "cost_modifier", "delta": value, "dir": -1, "filter": key, "until": "end_of_turn"}], None
     m = LOOK_EXILED.fullmatch(text)  # -- hidden exile (wave 18A) --
     if m:
         return [{"do": "look_exiled", "who": "them:card" if m["what"] in ("those cards", "them") else "it:card", "optional": True}], None
