@@ -52,10 +52,9 @@ def test_every_card_is_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
-def test_setzer_stays_manual_on_its_coin_flip_trigger_only(cards):
-    """The Vehicle token line is read now; "whenever you win a coin flip" (705: a flip is no event the triggers watch) is not."""
-    got = coverage.of_card_data(cards.resolve("Setzer, Wandering Gambler"))
-    assert got.level != "FULL" and len(got.manual_parts) == 1 and "coin flip" in got.manual_parts[0]
+def test_setzer_is_full_since_coin_flips_are_events(cards):
+    """The Vehicle token line is read; "whenever you win a coin flip" is read since wave 45C (705.2: the flipper wins or loses)."""
+    assert coverage.of_card_data(cards.resolve("Setzer, Wandering Gambler")).level == "FULL"
 
 
 # -- the table: Alice (Krenko, her commander), Bob and Carol ------------------------------------------------------------------------------------
@@ -460,9 +459,7 @@ def test_davros_makes_a_dalek_when_an_opponent_lost_three_life_then_that_opponen
     "When this creature enters, create a 3/2 colorless Equipment artifact token.",
     # X with no definition
     "When this creature enters, create an X/X colorless Vehicle artifact token with crew 2.",
-    # quoted grants whose inner ability stays refused (a static other objects' rules depend on; a mana ability of the object's colors): Tomik, Katilda
-    'Planeswalkers you control have "No more than one creature can attack this permanent each combat."',
-    'Human creatures you control have "{T}: Add one mana of any of this creature\'s colors."',
+    # (Tomik's and Katilda's quoted grants are read since wave 44C: tests/test_rules_wave44c_*.py)
     # "each opponent dealt damage" (the event's players): Malcolm. ("for each player being attacked" is read since wave 40A: Commander Liara Portyr's ruling of
     # 2022-06-10 — a player whose planeswalker is attacked, and who isn't attacked too, doesn't count; tests/test_rules_wave40a_if_you_do.py)
     "Whenever one or more Pirates you control deal damage to your opponents, you create a Treasure token for each opponent dealt damage.",

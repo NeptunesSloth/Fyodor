@@ -77,6 +77,14 @@ class Found:
         return "; ".join(parts)
 
 
+def game_result_zero_life_ok(plan: Plan, pid: str) -> bool:
+    from app.rules import (
+        game_result,  # -- most-played cards III (wave 46C) -- "You don't lose the game for having 0 or less life." (704.5a)
+    )
+
+    return game_result.zero_life_ok(plan, pid)
+
+
 def find(plan: Plan) -> Found:
     state = plan.state
     r = plan.rules
@@ -85,7 +93,7 @@ def find(plan: Plan) -> Found:
     for pid in live_players(state):
         p = state.players[pid]
         reason = None
-        if p.life <= 0:
+        if p.life <= 0 and not game_result_zero_life_ok(plan, pid):
             reason = "0 or less life"
         elif p.resources.get("poison", 0) >= POISON_LETHAL:
             reason = f"{POISON_LETHAL} poison counters"

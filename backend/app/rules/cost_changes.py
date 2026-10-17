@@ -295,7 +295,7 @@ _FROM = {"from your graveyard": ("your_graveyard",), "from graveyards": ("gravey
 STATIC = re.compile(
     r"^(?P<during>during your turn, |during turns other than yours, )?(?:each )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? "
     r"(?:(?P<chosen1>of the chosen type) )?"  # (wave 46A: "Spells of the chosen type you cast cost …", Morophon)
-    r"(?:(?P<with>with (?:flying|flash|mana value \d+ or (?:greater|less))) )?(?P<who>you cast |your opponents cast )?(?:(?P<with2>with mana value \d+ or (?:greater|less)) )?(?P<own>but don't own )?(?P<chosen>of the chosen type )?"
+    r"(?:(?P<with>with (?:flying|flash|mana value \d+ or (?:greater|less))) )?(?P<who>you cast |your opponents cast )?(?:(?P<with2>with (?:mana value \d+ or (?:greater|less)|toughness greater than its power)) )?(?P<own>but don't own )?(?P<chosen>of the chosen type )?"
     r"(?:(?P<from>from (?:your graveyard or from exile|graveyards or from exile|your graveyard|graveyards|exile"
     r"|anywhere other than your hand)) )?"
     rf"costs? {_SYMBOLS} (?P<dir>less|more) to cast(?P<rest>.*)$")
@@ -355,9 +355,12 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
     # ("… as long as there are three or more Lesson cards in your graveyard": the static's condition, read with its
     # source's controller as "you" each time a total cost is determined: amount())
     # the chosen type is the permanent's "As ~ enters, choose a creature type." answer (614.12a): only with that line
-    if (m["chosen"] or m["chosen1"]) and not any(re.fullmatch(r"As .+ enters, choose a creature type\.?", x.strip()) for x in lines):
+    card_type = (m["chosen"] or m["chosen1"]) and any(re.fullmatch(r"As .+ enters, choose (?:a card type(?: other than creature or land)?|artifact, creature, enchantment, instant, or sorcery)\.?", x.strip()) for x in lines)  # (wave 47A: Umori, Stenn)
+    if (m["chosen"] or m["chosen1"]) and not card_type and not any(re.fullmatch(r"As .+ enters, choose a creature type\.?", x.strip()) for x in lines):
         return None
     sel = m["sel"]
+    if card_type and (sel or m["with"] or m["with2"]):
+        return None  # ("creature spells of the chosen type" with a card type chosen: the type words would be the chosen one's and another's)
     with_ = m["with"] or m["with2"]  # (-- cost changers (wave 44D) -- "Instant and sorcery spells you cast with mana value 4 or greater cost {X} less …", The Scarlet Witch)
     key = spell_filter(sel, with_) if sel or with_ else None
     if (sel or with_) and key is None:
@@ -387,7 +390,7 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
         base = selectors.from_key(key) if key is not None else selectors.parse("spell")
         if base is None:
             return None
-        out["spell"] = replace(base, extras=(*base.extras, "chosen_type")).key()
+        out["spell"] = replace(base, extras=(*base.extras, "chosen_card_type" if card_type else "chosen_type")).key()
         out["filter"] = None
     if turn:
         out["turn"] = turn
@@ -426,6 +429,9 @@ def _targeting_definition(m: re.Match[str]) -> dict[str, Any] | None:
 def _targeting_definition_of(who: str | None, what: str) -> dict[str, Any] | None:
     from app.rules import selectors
 
+    you = what.startswith("you or ")  # -- most-played cards III (wave 46C) -- "Spells your opponents cast that target you or a permanent you control cost {2} more to cast." (Monastery Siege): the player is a target too
+    if you:
+        what = what[len("you or "):]
     if what == "~":
         target = "self"
     else:
@@ -436,7 +442,7 @@ def _targeting_definition_of(who: str | None, what: str) -> dict[str, Any] | Non
             return None
         target = sel.key()
     caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[who]
-    return {"kind": "static", "static": "cost_modifier", "caster": caster, "filter": None, "target": target, "effects": []}
+    return {"kind": "static", "static": "cost_modifier", "caster": caster, "filter": None, "target": target, "effects": [], **({"target_you": True} if you else {})}
 
 
 def targeting_life(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo,
@@ -448,18 +454,20 @@ def targeting_life(state: GameState, player: str, card: CardInstance, ch: Charac
     for src, _, d in permissions._table_statics(state, info, {"cost_modifier"}):
         if not d.get("life") or (d["caster"] == "you" and src.controller != player) or (d["caster"] == "opponent" and src.controller == player):
             continue
-        if targets != ANY_TARGET and _targets_match(state, info, src, d["target"], targets):
+        if targets != ANY_TARGET and _targets_match(state, info, src, d["target"], targets, d.get("target_you", False)):
             total += int(d["life"])
     return total
 
 
-def _targets_match(state: GameState, info: CardInfo, src: CardInstance, target: str, targets: tuple[str, ...]) -> bool:
+def _targets_match(state: GameState, info: CardInfo, src: CardInstance, target: str, targets: tuple[str, ...], you: bool = False) -> bool:
     """Does one of the spell's chosen targets fit "that target …"? ("~": the source itself; else a permanent, read
-    relative to the source's controller: "a Merfolk you control" is one the changer's controller controls.)"""
+    relative to the source's controller: "a Merfolk you control" is one the changer's controller controls; ``you``: or the changer's controller, a player.)"""
     from app.rules import selectors
 
     view = None
     for tid in targets:
+        if you and tid == src.controller:
+            return True
         card = state.cards.get(tid)
         if card is None or not card.zone.endswith(":battlefield"):
             continue
@@ -531,7 +539,7 @@ def static_delta(state: GameState, info: CardInfo, src: CardInstance, d: dict[st
         if targets == ANY_TARGET:  # -- review (Codex) -- a castability hint, before targets: the best case
             if d["change"]["dir"] > 0:
                 return None
-        elif not _targets_match(state, info, src, d["target"], targets):
+        elif not _targets_match(state, info, src, d["target"], targets, d.get("target_you", False)):
             return None
     if d.get("ordinal") and not _ordinal_ok(state, info, player, d):
         return None

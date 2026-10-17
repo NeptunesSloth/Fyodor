@@ -241,7 +241,7 @@ def _short_name(name: str, text: str = "") -> str | None:
     two = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]+ [A-ZÀ-ÖØ-Þ][\w'-]+) (?:the|of) ", name)  # -- trigger tail (wave 15B) -- "Tor Wauki the Younger"
     if two is not None and re.search(rf"\b{re.escape(two[1])}\b", text):
         return two[1]
-    m = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]{2,}) (?:the|of) ", name)  # (-- extremes (wave 8B) -- a capital with an accent: Éomer)
+    m = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]{2,}) (?:the|of|and the) ", name)  # (-- extremes (wave 8B) -- a capital with an accent: Éomer; wave 47A: "Shang-Chi and the Ten Rings")
     if m is None:
         # -- grammar (wave 11C) -- 201.5c: "Elanor Gardner" is "Elanor" in its own text; taken only where that word acts as
         # the subject ("Elanor enters", "Elanor's power"), so a color or type word of a plain name is never read as it
@@ -341,6 +341,21 @@ def self_text(text: str, name: str) -> str:
     # target opponent each draw"; "destroy target permanent an opponent controls. They create a Treasure token." (Vraska): "they" is the player who controlled it
     out = re.sub(r"\byou and another target player each draw a card\b", "you and target opponent each draw a card", out)
     out = re.sub(r"(destroy target permanent an opponent controls\.) They create a Treasure token\.", r"\1 Its controller creates a Treasure token.", out)
+    # -- most-played cards III (wave 46C) -- "target legendary permanent that's an artifact, creature, or enchantment" (Bounty Agent) is "target legendary artifact, creature, or enchantment"
+    out = re.sub(r"\bpermanent that's an? ((?:artifact|creature|enchantment|planeswalker)(?:,? (?:or )?(?:artifact|creature|enchantment|planeswalker))+)\b", r"\1", out)
+    # "Until end of turn, gain control of target creature and it gains haste. Untap and goad that creature." (Besmirch): the same instructions in the order written
+    out = out.replace("Until end of turn, gain control of target creature and it gains haste. Untap and goad that creature.",
+                      "Gain control of target creature until end of turn. It gains haste until end of turn. Untap that creature. Goad that creature.")
+    # "Target creature's owner shuffles it into their library." (Ominous Cemetery) is "The owner of target creature shuffles it …"
+    out = re.sub(r"\b([Tt])arget ((?:[a-z]+ )*?(?:creature|permanent|artifact|enchantment|land|planeswalker))'s owner (shuffles|puts) ",
+                 lambda m: f"{'T' if m[1] == 'T' else 't'}he owner of target {m[2]} {m[3]} ", out)
+    # -- most-played cards III (wave 46C) -- "You and target opponent each create a Food token." (Oath of the Grey Host, Thran Spider): each creates their own token
+    # (608.2c: the instruction is carried out for each in turn), "target opponent creates a 2/4 white Ox creature token and you draw a card" (Ox Drover): two instructions
+    out = re.sub(r"\b([Yy])ou and target opponent each create (an? [^.,]+? token)\b", lambda m: f"{m[1]}ou create {m[2]} and target opponent creates {m[2]}", out)
+    out = re.sub(r"(\btarget opponent creates an? [^.,]+? token) and (you draw a card)\b", r"\1. \2", out)
+    # "During turns other than yours, this spell costs {3} more to cast." (Hurkyl's Final Meditation) is "This spell costs {3} more to cast if it's not your turn."
+    out = re.sub(r"(?:^|(?<=\n))During (turns other than yours|your turn), this spell costs ((?:\{[\dX]+\})+) (more|less) to cast\.",
+                 lambda m: f"This spell costs {m[2]} {m[3]} to cast if it's {'not ' if m[1][0] == 't' else ''}your turn.", out)
     # -- trigger other (wave 44B) -- Namor the Sub-Mariner: "that many" is the number of those mana symbols in the cast spell's mana cost
     out = re.sub(r"(with one or more (\w+) mana symbols in its mana cost, create) that many ([^.]+? tokens)\.",
                  r"\1 X \3, where X is the number of \2 mana symbols in that spell's mana cost.", out)
@@ -436,6 +451,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
         return "self_gone" if cond["subject"] == "self" else "event_gone"  # -- trigger tail (wave 15B) -- "dies or is put into exile"
     if event == "either" and cond.get("subject") == "self" and all(c["event"] in _STAYING for c in cond["conds"]):
         return "self"  # -- history (wave 22E) -- "Whenever ~ attacks, blocks, or becomes the target of a spell, it deals …"
+    if event == "either" and cond.get("subject") == "sel" and all(c["event"] in _STAYING and not c.get("aggregate") for c in cond["conds"]):
+        return "event"  # -- commanders (wave 47A) -- "Whenever a creature you control attacks or blocks, it gets +X/+X" (Doran, Besieged by Time): each event is about that one creature (603.2)
     if event == "multi":
         if cond.get("subject") == "host":  # -- attached events (wave 4L) -- the attacking / blocking creature
             return "event" if all(x in _STAYING for x in cond["events"]) else None
@@ -531,7 +548,7 @@ def _group_of(e: dict[str, Any]) -> int | None:
 # new object in exile (400.7j). Each maps to the verb "… <verb> this way" names, if any.
 _RECORDING: dict[str, str | None] = {
     "destroy": "destroyed", "destroy_all": "destroyed", "exile": "exiled", "exile_until": "exiled",
-    "bounce": "returned", "return_card": "returned", "blink": "returned", "sacrifice": "sacrificed",
+    "bounce": "returned", "return_card": "returned", "blink": "blinked", "sacrifice": "sacrificed",  # (blink, wave 46C: exiled and returned)
     "sacrifice_choice": "sacrificed", "discard": "discarded", "mill": "milled", "search": None, "pick_looked": None,
     "create_token": "created", "tap": None, "untap": None, "phase_out": None, "pump": None, "grant": None, "restrict": None,
     "add_counters": None, "remove_counters": None, "regenerate": None, "damage": None,
@@ -3093,6 +3110,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # -- trigger other (wave 41C) -- 110.2a: after a reveal-until, "Put that card onto the battlefield tapped under your control" (Sméagol) and "You put that card onto
     # the battlefield under your control and lose life equal to …" (Jhoira): put by you it is yours either way, so the words add nothing to "Put that card onto the battlefield"
     body = re.sub(r"(\buntil (?:you|they) (?:reveal|exile) [^.]*\. )(?:You p|P)ut that card (onto the battlefield(?: tapped)?) under your control\b", r"\1Put that card \2", body)
+    # -- most-played cards III (wave 46C) -- "Its controller reveals cards from the top of their library until they reveal a creature card. The player puts that card onto the battlefield,
+    # then shuffles all other cards revealed this way into their library." (Polymorph, Transmogrify): the revealed cards stay in that library (701.20b), the owner puts the
+    # card found and shuffles. Refused: "and the rest on the bottom of their library in any order" (Proteus Staff: the owner orders them)
+    body = re.sub(r"((?:Its|That creature's|That permanent's) controller) (reveals cards from the top of their library until they reveal an? [^.]+?)\. (?:That|The) player "
+                  r"puts that card onto the battlefield, then shuffles (?:the rest|all other cards revealed this way) into their library\.",
+                  r"\1 \2. That player puts that card onto the battlefield. Shuffle that library.", body)
     if "until you reveal " in body:
         body = re.sub(r"(until you reveal [^.]*?)\. If you do, put ", r"\1. Put ", body) if "ou may reveal cards" in body else body
         body = re.sub(r"(?:, then| and) shuffle (?:the rest|all other cards revealed this way) into your library", ", then shuffle", body)
@@ -4655,8 +4678,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return paired
     if ability.kind == "static" and (rule := attached_rule(text)) is not None:
         return rule
-    if ability.kind == "static" and re.fullmatch(r"You control enchanted (?:creature|permanent|land|artifact)\.", text):
-        return {"kind": "static", "static": "control", "who": "host", "effects": []}  # -- control (wave 3K) -- layer 2 (613.1b)
+    if ability.kind == "static" and re.fullmatch(r"You control enchanted (?:creature|permanent|land|artifact|enchantment)\.", text):
+        return {"kind": "static", "static": "control", "who": "host", "effects": []}  # -- control (wave 3K) -- layer 2 (613.1b); (wave 46C: "enchanted enchantment", Steal Enchantment)
     if ability.kind == "static" and text == "If it's neither day nor night, it becomes day as ~ enters.":
         return {"kind": "static", "static": "day_as_enters", "effects": []}  # (wave 3E: app/rules/designations.py, 731.1)
     if ability.kind == "static" and text == "Creatures you control can boast twice during each of your turns rather than once.":
@@ -8152,6 +8175,10 @@ EFFECTS[:0] = _next_untap.TEMPLATES
 from app.rules import extra_turns as _extra_turns  # noqa: E402
 
 EFFECTS[:0] = _extra_turns.TEMPLATES
+# -- end the turn (wave 46C) -- "End the turn." (app/rules/end_turn.py)
+from app.rules import end_turn as _end_turn  # noqa: E402
+
+EFFECTS[:0] = _end_turn.TEMPLATES
 # -- controlling another player (wave 18H) -- "You control target player during that player's next turn." (app/rules/player_control.py)
 from app.rules import player_control as _player_control  # noqa: E402
 
