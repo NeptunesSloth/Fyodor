@@ -1304,6 +1304,8 @@ def _object(t: str) -> Condition | None:
         if det is None and re.fullmatch(r"(?:non)?(?:basic|legendary|snow)", what):  # -- damage wordings (wave 6B) --
             det = re.match(r"(?P<rest>.+)", what + " permanent")  # "If that land was nonbasic": a supertype (205.4)
         sel = selectors.parse(det["rest"]) if det else None
+        if what == "all colors":  # -- trigger other (wave 44B) -- 105.2: "If that spell was all colors" (Jenson Carthalion): all five of them
+            sel = selectors.Selector(extras=("all_colors:WUBRG",))
         if (sel is None or sel.player is not None or sel.zone_owner is not None or sel.controller is not None
                 or sel.owner is not None or sel.zones not in (("battlefield",), ())):
             return None  # (a test of the object's characteristics, wherever it is: no zone or player relation)
