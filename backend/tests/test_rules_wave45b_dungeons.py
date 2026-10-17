@@ -23,6 +23,7 @@ from app.rules import coverage
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
+from tests.test_rules_conditionals import until
 from tests.test_rules_wave30p_combat import attack, three, to_phase
 from tests.wave9c_kit import build, check, mana, put, to_hand
 
@@ -162,6 +163,54 @@ def test_combat_damage_to_the_initiative_holder_takes_it_and_ventures_into_under
     assert s.state.players["p1"].life == 38 and s.state.table.initiative == "p2"
     assert rules(s).dungeons["p2"].dungeon == "Undercity" and rules(s).dungeons["p2"].room == "Secret Entrance"
     assert rules(s).dungeons["p1"].room == "Secret Entrance"
+    check(s)
+
+
+@pytest.mark.parametrize("name", [c["name"] for c in DATA[:15] if c["name"] != "Dungeoneer's Pack"])
+def test_each_initiative_card_takes_the_initiative_and_ventures_into_undercity_when_it_is_cast(cards, name):
+    """The fifteen real cards of the cluster (Dungeoneer's Pack is below): cast, "you take the initiative" (726.2) ventures into Undercity, Secret
+    Entrance fetches a Forest."""
+    s = build(cards, [name])
+    mana(s, "p1", W=1, U=1, B=1, R=1, G=1, C=6)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, name).id)
+    drive(s, want=["Forest"])
+    assert s.state.table.initiative == "p1" and rules(s).dungeons["p1"].room == "Secret Entrance"
+    assert any(c.zone == "p1:hand" and c.name == "Forest" for c in s.state.cards.values())  # (the room's basic land card)
+    check(s)
+
+
+def test_dungeoneers_pack_enters_tapped_and_its_sacrifice_takes_the_initiative(cards):
+    """"This artifact enters tapped. {2}, {T}, Sacrifice this artifact: You take the initiative, gain 3 life, draw a card, and create a Treasure token.
+    Activate only as a sorcery." -- untapped by hand for the activation, since it enters tapped."""
+    s = build(cards, ["Dungeoneer's Pack"])
+    mana(s, "p1", C=3)
+    pack = to_hand(s, "Dungeoneer's Pack")
+    act(s, "p1", type="cast_spell", card_id=pack.id)
+    drive(s)
+    assert s.state.cards[pack.id].zone == "p1:battlefield" and s.state.cards[pack.id].tapped
+    act(s, "p1", type="tap", card_ids=[pack.id], tapped=False)
+    index = next(ab.index for ab in ch(s, pack).abilities if ab.kind == "activated")
+    mana(s, "p1", C=2)
+    act(s, "p1", type="activate_ability", card_id=pack.id, ability=index)
+    drive(s, want=["Forest"])
+    assert s.state.table.initiative == "p1" and s.state.players["p1"].life == 43 and len(treasures(s)) == 1
+    assert s.state.cards[pack.id].zone == "p1:graveyard"
+    check(s)
+
+
+@pytest.mark.parametrize(("name", "after"), [("Feywild Caretaker", lambda s: [c for c in s.state.cards.values()
+                                                                              if c.name == "Faerie Dragon" and c.zone == "p1:battlefield"]),
+                                             ("Passageway Seer", lambda s: [c for c in s.state.cards.values()
+                                                                            if c.name == "Passageway Seer" and c.counters.get("+1/+1") == 1])])
+def test_the_end_step_ability_of_an_initiative_creature_checks_that_you_have_it(cards, name, after):
+    """"At the beginning of your end step, if you have the initiative, …" (Feywild Caretaker: a 1/1 Faerie Dragon with flying; Passageway Seer: a
+    +1/+1 counter): 603.4 -- the holder's end step."""
+    s = build(cards, [name])
+    mana(s, "p1", W=1, U=1, B=1, R=1, G=1, C=6)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, name).id)
+    drive(s, want=["Forest"])
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1")  # (her end step passes on the way)
+    assert s.state.table.initiative == "p1" and len(after(s)) == 1
     check(s)
 
 
