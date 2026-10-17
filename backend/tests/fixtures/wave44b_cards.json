@@ -755,5 +755,79 @@
   "keywords": [],
   "power": "1",
   "toughness": "5"
+ },
+ {
+  "name": "Daredevil, Man Without Fear",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Hero",
+  "oracle_text": "Vigilance, haste\nRadar Sense — You may look at the top card of your library any time.\nWhenever you attack, you may exile the top card of your library. If that card is a Hero card, Daredevil gets +2/+1 until end of turn. You may play that card this turn.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Radar Sense",
+   "Vigilance",
+   "Haste"
+  ],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Shizuko, Caller of Autumn",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Snake Shaman",
+  "oracle_text": "At the beginning of each player's upkeep, that player adds {G}{G}{G}. Until end of turn, they don't lose this mana as steps and phases end.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Kassandra, Eagle Bearer",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Assassin Warrior",
+  "oracle_text": "Haste\nWhen Kassandra enters, search your graveyard, hand, and library for a card named The Spear of Leonidas, put it onto the battlefield, then shuffle.\nWhenever a creature you control with a legendary Equipment attached to it deals combat damage to a player, draw a card.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Haste"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Shadowspear",
+  "layout": "normal",
+  "mana_cost": "{1}",
+  "cmc": 1.0,
+  "type_line": "Legendary Artifact — Equipment",
+  "oracle_text": "Equipped creature gets +1/+1 and has trample and lifelink.\n{1}: Permanents your opponents control lose hexproof and indestructible until end of turn.\nEquip {2}",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Equip"
+  ]
  }
 ]

@@ -4249,6 +4249,7 @@ def _put_mana(plan: Plan, ctx: Context, pid: str, mana: list[str]) -> bool:
     from app.rules import mana as M
 
     ctx["_mana_added"] = {c: mana.count(c) for c in dict.fromkeys(mana)}  # (wave 3R3: "this mana", app/rules/kept_mana.py)
+    ctx["_mana_added_player"] = pid  # (-- trigger other (wave 44B) -- whose pool: "that player adds {G}{G}{G}. … they don't lose this mana", Shizuko)
     if mana:
         delta: dict[str, int] = {}
         for c in mana:

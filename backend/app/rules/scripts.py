@@ -337,6 +337,9 @@ def self_text(text: str, name: str) -> str:
     # target opponent each draw"; "destroy target permanent an opponent controls. They create a Treasure token." (Vraska): "they" is the player who controlled it
     out = re.sub(r"\byou and another target player each draw a card\b", "you and target opponent each draw a card", out)
     out = re.sub(r"(destroy target permanent an opponent controls\.) They create a Treasure token\.", r"\1 Its controller creates a Treasure token.", out)
+    # -- trigger other (wave 44B) -- Daredevil: the permission to play the exiled card doesn't depend on the "If that card is a Hero card, ~ gets +2/+1" before it, and
+    # the permission reads no condition, so the pump goes last (608.2c: the card is still the exiled one)
+    out = re.sub(r"(If that card is an? \w+ card, ~ gets [^.]+\.) (You may play that card this turn\.)", r"\2 \1", out)
     # -- trigger other (wave 44B) -- Rayne's 2004 ruling: "You may draw an additional card if ~ is enchanted." is checked as the ability resolves, a second optional draw
     out = re.sub(r"(?<=\. )You may draw an additional card if ([^.,]+?)\.", r"If \1, you may draw a card.", out)
     # -- keywords (wave 30E) -- 702.166b: a bargained spell is read the same way (a bargain card has no kicker): casting.py records it as kicked
@@ -8035,7 +8038,7 @@ _CHOSEN["choose_one_of"] = "n"
 # end." (after an "add" instruction of the same ability: the mana it added, app/rules/kept_mana.py); "Until end of
 # combat, you don't lose this mana as steps end." (511.3: kept to the end of the end of combat step)
 @_first
-@effect(r"until end of (?P<u>turn|combat), you don't lose this mana as steps(?: and phases)? end")
+@effect(r"until end of (?P<u>turn|combat), (?:you|they) don't lose this mana as steps(?: and phases)? end")  # (wave 44B: "they", Shizuko, after "that player adds")
 def _keep_mana(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "keep_mana", "until": "end_of_turn" if m["u"] == "turn" else "end_of_combat"}], None
 

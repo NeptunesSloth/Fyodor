@@ -324,6 +324,11 @@ def _drawn_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "drawn_this_turn"))
 
 
+@_suffix(r"with a legendary Equipment attached to it")  # -- trigger other (wave 44B) -- Kassandra, Eagle Bearer: 301.5, an Equipment attached to it that is legendary
+def _with_legendary_equipment(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "legendary_equipped"))
+
+
 # -- both colors (wave 6D) -- "a spell that's both red and white" (the Mimics): each of the colors (105.2)
 @_suffix(r"that['’]s both (?P<c1>" + "|".join(COLORS) + r") and (?P<c2>" + "|".join(COLORS) + r")")
 def _thats_both(s: Selector, m: re.Match[str]) -> Selector:
@@ -1778,6 +1783,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "equipped" and not _has_attached(plan, card, "Equipment"):
             return False
+        if extra == "legendary_equipped" and not any(c.attached_to == card.id and "Equipment" in plan.ch(c).subtypes and "Legendary" in plan.ch(c).supertypes
+                                                     for c in plan.state.cards.values()):
+            return False  # (wave 44B)
         if extra == "enchanted_by_yours" and not any(c.attached_to == card.id and "Aura" in plan.ch(c).subtypes and c.controller == you
                                                      for c in plan.state.cards.values()):
             return False  # (wave 32B)

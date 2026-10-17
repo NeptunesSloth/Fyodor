@@ -34,7 +34,7 @@ COMMANDERS = ["Zagras, Thief of Heartbeats", "Merry, Esquire of Rohan", "Kazuul,
               "Amalia Benavides Aguirre", "Jenson Carthalion, Druid Exile", "Michelangelo, Improviser", "Danitha, Sword of Hope", "Rose Noble",
               "Tameshi, Reality Architect", "The Beast, Deathless Prince", "Ultron the Annihilator", "Kolodin, Triumph Caster",
               "Mirko Vosk, Mind Drinker", "Gornog, the Red Reaper", "Whirlwind, Killer Cyclone", "Vraska, the Cutting Glare", "Splinter, Aging Champion",
-              "April O'Neil, Hacktivist"]
+              "April O'Neil, Hacktivist", "Daredevil, Man Without Fear", "Shizuko, Caller of Autumn", "Kassandra, Eagle Bearer"]
 
 
 @pytest.fixture()
@@ -576,5 +576,69 @@ def test_april_draws_for_each_card_type_among_the_spells_cast_this_turn(cards, s
         settle(s)
     before = library(s, "p1")
     finish_turn(s)
+    assert before - library(s, "p1") == draws
+    check(s)
+
+
+# -- Daredevil, Man Without Fear ---------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize(("top", "bonus"), [("Night Nurse, Healer of Heroes", (2, 1)), ("Grizzly Bears", (0, 0))])
+def test_daredevil_exiles_the_top_card_and_gets_a_bonus_for_a_hero(cards, top, bonus):
+    """Daredevil: "Whenever you attack, you may exile the top card of your library. If that card is a Hero card, Daredevil gets +2/+1 until end of turn. You may play
+    that card this turn." The exiled card is the top one either way."""
+    s = table(cards, [top, "Daredevil, Man Without Fear"])
+    daredevil = put(s, "Daredevil, Man Without Fear")
+    ready(s, "Daredevil, Man Without Fear")
+    power, toughness = pt(s, "Daredevil, Man Without Fear")
+    attack_as(s, "p1", [daredevil], "p2")
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None and d.kind != "declare_blockers":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert zone(s, top) == "p1:exile"
+    assert pt(s, "Daredevil, Man Without Fear") == (power + bonus[0], toughness + bonus[1])
+    check(s)
+
+
+# -- Shizuko, Caller of Autumn -----------------------------------------------------------------------------------------------------------------------
+def test_shizuko_gives_each_player_mana_that_they_keep_through_the_turn(cards):
+    """Shizuko: "At the beginning of each player's upkeep, that player adds {G}{G}{G}. Until end of turn, they don't lose this mana as steps and phases end." Bob's
+    upkeep: the mana is Bob's, and he still has it in his main phase (not Alice's pool, not emptied)."""
+    s = table(cards, ["Shizuko, Caller of Autumn"])
+    put(s, "Shizuko, Caller of Autumn")
+    to_turn_of(s, "p2")
+    assert s.state.players["p2"].mana.get("G", 0) == 3 and s.state.players["p1"].mana.get("G", 0) == 0
+    check(s)
+
+
+# -- Kassandra, Eagle Bearer -------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize(("equipment", "draws"), [("Shadowspear", 1), ("Bonesplitter", 0), (None, 0)])
+def test_kassandra_draws_when_a_creature_with_a_legendary_equipment_deals_combat_damage_to_a_player(cards, equipment, draws):
+    from app.rules.plan import Plan
+
+    s = table(cards, ["Kassandra, Eagle Bearer", "Shadowspear", "Bonesplitter"])
+    kassandra = put(s, "Kassandra, Eagle Bearer")
+    if equipment:
+        gear = put(s, equipment)
+        ability = next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[gear.id]).abilities if a.text.startswith("Equip "))
+        mana(s, "p1", C=2)
+        act(s, "p1", type="activate_ability", card_id=gear.id, ability=ability, targets=[kassandra.id])
+        settle(s)
+        assert s.state.cards[gear.id].attached_to == kassandra.id
+    before = library(s, "p1")
+    attack_as(s, "p1", [s.state.cards[kassandra.id]], "p2")
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack") or s.state.turn.phase in ("declare_attackers", "declare_blockers", "combat_damage", "first_strike_damage"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
     assert before - library(s, "p1") == draws
     check(s)
