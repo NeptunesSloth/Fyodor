@@ -686,6 +686,11 @@ def _with_cycling(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "cycling_ability"))
 
 
+@_suffix(r"with (?:a )?kicker abilit(?:y|ies)")  # -- cast keywords (wave 43D) -- 702.33: "a kicker ability" includes the multikicker variant (702.33c; Coralhelm Chronicler's ruling)
+def _with_kicker(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "kicker_ability"))
+
+
 @_suffix(r"with (?:an? morph ability|morph abilities)")  # -- hidden exile (wave 18A) -- 702.37b: megamorph is a morph ability too
 def _with_morph(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "morph_ability"))
@@ -1885,6 +1890,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "morph_ability" and not {"morph", "megamorph"} & ch.keywords:
             return False
         if extra == "cycling_ability" and not any(k.endswith("cycling") for k in ch.keywords):  # (wave 20C)
+            return False
+        if extra == "kicker_ability" and not {"kicker", "multikicker"} & ch.keywords:  # (wave 43D)
             return False
         if extra == "unblocked" and card.id in plan.rules.blocked:  # (wave 15E) a blocked attacker stays blocked
             return False

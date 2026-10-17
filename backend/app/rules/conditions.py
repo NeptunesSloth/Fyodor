@@ -152,14 +152,14 @@ _VERSUS = re.compile(r"an opponent (?:(?P<controls>controls)|has) more (?P<what>
 _AS = {"that player": "event", "defending player": "defended", "a player": "any"}
 _VERSUS_WHO = re.compile(r"(?P<who>that player|defending player) (?:(?P<controls>controls)|has) more (?P<what>.+?) than you")
 _NO_MORE_LIFE = re.compile(r"no opponent has more life than (?P<who>that player|defending player)")
-_VERSUS_REV = re.compile(r"you (?:(?P<controls>control)|have) more (?P<what>.+?) than an opponent")
+_VERSUS_REV = re.compile(r"you (?:(?P<controls>control)|have) more (?P<what>.+?) than (?P<which>an|each) opponent")  # (wave 44A: "each opponent", Akuta)
 _COMMANDER = re.compile(r"you control (?P<which>your commander|a commander)")
 # -- named permanents (wave 35C) -- 201.2: "if you control creatures named Mine Worker and Power Plant Worker" (Tower Worker, Mine Worker, Power Plant
 # Worker), "artifacts named Crown of Empires and Scepter of Empires" (Throne / Scepter / Crown of Empires), "a creature named Bogbrew Witch" (Festering
 # Newt): a permanent with each name (the selector's ``name:`` test, 709.4a: a face-down permanent has no name, 708.2a). The plural wording names two cards,
 # the singular one: "a creature named A and B" would be one card named "A and B" and is not read.
 _CARD_NAME = r"[A-Z][\w'’-]*(?: (?:(?:of|the|in|on|for|to) )*[A-Z][\w'’-]*)*"  # (words that start with a capital, a small word between: no comma, no "and")
-_NAMED = re.compile(rf"you control (?:(?:an?) (?P<t1>creature|artifact|enchantment|land|permanent) named (?P<a1>{_CARD_NAME})"
+_NAMED = re.compile(rf"you (?P<neg>don't )?control (?:(?:an?) (?P<t1>creature|artifact|enchantment|land|permanent) named (?P<a1>{_CARD_NAME})"
                     rf"|(?P<t2>creature|artifact|enchantment|land|permanent)s named (?P<a2>{_CARD_NAME}) and (?P<b2>{_CARD_NAME}))")
 # "it's a land card", "that creature is a Human", "~ is an enchantment", "it was a creature card"
 _OBJECT_WORDS = {"it": "it", "~": "self", "enchanted creature": "host", "enchanted permanent": "host", "enchanted land": "host",
@@ -185,7 +185,7 @@ _BEATS_ALL = re.compile(r"(?:its|that creature's) (?P<stat>power|toughness) is g
 _LESS_SELF = re.compile(r"(?:its|that creature's) power is less than ~'s(?: power)?")
 # -- static_other sweep (wave 17C) -- 608.2h: "If you controlled that permanent" (Boomerang Basics): the controller it had, as it is
 # or as it last existed
-_CONTROLLED = re.compile(r"you (?:(?P<neg>didn't|did not) control|controlled) (?:it|that (?:creature|permanent|card|land|token|artifact|enchantment|planeswalker))")
+_CONTROLLED = re.compile(r"you (?:(?P<neg>didn't|did not|don't|do not) control|control(?:led)?) (?:it|that (?:creature|permanent|card|land|token|artifact|enchantment|planeswalker))")
 _STATES = {"tapped": "tapped", "untapped": "untapped", "attacking": "attacking", "blocking": "blocking",
            "attached to a creature": "attached_to",  # (-- casting extras (wave 18E) -- reconfigure 702.151a: the source's own state)
            "suspected": "suspected", "prepared": "prepared"}  # (prepared: wave 13C, 722.3; suspected: wave 12A, 701.60 — a designation of the source, like its other states)
@@ -306,6 +306,8 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
             return None
         names = [n for n in (m["a1"], m["a2"], m["b2"]) if n]
         parts: list[Condition] = [{"value": {"count": replace(base, extras=(*base.extras, "name:" + n)).key()}, "op": ">=", "n": 1} for n in names]
+        if m["neg"]:  # -- if you do (wave 44A) -- "if you don't control a creature named Darkstar" (Rufus Shinra): none with that name (one name only)
+            return {"value": parts[0]["value"], "op": "==", "n": 0} if len(parts) == 1 else None
         return parts[0] if len(parts) == 1 else {"all": parts}
     m = re.fullmatch(r"an opponent controls at least (?P<n>\w+) more (?P<what>.+) than you", t)
     if m and _num(m["n"]) is not None:  # -- cost alt (wave 16F) -- Avatar of Might: some opponent's count is at least n above yours
@@ -457,7 +459,7 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         gd = m.groupdict()
         if gd.get("who"):
             return {"versus": {"value": quantity, "op": ">", "who": _AS[gd["who"]]}}
-        return {"versus": {"value": quantity, "op": "<" if m.re is _VERSUS_REV else ">"}}
+        return {"versus": {"value": quantity, "op": "<" if m.re is _VERSUS_REV else ">", **({"every": True} if gd.get("which") == "each" else {})}}
     found = designation_condition(t)  # -- counters & designations (wave 3E) --
     if found is not None:
         return found
@@ -666,6 +668,12 @@ def _history_pattern(pattern: str):  # type: ignore[no-untyped-def]
 @_history_pattern(r"a player was dealt combat damage this turn by a source you controlled that shared a creature type with this spell")
 def _prowl(m: re.Match[str]) -> Condition:
     return {"history": "prowl"}  # -- static_other sweep (wave 17C) -- prowl, 702.76a (history._prowl)
+
+
+@_history_pattern(r"a player was dealt combat damage this turn by a creature that, at the time it dealt that damage, was an assassin creature or a commander "
+                  r"under your control")
+def _freerunning(m: re.Match[str]) -> Condition:
+    return {"history": "freerunning"}  # -- cast keywords (wave 43D) -- freerunning, 702.173a (history._freerunning)
 
 
 @_history_pattern(r"you attacked(?: with a creature)? this turn")

@@ -489,6 +489,7 @@ class TurnFact(BaseModel):
     # -- static_other sweep (wave 17C) -- prowl (702.76a): the damage source's creature types and its controller as it dealt the damage
     source_subtypes: list[str] = Field(default_factory=list)
     source_controller: str | None = Field(default=None, max_length=64)
+    source_commander: bool = False  # -- cast keywords (wave 43D) -- freerunning (702.173a): the damage source was a commander (903.3) as it dealt the damage
     # -- damage history (wave 6B) -- "damaged" facts (a permanent was dealt ``amount`` damage; ``object_id`` the
     # permanent): the object that dealt it
     source: str | None = Field(default=None, max_length=80)
@@ -803,6 +804,7 @@ class PaymentRecord(BaseModel):
     mana_riders: list[dict[str, Any]] = Field(default_factory=list)
     contributions: list[CostContribution] = Field(default_factory=list)
     life: int = 0  # life paid (Phyrexian mana, …)
+    phyrexian: int = 0  # -- cast keywords (wave 43D) -- the Phyrexian mana symbols of its cost paid with life (2 life each): compleated, 702.150a
     tapped: list[str] = Field(default_factory=list)  # permanents tapped for mana while paying (engine-paid)
     sacrificed: list[str] = Field(default_factory=list)
     sacrificed_objects: list[str] = Field(default_factory=list)  # (wave 3D) the object ids they were: last known information

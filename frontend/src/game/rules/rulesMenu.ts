@@ -5,7 +5,7 @@ import { isVisible, splitZone, type GameCard, type GameView } from "../../types/
 import { abilityLines, automationOn, isLand, send, setPrefs } from "./intents";
 
 /** 702.33a / 702.33c: a "Kicker {cost}" or "Multikicker {cost}" keyword line (mana costs only, as the server pays them). */
-const KICKER = /^(?:(?:multi)?kicker|entwine) (?:\{[^}]+\})+$|^entwine—/i; // (702.42a entwine: kicker's count 1 is "choose all modes")
+const KICKER = /^(?:(?:multi)?kicker|entwine) (?:\{[^}]+\})+$|^entwine—|^kicker—/i; // (702.42a entwine: kicker's count 1 is "choose all modes"; wave 43D: "Kicker—Sacrifice a land.", paid by the server)
 /** Multikicker: how many times to pay (a submenu; more is rare enough to do by hand). */
 export const MULTIKICKER_COUNTS = [1, 2, 3, 4, 5, 6];
 

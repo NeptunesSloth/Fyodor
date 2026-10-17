@@ -522,6 +522,7 @@ _MOVERS = {"destroy", "destroy_all", "exile", "exile_until", "bounce", "return_c
            "sacrifice_choice", "discard", "mill", "search", "pick_looked", "create_token",
            "edict"}  # (edict: wave 4A)
 _TOKEN_MAKERS = {"create_token", "create_attacking"}  # (what they introduce are tokens, not cards: 111.1)
+_RECORDING["rest_looked"] = None  # (wave 44A: its verb is _verb_of's)
 _RECORDING["linked_cards"] = "exiled"  # -- resolution memory (wave 22D) -- exiled_with.linked_cards
 _MOVERS.add("linked_cards")
 _RECORDING["double_pt"] = None  # -- trigger other (wave 41C) -- "double the power of each other creature you control until end of turn. Those creatures gain vigilance …"
@@ -728,6 +729,12 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         return any(g.get("do") == "only_if" and g_i < k <= g_i + int(g.get("skip", 0)) < index
                    for g_i, g in enumerate(out[:index]))
 
+    def in_alt_branch(index: int) -> bool:
+        """-- if you do (wave 44A) -- Is effect ``index`` in the "instead" / "Otherwise" branch (the gate on the flag of a condition just judged)? Only one of the two
+        branches happens (608.2c): what the other one moved or chose is no antecedent of its "it" ("put a +1/+1 counter on it. If it's a Unicorn, put two … on it instead")."""
+        return any(g.get("do") == "only_if" and (g.get("cond") or {}).get("flag") is not None and g["cond"].get("negate") and g_i < index <= g_i + int(g.get("skip", 0))
+                   for g_i, g in enumerate(out[:index]))
+
     def objects(index: int, number: int | None, verb: str | None, skip_gated: bool = False) -> _Introducer | None:
         if verb == "card" and _exiled_with.linked() and effects and effects[0].get("do") == "linked_cards":
             # -- hideaway (wave 29D) -- 607.2a: in an ability that only refers to what another exiled, "the exiled card" ("that card" once the
@@ -736,6 +743,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             return find(lambda i: i.do == "linked_cards", index)
 
         def ok(i: _Introducer) -> bool:
+            if i.do == "rest_looked" and verb in (None, "card"):  # (wave 44A: the rest of the cards looked at only count for "put into your graveyard / hand this way")
+                return False
             if not i.objects or (skip_gated and closed_gate(i.index, index) and _group_of(out[i.index]) is None):  # (a targeted instruction names its target whichever branch ran)
                 return False
             if verb == "card":  # "that card": a card, so not a token an instruction created (111.1)
@@ -855,6 +864,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                         return None
                 else:
                     intro = objects(index, 1 if pronoun == "it" else 2, verb or None)
+                    if intro is not None and pronoun == "it" and not verb and in_alt_branch(index) and closed_gate(intro.index, index) \
+                            and antecedent in ("event", "self") and out[intro.index].get("who") == antecedent:
+                        intro = None  # (the "instead" branch's "it" is the base branch's own: the trigger's object, not something the base recorded)
                 if e.get("do") in ("grant_play", "free_cast", "look_exiled", "plotted") and (
                         intro is None or (intro.do not in _MOVERS and not _exiles_countered(out[intro.index]))):
                     # "You may play that card this turn": only what an earlier instruction of this
@@ -1027,6 +1039,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
     return out
 
 
+_ENTERS_WITH_IF = re.compile(r"if an? (?P<sel>[A-Z][a-z]+) enters this way, it enters with an additional \+1/\+1 counter on it")
 _FOR_EACH_LEADING = re.compile(r"^for each (?P<what>[^,]+), (?:you (?=create |draw |put ))?(?P<rest>[^,]+)$")
 # -- attached events (wave 30S) -- "for each Aura and Equipment attached to ~, create a 3/1 … token" (Valduk): the count of what is attached
 _ATTACHED_WHAT = re.compile(r"(?:Auras?|Equipment|Curses?)(?: and (?:Auras?|Equipment))?(?: you control)? attached to (?:~|it|him|her|them)")
@@ -1087,6 +1100,9 @@ def _free_cast_source(e: dict[str, Any], pronoun: str, intro: _Introducer | None
         return False
     src = out[intro.index]
     if str(src.get("player") or "you").startswith("each") and (intro.do == "look_top" or src.get("until")):
+        if intro.do == "exile_top" and e.get("zone") == "among":  # -- if you do (wave 44A) -- "each player exiles cards … until they exile a nonland card.
+            e["zone"], e["who"] = "that", "ref:" + bound(intro)  # You may cast any number of spells from among" them: every card exiled, lands too
+            return True  # (a land is never cast; ctx["found"] names one library's card only)
         raise _NoMatch  # (several libraries looked at / searched until: ctx keeps one library's; exiled cards are bound)
     if src.get("until"):
         if pronoun != "it":
@@ -1612,6 +1628,13 @@ def _return_any(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 @effect(r"counter (?P<sel>target spell|target creature spell|target noncreature spell|target instant or sorcery spell)")
 def _counter(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "counter", "who": "target"}], SELECTORS[m["sel"]]
+
+
+@effect(r"counter each spell (?:you don't control|your opponents control)")
+def _counter_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    # -- cast keywords (wave 43D) -- 702.96a: "Counter target spell you don't control" read with "each" (Counterflux, overloaded): every spell on the stack
+    # that isn't its controller's (no targets, 702.96b)
+    return [{"do": "counter", "who": "each_opponent_spell"}], None
 
 
 @effect(r"counter (?P<sel>target spell|target creature spell|target noncreature spell|target instant or sorcery spell)"
@@ -2393,6 +2416,7 @@ def _split_tails(body: str, event_player: bool) -> str:
         return f"{m['first']}. ~ {_DEFENDER}."
     body = _OWNER_SHUFFLES.sub(lambda m: f"{m[1]}Shuffle ~ into its owner's library. Its owner draws {m[2]}", body)
     body = _YOU_ADD.sub(r"Add \1", body)  # "You add {R}." (Red Death, Shipwrecker) is "Add {R}."
+    body = re.sub(r"\bthat player reveals the chosen card, puts it on the bottom", "that player reveals and puts it on the bottom", body)  # (wave 44A: Vendilion Clique, language._PLAYER_LIBRARY)
     body = _EACH_RETURNS.sub(lambda m: f"Return all {m['x'].replace(' and all ', ' or ')} cards from all graveyards to "
                              + ("the battlefield under their owners' control" if m["d"] == "the battlefield" else "their owners' hands"), body)
     # "Goad target creature an opponent controls. That player draws a card.": the opponent named is the creature's controller (no event names a player here)
@@ -2487,7 +2511,7 @@ def _no_regen_scope(got: Any) -> Any:
 # is then swapped for the value; only in amount fields that evaluate values (a target count or a selector bound would not).
 _WHERE_X = re.compile(r",? where X is (?P<def>[^.\"]+?)(?=\.(?: |$)|$)")
 _X_SENTINEL = 7919
-_X_KEYS = frozenset({"n", "p", "t"})
+_X_KEYS = frozenset({"n", "p", "t", "cap"})  # (cap: wave 44A, put_from_hand's "up to X")
 
 
 def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
@@ -3125,6 +3149,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             continue
         if text.startswith("you may exile ") and not effects and (imprint := _exiled_with.imprint(text)) is not None:
             effects += imprint  # -- copied abilities (wave 18F) -- "Imprint — … you may exile an instant card from your hand."
+            continue
+        if effects and effects[-1].get("do") == "return_card" and effects[-1].get("to") == "battlefield" and not effects[-1].get("counter") \
+                and (hero := _ENTERS_WITH_IF.fullmatch(text)) is not None and (kind := selectors.parse(f"{hero['sel']} card")) is not None:
+            effects[-1] = {**effects[-1], "counter": "+1/+1", "counter_if": kind.key()}  # -- if you do (wave 44A) -- "If a Hero enters this way, it enters with an additional +1/+1 counter" (122.6)
             continue
         # -- unless pays (wave 4C) -- the riders of "Counter target spell unless its controller pays …" (608.2c, 118.12)
         if (rider := _unless_rider(text, effects, prev_start)) is not None:
@@ -4010,8 +4038,8 @@ def _kicked_sentence(m: re.Match[str], effects: list[dict[str, Any]], prev_start
     if restated is not None:
         found: tuple[list[dict[str, Any]], Any] | None = (restated, None)
     else:
-        if rest.startswith("it deals "):
-            rest = "~ deals " + rest[len("it deals "):]  # "If this spell was kicked, it deals …": the spell (wave 1B)
+        if rest.startswith(("it deals ", "it also deals ")):
+            rest = "~ " + rest[len("it "):]  # "If this spell was kicked, it deals …": the spell (wave 1B; wave 43D: "it also deals", Goblin Barrage)
         found = _clause(rest)
     if found is None or not found[0]:
         return None
@@ -4442,7 +4470,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return keyword_triggers.dynamic_x(text)
     if ability.kind == "spell" and SHUFFLE_INSTEAD_SELF.match(text):  # -- zone replacements (wave 22C) -- Nexus of Fate: a replacement line of a spell card
         return {"kind": "replacement", "replacement": "shuffle_instead", "from": "anywhere", "effects": []}
-    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",), ("sneak",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E; sneak: 30I)
+    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",), ("sneak",), ("freerunning",), ("impending",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E; sneak: 30I; freerunning, impending: 43D)
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(ability.text)
@@ -5024,6 +5052,8 @@ def _event_refs_ok(d: Definition) -> bool:
     if any(e.get("do") == "free_cast" and (e.get("shares_type") or {"mana_value": "event"} in (e.get("mv"), e.get("mv_lt"))) for e in effects) \
             and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
         return False  # -- if you do (wave 40A) -- "a spell with equal or lesser mana value [that shares a card type with it]": the spell a cast trigger is about
+    if '"of": "cast_spell"' in raw and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
+        return False  # -- cast keywords (wave 43D) -- "the number of times that spell was kicked": the spell a cast trigger is about
     if '"before": true' in raw and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
         return False  # -- spell copies (wave 31D) -- "cast before it this turn": the spell a cast trigger is about
     if '"of": "roll"' in raw and not (ev is not None and ev["event"] == "roll_die"):
@@ -5227,6 +5257,21 @@ KEYWORD_TRIGGERS: dict[str, Definition] = {
 }
 
 
+@lru_cache(maxsize=1)
+def _impending_trigger() -> Definition | None:
+    """-- cast keywords (wave 43D) -- 702.176a: "At the beginning of your end step, if this permanent's impending cost was paid and it has a time counter on
+    it, remove a time counter from it." — the plain "if this permanent has a time counter on it" trigger with the cast record's fact added to its
+    intervening "if" (603.4: checked as it triggers and as it resolves)."""
+    ab = AbilityText(index=0, text="At the beginning of your end step, if this permanent has a time counter on it, remove a time counter from it.",
+                     kind="triggered")
+    d = define(ab, Characteristics(name="\u0000", abilities=(ab,), types=frozenset({"Creature"})))
+    if d is None or d.get("kind") != "triggered" or "if" not in d:
+        return None
+    paid = {"object": "self", "cast": {"alt": "impending"}}
+    return {**d, "if": {"all": [paid, d["if"]]}, "effects": [{**e, "cond": {"all": [paid, e["cond"]]}} if e.get("do") == "only_if" else e
+                                                            for e in d["effects"]]}
+
+
 def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
     """Triggered keyword abilities of a card, with keys that can't clash with ability indexes."""
     if ch.is_ability or ch.face_down:
@@ -5240,6 +5285,8 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
                 out.append((1000 + ab.index * 10 + k, KEYWORD_TRIGGERS[kw]))
             if kw in _kw_meanings.MEANINGS:  # -- static wordings (wave 6E) -- read as its CR meaning (app/rules/keyword_triggers.py)
                 out += [(1000 + ab.index * 10 + k + 100000 * j, d) for j, d in enumerate(_kw_meanings.first_piece(kw, ab.text, ab.keywords[:k].count(kw)))]
+            if kw == "impending" and (imp := _impending_trigger()) is not None:  # -- cast keywords (wave 43D) -- 702.176a: its fourth ability
+                out.append((1000 + ab.index * 10 + k, imp))
             if kw == "gift":  # -- gift (wave 23D) -- 702.174b: a permanent's enters trigger (an instant or sorcery: spell_definition)
                 from app.rules import gift
 
@@ -6829,7 +6876,7 @@ def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: 
 
         outer = None  # "If C1, X. If C2, Y instead." with C2 holding only when C1 does: Y replaces X inside C1's gate
         if (len(base) > 1 and base[0]["do"] == "only_if" and not base[0].get("bind") and base[0].get("skip") == len(base) - 1
-                and kicked_instead.implies(cond, base[0]["cond"])):
+                and (kicked_instead.implies(cond, base[0]["cond"]) or set(base[0]["cond"]) == {"succeeded"})):  # (wave 44A: "If you do, X. If C, Y instead.": Y replaces X, so it too needs the payment, 614.1)
             outer, base = base[0], base[1:]
             prev_start += 1
         rest = kicked_instead.plain_pronoun(rest)
@@ -7178,6 +7225,8 @@ def _verb_of(e: dict[str, Any]) -> str | None:
     """The verb "… <verb> this way" names for an instruction (_RECORDING; a move to exile by another name is an exile)."""
     if (e["do"] == "sacrifice_choice" and e.get("exile")) or (e["do"] == "discard" and e.get("to") == "exile"):
         return "exiled"
+    if e["do"] in ("pick_looked", "rest_looked") and e.get("to") in ("hand", "graveyard"):
+        return "put_" + e["to"]  # -- if you do (wave 44A) -- "for each card put into your graveyard / you put into your hand this way" after a look (Dihada, Blex)
     return _RECORDING.get(e["do"])
 
 
@@ -7726,7 +7775,7 @@ def _for_each_of_them_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]
 
 
 @_first
-@effect(r"(?P<may>you may )?put (?:a|an|any number of) [^.]+? from your hand onto the battlefield(?: tapped(?: and attacking"
+@effect(r"(?P<may>you may )?put (?:a|an|any number of|up to \d+) [^.]+? from your hand onto the battlefield(?: tapped(?: and attacking"
         r"(?: (?:that player|that opponent|defending player))?)?)?(?:, where X is [^.]+)?")
 def _put_from_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     """"You may put an Equipment card from your hand onto the battlefield." (Stoneforge Mystic): app/rules/put_from_hand.py.

@@ -846,8 +846,29 @@ def _hone(state: GameState, card: CardInstance, info: CardInfo) -> int:
 # -- conditional statics (wave 4B) ----------------------------------------------------------------------------
 
 
+def _impending_layer4(state: GameState, card: CardInstance, info: CardInfo | None) -> list[tuple[float, dict[str, Any]]]:
+    """-- cast keywords (wave 43D) -- 702.176a: "As long as this permanent's impending cost was paid and it has a time counter on it, it's not a creature."
+    (its own static, 613.1d: removing the type removes the creature types too, 205.3d); the cast record says the cost was paid, the counters are read
+    now. Nothing here reads characteristics, so every reader gets it (as ``_own_layer4``)."""
+    r = state.rules
+    if r is None or not card.counters.get("time") or not card.zone.endswith(":battlefield"):
+        return []
+    rec = r.payments.get(r.object_id(card.id))
+    if rec is None or rec.alternative != "impending" or info is None:
+        return []
+    if not any("impending" in a.keywords for a in copiable(state, card, info).abilities if a.kind == "keywords"):
+        return []
+    return [(float(timestamp(state, card.id)), {"remove_types": ["Creature"], "add_subtypes": []})]
+
+
 def _own_layer4(state: GameState, card: CardInstance, info: CardInfo | None,
                 table: list[Static] | None = None) -> list[tuple[float, dict[str, Any]]]:
+    """The object's own layer-4 statics whose conditions hold now (and, wave 43D, impending's)."""
+    return _impending_layer4(state, card, info) + _own_layer4_statics(state, card, info, table)
+
+
+def _own_layer4_statics(state: GameState, card: CardInstance, info: CardInfo | None,
+                        table: list[Static] | None = None) -> list[tuple[float, dict[str, Any]]]:
     """The object's own layer-4 statics whose conditions hold now ("As long as your devotion to red is less than
     five, ~ isn't a creature."; app/rules/statics.py ``_layer4_parts``). Applied for every reader, also while
     another static's condition reads this object (``_T.depth`` > 0): their conditions never read characteristics

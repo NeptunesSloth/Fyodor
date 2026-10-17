@@ -216,7 +216,7 @@ FREE_AMONG = re.compile(
     rf"(?: {_FREE_MV.replace('?P<n>', '?P<n1>').replace('?P<v>', '?P<v1>')})?"
     r"(?: with mana value (?P<eq>X))?"  # -- linked casting (wave 30H) -- exactly X: "a spell with mana value X from among cards exiled with ~" (Kaho)
     r" from among (?P<src>them|those cards|those nonland cards|cards revealed this way|the revealed cards|the exiled cards"
-    r"|cards exiled this way|the cards exiled this way)"
+    r"|cards exiled this way|the cards exiled this way|the nonland cards exiled this way)"  # (wave 44A: a land is never cast, so "nonland" adds nothing)
     rf"(?: {_FREE_MV.replace('?P<n>', '?P<n2>').replace('?P<v>', '?P<v2>')})?"
     r" without paying (?:its|their) mana costs?$")
 # -- cast riders (wave 38C) -- "You may cast a spell from among cards you own in exile with dream counters on them without paying its mana cost." (Goliath

@@ -105,7 +105,7 @@ def pieces(kw: str, line: str) -> list[str]:
         p = p.strip().lower()
         if p == kw or (kw in _NUMBERED and re.fullmatch(rf"{re.escape(kw)} \d+", p)) or kw == "recover" and re.fullmatch(r"recover (?:\{[^}x]+\})+", p):
             out.append(p)
-        elif kw in _COSTED and re.fullmatch(rf"{re.escape(kw)} (?:\{{[^}}]+\}})+", p):  # (wave 15E) "squad {1}{g}": the keyword
+        elif kw in _COSTED and re.fullmatch(rf"{re.escape(kw)} (?:\{{[^}}]+\}})+|{re.escape(kw)}—[^{{}}]+", p):  # (wave 15E) "squad {1}{g}": the keyword (wave 43D: "squad—exile four cards from your graveyard")
             out.append(kw)
     return out
 
