@@ -36,8 +36,8 @@ EXTRA = [card(c["name"], set_code="w49b", number=f"B{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 HINATA, DARIEN, ARCHELOS, GRAVEMOTHER = "Hinata, Dawn-Crowned", "King Darien XLVIII", "Archelos, Lagoon Mystic", "Sliver Gravemother"
 KATILDA, MYCOTYRANT, ULAMOG, STOMP = "Katilda, Dawnhart Martyr // Katilda's Rising Dawn", "The Mycotyrant", "Ulamog, the Defiler", "Savage Stomp"
-VARCHILD, SABSUNEN, MIRRI, MORAUG, SARKHAN, ASMO = "Varchild, Betrayer of Kjeldor", "Sab-Sunen, Luxa Embodied", "Mirri, Weatherlight Duelist", "Moraug, Fury of Akoum", "Sarkhan, Dragon Ascendant", "Asmoranomardicadaistinaculdacar"
-NAMES = [HINATA, DARIEN, ARCHELOS, GRAVEMOTHER, KATILDA, MYCOTYRANT, ULAMOG, VARCHILD, SABSUNEN, MIRRI, MORAUG, SARKHAN, ASMO]
+VARCHILD, SABSUNEN, MIRRI, MORAUG, SARKHAN, ASMO, TALION = "Varchild, Betrayer of Kjeldor", "Sab-Sunen, Luxa Embodied", "Mirri, Weatherlight Duelist", "Moraug, Fury of Akoum", "Sarkhan, Dragon Ascendant", "Asmoranomardicadaistinaculdacar", "Talion, the Kindly Lord"
+NAMES = [HINATA, DARIEN, ARCHELOS, GRAVEMOTHER, KATILDA, MYCOTYRANT, ULAMOG, VARCHILD, SABSUNEN, MIRRI, MORAUG, SARKHAN, ASMO, TALION]
 
 
 @pytest.fixture()
@@ -387,6 +387,55 @@ def test_elven_passage_leaves_the_land_tapped_without_an_elf(cards):
     settle(s)
     lands = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:battlefield"]
     assert len(lands) == 1 and lands[0].tapped
+    check(s)
+
+
+# ---- Talion, the Kindly Lord ---------------------------------------------------------------------------------------------------------------------
+def talion_chooses(s, number):
+    mana(s, U=1, B=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, TALION).id)
+    d = ask(s)
+    assert [o.label for o in d.options] == [str(n) for n in range(1, 11)]  # 614.12a: a number between 1 and 10, chosen as it enters
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[str(number)])
+    settle(s)
+    assert s.state.cards[card_named(s, TALION).id].choices.get("Chosen number") == str(number)
+
+
+def test_talion_drains_and_draws_when_an_opponent_casts_a_spell_with_the_chosen_number(cards):
+    s = build(cards, [TALION], ["Lightning Bolt", "Mana Leak", "Grizzly Bears"])
+    stops(s)
+    talion_chooses(s, 1)
+    to_phase(s, "main1", turn=2)
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Lightning Bolt", "p2").id, targets=["p1"])  # mana value 1
+    settle(s)
+    assert s.state.players["p2"].life == 38 and len(s.state.zones["p1:hand"]) == hand + 1
+    check(s)
+
+
+def test_talion_ignores_spells_with_another_number(cards):
+    s = build(cards, [TALION], ["Grizzly Bears"])
+    stops(s)
+    talion_chooses(s, 3)
+    to_phase(s, "main1", turn=2)
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, "p2", G=1, C=1)
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Grizzly Bears", "p2").id)  # mana value 2, power 2, toughness 2: none is 3
+    settle(s)
+    assert s.state.players["p2"].life == 40 and len(s.state.zones["p1:hand"]) == hand
+    check(s)
+
+
+def test_talion_counts_a_creature_spells_power(cards):
+    s = build(cards, [TALION], ["Twisted Abomination"])
+    stops(s)
+    talion_chooses(s, 5)
+    to_phase(s, "main1", turn=2)
+    mana(s, "p2", B=1, C=5)
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Twisted Abomination", "p2").id)  # mana value 6 but power 5
+    settle(s)
+    assert s.state.players["p2"].life == 38
     check(s)
 
 
