@@ -452,8 +452,8 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return escalate_parts(line) is not None
     if kw == "awaken":  # -- static_other sweep (wave 16B) -- casting.AWAKEN: "Awaken N—{cost}"
         return re.fullmatch(r"awaken \d+—(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
-    if kw == "miracle":  # -- casting extras (wave 18E) -- app/rules/miracle.py: a mana miracle cost without X
-        return re.fullmatch(r"miracle (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None
+    if kw == "miracle":  # -- casting extras (wave 18E) -- app/rules/miracle.py: a mana miracle cost (wave 43D: with X, announced as the cast begins)
+        return re.fullmatch(r"miracle (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "prototype":  # -- casting extras (wave 18E) -- app/rules/prototype.py: "Prototype {cost} — P/T"
         return re.fullmatch(r"prototype (?:\{[^}x]+\})+ [—-] \d+/\d+", line.strip().rstrip(".").lower()) is not None
     if kw == "reconfigure":  # -- casting extras (wave 18E) -- oracle.parse_abilities: the attach / unattach abilities and the static it adds

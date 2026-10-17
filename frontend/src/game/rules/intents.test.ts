@@ -441,4 +441,20 @@ describe("decision answers", () => {
     void dropAsIntent(["c2"], { zone: "stack" }); // the drag-to-cast path asks too
     expect(useXPrompt.getState().action).toEqual({ type: "cast_spell", card_id: "c2" });
   });
+
+  it("asks for X for an alternative cost or a kicker cost that has {X}, and only then (107.3a, wave 43D)", () => {
+    useGame.setState({ view: view({ ...RULES, hints: { castable: ["c2", "c4"], x_cast: ["c2"], x_kicker: ["c4"],
+      alt_castable: { c2: [{ id: "c2:1", label: "overload {X}{X}{R}{R}", x: true }, { id: "c2:2", label: "pitch" }] } } }) });
+    sent.length = 0;
+    useXPrompt.setState({ action: null });
+    void send({ type: "cast_spell", card_id: "c2", alt_cost: "c2:2" }); // an alternative cost without X: X is 0 (107.3b)
+    void send({ type: "cast_spell", card_id: "c4" }); // not kicked: no X
+    expect(sent).toHaveLength(2);
+    void send({ type: "cast_spell", card_id: "c4", kicker: 1 });
+    expect(useXPrompt.getState().action).toEqual({ type: "cast_spell", card_id: "c4", kicker: 1 });
+    useXPrompt.setState({ action: null });
+    void send({ type: "cast_spell", card_id: "c2", alt_cost: "c2:1" });
+    expect(useXPrompt.getState().action).toEqual({ type: "cast_spell", card_id: "c2", alt_cost: "c2:1" });
+    useXPrompt.setState({ action: null });
+  });
 });

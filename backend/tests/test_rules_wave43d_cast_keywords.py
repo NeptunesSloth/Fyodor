@@ -379,6 +379,205 @@ def test_escape_detection_cant_be_freerun_without_a_blue_creature_to_return(card
     check(s)
 
 
+# ---- {X} in an alternative cost: harmonize, overload, surge, warp, bestow (107.3a) ---------------------------------------------------------
+def to_graveyard(s, name, pid="p1"):
+    act(s, pid, type="move", card_ids=[card_named(s, name, pid).id], to={"zone": "graveyard"})
+
+
+def test_zenith_festival_harmonized_with_x_taps_a_creature_to_pay_only_generic_mana(cards):
+    """"Harmonize {X}{R}{R}": X = 4 is announced with the cast (107.3a); tapping a creature with power 3 reduces the total cost by {3} of generic mana
+    (702.180a), so {4}{R}{R} costs {1}{R}{R}. X cards are exiled and the card itself is exiled as it leaves the stack."""
+    s = build(cards, ["Zenith Festival", "Grizzly Bears"])
+    to_graveyard(s, "Zenith Festival")
+    big = token_of(s, "p1", "Brute", "Token Creature — Ogre", "3/3")
+    mana(s, R=2, C=1)
+    library = len(s.state.zones["p1:library"])
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Zenith Festival").id, x_value=4, cost_choices=[{"component": 0, "cards": [big.id]}])
+    assert s.state.cards[big.id].tapped
+    settle(s)
+    assert zone_of(s, "Zenith Festival") == "p1:exile" and len(s.state.zones["p1:library"]) == library - 4
+    assert sum(s.state.players["p1"].mana.values()) == 0
+    check(s)
+
+
+def test_harmonize_never_reduces_the_colored_part_and_x_is_paid_whole_without_a_creature(cards):
+    """"Tapping a creature won't reduce colored mana components": power 5 against {1}{R}{R} still needs {R}{R}; one red mana isn't enough (118.3). Without
+    tapping a creature the whole {X}{R}{R} is paid."""
+    s = build(cards, ["Zenith Festival"])
+    to_graveyard(s, "Zenith Festival")
+    big = token_of(s, "p1", "Brute", "Token Creature — Ogre", "5/5")
+    mana(s, R=1, C=4)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Zenith Festival").id, x_value=1, cost_choices=[{"component": 0, "cards": [big.id]}])
+    assert not s.state.cards[big.id].tapped and zone_of(s, "Zenith Festival") == "p1:graveyard"
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Zenith Festival").id, x_value=1, cost_choices=[{"component": 0, "cards": [big.id]}])
+    settle(s)
+    assert zone_of(s, "Zenith Festival") == "p1:exile" and sum(s.state.players["p1"].mana.values()) == 4  # ({R}{R} paid; the X mana was not needed)
+    check(s)
+
+
+def test_a_harmonized_spell_needs_its_x_announced(cards):
+    s = build(cards, ["Zenith Festival"])
+    to_graveyard(s, "Zenith Festival")
+    mana(s, R=2, C=3)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Zenith Festival").id, cost_choices=[{"component": 0, "cards": []}])
+    check(s)
+
+
+def test_natures_rhythm_harmonize_x_searches_for_a_creature_with_mana_value_x_or_less(cards):
+    """"Harmonize {X}{G}{G}{G}{G}" (X = 2: {2}{G}{G}{G}{G}) and "Search your library for a creature card with mana value X or less"."""
+    s = build(cards, ["Nature's Rhythm", "Grizzly Bears"])
+    to_graveyard(s, "Nature's Rhythm")
+    mana(s, G=4, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Nature's Rhythm").id, x_value=2, cost_choices=[{"component": 0, "cards": []}])
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            pick(s, *[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert zone_of(s, "Grizzly Bears") == "p1:battlefield" and zone_of(s, "Nature's Rhythm") == "p1:exile"
+    check(s)
+
+
+def test_street_spasm_overloaded_hits_hexproof_creatures_and_pays_x_twice(cards):
+    """"Overload {X}{X}{R}{R}": X = 2 costs {4}{R}{R}; 702.96b: the overloaded spell has no targets, so hexproof doesn't stop it — "X damage to each
+    creature without flying you don't control": the hexproof Ogre dies, the flier and Alice's own creature don't."""
+    s = build(cards, ["Street Spasm"])
+    ogre = token_of(s, "p2", "Hexproof Ogre", "Token Creature — Ogre", "2/2", "Hexproof")
+    flier = token_of(s, "p2", "Bird", "Token Creature — Bird", "2/2", "Flying")
+    mine = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    to_hand(s, "Street Spasm")
+    mana(s, R=2, C=4)
+    with pytest.raises(ActionError):  # (cast normally, the ogre is not a legal target)
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Street Spasm").id, x_value=2, targets=[ogre.id])
+    key = alt_key(s, "Street Spasm", "overload")
+    with pytest.raises(ActionError):  # (X is part of the overload cost: it has to be announced)
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Street Spasm").id, alt_cost=key)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Street Spasm").id, x_value=2, alt_cost=key)
+    settle(s)
+    assert not on_field(s, ogre.id) and on_field(s, flier.id) and on_field(s, mine.id) and sum(s.state.players["p1"].mana.values()) == 0
+    check(s)
+
+
+def test_fall_of_the_titans_surge_pays_x_once_and_only_after_another_spell(cards):
+    """"Surge {X}{R}" (printed {X}{X}{R}): only if another spell was cast this turn (702.117a); X = 3 costs {3}{R}, not {6}{R}."""
+    s = build(cards, ["Fall of the Titans", "Lightning Bolt"])
+    to_hand(s, "Fall of the Titans")
+    to_hand(s, "Lightning Bolt")
+    key = alt_key(s, "Fall of the Titans", "surge")
+    mana(s, R=2, C=3)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Fall of the Titans").id, x_value=3, targets=["p2"], alt_cost=key)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Lightning Bolt").id, targets=["p2"])
+    settle(s)
+    assert life(s, "p2") == 37
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Fall of the Titans").id, x_value=3, targets=["p2"], alt_cost=key, target_counts=[1])
+    settle(s)
+    assert life(s, "p2") == 34 and sum(s.state.players["p1"].mana.values()) == 0
+    check(s)
+
+
+def test_broodguard_elite_warped_with_x_enters_with_x_counters_and_is_exiled_at_the_end(cards):
+    """"Warp {X}{G}": X = 3, a 3/3 for {3}{G}; exiled at the beginning of the next end step (702.185a)."""
+    s = build(cards, ["Broodguard Elite"])
+    to_hand(s, "Broodguard Elite")
+    key = alt_key(s, "Broodguard Elite", "warp")
+    mana(s, G=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Broodguard Elite").id, x_value=3, alt_cost=key)
+    settle(s)
+    assert pt(s, "Broodguard Elite") == (3, 3) and sum(s.state.players["p1"].mana.values()) == 0
+    until(s, lambda s: zone_of(s, "Broodguard Elite") == "p1:exile")
+    settle(s)
+    check(s)
+
+
+def test_nyxborn_hydra_bestowed_with_x_gives_the_enchanted_creature_x_plus_x(cards):
+    """"Bestow {X}{G}{G}": cast as an Aura spell with X = 2 ({2}{G}{G}); "enters with X +1/+1 counters"; "Enchanted creature gets +1/+1 for each +1/+1
+    counter on this Aura and has reach and trample"."""
+    s = build(cards, ["Nyxborn Hydra"])
+    host = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    to_hand(s, "Nyxborn Hydra")
+    key = alt_key(s, "Nyxborn Hydra", "bestow")
+    mana(s, G=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Nyxborn Hydra").id, x_value=2, alt_cost=key, targets=[host.id])
+    settle(s)
+    hydra = s.state.cards[card_named(s, "Nyxborn Hydra").id]
+    assert hydra.attached_to == host.id and hydra.counters.get("+1/+1") == 2
+    assert pt(s, "Bear") == (4, 4) and sum(s.state.players["p1"].mana.values()) == 0
+    check(s)
+
+
+# ---- miracle with {X} (702.94a, 107.3a) --------------------------------------------------------------------------------------------------------
+def draw_with_visionary(cards, top, *, first=None):
+    """Alice casts Elvish Visionary ("When this creature enters, draw a card.") with ``top`` on top of her library; with ``first``, an earlier draw of
+    the turn (another Visionary, resolved) takes that card before ``top`` is drawn."""
+    s = build(cards, ["Elvish Visionary", "Elvish Visionary", top, *([first] if first else [])])
+    stack_top(s, [top] if first is None else [first, top])
+    visionaries = [c for c in s.state.cards.values() if c.name == "Elvish Visionary" and c.owner == "p1"][: 1 if first is None else 2]
+    for v in visionaries:
+        act(s, "p1", type="move", card_ids=[v.id], to={"zone": "hand"})
+        mana(s, G=1, C=1)
+        act(s, "p1", type="cast_spell", card_id=v.id)
+        for _ in range(10):
+            d = s.state.rules.decision
+            if d is not None:
+                pick(s, *[o.id for o in d.options][: max(1, d.min_choices)])
+            elif s.state.zones.get("stack"):
+                act(s, "p1", type="pass_priority")
+                act(s, "p2", type="pass_priority")
+            else:
+                break
+    return s
+
+
+def test_bonfire_of_the_damned_miracle_asks_x_and_pays_it_in_the_miracle_cost(cards):
+    """"Miracle {X}{R}": the first card Alice draws this turn is revealed (the window is hers alone, 702.94a); when the trigger resolves she casts it for
+    {X}{R}, X announced as the cast begins (107.3a) and up to what four mana pays; X = 3 deals 3 to Bob and to each creature he controls."""
+    s = draw_with_visionary(cards, "Bonfire of the Damned")
+    bonfire = card_named(s, "Bonfire of the Damned")
+    assert bonfire.zone == "p1:hand" and s.state.rules.miracle == [bonfire.id]
+    assert s.view("p2")["rules"]["hints"].get("miracle") is None and s.view("p1")["rules"]["hints"]["miracle"] == [bonfire.id]
+    victim = bear(s)
+    token_of(s, "p1", "Mine", "Token Creature — Bear", "2/2")
+    mana(s, R=1, C=3)
+    act(s, "p1", type="miracle_reveal", card_id=bonfire.id)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        if any(o.id == "yes" for o in d.options):
+            pick(s, "yes")
+        elif d.options and d.options[0].id.startswith("x:"):
+            assert [o.id for o in d.options] == ["x:0", "x:1", "x:2", "x:3"]  # ({X}{R}: four mana pay X up to 3)
+            s = reloaded_session(s)  # a save and a load in the middle of the question
+            pick(s, "x:3")
+        elif any(o.id == "p2" for o in d.options):
+            pick(s, "p2")
+        else:
+            act(s, "p1", type="pass_priority")
+    settle(s)
+    assert life(s, "p2") == 37 and not on_field(s, victim.id) and on_field(s, [c.id for c in s.state.cards.values() if c.name == "Mine"][0])
+    assert zone_of(s, "Bonfire of the Damned") == "p1:graveyard" and sum(s.state.players["p1"].mana.values()) == 0
+    check(s)
+
+
+def test_a_miracle_card_drawn_second_this_turn_has_no_window(cards):
+    """702.94a: only "if it's the first card you've drawn this turn" — the Bonfire is drawn by the second Visionary: nothing to reveal."""
+    s = draw_with_visionary(cards, "Bonfire of the Damned", first="Grizzly Bears")
+    bonfire = card_named(s, "Bonfire of the Damned")
+    assert bonfire.zone == "p1:hand" and s.state.rules.miracle == []
+    assert s.view("p1")["rules"]["hints"].get("miracle") is None
+    mana(s, R=1, C=3)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="miracle_reveal", card_id=bonfire.id)
+    check(s)
+
+
 # ---- Kicker {X} (the value of X is announced with the kicker cost, 107.3a) -------------------------------------------------------------------
 def test_verdeloth_kicked_with_x_creates_x_saprolings_and_the_x_is_paid(cards):
     """"Kicker {X}" (Verdeloth the Ancient, {4}{G}{G}): X = 3 costs {3} more; "When Verdeloth enters, if it was kicked, create X 1/1 green Saproling

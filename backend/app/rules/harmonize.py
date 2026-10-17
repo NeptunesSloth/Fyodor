@@ -7,7 +7,8 @@
   time it would leave the stack" (the flashback bookkeeping: ``RulesState.flashback``).
 * 702.180b — the creature is chosen as the cost is chosen (601.2b) and tapped as it is paid (601.2h): it may be none (``up_to``). Tapping a
   creature for a cost isn't a {T} cost: one that came under your control this turn can be tapped.
-A harmonize cost with {X} isn't read (Nature's Rhythm, Zenith Festival): the X would be announced with the alternative cost.
+-- cast keywords (wave 43D) -- a harmonize cost with {X} (Nature's Rhythm, Zenith Festival) is read: 107.3a, the X announced for the spell is the cost's too
+(``casting.cast_spell``: X comes with the cast, the total cost is worked out with it, then the tapped creature's power reduces the generic part).
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
     from app.game.state import CardInstance, GameState
     from app.rules.characteristics import CardInfo, Characteristics
 
-_LINE = re.compile(r"^harmonize (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+_LINE = re.compile(r"^harmonize (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 
 
 def parse(line: str) -> str | None:
@@ -40,7 +41,7 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
     out: list[alt_costs.Offer] = []
     for ab in ch.abilities:
         cost = parse(ab.text) if ab.kind == "keywords" and ab.keywords == ("harmonize",) else None
-        alt = alt_costs.parse_cost(f"pay {cost}") if cost else None
+        alt = alt_costs.parse_cost(f"pay {cost}", x_ok=True) if cost else None
         if alt is not None and key is not None:
             tap = C.CostComponent(C.TAP_OTHER, amount=1, selector=key, up_to=True, text="Tap up to one untapped creature you control")
             alt = alt_costs.AltCost(alt.mana, C.AbilityCost(components=(tap,)))

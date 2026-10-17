@@ -19,8 +19,10 @@ export const useXPrompt = create<{ action: Action | null }>(() => ({ action: nul
 
 export function needsX(view: GameView | null, a: Action): boolean {
   const h = view?.rules?.hints;
-  if (!h || a.x_value !== undefined || a.free || a.alt_cost !== undefined) return false;
-  if (a.type === "cast_spell") return !!h.x_cast?.includes(a.card_id as string);
+  if (!h || a.x_value !== undefined || a.free) return false;
+  // -- wave 43D -- 107.3a: an alternative cost with {X} (harmonize, overload, surge, warp, bestow) and a kicker cost with {X} announce X too
+  if (a.alt_cost !== undefined) return a.type === "cast_spell" && !!h.alt_castable?.[a.card_id as string]?.some((o) => o.id === a.alt_cost && o.x);
+  if (a.type === "cast_spell") return !!h.x_cast?.includes(a.card_id as string) || (!!a.kicker && !!h.x_kicker?.includes(a.card_id as string));
   return a.type === "activate_ability" && !!h.activatable?.some((x) => x.card_id === a.card_id && x.ability === a.ability && x.x);
 }
 

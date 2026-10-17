@@ -13,7 +13,8 @@ so the owner needs the chance to act: a stop in their draw step (the existing st
 
 The reflexive trigger is the one madness uses (the free-cast machinery, ``RulesState.free_casts`` / ``alt_costs``): once it resolves, a
 choice to cast the card (public now) for the miracle cost, from the hand, at any time (it ignores timing: it is cast as the trigger resolves).
-A miracle cost with {X} (Entreat the Angels, Bonfire of the Damned) isn't read: the X would have to be announced as the free cast begins.
+-- cast keywords (wave 43D) -- a miracle cost with {X} (Entreat the Angels, Bonfire of the Damned) is read: 107.3a, the X is announced as the cast begins
+(the card is public by then; ``casting.announce_free_x`` asks the caster, up to what the mana pays).
 """
 
 from __future__ import annotations
@@ -29,11 +30,11 @@ if TYPE_CHECKING:
     from app.rules.characteristics import Characteristics
     from app.rules.plan import Plan
 
-_LINE = re.compile(r"^miracle (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+_LINE = re.compile(r"^miracle (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 
 
 def cost_of(ch: Characteristics) -> str | None:
-    """The mana cost of the card's one "Miracle {cost}" line (no X), or None."""
+    """The mana cost of the card's one "Miracle {cost}" line, or None."""
     lines = [a for a in ch.abilities if a.kind == "keywords" and "miracle" in a.keywords]
     m = _LINE.fullmatch(re.sub(r"\s*\(.*?\)", "", lines[0].text).strip().rstrip(".")) if len(lines) == 1 else None
     return m["cost"] if m else None
