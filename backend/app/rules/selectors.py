@@ -427,6 +427,11 @@ def _toughness_over_power(s: Selector, m: re.Match[str]) -> Selector:
 # -- end damage history (wave 6B) --
 
 
+@_suffix(r"(?:that(?:['’]s| are) )?attacking (?:one of )?your opponents")  # -- most-played cards II (wave 45A) -- Oviya, Automech Artisan: attacking a player who is an opponent of the source's controller (a planeswalker's controller isn't "attacked": 506.2)
+def _attacking_opponent(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, attacking=True, extras=(*s.extras, "attacking_opponent"))
+
+
 @_suffix(r"(?:that(?:['’]s| are) )?attacking you")  # (wave 17D: also plural / bare)
 def _attacking_you(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_you"))
@@ -1901,6 +1906,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False  # -- activated other (wave 42C) -- 506.5 (the same count statics.py reads for "as long as it's attacking alone")
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
+        if extra == "attacking_opponent" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id == you
+                                              or card.attacking.id not in plan.live()):
+            return False  # (wave 45A)
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --
             return False
         if extra == "morph_ability" and not {"morph", "megamorph"} & ch.keywords:
