@@ -1441,6 +1441,7 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
         reduction += own.reduction
         changes.colored_more += own.colored_more
         changes.colored_less += own.colored_less
+        changes.colored_only += own.colored_only
         for d in _definitions(ch).values():  # -- static_other sweep (wave 16B) -- strive: for each target beyond the first
             if d.get("static") == "self_cost" and d.get("per_target"):
                 more, each = max(0, len(targets) - 1), M.parse_cost(d["per_target"])
@@ -1448,6 +1449,7 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
                 changes.colored_more += tuple(each.colored) * more
     cost = cost_changes.add_colored(cost.plus_generic(increase), changes.colored_more)
     cost = cost_changes.reduce_colored(cost, changes.colored_less)  # (colored first: what's left over reduces generic, 118.7c)
+    cost = cost_changes.reduce_colored(cost, changes.colored_only, only=True)  # (wave 46A: Morophon)
     return cost.plus_generic(-min(cost.generic, reduction))
 
 
