@@ -2270,6 +2270,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # instructions of one sentence about the same object
     body = re.sub(r"\b(That token|That creature|It) (gains haste until end of turn) and (attacks this (?:combat|turn) if able)",
                   r"\1 \2. \1 \3", body)
+    body = re.sub(r"(^|\. |, )([Pp]opulate)\. The token enters tapped and attacking\.", r"\1\2 tapped and attacking.", body)  # (-- cant restrictions (wave 46A) -- Ghired)
     # -- enter attacking (wave 30P) -- 508.4: "Create Ragavan, a legendary 2/1 red Monkey creature token. Ragavan enters tapped and attacking." (Kari
     # Zev), "Put … from that player's graveyard onto the battlefield under your control. It enters tapped and attacking that player." (Shark
     # Shredder): the second sentence only says that what the first made or put enters attacking — one instruction, worded as the grammar has it
@@ -7870,9 +7871,9 @@ def _attach_self_to_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 @_first
-@effect(r"populate")
+@effect(r"populate(?P<att> tapped and attacking)?")
 def _populate(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    return [{"do": "populate"}], None  # 701.36 (app/rules/populate.py)
+    return [{"do": "populate", **({"attacking": True} if m["att"] else {})}], None  # 701.36 (app/rules/populate.py)
 
 
 @_first

@@ -718,5 +718,28 @@
   ],
   "power": "2",
   "toughness": "4"
+ },
+ {
+  "name": "Ghired, Conclave Exile",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{G}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Shaman",
+  "oracle_text": "When Ghired enters, create a 4/4 green Rhino creature token with trample.\nWhenever Ghired attacks, populate. The token enters tapped and attacking. (To populate, create a token that's a copy of a creature token you control.)",
+  "colors": [
+   "G",
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Populate"
+  ],
+  "power": "2",
+  "toughness": "5"
  }
 ]

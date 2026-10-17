@@ -29,7 +29,7 @@ KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w46a", number=f"A{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 PUNK, OBOSH = "Spider-Punk", "Obosh, the Preypiercer"
-FULL = [PUNK, OBOSH, "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained", "Edgewalker", "Ragemonger", "Morophon, the Boundless", "Eluge, the Shoreless Sea", "Jared Carthalion, True Heir", "Momo, Friendly Flier", "Kadena, Slinking Sorcerer", "Kaza, Roil Chaser", "Maelstrom Muse"]
+FULL = [PUNK, OBOSH, "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained", "Edgewalker", "Ragemonger", "Morophon, the Boundless", "Eluge, the Shoreless Sea", "Jared Carthalion, True Heir", "Momo, Friendly Flier", "Kadena, Slinking Sorcerer", "Kaza, Roil Chaser", "Maelstrom Muse", "Ghired, Conclave Exile"]
 
 
 @pytest.fixture()
@@ -406,4 +406,27 @@ def test_maelstrom_muse_takes_its_power_off_the_next_instant_or_sorcery(cards):
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": attacker.id, "target": "p2"}])
     pass_until_stack_empty(s)
     assert cost(s, "Divination") == "{U}"  # power 2: {2}{U} less {2}
+    check(s)
+
+
+# ---- 701.36a, 508.4: Ghired -------------------------------------------------------------------------------------------------------------------------
+GHIRED = "Ghired, Conclave Exile"
+
+
+def test_ghired_populates_a_token_that_enters_tapped_and_attacking(cards):
+    s = build(cards, [GHIRED], [])
+    mana(s, R=3, G=1, W=1)
+    cast(s, GHIRED)  # the enters trigger makes the Rhino
+    pass_until_stack_empty(s)
+    ghired = on_table(s, GHIRED, "p1")
+    rhinos = [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
+    assert len(rhinos) == 1 and rhinos[0].attacking is None
+    next_turn(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": ghired.id, "target": "p2"}])
+    pass_until_stack_empty(s)
+    rhinos = [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
+    assert len(rhinos) == 2
+    assert sorted(c.tapped for c in rhinos) == [False, True]  # the copy came in tapped (the first Rhino stayed home)
+    assert life(s, "p2") == 40 - 2 - 4  # Ghired (2) and the copy of the Rhino (4), which attacked Bob without being declared as an attacker
     check(s)
