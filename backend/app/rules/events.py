@@ -864,6 +864,10 @@ def _combat(c: str) -> Condition | None:
         return {**base, "event": "attack", "first_each_turn": True}
     # 508.3a: "a creature attacks you or a planeswalker you control", "~ attacks a player", "one or
     # more creatures attack you", "equipped creature attacks", "~ or equipped creature attacks"
+    m = re.fullmatch(r"(?P<s>~|this creature) attacks a battle", c)  # -- triggers (wave 49C) -- 310.5, 508.1: the attack was declared against a battle (Thrashing Frontliner)
+    if m:
+        base = _subject("~", host=True, many=True)
+        return None if base is None else {**base, "event": "attack", "defender": "battle"}
     m = re.fullmatch(rf"(?P<s>.+?) attacks?(?: (?P<d>{_DEFENDER_RE}))?", c)
     if m and (m["d"] or m["s"] in _HOSTS or m["s"] in _SELF_OR_HOST):
         base = _subject(m["s"], host=True, many=True)

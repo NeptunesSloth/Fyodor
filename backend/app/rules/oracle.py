@@ -132,6 +132,8 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
         return ("enchant",)  # (the commas list what it may enchant)
     if re.fullmatch(r"ward—[^;]+", line.strip(), re.IGNORECASE):  # -- static_other sweep (wave 17C) -- "Ward—{2}, Pay 2 life." (one cost of two parts)
         return ("ward",)
+    if re.fullmatch(r"eternalize—\{[^;]+", line.strip(), re.IGNORECASE):  # -- keywords (wave 49C) -- 702.129a: "Eternalize—{2}{W}{W}, Discard a card." is one keyword (its cost has two parts)
+        return ("eternalize",)
     if re.fullmatch(r"companion\s*—.+", line.strip(), re.IGNORECASE):  # -- companion (wave 38D) -- 702.139a: one keyword (Kaheera's condition lists creature types)
         return ("companion",)
     pieces: list[str] = []
