@@ -1553,8 +1553,9 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
         return
     from app.rules import permissions, scripts
 
-    if card.ability is None and (scripts.uncounterable(plan.ch(card)) or _mana_units.uncounterable(plan, card)  # (wave 18B: 106.6)
-                                 or permissions.spell_uncounterable(plan.state, plan.info, card, plan.ch(card))):
+    if (permissions.abilities_uncounterable(plan.state, plan.info) if card.ability is not None  # (-- cant restrictions (wave 46A) -- Spider-Punk: 101.2)
+            else scripts.uncounterable(plan.ch(card)) or _mana_units.uncounterable(plan, card)  # (wave 18B: 106.6)
+            or permissions.spell_uncounterable(plan.state, plan.info, card, plan.ch(card))):
         plan.note(f"{card.name} can't be countered", [stack_id])
         return
     r = plan.rules

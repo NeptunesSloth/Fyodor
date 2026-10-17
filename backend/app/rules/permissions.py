@@ -595,6 +595,8 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     # -- small wordings (wave 11E) -- "Creature spells you control can't be countered." (101.2, 701.6)
     # (-- cant restrictions (wave 20F) -- "Creature spells can't be countered" (Gaea's Herald), "Creature spells you cast …", "… you control
     # with power 5 or greater …": whose spells, and a with-tail; 101.2, 701.6)
+    if t == "spells and abilities can't be countered":  # -- cant restrictions (wave 46A) -- 101.2, 701.6: Spider-Punk; counter_object lets neither a spell nor an ability be countered
+        return {"kind": "static", "static": "spells_uncounterable", "filter": None, "effects": [], "any_player": True, "abilities": True}
     m = re.fullmatch(r"(?:(?P<sel>[\w ,'-]+?) )?spells(?: (?P<own>you control|you cast))?(?: (?P<with>with (?:power|toughness) "
                      r"\d+ or (?:greater|less)))? can't be countered", t)  # (not "mana value": a spell's X, 107.3f, isn't read here)
     if m:
@@ -1057,6 +1059,11 @@ def spell_matches(state: GameState, player: str, card: CardInstance, ch: Charact
     permanent whose "chosen type" the selector reads, wave 5I)"""
     probe = card.model_copy(update={"zone": STACK, "controller": player})
     return selectors.matches(_view(state, player, info), selectors.from_key(key), probe, ch, player, source)
+
+
+def abilities_uncounterable(state: GameState, info: CardInfo) -> bool:
+    """-- cant restrictions (wave 46A) -- does a static on the table say abilities can't be countered (Spider-Punk: "Spells and abilities can't be countered", 101.2)?"""
+    return any(d.get("abilities") for _, _, d in _table_statics(state, info, {"spells_uncounterable"}))
 
 
 def spell_uncounterable(state: GameState, info: CardInfo, card: CardInstance, ch: Characteristics) -> bool:
