@@ -3215,7 +3215,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if graveyard_grants.cost_sentence(text, effects[prev_start:]):
             continue
         # -- end refused grants/replacements (wave 3R2) --
-        if (exile_gy := _FREE_EXILE_GY.fullmatch(text)) and effects and effects[-1]["do"] == "free_cast":
+        if (exile_gy := _FREE_EXILE_GY.fullmatch(text)) and effects and effects[-1]["do"] in ("free_cast", "deferred:free_cast"):  # (deferred: wave 47B, "At the beginning of your next upkeep, you may cast that card …", Power Pack)
             effects[-1] = {**effects[-1], "exile_gy": "is" if exile_gy["is"] else True,  # -- refused look/cast-free (wave 3R5) -- 614.1a, on the spell cast
                            **({"exile_own": True} if exile_gy["g"] == "your" else {})}
             continue

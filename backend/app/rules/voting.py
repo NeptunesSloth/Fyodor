@@ -152,7 +152,9 @@ def bind(head: dict[str, Any], parse: Any, split_sentences: Any) -> tuple[list[d
 
     def repeat(word: str, text: str, scale: bool = True) -> bool:
         if any(x.get("do") == "choose_random" for x in effects):  # -- random choices (wave 47B) -- "Then choose an opponent at random. ~ deals 3 damage to that player for each
-            from app.rules import scripts  # consequences vote." (Truth or Consequences): "that player" is the player picked, read as the instruction's own
+            from app.rules import (
+                scripts,  # consequences vote." (Truth or Consequences): "that player" is the player picked, read as the instruction's own
+            )
 
             got = scripts.parse_effects(text[:1].upper() + text[1:].rstrip(".") + ".", None, event_player=True)
             inner = None if got is None or got[1] is not None or got[2] or any(x.get("bind") or x.get("as") or x.get("did") for x in got[0]) else _vp(got[0], "vr")

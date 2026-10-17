@@ -103,6 +103,8 @@ def modal_supported(d: dict[str, Any]) -> bool:
 
 def definition_supported(d: dict[str, Any]) -> bool:
     """A replacement / prevention definition is automated only when its kind is listed above."""
+    if any(isinstance(g, dict) and g.get("random") for g in d.get("targets") or []) and len(d["targets"]) != 1:
+        return False  # -- random choices (wave 47B) -- "target … chosen at random" is read as the ability's only target group (the pick is made as the targets are chosen, not between questions)
     if d.get("kind") == "mode" or (d.get("modes") and d.get("kind") in ("triggered", "activated")):
         return modal_supported(d)  # (wave 1A) a modal triggered / activated ability
     # -- reanimation (wave 3R) -- "return this card from your graveyard": only an activated ability works from

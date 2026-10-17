@@ -101,7 +101,7 @@ def _qty(word: str) -> int:
 def simple(group: dict[str, Any]) -> bool:
     """One "target [something]" with exactly one target: what definitions write as "target"."""
     return (group["min"], group["max"]) == (1, 1) and not ({"divide", "another", "distinct_from", "same_graveyard", "total", "different",
-                                                            "kicked", "opponent_group"} & set(group))  # -- kicked / instead (wave 4G) -- ("kicked"; wave 23A: a group for each opponent, per_opponent.FLAG)
+                                                            "kicked", "opponent_group", "random"} & set(group))  # (random: wave 47B) -- kicked / instead (wave 4G) -- ("kicked"; wave 23A: a group for each opponent, per_opponent.FLAG)
 
 
 def target_group(phrase: str) -> dict[str, Any] | None:
@@ -111,6 +111,9 @@ def target_group(phrase: str) -> dict[str, Any] | None:
     carries "another": its selector without "another" (scripts: when an earlier target of the
     same ability exists, "another" means distinct from it). None if it isn't a target phrase."""
     p = phrase.strip()
+    if (p.startswith("target ") or p == "any target chosen at random") and p.endswith(" chosen at random"):  # -- random choices (wave 47B) -- "target opponent chosen at random": a target all the same (115.1), but the table
+        one = target_group(p[:-len(" chosen at random")])  # picks it as the ability goes on the stack (Scab-Clan Giant ruling 2013-04-15): each legal target equally likely
+        return {**one, "random": True} if one is not None and one["min"] == one["max"] == 1 and "another" not in one else None
     if p in _LEGACY_TARGETS:
         return {"what": _LEGACY_TARGETS[p], "min": 1, "max": 1}
     if m := _OPP_AS_ACTIVATED.fullmatch(p):  # -- activated other (wave 21E) -- (targets.legal_targets: only as it is chosen)

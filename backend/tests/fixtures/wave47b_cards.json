@@ -530,5 +530,95 @@
   "keywords": [
    "Secret council"
   ]
+ },
+ {
+  "name": "Scab-Clan Giant",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{G}",
+  "cmc": 6.0,
+  "type_line": "Creature — Giant Warrior",
+  "oracle_text": "When this creature enters, it fights target creature an opponent controls chosen at random.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Fight"
+  ],
+  "power": "4",
+  "toughness": "5"
+ },
+ {
+  "name": "Knight Rampager",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Artifact Creature — Knight",
+  "oracle_text": "Trample\nFrenzied Rampage — At the beginning of combat on your turn, choose an opponent at random. This creature attacks that player this combat if able.\nWhen this creature dies, it deals 4 damage to target opponent chosen at random.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Trample",
+   "Frenzied Rampage"
+  ],
+  "power": "6",
+  "toughness": "5"
+ },
+ {
+  "name": "Goblin Test Pilot",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Goblin Pilot Wizard",
+  "oracle_text": "Flying\n{T}: This creature deals 2 damage to any target chosen at random.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "0",
+  "toughness": "2"
+ },
+ {
+  "name": "Power Pack",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{G}{W}{U}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Hero",
+  "oracle_text": "Flying, vigilance, trample, haste\nWhenever Power Pack deals combat damage to a player, exile target instant or sorcery card from your graveyard chosen at random. At the beginning of your next upkeep, you may cast that card without paying its mana cost. If that spell would be put into your graveyard, exile it instead.",
+  "colors": [
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Vigilance",
+   "Haste",
+   "Trample"
+  ],
+  "power": "4",
+  "toughness": "4"
  }
 ]
