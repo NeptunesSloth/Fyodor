@@ -1112,11 +1112,13 @@ def source_choice(plan: Plan, source: str | None, what: str) -> str | None:
     return value.strip() if value else None
 
 
-def _chosen_ok(plan: Plan, sel: Selector, ch: Characteristics, source: str | None) -> bool:
+def _chosen_ok(plan: Plan, sel: Selector, ch: Characteristics, source: str | None, card: CardInstance | None = None) -> bool:
     what = chosen_what(sel)
     if what == "number":  # (wave 49B) a spell's mana value, power or toughness is the number the source chose as it entered (a power or toughness of * is no number here)
-        n = source_choice(plan, source, "number")
-        return n is not None and n.isdigit() and (ch.mana_value == int(n) or (ch.pt is not None and int(n) in tuple(ch.pt)))
+        from app.rules.stack_interaction import mana_value
+
+        n = source_choice(plan, source, "number")  # (review 41: a spell's X counts on the stack, 202.3e; Talion ruling 2023-09-01)
+        return n is not None and n.isdigit() and (mana_value(card, ch) == int(n) or (ch.pt is not None and int(n) in tuple(ch.pt)))
     if what == "card name":  # -- card names (wave 22B) -- the source permanent's recorded name
         from app.rules import card_names
 
@@ -2131,7 +2133,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if not merged.mergeable(plan, card):
                 return False
     # -- chosen type (wave 4J) --
-    return not any(e in CHOSEN_EXTRAS for e in sel.extras) or _chosen_ok(plan, sel, ch, source)
+    return not any(e in CHOSEN_EXTRAS for e in sel.extras) or _chosen_ok(plan, sel, ch, source, card)
 
 
 def drawn_now(plan: Plan, card: CardInstance) -> bool:

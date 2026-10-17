@@ -442,7 +442,7 @@ def test_a_painland_still_deals_its_damage_but_it_makes_the_player_lose_no_life(
         if locked:
             lock(s)
         probe = to_hand(s, "Gitaxian Probe")
-        act(s, "p1", type="cast_spell", card_id=probe.id, targets=["p2"])  # {U/P}: the blue mana from the Wastes, "This land deals 1 damage to you."
+        act(s, "p1", type="cast_spell", card_id=probe.id, targets=["p2"], life_symbols=[])  # {U/P}: the blue mana from the Wastes ("This land deals 1 damage to you."; wave 50B: announced)
         pass_until_stack_empty(s)
         assert wastes.tapped and life(s, "p1") == left
         log = s.state.rules.turn_log

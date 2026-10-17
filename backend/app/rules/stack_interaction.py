@@ -164,7 +164,7 @@ def _legal(plan: Plan, entry: StackEntry, pos: Any, stack_id: str) -> list[str]:
     from app.rules import copying, selectors, targets
 
     spec = copying._spec(entry, pos)
-    found = targets.legal_targets(plan, spec.get("what", "any"), entry.controller, targets.source_of(plan, entry.source_card),
+    found = targets.legal_targets(plan, spec.get("what", "any"), entry.controller, targets.source_of(plan, entry.source_card, entry.kind == "spell"),
                                   entry.source_card, selectors.attacker_of(entry.event))
     return [x for x in found if x != stack_id]
 

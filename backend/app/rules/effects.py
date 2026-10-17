@@ -642,7 +642,10 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if len(chain) == 1 or any(x.get("dealt_as") for x in chain):
         hits = _damage_hits(plan, ctx, e)
         return _deal(plan, ctx, hits, e) if hits else True
-    hits = [h for x in chain for h in _damage_hits(plan, ctx, x)]
+    joined: dict[tuple[str, str], tuple[_Source, str, int]] = {}
+    for src, key, n in (h for x in chain for h in _damage_hits(plan, ctx, x)):  # (one source, one recipient: one amount, Kaervek's Hex)
+        joined[src.oid, key] = (src, key, n + joined[src.oid, key][2]) if (src.oid, key) in joined else (src, key, n)
+    hits = list(joined.values())
     done = _deal(plan, ctx, hits, e) if hits else True
     if done:
         ctx["next"] = k + len(chain) - 1  # (the joined instructions are done too)

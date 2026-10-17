@@ -284,7 +284,7 @@ def test_postmortem_lunge_returns_exactly_mana_value_x_with_haste_and_exiles_it_
     mana(s, B=2, C=1)
     with pytest.raises(ActionError):  # X = 3: nothing in the graveyard has mana value 3
         act(s, "p1", type="cast_spell", card_id=c.id, targets=[bears.id], x_value=3)
-    act(s, "p1", type="cast_spell", card_id=c.id, targets=[bears.id], x_value=2)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[bears.id], x_value=2, life_symbols=[])  # (wave 50B: {B/P} announced paid with mana)
     pass_until_stack_empty(s)
     assert zone(s, bears) == "p1:battlefield" and zone(s, elves) == "p1:graveyard"
     settle(s)

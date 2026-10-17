@@ -41,7 +41,7 @@ class DecisionOption(BaseModel):
 
 # -- cancelling a cast (wave 24D) -- 601.2: the announcement choices (modes, targets) of a spell or ability that can still be taken back:
 # the chooser's view says ``cancelable`` and the answer ["cancel"] is legal (app/rules/casting.py: ``cancelled``).
-CANCELLABLE_STEPS = ("cast_target", "cast_group", "cast_modes", "cast_slot_target")
+CANCELLABLE_STEPS = ("cast_target", "cast_group", "cast_modes", "cast_slot_target", "phyrexian")  # (wave 50B: the Phyrexian mana choice, 601.2b)
 
 
 def cancelable(d: Any) -> bool:
