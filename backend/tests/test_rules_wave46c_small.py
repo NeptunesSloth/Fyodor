@@ -272,6 +272,25 @@ def test_aggressive_mining_bars_its_controller_from_playing_lands_but_not_the_op
     check(s)
 
 
+def test_fire_nation_attacks_makes_soldiers_that_add_red_mana_when_they_attack(cards):
+    # 702.189a: a token "with firebending 1" - "Whenever this creature attacks, add {R}. This mana lasts until end of combat."
+    s = build(cards, ["Fire Nation Attacks"], [])
+    to_hand(s, "Fire Nation Attacks")
+    mana(s, R=1, C=4)
+    cast(s, "Fire Nation Attacks")
+    soldiers = [c for c in s.state.cards.values() if c.name == "Soldier" and c.owner == "p1"]
+    assert len(soldiers) == 2
+    stops(s)
+    to_phase(s, "declare_attackers", turn=3)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"} for c in soldiers])
+    for _ in range(6):
+        if not s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.players["p1"].mana.get("R", 0) == 2  # one {R} for each attacking Soldier
+    check(s)
+
+
 def logged(s, since):
     return [" ".join(p.t or "" for p in e.parts) for e in s.state.log[since:]]
 
