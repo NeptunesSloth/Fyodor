@@ -67,7 +67,8 @@ def combat(s):
 
 
 @pytest.mark.parametrize("name", ["Odric, Lunarch Marshal", "Akroma, Vision of Ixidor", "Odric, Blood-Cursed", "Bleeding Effect", "Majestic Myriarch",
-                                  "Kaima, the Fractured Calm", "Havoc Eater", "Pia Nalaar, Chief Mechanic", "Rampaging Aetherhood", "Sensei Golden-Tail"])
+                                  "Kaima, the Fractured Calm", "Havoc Eater", "Pia Nalaar, Chief Mechanic", "Rampaging Aetherhood", "Sensei Golden-Tail", "Kathril, Aspect Warper",
+                                  "Concerted Effort", "Thunderous Orator"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -142,6 +143,11 @@ def goaded(s, name, pid="p2"):
     from app.rules.keyword_actions import goaded_by
 
     return goaded_by(Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card_named(s, name, pid).id]))
+
+
+def to_graveyard(s, *names):
+    for n in names:
+        act(s, "p1", type="move", card_ids=[card_named(s, n).id], to={"zone": "graveyard"})
 
 
 def counters(s, name):
@@ -279,4 +285,81 @@ def test_havoc_eater_without_a_creature_to_goad_gets_no_counters(cards):
     cast(s, "Havoc Eater")
     settle(s)
     assert not counters(s, "Havoc Eater")
+    check(s)
+
+
+# -- keyword soups with lines and counters ------------------------------------------------------------------------------------------------------------
+def test_concerted_effort_gives_the_landwalk_and_protection_lines_as_written(cards):
+    s = build(cards, mine=["Concerted Effort", "Order of the White Shield", "Stonybrook Banneret", "Grizzly Bears"])
+    for n in ("Concerted Effort", "Order of the White Shield", "Stonybrook Banneret", "Grizzly Bears"):
+        put(s, n)
+    stops(s)
+    to_phase(s, "upkeep", turn=2)
+    settle(s)
+    got = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card_named(s, "Grizzly Bears").id])
+    assert got.keywords >= {"islandwalk", "protection"} and any(a.text.lower().startswith("protection from black") for a in got.abilities)
+    check(s)
+
+
+def pick(s, **by_kind):
+    """Resolve everything; "put a <kind> counter on which creature?" is answered with the creature named in ``by_kind`` (flying="Grizzly Bears", …)."""
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is not None:
+            want = next((v for k, v in by_kind.items() if f"put a {k.replace('_', ' ')} counter" in d.prompt), None)
+            ids = [o.id for o in d.options if o.label == want] or [o.id for o in d.options][: max(1, d.min_choices)]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
+
+
+def cast_kathril(s):
+    to_hand(s, "Kathril, Aspect Warper")
+    mana(s, W=1, B=1, G=1, R=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Kathril, Aspect Warper").id)  # (not the kit's cast: it settles every choice by itself)
+
+
+def test_kathril_puts_a_counter_for_each_keyword_in_the_graveyard_where_the_player_chooses(cards):
+    s = build(cards, mine=["Kathril, Aspect Warper", "Serra Angel", "Grizzly Bears", "Llanowar Elves"])
+    put(s, "Grizzly Bears")
+    put(s, "Llanowar Elves")
+    to_graveyard(s, "Serra Angel")
+    cast_kathril(s)
+    pick(s, flying="Grizzly Bears", vigilance="Llanowar Elves")
+    assert counters(s, "Grizzly Bears") == {"flying": 1} and counters(s, "Llanowar Elves") == {"vigilance": 1}
+    assert counters(s, "Kathril, Aspect Warper") == {"+1/+1": 2}  # (a counter for each counter put on a creature this way)
+    assert {"flying"} <= keywords(s, "Grizzly Bears") and {"vigilance"} <= keywords(s, "Llanowar Elves")
+    check(s)
+
+
+def test_kathril_alone_puts_them_on_itself_and_counts_the_graveyard_once(cards):
+    s = build(cards, mine=["Kathril, Aspect Warper", "Serra Angel", "Thrasios, Triton Hero"])
+    to_graveyard(s, "Serra Angel", "Thrasios, Triton Hero")  # (Thrasios has only partner, which is not in her list)
+    cast_kathril(s)
+    pick(s)
+    assert counters(s, "Kathril, Aspect Warper") == {"flying": 1, "vigilance": 1, "+1/+1": 2}
+    check(s)
+
+
+def test_kathril_does_nothing_without_a_listed_keyword_in_the_graveyard(cards):
+    s = build(cards, mine=["Kathril, Aspect Warper", "Grizzly Bears"])
+    to_graveyard(s, "Grizzly Bears")
+    cast_kathril(s)
+    pick(s)
+    assert not counters(s, "Kathril, Aspect Warper")
+    check(s)
+
+
+def test_kathril_leaves_a_variant_of_hexproof_to_the_players(cards):
+    s = build(cards, mine=["Kathril, Aspect Warper", "Sporeweb Weaver"])
+    to_graveyard(s, "Sporeweb Weaver")  # (reach and hexproof from blue: the variant's counter isn't modeled, 122.1b)
+    cast_kathril(s)
+    for _ in range(10):
+        if (d := s.state.rules.decision) is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d.kind == "manual_resolution"
     check(s)

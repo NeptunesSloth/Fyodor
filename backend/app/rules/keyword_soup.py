@@ -32,6 +32,10 @@ _PUMP = re.compile(rf"^(?:[Uu]ntil end of turn, )?each other creature you contro
                    rf"and so on for {_LIST}\.$")
 
 
+_COUNTERS = re.compile(rf"^[Pp]ut an? (?P<k>[a-z ]+?) counter on any creature you control if a creature card in your graveyard has (?P=k)\. Repeat this process for {_LIST}\. "
+                       r"Then put a \+1/\+1 counter on (?:~|this creature) for each counter put on a creature this way\.$")
+
+
 def words(text: str) -> list[str] | None:
     """"a, b, and c" → the keywords, when every one is read."""
     found = [w.strip() for w in re.split(r", and |, | and ", text) if w.strip()]
@@ -53,6 +57,13 @@ def bind(body: str, it: str | None) -> tuple[list[dict[str, Any]], Any, bool] | 
         ks = words(", ".join([m["k"], m["k2"], m["ks"]]))
         other = selectors.parse("other creature you control")
         return None if ks is None or other is None else ([{"do": "keyword_soup", "mode": "pump", "keywords": ks, "who": other.key()}], None, False)
+    if (m := _COUNTERS.match(body.strip())) is not None:  # Kathril, Aspect Warper
+        from app.game.rules_state import KEYWORD_COUNTERS
+
+        ks, you, gy = words(", ".join([m["k"], m["ks"]])), selectors.parse("creature you control"), selectors.parse("creature card in your graveyard")
+        if ks is None or you is None or gy is None or not set(ks) <= KEYWORD_COUNTERS:
+            return None
+        return [{"do": "keyword_soup", "mode": "counters", "keywords": ks, "from": gy.key(), "who": you.key()}], None, False
     return None
 
 
@@ -94,6 +105,14 @@ def soup(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             effects.grant(plan, ctx, {"do": "grant", "who": e["who"], "keywords": [k for k, (_, plain) in got.items() if plain],
                                       "abilities": [t for t, plain in got.values() if not plain]})
         return True
+    if e["mode"] == "counters":
+        return _counters(plan, ctx, e, holders)
+    if e["mode"] == "put":
+        return _put(plan, ctx, e)
+    if e["mode"] == "tally":  # "Then put a +1/+1 counter on Kathril for each counter put on a creature this way": the counters of those kinds the creatures have gained since
+        n = _kinds(plan, ctx, e["who"], e["kinds"]) - ctx.pop("soup_before", 0)
+        _splice(ctx, [{"do": "add_counters", "who": "self", "kind": "+1/+1", "n": n}] if n > 0 else [])
+        return True
     groups: dict[int, list[str]] = {}  # the bonus is the number of listed abilities each has, counted now (611.2c)
     for card in holders:
         if n := len(lines(plan, card, e["keywords"])):
@@ -111,3 +130,63 @@ def count(plan: Plan, ctx: Context, key: str, ks: list[str]) -> int:
     for c in selectors.candidates(plan, selectors.from_key(key), ctx["controller"], ctx.get("source_card")):
         found |= set(lines(plan, plan.state.cards[c], ks))
     return len(found)
+
+
+# -- Kathril, Aspect Warper: "put a flying counter on any creature you control if a creature card in your graveyard has flying. Repeat this process for …" ---------------------
+def _splice(ctx: Context, new: list[dict[str, Any]]) -> None:
+    i = ctx["next"]
+    ctx["effects"] = [*ctx["effects"][:i], *new, *ctx["effects"][i:]]
+
+
+def _kinds(plan: Plan, ctx: Context, who: str, kinds: list[str]) -> int:
+    from app.rules import effects
+
+    return sum(plan.state.cards[c].counters.get(k, 0) for c in effects._cards(plan, ctx, who) for k in kinds)
+
+
+def _counters(plan: Plan, ctx: Context, e: dict[str, Any], holders: list[CardInstance]) -> bool:
+    """One check for each keyword (the graveyard as the ability resolves): a counter of that kind on a creature of the controller's choice (122.1b; not a target), then the
+    +1/+1 counters for the number put. A variant ("hexproof from white", 702.11d) would be a counter of its own kind, which the engine doesn't model: resolved by hand."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    todo = []
+    for w in e["keywords"]:
+        got = {t: p for h in holders for t, p in lines(plan, h, [w]).get(w, {}).items()}
+        if not all(got.values()):
+            decide(plan, player=ctx["controller"], kind="manual_resolution", options=[DecisionOption(id="done", label="Done")],
+                   prompt=f"{ctx.get('name') or 'It'}: a creature card in your graveyard has a variant of {w} (702.11d), whose counter isn't automated. Put the counters and the "
+                          "+1/+1 counters by hand, then press Done", resume={"step": "room_by_hand", "ctx": ctx})
+            return False
+        todo += [w] * bool(got)
+    if todo:
+        ctx["soup_before"] = _kinds(plan, ctx, e["who"], todo)
+        _splice(ctx, [*({"do": "keyword_soup", "mode": "put", "kind": w, "who": e["who"]} for w in todo),
+                      {"do": "keyword_soup", "mode": "tally", "kinds": todo, "who": e["who"]}])
+    return True
+
+
+def _put(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    mine = effects._cards(plan, ctx, e["who"])
+    if len(mine) > 1:
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Choose'}: put a {e['kind']} counter on which creature?",
+               options=[DecisionOption(id=c, label=plan.ch(plan.state.cards[c]).name) for c in mine], resume={"step": "keyword_soup", "ctx": ctx, "e": e})
+        return False
+    _splice(ctx, [{"do": "add_counters", "who": f"obj:{plan.oid(mine[0])}", "kind": e["kind"], "n": 1}] if mine else [])
+    return True
+
+
+def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if len(chosen) != 1 or chosen[0] not in effects._cards(plan, ctx, e["who"]):
+        raise ActionError("Choose one of your creatures")
+    plan.note(f"{plan.name(d.player)} puts a {e['kind']} counter on {plan.ch(plan.state.cards[chosen[0]]).name}", actor=d.player)
+    _splice(ctx, [{"do": "add_counters", "who": f"obj:{plan.oid(chosen[0])}", "kind": e["kind"], "n": 1}])
+    effects.continue_effects(plan, ctx)
