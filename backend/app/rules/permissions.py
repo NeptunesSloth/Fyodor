@@ -506,6 +506,11 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     t = _lower_first(text.strip().rstrip("."))
     if kind not in ("static", "spell"):
         return None
+    # -- cost changers (wave 44D) -- "Spells you cast with mana value 5 or greater cost {1} less to cast and can't be countered." (Thryx, the Sudden Storm): the cost change
+    # (601.2f), whose spells also can't be countered (101.2: ``spell_uncounterable`` reads the mark)
+    if (both := re.fullmatch(r"(spells you cast with mana value \d+ or greater cost \{\d+\} less to cast) and can't be countered", t)) is not None:
+        cheaper = define_static(both[1], kind, lines)
+        return {**cheaper, "uncounterable": True} if cheaper is not None and cheaper.get("static") == "cost_modifier" and cheaper.get("caster") == "you" else None
     # -- costs (wave 3$) -- "As an additional cost to cast this spell, sacrifice a creature." (601.2b): paid with the
     # rest of the cost as the spell is cast (casting.cast_spell); a wording the cost grammar can't pay stays manual
     if cost_changes.OWN_OPTIONAL.fullmatch(t):  # -- casting costs (wave 22F) -- "you may collect evidence 6" / "you may behold a Dragon"
@@ -1064,7 +1069,9 @@ def spell_uncounterable(state: GameState, info: CardInfo, card: CardInstance, ch
                                        for x in state.rules.results):
         return True
     return any((d.get("any_player") or src.controller == card.controller) and (not d["filter"] or spell_matches(state, card.controller, card, ch, d["filter"], info))
-               for src, _, d in _table_statics(state, info, {"spells_uncounterable"}))
+               for src, _, d in _table_statics(state, info, {"spells_uncounterable"})) \
+        or any(d.get("uncounterable") and src.controller == card.controller and (not d["filter"] or spell_matches(state, card.controller, card, ch, d["filter"], info))
+               for src, _, d in _table_statics(state, info, {"cost_modifier"}))  # (-- cost changers (wave 44D) -- Thryx)
 
 
 def _table_statics(state: GameState, info: CardInfo, kinds: set[str]) -> list[tuple[CardInstance, int, Definition]]:

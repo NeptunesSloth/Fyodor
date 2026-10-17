@@ -23,7 +23,7 @@ from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_effects import pass_until_stack_empty
-from tests.test_rules_wave34b_activated import next_turn, stops, to_phase
+from tests.test_rules_wave34b_activated import ability, next_turn, stops, to_phase
 from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave44d_cards.json").read_text("utf-8"))
@@ -38,9 +38,9 @@ MINN, MASTER, VONDAM = "Minn, Wily Illusionist", "The Master of Lake-town", "Syr
 HISOKA, MAGETA, JOLRAEL = "Hisoka, Minamo Sensei", "Mageta the Lion", "Jolrael, Empress of Beasts"
 WILL, ROWAN, ZIMONE, AGATHA = "Will, Scion of Peace", "Rowan, Scion of War", "Zimone, Infinite Analyst", "Agatha of the Vile Cauldron"
 TIFA, HULK, AZULA = "Tifa, Martial Artist", "Bruce Banner // The Incredible Hulk", "Azula, Ruthless Firebender"
-NAEL, OSKAR = "Nael, Avizoa Aeronaut", "Oskar, Rubbish Reclaimer"
+NAEL, OSKAR, THRYX = "Nael, Avizoa Aeronaut", "Oskar, Rubbish Reclaimer", "Thryx, the Sudden Storm"
 FULL = [BRISELA, NEVINYRRAL, KNIGHT, ELLIE, MEREN, BORTUK, JACE, NISSA, SHEOLDRED, ZUKO, MIZZIX, WITCH, MINN, MASTER, VONDAM, HISOKA, MAGETA, JOLRAEL, WILL, ROWAN,
-        ZIMONE, AGATHA, TIFA, HULK, AZULA, NAEL, OSKAR]
+        ZIMONE, AGATHA, TIFA, HULK, AZULA, NAEL, OSKAR, THRYX]
 
 
 @pytest.fixture()
@@ -675,4 +675,30 @@ def test_masters_councillors_count_the_graveyards_with_seven_or_more_cards(cards
     assert view_ch(s, "Master's Councillors").pt[0] == base + 2
     fill_graveyard(s, "p1", 7)
     assert view_ch(s, "Master's Councillors").pt[0] == base + 4
+    check(s)
+
+
+def thryx_casts(cards, name, mana_paid):
+    """Alice (Thryx out) casts ``name``; Bob, who then has priority, tries to counter it."""
+    s = build(cards, [THRYX, name], ["Counterspell"])
+    put(s, THRYX)
+    mana(s, **mana_paid)
+    spell = to_hand(s, name)
+    counter = to_hand(s, "Counterspell", "p2")
+    mana(s, "p2", U=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    act(s, "p2", type="cast_spell", card_id=counter.id, targets=[spell.id])
+    pass_until_stack_empty(s)
+    return s, spell
+
+
+def test_thryx_makes_spells_with_mana_value_5_or_more_cheaper_and_uncounterable(cards):
+    s, asp = thryx_casts(cards, "Nessian Asp", {"G": 1, "C": 3})  # {4}{G}, {1} less
+    assert s.state.cards[asp.id].zone == "p1:battlefield" and zone_of(s, "Counterspell", "p2") == "p2:graveyard"
+    check(s)
+
+
+def test_thryx_does_not_protect_a_spell_of_lower_mana_value(cards):
+    s, giant = thryx_casts(cards, "Hill Giant", {"R": 1, "C": 3})  # mana value 4: in full, and a counterspell works
+    assert s.state.cards[giant.id].zone == "p1:graveyard"
     check(s)

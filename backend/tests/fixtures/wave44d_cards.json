@@ -654,6 +654,26 @@
   "toughness": "3"
  },
  {
+  "name": "Thryx, the Sudden Storm",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{U}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Elemental Giant",
+  "oracle_text": "Flash (You may cast this spell any time you could cast an instant.)\nFlying\nSpells you cast with mana value 5 or greater cost {1} less to cast and can't be countered.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Flash"
+  ],
+  "power": "4",
+  "toughness": "5"
+ },
+ {
   "name": "Plains",
   "layout": "normal",
   "mana_cost": "",
