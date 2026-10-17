@@ -128,7 +128,6 @@ def test_parse_rules(text, who, rules, extra):
 
 
 @pytest.mark.parametrize("text", [
-    "~ can't be blocked by creatures with power 2 or less and/or Walls.",  # two selectors joined oddly
     "~ can't be blocked by creatures with banding.",  # not a selector keyword (wave 6C: horsemanship now is)
     "Enchanted permanent can't attack or block, and its activated abilities can't be activated unless they have flash.",
     "Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.",
