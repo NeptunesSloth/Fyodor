@@ -430,8 +430,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return line.strip().rstrip(".").lower() == "cipher"
     if kw == "ripple":  # -- static_other sweep (wave 17C) -- casting._ripple_triggers: "Ripple N", each instance its own line
         return re.fullmatch(r"ripple \d+", line.strip().rstrip(".").lower()) is not None
-    if kw == "echo":  # triggers.echo_cost: a mana echo cost
-        return re.fullmatch(r"echo (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
+    if kw == "echo":  # triggers.echo_cost: a mana echo cost (-- keywords (wave 43C) -- or "Echo—Discard a card.": a cost the optional payment pays)
+        from app.rules.triggers import keyword_cost
+
+        return keyword_cost(line, "echo") is not None
     if kw in ("morph", "megamorph"):  # casting.morph_cost: a mana morph cost
         if re.fullmatch(r"(?:mega)?morph (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None:  # (no X: wave 3F)
             return True
@@ -498,9 +500,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"plot (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "suspend":  # casting.suspend_info: "Suspend N—{cost}"
         return re.fullmatch(r"suspend \d+\s*[—-]\s*(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
-    if kw == "cumulative upkeep":  # triggers.cumulative_cost: a mana cost
-        return re.fullmatch(r"cumulative upkeep (?:\{[^}]+\})+|cumulative upkeep—pay \d+ life",
-                            line.strip().rstrip(".").lower()) is not None
+    if kw == "cumulative upkeep":  # triggers.cumulative_costs: a mana cost (-- keywords (wave 43C) -- or any cost the optional payment pays, 702.24a)
+        from app.rules.triggers import keyword_cost
+
+        return keyword_cost(line, "cumulative upkeep") is not None
     from app.rules import (
         keyword_triggers,  # -- static wordings (wave 6E) -- battle cry, ingest … (their CR meaning)
     )
