@@ -2107,6 +2107,12 @@ def _one_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         return spelled
     from app.rules import language  # the generic grammar (a leaf module)
 
+    if text.endswith(" until end of combat"):  # -- durations (wave 49C) -- 500.5a: "gets +2/+0 until end of combat" (Murk Dwellers), "becomes a 3/6 Golem … until end of combat" (Jade Statue): the
+        # clause with "until end of turn", lasting to the end of the combat phase instead (combat.end_combat); only the effects that carry a duration
+        found = _one_clause(text[: -len("combat")] + "turn")
+        if found is None or not found[0] or any(e["do"] not in ("pump", "grant", "become") for e in found[0]):
+            return None
+        return [{**e, "duration": "end_of_combat"} for e in found[0]], found[1]
     for pattern, build in EFFECTS:
         m = pattern.match(text)
         if m:
@@ -3635,6 +3641,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             text = trigger_words.have_subject(text)
         if effects and (bare := _language.bare_pronoun_grant(text)) is not None:  # -- recursion & tutors (wave 4M) --
             effects += bare  # ("It gains haste.": a whole sentence, after the instruction that names "it")
+            continue
+        if text.endswith(" until end of combat") and (combat := _one_clause(text)) is not None:  # -- durations (wave 49C) -- _one_clause reads it with the duration
+            effects += _add_groups(groups, combat[0], combat[1])
             continue
         for pattern, build in EFFECTS:
             m = pattern.match(text)

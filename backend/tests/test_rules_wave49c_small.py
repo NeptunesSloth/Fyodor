@@ -16,6 +16,8 @@ Every scenario checks the replay and a save and a load.
   creatures they control" (Summon: Valefor) stays manual: the extreme is among the chooser's own creatures.
 * 506.4: "Untap target nonattacking creature. It gets +1/+3 until end of turn." (Alarum), "Target nonattacking, nonblocking creature gets +0/+2 until end of turn." (Unlikely Alliance).
 * 508.1, 510.1: "Whenever this creature attacks and isn't blocked, it assigns no combat damage this turn and defending player loses 2 life." (Keeper of Tresserhorn, Lim-Dul's Paladin).
+* 500.5a, 511.2: "until end of combat" - "Whenever this creature attacks and isn't blocked, it gets +2/+0 until end of combat." (Murk Dwellers), "{2}: This artifact becomes a 3/6 Golem artifact creature until
+  end of combat. Activate only during combat." (Jade Statue), "Target blocking Wall you control gets +10/+0 until end of combat." (Glyph of Destruction): the effect ends with the combat phase.
 * 118.12: "At the beginning of your upkeep, sacrifice this creature unless you mill two cards." (Deep Spawn) - the payment is the controller's choice.
 * 602.2: "{3}, {T} or {R}, {T}: This artifact deals 1 damage to any target." (Granite Shard and the other Shards) - the ability may be paid either way, not both (the rulings).
 * 702.129a: "Eternalize—{2}{W}{W}, Discard a card." (Sunscourge Champion, Sinuous Striker) - the keyword's cost has a second part, a discard from the hand (the card with
@@ -37,7 +39,7 @@ from app.rules import coverage
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import attach, attack, settle, stops, to_phase
+from tests.test_rules_wave34b_activated import ask, attach, attack, settle, stops, to_phase
 from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave49c_small_cards.json").read_text("utf-8"))
@@ -479,4 +481,57 @@ def test_an_unblocked_attacker_assigns_no_combat_damage_and_the_defender_loses_l
     attack(s, attacker)
     to_phase(s, "main2")
     assert life(s, "p2") == 38  # (the power it would have dealt is not assigned)
+    check(s)
+
+
+def test_murk_dwellers_gets_plus_two_only_until_the_end_of_combat(cards):
+    s = build(cards, ["Murk Dwellers"])
+    dwellers = put(s, "Murk Dwellers")
+    to_phase(s, "main1", turn=3)
+    stops(s)
+    attack(s, dwellers)
+    to_phase(s, "combat_damage")
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[dwellers.id]).pt == (4, 2)
+    to_phase(s, "main2")
+    assert life(s, "p2") == 36 and Plan(s.state, "p1", s.cards, None).ch(s.state.cards[dwellers.id]).pt == (2, 2)  # (it dealt 4; the pump is over)
+    check(s)
+
+
+def test_jade_statue_is_a_creature_only_during_combat(cards):
+    s = build(cards, ["Jade Statue"])
+    statue = put(s, "Jade Statue")
+    mana(s, C=4)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=statue.id, ability=0)  # not during combat
+    stops(s)
+    to_phase(s, "declare_attackers")
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=statue.id, ability=0)
+    settle(s)
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[statue.id])
+    assert ch.types == {"Artifact", "Creature"} and ch.pt == (3, 6) and "Golem" in ch.subtypes
+    to_phase(s, "main2")
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[statue.id]).types == {"Artifact"}
+    check(s)
+
+
+def test_glyph_of_destruction_pumps_the_blocking_wall_for_the_combat_only(cards):
+    s = build(cards, ["Grizzly Bears"], ["Wall of Omens", "Glyph of Destruction"])
+    bears = put(s, "Grizzly Bears")
+    wall = put(s, "Wall of Omens", "p2")
+    glyph = to_hand(s, "Glyph of Destruction", "p2")
+    to_phase(s, "main1", turn=3)
+    stops(s)
+    attack(s, bears)
+    d = ask(s)
+    assert d.kind == "declare_blockers"
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": wall.id, "attacker_id": bears.id}])
+    act(s, "p1", type="pass_priority")
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=glyph.id, targets=[wall.id])
+    settle(s)
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[wall.id]).pt == (10, 4)
+    to_phase(s, "main2")
+    assert s.state.cards[bears.id].zone == "p1:graveyard"  # 10 damage from the Wall
+    assert s.state.cards[wall.id].damage == 0 and Plan(s.state, "p1", s.cards, None).ch(s.state.cards[wall.id]).pt == (0, 4)  # (prevented; and the +10/+0 ended with the combat)
     check(s)
