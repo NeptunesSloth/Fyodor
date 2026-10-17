@@ -18,6 +18,9 @@ Every scenario checks the replay and a save and a load.
 * 508.1, 510.1: "Whenever this creature attacks and isn't blocked, it assigns no combat damage this turn and defending player loses 2 life." (Keeper of Tresserhorn, Lim-Dul's Paladin).
 * 500.5a, 511.2: "until end of combat" - "Whenever this creature attacks and isn't blocked, it gets +2/+0 until end of combat." (Murk Dwellers), "{2}: This artifact becomes a 3/6 Golem artifact creature until
   end of combat. Activate only during combat." (Jade Statue), "Target blocking Wall you control gets +10/+0 until end of combat." (Glyph of Destruction): the effect ends with the combat phase.
+* 700.2: "Target nonattacking creature gains reach and deathtouch until end of turn. Untap it." (Ruthless Instincts, mode one).
+* 120.3, 608.2c: "~ deals 1 damage to each nonblack creature and an additional 1 damage to each green creature." (Kaervek's Hex), "… X damage to each creature with flying and 1 additional damage to each blue
+  creature." (Tropical Storm), "… 2 damage to each attacking creature and 1 damage to you and each creature you control." (Hail Storm): two instructions of one source, in order.
 * 118.12: "At the beginning of your upkeep, sacrifice this creature unless you mill two cards." (Deep Spawn) - the payment is the controller's choice.
 * 602.2: "{3}, {T} or {R}, {T}: This artifact deals 1 damage to any target." (Granite Shard and the other Shards) - the ability may be paid either way, not both (the rulings).
 * 702.129a: "Eternalize—{2}{W}{W}, Discard a card." (Sunscourge Champion, Sinuous Striker) - the keyword's cost has a second part, a discard from the hand (the card with
@@ -556,4 +559,55 @@ def test_an_aura_spell_cannot_target_a_creature_either(cards):
     mana(s, W=2)
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=to_hand(s, "Pacifism").id, targets=[bears.id])  # 303.4a: an Aura spell targets
+    check(s)
+
+
+def test_ruthless_instincts_first_mode_needs_a_nonattacking_creature(cards):
+    s = build(cards, ["Ruthless Instincts", "Grizzly Bears"])
+    bears = put(s, "Grizzly Bears")
+    act(s, "p1", type="tap", card_ids=[bears.id])
+    mana(s, G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Ruthless Instincts").id, modes=[0], targets=[bears.id])
+    settle(s)
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[bears.id])
+    assert not s.state.cards[bears.id].tapped and {"reach", "deathtouch"} <= set(ch.keywords)
+    check(s)
+
+
+def test_kaervek_s_hex_hits_nonblack_creatures_and_green_ones_twice(cards):
+    s = build(cards, ["Kaervek's Hex", "Grizzly Bears", "Dregscape Zombie"])
+    bears = put(s, "Grizzly Bears")  # green: 1 + 1
+    zombie = put(s, "Dregscape Zombie")  # black: neither
+    mana(s, B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Kaervek's Hex").id)
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard" and s.state.cards[zombie.id].zone == "p1:battlefield" and s.state.cards[zombie.id].damage == 0
+    check(s)
+
+
+def test_tropical_storm_deals_its_extra_damage_to_blue_creatures_only(cards):
+    s = build(cards, ["Tropical Storm", "Mulldrifter", "Merfolk Looter", "Grizzly Bears"])
+    flyer = put(s, "Mulldrifter")  # blue, flying: X + 1
+    looter = put(s, "Merfolk Looter")  # blue, no flying: nothing (the 1 additional is for blue creatures "and" the first for flying ones)
+    bears = put(s, "Grizzly Bears")
+    mana(s, G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Tropical Storm").id, x_value=2)
+    settle(s)
+    assert s.state.cards[flyer.id].zone == "p1:graveyard" and s.state.cards[bears.id].damage == 0
+    assert s.state.cards[looter.id].zone == "p1:graveyard"  # 1 additional damage to a 1/1 blue creature
+    check(s)
+
+
+def test_hail_storm_hits_attackers_harder_and_you_and_your_creatures_lightly(cards):
+    s = build(cards, ["Hail Storm", "Grizzly Bears", "Llanowar Elves"])
+    bears = put(s, "Grizzly Bears")
+    elves = put(s, "Llanowar Elves")
+    to_phase(s, "main1", turn=3)
+    stops(s)
+    attack(s, bears)
+    mana(s, G=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Hail Storm").id)
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard"  # 2 as an attacker + 1 as your creature
+    assert s.state.cards[elves.id].zone == "p1:graveyard" and life(s) == 39  # 1 damage to a 1/1 you control, and 1 to you
     check(s)

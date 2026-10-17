@@ -620,5 +620,65 @@
   ],
   "power": "0",
   "toughness": "4"
+ },
+ {
+  "name": "Ruthless Instincts",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Choose one —\n• Target nonattacking creature gains reach and deathtouch until end of turn. Untap it.\n• Target attacking creature gets +2/+2 and gains trample until end of turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Kaervek's Hex",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Kaervek's Hex deals 1 damage to each nonblack creature and an additional 1 damage to each green creature.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Tropical Storm",
+  "layout": "normal",
+  "mana_cost": "{X}{G}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Tropical Storm deals X damage to each creature with flying and 1 additional damage to each blue creature.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Hail Storm",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Hail Storm deals 2 damage to each attacking creature and 1 damage to you and each creature you control.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
  }
 ]
