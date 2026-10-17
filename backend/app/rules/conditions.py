@@ -159,7 +159,7 @@ _COMMANDER = re.compile(r"you control (?P<which>your commander|a commander)")
 # Newt): a permanent with each name (the selector's ``name:`` test, 709.4a: a face-down permanent has no name, 708.2a). The plural wording names two cards,
 # the singular one: "a creature named A and B" would be one card named "A and B" and is not read.
 _CARD_NAME = r"[A-Z][\w'’-]*(?: (?:(?:of|the|in|on|for|to) )*[A-Z][\w'’-]*)*"  # (words that start with a capital, a small word between: no comma, no "and")
-_NAMED = re.compile(rf"you control (?:(?:an?) (?P<t1>creature|artifact|enchantment|land|permanent) named (?P<a1>{_CARD_NAME})"
+_NAMED = re.compile(rf"you (?P<neg>don't )?control (?:(?:an?) (?P<t1>creature|artifact|enchantment|land|permanent) named (?P<a1>{_CARD_NAME})"
                     rf"|(?P<t2>creature|artifact|enchantment|land|permanent)s named (?P<a2>{_CARD_NAME}) and (?P<b2>{_CARD_NAME}))")
 # "it's a land card", "that creature is a Human", "~ is an enchantment", "it was a creature card"
 _OBJECT_WORDS = {"it": "it", "~": "self", "enchanted creature": "host", "enchanted permanent": "host", "enchanted land": "host",
@@ -303,6 +303,8 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
             return None
         names = [n for n in (m["a1"], m["a2"], m["b2"]) if n]
         parts: list[Condition] = [{"value": {"count": replace(base, extras=(*base.extras, "name:" + n)).key()}, "op": ">=", "n": 1} for n in names]
+        if m["neg"]:  # -- if you do (wave 44A) -- "if you don't control a creature named Darkstar" (Rufus Shinra): none with that name (one name only)
+            return {"value": parts[0]["value"], "op": "==", "n": 0} if len(parts) == 1 else None
         return parts[0] if len(parts) == 1 else {"all": parts}
     m = re.fullmatch(r"an opponent controls at least (?P<n>\w+) more (?P<what>.+) than you", t)
     if m and _num(m["n"]) is not None:  # -- cost alt (wave 16F) -- Avatar of Might: some opponent's count is at least n above yours

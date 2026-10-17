@@ -20,7 +20,7 @@ from app.cards.repository import CardRepository
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, zone
-from tests.test_rules_effects import pass_until_stack_empty
+from tests.test_rules_effects import pass_until_stack_empty, run_until
 from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave44a_cards.json").read_text("utf-8"))
@@ -30,13 +30,14 @@ EXTRA = [card(c["name"], set_code="w44a", number=f"A{i:02d}", **{k: v for k, v i
 ETALI, SUSPICION = "Etali, Primal Conqueror // Etali, Primal Sickness", "Fevered Suspicion"
 OOL, SCAR = "Auntie Ool, Cursewretch", "Scar"
 EMIEL, UNICORN = "Emiel the Blessed", "Pearled Unicorn"
-FULL = [ETALI, SUSPICION, OOL, EMIEL]
+RUFUS = "Rufus Shinra"
+FULL = [ETALI, SUSPICION, OOL, EMIEL, RUFUS]
 
 
 @pytest.fixture()
 def cards(settings):
     settings.ensure_dirs()
-    build_database([*fixture_cards(), *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database([*fixture_cards(), *EXTRA, DARKSTAR], settings.cards_db_path, meta={"bulk_type": "test"})
     repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
     yield repo
     repo.close()
@@ -206,3 +207,43 @@ def test_emiel_puts_no_counter_on_a_unicorn_when_the_payment_is_declined(cards):
     choose(s, ["decline"], resolve=True)  # (the ruling: a Unicorn still has to be paid for)
     assert counters_on(s, UNICORN) == 0 and s.state.cards[card_named(s, UNICORN).id].zone == "p1:battlefield"
     check(s)
+
+
+# ---- "if you don't control a creature named Darkstar, create Darkstar" (Rufus Shinra) ----------------------------------------------------------------
+DARKSTAR = card("Darkstar", set_code="w44a", number="A99", mana_cost="{2}", cmc=2.0, type_line="Creature — Dog", power="2", toughness="2", oracle_text="")
+
+
+def named(s, name, pid="p1"):
+    return [c for c in s.state.cards.values() if c.name == name and c.controller == pid and c.zone == f"{pid}:battlefield"]
+
+
+def attack_with(s, card_):
+    """On Alice's second turn (the creature isn't summoning sick), attack Bob with it and let the triggers resolve."""
+    run_until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": card_.id, "target": "p2"}])
+    pass_until_stack_empty(s)
+
+
+def test_rufus_makes_darkstar_when_there_is_none(cards):
+    s = build(cards, [RUFUS], [])
+    attack_with(s, put(s, RUFUS))
+    assert len(named(s, "Darkstar")) == 1
+    token = named(s, "Darkstar")[0]
+    assert token.is_token and "Legendary" in token.token.type_line and (token.token.power, token.token.toughness) == ("2", "2")
+    check(s)
+
+
+def test_rufus_makes_no_second_darkstar(cards):
+    s = build(cards, [RUFUS, "Darkstar"], [])
+    put(s, "Darkstar")
+    attack_with(s, put(s, RUFUS))
+    assert len(named(s, "Darkstar")) == 1 and not named(s, "Darkstar")[0].is_token
+    check(s)
+
+
+# -- end of wave 44A tests --
