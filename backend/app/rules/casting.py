@@ -2702,6 +2702,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         _ripple_triggers(plan, card, ch, record.cast_from)
         if not a.face_down:
             _conspire_trigger(plan, card, ch, record)
+            _demonstrate_trigger(plan, card, ch)  # (wave 43D)
     if "replicate" in ch.keywords and not a.face_down and not plan.manual(card):  # (wave 15E)
         _replicate_trigger(plan, card, ch, a.kicker)
     if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):
@@ -3164,6 +3165,18 @@ def _replicate_trigger(plan: Plan, card: CardInstance, ch: Characteristics, time
                          "effects": [{"do": "storm", "spell": card.id, "object": plan.oid(card), "n": times}]})
 
 
+def _demonstrate_trigger(plan: Plan, card: CardInstance, ch: Characteristics) -> None:
+    """-- cast keywords (wave 43D) -- 702.144a demonstrate: "When you cast this spell, you may copy it and you may choose new targets for the copy. If you
+    copy the spell, choose an opponent. That player copies the spell and may choose new targets for that copy." (copying.demonstrate_copy)"""
+    from app.rules.triggers import _add
+
+    if "demonstrate" in ch.keywords:
+        spell = {"spell": card.id, "object": plan.oid(card)}
+        _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=6170,
+             definition={"kind": "triggered", "trigger": "demonstrate", "optional": True, "target": None,
+                         "effects": [{"do": "demonstrate_copy", **spell}, {"do": "demonstrate_opponent", **spell}]})
+
+
 def _conspire_trigger(plan: Plan, card: CardInstance, ch: Characteristics, record: PaymentRecord) -> None:
     """-- static_other sweep (wave 17C) -- 702.78a: "When you cast this spell, if its conspire cost was paid, copy it. If the spell has
     any targets, you may choose new targets for the copy." (the copy is storm's: copying.storm)"""
@@ -3535,6 +3548,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         _storm_triggers(plan, card, ch, record.cast_from)
         _ripple_triggers(plan, card, ch, record.cast_from)
         _conspire_trigger(plan, card, ch, record)  # (wave 41D: casualty 702.153a, conspire 702.78a)
+        _demonstrate_trigger(plan, card, ch)  # (wave 43D)
     if "replicate" in ch.keywords and not plan.manual(card):  # (wave 15E)
         _replicate_trigger(plan, card, ch, a.kicker)
     if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):

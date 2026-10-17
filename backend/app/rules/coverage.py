@@ -422,6 +422,8 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"casualty \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "conspire":  # -- static_other sweep (wave 17C) -- cost_changes.optional_offers / casting._conspire_trigger
         return line.strip().rstrip(".").lower() == "conspire"
+    if kw == "demonstrate":  # -- cast keywords (wave 43D) -- casting._demonstrate_trigger / copying.demonstrate_copy (702.144a): a plain keyword line
+        return line.strip().rstrip(".").lower() == "demonstrate"
     if kw == "bargain":  # -- keywords (wave 30E) -- cost_changes.optional_offers (702.166a); "was bargained" is read as kicked (scripts.self_text)
         return line.strip().rstrip(".").lower() == "bargain"
     if kw == "teamwork":  # (702.194a: its optional cost, and "cast using teamwork" in the text)

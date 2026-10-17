@@ -512,6 +512,84 @@ def test_nyxborn_hydra_bestowed_with_x_gives_the_enchanted_creature_x_plus_x(car
     check(s)
 
 
+# ---- demonstrate (702.144a) -------------------------------------------------------------------------------------------------------------------
+def destroyers(s):
+    """Who moved a permanent from the battlefield to a graveyard, in the order it happened (the log's actors)."""
+    lines = ["".join(p.t or "" for p in x.parts) for x in s.state.log]
+    return [line.split(" ", 1)[0] for line in lines if " moved " in line and "battlefield to" in line and "graveyard" in line]
+
+
+def test_excavation_technique_demonstrated_is_copied_by_you_and_the_opponent_you_choose(cards):
+    """"Demonstrate": you may copy it and choose new targets for the copy; then an opponent copies it and may choose new targets for that copy. The
+    opponent's copy resolves first, then yours, then the original (the Technique cycle's rulings): the three Bears all die, and Bob makes the Treasures."""
+    s = build(cards, ["Excavation Technique"])
+    a, b, c = bear(s, name="A"), bear(s, name="B"), bear(s, name="C")
+    to_hand(s, "Excavation Technique")
+    mana(s, W=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Excavation Technique").id, targets=[a.id])
+    for _ in range(2):  # the trigger resolves: "you may copy it?"
+        if s.state.rules.decision is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and d.prompt.endswith("(demonstrate)?")
+    pick(s, "yes")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and any(o.label == "B" for o in d.options)  # her copy: keep A, or choose a new target (707.10c)
+    pick(s, next(o.id for o in d.options if o.label == "B"))
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2" and any(o.label == "C" for o in d.options)  # the opponent's copy: Bob chooses its target
+    s = reloaded_session(s)  # a save and a load in the middle of Bob's choice
+    d = s.state.rules.decision
+    pick(s, next(o.id for o in d.options if o.label == "C"))
+    settle(s)
+    assert not (on_field(s, a.id) or on_field(s, b.id) or on_field(s, c.id))
+    assert destroyers(s) == ["Bob", "Alice", "Alice"]  # (Bob's copy was on top: it resolved first)
+    assert len([x for x in s.state.cards.values() if x.name == "Treasure" and x.zone == "p2:battlefield"]) == 6  # (its controller creates two Treasures each time)
+    check(s)
+
+
+def test_a_demonstrate_that_isnt_copied_gives_the_opponent_no_copy_either(cards):
+    """"If you cast the spell and choose not to copy it, no opponent will get to copy it either." (Incarnation Technique's ruling)"""
+    s = build(cards, ["Excavation Technique"])
+    a = bear(s, name="A")
+    to_hand(s, "Excavation Technique")
+    mana(s, W=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Excavation Technique").id, targets=[a.id])
+    for _ in range(2):
+        if s.state.rules.decision is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+    pick(s, "no")
+    settle(s)
+    assert not on_field(s, a.id) and destroyers(s) == ["Alice"]  # (one resolution: the original)
+    assert len([x for x in s.state.cards.values() if x.name == "Treasure" and x.zone == "p2:battlefield"]) == 2
+    check(s)
+
+
+def test_the_opponents_demonstrate_copy_can_only_target_what_it_may(cards):
+    """"Create a token that's a copy of target permanent you control": the opponent's copy is controlled by Bob, so Alice's permanents aren't legal targets
+    for it (115.3, 707.10c: Bob may keep the target or choose a new legal one); Bob picks his own Bear and gets the copy."""
+    s = build(cards, ["Replication Technique"])
+    mine = token_of(s, "p1", "Hero", "Token Creature — Human Soldier", "2/2")
+    token_of(s, "p1", "Other", "Token Creature — Human Soldier", "2/2")
+    theirs = bear(s, name="Bruin")
+    to_hand(s, "Replication Technique")
+    mana(s, U=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Replication Technique").id, targets=[mine.id])
+    for _ in range(2):
+        if s.state.rules.decision is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+    pick(s, "yes")
+    pick(s, "keep")  # (Alice keeps her copy's target)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2"
+    assert sorted(o.label for o in d.options) == ["Bruin", "Keep Hero"]  # (only his own permanent, or keeping the target)
+    pick(s, theirs.id)
+    settle(s)
+    assert len([c for c in s.state.cards.values() if c.name == "Bruin" and c.zone == "p2:battlefield"]) == 2
+    assert len([c for c in s.state.cards.values() if c.name == "Hero" and c.zone == "p1:battlefield"]) == 3
+    check(s)
+
+
 # ---- impending (702.176a) ---------------------------------------------------------------------------------------------------------------------
 def is_creature(s, name, pid="p1"):
     return Plan(s.state, pid, s.cards, None).ch(s.state.cards[card_named(s, name, pid).id]).is_creature
