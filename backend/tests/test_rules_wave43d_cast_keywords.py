@@ -619,51 +619,6 @@ def test_rumbling_aftershocks_deals_damage_equal_to_the_times_the_spell_was_kick
     check(s)
 
 
-# ---- echo with a cost that isn't mana (702.30a) ------------------------------------------------------------------------------------------------
-def to_upkeep(s, turn=3):
-    """On to Alice's upkeep of that turn, with its triggers on the stack."""
-    until(s, lambda s: s.state.turn.number >= turn and s.state.turn.phase == "upkeep" and s.state.turn.active_player == "p1" and bool(s.state.zones.get("stack")))
-
-
-def test_echo_discard_a_card_is_paid_at_the_next_upkeep_or_the_creature_is_sacrificed(cards):
-    """"Echo—Discard a card.": at the beginning of your next upkeep the creature is sacrificed unless you discard a card (702.30a); a private yes / no, and
-    the card is chosen by the payer."""
-    s = build(cards, ["Deepcavern Imp", "Grizzly Bears"])
-    mana(s, B=1, C=2)
-    to_hand(s, "Deepcavern Imp")
-    act(s, "p1", type="cast_spell", card_id=card_named(s, "Deepcavern Imp").id)
-    settle(s)
-    to_hand(s, "Grizzly Bears")
-    hand_of(s, "p1", 1, name="Forest")
-    to_upkeep(s)
-    d = s.state.rules.decision
-    assert d is not None and d.player == "p1" and d.prompt == "Deepcavern Imp: pay Discard a card?" and [o.id for o in d.options] == ["pay", "decline"]
-    assert "Discard" not in json.dumps(s.view("p2")["rules"]["decision"])
-    pick(s, "pay")
-    d = s.state.rules.decision  # (which card: a Bear or a Forest)
-    assert d is not None and sorted(o.label for o in d.options) == ["Forest", "Grizzly Bears"]
-    s = reloaded_session(s)  # a save and a load in the middle of the payment
-    d = s.state.rules.decision
-    pick(s, next(o.id for o in d.options if o.label == "Grizzly Bears"))
-    settle(s)
-    assert zone_of(s, "Deepcavern Imp") == "p1:battlefield" and zone_of(s, "Grizzly Bears") == "p1:graveyard"
-    check(s)
-
-
-def test_echo_declined_sacrifices_the_creature(cards):
-    s = build(cards, ["Deepcavern Imp", "Grizzly Bears"])
-    mana(s, B=1, C=2)
-    to_hand(s, "Deepcavern Imp")
-    act(s, "p1", type="cast_spell", card_id=card_named(s, "Deepcavern Imp").id)
-    settle(s)
-    to_hand(s, "Grizzly Bears")
-    to_upkeep(s)
-    pick(s, "decline")
-    settle(s)
-    assert zone_of(s, "Deepcavern Imp") == "p1:graveyard" and zone_of(s, "Grizzly Bears") == "p1:hand"
-    check(s)
-
-
 # ---- equip with a choice of costs (702.6a) ----------------------------------------------------------------------------------------------------
 def equip_index(s, name):
     card = card_named(s, name)

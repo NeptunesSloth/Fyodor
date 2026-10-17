@@ -44,7 +44,7 @@ def chooses_player(ch: Characteristics) -> bool:
 #   is evaluated for another object) and never on a card without that one enters choice.
 # * a "Choose a creature type." instruction earlier in the same resolution (Kindred Dominance, Bloodline Bidding) —
 #   bind_effects puts the answer into the instructions after it as the choice is made (effects.resume_choose_value).
-_SOURCE_KEYS = frozenset({"who", "sel", "spell", "obj", "what"})
+_SOURCE_KEYS = frozenset({"who", "sel", "spell", "obj", "what", "source"})  # (wave 43A: "source": a trigger multiplier's sources — Roaming Throne, read against its own choice)
 
 
 def _uses(node: Any, key: str = "") -> list[tuple[str, str]]:

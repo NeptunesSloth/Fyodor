@@ -63,7 +63,6 @@ FULL = ["Sleep", "Bontu's Last Reckoning", "Frost Breath", "Kefnet's Monument", 
         "Cloudcrest Lake", "Wizard Mentor"]
 STILL_MANUAL = {  # (card, the line that stays manual)
     "Whelming Wave": "except for Krakens",  # (an exception list: not read)
-    "Doorman": "Until end of turn, target creature can't be blocked by",  # (a leading duration on a restriction: not read)
 }
 
 

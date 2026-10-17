@@ -1058,7 +1058,11 @@ def deal_combat_damage(plan: Plan, rnd: Round, shield_order: list[str] | None = 
     if hit_players:
         from app.rules import triggers  # triggers → plan; imported late
 
-        triggers.dealt_combat_damage_to_player(plan, list({c.id: c for c in hit_players}.values()))
+        hit: dict[str, list[str]] = {}  # (wave 43A: the players each hit, for a trigger multiplier: Felix Five-Boots)
+        for src, tgt, n in dealt:
+            if tgt in plan.state.players and n > 0 and src in plan.state.cards and tgt not in hit.setdefault(src, []):
+                hit[src].append(tgt)
+        triggers.dealt_combat_damage_to_player(plan, list({c.id: c for c in hit_players}.values()), hit)
     monarch = plan.state.table.monarch
     # (-- review 29D -- 725.2: combat damage dealt to the monarch, whether or not it made them lose life: 119.8, 120.3a)
     if monarch and any(tgt == monarch and n > 0 for _src, tgt, n in dealt):

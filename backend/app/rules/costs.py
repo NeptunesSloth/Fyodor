@@ -277,6 +277,9 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(RETURN_PERMANENT, text=part)
     if m := _SAC_CHOSEN.match(part):
         key = _selector(m["what"], zone="battlefield", other=m["n"] == "another")
+        if key is None and m["n"] in ("a", "an") and " or " in m["what"]:  # -- keywords (wave 43C) -- "Sacrifice a legendary artifact or legendary creature"
+            first, second = (_selector(w, zone="battlefield") for w in m["what"].split(" or ", 1))  # (Sauron, the Dark Lord's ward): two kinds, each
+            return CostComponent(SACRIFICE, selector=first, alt=second, text=part) if first and second else None  # with its own adjective: either one
         return CostComponent(SACRIFICE, amount=_n(m["n"]), selector=key, text=part) if key else None
     if m := _DISCARD.match(part):
         if m["n"] == "another":

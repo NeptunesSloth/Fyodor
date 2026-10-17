@@ -4400,6 +4400,33 @@ PRIMITIVES.update({"gain_control": gain_control, "exchange_control": exchange_co
 RESUME["gain_control"] = resume_gain_control
 # -- end control (wave 3K) --
 
+
+# -- keywords (wave 43C) -- "an opponent" in a cost that is an instruction ("Cumulative upkeep—An opponent gains 1 life.", Wall of Shards; "Have an
+# opponent create a 1/1 red Survivor creature token.", Varchild's War-Riders): its payer chooses one as it is paid, each time (ruling 2006-07-15: a different
+# opponent for each age counter); it isn't a target (115.1), and with a single opponent in the game there is nothing to choose. The instructions after
+# it name the player as ``ref:<as>`` (context.players).
+def choose_opponent(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    opponents = [p for p in plan.live() if p != ctx["controller"]]
+    if len(opponents) > 1:
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose an opponent",
+               options=[DecisionOption(id=p, label=plan.name(p)) for p in opponents], resume={"step": "choose_opponent", "ctx": ctx, "as": e["as"]})
+        return False
+    context.bind_players(ctx, e["as"], opponents)
+    return True
+
+
+def resume_choose_opponent(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx = d.resume["ctx"]
+    if chosen[0] not in plan.live() or chosen[0] == ctx["controller"]:
+        raise ValueError("not an opponent")
+    plan.note(f"{plan.name(d.player)} chooses {plan.name(chosen[0])}")
+    context.bind_players(ctx, d.resume["as"], [chosen[0]])
+    continue_effects(plan, ctx)
+
+
+PRIMITIVES["choose_opponent"] = choose_opponent
+RESUME["choose_opponent"] = resume_choose_opponent
+
 RESUME["search_may"] = resume_search_may
 RESUME["draw_may"] = resume_draw_may  # (wave 17B)
 RESUME["look_may"] = resume_look_may  # (wave 15C)

@@ -95,6 +95,8 @@ def concrete_cost(plan: Plan, ctx: Context, e: dict[str, Any]) -> str:
         return str(e["alt"]["cost"] if conditions.holds(plan, ctx, e["alt"]["cond"]) else e["cost"])
     if "dmg" in e:  # -- unless damage (wave 34D) -- "has ~ deal damage to them equal to his power": the amount as the payment is offered (608.2h)
         return re.sub(r"deal \d+ damage", f"deal {max(0, int(values.evaluate(plan, ctx, e['dmg'])))} damage", str(e["cost"]))
+    if "times" in e:  # -- keywords (wave 43C) -- 702.24a cumulative upkeep: the cost once for each age counter (evaluated now, 608.2h)
+        return repeat_cost(str(e["cost"]), values.evaluate(plan, ctx, e["times"]))
     if "per" not in e:
         return str(e["cost"])
     n = values.evaluate(plan, ctx, e["n"])
@@ -103,6 +105,19 @@ def concrete_cost(plan: Plan, ctx: Context, e: dict[str, Any]) -> str:
     total = M.ManaCost(generic=base.generic + per.generic * n, colored=base.colored + per.colored * n,
                        hybrid=base.hybrid + per.hybrid * n, phyrexian=base.phyrexian + per.phyrexian * n)
     return total.text() if not total.is_free else "{0}"
+
+
+def repeat_cost(text: str, n: int) -> str:
+    """-- keywords (wave 43C) -- 702.24a: "pay [cost] for each age counter" is the whole cost paid ``n`` times at once, with no
+    partial payment (118.3): mana and life are summed ("{B}, Pay 1 life" ×2 → "{B}{B}, Pay 2 life"), every other part ("Sacrifice a
+    creature") is repeated, so each repetition is its own object chosen. "{0}" when there is nothing to pay (no age counter)."""
+    if n <= 0:
+        return "{0}"
+    parts = [p.strip() for p in text.split(",")]
+    mana = [p for p in parts if re.fullmatch(r"(?:\{[^}]+\})+", p)]
+    lives = [int(m[1]) for p in parts if (m := re.fullmatch(r"pay (\d+) life", p, re.IGNORECASE))]
+    rest = [p for p in parts if p not in mana and not re.fullmatch(r"pay \d+ life", p, re.IGNORECASE)]
+    return ", ".join([*(["".join(mana) * n] if mana else []), *([f"Pay {sum(lives) * n} life"] if lives else []), *rest * n])
 
 
 def may_key(ctx: Context) -> str:

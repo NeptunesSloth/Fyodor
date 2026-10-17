@@ -116,22 +116,21 @@ def test_reflexive_spell_declined_deals_no_damage(cards):
     roundtrip(s)
 
 
-# -- 5D: "If [a permanent] entering causes a triggered ability … to trigger" is refused (603.2d, 701.7a) -----------
+# -- 5D: "If [a permanent] entering causes a triggered ability … to trigger" (603.2d, 701.7a) ------------------------------------------------
 @pytest.mark.parametrize("text", [
     "If an artifact or creature entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
     "If a permanent entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
     "If a land entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
     "If a Wizard you control entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
 ])
-def test_entering_multipliers_stay_manual(text):
-    """Whether "Whenever you create a token" triggers on the token entering isn't settled by the CR or a ruling."""
+def test_entering_multipliers_are_read(text):
+    """Wave 5R refused these because "Whenever you create a token" might be triggered by the token entering. Wave 43A reads them: the event an ability
+    triggers on is the one it names (rulings of Ancient Greenwarden: "an ability that triggers whenever you play a land won't trigger an additional time";
+    Teysa Karlov: "whenever you sacrifice a creature" triggers only once); creating a token is the same kind of action (701.7a) - test_creating_a_token_is_not_
+    the_token_entering, tests/test_rules_wave43a_trigger_multipliers.py."""
     from app.rules import trigger_multipliers
 
-    assert trigger_multipliers.static_definition(text) is None
-    # (the settled causes are still read)
-    assert trigger_multipliers.static_definition(
-        "If a creature dying causes a triggered ability of a permanent you control to trigger, that ability triggers an "
-        "additional time.") is not None
+    assert trigger_multipliers.static_definition(text)["cause"] == "enter"
 
 
 # -- 5D: several kinds of token in one instruction are one event (701.7a, 603.2c) --------------------------------------

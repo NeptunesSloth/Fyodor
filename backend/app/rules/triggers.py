@@ -127,7 +127,7 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
         trigger_multipliers,  # -- static_other sweep (wave 16B) -- "Creatures entering don't cause abilities to trigger"
     )
 
-    if trigger_multipliers.suppressed(plan, event if event is not None else cause):
+    if trigger_multipliers.suppressed(plan, event if event is not None else cause, controller):
         return None
     if definition.get("if_kicked"):  # 603.4: "When ~ enters, if it was kicked, …" (702.33e)
         record = plan.rules.payments.get(source_object)
@@ -625,7 +625,7 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
         dealt_info.update(other=got[0].id, other_oid=e.object_id)
     out.append(("deal_damage", src[0], src[1], src[0].controller, dealt_info))
     if e.player is not None and e.player != src[0].controller:
-        info = {**base, "recipient": e.player}
+        info = {**base, "recipient": e.player, "combat": e.combat}  # (wave 43A: combat, trigger_multipliers "dealing combat damage to a player")
         out.append(("deal_damage_opponent", src[0], src[1], src[0].controller, info))
         if e.combat:
             out.append(("deal_combat_damage_player", src[0], src[1], src[0].controller, info))
@@ -1102,7 +1102,7 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
     return TriggerEvent(kind=kind, batch=batch, objects=[ref] if ref else [], new_objects=new, players=players,
                         source=info.get("source_ref") or (
                             _source_ref(plan, info.get("source_oid")) if kind == "dealt_damage" else None),
-                        amount=int(info.get("amount") or 0), count=1, x=info.get("x") if kind == "cycle" else None,
+                        amount=int(info.get("amount") or 0), count=1, x=info.get("x") if kind == "cycle" else None, combat=info.get("combat"),  # (wave 43A)
                         defended=info.get("defended") if kind == "you_attack" else _attack_defended(plan, kind, obj),
                         # -- damage wordings (wave 6B) -- the creature on the other side of a block (509.3c-d)
                         other=_source_ref(plan, plan.oid(plan.state.cards[info["other"]]))
@@ -1628,65 +1628,99 @@ def _whose_step(plan: Plan, card: CardInstance, whose: str, ap: str) -> bool:
     return False
 
 
-ECHO = re.compile(r"^echo (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+# -- keywords (wave 43C) -- the cost a keyword line names (echo 702.30a, cumulative upkeep 702.24a, ward 702.21a). Plain mana; or "Echo—Discard a card." /
+# "Cumulative upkeep—Sacrifice a creature." / "Ward—Get five poison counters.": a cost the optional payment engine pays (optional_payment.cost_text), or
+# ("do") a sentence of always-payable instructions the grammar reads ("Draw a card.", "Add {R}.", "You get five poison counters."). A cost that names a
+# choice the engine can't make for the payer (a creature of an opponent's, a graveyard) is None: the card stays manual.
+_DO_PAYABLE = frozenset({"draw", "add_mana", "player_counter"})  # (118.3: nothing to run out of; a draw from an empty library is still paid, ruling on Psychic Vortex 2008-04-01)
+_DO_OPPONENT = frozenset({"gain_life", "create_token"})  # ("An opponent gains 1 life.", "Have an opponent create a 1/1 red Survivor creature token.": an opponent can always be given them)
 
 
-# -- cast keywords (wave 43D) -- 702.30a: "Echo—Discard a card." / "Echo—Sacrifice two lands.": an echo cost that isn't mana, paid as an optional cost of
-# the "sacrifice it unless you pay" (optional_payment); the cost is returned as "text:<the cost>"
-ECHO_OTHER = re.compile(r"^echo—(?P<cost>[^.{}]+)$", re.IGNORECASE)
+def _phrase(text: str) -> str:
+    return text[:1].lower() + text[1:]
 
 
-def echo_line_cost(line: str) -> str | None:
-    """The echo cost a keyword line states: its mana, or "text:<cost>" for a cost the optional payment engine pays, else None."""
+def effect_cost(phrase: str) -> list[dict[str, Any]] | None:
+    """The instructions of an always-payable cost written as a sentence ("Draw a card", "Add {R}", "Get five poison counters"; with "an opponent" it
+    is chosen when the cost is paid: choose_opponent), or None."""
+    sentence = _phrase(phrase.strip().rstrip("."))
+    opponent = False
+    if m := re.fullmatch(r"an opponent gains (.+)", sentence):  # (read as "you gain …" and aimed at the opponent chosen)
+        sentence, opponent = f"you gain {m[1]}", True
+    elif m := re.fullmatch(r"have an opponent (create .+)", sentence):
+        sentence, opponent = m[1], True
+    found = scripts.parse_effects(("You " + sentence if sentence.startswith("get ") else sentence[:1].upper() + sentence[1:]) + ".")
+    if found is None or found[1] is not None or found[2] or not found[0]:
+        return None
+    if opponent:
+        if any(e["do"] not in _DO_OPPONENT or e.get("who") != "you" for e in found[0]):
+            return None
+        return [{"do": "choose_opponent", "as": "copp"}, *({**e, "who": "ref:copp"} for e in found[0])]
+    return found[0] if all(e["do"] in _DO_PAYABLE for e in found[0]) else None
+
+
+def keyword_cost(line: str, word: str) -> tuple[str, Any] | None:
+    """The cost of an echo / cumulative upkeep keyword line as ("mana", "{1}{G}"), ("cost", cost text) or ("do", instructions), or None
+    when it is none of those (CR 702.30a, 702.24a)."""
+    text = re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".")
+    if (m := re.fullmatch(rf"{word} (?P<cost>(?:\{{[^}}]+\}})+)", text, re.IGNORECASE)) is not None:
+        return "mana", m["cost"]
+    if word == "cumulative upkeep" and (m := re.fullmatch(r"cumulative upkeep \{([WUBRG])\} or \{([WUBRG])\}", text, re.IGNORECASE)) is not None:
+        return "mana", f"{{{m[1].upper()}/{m[2].upper()}}}"  # "{G} or {W}" for each age counter is that many {G/W}: each one paid with either
+    if (m := re.fullmatch(rf"{word}—(?P<phrase>.+)", text, re.IGNORECASE)) is None:
+        return None
     from app.rules import optional_payment
 
-    text = re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".")
-    if (m := ECHO.fullmatch(text)) is not None:
-        return m["cost"]
-    if (o := ECHO_OTHER.fullmatch(text)) is not None and (found := optional_payment.cost_text(o["cost"][:1].lower() + o["cost"][1:])) is not None:
-        return f"text:{found}"
-    return None
+    if (cost := optional_payment.cost_text(_phrase(m["phrase"]))) is not None:
+        return "cost", cost
+    done = effect_cost(m["phrase"]) if word == "cumulative upkeep" else None  # (no echo cost is an instruction: not read)
+    return ("do", done) if done is not None else None
 
 
-def echo_cost(ch: Any) -> str | None:
+def echo_cost(ch: Any) -> tuple[str, Any] | None:
     for ab in ch.abilities:
         if ab.kind == "keywords" and "echo" in ab.keywords:
-            return echo_line_cost(ab.text)
+            return keyword_cost(ab.text, "echo")
     return None
 
 
-CUMULATIVE = re.compile(r"^cumulative upkeep (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
-# -- keywords (wave 15E) -- "Cumulative upkeep—Pay 2 life.": N times 2 life for N age counters (702.24a)
-CUMULATIVE_LIFE = re.compile(r"^cumulative upkeep—pay (?P<n>\d+) life$", re.IGNORECASE)
+def cumulative_costs(ch: Any) -> list[tuple[str, Any]]:
+    """The cost of each cumulative upkeep ability the object has (702.24b: each instance triggers on its own)."""
+    return [c for ab in ch.abilities if ab.kind == "keywords" and "cumulative upkeep" in ab.keywords
+            if (c := keyword_cost(ab.text, "cumulative upkeep")) is not None]
 
 
-def cumulative_cost(ch: Any) -> str | None:
-    for ab in ch.abilities:
-        if ab.kind == "keywords" and "cumulative upkeep" in ab.keywords:
-            m = CUMULATIVE.fullmatch(re.sub(r"\s*\(.*?\)", "", ab.text).strip().rstrip("."))
-            life = CUMULATIVE_LIFE.fullmatch(re.sub(r"\s*\(.*?\)", "", ab.text).strip().rstrip("."))
-            return m["cost"] if m else f"life:{life['n']}" if life else None
-    return None
+def pay_or_else(ask: str, payer: str, paid: list[dict[str, Any]], otherwise: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """-- keywords (wave 43C) -- 118.12a: "[do something] unless [a player does something else]" for a cost that is an instruction: ``payer``
+    is asked (privately), the ``paid`` instructions are the payment, ``otherwise`` happens if they decline."""
+    return [{"do": "optional_payment", "who": payer, "ask": ask, "bind": "pay0"},
+            *([{"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": len(otherwise)}, *otherwise] if otherwise else []),
+            {"do": "only_if", "cond": {"succeeded": "pay0"}, "skip": len(paid)}, *paid]
 
 
 def _cumulative_upkeep(plan: Plan) -> None:
     """702.24a: "At the beginning of your upkeep, if this permanent is on the battlefield, put an
-    age counter on it. Then you may pay [cost] for each age counter on it. If you don't, sacrifice it." """
+    age counter on it. Then you may pay [cost] for each age counter on it. If you don't, sacrifice it." (-- keywords (wave 43C) -- a
+    cost that isn't mana is paid once for each age counter, all at once, 118.3: no partial payment; 702.24b: every instance counts all
+    of the age counters)"""
+    age = {"counters": "age", "on": "self"}
+    sacrifice = [{"do": "sacrifice", "who": "self"}]
     for card in list(plan.state.cards.values()):
         if not card.zone.endswith(":battlefield") or card.controller != plan.active or plan.manual(card):
             continue
         ch = plan.ch(card)
-        cost = cumulative_cost(ch)
-        if cost is None:
-            continue
-        _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
-             index=5100, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
-                                     "effects": [{"do": "add_counters", "who": "self", "kind": "age", "n": 1},
-                                                 *([{"do": "optional_payment", "who": "you", "cost": "", "bind": "pay0",
-                                                     "life_x": {"times": [int(cost[5:]), {"counters": "age", "on": "self"}]}},
-                                                    {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1},
-                                                    {"do": "sacrifice", "who": "self"}] if cost.startswith("life:") else
-                                                   [{"do": "pay_or_sacrifice", "cost": cost, "per": "age"}])]})
+        for k, (kind, cost) in enumerate(cumulative_costs(ch)):
+            if kind == "mana":
+                pay = [{"do": "pay_or_sacrifice", "cost": cost, "per": "age"}]
+            elif kind == "cost":
+                pay = [{"do": "optional_payment", "who": "you", "cost": cost, "times": age, "bind": "pay0"},
+                       {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1}, *sacrifice]
+            else:  # ("Draw a card.": once for each age counter, as the cost)
+                pay = pay_or_else("pay its cumulative upkeep (once for each age counter)", "you",
+                                  [{"do": "repeat", "n": age, "span": len(cost)}, *cost], sacrifice)
+            _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
+                 index=5100 + k, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
+                                             "effects": [{"do": "add_counters", "who": "self", "kind": "age", "n": 1}, *pay]})
 
 
 def _rebound(plan: Plan) -> None:
@@ -1726,17 +1760,20 @@ def _echo(plan: Plan) -> None:
         if not card.zone.endswith(":battlefield") or card.controller != plan.active or plan.manual(card):
             continue
         ch = plan.ch(card)
-        cost = echo_cost(ch)
+        found = echo_cost(ch)
         key = f"{plan.oid(card)}:{card.controller}"
-        if cost is None or key in r.echo_done:
+        if found is None or key in r.echo_done:
             continue
+        # -- keywords (wave 43C) -- 702.30a: it came under THIS player's control since their last upkeep: the other controllers' marks go (a permanent
+        # that comes back to a former controller owes the echo again), and "Echo—Discard a card." is an optional payment of that cost (118.12a)
+        r.echo_done[:] = [k for k in r.echo_done if not k.startswith(f"{plan.oid(card)}:")]
         r.echo_done.append(key)
+        kind, cost = found
+        effects = [{"do": "pay_or_sacrifice", "cost": cost}] if kind == "mana" else [
+            {"do": "optional_payment", "who": "you", "cost": cost, "bind": "pay0"},
+            {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1}, {"do": "sacrifice", "who": "self"}]
         _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
-             index=3000, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
-                                     "effects": [{"do": "pay_or_sacrifice", "cost": cost}] if not cost.startswith("text:") else [
-                                         {"do": "optional_payment", "who": "you", "cost": cost[5:], "bind": "pay0"},  # (wave 43D: "Echo—Discard a card.")
-                                         {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1},
-                                         {"do": "sacrifice", "who": "self"}]})
+             index=3000, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None, "effects": effects})
 
 
 def _keyword_n(ch: Any, word: str) -> list[int]:
@@ -1759,7 +1796,7 @@ WARD_COST = re.compile(r"^ward—(?P<cost>[^.]+?)\.?$", re.IGNORECASE)
 
 def ward_piece_cost(piece: str) -> str | None:
     """The cost of one ward piece: its mana ("{2}") or the non-mana cost text ("Pay 3 life"), or None when not read."""
-    from app.rules import optional_payment
+    from app.rules import optional_payment, paid_x
 
     m = WARD.fullmatch(piece)
     if m:
@@ -1768,7 +1805,14 @@ def ward_piece_cost(piece: str) -> str | None:
     if m is None:
         return None
     phrase = m["cost"].strip()
-    return optional_payment.cost_text(phrase[:1].lower() + phrase[1:])
+    if (cost := optional_payment.cost_text(_phrase(phrase))) is not None:
+        return cost
+    # -- keywords (wave 43C) -- "Ward—Pay life equal to Raubahn's power." (a life payment sized as it resolves, 608.2h; the ward permanent's own
+    # power), "Ward—Discard a card or pay {2}." (one cost or the other, 118.12), "Ward—Get five poison counters." (an always-payable instruction)
+    phrase = re.sub(r"(?<=equal to )(?:this creature|[A-Z][^']*?)'s power$", "~'s power", phrase)
+    if paid_x.payment(_phrase(phrase)) is not None or optional_payment.alternatives(_phrase(phrase)) or effect_cost(phrase) is not None:
+        return phrase
+    return None
 
 
 def ward_cost(ch: Any) -> str | None:
@@ -1803,6 +1847,27 @@ def ward_pieces(line: str) -> list[str]:
         elif p.lower().startswith("ward"):
             out.append(p)
     return out
+
+
+def _ward_payment(cost: str, payer: str, countered: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """-- keywords (wave 43C) -- 702.21a: "counter it unless that player pays [cost]" for a cost that isn't mana: ``payer`` (the player whose spell or
+    ability targeted it) may pay it, else ``countered`` happens (118.12a). The cost is a plain cost text, a life payment sized as the ward trigger
+    resolves ("Pay life equal to ~'s power": the ward permanent's power then, 608.2h), one of two costs ("Discard a card or pay {2}") or an
+    always-payable instruction ("Get five poison counters": the payer's, not the ward permanent's controller's)."""
+    from app.rules import optional_payment, paid_x
+
+    p = _phrase(cost)
+    if optional_payment.parse(cost) is not None:
+        pay: dict[str, Any] = {"cost": cost}
+    elif sized := paid_x.payment(p):
+        pay = sized
+    elif alts := optional_payment.alternatives(p):
+        pay = {"alts": alts}
+    else:
+        paid = [{**e, "who": payer} if e.get("who") == "you" else e for e in effect_cost(cost) or []]
+        return pay_or_else(f"ward: {p}, or the spell is countered", payer, paid, countered)
+    return [{"do": "optional_payment", "who": payer, **pay, "bind": "pay0"},
+            {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": len(countered)}, *countered]
 
 
 def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[Any], *, crime: bool = True) -> None:
@@ -1840,9 +1905,7 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
         for k, cost in enumerate(ward_costs(ch)):  # -- attached events (wave 4L) -- each instance (702.21a)
             effects: list[dict[str, Any]] = [{"do": "counter_unless", "cost": cost, "object": stack_id}]
             if not WARD.fullmatch(f"ward {cost}"):  # (wave 15E; 17C: "{2}, Pay 2 life" is not mana alone) a non-mana ward cost: the targeting player may pay it, else it's countered
-                effects = [{"do": "optional_payment", "who": f"player:{controller}", "cost": cost, "bind": "pay0"},
-                           {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1},
-                           {"do": "counter", "object": stack_id}]
+                effects = _ward_payment(cost, f"player:{controller}", [{"do": "counter", "object": stack_id}])
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
                  index=9000 + k, definition={"kind": "triggered", "trigger": "ward", "optional": False, "target": None,
                                          "effects": effects})
@@ -1945,7 +2008,7 @@ def blocked(plan: Plan, blockers: list[CardInstance], attackers: list[CardInstan
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i, definition=d)
 
 
-def dealt_combat_damage_to_player(plan: Plan, sources: list[CardInstance]) -> None:
+def dealt_combat_damage_to_player(plan: Plan, sources: list[CardInstance], hit: dict[str, list[str]] | None = None) -> None:
     """702.112 renown N: "When this creature deals combat damage to a player, if it isn't renowned,
     put N +1/+1 counters on it and it becomes renowned." (Checked again on resolution.)"""
     # -- counters & designations (wave 3E): the Ring's fourth ability (701.54c) --
@@ -1956,24 +2019,27 @@ def dealt_combat_damage_to_player(plan: Plan, sources: list[CardInstance]) -> No
         if plan.manual(card):
             continue
         ch = plan.ch(card)
+        # (wave 43A: the damage it triggered on — the players it hit — for a trigger multiplier that names it: Felix Five-Boots, 603.2d)
+        dealt = TriggerEvent(kind="deal_combat_damage_player", count=1, combat=True, players=list((hit or {}).get(card.id, [])),
+                             objects=[ObjectRef(card=card.id, object_id=plan.oid(card), zone=card.zone)])
         for i, d in abilities(plan, ch, "combat_damage_player_self"):
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
-                 index=i, definition=d)
+                 index=i, definition=d, cause=dealt)
         # -- static_other sweep (wave 17C) -- cipher 702.99a: "Whenever this creature deals combat damage to a player, you may copy the
         # encoded card and you may cast the copy without paying its mana cost." — one ability for each card encoded on it
         for k, oid in enumerate(plan.rules.exiled_with.get("cipher:" + plan.oid(card), [])):  # (recursion.CIPHER)
             enc = plan.state.cards.get(oid.rsplit(".", 1)[0])
             if enc is not None and enc.zone.endswith(":exile") and plan.oid(enc) == oid and not enc.face_down:
-                _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=7000 + k,
+                _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=7400 + k,  # (wave 43A: not 7000, a delayed trigger's — the creature's own ability, which a trigger multiplier multiplies)
                      definition={"kind": "triggered", "trigger": "cipher", "optional": True, "target": None, "effects": [
                          {"do": "copy_cards", "who": f"exiled_card:{oid}", "as": "e0"},
-                         {"do": "free_cast", "zone": "that", "who": "ref:e0", "filter": None, "optional": True, "mv": None, "n": 1}]})
+                         {"do": "free_cast", "zone": "that", "who": "ref:e0", "filter": None, "optional": True, "mv": None, "n": 1}]}, cause=dealt)
         if plan.oid(card) in plan.rules.renowned:
             continue
         for k, n in enumerate(_keyword_n(ch, "renown")):
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
                  index=4100 + k, definition={"kind": "triggered", "trigger": "renown", "optional": False, "target": None,
-                                             "effects": [{"do": "renown", "n": n}]})
+                                             "effects": [{"do": "renown", "n": n}]}, cause=dealt)
 
 
 def attacked(plan: Plan, attackers: list[CardInstance]) -> None:
@@ -2000,6 +2066,8 @@ def _exalted(plan: Plan, alone: CardInstance) -> None:
     """702.83: "Whenever a creature you control attacks alone, that creature gets +1/+1 until end of
     turn" — once for each instance of exalted among permanents its controller controls."""
     target = f"object:{plan.oid(alone)}"
+    # (wave 43A: the attack it triggered on, for a trigger multiplier that names a creature attacking — Isshin, 603.2d)
+    attack = TriggerEvent(kind="attack", count=1, objects=[ObjectRef(card=alone.id, object_id=plan.oid(alone), zone=alone.zone)])
     for card in list(plan.state.cards.values()):
         if not card.zone.endswith(":battlefield") or card.controller != alone.controller or plan.manual(card):
             continue
@@ -2010,7 +2078,7 @@ def _exalted(plan: Plan, alone: CardInstance) -> None:
         for i in range(n if "exalted" in ch.keywords else 0):
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
                  index=2000 + i, definition={"kind": "triggered", "trigger": "exalted", "optional": False, "target": None,
-                                             "effects": [{"do": "pump", "who": target, "p": 1, "t": 1}]})
+                                             "effects": [{"do": "pump", "who": target, "p": 1, "t": 1}]}, cause=attack)
 
 
 def apnap(plan: Plan) -> list[str]:

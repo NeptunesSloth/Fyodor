@@ -667,6 +667,9 @@ class TriggerEvent(BaseModel):
     # -- X from the triggering object (wave 34C) -- 107.3a: the X a cycling cost was announced with ("When you cycle this card, create an X/X
     # …"); None for any other event (a cast trigger reads its spell's payment record: triggers.cast_x)
     x: int | None = None
+    # -- trigger multipliers (wave 43A) -- 120.2: damage events: whether the damage was combat damage (None: not a damage event / not recorded); read by the
+    # "dealing combat damage to a player" multiplier (trigger_multipliers.py)
+    combat: bool | None = None
 
 
 class PendingTrigger(BaseModel):
