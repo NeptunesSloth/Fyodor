@@ -2899,17 +2899,22 @@ def _find_ability(ch: Characteristics, index: int) -> AbilityText:
 CYCLING = re.compile(r"^(?P<kind>(?:basic )?(?:[a-z]+)?)cycling (?P<cost>(\{[^}]+\})+)$", re.IGNORECASE)
 
 
-def hand_ability(ch: Characteristics, index: int) -> tuple[str, str] | None:
-    """A cycling keyword on ability line ``index``: (kind, mana cost). kind "" = plain cycling,
-    "basic land" / "Swamp" / "Wizard" … = typecycling (search for that card)."""
+def hand_abilities(ch: Characteristics, index: int) -> list[tuple[str, str]]:
+    """The cycling keywords on ability line ``index``: (kind, mana cost) each. kind "" = plain cycling,
+    "basic land" / "Swamp" / "Wizard" … = typecycling (search for that card). -- keywords (wave 50H) -- one line may have several
+    ("Mountaincycling {2}, forestcycling {2}", 702.29e: each is an ability of its own)."""
     for ab in ch.abilities:
         if ab.index != index or ab.kind != "keywords":
             continue
-        m = CYCLING.fullmatch(ab.text.strip().rstrip("."))
-        if m:
-            kind = m["kind"].strip()
-            return (kind if kind.lower() != "basic land" else "basic land"), m["cost"]
-    return None
+        found = [CYCLING.fullmatch(p) for p in re.split(r",\s*", ab.text.strip().rstrip("."))]
+        if found and all(found):
+            return [((k if (k := m["kind"].strip()).lower() != "basic land" else "basic land"), m["cost"]) for m in found if m]
+    return []
+
+
+def hand_ability(ch: Characteristics, index: int) -> tuple[str, str] | None:
+    """The (first) cycling keyword on ability line ``index``: (kind, mana cost)."""
+    return next(iter(hand_abilities(ch, index)), None)
 
 
 # -- refused zones/sized (wave 3R4) -- 702.53a transmute: "[Cost], Discard this card: Search your library for a card
@@ -2950,10 +2955,16 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
     if (transmuting := transmute_cost(ch, a.ability)) is not None:  # -- refused zones/sized (wave 3R4) --
         transmute(plan, card, ch, a, transmuting)
         return
-    found = hand_ability(ch, a.ability)
-    if found is None:
+    pieces = hand_abilities(ch, a.ability)
+    if not pieces:
         raise ActionError("That card has no ability to use from your hand")
-    kind, mana_text = found
+    kind, mana_text = pieces[0]
+    if len(pieces) > 1:  # -- keywords (wave 50H) -- 702.29e: "Mountaincycling {2}, forestcycling {2}": the ability activated is announced first (601.2b)
+        if _first_alt(plan, "cycling"):
+            raise ActionError("Cycle it by hand while an effect lets you pay {0} for the first cycling each turn: Fyodor can't ask both choices yet")
+        if _equip_side(plan, card, ch, a, [c for _, c in pieces], cycling=True, labels=[f"{k}cycling {c}".capitalize() for k, c in pieces]) is None:
+            return  # waiting for the choice
+        kind, mana_text = pieces[int(next(c.cards[0] for c in a.cost_choices if c.component == costs.EITHER_SLOT and c.cards)[7:])]
     if _first_alt(plan, "cycling") and mana_text != "{0}":  # -- first activation (wave 48D) -- 118.9: "You may pay {0} rather than pay the cycling cost of the first card you cycle each turn" (typecycling too, 702.29f)
         side = _equip_side(plan, card, ch, a, [mana_text, "{0}"], cycling=True)  # (601.2b: announced before the cost is determined)
         if side is None:
@@ -4198,7 +4209,8 @@ def _activated(plan: Plan, act: str) -> None:
     plan.rules.once_per_turn[f"activated:{plan.actor}:{act}"] = plan.state.turn.number
 
 
-def _equip_side(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, sides: list[str], cycling: bool = False) -> str | None:
+def _equip_side(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, sides: list[str], cycling: bool = False,
+                labels: list[str] | None = None) -> str | None:
     """-- cast keywords (wave 43D) -- 601.2b: the cost the activator announced for an equip ability that lets them pay one of several ("{2} or {B}",
     "Pay {3} or discard a card"; 702.6a, 118.3: a side that can't be paid can't be chosen), or None while they're asked. What is public decides whether one is
     offered (mana, the permanents, the counters): a side that discards a card from the hand is always offered, so that no omission tells the table what the
@@ -4229,7 +4241,7 @@ def _equip_side(plan: Plan, card: CardInstance, ch: Characteristics, a: A.Activa
         a.cost_choices = [*a.cost_choices, A.CostChoice(component=costs.EITHER_SLOT, cards=[f"either:{offered[0]}"])]
         return sides[offered[0]]
     decide(plan, player=plan.actor, kind="choose_cards", prompt=f"{ch.name or 'It'}: choose the cost of its {'cycling' if cycling else 'equip'} ability (601.2b), or none to cancel",
-           options=[DecisionOption(id=f"either:{i}", label=sides[i]) for i in offered], min_choices=0, max_choices=1,
+           options=[DecisionOption(id=f"either:{i}", label=(labels or sides)[i]) for i in offered], min_choices=0, max_choices=1,
            resume={"step": "ability_cost", "component": costs.EITHER_SLOT, "amount": 1, "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},
            source=card)
     return None

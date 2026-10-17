@@ -572,7 +572,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
 
         return flashback_parts(line) is not None
     if kw.endswith("cycling"):
-        return _MANA_CYCLING.fullmatch(line.strip().rstrip(".").lower()) is not None
+        return all(_MANA_CYCLING.fullmatch(p) for p in line.strip().rstrip(".").lower().split(", "))  # (wave 50H: "Mountaincycling {2}, forestcycling {2}")
     return kw in SUPPORTED_KEYWORDS
 
 

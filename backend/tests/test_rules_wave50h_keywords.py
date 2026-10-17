@@ -119,6 +119,53 @@ def test_thief_knife_grants_the_trigger_and_the_type(cards):
     check(s)
 
 
+# -- Two typecycling abilities on one line (702.29e) --------------------------------------------------------------
+def test_valley_rannet_is_full(cards):
+    assert level(cards, "Valley Rannet") == "FULL"
+
+
+def start_cycling(s):
+    rannet = to_hand(s, "Valley Rannet")
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=rannet.id, ability=0)  # "Mountaincycling {2}, forestcycling {2}"
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and [o.label for o in d.options] == ["Mountaincycling {2}", "Forestcycling {2}"]  # announced first (601.2b)
+    return rannet, d
+
+
+def finish_cycling(s):
+    d = None
+    for _ in range(8):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.kind == "choose_cards"
+    return d
+
+
+@pytest.mark.parametrize("side,found", [("either:0", "Mountain"), ("either:1", "Forest")])
+def test_the_ability_chosen_searches_for_its_own_land_type(cards, side, found):
+    s = build(cards, ["Valley Rannet", "Mountain"])
+    rannet, d = start_cycling(s)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[side])
+    assert zone_of(s, "Valley Rannet") == "p1:graveyard"  # discarded as the cost is paid (702.29a)
+    d = finish_cycling(s)
+    assert {s.state.cards[o.id].name for o in d.options} == {found}  # only the type of the cycling ability that was activated
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    settle(s)
+    assert [c.name for c in s.state.cards.values() if c.zone == "p1:hand"] == [found]
+    check(s)
+
+
+def test_cancelling_the_choice_leaves_the_card_in_hand(cards):
+    s = build(cards, ["Valley Rannet", "Mountain"])
+    rannet, d = start_cycling(s)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[])
+    assert zone_of(s, "Valley Rannet") == "p1:hand" and s.state.players["p1"].mana == {"C": 2}
+    check(s)
+
+
 # -- Cleave (702.148a) ------------------------------------------------------------------------------------------
 @pytest.mark.parametrize("name", ["Path of Peril", "Alchemist's Retrieval"])
 def test_cleave_cards_are_full(cards, name):
