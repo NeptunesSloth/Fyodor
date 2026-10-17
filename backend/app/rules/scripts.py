@@ -8282,7 +8282,7 @@ def _spell_counters(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
         n = {"an": 1, "one": 1, "two": 2, "three": 3}[m["n"]]
     else:
         n = None
-    if n is None:
+    if n is None or "spent" in json.dumps(n):  # (mana spent to cast "it" would be read for the ability's source, not the spell: Wildgrowth Archaic stays manual)
         raise _NoMatch
     return [{"do": "spell_rider", "who": "event_spell", "n": n, "riders": [{"kind": "counter"}]}], None
 

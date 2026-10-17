@@ -30,7 +30,7 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import activate, settle, to_phase
+from tests.test_rules_wave34b_activated import activate, next_turn, settle, to_phase
 from tests.wave9c_kit import build, card_named, check, mana, pt, put, to_hand, zone_of
 from tests.wave44c_kit import ch
 
@@ -304,4 +304,32 @@ def test_fang_returns_once_as_a_spirit(cards):
     assert now.zone == "p1:battlefield" and "Spirit" in ch(s, now).subtypes and "Dragon" in ch(s, now).subtypes
     kill(s, now, "Murder", B=2, C=1)
     assert zone_of(s, FANG) == "p1:graveyard"  # a Spirit now: it stays dead
+    check(s)
+
+
+# ---- 201.2: "target permanent not named Clever Conjurer" (a card found by the same suffix as Tiamat's; legal targets) ---------------------------
+def test_not_named_leaves_out_every_permanent_with_the_source_name(cards):
+    conjurer = "Clever Conjurer"
+    s = build(cards, [conjurer, "Grizzly Bears"], [conjurer])
+    mine = put(s, conjurer)
+    theirs = put(s, conjurer, "p2")
+    bears = put(s, "Grizzly Bears")
+    next_turn(s)  # (no summoning sickness)
+    for wrong in (mine, theirs):
+        with pytest.raises(ActionError):
+            activate(s, "p1", mine, "Untap", targets=[wrong.id])
+    activate(s, "p1", mine, "Untap", targets=[bears.id])
+    settle(s)
+    assert s.state.cards[mine.id].tapped
+    check(s)
+
+
+# ---- Whelming Wave: "except for Krakens, Leviathans, Octopuses, and Serpents" on a spell ---------------------------------------------------------------------------------------
+def test_whelming_wave_returns_all_but_the_listed_kinds(cards):
+    s = build(cards, ["Whelming Wave"], ["Merfolk of the Pearl Trident", "Grizzly Bears"])
+    put(s, "Merfolk of the Pearl Trident", "p2")
+    put(s, "Grizzly Bears", "p2")
+    mana(s, U=2, R=2)
+    cast_from(s, "Whelming Wave")
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:hand" and zone_of(s, "Merfolk of the Pearl Trident", "p2") == "p2:hand"  # (Merfolk is not on this list)
     check(s)
