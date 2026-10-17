@@ -29,7 +29,7 @@ KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w46a", number=f"A{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 PUNK, OBOSH = "Spider-Punk", "Obosh, the Preypiercer"
-FULL = [PUNK, OBOSH, "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained", "Edgewalker", "Ragemonger", "Morophon, the Boundless", "Eluge, the Shoreless Sea", "Jared Carthalion, True Heir", "Momo, Friendly Flier", "Kadena, Slinking Sorcerer", "Kaza, Roil Chaser", "Maelstrom Muse", "Ghired, Conclave Exile"]
+FULL = [PUNK, OBOSH, "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained", "Edgewalker", "Ragemonger", "Morophon, the Boundless", "Eluge, the Shoreless Sea", "Jared Carthalion, True Heir", "Momo, Friendly Flier", "Kadena, Slinking Sorcerer", "Kaza, Roil Chaser", "Maelstrom Muse", "Ghired, Conclave Exile", "Doc Aurlock, Grizzled Genius"]
 
 
 @pytest.fixture()
@@ -429,4 +429,28 @@ def test_ghired_populates_a_token_that_enters_tapped_and_attacking(cards):
     assert len(rhinos) == 2
     assert sorted(c.tapped for c in rhinos) == [False, True]  # the copy came in tapped (the first Rhino stayed home)
     assert life(s, "p2") == 40 - 2 - 4  # Ghired (2) and the copy of the Rhino (4), which attacked Bob without being declared as an attacker
+    check(s)
+
+
+# ---- 702.170a, 118.7a: Doc Aurlock ------------------------------------------------------------------------------------------------------------------
+DOC = "Doc Aurlock, Grizzled Genius"
+
+
+def test_doc_aurlock_takes_two_off_the_plot_cost(cards):
+    s = build(cards, [DOC, "Highway Robbery"], [])
+    put(s, DOC)
+    robbery = to_hand(s, "Highway Robbery")
+    mana(s, R=1)  # Plot {1}{R}, {2} less on the generic part
+    act(s, "p1", type="activate_ability", card_id=robbery.id, ability=1)
+    assert s.state.cards[robbery.id].zone == "p1:exile"
+    check(s)
+
+
+def test_plotting_costs_its_full_price_without_doc_aurlock(cards):
+    s = build(cards, [DOC, "Highway Robbery"], [])
+    robbery = to_hand(s, "Highway Robbery")
+    mana(s, R=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=robbery.id, ability=1)
+    assert s.state.cards[robbery.id].zone == "p1:hand"
     check(s)

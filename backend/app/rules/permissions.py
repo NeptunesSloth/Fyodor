@@ -644,6 +644,9 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[m["who"]]
         delta = int(m["n"]) * (-1 if m["dir"] == "less" else 1)
         return {"kind": "static", "static": "cost_modifier", "delta": delta, "caster": caster, "filter": key, "effects": []}
+    m = re.fullmatch(r"plotting cards from your hand costs \{(?P<n>\d+)\} less", t)  # -- cant restrictions (wave 46A) -- 702.170a, 118.7a: the plot cost (Doc Aurlock, Grizzled Genius)
+    if m:
+        return {"kind": "static", "static": "ability_cost_modifier", "delta": -int(m["n"]), "filter": None, "who": "you", "floor": False, "plot": True, "effects": []}
     m = EQUIP_COST.fullmatch(t)
     if m:
         return {"kind": "static", "static": "ability_cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1),
@@ -1475,6 +1478,8 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
         if d["who"] == "you" and src.controller != player:
             continue
         if d.get("equip") and not attachments.is_equip_text(ability_text):  # -- equip (wave 15E) --
+            continue
+        if bool(d.get("plot")) != (ability_text == "plot"):  # -- cant restrictions (wave 46A) -- plotting is a special action (116.2k): only plot changers touch its cost, and they touch nothing else
             continue
         if d["filter"]:
             view = view or _view(state, player, info)
