@@ -13,6 +13,7 @@ from tests.test_rules_wave34b_activated import attack, next_turn, settle, to_pha
 from tests.test_rules_wave50e_prevent import cards  # noqa: F401  (the fixture)
 from tests.wave9c_kit import build, check, mana, put, to_hand
 
+
 @pytest.mark.parametrize("guard", ["Veteran Bodyguard", "Weathered Bodyguards"])
 def test_a_bodyguard_takes_the_damage_of_an_unblocked_creature(cards, guard):  # noqa: F811
     s = build(cards, ["Hill Giant"], [guard])

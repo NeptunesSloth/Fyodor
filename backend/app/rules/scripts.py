@@ -3043,6 +3043,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # damage to each blue creature." (Tropical Storm), "~ deals 2 damage to each attacking creature and 1 damage to you and each creature you control." (Hail Storm): two instructions of one source, in order (608.2c)
     body = re.sub(r"(~ deals (?:\d+|X) damage to each [^.]+?) and (?:an additional (\d+)|(\d+) additional|(\d+)) damage to ((?:you and )?each [^.]+?)\.",
                   lambda m: f"{m[1]}. ~ deals {m[2] or m[3] or m[4]} damage to {m[5]}.", body)
+    # -- damage wordings (wave 50E) -- "~ deals 1 damage to any target, 2 damage to another target, and 3 damage to a third target." (Cone of Flame), "… 2 damage to target creature, 3 damage to another target
+    # creature, and 4 damage to a third target creature." (Serpentine Spike): three targets chosen as it is cast (115.1, 601.2c), each different from the others, then one damage instruction each, in order (608.2c)
+    body = re.sub(r"(~ deals) (\d+) damage to (any target|target [a-z ]+?), (\d+) damage to another target( [a-z ]+?)?, and (\d+) damage to a third target( [a-z ]+?)?(?=\.)",
+                  lambda m: f"{m[1]} {m[2]} damage to {m[3]}. ~ deals {m[4]} damage to another target{m[5] or ''}. ~ deals {m[6]} damage to another target{m[7] or ''}", body)
     # -- card names (wave 49C) -- "If that card has the chosen name, that player puts it into their hand. If it doesn't, the player puts it into their graveyard." (Petra Sphinx): the "Otherwise" of that condition
     body = re.sub(r"(\bIf that card has the chosen name, [^.]+\.) If it doesn't, the player puts it into their graveyard\.", r"\1 Otherwise, that player puts it into their graveyard.", body)
     # -- tokens (wave 47D) -- "Create a white and black Spirit enchantment creature token. It has "This creature's power and toughness are each equal to …"" (Daxos): nothing
