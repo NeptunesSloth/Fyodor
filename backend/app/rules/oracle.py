@@ -126,6 +126,8 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
         return ("partner",)
     if re.fullmatch(r"flashback—.+", line.strip(), re.IGNORECASE):  # -- static_other sweep (wave 16B) -- 702.34a: "Flashback—{1}{U}, Pay 3 life."
         return ("flashback",)  # (one keyword: the comma is inside its cost)
+    if re.fullmatch(r"devour x, where x is the number of creatures devoured this way", line.strip(), re.IGNORECASE):  # -- keyword mechanics (wave 48B) -- Thromok: one keyword (app/rules/devour.py)
+        return ("devour",)
     if re.fullmatch(r"enchant [^;]+", line.strip(), re.IGNORECASE):  # -- layers (wave 22A) -- 702.5a: "Enchant creature, land, or planeswalker" is one keyword
         return ("enchant",)  # (the commas list what it may enchant)
     if re.fullmatch(r"ward—[^;]+", line.strip(), re.IGNORECASE):  # -- static_other sweep (wave 17C) -- "Ward—{2}, Pay 2 life." (one cost of two parts)
@@ -295,6 +297,12 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
             lines[i:i + 1] = [f"When this permanent enters, sacrifice it unless you exile another {m[1]} you control.",
                               "When this permanent leaves the battlefield, return the exiled card to the battlefield under "
                               "its owner's control."]
+    # -- any number as an additional cost (wave 48B) -- 603.12: "As an additional cost to cast this spell, you may sacrifice one or more creatures. When you do, copy this spell for each
+    # creature sacrificed this way." (Plumb the Forbidden) is the cost and a trigger of the spell on being cast (601.2i), which only exists if something was sacrificed
+    if spell:
+        for i, line in enumerate(lines):
+            if m := re.fullmatch(r"(As an additional cost to cast this spell, you may sacrifice one or more (creature)s)\. When you do, copy this spell for each \2 sacrificed this way\.", line):
+                lines[i:i + 1] = [f"{m[1]}.", f"When you cast this spell, if you sacrificed one or more {m[2]}s this way, copy it for each {m[2]} sacrificed this way."]
     # -- static_other sweep (wave 16B) -- 702.113a: "Awaken N—[cost]" means "You may cast this spell for [cost]" and "If you cast this spell for
     # its awaken cost, put N +1/+1 counters on target land you control. That land becomes a 0/0 Elemental creature with haste. It's still a
     # land." The cost is the keyword line's (casting: CastSpell.awaken); the effect is read as the spell's own "if kicked" line (the same

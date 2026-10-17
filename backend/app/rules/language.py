@@ -619,6 +619,10 @@ def _with_rider(text: str) -> tuple[str, Any]:
     m = re.search(r",? where [xX] is (.+)$", text)  # (Oracle writes X; the lowercase form is the older tests')
     if m:
         return text[: m.start()], ("x", _rider_value(m[1]))
+    # -- any number as an additional cost (wave 48B) -- "loses 2 life plus 2 life for each Spirit sacrificed this way" (Devouring Greed): the first amount, and the second counted
+    m = re.fullmatch(r"(.+? \d+ life) plus (?:an additional )?(\d+) life for each (.+)", text)
+    if m:
+        return m[1], ("plus", (int(m[2]), _rider_value(m[3])))
     m = re.search(r" for each (.+)$", text)
     if m:
         return text[: m.start()], ("each", _rider_value(m[1]))
@@ -653,6 +657,8 @@ def _rider_value(phrase: str) -> Any:
         return _stat(phrase)
     if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
         return tw
+    if (mult := re.fullmatch(r"(?:twice|(?P<k>two|three|four) times) (?P<v>the number of .+ this way)", phrase)) is not None and (tw := this_way.parse(mult["v"])) is not None:
+        return {"times": [values.NUMBERS[mult["k"]] if mult["k"] else 2, tw]}  # (wave 48B: Corpseweft, "twice the number of cards exiled this way")
     v = values.parse_count(phrase, it="it")
     if v is None:
         v = values.target_relative(phrase)  # -- value grammar (wave 23C) -- "creature target opponent controls": scripts._value_targets
@@ -682,6 +688,8 @@ def _apply(n: Any, rider: Any) -> Any:
         if n != {"x": 1}:
             raise _Fail  # "where X is" with no X in the sentence
         return v
+    if kind == "plus":  # (wave 48B: n, and k more for each v)
+        return {"plus": [n, v[1] if v[0] == 1 else {"times": [v[0], v[1]]}]}
     return v if n == 1 else {"times": [n, v]}
 
 

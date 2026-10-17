@@ -31,6 +31,8 @@ _QUALITY_WORD = {None: "creature", "land": "land", "artifact": "artifact", "food
 def pieces(line: str) -> list[tuple[str | None, int]]:
     """The devour instances of a keyword line: (quality or None for creatures, N)."""
     out = []
+    if re.fullmatch(r"devour x, where x is the number of creatures devoured this way", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".").lower()):
+        return [(None, 0)]  # (wave 48B: Thromok, "X" is how many were sacrificed: that many counters for each of them, 702.82a; N 0 stands for it)
     for p in re.split(r"[,;]\s*", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".")):
         m = _PIECE.fullmatch(p.strip().lower())
         if m:
@@ -110,7 +112,7 @@ def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, An
     options = [DecisionOption(id=c, label=f"Sacrifice {plan.state.cards[c].name or word}", card_id=c)
                for c in candidates(plan, card, controller, quality, {*(choice.get("reserved") or ()), *already})]
     options.append(DecisionOption(id=DONE, label=f"Done: sacrifice {len(already)}" if already else "Don't sacrifice any"))
-    return (f"{card.name}: devour {n} — as it enters, sacrifice {word}s? ({len(already)} chosen)", options)
+    return (f"{card.name}: devour {n or 'X'} — as it enters, sacrifice {word}s? ({len(already)} chosen)", options)
 
 
 def sacrifice(plan: Plan, ep: dict[str, Any], controller: str) -> None:
@@ -122,13 +124,15 @@ def sacrifice(plan: Plan, ep: dict[str, Any], controller: str) -> None:
 
     live = [c for c in ids if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")
             and plan.state.cards[c].controller == controller]
+    was = {c: plan.oid(c) for c in live}  # (wave 48B: the answer then names the objects they were, 702.82b: "the Goblins it devoured" reads them as they last existed)
     _sacrifice_cards(plan, live, controller)
-    gone = [c for c in live if c not in plan.state.cards or not plan.state.cards[c].zone.endswith(":battlefield")]
+    gone = [was[c] for c in live if c not in plan.state.cards or not plan.state.cards[c].zone.endswith(":battlefield")]
     ep.setdefault("choices", {})[WHAT] = ",".join(gone) + ("," if gone else "") + DONE
     if gone:
-        plan.note(f"{plan.name(controller)} devours {len(gone)} as it enters", gone)
+        plan.note(f"{plan.name(controller)} devours {len(gone)} as it enters", [o.rsplit(".", 1)[0] for o in gone])
 
 
 def counters(ch: Any, choices: dict[str, str] | None) -> int:
     found = spec(ch)
-    return found[1] * len(picked((choices or {}).get(WHAT))) if found is not None else 0
+    n = len(picked((choices or {}).get(WHAT)))
+    return (found[1] or n) * n if found is not None else 0  # (Thromok: N 0, X is how many were sacrificed)

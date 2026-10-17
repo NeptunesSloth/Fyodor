@@ -817,6 +817,7 @@ class PaymentRecord(BaseModel):
     revealed: list[str] = Field(default_factory=list)  # -- static_other sweep (wave 17C) -- cards revealed from the hand to pay ("the revealed card's …")
     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
     exiled_objects: list[str] = Field(default_factory=list)  # -- as long as (wave 37A) -- the objects they became in exile (400.7j: "this card" finds that one)
+    exiled_was: list[str] = Field(default_factory=list)  # (wave 48B: and the objects they were, "the number of cards exiled this way" of an activation cost)
     returned: list[str] = Field(default_factory=list)  # permanents returned to hand to pay
     # -- keywords (wave 15E) -- ninjutsu 702.49c: what each returned attacking creature was attacking (player or permanent id)
     returned_attacking: dict[str, str] = Field(default_factory=dict)
@@ -1106,6 +1107,7 @@ class RulesState(BaseModel):
     # id -> {"color": "Blue"}), consumed by the entry (614.12a)
     entry_choices: dict[str, dict[str, str]] = Field(default_factory=dict)
     devoured: dict[str, int] = Field(default_factory=dict)  # -- keyword mechanics (wave 9D) -- object -> permanents it devoured (702.82b)
+    devoured_ids: dict[str, list[str]] = Field(default_factory=dict)  # (wave 48B: and the objects they were, for "the Goblins it devoured": their last known information, 608.2h)
     buyback: list[str] = Field(default_factory=list)  # stack objects cast with buyback
     dashed: list[str] = Field(default_factory=list)
     bestowed: list[str] = Field(default_factory=list)  # -- keywords (wave 15E) -- bestowed Aura spells / permanents (702.103b)

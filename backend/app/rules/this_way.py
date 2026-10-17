@@ -31,6 +31,9 @@ What counts (CR 2026-09-25):
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DecisionOption
@@ -53,6 +56,7 @@ _PHRASE = re.compile(
     r"|put into (?P<gy>a|your|their|its owner's|that player's|their owners') graveyards?|died|that died) this way$")
 _NOUN_ONLY = re.compile(r"^(?:cards?)$")
 _GREATEST = re.compile(r"^the greatest number of cards a player (?P<verb>discarded|milled) this way$")
+_TOTAL = re.compile(r"^the total (?P<stat>power|toughness) of the (?P<verb>sacrificed|tapped) (?P<what>.+)$")
 
 
 def parse(phrase: str) -> dict[str, Any] | None:
@@ -60,11 +64,16 @@ def parse(phrase: str) -> dict[str, Any] | None:
     graveyard this way" / "creatures you controlled that were destroyed this way" → the placeholder,
     or None (not this grammar, or a form that isn't read: a player-relative "they controlled")."""
     p = phrase.strip()
+    if (total := _TOTAL.match(p)) is not None and (sel := selectors.parse(total["what"])) is not None and sel.player is None:  # -- any number as an additional cost (wave 48B) -- Corpse Cobble
+        return {"this_way": total["verb"], "of": sel.key(), "stat": total["stat"]}  # ("the total power of the sacrificed creatures": as each last existed, 608.2h)
     most = _GREATEST.match(p)
     if most is not None:  # Windfall: "the greatest number of cards a player discarded this way" (each player's own)
         return {"this_way": most["verb"], "of": None, "max_by": "owner"}
     p = re.sub(r"^the number of ", "", p)
-    if (types := re.fullmatch(r"card types? among (cards? .+ this way)", p)) is not None:  # -- if you do (wave 44A) -- "a card for each card type among cards discarded this way" (Kefka)
+    if (dv := re.fullmatch(r"(?P<what>.+?) (?:it|~) devoured", p)) is not None and not re.fullmatch(r"creatures?", dv["what"]) \
+            and (sel := selectors.parse(dv["what"])) is not None and sel.player is None:  # -- keyword mechanics (wave 48B) -- 702.82b: "twice the number of Goblins it devoured" (Voracious
+        return {"this_way": "sacrificed", "of": sel.key(), "ref_count": DEVOURED}  # Dragon): the permanents its devour sacrificed as it entered, as they last existed (608.2h)
+    if (types :=re.fullmatch(r"card types? among (cards? .+ this way)", p)) is not None:  # -- if you do (wave 44A) -- "a card for each card type among cards discarded this way" (Kefka)
         inner = parse(types[1])
         return {**inner, "distinct": "types"} if inner is not None and inner.get("of") is None else None
     m = _PHRASE.match(p)
@@ -243,6 +252,28 @@ def verbs(kind: str) -> tuple[str, ...]:
     return _VERBS[kind]
 
 
+# -- any number as an additional cost (wave 48B) -- 601.2h: "As an additional cost to cast this spell, sacrifice any number of creatures. Target creature gets +2/+2 until end of turn for each
+# creature sacrificed this way.": no instruction of the spell sacrificed them, its cost did. The verbs of the spell's any-number cost (read while its text is defined) bind to the payment record.
+COST = "cost"
+DEVOURED = "devoured"
+_PAID: ContextVar[frozenset[str]] = ContextVar("paid_kinds", default=frozenset())
+_PAID_VERBS = {"SACRIFICE": "sacrificed", "TAP_OTHER": "tapped", "EXILE_FROM_GRAVEYARD": "exiled", "EXILE_FROM_HAND": "exiled"}
+
+
+def paid() -> frozenset[str]:
+    return _PAID.get()
+
+
+@contextmanager
+def paid_by(cost: Any) -> Iterator[None]:
+    """The verbs of the any-number parts of ``cost`` (a spell's additional cost, or an activated ability's cost), while its text is read."""
+    token = _PAID.set(frozenset(_PAID_VERBS[c.kind] for c in cost.components if c.anyn and c.kind in _PAID_VERBS) if cost is not None else frozenset())
+    try:
+        yield
+    finally:
+        _PAID.reset(token)
+
+
 def bind(v: Any, find: Any) -> Any:
     """Rewrite every placeholder in a value with the binding ``find(kinds)`` names (None: unbound →
     raises LookupError, the line stays manual)."""
@@ -251,7 +282,7 @@ def bind(v: Any, find: Any) -> Any:
     if not isinstance(v, dict):
         return v
     if "this_way" in v and "ref_count" not in v:
-        name = find(_VERBS[v["this_way"]])
+        name = find(_VERBS[v["this_way"]]) or (COST if v["this_way"] in _PAID.get() else None)
         if name is None:
             raise LookupError(v["this_way"])
         return {**v, "ref_count": name}
@@ -298,6 +329,13 @@ def count(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     match the qualifier): see the module docstring. ``max_by: "owner"``: the most any one player had (a
     discarded or milled card is its owner's: 701.9a, 701.17a)."""
     found = _matched(plan, ctx, v)
+    if v.get("stat"):  # -- any number as an additional cost (wave 48B) -- "the total power of the sacrificed creatures": each as it is, or as it last existed (608.2h)
+        from app.game.rules_state import ObjectRef
+        from app.rules import context
+        from app.rules.triggers import _snapshot_card
+
+        got = [_still_there(plan, was) or (_snapshot_card(plan, snap) if (snap := context.snapshot(plan, ObjectRef.model_validate(was))) else None) for _, was in found]
+        return max(0, sum(int(getattr(ch, v["stat"]) or 0) for g in got if g for ch in (g[1],)))  # (107.1b: a total below 0 is 0)
     if v.get("distinct"):  # "card types among cards discarded this way": the different types the cards have where they went (205.2a)
         from app.rules import values
 
@@ -342,12 +380,29 @@ def _still_there(plan: Plan, was: dict[str, Any]) -> tuple[Any, Any] | None:
     return card, plan.ch(card)
 
 
+def cost_objects(plan: Plan, ctx: dict[str, Any], source: str, kind: str) -> dict[str, Any]:
+    """-- any number as an additional cost (wave 48B) -- what the spell's cost sacrificed or tapped, from its payment record (a copy has the original's, 707.10); or what the
+    source devoured as it entered (702.82b)."""
+    sid = ctx.get("stack_id")
+    record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    if record is None and src is not None and src.zone == "stack":  # a cast trigger of the spell itself (601.2i): its cost's record
+        record = plan.rules.payments.get(plan.oid(src))
+    if kind == "exiled":  # (the cards it exiled are in exile now, new objects: 400.7j)
+        pairs = [] if record is None else list(zip(record.exiled_objects, record.exiled_was, strict=False))
+        news = [{"card": o.rsplit(".", 1)[0], "object_id": o, "zone": f"{plan.state.cards[o.rsplit('.', 1)[0]].owner}:exile"} for o, _ in pairs if o.rsplit(".", 1)[0] in plan.state.cards]
+        return {"objects": news, "was": [{"card": w.rsplit(".", 1)[0], "object_id": w, "zone": None} for o, w in pairs if o.rsplit(".", 1)[0] in plan.state.cards]}
+    oids = plan.rules.devoured_ids.get(ctx.get("source_object") or "", []) if source == DEVOURED else \
+        [] if record is None else record.sacrificed_objects if kind == "sacrificed" else record.tapped_objects
+    return {"objects": [{"card": o.rsplit(".", 1)[0], "object_id": o, "zone": None} for o in oids]}
+
+
 def _matched(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     from app.game.rules_state import ObjectRef
     from app.rules import context
     from app.rules.triggers import _snapshot_card  # (triggers imports effects, which imports values → this)
 
-    b = (ctx.get("refs") or {}).get(v["ref_count"]) or {}
+    b = cost_objects(plan, ctx, v["ref_count"], v["this_way"]) if v["ref_count"] in (COST, DEVOURED) else (ctx.get("refs") or {}).get(v["ref_count"]) or {}
     news = b.get("objects") or []
     wases = b.get("was") or news
     you = ctx["controller"]
