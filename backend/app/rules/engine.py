@@ -992,7 +992,14 @@ def resolve_top_of_stack(plan: Plan) -> None:
     if aura_target is not None and not manual and plan.state.cards[top_id].zone.endswith(":battlefield"):
         attachments.attach(plan, top_id, aura_target.id, controller)  # 303.4f: it enters attached to its target
     if entering:
-        replacements.after_entry(plan, top_id, controller, x=x, choices=ep.get("choices"), extra_counters=rider.get("counters"))
+        counters = rider.get("counters")
+        paid = plan.rules.payments.get(plan.oid(top_id))
+        if paid is not None and paid.alternative == "impending" and not manual:  # -- cast keywords (wave 43D) -- 702.176a: "it enters with N time counters on it"
+            from app.rules import alt_costs
+
+            if (n_time := alt_costs.impending_n(ch)) is not None:
+                counters = {**(counters or {}), "time": (counters or {}).get("time", 0) + n_time}
+        replacements.after_entry(plan, top_id, controller, x=x, choices=ep.get("choices"), extra_counters=counters)
         permissions.gain_on_entry(plan, top_id, controller, rider)
     if top_id in plan.rules.evoked:  # 702.74a: "When this permanent enters, if its evoke cost was paid, its controller sacrifices it."
         plan.rules.evoked = [c for c in plan.rules.evoked if c != top_id]
@@ -1517,6 +1524,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a
     "gift": gift.resume,  # -- gift (wave 23D) -- 702.174a
     "free_optional": casting.resume_free_optional,  # -- free-cast optional costs (wave 41D) -- 118.9d, 601.2b
+    "free_x": casting.resume_free_x,  # -- cast keywords (wave 43D) -- 107.3a: the X of a kicker or miracle cost paid on a free cast
     "slot": permissions.resume_slot,  # -- cast permissions (wave 30Q) -- Muldrotha: which permanent type a cast uses up
     "legend_rule": sba.resume_legend_rule,
     "graveyard_order": graveyard_order.resume,  # -- graveyard order (wave 40C) -- 404.3

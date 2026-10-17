@@ -81,4 +81,16 @@ def saddled_effect(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"saddled": saddled_effect}
+def saddle_it(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """-- trigger other (wave 44B) -- "Whenever a Mount you control enters, it becomes saddled until end of turn." (Kolodin): the designation 702.171b, whichever
+    way a permanent gets it; one no longer on the battlefield can't."""
+    from app.rules.effects import _cards
+
+    for cid in _cards(plan, ctx, e["who"]):
+        card = plan.state.cards.get(cid)
+        if card is not None and card.zone.endswith(":battlefield"):
+            became_saddled(plan, card)
+    return True
+
+
+PRIMITIVES = {"saddled": saddled_effect, "saddle_it": saddle_it}

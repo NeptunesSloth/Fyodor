@@ -278,6 +278,20 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
             usable = [c for c in candidates(plan, comp, player, card) if c not in _reserved(cost, comp, card)]
             if len(usable) < objects_needed(comp, x) and not comp.up_to:  # (X / one permanent for its counters: wave 4H)
                 return f"You can't pay “{comp.text}”" + withheld(plan, comp, player, card)
+    # -- cast keywords (wave 43D) -- a part paid more than once (a kicker / squad / replicate cost paid twice, escalate's) takes its energy and its
+    # objects once for each time (118.3: no partial payments); each object pays one part only (choose)
+    energy_total = sum(energy_amount(c, x) for c in cost.components if c.kind == C.PAY_ENERGY)
+    if energy_total > plan.state.players[player].resources.get("energy", 0):
+        return f"You don't have {energy_total} energy to pay"
+    same: dict[tuple[str, str | None], list[CostComponent]] = {}
+    for comp in cost.components:
+        if comp.selector is not None and not comp.up_to and comp.kind in (C.SACRIFICE, C.DISCARD, C.EXILE_FROM_GRAVEYARD, C.RETURN_PERMANENT,
+                                                                         C.TAP_OTHER):
+            same.setdefault((comp.kind, comp.selector), []).append(comp)
+    for group in same.values():
+        if len(group) > 1 and len([c for c in candidates(plan, group[0], player, card) if c not in _reserved(cost, group[0], card)]) \
+                < sum(objects_needed(c, x) for c in group):
+            return f"You can't pay “{group[0].text}” {len(group)} times"
     return None
 
 
@@ -286,7 +300,7 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, cost: 
     None while waiting for the payer's (private) choice. Each object pays for one part only."""
     given: dict[int, list[str]] = {}
     for c in a.cost_choices:
-        if c.component == C.EITHER_SLOT and isinstance(a, A.CastSpell):  # -- static wordings (wave 6E) -- (either_costs)
+        if c.component == C.EITHER_SLOT and isinstance(a, A.CastSpell | A.ActivateAbility):  # -- static wordings (wave 6E) -- (either_costs; wave 43D: equip)
             continue
         if c.component in given:
             raise ActionError("Choose the objects for each part of the cost once")

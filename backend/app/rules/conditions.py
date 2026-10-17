@@ -678,6 +678,12 @@ def _prowl(m: re.Match[str]) -> Condition:
     return {"history": "prowl"}  # -- static_other sweep (wave 17C) -- prowl, 702.76a (history._prowl)
 
 
+@_history_pattern(r"a player was dealt combat damage this turn by a creature that, at the time it dealt that damage, was an assassin creature or a commander "
+                  r"under your control")
+def _freerunning(m: re.Match[str]) -> Condition:
+    return {"history": "freerunning"}  # -- cast keywords (wave 43D) -- freerunning, 702.173a (history._freerunning)
+
+
 @_history_pattern(r"you attacked(?: with a creature)? this turn")
 def _attacked(m: re.Match[str]) -> Condition:
     return {"history": "attacked"}  # 508.1: declared attackers; 508.4: a creature put onto the battlefield attacking never "attacked"
@@ -1307,6 +1313,8 @@ def _object(t: str) -> Condition | None:
         if det is None and re.fullmatch(r"(?:non)?(?:basic|legendary|snow)", what):  # -- damage wordings (wave 6B) --
             det = re.match(r"(?P<rest>.+)", what + " permanent")  # "If that land was nonbasic": a supertype (205.4)
         sel = selectors.parse(det["rest"]) if det else None
+        if what == "all colors":  # -- trigger other (wave 44B) -- 105.2: "If that spell was all colors" (Jenson Carthalion): all five of them
+            sel = selectors.Selector(extras=("all_colors:WUBRG",))
         if (sel is None or sel.player is not None or sel.zone_owner is not None or sel.controller is not None
                 or sel.owner is not None or sel.zones not in (("battlefield",), ())):
             return None  # (a test of the object's characteristics, wherever it is: no zone or player relation)

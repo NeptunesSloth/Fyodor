@@ -29,7 +29,8 @@ def wanted(cond: dict[str, Any] | None) -> bool:
     """A condition whose event pairs this object with a creature on the other side."""
     if not cond:
         return False
-    return bool(cond.get("other")) or (cond.get("event") == "deal_damage" and cond.get("to") == "creature")
+    # (-- trigger other (wave 44B) -- "deals combat damage to a planeswalker, destroy that planeswalker": the planeswalker dealt damage, 120.1)
+    return bool(cond.get("other")) or (cond.get("event") == "deal_damage" and cond.get("to") in ("creature", "planeswalker"))
 
 
 def antecedent(cond: dict[str, Any] | None, body: str) -> str | None:

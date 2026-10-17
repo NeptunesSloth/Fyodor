@@ -297,6 +297,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"players_attacked": 1}  # Food token for each player being attacked" (Apothecary White): the players some creature is attacking now (506.2, 506.6; not a player whose planeswalker or battle is attacked — Commander Liara Portyr's ruling of 2022-06-10, Suppressor Skyguard's of 2024-02-02)
     if re.fullmatch(r"times? (?:it|he|she|~|this (?:spell|creature|permanent|enchantment|artifact|land|planeswalker)) (?:was|were) kicked", what):
         return {"kicked": 1}  # (wave 23C: plural and "he"/"she"/"this permanent": 702.33d, a permanent remembers how its spell was kicked)
+    if what in ("times that spell was kicked", "time that spell was kicked"):  # -- cast keywords (wave 43D) -- Rumbling Aftershocks: the cast trigger's spell (its record, 702.33d)
+        return {"kicked": 1, "of": "cast_spell"}
     if what in ("times this creature has mutated", "times ~ has mutated", "times this permanent has mutated", "time this creature has mutated"):  # -- merged permanents (wave 18D)
         return {"mutated": 1}  # (702.140: how many spells merged with it)
     if what in ("creature it devoured", "creature ~ devoured"):  # -- keyword mechanics (wave 9D) -- 702.82b
@@ -320,6 +322,9 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"life": "target"}
     if what in ("the highest life total among your opponents", "the greatest life total among your opponents"):
         return {"life": "opponent_max"}
+    m = re.fullmatch(r"(?:the number of )?(?P<c>white|blue|black|red|green) mana symbols? in that spell's mana cost", what)
+    if m:  # -- trigger other (wave 44B) -- Namor the Sub-Mariner: the symbols of that color in the mana cost of the spell a cast trigger is about (202.1, 107.4e hybrid counts for each color)
+        return {"cast_symbols": _COLOR_WORDS[m["c"]]}
     m = re.fullmatch(r"(?P<c>white|blue|black|red|green) mana symbols? (?:in|among) the mana costs? of permanents you control", what)
     if m:  # -- value grammar (wave 23C) -- 700.5: that IS devotion (chroma)
         return {"devotion": [_COLOR_WORDS[m["c"]]]}
@@ -372,6 +377,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
             return None
         return {"counters": m["kind"], "on": on}
     m = _AMONG.match(what)
+    if m and m["sel"] in ("spells you've cast this turn", "spells you have cast this turn") and _DISTINCT[m["kind"]] == "types":
+        return {"cast_types": "you"}  # -- trigger other (wave 44B) -- April O'Neil: the card types of this turn's cast spells, as they were cast (601.2i, history.CastNote)
     if m:
         key = _selector_key(m["sel"])
         return {"distinct": _DISTINCT[m["kind"]], "among": key} if key else None
@@ -624,6 +631,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "neg" in v:
         return 0  # a negative result of an effect is zero (107.1b); the sign is evaluate_signed's
     if "kicked" in v:
+        if v.get("of") == "cast_spell":  # -- cast keywords (wave 43D) -- "the number of times that spell was kicked" (702.33d): the spell a cast trigger is about
+            from app.rules import context
+
+            refs = context._object_refs(ctx, context.EVENT)
+            record = plan.rules.payments.get(refs[0].object_id) if refs else None
+            return record.kicked if record is not None else 0
         return kicked_count(plan, ctx)
     if "mutated" in v:  # -- merged permanents (wave 18D) --
         from app.rules import merged
@@ -696,6 +709,17 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         where = ctx.get("source_card") if not sel.other and any(x.startswith(("samename_src", "nosamename_src", "samename_exiled_with")) for x in sel.extras) \
             else _other_than(ctx)
         return sum(1 for c in selectors.candidates(plan, sel, you, where) if c not in away)
+    if "cast_symbols" in v:  # -- trigger other (wave 44B) -- the spell the trigger is about, on the stack (a cast trigger resolves with it still there or as it was)
+        from app.rules import context
+
+        refs = context._object_refs(ctx, context.EVENT)
+        card = plan.state.cards.get(refs[0].card) if refs else None
+        cost = plan.ch(card).mana_cost if card is not None else ""
+        return sum(1 for sym in re.findall(r"\{([^}]+)\}", cost or "") if v["cast_symbols"] in sym.split("/"))
+    if "cast_types" in v:  # -- trigger other (wave 44B) -- 205.2a: the different card types among the spells you cast this turn (a spell of two types counts both)
+        from app.rules import history
+
+        return len({"Kindred" if t == "Tribal" else t for n in history.log_for(plan).casts if n.player == ctx["controller"] for t in n.types if t in CARD_TYPES})
     if "spells_cast" in v:  # -- sized amounts (wave 3D) -- "the number of spells you've cast this turn"
         from app.rules import context
 
@@ -959,6 +983,8 @@ def _relative(plan: Plan, ctx: dict[str, Any], v: Any) -> int:
     if v["relative"] == "counters":  # -- counters (wave 26D) -- "for each +1/+1 counter on it" (122.1): counters on the object modified
         return sum(n for k, n in card.counters.items() if v["kind"] in ("any", k))
     mine = plan.ch(card)
+    if v["relative"] == "bushido":  # -- counters (wave 44C) -- 702.45a: "for each point of bushido it has": the sum of its bushido abilities' numbers (each instance counts)
+        return sum(int(n) for a in mine.abilities if "bushido" in a.keywords for n in re.findall(r"(?i)bushido (\d+)", a.text))
     if v["relative"] == "mana_value":  # -- attached events (wave 20A) -- 202.3: the object modified (a creature's X is 0 on the battlefield)
         from app.rules.stack_interaction import mana_value
 

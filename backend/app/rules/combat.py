@@ -752,7 +752,10 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
             if could(b, x, joined=joined(b, x)):
                 return f"{b.name} blocks {x.name} this turn if able"
     for x in att:
-        if x.id in per_attacker or "must_be_blocked" not in scripts.statics(plan.ch(x)):
+        # -- counters (wave 44C) -- 509.1c: "~ must be blocked by two or more creatures if able" (Gorm the Great): blocked by one is short while another creature could join it
+        two = "must_be_blocked_two" in scripts.statics(plan.ch(x))
+        have = per_attacker.get(x.id, 0)
+        if (have and not two) or have >= 2 or not ("must_be_blocked" in scripts.statics(plan.ch(x)) or two):
             continue
         # creatures free to block it: idle ones, and ones blocking an attacker that needn't be blocked
         # (-- review (wave 7R) -- 509.1c: not one whose own requirement that block obeys: "blocks each combat if able" or
@@ -766,9 +769,9 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
         free = idle + spare + [state.cards[d.blocker_id] for d in a.blocks
                                if state.cards[d.blocker_id] not in spare
                                and "must_be_blocked" not in scripts.statics(plan.ch(state.cards[d.attacker_id])) and not obeying(d)]
-        able = [b for b in free if could(b, x, joined=len(free))]
-        if len(able) >= min_blockers(plan.ch(x)):
-            return f"{x.name} must be blocked if able"
+        able = [b for b in free if x.id not in used.get(b.id, []) and could(b, x, joined=len(free))]  # (wave 44C: not one already blocking it)
+        if len(able) >= (1 if have else min_blockers(plan.ch(x))):
+            return f"{x.name} must be blocked {'by two or more creatures ' if have else ''}if able"
     return None
 
 
@@ -816,7 +819,11 @@ def _assigns(card: CardInstance, ch: Characteristics) -> int | None:
     creature assigns combat damage equal to its toughness rather than its power", Doran: the rule assign_toughness)."""
     if "assign_none" in ch.imposed:  # -- no combat damage (wave 19E) -- "assigns no combat damage this turn"
         return 0
-    return toughness(card, ch) if "assign_toughness" in ch.imposed else power(card, ch)
+    if "assign_toughness" in ch.imposed:
+        return toughness(card, ch)
+    # -- counters (wave 44C) -- 510.1a: "assigns combat damage as though its power were positive" (Loot, the Anomaly): only the amount assigned changes, not its power; a toughness-based assignment wins
+    p = power(card, ch)
+    return abs(p) if p is not None and "assign_abs_power" in ch.imposed else p
 # -- end damage wordings (wave 6B) --
 
 

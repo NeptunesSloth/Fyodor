@@ -127,7 +127,10 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
         trigger_multipliers,  # -- static_other sweep (wave 16B) -- "Creatures entering don't cause abilities to trigger"
     )
 
-    if trigger_multipliers.suppressed(plan, event if event is not None else cause, controller):
+    src = plan.state.cards.get(source_card)  # (review 37: Elesh Norn stops only the abilities of permanents)
+    permanent = index not in (trigger_multipliers.DELAYED, trigger_multipliers.REFLEXIVE, trigger_multipliers.MADNESS) and src is not None \
+        and src.zone.endswith(":battlefield") and plan.oid(src) == source_object
+    if trigger_multipliers.suppressed(plan, event if event is not None else cause, controller, permanent):
         return None
     if definition.get("if_kicked"):  # 603.4: "When ~ enters, if it was kicked, …" (702.33e)
         record = plan.rules.payments.get(source_object)
@@ -410,7 +413,9 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         # caster cast this turn, the zone it was cast from, its targets (115.9b), whether it was kicked
         nth = e.amount or r.spells_this_turn(e.player or "", plan.state.turn.number)
         paid = r.payments.get(plan.oid(spell))  # (review 23D: a promised gift / awaken is read as "kicked" by the spell's own text only:
-        kicked = bool(entry is not None and entry.kicked and not (paid is not None and (paid.gift_to or paid.alternative == "awaken" or any(  # (30E: bargain)
+        # (-- cast keywords (wave 43D) -- a permanent spell has no stack entry: its payment record says how often it was kicked)
+        kicks = entry.kicked if entry is not None else paid.kicked if paid is not None else 0
+        kicked = bool(kicks and not (paid is not None and (paid.gift_to or paid.alternative == "awaken" or any(  # (30E: bargain)
             x.endswith(":bargain") for x in paid.additional))))
         info = {"oid": plan.oid(spell), "actor": e.player, "nth": nth, "from": window["cast_from"].get(spell.id),  # 702.33d, 702.174k)
                 "opponent_turn": plan.active != e.player, "kicked": kicked,
@@ -788,6 +793,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
         if cond.get("first_each_turn") and not info.get("first"):
             return False
+        if cond.get("defending_player") == "you":  # -- trigger other (wave 44B) -- 508.5: "if you're the defending player" (a battle you protect included)
+            from app.rules import defending
+
+            if obj is None or defending.defended(plan, obj) != you:
+                return False
     if event == "dealt_damage" and cond.get("combat") is not None and bool(info.get("combat")) != cond["combat"]:
         return False
     if event == "dealt_damage" and cond.get("excess") and int(info.get("excess") or 0) <= 0:  # -- trigger damage (wave 39B) -- 120.10: it was dealt excess damage
@@ -939,6 +949,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 (to == "planeswalker" and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_pw" and recipient is None and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_battle" and recipient is None and not info.get("recipient_battle")) or \
+                (to == "its_owner" and (recipient is None or obj is None or recipient != obj.owner)) or \
                 (to == "self" and info.get("other") != watcher.id) or \
                 (to == "players" and recipient is None) or (to == "opponents" and (recipient is None or recipient == you)) or \
                 (to == "creatures" and not info.get("recipient_creature")) or \

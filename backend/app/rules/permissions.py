@@ -432,7 +432,7 @@ def spell_filter(phrase: str | None, tail: str | None = None) -> str | None:
         return None
     kinds = sum(bool(x) for x in (sel.types, sel.subtypes, sel.colors, sel.supertypes, sel.not_types, sel.colorless))
     # (-- cost changers (wave 20E) -- "red or green creature": any of those colors, and the type: the colors are one list, 105.1)
-    colors_then_type = re.fullmatch(r"(?:white|blue|black|red|green)(?:(?: or|,) (?:white|blue|black|red|green))+ [a-z]+", text, re.I)
+    colors_then_type = re.fullmatch(r"(?:white|blue|black|red|green)(?:(?: or|,) (?:white|blue|black|red|green))+ (?:instant or sorcery|[a-z]+)", text, re.I)  # (wave 44C: Wort, "red or green instant or sorcery")
     if re.search(r"\bor\b|,", text) and not sel.union and kinds > 1 and not (colors_then_type and len(sel.colors) > 1 and sel.types):
         return None  # "red or creature" can't be one selector: a list of one kind only
     return sel.key()
@@ -1169,6 +1169,11 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                     continue  # -- conditional statics (wave 4B) -- "as long as you control a Zombie"
                 out.append(Grant("permission", f"{ch.name}: cast it from {'exile' if where == 'exile' else 'your graveyard'}", once_key=key if d["once"] else None,
                                  extra=d.get("extra") or "", exile=bool(d.get("exile"))))
+    if verb == "cast" and where == "graveyard" and card.owner == player and not card.face_down:  # -- static_other (wave 44C) -- 702.133a: jump-start a static gave it (Niv-Mizzet, Supreme)
+        from app.rules import zone_grants
+
+        if zone_grants.jump_start(state, player, card, ch, info):
+            out.append(Grant("permission", f"{ch.name}: cast it from your graveyard (jump-start)", extra="discard a card", exile=True))
     if verb == "play" and where == "graveyard" and card.owner == player:  # -- Marvel keywords (wave 25A) -- 702.187c: a bare "Mayhem"
         from app.rules import mayhem
 

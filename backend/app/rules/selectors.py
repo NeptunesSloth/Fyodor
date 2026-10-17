@@ -324,6 +324,16 @@ def _drawn_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "drawn_this_turn"))
 
 
+@_suffix(r"with one or more (?P<c>white|blue|black|red|green) mana symbols? in its mana cost")  # -- trigger other (wave 44B) -- Namor the Sub-Mariner: 202.1, 107.4e
+def _with_color_symbols(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "cost_symbol:" + COLORS[m["c"]]))
+
+
+@_suffix(r"with a legendary Equipment attached to it")  # -- trigger other (wave 44B) -- Kassandra, Eagle Bearer: 301.5, an Equipment attached to it that is legendary
+def _with_legendary_equipment(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "legendary_equipped"))
+
+
 # -- both colors (wave 6D) -- "a spell that's both red and white" (the Mimics): each of the colors (105.2)
 @_suffix(r"that['’]s both (?P<c1>" + "|".join(COLORS) + r") and (?P<c2>" + "|".join(COLORS) + r")")
 def _thats_both(s: Selector, m: re.Match[str]) -> Selector:
@@ -430,6 +440,11 @@ def _toughness_over_power(s: Selector, m: re.Match[str]) -> Selector:
 @_suffix(r"(?:that(?:['’]s| are) )?attacking you")  # (wave 17D: also plural / bare)
 def _attacking_you(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_you"))
+
+
+@_suffix(r"that['’]s exactly two colors")
+def _exactly_two_colors(s: Selector, m: re.Match[str]) -> Selector:  # (wave 44C: Niv-Mizzet, Supreme) 105.2: two of the five colors, no more and no fewer
+    return replace(s, extras=(*s.extras, "two_colors"))
 
 
 @_suffix(r"that(?:['’]s| is| are) (?P<list>(?:" + "|".join(COLORS) + r")(?:, (?:" + "|".join(COLORS) + r"))*(?:,? or (?:" + "|".join(COLORS) + r"))?)")
@@ -667,7 +682,8 @@ def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
 # creatures with decayed": read from the object's keywords, like the others)
 _WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "horsemanship", "intimidate", "skulk", "convoke",
                   "modular", "toxic", "mutate", "awaken", "cascade", "flanking",  # (wave 39A: "all attacking creatures with flanking", Telim'Tor)
-                  "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk")  # (wave 26A: "creatures with plainswalk")  # (wave 21D: "a spell with cascade")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
+                  "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk",
+                  "doctor's companion")  # (wave 44B: "creature spell with doctor's companion", Rose Noble)  # (wave 26A: "creatures with plainswalk")  # (wave 21D: "a spell with cascade")  # (wave 20C: toxic/mutate/awaken; wave 19D: "each creature you control with modular": a printed keyword line; level up is rewritten into
 # an activated ability and statics by app/rules/levelers.py, so it is no keyword of the object and stays unread)
 
 
@@ -679,6 +695,11 @@ def _with_kw(s: Selector, m: re.Match[str]) -> Selector:
 @_suffix(r"with (?:a )?(?:cycling|cycling abilit(?:y|ies))")  # -- reanimation (wave 20C) -- 702.29f: typecycling abilities are cycling abilities (wave 32C: "a cycling ability", Rooting Moloch)
 def _with_cycling(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "cycling_ability"))
+
+
+@_suffix(r"with (?:a )?kicker abilit(?:y|ies)")  # -- cast keywords (wave 43D) -- 702.33: "a kicker ability" includes the multikicker variant (702.33c; Coralhelm Chronicler's ruling)
+def _with_kicker(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "kicker_ability"))
 
 
 @_suffix(r"with (?:an? morph ability|morph abilities)")  # -- hidden exile (wave 18A) -- 702.37b: megamorph is a morph ability too
@@ -1773,10 +1794,17 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     for extra in sel.extras:
         if extra == "not_event" and card.id == attacker:  # (wave 23B) the event's own object (``attacker``: attacker_of)
             return False
+        if extra == "two_colors" and len(ch.colors) != 2:  # (wave 44C)
+            return False
         if extra == "enchanted" and not _has_attached(plan, card, "Aura"):
             return False
         if extra == "equipped" and not _has_attached(plan, card, "Equipment"):
             return False
+        if extra.startswith("cost_symbol:") and extra[12:] not in {x for sym in re.findall(r"\{([^}]+)\}", ch.mana_cost or "") for x in sym.split("/")}:
+            return False  # (wave 44B)
+        if extra == "legendary_equipped" and not any(c.attached_to == card.id and "Equipment" in plan.ch(c).subtypes and "Legendary" in plan.ch(c).supertypes
+                                                     for c in plan.state.cards.values()):
+            return False  # (wave 44B)
         if extra == "enchanted_by_yours" and not any(c.attached_to == card.id and "Aura" in plan.ch(c).subtypes and c.controller == you
                                                      for c in plan.state.cards.values()):
             return False  # (wave 32B)
@@ -1878,6 +1906,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "morph_ability" and not {"morph", "megamorph"} & ch.keywords:
             return False
         if extra == "cycling_ability" and not any(k.endswith("cycling") for k in ch.keywords):  # (wave 20C)
+            return False
+        if extra == "kicker_ability" and not {"kicker", "multikicker"} & ch.keywords:  # (wave 43D)
             return False
         if extra == "unblocked" and card.id in plan.rules.blocked:  # (wave 15E) a blocked attacker stays blocked
             return False

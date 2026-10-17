@@ -257,6 +257,7 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
                 log.facts[-1].source_types, log.facts[-1].source_supertypes = what["types"], what["supertypes"]
                 log.facts[-1].source_subtypes = what["subtypes"]  # (wave 17C: prowl, 702.76a)
                 log.facts[-1].source_controller = obj.controller if obj is not None else None
+                log.facts[-1].source_commander = obj is not None and obj.commander_key is not None  # (wave 43D: freerunning, 702.173a; 903.3)
             elif kind == "deal_damage" and info.get("other_oid") and log.facts and log.facts[-1].kind == "damaged" \
                     and log.facts[-1].object_id == info["other_oid"] and log.facts[-1].source == info.get("oid"):
                 # -- trigger damage (wave 39B) -- its source, as it was as it dealt that damage to a permanent (608.2i): "a Giant, Wizard, or spell you
@@ -644,6 +645,13 @@ def _prowl(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) 
                and types & set(f.source_subtypes) for f in log.facts)
 
 
+def _freerunning(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
+    """-- cast keywords (wave 43D) -- 702.173a: a player was dealt combat damage this turn by a creature that, at the time it dealt that damage, was
+    an Assassin creature or a commander under your control (the source as it was then, 608.2i: it may be gone now — Eagle Vision's ruling)."""
+    return any(f.kind == "damage" and f.combat and f.amount > 0 and f.source_controller == ctx["controller"]
+               and (f.source_commander or ("Creature" in f.source_types and "Assassin" in f.source_subtypes)) for f in log.facts)
+
+
 def _departed(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
     """Permanents that left the battlefield (or died, 700.4) this turn, as they last existed there (608.2i, 603.10a)."""
     from app.rules import selectors
@@ -687,6 +695,7 @@ _WAVE_4D: dict[str, Any] = {
     "facts": _facts_holds,
     "damage": _damage,
     "prowl": _prowl,
+    "freerunning": _freerunning,  # (wave 43D)
     "source_damage": lambda plan, ctx, cond, log: _source_damage(ctx, cond, log),  # (wave 42B)
     "object": _object_history,  # (wave 33D)
     "cast_nth": _cast_nth,  # (wave 33D)

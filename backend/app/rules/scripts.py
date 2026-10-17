@@ -329,6 +329,24 @@ def self_text(text: str, name: str) -> str:
     # opens a sentence of the spell, "When ~ enters, if the gift was promised, …" is the permanent's intervening "if"
     out = re.sub(r"(?:^|(?<=\. ))If the gift was promised, ", "If this spell was kicked, ", out)
     out = re.sub(r"\bif the gift was promised, ", "if it was kicked, ", out)
+    # -- trigger other (wave 44B) -- Amalia: "~ explores. Then destroy all other creatures if its power is exactly 20." is "Then if ~'s power is exactly 20, destroy …"
+    # (608.2c: the condition is read as that part is carried out, after the explore's counter); "you may put a creature card and/or a land card from your hand onto the
+    # battlefield" (Michelangelo) is up to one of each, two optional puts
+    out = re.sub(r"(?<=~ explores\. )Then (destroy all other creatures) if its (power is exactly \d+)\.", r"Then if ~'s \2, \1.", out)
+    out = re.sub(r"(?<=combat damage to a player, )you may put an? (creature|land) card and/or an? (creature|land) card from your hand onto the battlefield\b",
+                 r"you may put a \1 card from your hand onto the battlefield. You may put a \2 card from your hand onto the battlefield", out)
+    # -- trigger other (wave 44B) -- 102.2: with no teams every other player is an opponent, so "you and another target player each draw a card" (Splinter) is "you and
+    # target opponent each draw"; "destroy target permanent an opponent controls. They create a Treasure token." (Vraska): "they" is the player who controlled it
+    out = re.sub(r"\byou and another target player each draw a card\b", "you and target opponent each draw a card", out)
+    out = re.sub(r"(destroy target permanent an opponent controls\.) They create a Treasure token\.", r"\1 Its controller creates a Treasure token.", out)
+    # -- trigger other (wave 44B) -- Namor the Sub-Mariner: "that many" is the number of those mana symbols in the cast spell's mana cost
+    out = re.sub(r"(with one or more (\w+) mana symbols in its mana cost, create) that many ([^.]+? tokens)\.",
+                 r"\1 X \3, where X is the number of \2 mana symbols in that spell's mana cost.", out)
+    # -- trigger other (wave 44B) -- Daredevil: the permission to play the exiled card doesn't depend on the "If that card is a Hero card, ~ gets +2/+1" before it, and
+    # the permission reads no condition, so the pump goes last (608.2c: the card is still the exiled one)
+    out = re.sub(r"(If that card is an? \w+ card, ~ gets [^.]+\.) (You may play that card this turn\.)", r"\2 \1", out)
+    # -- trigger other (wave 44B) -- Rayne's 2004 ruling: "You may draw an additional card if ~ is enchanted." is checked as the ability resolves, a second optional draw
+    out = re.sub(r"(?<=\. )You may draw an additional card if ([^.,]+?)\.", r"If \1, you may draw a card.", out)
     # -- keywords (wave 30E) -- 702.166b: a bargained spell is read the same way (a bargain card has no kicker): casting.py records it as kicked
     out = re.sub(r"(?:^|(?<=\. ))If this spell was bargained, ", "If this spell was kicked, ", out)
     out = re.sub(r"\bif it was bargained, ", "if it was kicked, ", out)
@@ -408,7 +426,7 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
         return "event"  # (the enchanted creature as the step began: triggers.at_step_generic)
     cond = cond or {}
     event = cond.get("event")
-    if cond.get("other") or (event == "deal_damage" and cond.get("to") == "creature"):
+    if cond.get("other") or (event == "deal_damage" and cond.get("to") in ("creature", "planeswalker")):  # (wave 44B: a planeswalker)
         # "… becomes blocked by a creature, destroy that creature" / "… deals damage to a creature,
         # exile that creature": the creature on the other side, which the event doesn't name
         return None
@@ -1633,6 +1651,13 @@ def _return_any(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 @effect(r"counter (?P<sel>target spell|target creature spell|target noncreature spell|target instant or sorcery spell)")
 def _counter(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "counter", "who": "target"}], SELECTORS[m["sel"]]
+
+
+@effect(r"counter each spell (?:you don't control|your opponents control)")
+def _counter_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    # -- cast keywords (wave 43D) -- 702.96a: "Counter target spell you don't control" read with "each" (Counterflux, overloaded): every spell on the stack
+    # that isn't its controller's (no targets, 702.96b)
+    return [{"do": "counter", "who": "each_opponent_spell"}], None
 
 
 @effect(r"counter (?P<sel>target spell|target creature spell|target noncreature spell|target instant or sorcery spell)"
@@ -3015,7 +3040,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = _loops.plain(body)  # -- loops and repeats (wave 24B) -- "draw a card and repeat this process"
     # (-- loops and repeats (wave 24B) -- "Target player reveals cards from the top of their library until they reveal a land card, then puts those
     # cards into their graveyard.": the revealed cards of that one library, all of them, are put into its owner's graveyard)
-    body = re.sub(r"(reveals cards from the top of their library until they reveal an? [^.,]+?), then puts those cards into their graveyard",
+    body = re.sub(r"(reveals cards from the top of their library until they reveal (?:an?|two|three|four|five|six|seven) [^.,]+?), then puts those cards into their graveyard",
                   r"\1. Put those cards into their graveyard", body)
     # -- trigger other (wave 41C) -- 110.2a: after a reveal-until, "Put that card onto the battlefield tapped under your control" (Sméagol) and "You put that card onto
     # the battlefield under your control and lose life equal to …" (Jhoira): put by you it is yours either way, so the words add nothing to "Put that card onto the battlefield"
@@ -3926,6 +3951,8 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
         payer = "it.controller"  # (wave 26D) "that creature's controller loses 2 life unless they pay {2}": they are that controller
     elif who in ("its controller", "that creature's controller") and whos == {"it"} and not groups:
         payer = "it.controller"  # -- unless pays (wave 26D) -- "destroy that creature unless its controller pays {2}": the trigger's object (resolve_it)
+    elif who == "that creature's controller" and it == "event" and whos == {"you"} and not groups:
+        payer = "it.controller"  # -- trigger other (wave 44B) -- "create a 3/3 Ogre token unless that creature's controller pays {3}" (Kazuul): the attacker's controller (resolve_it)
     elif who in ("its controller", "that creature's controller"):
         if "target" not in whos or not groups or group_player is not False:
             return None
@@ -4049,8 +4076,8 @@ def _kicked_sentence(m: re.Match[str], effects: list[dict[str, Any]], prev_start
     if restated is not None:
         found: tuple[list[dict[str, Any]], Any] | None = (restated, None)
     else:
-        if rest.startswith("it deals "):
-            rest = "~ deals " + rest[len("it deals "):]  # "If this spell was kicked, it deals …": the spell (wave 1B)
+        if rest.startswith(("it deals ", "it also deals ")):
+            rest = "~ " + rest[len("it "):]  # "If this spell was kicked, it deals …": the spell (wave 1B; wave 43D: "it also deals", Goblin Barrage)
         found = _clause(rest)
     if found is None or not found[0]:
         return None
@@ -4293,9 +4320,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         if d.get("kind") == "triggered" and d.get("trigger") == "event" and cond_.get("subject") == "sel" and not cond_.get("aggregate"):
             d = {**d, "effects": [json.loads(json.dumps(e, default=str).replace("shares_type_source", "shares_type_event")) if e.get("who") == "event" else e
                                   for e in d.get("effects") or []]}
+        # (-- counters (wave 44C -- "Whenever you cast a spell that shares a creature type with this creature" (Folk Hero's grant): the spell is matched with the watcher as its source)
         if "shares_type_source" in json.dumps(d, default=str) and not (
                 d.get("kind") == "activated" or d.get("kind") == "triggered" and (
-                    str(d.get("trigger", "")).endswith("_self") or cond_.get("subject") == "self")):
+                    str(d.get("trigger", "")).endswith("_self") or cond_.get("subject") == "self"
+                    or (cond_.get("event") == "cast" and cond_.get("subject") == "player" and "shares_type_source" not in json.dumps(d.get("effects"), default=str)))):
             return None
     if d is not None and d.get("kind") == "static" and "flanking" in str(d.get("who")) and any(str(g).lower() == "flanking" for g in d.get("grants") or []):
         return None  # -- trigger other (wave 39A) -- "Other creatures you control with flanking have flanking" (Cavalry Master) is another instance of it for each: triggers.flanking counts printed ones only
@@ -4433,6 +4462,13 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # that many +1/+1 counters on it." (Zimone, All-Questioning): "that many" is the prime number, how many lands you control as it resolves (608.2h)
     text = re.sub(r"(, if [^,]*? you control a prime number of lands, create [^.]+?, a legendary [^,.]*? token), then put that many (\+1/\+1) counters on it\.",
                   r"\1, then put a number of \2 counters on it equal to the number of lands you control.", text)
+    # -- counters (wave 44C) -- 510.1a: "Until end of turn, target creature you control assigns combat damage equal to its toughness rather than its power." (Bill the Pony) is "… this turn."
+    text = re.sub(r"(^|: )Until end of turn, ((?:target|each) [^,.]+? assigns combat damage equal to its toughness rather than its power)\.", r"\1\2 this turn.", text)
+    # -- counters (wave 44C) -- 205.3m, 702.93a: "…, it and other creatures you control that share a creature type with it each get +2/+0 and gain undying until end of turn." (Haunted One's
+    # grant): it, then each other creature of the group, each given both (one effect for each part)
+    text = re.sub(r"^((?:When|Whenever) ~ [^,]+?), it and other creatures you control that share a creature type with it each get ([+\-−]\d+/[+\-−]\d+) and gain (undying|persist) until end of turn\.$",
+                  r"\1, ~ gets \2 until end of turn. ~ gains \3 until end of turn. Each other creature you control that shares a creature type with ~ gets \2 until end of turn. "
+                  r"Each other creature you control that shares a creature type with ~ gains \3 until end of turn.", text)
     text = half_x(text) if "half X" in text else text  # -- X arithmetic (wave 34C) -- 107.1a
     # -- trigger other (wave 36A) -- 702.29c: "When you cycle this card, it deals 1 damage to each opponent" (Magmakin Artillerist, Resounding Thunder), "you may
     # have it deal 1 damage to each creature" (Slice and Dice): "it" is the cycled card itself, the ability's source, whichever zone it went to
@@ -4472,7 +4508,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return keyword_triggers.dynamic_x(text)
     if ability.kind == "spell" and SHUFFLE_INSTEAD_SELF.match(text):  # -- zone replacements (wave 22C) -- Nexus of Fate: a replacement line of a spell card
         return {"kind": "replacement", "replacement": "shuffle_instead", "from": "anywhere", "effects": []}
-    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",), ("sneak",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E; sneak: 30I)
+    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",), ("sneak",), ("freerunning",), ("impending",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E; sneak: 30I; freerunning, impending: 43D)
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(ability.text)
@@ -4720,6 +4756,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 # creature's toughness" / "… deals damage to a creature, …": the event's object (app/rules/other_side.py)
                 from app.rules import other_side
 
+                if cond is not None and cond.get("event") == "deal_damage" and cond.get("to") == "planeswalker":
+                    body = re.sub(r"\bthat planeswalker\b", "that permanent", body)  # -- trigger other (wave 44B) -- Zagras: the planeswalker dealt damage (other_side)
                 if cond is not None and other_side.wanted(cond) and cond.get("subject") == "host" and "that creature" not in body:
                     body = body.replace("the other creature", "that creature")  # (wave 11E: Venom, Mammoth Harness)
                 if cond is not None and cond.get("event") == "blocked" and cond.get("other"):  # -- trigger other (wave 39A) -- 509.3d: "the blocking creature"
@@ -4730,6 +4768,12 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     body = re.sub(r"^destroy (?:both creatures|that creature and ~)\.$", "destroy that creature. Destroy ~.", body)
                 if cond is not None and cond.get("event") in ("crew", "saddle", "either") and other_side.wanted(cond):
                     body = re.sub(r"\bthat (?:Mount or Vehicle|Vehicle|Mount)\b", "that creature", body)  # -- crew & saddle (wave 23D) -- the event's other object
+                from app.rules import defending as _defending
+
+                if cond is not None and _defending.per_player_attack(cond):
+                    # -- trigger other (wave 44B) -- 508.3e, 508.5: "Whenever one or more Warriors you control attack a player, target creature that player controls
+                    # becomes a Coward" is one trigger for each player attacked, and "that player" is that one (the event's defended player, defending.py)
+                    body = re.sub(r"\bthat player\b", "defending player", body)
                 if cond is not None and cond.get("event") == "you_attack":  # -- trigger sweep (wave 27B; review: an attack's own event only) --
                     body = re.sub(r"\b([Tt]hat|[Tt]he) attacking player\b", "that player", body)  # the event's player: the attacker (508.1)
                     # -- trailing & intervening ifs (wave 38A) -- "Whenever an opponent attacks, if they attacked you and/or a planeswalker you control, …"
@@ -4742,6 +4786,12 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     # -- trailing & intervening ifs (wave 38A) -- "attacks one of your opponents, if that player is the monarch" (M'Baku): "that player" is the
                     # one attacked (508.5), the event's ``defended``, whose designation is read again as it resolves (603.4)
                     body = "if defending player is " + body[len("if that player is "):]
+                if cond is not None and cond.get("event") == "attack" and cond.get("subject") == "sel" and not cond.get("aggregate") \
+                        and body.startswith("if you're the defending player, "):
+                    # -- trigger other (wave 44B) -- 508.5, Kazuul's 2023 ruling: you're the defending player when the creature attacks you, a planeswalker you
+                    # control or a battle you protect (defending.defended); that never changes while it attacks (a creature removed from combat keeps it),
+                    # so the intervening "if" (603.4) is part of the trigger event
+                    body, cond = body[len("if you're the defending player, "):], {**cond, "defending_player": "you"}
                 ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
                 if ante == "event" and cond is not None and not other_side.wanted(cond):  # -- this-turn state (wave 33D) -- Hixus: with no creature on
                     body = re.sub(r"\bexile that creature until ~ leaves the battlefield", "exile it until ~ leaves the battlefield", body)  # the other side,
@@ -5061,6 +5111,8 @@ def _event_refs_ok(d: Definition) -> bool:
     if any(e.get("do") == "free_cast" and (e.get("shares_type") or {"mana_value": "event"} in (e.get("mv"), e.get("mv_lt"))) for e in effects) \
             and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
         return False  # -- if you do (wave 40A) -- "a spell with equal or lesser mana value [that shares a card type with it]": the spell a cast trigger is about
+    if '"of": "cast_spell"' in raw and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
+        return False  # -- cast keywords (wave 43D) -- "the number of times that spell was kicked": the spell a cast trigger is about
     if '"before": true' in raw and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
         return False  # -- spell copies (wave 31D) -- "cast before it this turn": the spell a cast trigger is about
     if '"of": "roll"' in raw and not (ev is not None and ev["event"] == "roll_die"):
@@ -5264,6 +5316,21 @@ KEYWORD_TRIGGERS: dict[str, Definition] = {
 }
 
 
+@lru_cache(maxsize=1)
+def _impending_trigger() -> Definition | None:
+    """-- cast keywords (wave 43D) -- 702.176a: "At the beginning of your end step, if this permanent's impending cost was paid and it has a time counter on
+    it, remove a time counter from it." — the plain "if this permanent has a time counter on it" trigger with the cast record's fact added to its
+    intervening "if" (603.4: checked as it triggers and as it resolves)."""
+    ab = AbilityText(index=0, text="At the beginning of your end step, if this permanent has a time counter on it, remove a time counter from it.",
+                     kind="triggered")
+    d = define(ab, Characteristics(name="\u0000", abilities=(ab,), types=frozenset({"Creature"})))
+    if d is None or d.get("kind") != "triggered" or "if" not in d:
+        return None
+    paid = {"object": "self", "cast": {"alt": "impending"}}
+    return {**d, "if": {"all": [paid, d["if"]]}, "effects": [{**e, "cond": {"all": [paid, e["cond"]]}} if e.get("do") == "only_if" else e
+                                                            for e in d["effects"]]}
+
+
 def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
     """Triggered keyword abilities of a card, with keys that can't clash with ability indexes."""
     if ch.is_ability or ch.face_down:
@@ -5277,6 +5344,8 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
                 out.append((1000 + ab.index * 10 + k, KEYWORD_TRIGGERS[kw]))
             if kw in _kw_meanings.MEANINGS:  # -- static wordings (wave 6E) -- read as its CR meaning (app/rules/keyword_triggers.py)
                 out += [(1000 + ab.index * 10 + k + 100000 * j, d) for j, d in enumerate(_kw_meanings.first_piece(kw, ab.text, ab.keywords[:k].count(kw)))]
+            if kw == "impending" and (imp := _impending_trigger()) is not None:  # -- cast keywords (wave 43D) -- 702.176a: its fourth ability
+                out.append((1000 + ab.index * 10 + k, imp))
             if kw == "gift":  # -- gift (wave 23D) -- 702.174b: a permanent's enters trigger (an instant or sorcery: spell_definition)
                 from app.rules import gift
 
@@ -5793,6 +5862,12 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         return extra
     if (cant := cant_gain.static_definition(text)) is not None:  # "Players can't gain life." (614.17)
         return cant
+    from app.rules import (
+        designations,  # -- counters (wave 44C) -- "You gain life rather than lose life from radiation." (728.1a)
+    )
+
+    if (rad := designations.static_definition(text)) is not None:
+        return rad
     from app.rules import (
         dice,  # -- dice (wave 24B) -- "If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll."
     )
@@ -8032,7 +8107,7 @@ _CHOSEN["choose_one_of"] = "n"
 # end." (after an "add" instruction of the same ability: the mana it added, app/rules/kept_mana.py); "Until end of
 # combat, you don't lose this mana as steps end." (511.3: kept to the end of the end of combat step)
 @_first
-@effect(r"until end of (?P<u>turn|combat), you don't lose this mana as steps(?: and phases)? end")
+@effect(r"until end of (?P<u>turn|combat), (?:you|they) don't lose this mana as steps(?: and phases)? end")  # (wave 44B: "they", Shizuko, after "that player adds")
 def _keep_mana(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "keep_mana", "until": "end_of_turn" if m["u"] == "turn" else "end_of_combat"}], None
 
@@ -8173,6 +8248,16 @@ _CHOSEN["copy_cards"] = "n"
 # -- if you do (wave 5G) -- "Whenever a player casts a spell, if no mana was spent to cast it, counter that spell."
 # (Vexing Bauble, Boromir): the trigger event's spell (701.6a), while it is still that object on the stack (400.7;
 # effects.counter); only in a cast trigger (``_event_spell_ok``).
+@effect(r"each opponent who didn't draws a card")  # -- trigger other (wave 44B) -- Kynaios and Tiro of Meletis: after "Each player may put a land card from their hand onto the battlefield"
+def _opponents_who_didnt_draw(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "draw", "who": "put_none_opponents", "n": 1}], None
+
+
+@effect(r"it becomes saddled until end of turn")  # -- trigger other (wave 44B) -- Kolodin: the Mount that entered (702.171b)
+def _it_becomes_saddled(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "saddle_it", "who": "it"}], None
+
+
 @effect(r"counter that spell")
 def _counter_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "counter", "who": "event_spell"}], None
