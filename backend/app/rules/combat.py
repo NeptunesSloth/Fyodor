@@ -822,7 +822,8 @@ def _assigns(card: CardInstance, ch: Characteristics) -> int | None:
     if "assign_toughness" in ch.imposed:
         return toughness(card, ch)
     # -- counters (wave 44C) -- 510.1a: "assigns combat damage as though its power were positive" (Loot, the Anomaly): only the amount assigned changes, not its power; a toughness-based assignment wins
-    return abs(power(card, ch)) if "assign_abs_power" in ch.imposed else power(card, ch)
+    p = power(card, ch)
+    return abs(p) if p is not None and "assign_abs_power" in ch.imposed else p
 # -- end damage wordings (wave 6B) --
 
 

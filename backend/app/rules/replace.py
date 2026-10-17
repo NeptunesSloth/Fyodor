@@ -1669,7 +1669,9 @@ def source_info(plan: Plan, card_id: str | None, oid: str | None, ch: Any, contr
         ctrl, counters = card.controller, card.counters
     elif oid and oid in plan.rules.lki:
         ctrl, counters = plan.rules.lki[oid].controller, plan.rules.lki[oid].counters
-    from app.rules.history import log_for  # -- counters (wave 44C) -- "a creature you control that entered this turn" (Neriv): the source's object entered the battlefield this turn
+    from app.rules.history import (
+        log_for,  # -- counters (wave 44C) -- "a creature you control that entered this turn" (Neriv): the source's object entered the battlefield this turn
+    )
 
     soid = oid or (plan.oid(card) if card is not None else None)
     return {"card": card_id, "controller": ctrl, "spell": spell, "entered": soid is not None and any(e.object_id == soid for e in log_for(plan, False).entered),

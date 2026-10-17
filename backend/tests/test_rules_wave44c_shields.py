@@ -12,8 +12,8 @@ import pytest
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import settle, to_phase
-from tests.wave44c_kit import DATA, ch, life, open_cards
 from tests.wave9c_kit import build, card_named, check, put
+from tests.wave44c_kit import DATA, ch, life, open_cards
 
 
 @pytest.fixture()

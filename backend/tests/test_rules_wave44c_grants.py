@@ -15,8 +15,8 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, settle
-from tests.wave44c_kit import DATA, ch, life, open_cards
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_of
+from tests.wave44c_kit import DATA, ch, life, open_cards
 
 
 @pytest.fixture()

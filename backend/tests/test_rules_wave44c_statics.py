@@ -18,8 +18,8 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import attack, next_turn, settle, to_phase
+from tests.wave9c_kit import build, check, mana, put, to_hand
 from tests.wave44c_kit import DATA, ch, life, on_top, open_cards
-from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_of
 
 FULL = ["Wort, the Raidmother", "Weatherlight Compleated", "Neriv, Heart of the Storm", "Absorbing Man and Titania", "Strong, the Brutish Thespian",
         "Gorm the Great", "Loot, the Anomaly"]
