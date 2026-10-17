@@ -305,6 +305,26 @@ def test_ominous_cemetery_shuffles_the_creature_into_its_owners_library(cards):
     check(s)
 
 
+def test_bounty_agent_destroys_a_legendary_creature_but_cannot_target_a_nonlegendary_one(cards):
+    # 115.1, 205.4: "Destroy target legendary permanent that's an artifact, creature, or enchantment." - legendary AND one of the three types
+    s = build(cards, ["Bounty Agent"], ["Hill Giant"])
+    agent = put(s, "Bounty Agent")
+    giant = put(s, "Hill Giant", "p2")
+    act(s, "p2", type="create_token", player="p2", token={"name": "Hero", "type_line": "Token Legendary Creature — Human", "power": "2", "toughness": "2"})
+    hero = card_named(s, "Hero", "p2")
+    stops(s)
+    to_phase(s, "main1", turn=3)
+    with pytest.raises(ActionError):
+        activate(s, "p1", agent, targets=[giant.id])  # not legendary
+    activate(s, "p1", agent, targets=[hero.id])
+    for _ in range(6):
+        if not s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert zone_of(s, "Bounty Agent") == "p1:graveyard" and hero.id not in s.state.zones.get("p2:battlefield", [])
+    check(s)
+
+
 def logged(s, since):
     return [" ".join(p.t or "" for p in e.parts) for e in s.state.log[since:]]
 

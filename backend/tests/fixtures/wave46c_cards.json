@@ -619,5 +619,24 @@
    "Blizzaga",
    "Tiered"
   ]
+ },
+ {
+  "name": "Bounty Agent",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Soldier",
+  "oracle_text": "Vigilance\n{T}, Sacrifice this creature: Destroy target legendary permanent that's an artifact, creature, or enchantment.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Vigilance"
+  ],
+  "power": "2",
+  "toughness": "2"
  }
 ]
