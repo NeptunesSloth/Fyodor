@@ -586,6 +586,7 @@ _MOVERS = {"destroy", "destroy_all", "exile", "exile_until", "bounce", "return_c
 _TOKEN_MAKERS = {"create_token", "create_attacking"}  # (what they introduce are tokens, not cards: 111.1)
 _RECORDING["rest_looked"] = None  # (wave 44A: its verb is _verb_of's)
 _RECORDING["haunt"] = None  # -- keywords (wave 50H) -- 702.55a (app/rules/haunt.py)
+_RECORDING["paradigm"] = None  # (702.192a: app/rules/paradigm.py)
 _RECORDING["linked_cards"] = "exiled"  # -- resolution memory (wave 22D) -- exiled_with.linked_cards
 _MOVERS.add("linked_cards")
 _RECORDING["reveal_random"] = "revealed"  # -- random choices (wave 47B) -- "that card" is the card revealed at random
@@ -8069,6 +8070,13 @@ _CHOSEN["token_copy"] = "n"
 # Hammer of Nazahn: "attach that Equipment to …"): 701.3a-b — the source (or the trigger's object) attached to the
 # target if it can be, else it doesn't move (app/rules/attach_entry.py, through effects.attach_self). "it" is resolved by
 # resolve_it: this object ("When ~ enters"), or the object the trigger was about ("Whenever an Equipment … enters")
+# -- keywords (wave 50H) -- 702.192a paradigm: the spell's last instruction (oracle.parse_abilities appends it; app/rules/paradigm.py)
+@_first
+@effect(r"set up the paradigm of ~")
+def _paradigm(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "paradigm"}], None
+
+
 # -- keywords (wave 50H) -- 702.55a haunt: "exile it haunting target creature" (app/rules/haunt.py)
 @_first
 @effect(r"exile it haunting (?P<tgt>target creature)")

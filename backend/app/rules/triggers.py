@@ -1830,6 +1830,12 @@ def _suspend(plan: Plan) -> None:
                                      "effects": [{"do": "suspend_tick", "card": card.id}]})
 
 
+def paradigm_trigger(plan: Plan, card: CardInstance, controller: str, definition: dict[str, Any]) -> None:
+    """-- keywords (wave 50H) -- 702.192a: the delayed trigger of a paradigm card in exile (app/rules/paradigm.py)."""
+    _add(plan, controller=controller, source_card=card.id, source_object=plan.oid(card), name=card.name, index=5003, definition=definition,
+         event=_entered(plan, card, plan.oid(card)))  # (the card in exile is the event's object: "the copy" is made of it)
+
+
 def haunt_spell(plan: Plan, card: CardInstance, controller: str, definition: dict[str, Any]) -> None:
     """-- keywords (wave 50H) -- 702.55a: the haunt trigger of an instant or sorcery that resolved (app/rules/haunt.py): its controller is the spell's."""
     _add(plan, controller=controller, source_card=card.id, source_object=plan.oid(card), name=card.name, index=5002, definition=definition)

@@ -411,6 +411,8 @@ def _keyword_supported(kw: str, line: str) -> bool:
 
         return affinity_filter(Characteristics(name="", abilities=(AbilityText(index=0, text=line, kind="keywords",
                                                                               keywords=("affinity",)),))) is not None
+    if kw == "paradigm":  # -- keywords (wave 50H) -- 702.192a: app/rules/paradigm.py (an instant or sorcery's last instruction, oracle.parse_abilities)
+        return line.strip().lower() == "paradigm"
     if kw == "tribute":  # -- keywords (wave 50H) -- app/rules/tribute.py (one instance)
         from app.rules import tribute
 

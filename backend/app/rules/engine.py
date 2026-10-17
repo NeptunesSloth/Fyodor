@@ -680,6 +680,11 @@ def on_step_start(plan: Plan) -> None:
         from app.rules import sagas
 
         sagas.precombat_main(plan)
+        from app.rules import (
+            paradigm,  # -- keywords (wave 50H) -- 702.192a: the copies of the exiled paradigm cards
+        )
+
+        paradigm.main_phase(plan)
         # -- counters & designations (wave 3E): 728.1 rad counters (precombat main phase) --
         effects.designations.rad_trigger(plan)
     elif phase == "begin_combat":  # -- combat (wave 5C) -- "if it's the first combat phase of the turn"

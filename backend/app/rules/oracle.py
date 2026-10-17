@@ -53,7 +53,7 @@ KEYWORDS = frozenset({
     "firebending", "storied", "mobilize", "harmonize", "renew", "undaunted",
     "mayhem", "web-slinging",  # -- Marvel keywords (wave 25A) -- 702.187, 702.188
     "more than meets the eye", "living metal",  # -- commanders (wave 50C) -- 702.162, 702.161 (the Transformers)
-    "tribute", "haunt",  # -- keywords (wave 50H) -- 702.104 (app/rules/tribute.py), 702.55 (app/rules/haunt.py)
+    "tribute", "haunt", "paradigm",  # -- keywords (wave 50H) -- 702.104 (app/rules/tribute.py), 702.55 (app/rules/haunt.py), 702.192 (app/rules/paradigm.py)
     "recover", "amplify", "assist",  # -- casting extras (wave 18E) -- 702.59, 702.38, 702.132
     "phasing", "transmute",  # (wave 3R4: casting.transmute)
     "aftermath", "gravestorm", "dredge", "fuse", "awaken", "escalate", "increment",  # -- static_other sweep (wave 16B) -- 702.127 (casting.from_graveyard / cast_grant)
@@ -315,6 +315,9 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         for i, line in enumerate(lines):
             if m := re.fullmatch(r"(As an additional cost to cast this spell, you may sacrifice one or more (creature)s)\. When you do, copy this spell for each \2 sacrificed this way\.", line):
                 lines[i:i + 1] = [f"{m[1]}.", f"When you cast this spell, if you sacrificed one or more {m[2]}s this way, copy it for each {m[2]} sacrificed this way."]
+    # -- keywords (wave 50H) -- 702.192a: paradigm exiles the spell and sets up the copies (app/rules/paradigm.py): the spell's last instruction
+    if spell and "Paradigm" in lines:
+        lines.append("Set up the paradigm of ~.")
     # -- static_other sweep (wave 16B) -- 702.113a: "Awaken N—[cost]" means "You may cast this spell for [cost]" and "If you cast this spell for
     # its awaken cost, put N +1/+1 counters on target land you control. That land becomes a 0/0 Elemental creature with haste. It's still a
     # land." The cost is the keyword line's (casting: CastSpell.awaken); the effect is read as the spell's own "if kicked" line (the same
