@@ -2399,7 +2399,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # -- control change (wave 26D) -- "It gains haste and myriad until end of turn." (Firbolg Flutist), "… and annihilator 2 …" (Flayer of Loyalties):
     # a keyword with its own triggered ability is granted as the ability line it is (613.1f, 702.116a, 702.86a), the quoted-grant grammar
     body = re.sub(r"((?:\bgains? |[Uu]ntil end of turn, [^.\"]*?\bgains? ))([^.\"]+?)( until end of turn|(?<=[a-z0-9])(?=\.|$))",
-                  lambda m: m[1] + re.sub(r"\b(myriad|extort|melee|(?:annihilator|afflict|poisonous|frenzy|afterlife) \d+)\b",
+                  lambda m: m[1] + re.sub(r"\b(myriad|extort|melee|(?:annihilator|afflict|poisonous|frenzy|afterlife|firebending) \d+)\b",  # (wave 48C: Iroh, Fire Nation Palace)
                                           lambda k: f'"{k[1].capitalize()}"', m[2]) + m[3]
                   if ("until end of turn" in m[3] or m[1].lower().startswith("until end of turn")) else m[0], body)
     # -- look top (wave 26D) -- "Put one of those cards into your hand, one on top of your library, and one on the bottom of your library."

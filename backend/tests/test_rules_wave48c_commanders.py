@@ -6,6 +6,7 @@ Every scenario checks the replay and a save and a load.
 * 607.2a, 608.2g: "you may cast a card exiled with Krang & Shredder without paying its mana cost" (a card cast from exile is a spell).
 * 701.26a: "untap each creature you control, then tap any number of creatures you control" (Augusta, Dean of Order: only an untapped creature can be tapped).
 * 611.2a, 613.1d, 613.4c: "target creature you control gets +3/+1 and becomes a Dinosaur in addition to its other types" until end of turn (Stegron, Thran Forge).
+* 702.189a, 611.2c: "each creature you control with a counter on it gains firebending 2 until end of turn" (Iroh, Dragon of the West).
 * 602.2, 118.3: "Tap another untapped creature you control with flying: ~ gains protection from the color of your choice" (Radiant, Serra Archangel).
 """
 
@@ -24,7 +25,7 @@ from app.game.visibility import SPECTATOR
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import activate, ask, attack, next_turn, settle, to_phase
+from tests.test_rules_wave34b_activated import activate, ask, attack, next_turn, settle, stops, to_phase
 from tests.wave9c_kit import build, card_named, cast, check, mana, pt, put, to_hand, zone_of
 from tests.wave44c_kit import ch, on_top
 
@@ -33,8 +34,8 @@ KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w48c", number=f"C{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 GLISSA, SCARLETT, KRANG, PLARGG = "Glissa Sunseeker", "Headliner Scarlett", "Krang & Shredder", "Plargg, Dean of Chaos // Augusta, Dean of Order"
-STEGRON, RADIANT, FORGE = "Stegron the Dinosaur Man", "Radiant, Serra Archangel", "Thran Forge"
-NAMES = [GLISSA, SCARLETT, KRANG, PLARGG, STEGRON, RADIANT]
+STEGRON, RADIANT, FORGE, IROH = "Stegron the Dinosaur Man", "Radiant, Serra Archangel", "Thran Forge", "Iroh, Dragon of the West"
+NAMES = [GLISSA, SCARLETT, KRANG, PLARGG, STEGRON, RADIANT, IROH]
 
 
 @pytest.fixture()
@@ -208,4 +209,39 @@ def test_radiant_taps_another_untapped_flyer_to_gain_protection_from_a_color(car
     assert "protection" in ch(s, radiant).keywords
     with pytest.raises(ActionError):  # no other untapped creature with flying is left to tap
         activate(s, "p1", radiant, "Tap another untapped creature")
+    check(s)
+
+
+# ---- 702.189a, 611.2c: Iroh, Dragon of the West ----------------------------------------------------------------------------------------------------
+def iroh_table(cards):
+    s = build(cards, [IROH, "Grizzly Bears", "Llanowar Elves"], [], forests=30, islands=30)
+    put(s, IROH)
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    act(s, "p1", type="counter", card_ids=[bears.id], kind="+1/+1", delta=1)
+    next_turn(s)
+    stops(s)  # both players get priority at every step: the combat can be looked at in the middle
+    return s, bears, elves
+
+
+def pass_until_mana(s, limit=6):
+    """Pass priority one step at a time until the attack trigger has added mana (it is kept until end of combat, 702.189a)."""
+    for _ in range(limit):
+        if s.state.players["p1"].mana:
+            return
+        act(s, s.state.rules.priority, type="pass_priority")
+
+
+def test_iroh_gives_firebending_to_a_creature_with_a_counter_on_it(cards):
+    s, bears, _ = iroh_table(cards)
+    attack(s, bears)
+    pass_until_mana(s)
+    assert s.state.players["p1"].mana == {"R": 2}  # firebending 2: "add {R}{R}" as it attacks
+    check(s)
+
+
+def test_iroh_gives_nothing_to_a_creature_without_a_counter(cards):
+    s, _, elves = iroh_table(cards)
+    attack(s, elves)
+    pass_until_mana(s)
+    assert not s.state.players["p1"].mana
     check(s)
