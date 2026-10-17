@@ -422,6 +422,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"casualty \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "conspire":  # -- static_other sweep (wave 17C) -- cost_changes.optional_offers / casting._conspire_trigger
         return line.strip().rstrip(".").lower() == "conspire"
+    if kw == "compleated":  # -- cast keywords (wave 43D) -- replacements.entering_counters (702.150a): a plain keyword line
+        return line.strip().rstrip(".").lower() == "compleated"
+    if kw == "demonstrate":  # -- cast keywords (wave 43D) -- casting._demonstrate_trigger / copying.demonstrate_copy (702.144a): a plain keyword line
+        return line.strip().rstrip(".").lower() == "demonstrate"
     if kw == "bargain":  # -- keywords (wave 30E) -- cost_changes.optional_offers (702.166a); "was bargained" is read as kicked (scripts.self_text)
         return line.strip().rstrip(".").lower() == "bargain"
     if kw == "teamwork":  # (702.194a: its optional cost, and "cast using teamwork" in the text)
@@ -454,8 +458,8 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return escalate_parts(line) is not None
     if kw == "awaken":  # -- static_other sweep (wave 16B) -- casting.AWAKEN: "Awaken N—{cost}"
         return re.fullmatch(r"awaken \d+—(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
-    if kw == "miracle":  # -- casting extras (wave 18E) -- app/rules/miracle.py: a mana miracle cost without X
-        return re.fullmatch(r"miracle (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None
+    if kw == "miracle":  # -- casting extras (wave 18E) -- app/rules/miracle.py: a mana miracle cost (wave 43D: with X, announced as the cast begins)
+        return re.fullmatch(r"miracle (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "prototype":  # -- casting extras (wave 18E) -- app/rules/prototype.py: "Prototype {cost} — P/T"
         return re.fullmatch(r"prototype (?:\{[^}x]+\})+ [—-] \d+/\d+", line.strip().rstrip(".").lower()) is not None
     if kw == "reconfigure":  # -- casting extras (wave 18E) -- oracle.parse_abilities: the attach / unattach abilities and the static it adds
@@ -476,7 +480,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import graveyard_keywords
 
         return graveyard_keywords.supported(kw, line)
-    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl", "overload", "emerge", "foretell", "mutate", "web-slinging", "sneak"):  # -- keywords (wave 15E; sneak: 30I) -- app/rules/alt_costs.py: the cost with its condition
+    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl", "overload", "emerge", "foretell", "mutate", "web-slinging", "sneak", "freerunning", "impending"):  # -- keywords (wave 15E; sneak: 30I; freerunning, impending: 43D) -- app/rules/alt_costs.py: the cost with its condition
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(line) is not None

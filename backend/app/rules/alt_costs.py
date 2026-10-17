@@ -55,13 +55,14 @@ _PART_SPLIT = re.compile(r" and (?=(?:pay|exile|sacrifice|return|tap|discard) )"
 _WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3}
 
 
-def _part(text: str) -> C.CostComponent | str | None:
-    """One part of an alternative cost: a mana string ("{W}{U}{B}{R}{G}") or a cost component, or None."""
+def _part(text: str, x_ok: bool = False) -> C.CostComponent | str | None:
+    """One part of an alternative cost: a mana string ("{W}{U}{B}{R}{G}") or a cost component, or None. ``x_ok`` (-- cast keywords (wave 43D) --
+    107.3a): the mana may have {X} (harmonize, overload, surge, warp, bestow, miracle: the X announced for the spell is the cost's too)."""
     part = text[:1].upper() + text[1:]
     m = re.fullmatch(r"Pay (?P<mana>(?:\{[^}]+\})+)", part)
     if m:
         mana = m["mana"]
-        if not C._MANA_ONLY.match(mana) or "X" in mana:
+        if not C._MANA_ONLY.match(mana) or ("X" in mana and not x_ok):
             return None
         return mana
     m = _EXILE_HAND.fullmatch(part)
@@ -91,14 +92,14 @@ class AltCost:
         return M.parse_cost(self.mana or "{0}")
 
 
-def parse_cost(text: str) -> AltCost | None:
+def parse_cost(text: str, x_ok: bool = False) -> AltCost | None:
     """"pay 1 life and exile a blue card from your hand" → the parts, or None when one isn't read."""
-    if re.search(r"\bx\b", text, re.IGNORECASE) or "," in text:
+    if re.search(r"\bx\b", text.replace("{X}", "") if x_ok else text, re.IGNORECASE) or "," in text:
         return None
     mana = ""
     parts: list[C.CostComponent] = []
     for piece in _PART_SPLIT.split(text.strip()):
-        found = _part(piece.strip())
+        found = _part(piece.strip(), x_ok)
         if found is None:
             return None
         if isinstance(found, str):
@@ -119,7 +120,7 @@ def _cond(text: str | None) -> Any:
     return cond
 
 
-def define(t: str) -> dict[str, Any] | None:
+def define(t: str, x_ok: bool = False) -> dict[str, Any] | None:
     """The definition of an alternative-cost line (``t``: lowercased first letter, name as ~), or None."""
     # -- cost alt (wave 16F) -- 118.9: "If an opponent controls a Forest and you control a Swamp, you may cast this spell without paying
     # its mana cost." (the Legates) is an alternative cost of {0}, used under that condition
@@ -129,7 +130,7 @@ def define(t: str) -> dict[str, Any] | None:
     if m:
         if m["c1"] and m["c2"]:
             return None
-        found = parse_cost(m["cost"])
+        found = parse_cost(m["cost"], x_ok)
         if found is None:
             return None
         try:
@@ -175,12 +176,15 @@ def define(t: str) -> dict[str, Any] | None:
 # (702.117a: "if you or a teammate has cast another spell this turn" — no teammates in Commander), freerunning
 # (702.173a is not read). Read as the "You may pay … rather than pay this spell's mana cost if …" line they stand for.
 PROWL_COND = "a player was dealt combat damage this turn by a source you controlled that shared a creature type with this spell"  # 702.76a
+FREERUN_COND = ("a player was dealt combat damage this turn by a creature that, at the time it dealt that damage, was an assassin creature or a commander "
+                "under your control")  # -- cast keywords (wave 43D) -- 702.173a
 KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None, "bestow": None,
-                 "prowl": PROWL_COND, "overload": None, "emerge": None, "foretell": None, "mutate": None,
+                 "prowl": PROWL_COND, "overload": None, "emerge": None, "foretell": None, "mutate": None, "freerunning": FREERUN_COND,
                  "web-slinging": None, "sneak": None}  # (wave 17C: prowl; wave 18D: mutate, 702.140a)
 # (-- casting extras (wave 18E) -- "Emerge {cost}" / "Emerge from artifact {cost}": 702.119a-b, the cost and a sacrifice)
-_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|emerge|foretell|mutate|web-slinging|sneak)(?: from (?P<q>[A-Za-z]+))? "
-                           r"(?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|emerge|foretell|mutate|web-slinging|sneak|freerunning)(?: from (?P<q>[A-Za-z]+))? "
+                           r"(?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+X_KEYWORDS = frozenset({"surge", "warp", "bestow", "overload"})  # -- cast keywords (wave 43D) -- 107.3a: the cost may have {X} (the X announced for the spell is its too)
 # -- static_other sweep (wave 17C) -- "Dinosaur spells you cast have prowl {2}{R}." (Hunting Velociraptor): a table alternative cost, offered
 # when the prowl condition holds for that spell
 GRANT_PROWL = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spells you cast have prowl (?P<cost>(?:\{[^}X]+\})+)$")
@@ -220,13 +224,30 @@ def grant_web_slinging(t: str) -> dict[str, Any] | None:
 # -- keywords (wave 30E) -- 702.74a: "Evoke—Exile a white card from your hand." (Solitude, Fury, Grief, Endurance, Subtlety) is an alternative cost
 # of non-mana parts ("You may cast this card by paying [cost] rather than its mana cost"); a mana "Evoke {cost}" is casting.EVOKE's
 _EVOKE_COST = re.compile(r"^evoke—(?P<cost>[^{}]+)$", re.IGNORECASE)
+_FREERUN_COST = re.compile(r"^freerunning—(?P<cost>[^{}]+)$", re.IGNORECASE)  # -- cast keywords (wave 43D) -- "Freerunning—Return a blue creature you control to its owner's hand."
+# -- cast keywords (wave 43D) -- 702.176a: "Impending 4—{1}{U}{U}": the first of its four abilities is an alternative cost (tag "impending", ``n``: the time
+# counters it enters with); the enters-with, the "isn't a creature" and the end step trigger are read from the cast record (engine, layers, scripts)
+_IMPENDING = re.compile(r"^impending (?P<n>\d+)—(?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+
+
+def impending_n(ch: Characteristics) -> int | None:
+    """The time counters a permanent cast for its impending cost enters with (its one "Impending N—{cost}" line), or None."""
+    found = [m for a in ch.abilities if a.kind == "keywords" and "impending" in a.keywords
+             and (m := _IMPENDING.fullmatch(re.sub(r"\s*\(.*?\)", "", a.text).strip().rstrip("."))) is not None]
+    return int(found[0]["n"]) if len(found) == 1 else None
 
 
 def keyword_definition(line: str) -> dict[str, Any] | None:
     line = re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".")
+    if (imp := _IMPENDING.fullmatch(line)) is not None and int(imp["n"]) > 0:
+        found = define(f"you may pay {imp['cost']} rather than pay ~'s mana cost")
+        return {**found, "tag": "impending", "n": int(imp["n"])} if found is not None else None
     if (ev := _EVOKE_COST.fullmatch(line)) is not None:
         found = define(f"you may {ev['cost'][:1].lower()}{ev['cost'][1:]} rather than pay ~'s mana cost")
         return {**found, "tag": "evoke"} if found is not None else None
+    if (fr := _FREERUN_COST.fullmatch(line)) is not None:  # 702.173a: the other parts of an alternative cost, with its condition
+        found = define(f"you may {fr['cost'][:1].lower()}{fr['cost'][1:]} rather than pay ~'s mana cost if {FREERUN_COND}")
+        return {**found, "tag": "freerunning"} if found is not None else None
     m = _KEYWORD_LINE.fullmatch(line)
     if m is None:
         return None
@@ -234,6 +255,8 @@ def keyword_definition(line: str) -> dict[str, Any] | None:
     cond = KEYWORD_CONDS[kw]
     if m["q"] and kw != "emerge":
         return None  # ("from …" is emerge's)
+    if "X" in m["cost"].upper() and kw not in X_KEYWORDS:
+        return None
     pay = f"pay {m['cost']}"
     if kw == "emerge":  # 702.119a: "pay [cost] and sacrificing a creature" (702.119b: "a [quality] permanent")
         what = (m["q"] or "creature").lower()
@@ -244,7 +267,7 @@ def keyword_definition(line: str) -> dict[str, Any] | None:
         pay += WEB_RETURN
     if kw == "sneak":  # -- keywords (wave 30I) -- 702.190a: "paying [cost] and returning an unblocked creature you control to its owner's hand"
         pay += SNEAK_RETURN
-    found = define(f"you may {pay} rather than pay ~'s mana cost" + (f" if {cond}" if cond else ""))
+    found = define(f"you may {pay} rather than pay ~'s mana cost" + (f" if {cond}" if cond else ""), x_ok=kw in X_KEYWORDS)
     # ("tag": what the cast record says it was cast for; warp: only "from your hand", 702.185a)
     return {**found, "tag": kw, **({"hand_only": True} if kw == "warp" else {})} if found is not None else None  # (foretell 702.143a: only from the foretell zone, see offers())
 
@@ -298,7 +321,7 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
 
             if not merged.can_mutate(view, player, card, ch):
                 continue
-        alt = parse_cost(d["cost"])
+        alt = parse_cost(d["cost"], x_ok=d.get("tag") in X_KEYWORDS)
         if alt is not None:
             out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}" + (f" ({d['tag']})" if d.get("tag") in ("mutate", "evoke") else ""), alt, tag=d.get("tag")))
     given = r.foretell_costs.get(card.id)  # -- hidden exile (wave 18A) -- 702.143d: a foretell cost an effect gave it

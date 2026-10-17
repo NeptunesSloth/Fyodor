@@ -21,6 +21,7 @@ from app.rules import read_pass
 from app.rules.casting import (
     activatable,
     alt_castable,
+    announces_kicker_x,
     announces_x,
     castable,
     free_castable,
@@ -230,6 +231,8 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     # (wave 24D) 107.3a: castable cards that ask for X when cast (the server validates the range; min 0)
     if x_cast := [cid for cid in out["castable"] if announces_x(state.cards[cid], info)]:
         out["x_cast"] = x_cast
+    if x_kicker := [cid for cid in out["castable"] if announces_kicker_x(state.cards[cid], info)]:  # (wave 43D: "Kicker {X}", asked only when kicked)
+        out["x_kicker"] = x_kicker
     # (wave 3C) cards a permission lets you cast without paying their mana costs
     out["free_castable"] = [cid for cid in candidates if free_castable(state, viewer, state.cards[cid], info)]
     # -- cost changers (wave 4I) -- alternative costs written on cards (118.9): card id → [{"id", "label"}]

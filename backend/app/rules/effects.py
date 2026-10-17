@@ -1570,6 +1570,9 @@ def _stack_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[str]:
         return [e["object"]] if e["object"] in plan.state.cards and plan.state.cards[e["object"]].zone == "stack" else []
     if e.get("who") == "event_spell":  # -- unless pays (wave 4C) -- a cast trigger's spell, while it's still that object (400.7)
         return [c for c in context.objects(plan, ctx, context.EVENT) if plan.state.cards[c].zone == "stack"]
+    if e.get("who") == "each_opponent_spell":  # -- cast keywords (wave 43D) -- "Counter each spell you don't control." (an overloaded Counterflux): spells only (not abilities)
+        return [c for c in plan.state.zones.get("stack", []) if c != ctx.get("stack_id") and plan.state.cards[c].ability is None
+                and plan.state.cards[c].controller != ctx["controller"]]
     if e.get("who") == "event_source":  # -- unless pays (wave 20E) -- the spell or ability a "becomes the target" event names, while still that object
         ref = (ctx.get("event") or {}).get("source")
         card = context._same(plan, ObjectRef.model_validate(ref)) if ref else None
@@ -3480,11 +3483,12 @@ def describe(effects: list[dict[str, Any]]) -> str:
     words = {"draw": "draw {n} card(s)", "gain_life": "gain {n} life", "lose_life": "lose {n} life", "scry": "scry {n}",
              "surveil": "surveil {n}", "damage": "deal {n} damage", "player_counter": "get {n} {counter}",
              "create_token": "create {n} token(s)", "add_counters": "put {n} {kind} counter(s)", "proliferate": "proliferate",
-             "monarch": "become the monarch", "discard": "discard {n}", "search": "search your library"}
+             "monarch": "become the monarch", "discard": "discard {n}", "search": "search your library",
+             "demonstrate_copy": "copy it, and an opponent copies it too (demonstrate)"}
     # (an amount that is worked out as it resolves — "equal to its mana value", X — reads as X, not as its data)
     parts = [("discard any number" if e["do"] == "discard" else "sacrifice any number") if e["do"] in ("discard", "sacrifice_choice") and e.get("upto")
              else words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()}) for e in effects
-             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive")]  # (wave 30G: "any number")
+             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent")]  # (wave 30G: "any number")
     return (", ".join(parts) or "do it").capitalize()
 
 

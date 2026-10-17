@@ -1,0 +1,997 @@
+[
+ {
+  "name": "Goblin Barrage",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Kicker—Sacrifice an artifact or Goblin. (You may sacrifice an artifact or Goblin in addition to any other costs as you cast this spell.)\nGoblin Barrage deals 4 damage to target creature. If this spell was kicked, it also deals 4 damage to target player or planeswalker.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Kicker"
+  ]
+ },
+ {
+  "name": "Phyrexian Scuta",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Phyrexian Zombie",
+  "oracle_text": "Kicker—Pay 3 life. (You may pay 3 life in addition to any other costs as you cast this spell.)\nIf this creature was kicked, it enters with two +1/+1 counters on it.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Kicker"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Bog Down",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Kicker—Sacrifice two lands. (You may sacrifice two lands in addition to any other costs as you cast this spell.)\nTarget player discards two cards. If this spell was kicked, that player discards three cards instead.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Kicker"
+  ]
+ },
+ {
+  "name": "Reiterating Bolt",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Replicate—Pay {E}{E}{E}. (When you cast this spell, copy it for each time you paid its replicate cost. You may choose new targets for the copies.)\nReiterating Bolt deals 3 damage to target creature or planeswalker.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Replicate"
+  ]
+ },
+ {
+  "name": "Exterminate!",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Replicate—Tap an untapped Dalek you control. (When you cast this spell, copy it for each time you paid its replicate cost. You may choose new targets for the copies.)\nDestroy target creature. Its controller loses 3 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Replicate"
+  ]
+ },
+ {
+  "name": "Ruthless Radrat",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature — Rat Mutant",
+  "oracle_text": "Squad—Exile four cards from your graveyard. (As an additional cost to cast this spell, you may pay its squad cost any number of times. When this creature enters, create that many tokens that are copies of it.)\nMenace (This creature can't be blocked except by two or more creatures.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Menace",
+   "Squad"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Arctic Merfolk",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Merfolk",
+  "oracle_text": "Kicker—Return a creature you control to its owner's hand. (You may return a creature you control to its owner's hand in addition to any other costs as you cast this spell.)\nIf this creature was kicked, it enters with a +1/+1 counter on it.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Kicker"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Rushing River",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Kicker—Sacrifice a land. (You may sacrifice a land in addition to any other costs as you cast this spell.)\nReturn target nonland permanent to its owner's hand. If this spell was kicked, return another target nonland permanent to its owner's hand.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Kicker"
+  ]
+ },
+ {
+  "name": "Vicious Offering",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Kicker—Sacrifice a creature. (You may sacrifice a creature in addition to any other costs as you cast this spell.)\nTarget creature gets -2/-2 until end of turn. If this spell was kicked, that creature gets -5/-5 until end of turn instead.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Kicker"
+  ]
+ },
+ {
+  "name": "Gandalf, Party Guest",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{R}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Avatar Wizard",
+  "oracle_text": "At the beginning of combat on your turn, you may cast an instant or sorcery spell with mana value X or less from your hand without paying its mana cost, where X is twice the number of legendary Wizards you control.",
+  "colors": [
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Verdeloth the Ancient",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Treefolk",
+  "oracle_text": "Kicker {X} (You may pay an additional {X} as you cast this spell.)\nSaproling creatures and other Treefolk creatures get +1/+1.\nWhen Verdeloth enters, if it was kicked, create X 1/1 green Saproling creature tokens.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Kicker"
+  ],
+  "power": "4",
+  "toughness": "7"
+ },
+ {
+  "name": "Kangee, Aerie Keeper",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Bird Wizard",
+  "oracle_text": "Kicker {X}{2} (You may pay an additional {X}{2} as you cast this spell.)\nFlying\nWhen Kangee enters, if it was kicked, put X feather counters on it.\nOther Bird creatures get +1/+1 for each feather counter on Kangee.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Kicker",
+   "Flying"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Bloodbraid Challenger",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Creature — Elf Berserker",
+  "oracle_text": "Cascade\nHaste\nEscape—{3}{R}{G}, Exile three other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Haste",
+   "Escape",
+   "Cascade"
+  ],
+  "power": "4",
+  "toughness": "3"
+ },
+ {
+  "name": "Eagle Vision",
+  "layout": "normal",
+  "mana_cost": "{4}{U}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Freerunning {1}{U} (You may cast this spell for its freerunning cost if you dealt combat damage to a player this turn with an Assassin or commander.)\nDraw three cards.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Freerunning"
+  ]
+ },
+ {
+  "name": "Chain Assassination",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "Freerunning {1}{B} (You may cast this spell for its freerunning cost if you dealt combat damage to a player this turn with an Assassin or commander.)\nDestroy target creature. If another creature died this turn, draw a card.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Freerunning"
+  ]
+ },
+ {
+  "name": "Restart Sequence",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Freerunning {1}{B} (You may cast this spell for its freerunning cost if you dealt combat damage to a player this turn with an Assassin or commander.)\nReturn target creature card from your graveyard to the battlefield.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Freerunning"
+  ]
+ },
+ {
+  "name": "Escape Detection",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Freerunning—Return a blue creature you control to its owner's hand. (You may cast this spell for its freerunning cost if you dealt combat damage to a player this turn with an Assassin or commander.)\nReturn target creature to its owner's hand.\nDraw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Freerunning"
+  ]
+ },
+ {
+  "name": "Achilles Davenport",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Assassin",
+  "oracle_text": "Freerunning {U}{B} (You may cast this spell for its freerunning cost if you dealt combat damage to a player this turn with an Assassin or commander.)\nMenace (This creature can't be blocked except by two or more creatures.)\nOther Assassins you control get +1/+1.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Freerunning",
+   "Menace"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Zenith Festival",
+  "layout": "normal",
+  "mana_cost": "{X}{R}{R}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Exile the top X cards of your library. You may play them until the end of your next turn.\nHarmonize {X}{R}{R} (You may cast this card from your graveyard for its harmonize cost. You may tap a creature you control to reduce that cost by an amount of generic mana equal to its power. Then exile this spell.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Harmonize"
+  ]
+ },
+ {
+  "name": "Nature's Rhythm",
+  "layout": "normal",
+  "mana_cost": "{X}{G}{G}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Search your library for a creature card with mana value X or less, put it onto the battlefield, then shuffle.\nHarmonize {X}{G}{G}{G}{G} (You may cast this card from your graveyard for its harmonize cost. You may tap a creature you control to reduce that cost by an amount of generic mana equal to its power. Then exile this spell.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Harmonize"
+  ]
+ },
+ {
+  "name": "Street Spasm",
+  "layout": "normal",
+  "mana_cost": "{X}{R}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Street Spasm deals X damage to target creature without flying you don't control.\nOverload {X}{X}{R}{R} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Overload"
+  ]
+ },
+ {
+  "name": "Fall of the Titans",
+  "layout": "normal",
+  "mana_cost": "{X}{X}{R}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Surge {X}{R} (You may cast this spell for its surge cost if you or a teammate has cast another spell this turn.)\nFall of the Titans deals X damage to each of up to two targets.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Surge"
+  ]
+ },
+ {
+  "name": "Broodguard Elite",
+  "layout": "normal",
+  "mana_cost": "{X}{G}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Insect Knight",
+  "oracle_text": "This creature enters with X +1/+1 counters on it.\nWhen this creature leaves the battlefield, put its counters on target creature you control.\nWarp {X}{G} (You may cast this card from your hand for its warp cost. Exile this creature at the beginning of the next end step, then you may cast it from exile on a later turn.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Warp"
+  ],
+  "power": "0",
+  "toughness": "0"
+ },
+ {
+  "name": "Nyxborn Hydra",
+  "layout": "normal",
+  "mana_cost": "{X}{G}",
+  "cmc": 1.0,
+  "type_line": "Enchantment Creature — Hydra",
+  "oracle_text": "Bestow {X}{G}{G} (If you cast this card for its bestow cost, it's an Aura spell with enchant creature. It becomes a creature again if it's not attached.)\nReach, trample\nThis permanent enters with X +1/+1 counters on it.\nEnchanted creature gets +1/+1 for each +1/+1 counter on this Aura and has reach and trample.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Reach",
+   "Trample",
+   "Bestow"
+  ],
+  "power": "0",
+  "toughness": "1"
+ },
+ {
+  "name": "Bonfire of the Damned",
+  "layout": "normal",
+  "mana_cost": "{X}{X}{R}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Bonfire of the Damned deals X damage to target player or planeswalker and each creature that player or that planeswalker's controller controls.\nMiracle {X}{R} (You may cast this card for its miracle cost when you draw it if it's the first card you drew this turn.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Miracle"
+  ]
+ },
+ {
+  "name": "Entreat the Angels",
+  "layout": "normal",
+  "mana_cost": "{X}{X}{W}{W}{W}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Create X 4/4 white Angel creature tokens with flying.\nMiracle {X}{W}{W} (You may cast this card for its miracle cost when you draw it if it's the first card you drew this turn.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Miracle"
+  ]
+ },
+ {
+  "name": "Entreat the Dead",
+  "layout": "normal",
+  "mana_cost": "{X}{X}{B}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Return X target creature cards from your graveyard to the battlefield.\nMiracle {X}{B}{B} (You may cast this card for its miracle cost when you draw it if it's the first card you drew this turn.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Miracle"
+  ]
+ },
+ {
+  "name": "Junk Winder",
+  "layout": "normal",
+  "mana_cost": "{5}{U}{U}",
+  "cmc": 7.0,
+  "type_line": "Creature — Serpent",
+  "oracle_text": "Affinity for tokens (This spell costs {1} less to cast for each token you control.)\nWhenever a token you control enters, tap target nonland permanent an opponent controls. It doesn't untap during its controller's next untap step.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Affinity"
+  ],
+  "power": "5",
+  "toughness": "6"
+ },
+ {
+  "name": "Allies at Last",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Affinity for Allies (This spell costs {1} less to cast for each Ally you control.)\nUp to two target creatures you control each deal damage equal to their power to target creature an opponent controls.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Affinity"
+  ]
+ },
+ {
+  "name": "Banish to Another Universe",
+  "layout": "normal",
+  "mana_cost": "{4}{W}",
+  "cmc": 5.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Affinity for historic permanents (This spell costs {1} less to cast for each artifact, legendary, and/or Saga permanent you control.)\nWhen this enchantment enters, exile target nonland permanent an opponent controls until this enchantment leaves the battlefield.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Affinity"
+  ]
+ },
+ {
+  "name": "Hellspur Brute",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Creature — Minotaur Mercenary",
+  "oracle_text": "Affinity for outlaws (This spell costs {1} less to cast for each Assassin, Mercenary, Pirate, Rogue, and/or Warlock you control.)\nTrample",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Affinity",
+   "Trample"
+  ],
+  "power": "5",
+  "toughness": "4"
+ },
+ {
+  "name": "Overlord of the Floodpits",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{U}",
+  "cmc": 5.0,
+  "type_line": "Enchantment Creature — Avatar Horror",
+  "oracle_text": "Impending 4—{1}{U}{U} (If you cast this spell for its impending cost, it enters with four time counters and isn't a creature until the last is removed. At the beginning of your end step, remove a time counter from it.)\nFlying\nWhenever this permanent enters or attacks, draw two cards, then discard a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Impending"
+  ],
+  "power": "5",
+  "toughness": "3"
+ },
+ {
+  "name": "Overlord of the Mistmoors",
+  "layout": "normal",
+  "mana_cost": "{5}{W}{W}",
+  "cmc": 7.0,
+  "type_line": "Enchantment Creature — Avatar Horror",
+  "oracle_text": "Impending 4—{2}{W}{W} (If you cast this spell for its impending cost, it enters with four time counters and isn't a creature until the last is removed. At the beginning of your end step, remove a time counter from it.)\nWhenever this permanent enters or attacks, create two 2/1 white Insect creature tokens with flying.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Impending"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Overlord of the Boilerbilges",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Enchantment Creature — Avatar Horror",
+  "oracle_text": "Impending 4—{2}{R}{R} (If you cast this spell for its impending cost, it enters with four time counters and isn't a creature until the last is removed. At the beginning of your end step, remove a time counter from it.)\nWhenever this permanent enters or attacks, it deals 4 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Impending"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Excavation Technique",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Demonstrate (When you cast this spell, you may copy it. If you do, choose an opponent to also copy it. Players may choose new targets for their copies.)\nDestroy target nonland permanent. Its controller creates two Treasure tokens.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Treasure",
+   "Demonstrate"
+  ]
+ },
+ {
+  "name": "Replication Technique",
+  "layout": "normal",
+  "mana_cost": "{4}{U}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Demonstrate (When you cast this spell, you may copy it. If you do, choose an opponent to also copy it. Players may choose new targets for their copies.)\nCreate a token that's a copy of target permanent you control.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Demonstrate"
+  ]
+ },
+ {
+  "name": "Incarnation Technique",
+  "layout": "normal",
+  "mana_cost": "{4}{B}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Demonstrate (When you cast this spell, you may copy it. If you do, choose an opponent to also copy it.)\nMill five cards, then return a creature card from your graveyard to the battlefield.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Mill",
+   "Demonstrate"
+  ]
+ },
+ {
+  "name": "Healing Technique",
+  "layout": "normal",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Demonstrate (When you cast this spell, you may copy it. If you do, choose an opponent to also copy it. Players may choose new targets for their copies.)\nReturn target card from your graveyard to your hand. You gain life equal to that card's mana value. Exile Healing Technique.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Demonstrate"
+  ]
+ },
+ {
+  "name": "Ajani, Sleeper Agent",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{G/W/P}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Ajani",
+  "oracle_text": "Compleated ({G/W/P} can be paid with {G}, {W}, or 2 life. If life was paid, this planeswalker enters with two fewer loyalty counters.)\n+1: Reveal the top card of your library. If it's a creature or planeswalker card, put it into your hand. Otherwise, you may put it on the bottom of your library.\n−3: Distribute three +1/+1 counters among up to three target creatures. They gain vigilance until end of turn.\n−6: You get an emblem with \"Whenever you cast a creature or planeswalker spell, target opponent gets two poison counters.\"",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Compleated"
+  ],
+  "loyalty": "4"
+ },
+ {
+  "name": "Lukka, Bound to Ruin",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{R/G/P}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Planeswalker — Lukka",
+  "oracle_text": "Compleated ({R/G/P} can be paid with {R}, {G}, or 2 life. If life was paid, this planeswalker enters with two fewer loyalty counters.)\n+1: Add {R}{G}. Spend this mana only to cast creature spells or activate abilities of creatures.\n−1: Create a 3/3 green Phyrexian Beast creature token with toxic 1.\n−4: Lukka deals X damage divided as you choose among any number of target creatures and/or planeswalkers, where X is the greatest power among creatures you control as you activate this ability.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Compleated"
+  ],
+  "loyalty": "5"
+ },
+ {
+  "name": "Firecat Blitz",
+  "layout": "normal",
+  "mana_cost": "{X}{R}{R}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Create X 1/1 red Elemental Cat creature tokens with haste. Exile them at the beginning of the next end step.\nFlashback—{R}{R}, Sacrifice X Mountains. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flashback"
+  ]
+ },
+ {
+  "name": "Flash of Insight",
+  "layout": "normal",
+  "mana_cost": "{X}{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Look at the top X cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order.\nFlashback—{1}{U}, Exile X blue cards from your graveyard. (You may cast this card from your graveyard for its flashback cost, then exile it. You can't exile Flash of Insight to pay for its own flashback cost.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flashback"
+  ]
+ },
+ {
+  "name": "Kindle the Inner Flame",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Kindred Sorcery — Elemental",
+  "oracle_text": "Create a token that's a copy of target creature you control, except it has haste and \"At the beginning of the end step, sacrifice this token.\"\nFlashback—{1}{R}, Behold three Elementals. (You may cast this card from your graveyard for its flashback cost. Then exile it. To behold an Elemental, choose an Elemental you control or reveal an Elemental card from your hand.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Behold",
+   "Flashback"
+  ]
+ },
+ {
+  "name": "Conflagrate",
+  "layout": "normal",
+  "mana_cost": "{X}{X}{R}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Conflagrate deals X damage divided as you choose among any number of targets.\nFlashback—{R}{R}, Discard X cards. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flashback"
+  ]
+ },
+ {
+  "name": "Summons of Saruman",
+  "layout": "normal",
+  "mana_cost": "{X}{U}{R}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Amass Orcs X. Mill X cards. You may cast an instant or sorcery spell with mana value X or less from among them without paying its mana cost. (To amass Orcs X, put X +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)\nFlashback—{3}{U}{R}, Exile X cards from your graveyard.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Amass",
+   "Flashback",
+   "Mill"
+  ]
+ },
+ {
+  "name": "Gavel of the Righteous",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "At the beginning of combat on your turn, put a charge counter on this Equipment.\nEquipped creature gets +1/+1 for each counter on this Equipment.\nAs long as this Equipment has four or more counters on it, equipped creature has double strike.\nEquip—Pay {3} or remove a counter from this Equipment.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Transmogrant's Crown",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "Equipped creature gets +2/+0.\nWhenever equipped creature dies, draw a card.\nEquip {2} or {B}",
+  "colors": [],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Bloodthorn Flail",
+  "layout": "normal",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "Equipped creature gets +2/+1.\nEquip—Pay {3} or discard a card.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Warrior's Blades",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{W}",
+  "cmc": 4.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "When this Equipment enters, it deals 3 damage to any target and you gain 3 life.\nEquipped creature gets +2/+1.\nEquip {3}. This ability costs {1} less to activate for each +1/+1 counter on the creature it targets.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Counterflux",
+  "layout": "normal",
+  "mana_cost": "{U}{U}{R}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "This spell can't be countered.\nCounter target spell you don't control.\nOverload {1}{U}{U}{R} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Overload"
+  ]
+ },
+ {
+  "name": "Murasa Sproutling",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Plant Elemental",
+  "oracle_text": "Kicker {1}{G} (You may pay an additional {1}{G} as you cast this spell.)\nWhen this creature enters, if it was kicked, return target card with a kicker ability from your graveyard to your hand.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Kicker"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Coralhelm Chronicler",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Merfolk Wizard",
+  "oracle_text": "Whenever you cast a kicked spell, draw a card, then discard a card.\nWhen this creature enters, look at the top five cards of your library. You may reveal a card with a kicker ability from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Rumbling Aftershocks",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever you cast a kicked spell, you may have this enchantment deal damage to any target equal to the number of times that spell was kicked.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Burst Lightning",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Kicker {4} (You may pay an additional {4} as you cast this spell.)\nBurst Lightning deals 2 damage to any target. If this spell was kicked, it deals 4 damage instead.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Kicker"
+  ]
+ },
+ {
+  "name": "Gnarlid Pack",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Beast",
+  "oracle_text": "Multikicker {1}{G} (You may pay an additional {1}{G} any number of times as you cast this spell.)\nThis creature enters with a +1/+1 counter on it for each time it was kicked.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Multikicker"
+  ],
+  "power": "2",
+  "toughness": "2"
+ }
+]

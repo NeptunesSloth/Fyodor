@@ -1630,6 +1630,13 @@ def _counter(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "counter", "who": "target"}], SELECTORS[m["sel"]]
 
 
+@effect(r"counter each spell (?:you don't control|your opponents control)")
+def _counter_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    # -- cast keywords (wave 43D) -- 702.96a: "Counter target spell you don't control" read with "each" (Counterflux, overloaded): every spell on the stack
+    # that isn't its controller's (no targets, 702.96b)
+    return [{"do": "counter", "who": "each_opponent_spell"}], None
+
+
 @effect(r"counter (?P<sel>target spell|target creature spell|target noncreature spell|target instant or sorcery spell)"
         r" unless its controller pays (?P<cost>(?:\{{[^}}X]+\}})+)")  # ({X}: sized as it resolves, _unless_sentence — wave 4C)
 def _counter_unless(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
@@ -4031,8 +4038,8 @@ def _kicked_sentence(m: re.Match[str], effects: list[dict[str, Any]], prev_start
     if restated is not None:
         found: tuple[list[dict[str, Any]], Any] | None = (restated, None)
     else:
-        if rest.startswith("it deals "):
-            rest = "~ deals " + rest[len("it deals "):]  # "If this spell was kicked, it deals …": the spell (wave 1B)
+        if rest.startswith(("it deals ", "it also deals ")):
+            rest = "~ " + rest[len("it "):]  # "If this spell was kicked, it deals …": the spell (wave 1B; wave 43D: "it also deals", Goblin Barrage)
         found = _clause(rest)
     if found is None or not found[0]:
         return None
@@ -4454,7 +4461,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return keyword_triggers.dynamic_x(text)
     if ability.kind == "spell" and SHUFFLE_INSTEAD_SELF.match(text):  # -- zone replacements (wave 22C) -- Nexus of Fate: a replacement line of a spell card
         return {"kind": "replacement", "replacement": "shuffle_instead", "from": "anywhere", "effects": []}
-    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",), ("sneak",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E; sneak: 30I)
+    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",), ("sneak",), ("freerunning",), ("impending",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E; sneak: 30I; freerunning, impending: 43D)
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(ability.text)
@@ -5036,6 +5043,8 @@ def _event_refs_ok(d: Definition) -> bool:
     if any(e.get("do") == "free_cast" and (e.get("shares_type") or {"mana_value": "event"} in (e.get("mv"), e.get("mv_lt"))) for e in effects) \
             and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
         return False  # -- if you do (wave 40A) -- "a spell with equal or lesser mana value [that shares a card type with it]": the spell a cast trigger is about
+    if '"of": "cast_spell"' in raw and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
+        return False  # -- cast keywords (wave 43D) -- "the number of times that spell was kicked": the spell a cast trigger is about
     if '"before": true' in raw and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
         return False  # -- spell copies (wave 31D) -- "cast before it this turn": the spell a cast trigger is about
     if '"of": "roll"' in raw and not (ev is not None and ev["event"] == "roll_die"):
@@ -5239,6 +5248,21 @@ KEYWORD_TRIGGERS: dict[str, Definition] = {
 }
 
 
+@lru_cache(maxsize=1)
+def _impending_trigger() -> Definition | None:
+    """-- cast keywords (wave 43D) -- 702.176a: "At the beginning of your end step, if this permanent's impending cost was paid and it has a time counter on
+    it, remove a time counter from it." — the plain "if this permanent has a time counter on it" trigger with the cast record's fact added to its
+    intervening "if" (603.4: checked as it triggers and as it resolves)."""
+    ab = AbilityText(index=0, text="At the beginning of your end step, if this permanent has a time counter on it, remove a time counter from it.",
+                     kind="triggered")
+    d = define(ab, Characteristics(name="\u0000", abilities=(ab,), types=frozenset({"Creature"})))
+    if d is None or d.get("kind") != "triggered" or "if" not in d:
+        return None
+    paid = {"object": "self", "cast": {"alt": "impending"}}
+    return {**d, "if": {"all": [paid, d["if"]]}, "effects": [{**e, "cond": {"all": [paid, e["cond"]]}} if e.get("do") == "only_if" else e
+                                                            for e in d["effects"]]}
+
+
 def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
     """Triggered keyword abilities of a card, with keys that can't clash with ability indexes."""
     if ch.is_ability or ch.face_down:
@@ -5252,6 +5276,8 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
                 out.append((1000 + ab.index * 10 + k, KEYWORD_TRIGGERS[kw]))
             if kw in _kw_meanings.MEANINGS:  # -- static wordings (wave 6E) -- read as its CR meaning (app/rules/keyword_triggers.py)
                 out += [(1000 + ab.index * 10 + k + 100000 * j, d) for j, d in enumerate(_kw_meanings.first_piece(kw, ab.text, ab.keywords[:k].count(kw)))]
+            if kw == "impending" and (imp := _impending_trigger()) is not None:  # -- cast keywords (wave 43D) -- 702.176a: its fourth ability
+                out.append((1000 + ab.index * 10 + k, imp))
             if kw == "gift":  # -- gift (wave 23D) -- 702.174b: a permanent's enters trigger (an instant or sorcery: spell_definition)
                 from app.rules import gift
 

@@ -1784,7 +1784,45 @@ def define_static(text: str) -> dict[str, Any] | None:
     return out
 
 
+# -- cast keywords (wave 43D) -- demonstrate (702.144a): "When you cast this spell, you may copy it and you may choose new targets for the copy. If you
+# copy the spell, choose an opponent. That player copies the spell and may choose new targets for that copy." The trigger (casting._demonstrate_trigger)
+# is optional ("you may copy it", asked as it resolves); its two effects put the controller's copy on the stack, then the chosen opponent's above it, so the
+# opponent's copy resolves first, then yours, then the original (the rulings of the Technique cycle).
+def demonstrate_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    card = plan.state.cards.get(e["spell"])
+    if card is not None and plan.manual(card):
+        plan.note("Demonstrate: the spell is handled by hand, so there is nothing to copy")
+        return True
+    return run(plan, new_job(ctx, controller=ctx["controller"], objects=[(e["spell"], e["object"], 1)], retarget=True, label="Demonstrate"))
+
+
+def demonstrate_opponent(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    card = plan.state.cards.get(e["spell"])
+    if card is None or plan.manual(card) or (card.zone == "stack" and uncopyable(plan, card) == ""):
+        return True  # (113.6g: it can't be copied, so it wasn't: "if you copy the spell" didn't happen)
+    opponents = [p for p in plan.live() if p != ctx["controller"]]
+    if not opponents:
+        return True
+    if len(opponents) == 1:
+        return _opponent_copies(plan, ctx, e, opponents[0])
+    plan_decide(plan, player=ctx["controller"], kind="choose_one", prompt="Demonstrate: choose an opponent to also copy the spell",
+                options=[DecisionOption(id=p, label=plan.name(p)) for p in opponents], resume={"step": "demonstrate", "ctx": ctx, "e": e})
+    return False
+
+
+def _opponent_copies(plan: Plan, ctx: Context, e: dict[str, Any], opponent: str) -> bool:
+    return run(plan, new_job(ctx, controller=opponent, objects=[(e["spell"], e["object"], 1)], retarget=True, label="Demonstrate"))
+
+
+def resume_demonstrate(plan: Plan, d: Any, chosen: list[str]) -> None:
+    r = d.resume
+    if _opponent_copies(plan, r["ctx"], r["e"], chosen[0]):
+        go_on(plan, {"ctx": r["ctx"]})
+
+
 PRIMITIVES = {"copy_spell": copy_stack_object, "copy_ability": copy_stack_object, "copy_new_targets": new_targets_marker,
               "copy_each": copy_each, "copy_each_marker": new_targets_marker,
-              "token_copy": token_copy, "become_copy": become_copy, "copy_cards": copy_cards}
-RESUME = {"copy_each": resume_each, "copy_mode": resume_mode, "copy_target": resume_target, "copy_manual": resume_manual}
+              "token_copy": token_copy, "become_copy": become_copy, "copy_cards": copy_cards,
+              "demonstrate_copy": demonstrate_copy, "demonstrate_opponent": demonstrate_opponent}
+RESUME = {"copy_each": resume_each, "copy_mode": resume_mode, "copy_target": resume_target, "copy_manual": resume_manual,
+          "demonstrate": resume_demonstrate}
