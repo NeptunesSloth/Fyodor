@@ -657,12 +657,17 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     m = re.fullmatch(r"plotting cards from your hand costs \{(?P<n>\d+)\} less", t)  # -- cant restrictions (wave 46A) -- 702.170a, 118.7a: the plot cost (Doc Aurlock, Grizzled Genius)
     if m:
         return {"kind": "static", "static": "ability_cost_modifier", "delta": -int(m["n"]), "filter": None, "who": "you", "floor": False, "plot": True, "effects": []}
-    m = EQUIP_COST.fullmatch(t)
+    # -- most-played cards III (wave 46C) -- "Equip abilities you activate that target this creature cost {2} less to activate." (Helitrooper, Fervent Champion, Dwarven
+    # Mauler), "Activated abilities of Equipment you control that target this creature cost {1} less to activate." (Bladegraft Aspirant): the ability's target is the
+    # source of this static (target_self): known once targets are chosen (601.2c), before the total cost is determined (601.2f)
+    tt = re.sub(r" that target (?:this creature|~)", "", t)
+    tgt = tt != t
+    m = EQUIP_COST.fullmatch(tt)
     if m:
         return {"kind": "static", "static": "ability_cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1),
                 "filter": other.key() if m["other"] and (other := selectors.parse("other Equipment")) else None, "who": "you", "floor": False,
-                "equip": True, "effects": []}
-    m = ABILITY_COST.fullmatch(t)
+                "equip": True, "effects": [], **({"target_self": True} if tgt else {})}
+    m = ABILITY_COST.fullmatch(tt)
     if m:  # -- costs (wave 3$) -- the source permanent is matched at the cost, relative to the ability's controller
         key = None
         if m["sel"]:
@@ -682,7 +687,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
             return None
         return {"kind": "static", "static": "ability_cost_modifier", "delta": 0 if m["x"] else int(m["n"]) * sign,
                 "filter": key, "who": "you" if m["yours"] or (m["sel"] and "you control" in m["sel"]) else "any",
-                "floor": bool(m["floor"]), "effects": [], **xtra}
+                "floor": bool(m["floor"]), "effects": [], **xtra, **({"target_self": True} if tgt else {})}
     # -- conditional statics (wave 4B) -- "You may cast this card from your graveyard as long as you control a Zombie."
     # (Gravecrawler; 113.6f: functions from the graveyard; 611.3a: checked whenever the cast is offered or begun)
     m = RETRACE_GRANT.fullmatch(t)
@@ -1469,7 +1474,7 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
 
 # -- costs (wave 3$) -- cost modifiers for activated abilities (602.2b -> 601.2f, 118.7) ---------------------
 def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characteristics, mana: str, info: CardInfo,
-                 own: int = 0, ability_text: str = "") -> str:
+                 own: int = 0, ability_text: str = "", target: str | None = None) -> str:
     """The mana part of an activated ability's cost after "Activated abilities of creatures you control cost {2} less to
     activate" and its increases: increases first, then reductions on the generic component only (118.7a, 601.2f), and with
     "can't reduce the mana in that cost to less than one mana" never below one mana. Costs with {X} are left alone."""
@@ -1489,6 +1494,8 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
             continue
         if d.get("equip") and not attachments.is_equip_text(ability_text):  # -- equip (wave 15E) --
             continue
+        if d.get("target_self") and (target is None or target not in ("?", src.id) or (target == "?" and d["delta"] > 0)):
+            continue  # -- most-played cards III (wave 46C) -- only for an ability that targets the source ("?": not chosen yet, the best case for a reduction)
         if bool(d.get("plot")) != (ability_text == "plot"):  # -- cant restrictions (wave 46A) -- plotting is a special action (116.2k): only plot changers touch its cost, and they touch nothing else
             continue
         if d["filter"]:
