@@ -296,7 +296,7 @@ def _choice_part(part: str) -> bool:
     602.2b): sacrificing, discarding, tapping an untapped permanent, exiling from the graveyard."""
     from app.rules import costs as C
 
-    found = C.parse_ability_cost(part, card_name="~")
+    found = C.parse_ability_cost(part, card_name="~", anyn=False)
     # -- activated sweep (wave 17B) -- also exerting / untapping the source ({Q}, 107.6) and foraging (701.61a): paid by hand
     return not found.unsupported and bool(found.components) and all(
         c.kind in (C.EXERT, C.UNTAP, C.FORAGE, C.DISCARD_HAND) or (  # (wave 26C: "Discard your hand", 701.9a: no choice, paid with the rest)

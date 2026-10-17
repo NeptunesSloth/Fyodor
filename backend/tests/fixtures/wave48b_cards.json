@@ -399,5 +399,24 @@
    "B"
   ],
   "keywords": []
+ },
+ {
+  "name": "Swashbuckler Extraordinaire",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Dragon Rogue Warrior",
+  "oracle_text": "When this creature enters, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nWhenever you attack, you may sacrifice one or more Treasures. When you do, up to that many target creatures gain double strike until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Treasure"
+  ],
+  "power": "2",
+  "toughness": "2"
  }
 ]

@@ -308,7 +308,7 @@ def _component(part: str, card_name: str) -> CostComponent | None:
     return None
 
 
-def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False) -> AbilityCost:
+def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False, anyn: bool = True) -> AbilityCost:
     if loyalty:
         raw = cost.strip().replace("−", "-")
         if raw.upper() == "-X":
@@ -332,7 +332,7 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False)
     for part in (p.strip() for p in cost.split(",")):
         if not part:
             continue
-        found = _component(_self_text(part, card_name), card_name) or any_number_part(part, 0)  # (-- any number as an additional cost (wave 48B) -- "Exile any number of cards from your graveyard")
+        found = _component(_self_text(part, card_name), card_name) or (any_number_part(part, 0) if anyn else None)  # (-- any number as an additional cost (wave 48B) -- "Exile any number of cards from your graveyard": an activation cost; not an optional payment's (its own "any number" instruction) nor a mana ability's)
         if found is None:  # -- activation costs (wave 4H) --
             several = wave4h_parts(_self_text(part, card_name), card_name)
             if several is None:

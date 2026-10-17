@@ -159,7 +159,7 @@ def parse(text: str) -> AbilityCost | None:
 
         part = alt_costs._part(text)
         return AbilityCost(components=(part,)) if isinstance(part, C.CostComponent) and m else None
-    cost = C.parse_ability_cost(text)
+    cost = C.parse_ability_cost(text, anyn=False)
     if cost.unsupported or not cost.components or "{X}" in cost.mana.upper() or cost.energy_x:
         return None
     if any(c.activation_only and not _blight_like(c) for c in cost.components):  # (wave 4H; wave 6F: blight)

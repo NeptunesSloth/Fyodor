@@ -42,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Painbringer", "Emrakul's Evangel", "Corpseweft"])
+@pytest.mark.parametrize("name", ["Painbringer", "Emrakul's Evangel", "Corpseweft", "Swashbuckler Extraordinaire"])  # (Swashbuckler: "you may sacrifice any number of Treasures" of an optional payment stays its own instruction, not an activation cost)
 def test_every_card_is_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
