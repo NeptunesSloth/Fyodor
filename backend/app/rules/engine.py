@@ -1485,6 +1485,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "return_yours": effects.resume_return_yours,
     "return_any": effects.resume_return_any,  # (wave 26C)
     "explore": effects.resume_explore,
+    "explore_each": effects.resume_explore_each,  # (wave 50G)
     "aura_enters": attachments.resume_aura_enters,
     "battle_protector": battles.resume_protector,  # 310.11
     "siege_cast": battles.resume_siege_cast,  # 310.12b

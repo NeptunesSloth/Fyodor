@@ -1768,6 +1768,32 @@ def resume_explore(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, d.resume["ctx"])
 
 
+def explore_each(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- trigger other (wave 50G) -- 701.44a: "each Merfolk creature you control explores" (Hakbal of the Surging Soul): each explores in turn, in the order its controller
+    chooses (the 2023-11-10 ruling), nothing in between. ``rest``: the object ids still to explore; their controller (the effect's) is asked while two or more are left."""
+    ids = e.get("rest")
+    if ids is None:
+        ids = [plan.oid(plan.state.cards[c]) for c in _cards(plan, ctx, e["who"])]
+    if len(ids) > 1:
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt="Choose the creature that explores next",
+               options=[DecisionOption(id=o, label=plan.state.cards[o.rsplit(".", 1)[0]].name or "Creature", card_id=o.rsplit(".", 1)[0]) for o in ids],
+               resume={"step": "explore_each", "ctx": ctx, "rest": ids}, source=plan.state.cards.get(ctx.get("source_card") or ""))
+        return False
+    _explore_order(ctx, ids, [])
+    return True
+
+
+def _explore_order(ctx: Context, first: list[str], rest: list[str]) -> None:
+    i = ctx["next"]
+    ctx["effects"] = [*ctx["effects"][:i], *({"do": "explore", "who": f"obj:{o}"} for o in first),
+                      *([{"do": "explore_each", "rest": rest}] if rest else []), *ctx["effects"][i:]]
+
+
+def resume_explore_each(plan: Plan, d: Any, chosen: list[str]) -> None:
+    _explore_order(d.resume["ctx"], chosen, [o for o in d.resume["rest"] if o != chosen[0]])
+    continue_effects(plan, d.resume["ctx"])
+
+
 def prevent(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """615.7: "Prevent the next N damage that would be dealt to … this turn" — a shield."""
     r = plan.rules
@@ -2627,7 +2653,7 @@ PRIMITIVES = {
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen, "no_regen_turn": no_regen_turn,
     "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "return_any": return_any, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
     "madness_offer": madness_offer, "free_cast_offer": free_cast_offer, "counter": counter, "counter_unless": counter_unless,
-    "sacrifice": sacrifice, "ascend": ascend, "explore": explore, "prevent": prevent, "prevent_all": replacements.prevent_all, "mill": mill,
+    "sacrifice": sacrifice, "ascend": ascend, "explore": explore, "explore_each": explore_each, "prevent": prevent, "prevent_all": replacements.prevent_all, "mill": mill,
     "return_with_counter": return_with_counter, "exile_until": exile_until, "return_linked": return_linked,
     "fabricate": fabricate, "storm": storm,
     "fight": fight, "choose_targets": choose_targets,

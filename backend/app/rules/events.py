@@ -705,6 +705,10 @@ def _parse(c: str) -> Condition | None:
             if sel is None or sel.player is not None:
                 return None
             return {"event": event, "subject": "self_or", "sel": sel.key()}
+        m2 = re.fullmatch(r"~ and/or one or more (?P<rest>other .+)", subject)
+        if m2 and event == "enter":  # -- cant restrictions (wave 50G) -- 603.2c: "Whenever Anje and/or one or more other Vampires you control enter" is one trigger for the batch that entered together, it among them or not
+            sel = _token_or_sel(m2["rest"])
+            return None if sel is None or sel.player is not None or sel.card else {"event": event, "subject": "self_or", "sel": sel.key(), "aggregate": True}
         aggregate = False
         m3 = re.fullmatch(r"one or more (?P<rest>.+)", subject)
         if m3:  # -- triggers (wave 30J) -- "one or more creatures you control each with power greater than its base power" (Kutzil): the filter

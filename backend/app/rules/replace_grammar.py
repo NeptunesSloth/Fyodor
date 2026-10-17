@@ -344,6 +344,8 @@ _ACTION = re.compile(r"^If a creature you control would (?P<verb>explore|connive
 def _keyword_action(text: str) -> Definition | None:
     if text == "If you would scry a number of cards, draw that many cards instead.":
         return _static("scry", {"who": "you"}, {"do": "draw"})
+    if text == "If you would scry a number of cards, scry that many cards plus one instead.":  # -- keyword actions (wave 50G) -- Kenessos, Priest of Thassa
+        return _static("scry", {"who": "you"}, {"do": "plus"})
     m = _ACTION.match(text)
     if not m:
         return None

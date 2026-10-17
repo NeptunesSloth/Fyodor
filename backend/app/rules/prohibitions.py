@@ -94,6 +94,8 @@ def static_definition(text: str) -> Definition | None:
     m = re.fullmatch(r"(?P<who>each opponent|each player) can't draw more than one card each turn", t)
     if m:  # -- most-played cards (wave 43B) -- 101.2: Narset, Parter of Veils; Spirit of the Labyrinth; Leovold (see ``draw_allowed``)
         return {"kind": "static", "static": "draw_cap", "who": "opponents" if m["who"] == "each opponent" else "each", "n": 1, "effects": []}
+    if t == "players can't draw cards":  # -- cant restrictions (wave 50G) -- 121.2, 101.2: no draw at all (Maralen of the Mornsong, Omen Machine) is "can't draw more than 0 cards each turn" (see ``draw_left``)
+        return {"kind": "static", "static": "draw_cap", "who": "each", "n": 0, "effects": []}
     if t in _SEARCH_STATICS:  # (Mindlock Orb, Stranglehold, Ashiok, Dream Render)
         return {"kind": "static", "static": "cant_search", "who": _SEARCH_STATICS[t], "effects": []}
     if t == "spells and abilities your opponents control can't cause you to sacrifice permanents":  # (Sigarda, Tajuru Preserver)

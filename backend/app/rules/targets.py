@@ -92,6 +92,8 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
             colors = rule.partition(":")[2]
             if not colors or set(colors) & source.colors:
                 return False
+        if rule == "untargetable_aura_spells" and source is not None and source.is_spell and "Aura" in source.subtypes:  # -- cant restrictions (wave 50G) -- 115.2: an Aura spell
+            return False
         if rule.startswith("untargetable:") and source is not None:
             _, opp, non, colors = rule.split(":")
             if (opp == "0" or card.controller != chooser) and bool(set(colors) & source.colors) != (non == "1"):

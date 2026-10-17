@@ -1830,6 +1830,14 @@ def _explore(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "explore", **_it_source(m["src"])}], None
 
 
+@effect(r"each (?P<what>(?:[A-Z][a-z]+ )?creature you control) explores")
+def _explore_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    sel = selectors.parse(m["what"])  # -- trigger other (wave 50G) -- 701.44a: Hakbal of the Surging Soul; their controller orders them (effects.explore_each)
+    if sel is None or sel.controller != "you":
+        raise _NoMatch
+    return [{"do": "explore_each", "who": sel.key()}], None
+
+
 # -- merged permanents (wave 18D) -- 701.42a: "exile them, then meld them into [name]" (app/rules/merged.py; the condition names the partner)
 @effect(r"exile them, then meld them into meldname:(?P<r>[0-9a-f]+)")
 def _meld(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
@@ -2052,7 +2060,7 @@ def _amass(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "amass", "sub": sub, "n": {"x": 1} if m["n"] == "X" else int(m["n"])}], None
 
 
-@effect(r"(?P<who>~|it|he|she|{SEL}) connives(?: {N})?")
+@effect(r"(?P<who>~|it|he|she|{SEL}|target [A-Z][a-z]+ you control) connives(?: {N})?")
 def _connive(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     """701.50a/d: "~ connives", "it connives", "target creature you control connives [N]"."""
     n = num(m["n"]) if m["n"] else 1
@@ -2060,6 +2068,13 @@ def _connive(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
         return [{"do": "connive", "who": "self", "n": n}], None
     if m["who"] in ("it", "he", "she"):
         return [{"do": "connive", "who": "it", "n": n}], None
+    if m["who"] not in SELECTORS:  # -- cant restrictions (wave 50G) -- "Target Hero you control connives." (Valentina Allegra de Fontaine): a creature type of yours
+        from app.rules.creature_types import CREATURE_TYPES
+
+        sel = selectors.parse(m["who"][len("target "):]) if m["who"].split()[1] in CREATURE_TYPES else None
+        if sel is None or sel.controller != "you":
+            raise _NoMatch
+        return [{"do": "connive", "who": "target", "n": n}], sel.key()
     if SELECTORS[m["who"]] not in ("creature", "creature_you_control", "creature_opponent_controls", "attacking_creature"):  # (wave 41B: Raffine)
         raise _NoMatch
     return [{"do": "connive", "who": "target", "n": n}], SELECTORS[m["who"]]
@@ -2423,6 +2438,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
                   r"[Pp]ut (?:one(?: of them)?|those cards|them|that card|it) [^.]+?)(?:, then shuffle|\. Then shuffle)\b",
                   lambda m: f"{m[1]}, {m[2] + ', ' if m[2] else ''}{m[3][:1].lower()}{m[3][1:]}, then shuffle", body)
     body = re.sub(r"(?i)^(sacrifice (?:~|this \w+)), (search your library for )", r"\1. \2", body)  # (Defense of the Heart: two instructions in order)
+    body = re.sub(r"(\bloses? \d+ life), (searche?s? (?:your|their) library for )", r"\1 and \2", body)  # -- cant restrictions (wave 50G) -- "that player loses 3 life, searches their library …, puts it into their hand, then shuffles." (Maralen): the comma list is "loses 3 life and searches …"
     # -- activated other (wave 42C) -- "Choose a creature card at random from target opponent's graveyard. Put that card onto the battlefield under your control." (Tariel,
     # Reckoner of Souls): the table picks the card and it is put onto the battlefield, one instruction (the pick is nobody's choice, so nothing is lost by joining them)
     body = re.sub(r"(?i)\bchoose (an? [\w -]+? card) at random from (target (?:opponent|player)'s graveyard)\. put (?:that card|it) onto the battlefield under your control",
@@ -3012,7 +3028,7 @@ _ALSO_SUBJECT = re.compile(r"(?<![\w'])((?:[Yy]ou|[Tt]hey|[Ii]t|[Tt]hat (?:creat
                            r"(?:you|your opponents) control)) also (gains?|gets?|loses?|has|have|draws?)\b")
 
 
-_KIND_LIST_IF = re.compile(r"^(if [^,.]*?\b(?:a|an|another) )([A-Z][a-z]+(?:, [A-Z][a-z]+)+),? or ([A-Z][a-z]+)(?=,)")
+_KIND_LIST_IF = re.compile(r"^(if [^,.]*?\b(?:a|an|another) )([A-Z][a-z]+(?:, [A-Z][a-z]+)+),? or ([A-Z][a-z]+)(?=(?: [a-z]+)? card,|,)")  # (wave 50G: "… or Serpent creature card," Kenessos)
 
 
 def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
@@ -3512,7 +3528,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                     # draw was worked out to (608.2h), whatever a replacement made of the cards drawn (Horrid Shadowspinner's ruling of 2024-06-07)
                     added = json.loads(json.dumps(added).replace('{"event_amount": 1}', json.dumps({"ref_amount": probes[0]})))
                 if probes:
-                    did_gate: dict[str, Any] = {"succeeded": probes[0]} if len(probes) == 1 else {"all": [{"succeeded": n} for n in probes]}
+                    did_gate: dict[str, Any] = {"succeeded": probes[0], **({"negate": True} if if_do["neg"] else {})} if len(probes) == 1 \
+                        else {"all": [{"succeeded": n} for n in probes]}  # (wave 50G: "If you don't" after a lone put_from_hand, below)
                     added = [{"do": "only_if", "cond": did_gate, "skip": len(added)}, *added]
                 if len(texts) > 2:  # -- if you do (wave 31A) -- the sentences after B: read below (_late_ok), inside B's gate
                     gate_at, late_from = (len(effects) if probes else None), len(effects) + len(added)
@@ -7304,8 +7321,8 @@ def _if_you_do_after_may(if_do: re.Match[str], effects: list[dict[str, Any]], op
     ability it is chosen as the ability is put on the stack (603.3d), whatever the player answers later; the
     "you may" is asked on resolution (603.5), and with no legal target left the ability doesn't resolve at all
     (608.2b), A included — which is what the rules say for the printed ability too."""
-    if not optional or index != 1 or sentences < 2 or if_do["neg"]:  # (wave 31A: sentences after B, _late_ok)
-        return None
+    if not optional or index != 1 or sentences < 2 or (if_do["neg"] and [e["do"] for e in effects] != ["put_from_hand"]):  # (wave 31A: sentences after B, _late_ok)
+        return None  # -- trigger other (wave 50G) -- "You may put a land card from your hand onto the battlefield. If you don't, draw a card." (Hakbal): the put is its own choice (_own_choice), none chosen or no land to put is "you don't" (608.2c, 118.12)
     if if_do["rest"].startswith("you may "):  # -- if you do (wave 31A) -- "If you do, you may play that card this turn.": a permission models its own choice (a player may play it or not)
         found = _clause(if_do["rest"], True) if sentences == 2 else None
         if found is None or found[1] is not None or not any(x.get("optional") for x in found[0]):
