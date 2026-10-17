@@ -1757,8 +1757,11 @@ def ward_cost(ch: Any) -> str | None:
 
 def ward_costs(ch: Any) -> list[str]:
     """-- attached events (wave 4L) -- the cost of each ward ability the object has, printed or granted ("Equipped
-    creature has ward {1}"): each instance is its own triggered ability (702.21a) and triggers on its own."""
-    out = []
+    creature has ward {1}"): each instance is its own triggered ability (702.21a) and triggers on its own. -- activated other (wave 42C) --
+    An object that has lost ward ("lose hexproof, indestructible, protection, shroud, and ward", Shay Cormac) has none (613.1f)."""
+    out: list[str] = []
+    if "ward" not in ch.keywords:
+        return out
     for ab in ch.abilities:
         if ab.kind == "keywords" and "ward" in ab.keywords:
             # -- static wordings (wave 6E) -- a keyword line listing several keywords ("Flying, ward {2}"): each piece

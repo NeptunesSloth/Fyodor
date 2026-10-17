@@ -1069,7 +1069,9 @@ def _sels(phrase: str) -> str | None:
     whole = _sel_key(phrase)
     if whole is not None:
         return whole
-    parts = [p.strip() for p in re.split(r" or |, ", phrase.replace(" and/or ", " or "))]
+    # (-- activated other (wave 42C) -- "creatures with power 2 or less and/or Walls" (Doorman): the "or less" is a number's, not a second kind)
+    parts = [p.strip().replace("_or_", " or ") for p in re.split(r" or |, ", re.sub(r"(\d+) or (less|greater|more)\b", r"\1_or_\2",
+                                                                                   phrase.replace(" and/or ", " or ")))]
     if len(parts) < 2:
         return None
     keys: list[str] = []

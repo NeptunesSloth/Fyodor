@@ -3555,6 +3555,14 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         _activation_limit(plan, card, ch)  # -- cast limits (wave 5E) --
         unearth(plan, card, ch, a, unearth_cost)
         return
+    if card.zone == zone_key(plan.actor, "exile") and card.owner == plan.actor:  # -- activated other (wave 42C) -- 113.6m: "… from your graveyard or from exile"
+        ch = plan.ch(card)
+        ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+        if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).exile_too:
+            _activation_limit(plan, card, ch)
+            activate_to_stack(plan, card, ch, ability, a)
+            return
+        raise ActionError("That card has no ability to use from exile")
     if card.zone == zone_key(plan.actor, "companion") and card.owner == plan.actor:  # -- companion (wave 38D) -- 116.2g
         companion_action(plan, card, plan.ch(card), a)
         return
@@ -3774,7 +3782,8 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
     # card out of the graveyard, so the ability works only there
     if ability.kind == "activated" and ":" in ability.text and (_GRAVEYARD_SELF.match(ability.text.split(":", 1)[1].strip().replace(ch.name, "~"))
                                                                  or "Activate only if this card is in your graveyard" in ability.text):
-        cost = replace(cost, graveyard_only=True)  # (review 20E: Glory's "Activate only if this card is in your graveyard.", 113.6m)
+        cost = replace(cost, graveyard_only=True,  # (review 20E: Glory's "Activate only if this card is in your graveyard.", 113.6m)
+                       exile_too=_GRAVEYARD_OR_EXILE.match(ability.text.split(":", 1)[1].strip().replace(ch.name, "~")) is not None)  # (wave 42C)
     # -- activated from hand / command zone (wave 27D) -- 113.6m: "Put this card from your hand onto the battlefield" / "Put ~ onto the
     # battlefield from the command zone" moves the card out of that zone, so the ability works only there
     if ability.kind == "activated" and ":" in ability.text:
@@ -3787,6 +3796,9 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
 
 
 # (-- reanimation (wave 37B) -- "Return this card and target land card from your graveyard to the battlefield tapped" (Sandman): this card too)
+# -- activated other (wave 42C) -- 113.6m: "Return this card from your graveyard or from exile to the battlefield tapped." (Mister Immortal) moves the card out of
+# either zone, so it works in either
+_GRAVEYARD_OR_EXILE = re.compile(r"(?:return|put) (?:this card|~) from your graveyard or from exile\b", re.I)
 _GRAVEYARD_SELF = re.compile(r"(?:return|put) (?:this card|this creature|this artifact|this land|~)(?: and [^:.]*?)? from your graveyard\b", re.I)
 
 
@@ -3812,8 +3824,9 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
         if card.zone != zone_key(player, "command") or card.owner != player:
             return "That ability can only be activated from the command zone"
     elif cost.from_graveyard:  # 113.6m: its cost moves it out of your graveyard, so it works only there
-        if card.zone != zone_key(player, "graveyard") or card.owner != player:
-            return "That ability can only be activated from your graveyard"
+        if card.zone not in ((zone_key(player, "graveyard"), zone_key(player, "exile")) if cost.exile_too else (zone_key(player, "graveyard"),)) \
+                or card.owner != player:  # (-- activated other (wave 42C) -- or from exile, where the text says so)
+            return "That ability can only be activated from your graveyard" + (" or from exile" if cost.exile_too else "")
     elif ninjutsu.is_ninjutsu(ability.text):  # -- keywords (wave 15E) -- 702.49a: from the hand, once blockers are declared
         why = ninjutsu.problem(state, player, card)
         if why:
@@ -4094,6 +4107,14 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
                     ability_problem(state, player, card, ch, ab, ability_cost(ch, ab, state=state, card=card, info=info),  # (wave 4I)
                                     check_priority=check_priority,
                                     info=info) is None:
+                out.append({"card_id": cid, "ability": ab.index})
+    for cid in state.zones.get(zone_key(player, "exile"), []):  # -- activated other (wave 42C) -- 113.6m: "Return this card from your graveyard or from exile …"
+        card = state.cards[cid]
+        ch = chars.of(card, info)
+        for ab in ch.abilities:
+            if ab.kind == "activated" and ability_cost(ch, ab).exile_too and \
+                    ability_problem(state, player, card, ch, ab, ability_cost(ch, ab, state=state, card=card, info=info),
+                                    check_priority=check_priority, info=info) is None:
                 out.append({"card_id": cid, "ability": ab.index})
     return out
 

@@ -115,7 +115,19 @@ def _copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "copy_cards", "who": _who(m)}], None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_HAND, _hand), (_GRAVEYARD, _graveyard), (_COPY, _copy)]
+# -- activated other (wave 42C) -- "Put a creature card exiled with ~ onto the battlefield under your control." (Sisters of Stone Death, Yggdrasil, Rebirth Engine): ONE of the linked
+# cards, chosen by the ability's controller as it resolves (608.2d; nothing is targeted). Only the battlefield (a card exiled face down would be named by the choice)
+_PICK = re.compile(r"^(?:return|put) an? (?:(?P<spec>[\w\-]+) )?card exiled with (?:it|~) (?:to|onto) the battlefield(?P<tapped> tapped)? under your control$")
+
+
+def _pick(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    if (own := _off(m)) is not None:
+        return own
+    return [{"do": "return_choice", "who": _who(m), "n": 1, "upto": False, "random": False, "label": f"{m['spec']} card" if m["spec"] else "card",
+             "to": "battlefield", "tapped": bool(m["tapped"]), "under": "you"}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_HAND, _hand), (_GRAVEYARD, _graveyard), (_COPY, _copy), (_PICK, _pick)]
 
 # -- linked casting (wave 30H) -- 607.2a, 608.2g: in an ability that only refers to what another exiled, "cast a spell from among cards exiled with ~
 # [without paying its mana cost]" casts from the linked cards (the ones ``linked_cards`` binds, as "them"), as this ability resolves

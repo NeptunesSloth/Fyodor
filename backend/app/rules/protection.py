@@ -19,7 +19,8 @@ Quality = Callable[[Characteristics], bool]
 
 COLORS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
 CARD_TYPES = {"artifacts": "Artifact", "creatures": "Creature", "enchantments": "Enchantment", "instants": "Instant",
-              "sorceries": "Sorcery", "planeswalkers": "Planeswalker", "lands": "Land", "battles": "Battle"}
+              "sorceries": "Sorcery", "planeswalkers": "Planeswalker", "lands": "Land", "battles": "Battle",
+              "kindreds": "Kindred"}  # (kindreds: wave 42C, "the card type of your choice")
 # Irregular plurals of creature types that appear after "protection from".
 _PLURALS = {"elves": "Elf", "dwarves": "Dwarf", "wolves": "Wolf", "werewolves": "Werewolf", "thieves": "Thief",
             "mice": "Mouse", "fungi": "Fungus", "sphinxes": "Sphinx", "foxes": "Fox", "djinn": "Djinn"}
