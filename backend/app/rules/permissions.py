@@ -64,7 +64,8 @@ STATIC_COST = re.compile(
 # mana in that cost to less than one mana." / "Abilities you activate that aren't mana abilities cost {2} less to activate."
 ABILITY_COST = re.compile(
     rf"^(?:activated abilities(?: of (?P<sel>[a-z][a-z' ,-]*?))?|(?P<yours>abilities you activate that aren't mana abilities)) "
-    rf"costs? {_N} (?P<dir>less|more) to activate(?:\. (?P<floor>this effect can't reduce the mana in that cost to less than one mana))?$",
+    rf"costs? (?:{_N}|\{{(?P<x>X)\}}) (?P<dir>less|more) to activate(?:, where X is (?P<xv>~'s (?:power|toughness)))?"  # (wave 44D: Agatha of the Vile Cauldron)
+    rf"(?:\. (?P<floor>this effect can't reduce the mana in that cost to less than one mana))?$",
     re.IGNORECASE)
 # -- equip (wave 15E) -- "Equip abilities you activate cost {1} less to activate." (Bureau Headmaster), "Equip costs you pay cost
 # {1} less." (Auriok Steelshaper), "Equip abilities you activate of other Equipment cost {1} less to activate." (Bladehold
@@ -78,6 +79,9 @@ EQUIP_COST = re.compile(
 STORED_COST = re.compile(
     rf"^(?P<until>until your next turn, )?{_SEL} spells you cast (?P<this_turn>this turn )?cost {_N} (?P<dir>less|more) to cast$",
     re.IGNORECASE)
+# -- cost changers (wave 44D) -- "Spells you cast this turn that are white and/or blue cost {X} less to cast, where X is the amount of life you gained this turn." (Will,
+# Scion of Peace; Rowan, Scion of War): X is read once, as the ability resolves (the rulings of 2023-09-01), then it is the stored cost modifier above
+STORED_COST_X = re.compile(r"^spells you cast this turn that are (?P<sel>[a-z]+) and/or (?P<sel2>[a-z]+) cost \{X\} less to cast, where X is (?P<v>.+)$", re.IGNORECASE)
 # "This spell costs {1} less to cast for each creature card in your graveyard."
 SELF_PER = re.compile(rf"^(?:this spell|~) costs {_N} less to cast for each (?P<what>.+)$")
 # "This spell costs {1} less to cast if you control a Wizard."
@@ -644,9 +648,18 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                     or sel.extras or sel.attacking or sel.blocking:
                 return None
             key = sel.key()
-        return {"kind": "static", "static": "ability_cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1),
+        sign = -1 if m["dir"] == "less" else 1
+        extra: dict[str, Any] = {}
+        if m["x"]:  # -- cost changers (wave 44D) -- "{X} less to activate, where X is ~'s power": the source's power, read as each cost is determined (601.2f)
+            value = cost_changes._value(m["xv"] or "")
+            if value is None:
+                return None
+            extra = {"value": value, "sign": sign}
+        elif m["xv"]:
+            return None
+        return {"kind": "static", "static": "ability_cost_modifier", "delta": 0 if m["x"] else int(m["n"]) * sign,
                 "filter": key, "who": "you" if m["yours"] or (m["sel"] and "you control" in m["sel"]) else "any",
-                "floor": bool(m["floor"]), "effects": []}
+                "floor": bool(m["floor"]), "effects": [], **extra}
     # -- conditional statics (wave 4B) -- "You may cast this card from your graveyard as long as you control a Zombie."
     # (Gravecrawler; 113.6f: functions from the graveyard; 611.3a: checked whenever the cast is offered or begun)
     m = RETRACE_GRANT.fullmatch(t)
@@ -885,6 +898,11 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
             return None
         return [{"do": "cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1), "filter": key,
                  "until": "next_turn" if m["until"] else "end_of_turn"}], None
+    if (x := STORED_COST_X.fullmatch(text)) is not None:
+        from app.rules import values
+
+        key, value = spell_filter(f"{x['sel']} or {x['sel2']}"), values.parse_count(x["v"])
+        return None if key is None or value is None or "turn_history" not in value else [{"do": "cost_modifier", "delta": value, "dir": -1, "filter": key, "until": "end_of_turn"}], None
     m = LOOK_EXILED.fullmatch(text)  # -- hidden exile (wave 18A) --
     if m:
         return [{"do": "look_exiled", "who": "them:card" if m["what"] in ("those cards", "them") else "it:card", "optional": True}], None
@@ -1433,10 +1451,16 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
             view = view or _view(state, player, info)
             if not selectors.matches(view, selectors.from_key(d["filter"]), card, ch, src.controller, src.id):
                 continue
-        if d["delta"] > 0:
-            increase += d["delta"]
-        else:
-            reduction -= d["delta"]
+        delta = d["delta"]
+        if d.get("value") is not None:  # (wave 44D) the amount read now, with the source's own context
+            view = view or _view(state, player, info)
+            from app.rules import values
+
+            delta = d["sign"] * values.evaluate(view, cost_changes.context(state, src.controller, src), d["value"])
+        if delta > 0:
+            increase += delta
+        elif delta < 0:
+            reduction -= delta
             floor = floor or d["floor"]
     if not increase and not reduction:
         return mana
@@ -1567,11 +1591,14 @@ def cost_modifier(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     cost {N} less to cast": a cost modifier for its controller's spells with that duration (601.2f,
     611.2a; generic mana only, 118.7a), read with the table's static ones (``modifiers``)."""
     pid = ctx["controller"]
+    from app.rules import values
+
+    delta = e["dir"] * values.evaluate(plan, ctx, e["delta"]) if isinstance(e["delta"], dict) else int(e["delta"])  # (wave 44D: an amount read now, 611.2a)
     plan.rules.cost_modifiers.append(CostModifier(
-        id=secrets.token_hex(4), controller=pid, delta=int(e["delta"]), caster="you", filter=e.get("filter"),
+        id=secrets.token_hex(4), controller=pid, delta=delta, caster="you", filter=e.get("filter"),
         until=e["until"], turn=plan.state.turn.number, source=ctx.get("source_object"),
         label=(ctx.get("name") or "An effect")[:120]))
-    amount = f"{{{abs(int(e['delta']))}}} {'less' if int(e['delta']) < 0 else 'more'}"
+    amount = f"{{{abs(delta)}}} {'less' if delta < 0 else 'more'}"
     plan.note(f"{plan.name(pid)}'s spells cost {amount} to cast "
               + ("until their next turn" if e["until"] == "next_turn" else "this turn") + f" ({ctx.get('name') or 'an effect'})")
     return True

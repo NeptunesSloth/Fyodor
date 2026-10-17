@@ -250,7 +250,7 @@ _CHOSEN_COLOR: dict[str, str | None] = {  # (wave 3R3) "Choose a color. <this>":
 }
 _PUT_SELF = re.compile(r"^Put an? (?P<k>[+-]\d+/[+-]\d+) counter on (?:this \w+|~)$")  # (wave 3R3: Wall of Roots)
 _SAC_SELF = re.compile(r"^Sacrifice (this \w+|it|~)$")  # (wave 17C: ~, a quoted grant read through self_text)
-_EXTRA = re.compile(r"^(\{[^}]+\})+$|^Pay \d+ life$|^Pay (?:\{E\})+$|^Pay (?:one|two|three|four|five|six|seven|eight) \{E\}$|^Remove (a|an|one|two|three) (?:[a-z]+|[+-]\d+/[+-]\d+) counters? from (this \w+|it)$")
+_EXTRA = re.compile(r"^(\{[^}]+\})+$|^Pay \d+ life$|^Pay (?:\{E\})+$|^Pay (?:one|two|three|four|five|six|seven|eight) \{E\}$|^Remove (a|an|one|two|three|four|five|six|seven|eight) (?:[a-z]+|[+-]\d+/[+-]\d+) counters? from (this \w+|it|~)$")  # (wave 44D: "from ~", five: Ramos, Dragon Engine)
 
 
 # -- ability words (wave 4F) ---------------------------------------------------------------------------
