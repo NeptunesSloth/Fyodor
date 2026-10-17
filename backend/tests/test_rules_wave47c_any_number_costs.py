@@ -44,9 +44,10 @@ def cards(settings):
 
 
 FULL = ["Torgaar, Famine Incarnate", "Gorex, the Tombshell", "Dargo, the Shipwrecker", "Hierophant Bio-Titan", "Explosive Singularity", "March of Swirling Mist",
-        "March of Otherworldly Light", "March of Wretched Sorrow", "Extus, Oriq Overlord // Awaken the Blood Avatar"]
-# (kept manual: the cost line is read, the rest of the card is not — a blight-counter choice for every opponent, "play up to two of those cards", "mana value less than X")
-PARTIAL = ["Rottenmouth Viper", "March of Reckless Joy", "March of Burgeoning Life"]
+        "March of Otherworldly Light", "March of Wretched Sorrow", "March of Reckless Joy", "March of Burgeoning Life",
+        "Extus, Oriq Overlord // Awaken the Blood Avatar"]
+# (kept manual: the cost line is read, the rest of the card is not — a blight-counter choice for every opponent, each making several)
+PARTIAL = ["Rottenmouth Viper"]
 
 
 @pytest.mark.parametrize("name", FULL)
@@ -424,4 +425,70 @@ def test_hierophant_bio_titan_with_no_counters_on_the_table_asks_nothing_and_cos
     act(s, "p1", type="cast_spell", card_id=c.id, optional_costs=[f"{c.id}:reduce"])
     settle(s)
     assert zone_of(s, "Hierophant Bio-Titan") == "p1:battlefield"
+    check(s)
+
+
+def test_march_of_swirling_mist_exiles_a_blue_card_and_phases_out_up_to_x_creatures(cards):
+    """{X}{U} with X = 2 is {2}{U}; one blue card exiled (the green one stays) makes it {U}; two creatures phase out (702.26), the ruling's mana value on the stack is X + 1."""
+    s = build(cards, ["March of Swirling Mist", "Counterspell", "Grizzly Bears"], ["Grizzly Bears", "Hill Giant"])
+    bears, giant = put(s, "Grizzly Bears", "p2"), put(s, "Hill Giant", "p2")
+    for n in ("March of Swirling Mist", "Counterspell", "Grizzly Bears"):
+        to_hand(s, n)
+    mana(s, U=1)
+    c = card_named(s, "March of Swirling Mist")
+    act(s, "p1", type="cast_spell", card_id=c.id, x_value=2, targets=[bears.id, giant.id], target_counts=[2], optional_costs=[f"{c.id}:reduce"],
+        cost_choices=[{"component": 0, "cards": [card_named(s, "Counterspell").id]}])
+    settle(s)
+    assert zone_of(s, "Counterspell") == "p1:exile" and zone_of(s, "Grizzly Bears") == "p1:hand"
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:phased" and zone_of(s, "Hill Giant", "p2") == "p2:phased"
+    check(s)
+
+
+# ---- "You may play up to two of those cards": March of Reckless Joy -------------------------------------------------------------------------
+def test_march_of_reckless_joy_exiles_x_cards_and_lets_you_play_two_of_them(cards):
+    """{X}{R} with X = 3 is {3}{R}; two red cards exiled from the hand make it {R}. The top three cards are exiled and only two of them may be played (the one
+    that is left has no permission once the second is cast); which ones is chosen as they are played (ruling 2022-02-18)."""
+    s = build(cards, ["March of Reckless Joy", "Lightning Bolt", "Fiery Temper", "Savannah Lions", "Goblin Piker", "Grizzly Bears"])
+    stack_top(s, ["Savannah Lions", "Goblin Piker", "Grizzly Bears"])
+    for n in ("March of Reckless Joy", "Lightning Bolt", "Fiery Temper"):
+        to_hand(s, n)
+    mana(s, R=1)
+    c = card_named(s, "March of Reckless Joy")
+    act(s, "p1", type="cast_spell", card_id=c.id, x_value=3, optional_costs=[f"{c.id}:reduce"],
+        cost_choices=[{"component": 0, "cards": [card_named(s, "Lightning Bolt").id, card_named(s, "Fiery Temper").id]}])
+    settle(s)
+    assert [zone_of(s, n) for n in ("Savannah Lions", "Goblin Piker", "Grizzly Bears")] == ["p1:exile"] * 3
+    assert len([p for p in s.state.rules.permissions if p.player == "p1"]) == 3
+    s = reloaded_session(s)  # a save and a load with the permissions in place
+    mana(s, W=1, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Savannah Lions").id)
+    settle(s)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Goblin Piker").id)
+    settle(s)
+    assert zone_of(s, "Savannah Lions") == "p1:battlefield" and zone_of(s, "Goblin Piker") == "p1:battlefield"
+    assert not [p for p in s.state.rules.permissions if p.player == "p1"]  # (two were played: the third card can't be)
+    mana(s, G=1, C=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Grizzly Bears").id)
+    assert zone_of(s, "Grizzly Bears") == "p1:exile"
+    check(s)
+
+
+# ---- "mana value less than X": March of Burgeoning Life ---------------------------------------------------------------------------------------
+def test_march_of_burgeoning_life_finds_the_same_name_for_a_target_with_mana_value_below_x(cards):
+    """Ruling 2022-02-18: the target's mana value must be less than X (equal is not legal); exiling two green cards from the hand makes {3}{G} just {G}; the search puts
+    the same-named creature onto the battlefield tapped."""
+    s = build(cards, ["March of Burgeoning Life", "Giant Growth", "Llanowar Elves", "Grizzly Bears"], ["Grizzly Bears"])
+    foe = put(s, "Grizzly Bears", "p2")
+    for n in ("March of Burgeoning Life", "Giant Growth", "Llanowar Elves"):
+        to_hand(s, n)
+    mana(s, G=1)
+    c = card_named(s, "March of Burgeoning Life")
+    green = [card_named(s, "Giant Growth").id, card_named(s, "Llanowar Elves").id]
+    with pytest.raises(ActionError):  # (X = 2: Grizzly Bears has mana value 2, not less)
+        act(s, "p1", type="cast_spell", card_id=c.id, x_value=2, targets=[foe.id], optional_costs=[f"{c.id}:reduce"], cost_choices=[{"component": 0, "cards": green}])
+    act(s, "p1", type="cast_spell", card_id=c.id, x_value=3, targets=[foe.id], optional_costs=[f"{c.id}:reduce"], cost_choices=[{"component": 0, "cards": green}])
+    settle(s)
+    assert zone_of(s, "Giant Growth") == "p1:exile" and zone_of(s, "Llanowar Elves") == "p1:exile"
+    assert zone_of(s, "Grizzly Bears") == "p1:battlefield" and s.state.cards[card_named(s, "Grizzly Bears").id].tapped
     check(s)

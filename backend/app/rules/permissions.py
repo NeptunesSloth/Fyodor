@@ -165,7 +165,7 @@ _UNTILS = "until end of turn|until the end of your next turn|until your next end
 # the ability stays manual. A bare "You may cast that card." (no duration) means "cast it now, as
 # this resolves, ignoring timing" — not a permission that lasts: refused.
 GRANT_THAT = re.compile(rf"^(?:(?P<until>{_UNTILS}), )?you may (?P<verb>play|cast) "
-                        r"(?P<what>that card|those cards|it)(?P<from_ex> from exile)?(?P<this_turn> this turn)?(?P<free> without paying (?:its|their) mana costs?)?"
+                        r"(?:(?P<upto>up to (?P<upn>one|two|three|four) of ))?(?P<what>that card|those cards|it)(?P<from_ex> from exile)?(?P<this_turn> this turn)?(?P<free> without paying (?:its|their) mana costs?)?"
                         r"(?:, and (?P<spend>mana of any type can be spent to cast (?:that spell|those spells))"  # (wave 25C: Dire Fleet Daredevil)
                         r"| and (?P<spend2>you may spend mana as though it were mana of any (?P<k2>color|type) to cast (?:that spell|those spells)))?$")  # (Hurl Through Hell)
 # -- free cast (wave 40D) -- "Until end of turn, you may cast noncreature spells from among those cards without paying their mana costs." (Narset, Enlightened
@@ -174,7 +174,7 @@ GRANT_THAT = re.compile(rf"^(?:(?P<until>{_UNTILS}), )?you may (?P<verb>play|cas
 AMONG_GRANT = re.compile(r"^until end of turn, you may cast (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells from among (?:them|those cards|those exiled cards|the exiled cards)"
                          r"(?P<free> without paying their mana costs)?$")
 # -- refused grants/replacements (wave 3R2) -- "You may play that card until the end of your next turn."
-_TRAILING_UNTIL = re.compile(r"^(?P<rest>you may (?:play|cast) (?:that card|those cards|it|them)(?: without paying (?:its|their) mana costs?)?) "
+_TRAILING_UNTIL = re.compile(r"^(?P<rest>you may (?:play|cast) (?:up to (?:one|two|three|four) of )?(?:that card|those cards|it|them)(?: without paying (?:its|their) mana costs?)?) "
                              rf"(?P<until>{_UNTILS})$")
 # -- end refused grants/replacements (wave 3R2) --
 # "Until end of turn, you may play lands and cast spells from your graveyard." (Yawgmoth's Will)
@@ -991,6 +991,8 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     if m and (m["d1"] or m["d2"] or m["d3"]):
         return _grant_exiled(m)
     m = GRANT_THAT.fullmatch(text)
+    if m and m["upto"] and m["what"] != "those cards":
+        return None
     if m and m["from_ex"] and bool(m["until"]) == bool(m["this_turn"]):
         return None  # -- free cast (wave 40D) -- "play that card from exile this turn" (Norin) is a permission with a stated duration only
     if m and m["free"] and not (m["until"] or m["this_turn"]):
@@ -1016,8 +1018,11 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
                  "until your next turn": "next_turn", "until the beginning of your next upkeep": "next_turn"}.get(m["until"], "end_of_turn")
         # "who": a pronoun for scripts.resolve_it — the object(s) the preceding instruction moved
         # ("that card": a card — never a token the same sentence created, 111.1: scripts.resolve_it)
+        if m["upto"] and (free or spend_kind or m["from_ex"]):
+            return None  # (-- cost reductions paid with objects (wave 47C) -- "You may play up to two of those cards until the end of your next turn." (March of Reckless Joy) only)
         return [{"do": "grant_play", "who": "them:card" if m["what"] == "those cards" else "it:card", "play": m["verb"] == "play",
                  "cast": True, "until": until, "optional": True, **({"free": True} if free else {}),
+                 **({"limit": {"one": 1, "two": 2, "three": 3, "four": 4}[m["upn"]]} if m["upto"] else {}),
                  **({"spend": spend_kind} if spend_kind else {}), **({"from_exile": True} if m["from_ex"] else {})}], None
     m = GRANT_ZONE.fullmatch(text)
     if m:
@@ -1354,6 +1359,12 @@ def consume(plan: Plan, grant: Grant | None) -> None:
     if grant.once_key:
         r.once_per_turn[grant.once_key] = turn
     if grant.permission:
+        used = next((p for p in r.permissions if p.id == grant.permission), None)
+        if used is not None and used.group:  # -- cost reductions paid with objects (wave 47C) -- "play up to two of those cards": one fewer may be, the rest end with the last
+            for p in r.permissions:
+                if p.group == used.group:
+                    p.left -= 1
+            r.permissions = [p for p in r.permissions if not (p.group == used.group and p.left <= 0)]
         for p in r.permissions:
             if p.id == grant.permission and p.once:
                 p.used_turn = turn
@@ -1549,6 +1560,7 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         # -- as long as (wave 37A) -- "You may cast this card for as long as it remains exiled": the card its cost exiled
         from app.rules import effects as _effects
 
+        group = secrets.token_hex(4) if e.get("limit") else ""  # (-- cost reductions paid with objects (wave 47C) -- "up to two of those cards": one limit for them all)
         for cid in _effects._cards(plan, ctx, "cost_exiled_self") if e["who"] == "cost_exiled_self" else \
                 context.objects(plan, ctx, e["who"][len(context.PREFIX):]) if e["who"] != "target" else _target_cards(plan, ctx):
             card = plan.state.cards[cid]
@@ -1561,7 +1573,7 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                                             object_id=plan.oid(card), card=cid, until=e["until"], turn=turn, free=bool(e.get("free")), spend=e.get("spend", ""),
                                             filter=e.get("filter"),  # (-- free cast (wave 40D) -- "noncreature spells from among those cards")
                                             exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")),  # (wave 25C)
-                                            source=ctx.get("source_object"),
+                                            source=ctx.get("source_object"), group=group, left=int(e.get("limit") or 0),
                                             label=f"{ctx.get('name') or 'An effect'}: {verb} it {when}" + (" without paying its mana cost" if e.get("free") else "")))
             plan.note(f"{plan.name(holder)} may {verb} {card.name} {when}", [cid])
         return True
