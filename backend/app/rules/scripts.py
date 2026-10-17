@@ -1056,6 +1056,9 @@ def _free_cast_source(e: dict[str, Any], pronoun: str, intro: _Introducer | None
         return False
     src = out[intro.index]
     if str(src.get("player") or "you").startswith("each") and (intro.do == "look_top" or src.get("until")):
+        if intro.do == "exile_top" and e.get("zone") == "among":  # -- if you do (wave 44A) -- "each player exiles cards … until they exile a nonland card.
+            e["zone"], e["who"] = "that", "ref:" + bound(intro)  # You may cast any number of spells from among" them: every card exiled, lands too
+            return True  # (a land is never cast; ctx["found"] names one library's card only)
         raise _NoMatch  # (several libraries looked at / searched until: ctx keeps one library's; exiled cards are bound)
     if src.get("until"):
         if pronoun != "it":

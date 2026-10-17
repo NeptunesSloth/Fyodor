@@ -1,0 +1,69 @@
+[
+ {
+  "name": "Etali, Primal Conqueror // Etali, Primal Sickness",
+  "layout": "transform",
+  "mana_cost": "{5}{R}{R} // ",
+  "cmc": 7.0,
+  "type_line": "Legendary Creature — Elder Dinosaur // Legendary Creature — Phyrexian Elder Dinosaur",
+  "oracle_text": "Trample\nWhen Etali enters, each player exiles cards from the top of their library until they exile a nonland card. You may cast any number of spells from among the nonland cards exiled this way without paying their mana costs.\n{9}{G/P}: Transform Etali. Activate only as a sorcery.\n//\nTrample, indestructible\nWhenever Etali deals combat damage to a player, they get that many poison counters. (A player with ten or more poison counters loses the game.)",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Indestructible",
+   "Transform",
+   "Trample"
+  ],
+  "power": "7",
+  "toughness": "7",
+  "card_faces": [
+   {
+    "name": "Etali, Primal Conqueror",
+    "mana_cost": "{5}{R}{R}",
+    "type_line": "Legendary Creature — Elder Dinosaur",
+    "oracle_text": "Trample\nWhen Etali enters, each player exiles cards from the top of their library until they exile a nonland card. You may cast any number of spells from among the nonland cards exiled this way without paying their mana costs.\n{9}{G/P}: Transform Etali. Activate only as a sorcery.",
+    "power": "7",
+    "toughness": "7",
+    "colors": [
+     "R"
+    ]
+   },
+   {
+    "name": "Etali, Primal Sickness",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Phyrexian Elder Dinosaur",
+    "oracle_text": "Trample, indestructible\nWhenever Etali deals combat damage to a player, they get that many poison counters. (A player with ten or more poison counters loses the game.)",
+    "power": "11",
+    "toughness": "11",
+    "colors": [
+     "G",
+     "R"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Fevered Suspicion",
+  "layout": "normal",
+  "mana_cost": "{6}{B}{R}",
+  "cmc": 8.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each opponent exiles cards from the top of their library until they exile a nonland card. You may cast any number of spells from among those nonland cards without paying their mana costs.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Rebound"
+  ]
+ }
+]

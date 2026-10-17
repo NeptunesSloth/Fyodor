@@ -1274,7 +1274,7 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     if rider is not None:
         raise _Fail
     m = _SUBJ_UNTIL.fullmatch(text)  # -- refused look/cast-free (wave 3R5) --
-    if m and not m["subj"].startswith("each"):
+    if m and (not m["subj"].startswith("each") or m["verb"] == "exiles"):  # (wave 44A: "each player exiles … until" keeps every library's cards)
         kind, key, group = ref(m["subj"])
         do = "look_top" if m["verb"] == "reveals" else "exile_top"
         return [{"do": do, "n": 0, "player": _who(kind, key), "until": _card_sel(m["sel"]),
