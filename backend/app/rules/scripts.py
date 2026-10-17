@@ -332,6 +332,7 @@ def self_text(text: str, name: str) -> str:
     out = re.sub(r"\b(?:a|an) ((?:[a-z]+ )*?card) other than this card\b", r"another \1", out)  # (wave 19C: Ichorid; the source is that card)
     out = re.sub(r"(\bto the battlefield) and (attach this (?:Equipment|Aura) to it\b)", lambda m: f"{m[1]}. {m[2][0].upper()}{m[2][1:]}", out)  # (wave 19C: Nim Deathmantle: two instructions in order)
     out = re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room|Spacecraft|Planet)\b", "~", out)
+    out = re.sub(r"\b([Cc])onvert(s|ed)?\b", lambda m: f"{m[1].replace('c', 't').replace('C', 'T')}ransform{m[2] or ''}", out)  # (-- commanders (wave 50C) -- 701.28a: to convert a permanent is to turn it over as transforming does; "Convert Starscream." is "Transform ~.")
     # -- gift (wave 23D) -- 702.174k: a promised gift is read as the spell having been kicked (app/rules/gift.py): "If the gift was promised, …"
     # opens a sentence of the spell, "When ~ enters, if the gift was promised, …" is the permanent's intervening "if"
     out = re.sub(r"(?:^|(?<=\. ))If the gift was promised, ", "If this spell was kicked, ", out)
@@ -4699,10 +4700,12 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return keyword_triggers.dynamic_x(text)
     if ability.kind == "spell" and SHUFFLE_INSTEAD_SELF.match(text):  # -- zone replacements (wave 22C) -- Nexus of Fate: a replacement line of a spell card
         return {"kind": "replacement", "replacement": "shuffle_instead", "from": "anywhere", "effects": []}
-    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",), ("sneak",), ("freerunning",), ("impending",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E; sneak: 30I; freerunning, impending: 43D)
+    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("overload",), ("emerge",), ("foretell",), ("mutate",), ("web-slinging",), ("evoke",), ("sneak",), ("freerunning",), ("impending",), ("more than meets the eye",)):  # -- keywords (wave 15E) -- alt_costs (web-slinging: wave 25A; evoke without mana: 30E; sneak: 30I; freerunning, impending: 43D)
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(ability.text)
+    if ability.kind == "keywords" and ability.keywords == ("living metal",):  # -- commanders (wave 50C) -- 702.161a: "During your turn, this permanent is an artifact creature in addition to its other types."
+        return define(replace(ability, kind="static", keywords=(), text="During your turn, this permanent is an artifact creature in addition to its other types."), ch)
     if ability.kind == "keywords" and ability.keywords == ("unleash",):  # -- keywords (wave 15E) -- 702.98a's second static
         return parse_anthem("~ can't block as long as it has a +1/+1 counter on it.")
     # -- static_other (wave 36B) -- 601.3, 101.2: "You can't cast Rakdos unless an opponent lost life this turn." (Rakdos, Lord of Riots), "Threshold — You can't cast
@@ -7260,7 +7263,7 @@ def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
 # was) might not be there: "If you do" would then be false, which this reading can't tell.
 _CERTAIN_WHEN_CHOSEN = frozenset({"draw", "create_token", "choose_value"})  # (wave 31A: "you may choose a color / a creature type": a choice that is always there to make, 118.12)
 _CERTAIN_ON_A_TARGET = frozenset({"exile", "bounce", "gain_control", "pump", "grant"})  # (wave 19E: gain control of a chosen target: it changes hands or the ability fizzles; wave 21C: "you may have target creature get +2/+0 and gain haste until end of turn. If you do, …")
-_PROBED = frozenset({"draw", "exile", "bounce", "add_counters", "put_from_hand", "lose_life", "tap", "sacrifice", "look_top"})  # (their "If you do" reads whether the player started it, 118.12: effects._did; wave 26C: put_from_hand)
+_PROBED = frozenset({"draw", "exile", "bounce", "add_counters", "put_from_hand", "lose_life", "tap", "sacrifice", "look_top", "transform"})  # (their "If you do" reads whether the player started it, 118.12: effects._did; wave 26C: put_from_hand)
 
 
 def _probed_move(e: dict[str, Any]) -> bool:
@@ -7269,7 +7272,7 @@ def _probed_move(e: dict[str, Any]) -> bool:
     false when the card had already left (400.7: there's nothing to exile) — no certainty is needed."""
     if e["do"] == "add_counters":  # -- if you do (wave 15C) -- counters on a chosen object: probed (effects._did_counters_up)
         return isinstance(e.get("who"), str) and isinstance(e.get("n"), int) and e["n"] > 0 and not e.get("optional")
-    if e["do"] == "tap":  # -- if you do (wave 30G) -- "you may tap it. If you do, …": that one permanent, if it is untapped (effects._did_tap)
+    if e["do"] in ("tap", "transform"):  # -- if you do (wave 30G) -- "you may tap it. If you do, …": that one permanent, if it is untapped (effects._did_tap); wave 50C: "you may convert ~. When you do, …" (Ratchet): that permanent, if it turned over (effects._did_transform)
         return e.get("who") in ("self", "it") and not e.get("optional")
     if e["do"] == "lose_life":  # -- if you do (wave 30G) -- "you may have target player lose 3 life. If you do, …": chosen unless their life can't change (effects._did_lose_life)
         return isinstance(e.get("who"), str) and e["who"].startswith("target") and isinstance(e.get("n"), int) and e["n"] > 0 and not e.get("optional")
@@ -7452,7 +7455,7 @@ def _gated_other_rewrite(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # you do, …"): whether the player started that one instruction (118.12; an object gone is "can't", a count other than one is read
 # only if the whole of it could be paid, 118.3), probed as it runs (effects._did_r1, effects._did). The sentence before must be that one instruction (an intervening "if" of a trigger may gate it).
 _DID_MANDATORY = frozenset({"sacrifice", "sacrifice_choice", "edict", "remove_counters", "discard", "exile", "bounce", "add_counters", "tap", "search",
-                            "choose_random", "gain_control"})  # (gain_control: wave 50C, Bill Ferny)  # (choose_random: wave 47B, "Choose a player at random. When you do, …")
+                            "choose_random", "gain_control", "transform"})  # (gain_control: wave 50C, Bill Ferny; transform: Ratchet)  # (choose_random: wave 47B, "Choose a player at random. When you do, …")
 
 
 def _if_you_do_after_mandatory(if_do: re.Match[str], effects: list[dict[str, Any]],
@@ -7792,7 +7795,7 @@ def _probe_previous(effects: list[dict[str, Any]], prev_start: int, reflex: bool
         return None
     if base[0]["do"] == "edict" and base[0].get("who") not in ("event_player", "target", "that_player"):
         return None  # -- trigger other (wave 41C) -- one player's edict only (effects._did_r1): "If the player can't, …"
-    if base[0]["do"] == "tap" and base[0].get("who") not in ("self", "it"):
+    if base[0]["do"] in ("tap", "transform") and base[0].get("who") not in ("self", "it"):
         return None  # -- if you do (wave 30G) -- (only the permanent itself: tapping several, or a target that may already be tapped, is not read)
     if base[0]["do"] == "search" and (reflex or base[0].get("who", "you") != "you" or any(base[0].get(k) for k in ("may", "zones", "graveyard", "lib_pid"))):
         return None  # -- if you do (wave 31A) -- 118.12b: "Search your library …. If you do, …" (not a reflexive "When you do") is read for the searcher's own library alone (effects._did_search)

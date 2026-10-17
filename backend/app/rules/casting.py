@@ -2321,6 +2321,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
 
         if disturb.cast_face(plan.state, plan.actor, card, plan.info, a.alt_cost):
             a.face = 1  # cast transformed: the spell is the back face (702.146b, 712.8c)
+    if a.face is None and a.alt_cost is not None and not a.fuse and not a.free and not plan.manual(card):  # -- commanders (wave 50C) -- 702.162a: cast converted = the back face is the spell (701.28a, 712.8c)
+        from app.rules import alt_costs as _converted
+
+        if any(o.key == a.alt_cost and o.tag == _converted.CONVERTED_TAG for o in _converted.converted_offers(plan.state, plan.actor, card, plan.info)):
+            a.face = 1
     ch = chars.as_cast(card, plan.info, a.face, a.fuse)  # split cards / adventures: the half being cast
     if a.fuse and (ch.name.count(" // ") != 1 or card.zone != zone_key(plan.actor, "hand")):  # -- static_other sweep (wave 16B) -- 702.102a
         raise ActionError("Only a split card with fuse can be cast as both halves, from your hand")

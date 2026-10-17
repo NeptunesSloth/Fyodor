@@ -52,6 +52,7 @@ KEYWORDS = frozenset({
     "impending", "plot", "spree", "freerunning", "start your engines!", "station", "warp", "job select", "tiered",
     "firebending", "storied", "mobilize", "harmonize", "renew", "undaunted",
     "mayhem", "web-slinging",  # -- Marvel keywords (wave 25A) -- 702.187, 702.188
+    "more than meets the eye", "living metal",  # -- commanders (wave 50C) -- 702.162, 702.161 (the Transformers)
     "recover", "amplify", "assist",  # -- casting extras (wave 18E) -- 702.59, 702.38, 702.132
     "phasing", "transmute",  # (wave 3R4: casting.transmute)
     "aftermath", "gravestorm", "dredge", "fuse", "awaken", "escalate", "increment",  # -- static_other sweep (wave 16B) -- 702.127 (casting.from_graveyard / cast_grant)

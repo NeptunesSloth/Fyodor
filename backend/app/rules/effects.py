@@ -3576,6 +3576,22 @@ from app.rules import keyword_actions  # noqa: E402, I001  (keyword actions, CR 
 PRIMITIVES.update(keyword_actions.PRIMITIVES)
 
 
+def _did_transform(fn: Any) -> Any:
+    """-- commanders (wave 50C) -- "Whenever you gain life, you may convert Ratchet. When you do, …": 701.28a / 118.12 — it is done when the permanent turned over (a
+    permanent that already turned since the ability went on the stack doesn't, 701.27f / 701.28e). Bound after the run, once."""
+    def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+        name = e.get("did")
+        before = {c: plan.state.cards[c].face for c in _cards(plan, ctx, e["who"])} if name and name not in context.refs(ctx) else {}
+        done = bool(fn(plan, ctx, e))
+        if name and before and name not in context.refs(ctx):
+            context.bind_payment(ctx, name, any(plan.state.cards[c].face != f for c, f in before.items()))
+        return done
+    return run
+
+
+PRIMITIVES["transform"] = _did_transform(PRIMITIVES["transform"])
+
+
 def describe(effects: list[dict[str, Any]]) -> str:
     words = {"draw": "draw {n} card(s)", "gain_life": "gain {n} life", "lose_life": "lose {n} life", "scry": "scry {n}",
              "surveil": "surveil {n}", "damage": "deal {n} damage", "player_counter": "get {n} {counter}",
