@@ -646,6 +646,8 @@ def _rider_value(phrase: str) -> Any:
         return _stat(phrase)
     if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
         return tw
+    if (mult := re.fullmatch(r"(?:twice|(?P<k>two|three|four) times) (?P<v>the number of .+ this way)", phrase)) is not None and (tw := this_way.parse(mult["v"])) is not None:
+        return {"times": [values.NUMBERS[mult["k"]] if mult["k"] else 2, tw]}  # (wave 48B: Corpseweft, "twice the number of cards exiled this way")
     v = values.parse_count(phrase, it="it")
     if v is None:
         v = values.target_relative(phrase)  # -- value grammar (wave 23C) -- "creature target opponent controls": scripts._value_targets

@@ -31,7 +31,7 @@ What counts (CR 2026-09-25):
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
@@ -257,7 +257,7 @@ def verbs(kind: str) -> tuple[str, ...]:
 COST = "cost"
 DEVOURED = "devoured"
 _PAID: ContextVar[frozenset[str]] = ContextVar("paid_kinds", default=frozenset())
-_PAID_VERBS = {"SACRIFICE": "sacrificed", "TAP_OTHER": "tapped"}
+_PAID_VERBS = {"SACRIFICE": "sacrificed", "TAP_OTHER": "tapped", "EXILE_FROM_GRAVEYARD": "exiled", "EXILE_FROM_HAND": "exiled"}
 
 
 def paid() -> frozenset[str]:
@@ -265,11 +265,9 @@ def paid() -> frozenset[str]:
 
 
 @contextmanager
-def paid_by(abilities: Iterable[Any]) -> Iterator[None]:
-    from app.rules import costs
-
-    cost = costs.spell_additional_cost(abilities)
-    token = _PAID.set(frozenset(_PAID_VERBS[c.kind] for c in cost.components if c.anyn) if cost is not None else frozenset())
+def paid_by(cost: Any) -> Iterator[None]:
+    """The verbs of the any-number parts of ``cost`` (a spell's additional cost, or an activated ability's cost), while its text is read."""
+    token = _PAID.set(frozenset(_PAID_VERBS[c.kind] for c in cost.components if c.anyn and c.kind in _PAID_VERBS) if cost is not None else frozenset())
     try:
         yield
     finally:
@@ -387,6 +385,10 @@ def cost_objects(plan: Plan, ctx: dict[str, Any], source: str, kind: str) -> dic
     source devoured as it entered (702.82b)."""
     sid = ctx.get("stack_id")
     record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+    if kind == "exiled":  # (the cards it exiled are in exile now, new objects: 400.7j)
+        pairs = [] if record is None else list(zip(record.exiled_objects, record.exiled_was, strict=False))
+        news = [{"card": o.rsplit(".", 1)[0], "object_id": o, "zone": f"{plan.state.cards[o.rsplit('.', 1)[0]].owner}:exile"} for o, _ in pairs if o.rsplit(".", 1)[0] in plan.state.cards]
+        return {"objects": news, "was": [{"card": w.rsplit(".", 1)[0], "object_id": w, "zone": None} for o, w in pairs if o.rsplit(".", 1)[0] in plan.state.cards]}
     oids = plan.rules.devoured_ids.get(ctx.get("source_object") or "", []) if source == DEVOURED else \
         [] if record is None else record.sacrificed_objects if kind == "sacrificed" else record.tapped_objects
     return {"objects": [{"card": o.rsplit(".", 1)[0], "object_id": o, "zone": None} for o in oids]}

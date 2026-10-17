@@ -817,6 +817,7 @@ class PaymentRecord(BaseModel):
     revealed: list[str] = Field(default_factory=list)  # -- static_other sweep (wave 17C) -- cards revealed from the hand to pay ("the revealed card's …")
     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
     exiled_objects: list[str] = Field(default_factory=list)  # -- as long as (wave 37A) -- the objects they became in exile (400.7j: "this card" finds that one)
+    exiled_was: list[str] = Field(default_factory=list)  # (wave 48B: and the objects they were, "the number of cards exiled this way" of an activation cost)
     returned: list[str] = Field(default_factory=list)  # permanents returned to hand to pay
     # -- keywords (wave 15E) -- ninjutsu 702.49c: what each returned attacking creature was attacking (player or permanent id)
     returned_attacking: dict[str, str] = Field(default_factory=dict)

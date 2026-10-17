@@ -322,6 +322,7 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False)
     # -- tutor (wave 26D) -- "Sacrifice a red creature, a green creature, and a white creature" (the Heralds): one part, three objects
     cost = re.sub(r"(Sacrifice (?:an?|another) [^,{}:]+?), ((?:an?|another) [^,{}:]+?), and ((?:an?|another) [^,{}:]+?)(?=,|$)",
                   r"\1 and \2 and \3", cost)
+    cost = re.sub(r"(Sacrifice (?:this \w+|~)) and (any number of other [^,{}:]+)", r"\1, Sacrifice \2", cost)  # -- any number as an additional cost (wave 48B) -- Emrakul's Evangel: two parts
     if card_name and "," in card_name:  # (wave 4H) "Discard another card named Korlash, Heir to Blackblade": one part
         cost = cost.replace(card_name, "~")
     # -- static_other (wave 36B) -- "Tap three untapped Advisors, Artificers, and/or Monks you control" (The Archimandrite): one part naming three kinds
@@ -331,7 +332,7 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False)
     for part in (p.strip() for p in cost.split(",")):
         if not part:
             continue
-        found = _component(_self_text(part, card_name), card_name)
+        found = _component(_self_text(part, card_name), card_name) or any_number_part(part, 0)  # (-- any number as an additional cost (wave 48B) -- "Exile any number of cards from your graveyard")
         if found is None:  # -- activation costs (wave 4H) --
             several = wave4h_parts(_self_text(part, card_name), card_name)
             if several is None:
@@ -661,7 +662,7 @@ def _extra_part(part: str) -> CostComponent | None:
 
 # -- cost reductions paid with objects (wave 47C) -- 601.2b, 601.2f: "you may sacrifice any number of creatures" / "exile any number of blue cards from your hand" / "tap any
 # number of untapped creatures you control": the part is paid with the rest (601.2h) and each object chosen takes ``per`` generic mana off the total cost
-_ANY_NUMBER = re.compile(r"^(?P<verb>sacrifice|exile|tap) any number of (?P<what>.+?)(?: from your (?P<zone>hand|graveyard))?$", re.IGNORECASE)
+_ANY_NUMBER = re.compile(r"^(?P<verb>sacrifice|exile|tap) (?:any number of|(?P<one>one or more)) (?P<what>.+?)(?: from your (?P<zone>hand|graveyard))?$", re.IGNORECASE)  # (wave 48B: "one or more": at least one)
 
 
 _ANY_COUNTERS = re.compile(r"^remove any number of (?P<kind>[+\-]\d+/[+\-]\d+) counters from among (?P<what>creatures you control)$", re.IGNORECASE)
@@ -679,7 +680,8 @@ def any_number_part(text: str, per: int) -> CostComponent | None:
         return None  # (sacrifice and tap are of permanents; exile is of the hand or the graveyard)
     key = _selector(m["what"].replace(" and/or ", " or ") + (" from your graveyard" if zone == "graveyard" else ""), zone=zone)
     kind = {"sacrifice": SACRIFICE, "tap": TAP_OTHER}.get(verb) or (EXILE_FROM_GRAVEYARD if zone == "graveyard" else "EXILE_FROM_HAND")
-    return CostComponent(kind, amount=0, selector=key, up_to=True, reduces=per, anyn=True, text=text[:1].upper() + text[1:]) if key else None
+    one = m["one"] is not None  # (-- any number as an additional cost (wave 48B) -- "Sacrifice one or more artifacts" (Radiant Lotus): at least one, so the cost can be cancelled but not paid with none)
+    return CostComponent(kind, amount=int(one), selector=key, up_to=not one, more=one, reduces=per, anyn=True, text=text[:1].upper() + text[1:]) if key else None
 
 
 def additional_cost_text(line: str) -> str | None:
