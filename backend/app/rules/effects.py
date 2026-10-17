@@ -91,6 +91,8 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [who[7:]] if who[7:] in plan.live() else []
     if who == "each_player":
         return list(plan.live())
+    if who == "looked_owner":  # -- most-played cards III (wave 46C) -- the owner of the library the last look or reveal was at
+        return [ctx["looked_owner"]] if ctx.get("looked_owner") in plan.live() else []
     if who == "each_opponent":
         return [p for p in plan.live() if p != me]
     if who == "put_none_opponents":  # -- trigger other (wave 44B) -- 101.4: the opponents who chose no card in the "each player may put" just before (put_from_hand.each_put)

@@ -3066,6 +3066,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # -- trigger other (wave 41C) -- 110.2a: after a reveal-until, "Put that card onto the battlefield tapped under your control" (Sméagol) and "You put that card onto
     # the battlefield under your control and lose life equal to …" (Jhoira): put by you it is yours either way, so the words add nothing to "Put that card onto the battlefield"
     body = re.sub(r"(\buntil (?:you|they) (?:reveal|exile) [^.]*\. )(?:You p|P)ut that card (onto the battlefield(?: tapped)?) under your control\b", r"\1Put that card \2", body)
+    # -- most-played cards III (wave 46C) -- "Its controller reveals cards from the top of their library until they reveal a creature card. The player puts that card onto the battlefield,
+    # then shuffles all other cards revealed this way into their library." (Polymorph, Transmogrify): the revealed cards stay in that library (701.20b), the owner puts the
+    # card found and shuffles. Refused: "and the rest on the bottom of their library in any order" (Proteus Staff: the owner orders them)
+    body = re.sub(r"((?:Its|That creature's|That permanent's) controller) (reveals cards from the top of their library until they reveal an? [^.]+?)\. (?:That|The) player "
+                  r"puts that card onto the battlefield, then shuffles (?:the rest|all other cards revealed this way) into their library\.",
+                  r"\1 \2. That player puts that card onto the battlefield. Shuffle that library.", body)
     if "until you reveal " in body:
         body = re.sub(r"(until you reveal [^.]*?)\. If you do, put ", r"\1. Put ", body) if "ou may reveal cards" in body else body
         body = re.sub(r"(?:, then| and) shuffle (?:the rest|all other cards revealed this way) into your library", ", then shuffle", body)

@@ -17,6 +17,7 @@ from app.rules.plan import Plan
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, settle, stops, to_phase
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_of
+from tests.wave43b_kit import on_top
 from tests.wave46c_kit import FULL, cast, open_cards
 
 
@@ -239,6 +240,49 @@ def test_ox_drover_gives_the_opponent_an_ox_and_draws_you_a_card(cards):
     cast(s, "Ox Drover")
     assert len(on_table(s, "battlefield", "p2", "Ox")) == 1 and not on_table(s, "battlefield", "p1", "Ox")
     assert len(s.state.zones["p1:library"]) == before - 1  # you draw a card
+    check(s)
+
+
+def logged(s, since):
+    return [" ".join(p.t or "" for p in e.parts) for e in s.state.log[since:]]
+
+
+def test_polymorph_replaces_the_creature_with_the_first_creature_of_its_controllers_library_and_shuffles(cards):
+    # 701.20b, 701.24a: "Its controller reveals cards from the top of their library until they reveal a creature card. The player puts that card onto the battlefield,
+    # then shuffles all other cards revealed this way into their library." - Bob's library, Bob's creature (under his control)
+    s = build(cards, ["Polymorph", "Shivan Dragon"], ["Hill Giant", "Shivan Dragon"])
+    giant = put(s, "Hill Giant", "p2")
+    on_top(s, "Shivan Dragon", "p2")
+    to_hand(s, "Polymorph")
+    mana(s, U=1, C=3)
+    since = len(s.state.log)
+    cast(s, "Polymorph", targets=[giant.id])
+    assert zone_of(s, "Hill Giant", "p2") == "p2:graveyard" and zone_of(s, "Shivan Dragon", "p2") == "p2:battlefield"
+    assert s.state.cards[card_named(s, "Shivan Dragon", "p2").id].controller == "p2"
+    assert any("shuffled" in t for t in logged(s, since)) and zone_of(s, "Shivan Dragon", "p1") == "p1:library"
+    check(s)
+
+
+def test_polymorph_without_a_creature_in_the_library_still_shuffles_it(cards):
+    s = build(cards, ["Polymorph"], ["Hill Giant"])
+    giant = put(s, "Hill Giant", "p2")
+    to_hand(s, "Polymorph")
+    mana(s, U=1, C=3)
+    since = len(s.state.log)
+    cast(s, "Polymorph", targets=[giant.id])
+    assert zone_of(s, "Hill Giant", "p2") == "p2:graveyard" and not [c for c in s.state.zones["p2:battlefield"]]
+    assert len(s.state.zones["p2:library"]) == 10 and any("Bob" in t and "shuffled" in t for t in logged(s, since))  # the whole library was revealed, then shuffled
+    check(s)
+
+
+def test_transmogrify_exiles_the_creature_and_puts_the_first_creature_of_its_controllers_library_onto_the_battlefield(cards):
+    s = build(cards, ["Transmogrify"], ["Hill Giant", "Shivan Dragon"])
+    giant = put(s, "Hill Giant", "p2")
+    on_top(s, "Shivan Dragon", "p2")
+    to_hand(s, "Transmogrify")
+    mana(s, R=1, C=3)
+    cast(s, "Transmogrify", targets=[giant.id])
+    assert zone_of(s, "Hill Giant", "p2") == "p2:exile" and zone_of(s, "Shivan Dragon", "p2") == "p2:battlefield"
     check(s)
 
 

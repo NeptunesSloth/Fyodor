@@ -1017,7 +1017,7 @@ def _search_gy(text: str) -> tuple[Effects, str | None] | None:
 _LIB = r"(?P<lib>your|target player's|target opponent's|that player's|their|each player's|each opponent's) library"
 _LIB_WHO = {"your": "you", "target player's": "target player", "target opponent's": "target opponent",
             "that player's": "that player", "their": "that player", "each player's": "each player", "each opponent's": "each opponent"}
-_SUBJECTS = r"(?P<subj>target player|target opponent|that player|defending player|each player|each opponent|each of your opponents)"
+_SUBJECTS = r"(?P<subj>target player|target opponent|that player|its controller|that creature's controller|that permanent's controller|defending player|each player|each opponent|each of your opponents)"
 _N_CARDS = rf"(?:(?P<n>{AMT}) cards|card)"
 # (wave 26B: "reveal that many cards from the top of your library": the trigger event's amount, Ojer Kaslem)
 _TOP = re.compile(rf"(?P<verb>look at|reveal) (?:the top {_N_CARDS}|(?P<nm>that many) cards from the top) of {_LIB}"
@@ -1349,6 +1349,8 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     m = _REST_ALONE.fullmatch(text)
     if m:
         return [{"do": "rest_looked", "to": "exile"} if m["exile"] else _rest(m["rest"] or m["rest2"])], None
+    if text == "shuffle that library":  # -- most-played cards III (wave 46C) -- the library the instruction before revealed from, found card or not (Polymorph, Transmogrify: 701.24a)
+        return [{"do": "shuffle_library", "who": "looked_owner", "zones": []}], None
     m = _SHUFFLE.fullmatch(text)
     if m:
         who, group = ("you", None)
