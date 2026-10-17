@@ -1,0 +1,290 @@
+[
+ {
+  "name": "Anya, Merciless Angel",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Angel",
+  "oracle_text": "Flying\nAnya gets +3/+3 for each opponent whose life total is less than half their starting life total.\nAs long as an opponent's life total is less than half their starting life total, Anya has indestructible.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Doran, Besieged by Time",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{B}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Treefolk Druid",
+  "oracle_text": "Each creature spell you cast with toughness greater than its power costs {1} less to cast.\nWhenever a creature you control attacks or blocks, it gets +X/+X until end of turn, where X is the difference between its power and toughness.",
+  "colors": [
+   "B",
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "W"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "5"
+ },
+ {
+  "name": "Heliod, the Radiant Dawn // Heliod, the Warped Eclipse",
+  "layout": "transform",
+  "mana_cost": "{2}{W}{W} // ",
+  "cmc": 4.0,
+  "type_line": "Legendary Enchantment Creature — God // Legendary Enchantment Creature — Phyrexian God",
+  "oracle_text": "When Heliod enters, return target enchantment card that isn't a God from your graveyard to your hand.\n{3}{U/P}: Transform Heliod. Activate only as a sorcery. ({U/P} can be paid with either {U} or 2 life.)\n//\nYou may cast spells as though they had flash.\nSpells you cast cost {1} less to cast for each card your opponents have drawn this turn.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "power": "4",
+  "toughness": "4",
+  "card_faces": [
+   {
+    "name": "Heliod, the Radiant Dawn",
+    "mana_cost": "{2}{W}{W}",
+    "type_line": "Legendary Enchantment Creature — God",
+    "oracle_text": "When Heliod enters, return target enchantment card that isn't a God from your graveyard to your hand.\n{3}{U/P}: Transform Heliod. Activate only as a sorcery. ({U/P} can be paid with either {U} or 2 life.)",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/a/7/a7113c93-6c6d-410f-aeec-abc5ee121cdf.jpg?1783917074",
+     "normal": "https://cards.scryfall.io/normal/front/a/7/a7113c93-6c6d-410f-aeec-abc5ee121cdf.jpg?1783917074",
+     "large": "https://cards.scryfall.io/large/front/a/7/a7113c93-6c6d-410f-aeec-abc5ee121cdf.jpg?1783917074",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/a/7/a7113c93-6c6d-410f-aeec-abc5ee121cdf.jpg?1783917074"
+    }
+   },
+   {
+    "name": "Heliod, the Warped Eclipse",
+    "mana_cost": "",
+    "type_line": "Legendary Enchantment Creature — Phyrexian God",
+    "oracle_text": "You may cast spells as though they had flash.\nSpells you cast cost {1} less to cast for each card your opponents have drawn this turn.",
+    "power": "4",
+    "toughness": "6",
+    "colors": [
+     "U",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/a/7/a7113c93-6c6d-410f-aeec-abc5ee121cdf.jpg?1783917074",
+     "normal": "https://cards.scryfall.io/normal/back/a/7/a7113c93-6c6d-410f-aeec-abc5ee121cdf.jpg?1783917074",
+     "large": "https://cards.scryfall.io/large/back/a/7/a7113c93-6c6d-410f-aeec-abc5ee121cdf.jpg?1783917074",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/a/7/a7113c93-6c6d-410f-aeec-abc5ee121cdf.jpg?1783917074"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Aragorn, Hornburg Hero",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{G}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Soldier",
+  "oracle_text": "Attacking creatures you control have first strike and renown 1. (When a creature with renown 1 deals combat damage to a player, if it isn't renowned, put a +1/+1 counter on it and it becomes renowned.)\nWhenever a renowned creature you control deals combat damage to a player, double the number of +1/+1 counters on it.",
+  "colors": [
+   "G",
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Double"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Tromokratis",
+  "layout": "normal",
+  "mana_cost": "{5}{U}{U}",
+  "cmc": 7.0,
+  "type_line": "Legendary Creature — Kraken",
+  "oracle_text": "Tromokratis has hexproof unless it's attacking or blocking.\nTromokratis can't be blocked unless all creatures defending player controls block it. (If any creature that player controls doesn't block this creature, it can't be blocked.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "8",
+  "toughness": "8"
+ },
+ {
+  "name": "Wolverine, Best There Is",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Mutant Berserker Hero",
+  "oracle_text": "Unrivaled Lethality — Double all damage Wolverine would deal.\nAt the beginning of each end step, if Wolverine dealt damage to another creature this turn, put a +1/+1 counter on him.\n{1}{G}: Regenerate Wolverine. (The next time he would be destroyed this turn, instead tap him, remove him from combat, and heal all damage on him.)",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Heal",
+   "Regenerate",
+   "Unrivaled Lethality",
+   "Double"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Tadeas, Juniper Ascendant",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Monk",
+  "oracle_text": "Reach\nTadeas has hexproof unless it's attacking.\nWhenever a creature you control with reach attacks, untap it and it can't be blocked by creatures with greater power this combat.\nWhenever one or more creatures you control deal combat damage to a player, draw a card.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Reach"
+  ],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Karona, False God",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{U}{B}{R}{G}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Avatar",
+  "oracle_text": "Haste\nAt the beginning of each player's upkeep, that player untaps Karona and gains control of it.\nWhenever Karona attacks, creatures of the creature type of your choice get +3/+3 until end of turn.",
+  "colors": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Haste"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Shang-Chi and the Ten Rings",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Warrior Hero",
+  "oracle_text": "First strike\nWhenever you draw a card, put a +1/+1 counter on Shang-Chi.\nWhen the tenth +1/+1 counter is put on Shang-Chi, you draw five cards and gain 5 life.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "First strike"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Purphoros, God of the Forge",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Enchantment Creature — God",
+  "oracle_text": "Indestructible\nAs long as your devotion to red is less than five, Purphoros isn't a creature.\nWhenever another creature you control enters, Purphoros deals 2 damage to each opponent.\n{2}{R}: Creatures you control get +1/+0 until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Indestructible"
+  ],
+  "power": "6",
+  "toughness": "5"
+ },
+ {
+  "name": "Wall of Omens",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Wall",
+  "oracle_text": "Defender\nWhen this creature enters, draw a card.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Defender"
+  ],
+  "power": "0",
+  "toughness": "4"
+ },
+ {
+  "name": "Hill Giant",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Giant",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ }
+]
