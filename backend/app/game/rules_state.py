@@ -1425,7 +1425,7 @@ def wither_put_by(action: Any) -> dict[tuple[str, str], dict[str, int]] | None:
 
 
 def track(state: GameState, before: Capture | None = None, *, manual: bool = False, actor: str | None = None,
-          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None) -> None:
+          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None, declared: bool = False) -> None:
     """Deterministic bookkeeping after every applied step (sandbox or rules): whose turn started
     when, when each permanent came under its controller's control, which physical card is which
     rules object, last known information, and the step's events as one simultaneous batch.
@@ -1448,7 +1448,7 @@ def track(state: GameState, before: Capture | None = None, *, manual: bool = Fal
     for card_id in [c for c in rules.controlled_since if c not in on_battlefield]:
         del rules.controlled_since[card_id]
     if before is not None:
-        _diff(state, rules, before, manual, actor, group, put_by)  # (actor: wave 5H, group: wave 7C)
+        _diff(state, rules, before, manual, actor, group, put_by, declared)  # (actor: wave 5H, group: wave 7C)
     pending = [e for e in rules.events if e.batch > rules.batch]
     if pending:
         rules.batch += 1
@@ -1512,7 +1512,7 @@ def _combat_now(state: GameState, rules: RulesState) -> int:
 
 
 def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, actor: str | None = None,
-          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None) -> None:
+          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None, declared: bool = False) -> None:
     departures = state.departures()
     if state.renames():  # -- review (face-down ids) -- a card renumbered in this step is the same card: follow it
         names = state.renames()
@@ -1632,9 +1632,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                     rules.counter_stamps.setdefault(card_id, {})[kind] = [rules.next_object, rules.timestamp]
         if card.tapped != snap.tapped:
             # -- tap events (wave 45C) -- 701.26a: who tapped it (the step's actor: "whenever you tap …"), and (``combat``) whether it became tapped as it was
-            # declared an attacker (508.1f: "if it isn't being declared as an attacker")
-            emit(state, "tapped" if card.tapped else "untapped", object_id=oid, card=card_id, actor=actor,
-                 combat=card.tapped and card.attacking is not None and not snap.attacking)
+            # declared an attacker (508.1f, the declaration's tap step: "if it isn't being declared as an attacker")
+            emit(state, "tapped" if card.tapped else "untapped", object_id=oid, card=card_id, actor=actor, combat=declared and card.tapped)
         # -- attachment events (wave 30S) -- 603.2e, 701.3d: it became attached to a (different) object or player, and let go of the one it was
         # attached to (a host that left cleared it, ops.move; an Aura attached to another host lets go of the first)
         if _zone_name(card.zone) == "battlefield" and (card.attached_to, card.attached_player) != (snap.attached_to, snap.attached_player):

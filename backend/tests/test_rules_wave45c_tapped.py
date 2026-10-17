@@ -12,10 +12,10 @@ import pytest
 
 from app.rules import coverage
 from tests.game_helpers import act
+from tests.test_rules_conditionals import until
 from tests.test_rules_wave38a_trailing_ifs import hand, table
 from tests.wave9c_kit import card_named, cast, check, mana, put, to_hand
 from tests.wave36a_kit import attack_as, ready, resolve_stack, to_turn_of
-from tests.test_rules_conditionals import until
 from tests.wave45c_kit import make_repo, pt_of
 
 
@@ -69,23 +69,51 @@ def test_verity_circle_draws_for_a_creature_tapped_otherwise_than_by_attacking(c
     put(s, "Verity Circle")
     bears = put(s, "Grizzly Bears", "p2")
     before = hand(s)
-    ice(s, bears)  # (Ice's own card, then Verity Circle's)
-    assert hand(s) == before + 1 + 1 - 1
+    ice(s, bears)  # (Ice draws one, Verity Circle one more)
+    assert hand(s) == before + 2
     check(s)
 
 
-def test_sharae_draws_once_each_turn_for_your_taps_of_an_opponents_creatures_only(cards):
-    s = table(cards, ["Sharae of Numbing Depths", "Grizzly Bears", "Fire // Ice"], ["Grizzly Bears", "Grizzly Bears"])
-    mine = put(s, "Grizzly Bears")
+def lib(s):
+    return len(s.state.zones["p1:library"])
+
+
+def test_sharae_draws_once_each_turn_when_you_tap_an_opponents_creature(cards):
+    s = table(cards, ["Sharae of Numbing Depths", "Fire // Ice"], ["Grizzly Bears", "Grizzly Bears"])
     a, b = (c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2")
     act(s, "p2", type="move", card_ids=[a.id, b.id], to={"player": "p2", "zone": "battlefield"})
     to_hand(s, "Sharae of Numbing Depths")
     mana(s, W=1, U=1, G=2)
-    before = hand(s)
+    before = lib(s)
     cast(s, "Sharae of Numbing Depths")
-    resolve_stack(s)  # (its enter trigger taps one of Bob's creatures: you tap an opponent's creature)
-    assert hand(s) == before - 1 + 1 and s.state.cards[a.id].tapped is not s.state.cards[b.id].tapped
-    ice(s, b if not s.state.cards[b.id].tapped else a)  # (a second one this turn: no second card from Sharae; Ice's own card only)
-    assert hand(s) == before - 1 + 1 + 1 - 1 + 1
-    ice(s, mine)  # (a creature you control)
+    resolve_stack(s)  # (its enter trigger taps one of Bob's creatures: you tap an untapped creature an opponent controls)
+    assert lib(s) == before - 1 and s.state.cards[a.id].tapped is not s.state.cards[b.id].tapped
+    ice(s, b if s.state.cards[a.id].tapped else a)  # (a second one this turn: Ice was drawn by the first; only Ice's own card, no Sharae card: once each turn)
+    assert lib(s) == before - 2
+    check(s)
+
+
+def test_sharae_draws_for_an_effect_that_taps_after_it_entered_and_not_for_your_own_creature(cards):
+    s = table(cards, ["Sharae of Numbing Depths", "Grizzly Bears", "Fire // Ice"], ["Grizzly Bears"])
+    put(s, "Sharae of Numbing Depths")
+    mine = put(s, "Grizzly Bears")
+    theirs = put(s, "Grizzly Bears", "p2")
+    before = lib(s)
+    ice(s, mine)  # (a creature you control: the card to the hand and Ice's draw, no Sharae card)
+    assert lib(s) == before - 2
+    ice(s, theirs)  # (the same Ice from the graveyard, on an opponent's creature: its own card and Sharae's)
+    assert lib(s) == before - 4
+    check(s)
+
+
+def test_sharae_ignores_an_opponent_tapping_its_own_attacker(cards):
+    s = table(cards, ["Sharae of Numbing Depths"], ["Grizzly Bears"])
+    put(s, "Sharae of Numbing Depths")
+    theirs = put(s, "Grizzly Bears", "p2")
+    to_turn_of(s, "p2")
+    ready(s, "Grizzly Bears", pid="p2")
+    before = lib(s)
+    attack_as(s, "p2", [theirs], "p1")
+    until(s, lambda s: s.state.turn.phase == "end_combat")
+    assert s.state.cards[theirs.id].tapped and lib(s) == before
     check(s)
