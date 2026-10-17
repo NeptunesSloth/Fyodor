@@ -1496,7 +1496,9 @@ def _status(plan: Plan, you: str, kind: str) -> bool:
         from app.rules import designations
 
         return designations.status(plan, you, kind)
-    return bool(plan.state.players[you].city_blessing)  # 702.131c ascend: the city's blessing
+    from app.rules import designations
+
+    return bool(plan.state.players[you].city_blessing) or designations.ascend_permanent_due(plan, you)  # 702.131c ascend: the city's blessing (702.131b: at once; wave 45A)
 
 
 def _versus(plan: Plan, ctx: dict[str, Any], spec: dict[str, Any]) -> bool:
