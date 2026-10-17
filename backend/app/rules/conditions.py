@@ -1782,6 +1782,8 @@ def _cast_how(t: str) -> Condition | None:
         return {"object": _cast_who(t.split()[0]), "cast": {"alt": "foretell"}}
     if t in ("it was kicked", "this spell was kicked", "~ was kicked"):  # -- kicked instead (wave 20F) -- 702.33d: "When you cast this
         return {"object": _cast_who(t.split()[0]), "cast": {"kicked": True}}  # spell, if it was kicked, …" (its record, 601.2h)
+    if t == "tribute wasn't paid":  # -- keywords (wave 50H) -- 702.104b (app/rules/tribute.py)
+        return {"object": "self", "cast": {"tribute": False}}
     if t in ("it wasn't kicked", "~ wasn't kicked"):  # -- trailing & intervening ifs (wave 38A) -- "Then if it wasn't kicked, discard three cards." (Sphinx of Lost Truths): the same record, 702.33d
         return {"not": {"object": _cast_who(t.split()[0]), "cast": {"kicked": True}}}
     if t in ("it escaped", "~ escaped"):  # -- escape (wave 5I) -- 702.138b
@@ -1867,6 +1869,8 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     the spell is on the stack, once it became a permanent and after that left (608.2h). No record — it wasn't cast
     (put onto the battlefield, a copy) — fails every such test."""
     how = cond["cast"]
+    if "tribute" in how:  # -- keywords (wave 50H) -- 702.104b: true unless the chosen opponent had it enter with the counters (a fact about the object, kept in RulesState)
+        return (ctx.get("source_object") or "") not in plan.rules.tribute_paid
     if cond.get("each") == "any":  # -- counters (wave 33C) -- "if one or more of them …": some object of the event's batch
         event = ctx.get("event") or {}
         one = {k: v for k, v in cond.items() if k != "each"}

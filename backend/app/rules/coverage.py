@@ -410,6 +410,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
 
         return affinity_filter(Characteristics(name="", abilities=(AbilityText(index=0, text=line, kind="keywords",
                                                                               keywords=("affinity",)),))) is not None
+    if kw == "tribute":  # -- keywords (wave 50H) -- app/rules/tribute.py (one instance)
+        from app.rules import tribute
+
+        return tribute.supported(line)
     if kw == "amplify":  # -- casting extras (wave 18E) -- app/rules/amplify.py (one instance)
         from app.rules import amplify
 

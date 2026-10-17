@@ -21,9 +21,9 @@ from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.errors import ActionError
 from app.rules import coverage
+from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from app.rules.plan import Plan
 from tests.test_rules_wave34b_activated import settle
 from tests.wave9c_kit import build, card_named, check, mana, pt, put, reloaded, to_hand, zone_of
 
