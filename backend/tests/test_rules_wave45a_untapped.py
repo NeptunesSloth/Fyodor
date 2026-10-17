@@ -4,7 +4,7 @@ data/cards.sqlite). Every scenario checks the replay and a save and a load.
 * 614.1d, 614.12, 616.1: Horizon Explorer [1766], The Wandering Minstrel [5928], Gond Gate [2652] - a replacement effect on the entering of the lands (the Gates) its
   controller controls: they enter untapped. Horizon Explorer's ruling 2025-07-25: a land put onto the battlefield tapped by an instruction (no replacement effect)
   always enters untapped; against a land's own "enters tapped" its controller chooses the order, so can have either. Modelled as the controller always choosing
-  untapped (a payoff for entering tapped isn't modelled, ponytail: it is never a land that wants to be tapped here); a shock land asks nothing.
+  untapped (a payoff for entering tapped isn't modelled, ponytail: it is never a land that wants to be tapped here); a shock land asks for its life (wave 50B).
 """
 
 from __future__ import annotations
@@ -34,11 +34,11 @@ def land(s, name, pid="p1"):
     return s.state.cards[c.id]
 
 
-@pytest.mark.parametrize("name", ["Blossoming Sands", "Dimir Guildgate", "Steam Vents"])
+@pytest.mark.parametrize("name", ["Blossoming Sands", "Dimir Guildgate"])  # (a shock land asks for its life since wave 50B: test_rules_wave50b_shock_untapped.py)
 def test_horizon_explorer_makes_every_land_you_control_enter_untapped(cards, name):
     s = build(cards, ["Horizon Explorer", name], [])
     put(s, "Horizon Explorer")
-    assert not land(s, name).tapped and s.state.rules.decision is None  # its own "enters tapped" (614.12), or a shock land's unpaid life: untapped (no question asked)
+    assert not land(s, name).tapped and s.state.rules.decision is None  # its own "enters tapped" (614.12): untapped (no question asked)
     check(s)
 
 
