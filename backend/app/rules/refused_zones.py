@@ -76,6 +76,9 @@ def gifts(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     if (why := prohibitions.cant_search(plan, pid, ctx["controller"])) is not None:
         plan.note(f"{why}: {plan.name(pid)} can't search their library", actor=pid)
         library = []
+    else:
+        prohibitions.note_search(plan, pid, pid)  # -- most-played cards (wave 43B) -- "Whenever an opponent searches their library"; Aven Mindcensor: the top four
+        library = library[:prohibitions.search_depth(plan, pid)]
     sel = selectors.from_key(e["sel"])
     matching = [c for c in library
                 if selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]

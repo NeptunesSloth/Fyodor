@@ -145,6 +145,18 @@ def comma_condition(text: str, m: re.Match[str]) -> re.Match[str]:
     Z" keeps its intervening "if"; the match unchanged when the plain split reads or no longer one does."""
     from app.rules import events
 
+    # -- most-played cards (wave 43B) -- "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than the battlefield, or a
+    # creature card leaves your graveyard, ~ deals 1 damage to each opponent." (Syr Konrad): the list of whole conditions runs to the comma that ends the last
+    if ", or " in text:
+        lead = re.match(r"^(?:When|Whenever) ", text)
+        rest = text[lead.end():] if lead is not None else ""
+        longest = None
+        for found in re.finditer(r", ", rest):
+            cond = rest[: found.start()]
+            if ", or " in cond and (got := events.parse_condition(cond)) is not None and got.get("event") == "either":
+                longest = cond
+        if longest is not None and (again := re.match(rf"^(?:When|Whenever) (?P<cond>{re.escape(longest)}), (?P<body>.+)$", text, re.DOTALL)) is not None:
+            return again
     # a list in the condition ("an Aura, Equipment, or Vehicle spell"): the whole list, even when its first word alone
     # would read ("you cast an Aura")
     listed = re.match(r"^(?:When|Whenever) (?P<cond>.+?\b(?:[\w-]+, )+(?:or|and|and/or) [^,]+), (?P<body>.+)$", text,

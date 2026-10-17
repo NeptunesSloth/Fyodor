@@ -1041,7 +1041,7 @@ _REST = (r"(?:the rest|the rest of (?:those|the)(?: revealed)? cards|the rest of
          r"all cards revealed this way that weren't put onto the battlefield) "  # (-- if you do (wave 15C) -- Genesis Wave)
          rf"(?P<rest>into (?:your|their) graveyard|into your hand|on the bottom(?: of {_LIBREF})? in (?:any|a random) order|"
          rf"on the bottom of {_LIBREF}|(?:back )?on top of {_LIBREF} in any order|back in any order)")  # (wave 26D: "put the rest back in any order")
-_PICK_TO = ("into your hand|onto the battlefield tapped and attacking|onto the battlefield tapped|onto the battlefield|into your graveyard|"
+_PICK_TO = ("into your hand|into their hand|onto the battlefield tapped and attacking|onto the battlefield tapped|onto the battlefield|into your graveyard|"
             "into their graveyard|into that player's graveyard|"  # (wave 20F: another player's library, its owner's graveyard, 404.1)
             "back on top of your library|on top of your library|on the bottom of your library|on the bottom of that player's library|"
             "on top of that player's library|on the bottom of that library|on top of that library")
@@ -1049,9 +1049,12 @@ _PICK_DESTS = {**_DESTS, "onto the battlefield tapped and attacking": "battlefie
                "on top of your library": "top", "on the bottom of your library": "bottom",
                "on the bottom of that player's library": "bottom", "on top of that player's library": "top",
                "on the bottom of that library": "bottom", "on top of that library": "top",
-               "into their graveyard": "graveyard", "into that player's graveyard": "graveyard", "back on top of your library": "top"}
+               "into their graveyard": "graveyard", "into that player's graveyard": "graveyard", "back on top of your library": "top",
+               "into their hand": "hand"}
 _PICK = re.compile(
-    rf"(?:(?P<may>you may reveal) |(?P<mayput>you may put) |(?P<exile>(?:you may )?exile) |put )"
+    # (wave 43B: "If it's a permanent card, they put it onto the battlefield." (Chaos Warp), "…, that player puts it into their hand." (Goblin Guide): the
+    # library's owner puts the revealed card — ``by_owner``; "the player may put it onto the battlefield" (Gate to the Aether))
+    rf"(?:(?P<may>you may reveal) |(?P<mayput>you may put) |(?P<exile>(?:you may )?exile) |(?P<theyput>(?:they|that player|the player)(?P<theymay> may)? puts? )|put )"
     rf"(?:(?P<q>up to {AMT}|any number of|{AMT}|all)(?: (?:of them|of those cards|(?P<sel>.+?) (?:from among (?:them|the cards milled this way|the milled cards|those cards)|revealed this way|milled this way))"
     r"|(?= (?:into|on|onto) )| them(?= (?:into|on|onto) )| (?:them|those cards)(?=,| and |$))"  # (wave 26D: "exile any number of them / those cards")
     r"|(?P<that>that card|it|the revealed card|the nonland card)|(?P<all>those cards|them|the revealed cards|all cards revealed this way))"
@@ -1074,13 +1077,14 @@ _NTH_FROM_TOP = re.compile(rf"put (?P<o>.+?) into {_OWNERS} library (?P<nth>seco
 _SHUFFLE_INTO = re.compile(rf"shuffle (?P<o>.+?) into {_OWNERS} library")
 # (the player whose card was chosen from the revealed hand: the card goes to its owner's library, 401.3 / 701.24)
 _PLAYER_LIBRARY = re.compile(r"that player (?:shuffles (?:that card|it) into their library|puts (?:that card|it) into their library "
-                             r"(?P<nth>second|third|fourth|fifth|sixth|seventh) from the top)")
+                             r"(?P<nth>second|third|fourth|fifth|sixth|seventh) from the top|(?P<bottom>(?P<rev>reveals and )?puts (?:that card|it) on the bottom of their library))")
 _OWNER_SHUFFLES = re.compile(r"(?P<o>its|~'s|that card's|that creature's|that permanent's) owner shuffles it into their library")
 # -- static_other sweep (wave 17C) -- "The owner of target creature or enchantment puts it into their library second from the top or on the
 # bottom." (Lost Days, Temporal Cleansing): its owner's choice between the two places; "The owner of target artifact or enchantment an
 # opponent controls shuffles it into their library." (Cathartic Parting)
 _OWNER_SECOND = re.compile(r"(?:the owner of (?P<o>.+?)|(?P<o2>.+?)'s owner) puts it into their library second from the top or on the bottom")
-_OWNER_SHUFFLES_TARGET = re.compile(r"the owner of (?P<o>target .+?) shuffles it into their library")
+# -- most-played cards (wave 43B) -- "…, then reveals the top card of their library" (Chaos Warp): that owner reveals from the library just shuffled
+_OWNER_SHUFFLES_TARGET = re.compile(r"the owner of (?P<o>target .+?) shuffles it into their library(?P<reveal>, then reveals the top card of their library)?")
 # -- ability words (wave 20C) -- "Put target card from a graveyard on your choice of the top or bottom of its owner's library." (Not
 # Forgotten): the same two places, chosen by the player the instruction is given to (you), not the owner
 _YOUR_CHOICE = re.compile(r"put (?P<o>.+?) on your choice of the top or bottom of (?:its|their) owner's library")
@@ -1274,7 +1278,7 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     if rider is not None:
         raise _Fail
     m = _SUBJ_UNTIL.fullmatch(text)  # -- refused look/cast-free (wave 3R5) --
-    if m and not m["subj"].startswith("each"):
+    if m and (not m["subj"].startswith("each") or m["verb"] == "exiles"):  # (wave 44A: "each player exiles … until" keeps every library's cards)
         kind, key, group = ref(m["subj"])
         do = "look_top" if m["verb"] == "reveals" else "exile_top"
         if m["cnt"] and do != "look_top":
@@ -1295,10 +1299,15 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     # one card looked at is exiled face down (the validation in scripts.py refuses a pick with nothing looked at)
     if m and (m["exile"] and (m["to"] or not m["q"] and not m["fd"]) or not m["exile"] and (m["to"] is None or m["fd"])):
         m = None  # ("exile it" alone is the plain exile instruction, whatever "it" is: not a pick from among the cards looked at)
+    if m and m["to"] == "into their hand" and not m["theyput"]:
+        raise _Fail  # (wave 43B: "put it into their hand": whose hand? only the library's owner putting it is read)
+    if m and m["theyput"] and (not m["that"] or m["to"] not in ("onto the battlefield", "onto the battlefield tapped", "into their hand") or m["rest"]):
+        raise _Fail  # (wave 43B: the library's owner puts the one card looked at; a choice among several cards is not read)
     if m:
-        optional = bool(m["may"] or m["mayput"] or (m["exile"] or "").startswith("you may"))
+        optional = bool(m["may"] or m["mayput"] or m["theymay"] or (m["exile"] or "").startswith("you may"))
         e: dict[str, Any] = {"do": "pick_looked", "n": 1, "sel": None, "to": _PICK_DESTS[m["to"]] if m["to"] else "exile",
-                             "optional": optional, "reveal": bool(m["may"]), **({"face_down": True} if m["fd"] else {})}
+                             "optional": optional, "reveal": bool(m["may"]), **({"face_down": True} if m["fd"] else {}),
+                             **({"by_owner": True} if m["theyput"] else {})}
         if m["q"]:
             q = m["q"]
             e["optional"] = optional or q.startswith(("up to", "any number"))
@@ -1367,8 +1376,8 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         return [{"do": "to_library", "who": "self" if m["o"] == "~'s" else "it", "place": "shuffle"}], None
     m = _PLAYER_LIBRARY.fullmatch(text)  # -- static_other sweep (wave 26A) -- "That player shuffles that card into their library." (Perish the Thought)
     if m:
-        where: int | str = ("second", "third", "fourth", "fifth", "sixth", "seventh").index(m["nth"]) + 2 if m["nth"] else "shuffle"
-        return [{"do": "to_library", "who": "it", "place": where}], None
+        where: int | str = ("second", "third", "fourth", "fifth", "sixth", "seventh").index(m["nth"]) + 2 if m["nth"] else "bottom" if m["bottom"] else "shuffle"  # (bottom: wave 44A, Vendilion Clique)
+        return [{"do": "to_library", "who": "it", "place": where, **({"reveal": True} if m["rev"] else {})}], None
     m = _OWNER_CHOICE.fullmatch(text)
     if m:
         kind, key, group = ref(m["o"] or m["o2"])
@@ -1392,7 +1401,10 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         kind, key, group = ref(m["o"])
         if kind != "target":
             raise _Fail
-        return [{"do": "to_library", "who": _who(kind, key), "place": "shuffle"}], _one(group)
+        shuffled: Effects = [{"do": "to_library", "who": _who(kind, key), "place": "shuffle"}]
+        if m["reveal"]:  # (the owner as it was: 608.2h; a token's owner is the player it was put onto the battlefield under, and shuffles first)
+            shuffled.append({"do": "look_top", "n": 1, "player": "it.owner", "reveal": True})
+        return shuffled, _one(group)
     return None
 
 

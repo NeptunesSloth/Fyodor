@@ -113,27 +113,6 @@
   "toughness": "4"
  },
  {
-  "name": "Wan Shi Tong, Librarian",
-  "layout": "normal",
-  "mana_cost": "{X}{U}{U}",
-  "cmc": 2.0,
-  "type_line": "Legendary Creature — Bird Spirit",
-  "oracle_text": "Flash\nFlying, vigilance\nWhen Wan Shi Tong enters, put X +1/+1 counters on him. Then draw half X cards, rounded down.\nWhenever an opponent searches their library, put a +1/+1 counter on Wan Shi Tong and draw a card.",
-  "colors": [
-   "U"
-  ],
-  "color_identity": [
-   "U"
-  ],
-  "keywords": [
-   "Flying",
-   "Vigilance",
-   "Flash"
-  ],
-  "power": "1",
-  "toughness": "1"
- },
- {
   "name": "Tyvar the Bellicose",
   "layout": "normal",
   "mana_cost": "{2}{B}{G}",

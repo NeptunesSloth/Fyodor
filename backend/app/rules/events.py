@@ -149,6 +149,9 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"day becomes night or night becomes day"), "day_night"),
     (re.compile(r"(?P<p>you) forage"), "forage"),  # -- if you do (wave 26C) -- 701.61: the cost was paid (cost_payment.pay)
     (re.compile(r"(?P<p>you) collect evidence"), "collect_evidence"),  # 701.59
+    # -- most-played cards (wave 43B) -- 701.23: "Whenever an opponent searches their library" (Archivist of Oghma, Wan Shi Tong, Ob Nixilis, Unshackled): a search of
+    # the searcher's OWN library (the rulings: not one of your search of an opponent's library, nor an opponent's of another player's)
+    (re.compile(r"(?P<p>an opponent|a player) searches their library"), "search_library"),
 ]
 # "enchanted creature", "equipped creature" …: the permanent the source is attached to (303.4, 301.5)
 _HOSTS = ("enchanted creature", "equipped creature", "enchanted permanent", "enchanted land", "enchanted artifact")
@@ -502,6 +505,13 @@ def _parse(c: str) -> Condition | None:
         if a is None or b is None or a.get("aggregate") or b.get("aggregate") or a["event"] != b["event"] or a["subject"] != "sel" or b["subject"] != "sel":
             return None
         return {"event": "either", "subject": "sel", "conds": [a, b]}
+    # -- most-played cards (wave 43B) -- "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than the battlefield, or a
+    # creature card leaves your graveyard" (Syr Konrad, the Grim): a list of whole conditions, each its own event (603.2c); every piece must read on its own
+    if c.count(", or ") >= 1:
+        pieces = [_parse(piece) for piece in c.split(", or ")]
+        if all(p is not None and not p.get("aggregate") and p["event"] not in ("either", "multi") for p in pieces) and len(pieces) >= 2:
+            subjects = {p["subject"] for p in pieces if p}
+            return {"event": "either", "subject": subjects.pop() if len(subjects) == 1 else "mixed", "conds": [p for p in pieces if p]}
     # -- triggers (wave 17D) -- "Whenever you cast a black spell or a Swamp you control enters" (Staff of the Death Magus): two whole
     # conditions, each its own event (603.2c); split where both halves read on their own
     for part in re.finditer(r" or ", c):
@@ -595,7 +605,7 @@ def _parse(c: str) -> Condition | None:
     if c in ("~ is put into your graveyard from your library", "this card is put into your graveyard from your library"):
         return {"event": "to_graveyard", "subject": "self", "from": "library"}  # -- triggers (wave 19B) -- (Narcomoeba)
     m = re.fullmatch(r"(?P<o>one or more (?:.+? )?cards|an? .+? card|a card) (?:is|are) put into (?P<g>your|an opponent's|a) "
-                     r"graveyard from (?P<f>anywhere other than the battlefield|anywhere|your library|a library)", c)
+                     r"graveyard from (?P<f>anywhere other than the battlefield|anywhere|your library|a library)", c)  # (wave 43B: Syr Konrad)
     if m:
         gsel = selectors.from_key(_object_sel(m["o"], card=True))
         owner = {"your": "you", "an opponent's": "opponent"}.get(m["g"])
@@ -603,14 +613,14 @@ def _parse(c: str) -> Condition | None:
             return None
         out: Condition = {"event": "to_graveyard", "subject": "sel", "aggregate": m["o"].startswith("one or more "),
                           "sel": selectors.replace(gsel, zone_owner=owner).key()}
+        if m["f"] == "anywhere other than the battlefield":  # -- most-played cards (wave 43B) -- a card put there from any other zone (its dying is the "dies" event)
+            out["not_from"] = "battlefield"
         if m["f"] == "your library":
             if owner != "you":
                 return None
             out["from"] = "library"
         elif m["f"] == "a library":  # (wave 16C: Dreadhound — any player's library)
             out["from"] = "library"
-        elif m["f"] == "anywhere other than the battlefield":  # -- trigger other (wave 44B) -- Ultron: 603.6c, a card put there from any zone but the battlefield
-            out["from"] = "not_battlefield"
         return out
     # -- counters (wave 21D) -- "one or more cards are put into exile [from your graveyard / your hand / your library and/or your
     # graveyard]" (Rakshasa Vizier, Laelia), "… into a library from anywhere" (Dutiful Knowledge Seeker): a card (never a token,
@@ -1163,6 +1173,13 @@ def _object_event(c: str) -> Condition | None:
     m = re.fullmatch(r"the last (?P<k>[a-z]+) counter is removed from ~", c)
     if m:
         return {"subject": "self", "event": "counters_removed", "counter": m["k"], "last": True}
+    # -- most-played cards (wave 43B) -- "When the twelfth hour counter is put on this artifact" (Midnight Clock), "When the fourth plan counter is put on this
+    # enchantment" (the plan-counter enchantments): the ability triggers when counters are put on it and it had fewer than that many before and that many or
+    # more after (the ruling, 2019-10-04), however many counters one event put at once
+    m = re.fullmatch(r"the (?P<n>second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth) (?P<k>[a-z]+) counter is put on (?:~|this [a-z]+)", c)
+    if m:
+        return {"subject": "self", "event": "counters_put", "counter": m["k"],
+                "nth": ("second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth").index(m["n"]) + 2}
     m = re.fullmatch(r"(?:one or more|an?) (?:(?P<k>\+1/\+1|-1/-1|[a-z]+) )?counters? (?:is|are) put on (?P<s>.+)", c)
     if m:
         base = _subject(m["s"])

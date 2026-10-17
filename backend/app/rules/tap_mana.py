@@ -49,13 +49,27 @@ _SPELL = re.compile(r"^Until end of turn, (?P<rest>whenever .+)$")
 # -- ability words (wave 9C) -- "Whenever a Mountain is tapped for mana, its controller adds an additional {R}." (Gauntlet of
 # Might, Vernal Bloom): the same trigger as "Whenever a player taps a Mountain for mana, that player adds …" — the player
 # who taps a permanent for mana is its controller (605.2: a mana ability is activated by the player who controls it)
-_ITS_CONTROLLER = re.compile(r"^Whenever (?P<what>an? [^,]+?) is tapped for mana, its controller adds (?P<rest>.+)$")
+_ITS_CONTROLLER = re.compile(r"^Whenever (?P<what>an? [^,]+?) is tapped for mana(?P<chosen> of the chosen color)?, its controller adds (?P<rest>.+)$")
+# -- most-played cards (wave 43B) -- the color the source chose as it entered (614.12a): "Whenever a basic land is tapped for mana of the chosen color, its
+# controller adds an additional one mana of that color." (Gauntlet of Power) and "Whenever a land's ability causes you to add one or more mana of the chosen
+# color, add an additional one mana of that color." (Caged Sun: one extra per ability that produced the color, whatever the ability's cost, 605.1b)
+_CHOSEN_REST = "an additional one mana of that color."
+_CAGED_SUN = re.compile(r"^Whenever a land's ability causes you to add one or more mana of the chosen color, add an additional one mana of that color\.$")
 
 
 def definition(text: str) -> dict[str, Any] | None:
     from app.rules import selectors
 
+    if _CAGED_SUN.match(text.strip()) is not None:
+        return {"kind": "triggered", "trigger": "tap_for_mana", "who": "you", "sel": selectors.Selector(types=("Land",)).key(), "extra": "chosen", "chosen": True,
+                "any_ability": True, "monarch": False, "optional": False, "target": None, "effects": []}
     if (alt := _ITS_CONTROLLER.match(text.strip())) is not None:
+        if alt["chosen"]:
+            sel = selectors.parse(re.sub(r"^an? ", "", alt["what"]))
+            if alt["rest"] != _CHOSEN_REST or sel is None or sel.player is not None or sel.zones not in ((), ("battlefield",)):
+                return None
+            return {"kind": "triggered", "trigger": "tap_for_mana", "who": "any", "sel": sel.key(), "extra": "chosen", "chosen": True, "monarch": False,
+                    "optional": False, "target": None, "effects": []}
         text = f"Whenever a player taps {alt['what']} for mana, that player adds {alt['rest']}"
     m = _LINE.match(text.strip())
     if m is None or (m["who"] == "you tap") != (m["adds"] == "add"):
@@ -117,12 +131,19 @@ def _triggers(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any
             if c.face_down or (r is not None and r.card_mode(c.id) == "manual"):
                 continue
             # (a cheap first look: the printed text, or a copy effect giving other copiable values, 613.2c)
-            if not re.search(r"for (?:mana|\{C\})", chars.of(c, info).oracle_text) and c.copy_of is None \
+            if not re.search(r"for (?:mana|\{C\})|ability causes you to add", chars.of(c, info).oracle_text) and c.copy_of is None \
                     and (r is None or r.object_id(c.id) not in copies):
                 continue
             ch = derive(state, c, copiable(state, c, info), info)
             for d in scripts.definitions(ch).values():
-                if d.get("trigger") == "tap_for_mana":
+                if d.get("trigger") == "tap_for_mana" and d.get("chosen"):
+                    from app.rules.casting import (
+                        _chosen_color,  # (wave 43B) no color chosen: the trigger never triggers (Gauntlet of Power ruling 2022-12-08)
+                    )
+
+                    if (color := _chosen_color(c)) is not None:
+                        out.append((c.controller, {**d, "extra": [[color]], "only": color}, c.id))
+                elif d.get("trigger") == "tap_for_mana":
                     out.append((c.controller, d, c.id))
     if r is not None and state.turn.phase != "cleanup":  # (514.2: "until end of turn" ends in the cleanup step)
         out += [(str(x["controller"]), x["def"], None) for x in r.tap_mana if x.get("turn") == state.turn.number]
@@ -153,7 +174,7 @@ def extend(state: GameState, card: CardInstance, info: CardInfo,
            found: list[tuple[int, M.ManaAbility]]) -> list[tuple[int, M.ManaAbility]]:
     """The permanent's mana abilities with each {T} ability's options carrying the extra mana of the triggers that
     apply to it (605.4a: added right after, with the ability's own)."""
-    if not any(ab.tap for _, ab in found):
+    if not found:
         return found
     triggers = [d for owner, d, src in _triggers(state, info) if _applies(state, info, card, owner, d, src)]
     if not triggers:
@@ -163,6 +184,11 @@ def extend(state: GameState, card: CardInstance, info: CardInfo,
     out = []
     for index, ab in found:
         if not ab.tap:
+            # -- most-played cards (wave 43B) -- "a land's ability" (Caged Sun) also triggers on a mana ability without {T}: the engine doesn't add that
+            # extra mana, so a land ability that makes the chosen color is left to the player while the trigger applies
+            # ponytail: those abilities stay manual rather than automated
+            if any(d.get("any_ability") and any(d["only"] in opt for opt in ab.options) for d in triggers):
+                continue
             out.append((index, ab))
             continue
         if ab.spend_only is not None:

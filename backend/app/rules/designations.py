@@ -253,6 +253,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         return [("fully_unlock", None, None, e.player, {})]
     if e.counter == "counters_spell" and e.player:  # -- counter events (wave 19C) -- the controller of the spell or ability that countered it
         return [("counters_spell", None, None, e.player, {})]
+    if e.counter == "search_library" and e.player:  # -- most-played cards (wave 43B) -- 701.23: a player searched their own library (effects._ask_search)
+        return [("search_library", None, None, e.player, {})]
     if e.counter == "proliferate" and e.player:  # -- trigger tail (wave 15B) -- 701.34a
         return [("proliferate", None, None, e.player, {})]
     if e.counter in ("forage", "collect_evidence") and e.player:  # -- if you do (wave 26C) -- 701.61, 701.59 (cost_payment.pay)

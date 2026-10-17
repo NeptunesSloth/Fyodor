@@ -908,6 +908,9 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
             # (wave 17C: riot is read from the entering permanent's characteristics as it enters, 614.12: app/rules/riot.py)
             grants.append(rest.capitalize())  # (wave 15A: "have extort", "have afflict 2": their CR meaning, keyword_triggers)
             continue
+        if rest == "protection from each color that's not in your commander's color identity":  # -- most-played cards (wave 43B) -- Commander's Plate
+            grants.append("Protection from each color not in your commander's color identity")  # (layers writes the colors in: 903.4, the rulings 2020-11-10)
+            continue
         if rest == "protection from the chosen color":  # -- attached events (wave 25D) -- the color the Aura's "As ~ enters, choose a color" recorded
             grants.append("Protection from the chosen color")  # (layers writes the answer in; chosen.chosen_value_ok: the one choice)
             continue

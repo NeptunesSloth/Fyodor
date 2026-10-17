@@ -977,6 +977,7 @@ class RulesState(BaseModel):
     # -- activation costs (wave 4H) -- exerted permanents (701.43a): object id -> the player who exerted it; it doesn't
     # untap during that player's next untap step (app/rules/engine.start_next_turn)
     exerted: dict[str, str] = Field(default_factory=dict)
+    exerted_turn: dict[str, int] = Field(default_factory=dict)  # -- most-played cards (wave 43B) -- object id -> the turn it was last exerted ("hasn't been exerted this turn", Combat Celebrant)
     # -- next untap step (wave 6A) -- "doesn't untap during its controller's / your next untap step" (502.3;
     # app/rules/next_untap.py): {"oid": object id, "player": a player id, or "controller" (read at the untap step)}
     stay_tapped: list[dict[str, str]] = Field(default_factory=list)
@@ -1048,6 +1049,9 @@ class RulesState(BaseModel):
     extra_turns: list[dict[str, Any]] = Field(default_factory=list)
     player_control: list[PlayerControl] = Field(default_factory=list)  # -- controlling another player (wave 18H) --
     turn_base: str | None = None
+    # -- most-played cards (wave 43B) -- 500.1: the turns each player has begun (extra turns too; empty until the game's first turn ends: that is the first
+    # player's first turn); read by "your first, second, or third turn of the game" (values "turns_taken", engine.start_next_turn)
+    turns_taken: dict[str, int] = Field(default_factory=dict)
     extra_turn: bool = False  # -- static_other (wave 42A) -- 500.7: the turn in progress is an extra turn ("can't attack during extra turns", Medomai; engine.start_next_turn)
     # … and "can't gain life this turn / for the rest of the game" (614.17; app/rules/cant_gain.py):
     # {"id", "player", "controller", "turn" (None: the rest of the game), "label"}

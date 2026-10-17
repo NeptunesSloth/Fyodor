@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 Definition = dict[str, Any]
-KINDS = ("cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice", "cant_search")
+KINDS = ("cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap")
 
 _ENTER = re.compile(r"^(?P<what>(?:nonland )?(?:permanent|creature) cards) in (?P<zones>graveyards|libraries|graveyards and libraries) "
                     r"can't enter the battlefield$")
@@ -79,6 +79,12 @@ def static_definition(text: str) -> Definition | None:
             return None
         return {"kind": "static", "static": "cant_pay", "sac": sel.key() if sel else None,
                 "mana": m["act"] == " or activate abilities", "effects": []}
+    if t == "if an opponent would search a library, that player searches the top four cards of that library instead":
+        # -- most-played cards (wave 43B) -- 614.1a, 701.23 (Aven Mindcensor): the search sees only the top four cards; the whole library is shuffled afterwards if the text says so
+        return {"kind": "static", "static": "search_top", "n": 4, "effects": []}
+    m = re.fullmatch(r"(?P<who>each opponent|each player) can't draw more than one card each turn", t)
+    if m:  # -- most-played cards (wave 43B) -- 101.2: Narset, Parter of Veils; Spirit of the Labyrinth; Leovold (see ``draw_allowed``)
+        return {"kind": "static", "static": "draw_cap", "who": "opponents" if m["who"] == "each opponent" else "each", "n": 1, "effects": []}
     if t in _SEARCH_STATICS:  # (Mindlock Orb, Stranglehold, Ashiok, Dream Render)
         return {"kind": "static", "static": "cant_search", "who": _SEARCH_STATICS[t], "effects": []}
     if t == "spells and abilities your opponents control can't cause you to sacrifice permanents":  # (Sigarda, Tajuru Preserver)
@@ -168,6 +174,43 @@ def cant_search(plan: Plan, searcher: str, by: str, library: str | None = None) 
     return "an effect" if any(x["what"] == "search" and x["player"] == searcher and x["turn"] == turn for x in plan.rules.results) else None
 
 
+def search_depth(plan: Plan, searcher: str) -> int | None:
+    """-- most-played cards (wave 43B) -- 614.1a, 701.23: how many cards from the top of a library ``searcher`` may search (None: all of it): an opponent of the
+    controller of "If an opponent would search a library, that player searches the top four cards of that library instead" (Aven Mindcensor). The cards
+    outside the top are not seen and cannot be found, however they could be identified; the library is shuffled afterwards as the text says."""
+    depths = [int(d["n"]) for src, d in _statics(plan, "search_top") if src.controller != searcher]
+    return min(depths) if depths else None
+
+
+def draw_allowed(plan: Plan, player: str, k: int) -> int:
+    """-- most-played cards (wave 43B) -- 101.2, 121.2: how many of ``k`` cards ``player`` is told to draw they may, with "Each opponent can't draw more than one card each turn"
+    (Narset, Parter of Veils) in play: the limit less what they drew already this turn (the cards drawn before the permanent came count, the rulings). A draw not
+    allowed isn't made, so no replacement effect sees it; one that a replacement effect replaced was not drawn, which this count does not follow (it is made up front)."""
+    if not k:
+        return k
+    caps = [int(d["n"]) for src, d in _statics(plan, "draw_cap") if d["who"] == "each" or src.controller != player]
+    # ponytail: the cap is applied up front, so a draw a replacement effect later replaces still uses up the allowance (no refund)
+    if not caps:
+        return k
+    from app.game.rules_state import turn_log_now
+
+    log = turn_log_now(plan.state)
+    allowed = max(0, min(caps) - (log.drew.get(player, 0) if log is not None else 0))
+    if allowed < k:
+        plan.note(f"{plan.name(player)} can't draw more than {min(caps)} card{'s' if min(caps) != 1 else ''} each turn", actor=player)
+    return min(k, allowed)
+
+
+def note_search(plan: Plan, searcher: str, owner: str) -> None:
+    """-- most-played cards (wave 43B) -- 701.23: ``searcher`` searches their own library (even when nothing is found): the event "Whenever an opponent
+    searches their library" (Archivist of Oghma, Wan Shi Tong, Ob Nixilis, Unshackled) reads; a search of another player's library is not "their library"
+    (the rulings), a search the searcher can't make (cant_search) never starts."""
+    from app.game.rules_state import emit
+
+    if searcher == owner:
+        emit(plan.state, "designation", counter="search_library", player=searcher)
+
+
 _SEARCH_EFFECT = re.compile(r"^players can't search libraries this turn$")
 
 
@@ -175,7 +218,31 @@ def _build_search(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "cant_search_turn", "who": "each_player"}], None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_SEARCH_EFFECT, _build_search)]
+# -- most-played cards (wave 43B) -- 101.2, 701.6, 611.2a: "Spells you control can't be countered this turn." (Veil of Summer), "Creature spells you cast this turn can't
+# be countered." (Domri, Anarch of Bolas): every such spell of that player for the rest of the turn, those already on the stack too (the rulings)
+_UNCOUNTERABLE_EFFECT = re.compile(r"^(?:(?P<sel>[\w ,'-]+?) )?spells you (?:control|cast)(?P<mid> this turn)? can't be countered(?P<end> this turn)?$")
+
+
+def _build_uncounterable(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import permissions
+    from app.rules.scripts import _NoMatch
+
+    key = permissions.spell_filter(m["sel"]) if m["sel"] else None
+    if bool(m["mid"]) == bool(m["end"]) or (m["sel"] and key is None):
+        raise _NoMatch
+    return [{"do": "uncounterable_turn", "filter": key}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_SEARCH_EFFECT, _build_search), (_UNCOUNTERABLE_EFFECT, _build_uncounterable)]
+
+
+def uncounterable_turn(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The spells ``ctx["controller"]`` controls (matching the filter) can't be countered until the turn ends (permissions.spell_uncounterable reads it)."""
+    r = plan.rules
+    turn = plan.state.turn.number
+    r.results = [x for x in r.results if x["turn"] == turn]
+    r.results.append({"player": ctx["controller"], "what": "uncounterable", "turn": turn, "filter": e.get("filter")})
+    return True
 
 
 def cant_search_turn(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -191,7 +258,33 @@ def cant_search_turn(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool
     return True
 
 
-PRIMITIVES = {"cant_search_turn": cant_search_turn}
+def uncounterable_next(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"The next [creature] spell you cast this turn can't be countered.": waits for that spell (``bind_next_uncounterable``, as it is cast)."""
+    r = plan.rules
+    turn = plan.state.turn.number
+    r.results = [x for x in r.results if x["turn"] == turn]
+    r.results.append({"player": ctx["controller"], "what": "uncounterable_next", "turn": turn, "filter": e.get("filter")})
+    return True
+
+
+def bind_next_uncounterable(plan: Plan, card: Any, player: str) -> None:
+    """A spell was just cast by ``player`` (601.2a): every waiting "next spell … can't be countered" of theirs that fits it now belongs to this very spell (400.7: a new
+    object later is another spell), and is used up."""
+    from app.rules import permissions
+
+    r = plan.rules
+    turn = plan.state.turn.number
+    waiting = [x for x in r.results if x.get("what") == "uncounterable_next" and x["turn"] == turn and x["player"] == player]
+    if not waiting:
+        return
+    ch = plan.ch(card)
+    oid = r.object_id(card.id)
+    for x in waiting:
+        if not x.get("filter") or permissions.spell_matches(plan.state, player, card, ch, x["filter"], plan.info):
+            x["what"], x["oid"] = "uncounterable", oid
+
+
+PRIMITIVES = {"cant_search_turn": cant_search_turn, "uncounterable_turn": uncounterable_turn, "uncounterable_next": uncounterable_next}
 
 
 def cant_cause_sacrifice(plan: Plan, victim: str, by: str) -> str | None:

@@ -2062,7 +2062,10 @@ def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int
         if not zones:  # nothing is searched; "then shuffle" is its own instruction (701.24) and still happens
             _finish_search(plan, ctx, e, pid, [], {})
             return False
-    library = [c for c in plan.state.zones.get(zone_key(owner, "library"), []) if c not in picked] if "library" in zones else []
+    if part == 0 and not picked and "library" in zones:
+        prohibitions.note_search(plan, pid, owner)  # -- most-played cards (wave 43B) -- "Whenever an opponent searches their library"
+    depth = prohibitions.search_depth(plan, pid)  # (wave 43B: Aven Mindcensor: only the top four cards of any library are searched)
+    library = [c for c in plan.state.zones.get(zone_key(owner, "library"), [])[:depth] if c not in picked] if "library" in zones else []
     if e.get("sel"):  # a structured card selector (app/rules/selectors.py)
         parts = e.get("parts")  # "a Forest card and a Plains card": one card of each kind, asked in turn
         matching = _search_matches(plan, ctx, e, owner, parts[part] if parts else e["sel"], library)
@@ -2409,8 +2412,9 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
     entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
                 "actor": ctx["controller"], "tapped": bool(e.get("tapped")),
                 **({"transformed": True} if e.get("transformed") else {}),  # (-- transform, wave 11A -- 712.14a)
-                **({"counter": e["counter"]} if e.get("counter") else {}),
-                **({"counter_n": e["counter_n"]} if e.get("counter_n") else {})} for cid in cards]  # (counters it enters with, 122.6; n: wave 4M)
+                **({"counter": e["counter"]} if e.get("counter") and (not e.get("counter_if") or selectors.matches(
+                    plan, selectors.from_key(e["counter_if"]), plan.state.cards[cid], plan.ch(plan.state.cards[cid]), ctx["controller"])) else {}),
+                **({"counter_n": e["counter_n"]} if e.get("counter_n") else {})} for cid in cards]  # (counters it enters with, 122.6; n: wave 4M; counter_if: wave 44A)
     nxt = ctx["effects"][ctx["next"]] if e.get("as") and 0 <= ctx.get("next", -1) < len(ctx.get("effects") or ()) else {}
     if nxt.get("do") == "become" and nxt.get("lose_abilities") and nxt.get("who") == f"ref:{e['as']}" and nxt.get("duration") == "permanent":
         # -- review 35 -- "Return target creature card … to the battlefield. It's a Skeleton … and has no abilities." (Xu-Ifit, ruling 2025-07-25): it has
@@ -2740,6 +2744,8 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     pid = ctx["controller"]
     owner, looked = _looked(plan, ctx)
+    if e.get("by_owner"):  # -- most-played cards (wave 43B) -- "they put it onto the battlefield" / "that player puts it into their hand": the library's owner is the one who puts it
+        pid = owner
     ctx["looked"] = looked
     sel = selectors.from_key(e["sel"]) if e.get("sel") else None
     options = [c for c in looked if sel is None  # (the source: "of the chosen type", wave 5I)
@@ -2784,7 +2790,7 @@ def _picked(plan: Plan, ctx: Context, e: dict[str, Any], chosen: list[str]) -> b
     """Move the picked cards where the instruction says; False while an Aura entering chooses."""
     from app.rules import attachments  # attachments → effects (resume)
 
-    pid = ctx["controller"]
+    pid = _looked(plan, ctx)[0] if e.get("by_owner") else ctx["controller"]  # (wave 43B: the library's owner puts the card)
     if chosen and e.get("reveal"):
         plan.do({"type": "reveal", "card_ids": chosen}, actor=pid)  # to everyone
     ctx["looked"] = [c for c in ctx.get("looked") or [] if c not in chosen]
@@ -2836,13 +2842,16 @@ def rest_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pid = ctx["controller"]
     owner, rest = _looked(plan, ctx)
     ctx["looked"] = []
+    before = _remember(plan, ctx, e, rest)  # (wave 44A: "for each card put into your graveyard this way")
     if not rest:
         return True
     if e["to"] in ("graveyard", "exile"):
         plan.do({"type": "move", "card_ids": rest, "to": {"player": owner, "zone": e["to"]}}, actor=pid)
+        _moved(plan, ctx, e, before)
         return True
     if e["to"] == "hand":
         plan.do({"type": "move", "card_ids": rest, "to": {"player": pid, "zone": "hand"}}, actor=pid)
+        _moved(plan, ctx, e, before)
         return True
     if e["to"] == "top_any":
         if len(rest) == 1:
@@ -2911,6 +2920,9 @@ def to_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     cards = _cards(plan, ctx, e["who"])
     before = _remember(plan, ctx, e, cards)
     owners = {plan.state.cards[c].owner for c in cards}
+    for cid in cards if e.get("reveal") else ():  # -- if you do (wave 44A) -- 701.20a: "that player reveals the chosen card, puts it on the bottom" (Vendilion Clique): shown to everyone first
+        if plan.state.cards[cid].zone.endswith(":hand"):
+            plan.do({"type": "reveal", "card_ids": [cid]}, actor=plan.state.cards[cid].owner)
     if e["place"] == "shuffle":
         for cid in cards:
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"}},

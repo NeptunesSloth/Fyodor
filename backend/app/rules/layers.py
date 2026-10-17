@@ -447,6 +447,7 @@ def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEff
 
 
 # -- animation (agent A2): layer 4 type changes, layer 5 colors, layer 6 "loses all abilities" ----
+COMMANDER_PLATE = "Protection from each color not in your commander's color identity"  # (wave 43B: statics grants it; derive writes the colors in)
 _PT_COUNTER = re.compile(r"(?P<p>[+-]\d+)/(?P<t>[+-]\d+)")  # (wave 3R3: a power/toughness counter, 122.1a)
 
 # Subtypes belong to a card type (205.3g-k); when an effect sets the card types (205.1a) the
@@ -732,6 +733,24 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         from app.rules.scripts import granted_ability
 
         extra = []
+        # -- most-played cards (wave 43B) -- "has protection from each color that's not in your commander's color identity" (Commander's Plate): one protection ability for each
+        # color outside the combined identity of its controller's commanders (903.4); none at all without a commander (the ruling 2020-11-10); a commander with no color
+        # in its identity gives protection from all five
+        if any(text == COMMANDER_PLATE for _, text in grants):
+            expanded: list[tuple[Static, str]] = []
+            for st, text in grants:
+                if text != COMMANDER_PLATE:
+                    expanded.append((st, text))
+                    continue
+                owner = state.cards.get(st.source)
+                if owner is None or info is None or not any(c.owner == owner.controller and c.commander_key for c in state.cards.values()):
+                    continue
+                from app.rules.casting import commander_identity
+
+                identity = commander_identity(state, owner.controller, info)
+                expanded += [(st, f"Protection from {name}") for name, letter in (("white", "W"), ("blue", "U"), ("black", "B"), ("red", "R"), ("green", "G"))
+                             if letter not in identity]
+            grants = expanded
         for k, (st, text) in enumerate(grants):
             if "‹granter›" in text and state.rules is not None:  # -- granted from object (wave 18F) -- 607.1a: the granting object
                 text = text.replace("‹granter›", f"‹granter#{state.rules.object_id(st.source)}›")
