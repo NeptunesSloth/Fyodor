@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 Definition = dict[str, Any]
-KINDS = ("cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap")
+KINDS = ("cant_enter", "cant_counters", "cant_play_lands", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap")
 
 _ENTER = re.compile(r"^(?P<what>(?:nonland )?(?:permanent|creature) cards) in (?P<zones>graveyards|libraries|graveyards and libraries) "
                     r"can't enter the battlefield$")
@@ -104,6 +104,8 @@ def static_definition(text: str) -> Definition | None:
         return {"kind": "static", "static": "cant_counters", "sel": None, "effects": []}
     if t == "players can't get counters":  # (122.1: a player gets counters; poison, energy, experience, rad)
         return {"kind": "static", "static": "cant_counters", "sel": None, "players": True, "effects": []}
+    if t == "you can't play lands":  # -- most-played cards III (wave 46C) -- 305.1: its controller can't play a land (Aggressive Mining); read by engine.land_play_problem
+        return {"kind": "static", "static": "cant_play_lands", "effects": []}
     return None
 
 

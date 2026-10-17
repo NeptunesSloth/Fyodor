@@ -535,5 +535,20 @@
   ],
   "keywords": [],
   "loyalty": "4"
+ },
+ {
+  "name": "Aggressive Mining",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "You can't play lands.\nSacrifice a land: Draw two cards. Activate only once each turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
  }
 ]

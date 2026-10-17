@@ -257,6 +257,21 @@ def test_gideon_blackblade_is_a_creature_only_during_its_controllers_turn(cards)
     check(s)
 
 
+def test_aggressive_mining_bars_its_controller_from_playing_lands_but_not_the_opponent(cards):
+    # 305.1: "You can't play lands." - only the controller of the enchantment
+    s = build(cards, ["Aggressive Mining"], [])
+    put(s, "Aggressive Mining")
+    land = to_hand(s, "Forest")
+    with pytest.raises(ActionError, match="you can't play lands"):
+        act(s, "p1", type="play_land", card_id=land.id)
+    stops(s)
+    to_phase(s, "main1", turn=2)
+    theirs = to_hand(s, "Island", "p2")
+    act(s, "p2", type="play_land", card_id=theirs.id)
+    assert zone_of(s, "Island", "p2") == "p2:battlefield"
+    check(s)
+
+
 def logged(s, since):
     return [" ".join(p.t or "" for p in e.parts) for e in s.state.log[since:]]
 
