@@ -781,7 +781,12 @@ def modal_groups(definition: dict[str, Any], picked: list[int]) -> list[dict[str
     modes = [definition["modes"][i] for i in picked]
     if not any(m.get("groups") for m in modes):
         return None
-    return [g for m in modes for g in (m.get("groups") or ([{"what": m["target"]["what"]}] if m["target"] else []))]
+    out: list[dict[str, Any]] = []
+    for m in modes:
+        base = len(out)  # (-- shuffle target cards (wave 46B) -- a mode's "graveyard_of" names a group of its own, numbered from its first)
+        out += [{**g, "graveyard_of": g["graveyard_of"] + base} if g.get("graveyard_of") is not None else g
+                for g in m.get("groups") or ([{"what": m["target"]["what"]}] if m["target"] else [])]
+    return out
 
 
 def modal_effects(definition: dict[str, Any], picked: list[int], grouped: bool) -> list[dict[str, Any]]:

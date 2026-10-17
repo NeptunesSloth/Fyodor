@@ -10,15 +10,14 @@ from __future__ import annotations
 
 import pytest
 
-from app.rules import coverage
-from app.rules import scripts
+from app.rules import coverage, scripts
 from app.rules.characteristics import Characteristics
 from app.rules.oracle import parse_abilities
 from tests.game_helpers import act
-from tests.test_rules_wave38a_trailing_ifs import table
 from tests.test_rules_wave4j_leftovers import pick_type, typed
 from tests.test_rules_wave5j_token_copies import drive
-from tests.wave9c_kit import card_named, check, mana, put, pt, to_hand
+from tests.test_rules_wave38a_trailing_ifs import table
+from tests.wave9c_kit import card_named, check, mana, pt, put, to_hand
 from tests.wave46b_kit import make_repo, zone
 
 

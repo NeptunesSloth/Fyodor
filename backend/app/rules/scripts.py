@@ -1144,7 +1144,7 @@ def _free_cast_source(e: dict[str, Any], pronoun: str, intro: _Introducer | None
     return True
 
 
-_TARGET_REFS = ("who", "library", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
+_TARGET_REFS = ("who", "library", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player", "cards")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:
@@ -1247,6 +1247,8 @@ def _add_groups(groups: list[dict[str, Any]], found: list[dict[str, Any]], sel: 
                 g = {**g, "what": "any_other"}  # -- damage sized by a count (wave 34D) -- "any other target" with nothing before it: any target but the
                 # source (targets.legal_targets); language.py lets only a damage sentence of the source itself ("~ deals … to any other target") say it
         index.append(len(groups))
+        if g.get("graveyard_of") is not None:  # -- shuffle target cards (wave 46B) -- the group of the player whose graveyard it is: this clause's numbering
+            g = {**g, "graveyard_of": index[g["graveyard_of"]]}
         groups.append(g)
     return _renumber(found, index)
 
@@ -5543,6 +5545,8 @@ def spell_definition(ch: Characteristics) -> Definition | None:
         for g in own:
             if g.get("distinct_from"):
                 g["distinct_from"] = [offset + d for d in g["distinct_from"]]
+            if g.get("graveyard_of") is not None:  # (wave 46B)
+                g["graveyard_of"] += offset
             groups.append(g)
         try:  # (each line's bindings keep their own names: "e0" of line 2 isn't line 1's)
             effects += rename_bindings(_renumber(defs[ab.index]["effects"], index), f"l{ab.index}_")

@@ -3021,8 +3021,11 @@ def shuffle_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return False
     players = _players(plan, ctx, e["who"])
     # (-- static_other sweep (wave 16B) -- "then draws that many cards": the cards shuffled in are the binding "as", each its owner's)
-    before = _remember(plan, ctx, e, [c for pid in players for zone in e.get("zones") or [] for c in plan.state.zones.get(zone_key(pid, zone), [])])
+    chosen = _cards(plan, ctx, e["cards"]) if e.get("cards") else []  # -- shuffle target cards (wave 46B) -- the target cards still the same objects (608.2b)
+    before = _remember(plan, ctx, e, [c for pid in players for zone in e.get("zones") or [] for c in plan.state.zones.get(zone_key(pid, zone), [])] + chosen)
     for pid in players:
+        if mine := [c for c in chosen if plan.state.cards[c].zone == zone_key(pid, "graveyard")]:  # (their graveyard: 701.24a puts them in before the shuffle)
+            plan.do({"type": "move", "card_ids": mine, "to": {"player": pid, "zone": "library"}}, actor=pid)
         for zone in e.get("zones") or []:
             cards = list(plan.state.zones.get(zone_key(pid, zone), []))
             if e.get("sel"):  # (wave 16C: "all creature cards from your graveyard")

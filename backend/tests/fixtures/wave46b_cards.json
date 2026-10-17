@@ -217,6 +217,23 @@
   "keywords": []
  },
  {
+  "name": "Loaming Shaman",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Centaur Shaman",
+  "oracle_text": "When this creature enters, target player shuffles any number of target cards from their graveyard into their library.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
   "name": "Tribal Unity",
   "layout": "normal",
   "mana_cost": "{X}{2}{G}",
