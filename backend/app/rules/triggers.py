@@ -828,6 +828,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if event == "coin_flip" and cond.get("won") != info.get("won"):  # -- coin events (wave 45C) -- won or lost (705.2)
         return False
+    if event == "control_change" and (player == you or info.get("was") != you):  # -- control events (wave 45C) -- "an opponent gains control … from you" (603.10d)
+        return False
     if event == "final_chapter" and cond.get("when") != info.get("when"):  # -- saga events (wave 45C) -- triggers or resolves (rules/sagas.py)
         return False
     if event == "roll_die":  # -- dice (wave 24B) -- the die's own result / size / place in the turn (app/rules/dice.py)
@@ -1242,6 +1244,12 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
     left: dict[int, str] = {}  # (a watcher that left: the object it was, wave 3S)
     window: dict[str, Any] = {"cast_from": {}}
     for e in events:
+        if e.kind == "designation" and e.counter == "control" and not e.manual and e.card in plan.state.cards and e.from_zone in plan.live():
+            card = plan.state.cards[e.card]  # -- control events (wave 45C) -- 603.10d: "an opponent gains control of … from you" looks back in time, so the
+            if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id and not plan.manual(card):  # permanent's own abilities
+                ch = plan.ch(card)  # (Zidane taken by an opponent) are its old controller's, as it was before the event
+                watchers += [((card.model_copy(update={"controller": e.from_zone}), ch, i, d), -big, big) for i, d in abilities(plan, ch, "event")
+                             if d.get("cond", {}).get("event") == "control_change"]
         if e.kind == "cycled" and not e.manual and e.card in plan.state.cards:
             # 702.29c: "When you cycle ~" triggers from whatever zone the card went to
             card = plan.state.cards[e.card]

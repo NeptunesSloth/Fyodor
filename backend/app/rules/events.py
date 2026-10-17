@@ -1137,6 +1137,11 @@ def _object_event(c: str) -> Condition | None:
                 **({"during": "you"} if m["d"] else {})}  # (``other``: the Vehicle or Mount, for "that Mount or Vehicle")
     if c == "~ becomes crewed":
         return {"event": "crewed", "subject": "self"}
+    # -- control events (wave 45C) -- 603.10d: "Whenever an opponent gains control of a permanent from you" (Zidane): looks back in time (the permanent,
+    # itself too, as it was under its old controller); the other control-change wordings stay manual
+    m = re.fullmatch(r"an opponent gains control of (?P<o>~|an? [\w ]+?) from you", c)
+    if m and (base := _subject(m["o"])) is not None and base["subject"] in ("sel", "self") and not base.get("aggregate"):
+        return {**base, "event": "control_change", "to": "opponent", "from": "you"}
     # -- saga events (wave 45C) -- 714.2d: "Whenever the final chapter ability of a Saga you control resolves / triggers" (Tom Bombadil, Narci,
     # Historian's Boon): the Saga's greatest-numbered chapter ability (rules/sagas.py emits it)
     m = re.fullmatch(r"the final chapter ability of (?P<s>an? .+?) (?P<w>resolves|triggers)", c)

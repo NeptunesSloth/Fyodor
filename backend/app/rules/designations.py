@@ -246,6 +246,11 @@ def facts(plan: Plan, e: Event) -> list[Any]:
             ch = plan.ch(card)
             return [("transform", card, ch, card.controller, {"oid": e.object_id, "face_name": ch.name})]
         return []
+    if e.counter == "control" and e.card in plan.state.cards:  # -- control events (wave 45C) -- 603.10d: ``player`` gained control of it from ``was``
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
+            return [("control_change", card, plan.ch(card), e.player, {"oid": e.object_id, "was": e.from_zone})]
+        return []
     if e.counter == "mutated" and e.card in plan.state.cards:  # -- merged permanents (wave 18D) -- 702.140d: a spell merged with it
         card = plan.state.cards[e.card]
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:

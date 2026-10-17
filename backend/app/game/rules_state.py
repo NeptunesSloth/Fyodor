@@ -1533,6 +1533,9 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
         if {old_name, new_name} == {"battlefield", "phased"}:
             continue  # -- phasing (wave 13D) -- 702.26d: phasing is no zone change: same object, no leave / enter triggers
         if old_name == new_name == "battlefield":
+            if card is not None:  # -- control events (wave 45C) -- 613.1b, 603.10d: its controller changed (``from_zone``: the player who lost control)
+                emit(state, "designation", counter="control", card=card_id, object_id=rules.object_id(card_id), player=card.controller,
+                     from_zone=old_zone.split(":")[0])
             continue  # a control change is not a zone change: same object (rule 400.7 doesn't apply)
         old_oid = rules.object_id(card_id)
         if old_name == "stack":  # -- spell copies (wave 31D) -- a spell leaving with its entry still there (returned to hand, exiled …)
