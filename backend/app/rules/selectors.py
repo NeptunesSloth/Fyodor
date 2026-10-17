@@ -1945,8 +1945,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             mine = _stat(ch, what)
             if scope != "self" and not matches(plan, scope_sel, card, ch, you, source):
                 return False  # ("among creatures you control": it is one of them)
-            others = [v for c in candidates(plan, scope_sel, you, source) if (v := _stat(plan.ch(plan.state.cards[c]), what)) is not None]
-            if mine is None or (which == "greatest" and any(v > mine for v in others)) or (which == "least" and any(v < mine for v in others)):
+            peers = [v for c in candidates(plan, scope_sel, you, source) if (v := _stat(plan.ch(plan.state.cards[c]), what)) is not None]
+            if mine is None or (which == "greatest" and any(v > mine for v in peers)) or (which == "least" and any(v < mine for v in peers)):
                 return False
         if extra.startswith("pot:"):  # (wave 15A) power or toughness (either) at most / at least n
             op, n = ("<=", int(extra[6:])) if extra[4:6] == "<=" else (">=", int(extra[6:]))
