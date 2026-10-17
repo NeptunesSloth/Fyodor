@@ -18,7 +18,7 @@ import pytest
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import settle
 from tests.wave9c_kit import card_named, check, mana, put, to_hand
-from tests.wave47b_kit import build3, life, open_cards
+from tests.wave47b_kit import build3, life, open_cards, pin_random
 
 
 @pytest.fixture()
@@ -137,4 +137,38 @@ def test_cirdan_a_player_may_vote_for_themself(cards):
     ballot(s, "p3", "p1")
     settle(s)
     assert hand(s, "p1") >= 3
+    check(s)
+
+
+# -- Truth or Consequences: a secret vote and "choose an opponent at random" ---------------------------------------------------------------
+def truth_table(cards, monkeypatch):
+    pin_random(monkeypatch)  # Carol
+    s = build3(cards, ["Truth or Consequences"])
+    to_hand(s, "Truth or Consequences")
+    mana(s, U=1, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Truth or Consequences").id)
+    settle_to_vote(s)
+    return s
+
+
+def test_truth_or_consequences_draws_per_truth_vote_and_hits_the_opponent_picked_at_random_per_consequences_vote(cards, monkeypatch):
+    s = truth_table(cards, monkeypatch)
+    cards_before = hand(s, "p1")
+    ballot(s, "p1", "truth")
+    ballot(s, "p2", "consequences")
+    assert "voted" not in json.dumps(s.view("p3")["log"])  # (secret until the last ballot)
+    ballot(s, "p3", "consequences")
+    settle(s)
+    assert hand(s, "p1") == cards_before + 1  # one truth vote
+    assert life(s, "p3") == 40 - 3 * 2 and life(s, "p2") == 40  # two consequences votes: 3 damage for each, to the one picked
+    assert "Carol is chosen at random" in json.dumps(s.view("p2")["log"])
+    check(s)
+
+
+def test_truth_or_consequences_with_no_consequences_votes_deals_nothing(cards, monkeypatch):
+    s = truth_table(cards, monkeypatch)
+    for pid in ("p1", "p2", "p3"):
+        ballot(s, pid, "truth")
+    settle(s)
+    assert (life(s, "p2"), life(s, "p3")) == (40, 40)
     check(s)

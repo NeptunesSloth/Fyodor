@@ -57,9 +57,10 @@ _NUMBER_OF = re.compile(r"^(?P<e>.+?) a number of (?P<what>.+?) equal to (?P<twi
 _DRAW_NUMBER = re.compile(r"^(?:You )?[Dd]raw cards equal to the number of (?P<w>[\w' ]+?) votes\.$")
 _LEADERS = re.compile(r"^(?P<pre>Otherwise, )?(?P<verb>[A-Za-z]+) each (?P<noun>[a-z ]+?) with the most votes or tied for most votes"
                       r"(?P<rest>[^.]*)\.$")
+_PICK_RANDOM = re.compile(r"^(?:Then )?[Cc]hoose (?P<w>an opponent|a player) at random\.$")
 _EACH_RECEIVED = re.compile(r"^(?P<s>Each player|Each opponent) (?P<v>.+?) for each vote (?:they|that player) received\.$")
 _FOR_RECEIVED = re.compile(r"^For each vote (?P<s>an opponent|you) received, (?P<e>.+)\.$")
-_SCALED = ("add_counters", "create_token", "gain_life", "lose_life", "draw", "discard", "mill", "edict")
+_SCALED = ("add_counters", "create_token", "gain_life", "lose_life", "draw", "discard", "mill", "edict", "damage")  # (damage: wave 47B, "deals 3 damage to that player for each … vote": one amount)
 _COND = re.compile(r"^(?:(?P<w>[\w' ]+?) gets more votes(?P<tie> or the vote is tied)?|no (?P<none>[a-z ]+?) got votes)$")
 
 
@@ -150,7 +151,13 @@ def bind(head: dict[str, Any], parse: Any, split_sentences: Any) -> tuple[list[d
         return True
 
     def repeat(word: str, text: str, scale: bool = True) -> bool:
-        inner = _plain(parse(text[:1].upper() + text[1:].rstrip(".") + "."))
+        if any(x.get("do") == "choose_random" for x in effects):  # -- random choices (wave 47B) -- "Then choose an opponent at random. ~ deals 3 damage to that player for each
+            from app.rules import scripts  # consequences vote." (Truth or Consequences): "that player" is the player picked, read as the instruction's own
+
+            got = scripts.parse_effects(text[:1].upper() + text[1:].rstrip(".") + ".", None, event_player=True)
+            inner = None if got is None or got[1] is not None or got[2] or any(x.get("bind") or x.get("as") or x.get("did") for x in got[0]) else _vp(got[0], "vr")
+        else:
+            inner = _plain(parse(text[:1].upper() + text[1:].rstrip(".") + "."))
         if inner is None or not words or word.lower() not in opts:
             return False
         # "X for each W vote" is one instruction for all the votes (Capital Punishment ruling: the creatures are sacrificed at
@@ -175,7 +182,11 @@ def bind(head: dict[str, Any], parse: Any, split_sentences: Any) -> tuple[list[d
         return True
 
     for sentence in split_sentences(head["rest"]):
-        if (m := _EACH_RECEIVED.match(sentence)) is not None:
+        if (m := _PICK_RANDOM.match(sentence)) is not None and words and not any(x.get("do") == "choose_random" for x in effects):
+            if not flush():
+                return None
+            effects.append({"do": "choose_random", "pool": "opponent" if m["w"] == "an opponent" else "player", "as": "vr"})
+        elif (m := _EACH_RECEIVED.match(sentence)) is not None:
             if not (flush() and received("each_player" if m["s"] == "Each player" else "each_opponent", f"that player {m['v']}", True)):
                 return None
         elif (m := _FOR_RECEIVED.match(sentence)) is not None:
@@ -217,13 +228,13 @@ def bind(head: dict[str, Any], parse: Any, split_sentences: Any) -> tuple[list[d
     return effects, None, False
 
 
-def _vp(node: Any) -> Any:
-    """The effects of a per-vote instruction aimed at the player voted for: "that player" (read as the trigger event's) is the binding ``vp``;
-    None if the instruction still names anyone else's event or target (stays manual)."""
+def _vp(node: Any, name: str = "vp") -> Any:
+    """The effects of an instruction about "that player" (read as the trigger event's): the player voted for (the binding ``vp``) or picked at random
+    (``vr``); None if the instruction still names anyone else's event or target (stays manual)."""
     text = json.dumps(node)
     if "target" in text or '"it"' in text or "that_player" in text or "ref:e" in text:
         return None
-    return json.loads(text.replace('"event_player"', '"ref:vp"').replace("controlled:event_player|", "controlled:ref:vp|"))
+    return json.loads(text.replace('"event_player"', f'"ref:{name}"').replace("controlled:event_player|", f"controlled:ref:{name}|"))
 
 
 def _walk(node: Any) -> list[str]:
