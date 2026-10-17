@@ -690,7 +690,7 @@ _SEARCH = re.compile(
     rf"(?:(?P<reveal>reveal {_PRON})(?:,? and |, ))?"
     rf"(?:puts? (?:(?P<one>one)(?: of them)? (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE})(?: attached to (?P<host>~|this creature|this equipment))?)(?P<shuf>, then shuffles?)?"
     rf"|(?P<exile>exile {_PRON}(?P<fd> face down)?)(?P<shuf2>, then shuffle)?"
-    rf"|then shuffle and put {_PRON} (?:on top(?: in any order)?|(?P<third>third from the top)))")  # ("in any order": wave 3R4; third: wave 20D)
+    rf"|then shuffles? and puts? {_PRON} (?:on top(?: in any order)?|(?P<third>third from the top)))")  # (wave 42C: "searches …, then shuffles and puts that card on top")  # ("in any order": wave 3R4; third: wave 20D)
 _DESTS = {"into your hand": "hand", "onto the battlefield tapped": "battlefield_tapped", "onto the battlefield": "battlefield",
           "into your graveyard": "graveyard"}
 _MV_X = re.compile(r"(?P<rest>.+?),? (?:with|that (?:each )?have) mana value [xX](?P<less> or less)?")  # (wave 20D: Uncage the Menagerie)
@@ -770,6 +770,9 @@ _SEARCH_THEIRS = re.compile(r"search (?P<t>target opponent|target player)'s libr
                             r"(?:put (?:that card|it|them|those cards) (?:(?P<bf>onto the battlefield under your control)|(?P<gy>into (?:their|that player's) graveyard))"
                             r"|exile (?:it|them))")
 SELECTORS_TARGET = {"target opponent": "opponent", "target player": "player"}
+# -- activated other (wave 42C) -- "Target player searches their library for a card, then shuffles and puts that card on top." (Varragoth): the target player is the
+# searcher (701.23a) and chooses the card from their own library (hidden from the rest); read as "each player searches …", aimed at the one target
+_SEARCH_TARGET = re.compile(r"(?P<t>target player|target opponent) (?P<rest>searches their library for .+)")
 
 
 def _search(text: str) -> tuple[Effects, str | None] | None:
@@ -778,6 +781,11 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
     "put one onto the battlefield and the other into your hand"). A card "named …", or with "mana
     value X or less" (the X the spell or ability has), is searched for too. Without "then shuffle"
     the library is not shuffled (701.24 shuffles only when told to)."""
+    if (tt := _SEARCH_TARGET.fullmatch(text)) is not None:  # (wave 42C)
+        found = _search(f"each player {tt['rest']}")
+        if found is None or found[0][0].get("who") != "each_player" or found[0][0].get("parts") or found[0][0].get("to2"):
+            raise _Fail
+        return [{**found[0][0], "who": "target"}], SELECTORS_TARGET[tt["t"]]
     if (theirs := _SEARCH_THEIRS.fullmatch(text)) is not None:  # -- static_other sweep (wave 26A) -- another player's library (701.23)
         std = {"b": "put it onto the battlefield", "g": "put it into your graveyard", "x": "exile it"}[
             "b" if theirs["bf"] else "g" if theirs["gy"] else "x"]
@@ -2132,6 +2140,12 @@ def _parse(text: str) -> tuple[Effects, Any]:
 
     if (protected := protection_grants.clause(text)) is not None:
         return protected
+    m = _LOSE_PW.fullmatch(text)
+    if m and re.search(r"\b(?:protection|ward)\b", m["kw"]):  # (any other list of keywords to lose: the grant below)
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "grant", "who": _who(kind, key), "keywords": [], "remove": _keyword_list(m["kw"])}], _one(group)
     m = _GRANT.fullmatch(text)
     if m:
         kind, key, group = ref(m["o"])
@@ -2247,6 +2261,9 @@ _PUMP = re.compile(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−](?:\d+|[xX]))/(?P
                    r"|any number of creatures)) this turn)?")  # (bx: wave 13B, 509.1a)
 _PUMP_TWO = re.compile(r"(?P<a>.+?) gets? (?P<pa>[+\-−]\d+/[+\-−]\d+) and (?P<b>(?:(?!\b(?:and|gets?)\b).)+?) gets? (?P<pb>[+\-−]\d+/[+\-−]\d+) until end of turn")  # (wave 39A)
 _GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw>{_KW_LIST}) until end of turn")
+# -- activated other (wave 42C) -- "Permanents your opponents control lose hexproof, indestructible, protection, shroud, and ward until end of turn." (Shay Cormac): losing
+# protection (702.16, every instance) or ward (702.21) takes no quality or cost, so (unlike gaining them) it is a keyword in its own right
+_LOSE_PW = re.compile(rf"(?P<o>.+?)(?: each)? loses? (?P<kw>(?:{GRANT_KEYWORDS}|protection|ward)(?:(?:, and |, | and )(?:{GRANT_KEYWORDS}|protection|ward))*) until end of turn")
 _GAIN_PUMP = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?) (?P<kw>{_KW_LIST}) and (?P<g>gets?) "  # (X sized: wave 4K)
                         rf"(?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX])) until end of turn")
 _GRANT_GAME = re.compile(rf"(?P<o>.+?)(?: each)? (?:gains?|has|have) (?P<kw>{_KW_LIST})")  # (quoted abilities only: see _parse)
@@ -3448,6 +3465,7 @@ _RA_ZONE = r"(?:your graveyard|your hand or graveyard|a graveyard|an opponent's 
 _RA_CHOICE = re.compile(rf"(?:(?:an?|one) |up to (?P<upto>{AMT}) |(?P<any>any number of )|(?P<n>{AMT}) )(?P<what>[^,]+?)(?P<rand> at random)?"
                         rf" from (?P<z>{_RA_ZONE})")
 _RA_SELF = re.compile(r"(?:this card|~) from your graveyard")
+_RA_SELF_EXILE = re.compile(r"(?:this card|~) from your graveyard or from exile")  # -- activated other (wave 42C) -- 113.6m: Mister Immortal works from either zone
 # -- activated from hand / command zone (wave 27D) -- "Put this card from your hand onto the battlefield." (Talon Gates of Madara, Urban
 # Retreat), "Put ~ onto the battlefield from the command zone." (Derevi): the source itself, only while it is still that object there
 _RA_SELF_ZONE = re.compile(r"put (?:(?P<h>this card|~) from your hand onto the battlefield|~ onto the battlefield from the command zone)")
@@ -3458,6 +3476,7 @@ _RA_LIB_NTH = re.compile(r"put (?:this card|~) from your graveyard into your lib
 # (Sandman, Slimefoot and Squee): the source and a target of the ability, entering together (one instruction, 608.2c)
 _RA_TOP = re.compile(r"the top (?P<what>[^,]+? card) of your graveyard")
 _RA_SELF_AND = re.compile(r"(?:this card|~) and (?P<rest>.+? from your graveyard)")
+_RA_TARGET_RANDOM = re.compile(r"put an? (?P<what>[\w -]+? card) at random from target (?P<t>opponent|player)'s graveyard onto the battlefield under your control")  # (wave 42C)
 _PERMANENT_TYPES = frozenset({"Artifact", "Creature", "Enchantment", "Land", "Planeswalker", "Battle"})
 
 
@@ -3561,6 +3580,12 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     """The graveyard-return wordings above; None when the sentence is not one of them (the older
     grammar then reads it, or it stays manual)."""
     text = text[len("then "):] if text.startswith("then you may ") else text  # (wave 3R4: "Then you may return …")
+    if (tr := _RA_TARGET_RANDOM.fullmatch(text)) is not None:  # -- activated other (wave 42C) -- Tariel: a random card of the target player's graveyard
+        sel = selectors.parse(f"{tr['what']} from a graveyard")
+        if sel is None or not _graveyard_cards(sel.key()):
+            return None
+        return [{"do": "return_choice", "who": f"graveyard_of:target|{sel.key()}", "n": 1, "upto": False, "random": True, "label": tr["what"],
+                 "to": "battlefield", "tapped": False, "under": "you"}], SELECTORS_TARGET[f"target {tr['t']}"]
     if (z := _RA_SELF_ZONE.fullmatch(text)) is not None:  # -- activated from hand / command zone (wave 27D) -- 113.6m
         return [{"do": "return_card", "to": "battlefield", "tapped": False, "under": "you",
                  "who": "self_hand" if z["h"] else "self_command"}], None
@@ -3627,6 +3652,8 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         if kind != "target" or group is None or not _graveyard_cards(key):
             return None
         return [{**effect, "who": _who(kind, key), "also": "self_gy"}], _one(group)
+    if _RA_SELF_EXILE.fullmatch(obj) and not may:  # -- activated other (wave 42C) -- the source, from the graveyard or from exile (effects._cards "self_gy_exile")
+        return [{**effect, "who": "self_gy_exile"}], _one(host_group)
     if _RA_SELF.fullmatch(obj) or obj == "this card":  # works from the graveyard (113.6m): coverage keeps it to activated abilities
         # (wave 19C: "return this card to your hand" — a card that isn't on the battlefield: the one in the graveyard, nothing if it left)
         return [{**effect, "who": "self_gy"}], _one(host_group)  # (wave 25D: a host target, "attached to target creature")
@@ -3689,7 +3716,7 @@ _CT_END = r"(?P<d> until end of turn)?"
 _CT_PRONOUN = r"(?:it|them|that creature|those creatures|that permanent|those permanents)"
 _CT_GAIN = re.compile(rf"(?:you )?gain control of (?P<o>.+?){_CT_END}")
 _CT_UNTAP = re.compile(rf"untap (?P<o>.+?) and gain control of {_CT_PRONOUN}{_CT_END}")
-_CT_GIVE = re.compile(rf"(?P<p>target opponent|target player|an opponent) gains control of (?P<o>.+?){_CT_END}")
+_CT_GIVE = re.compile(rf"(?P<p>target opponent|target player|an opponent|that (?:permanent|creature|artifact)'s controller) gains control of (?P<o>.+?){_CT_END}")
 _CT_OWN = re.compile(r"each player gains control of all (?P<o>(?:nontoken )?(?:creatures|permanents)) they own")  # (wave 12D)
 _CT_EXCHANGE = re.compile(r"exchange control of (?P<o>.+)")
 # -- control change (wave 20E) -- "Gain control of all creatures target opponent controls." (Ashiok, Tezzeret): the permanents that player
@@ -3742,6 +3769,10 @@ def control_forms(text: str) -> tuple[Effects, Any] | None:
         # target, so the effect's controller chooses which opponent on resolution (608.2d; effects.gain_control)
         if m["p"] == "an opponent":
             return [{"do": "gain_control", "who": _who(kind, key), "to": "choose_opponent", **dur}], _one(group)
+        # -- activated other (wave 42C) -- "Destroy target artifact or creature. That permanent's controller gains control of ~." (Starke of Rath): the controller of the
+        # permanent the instruction before was about (as it last existed if it is gone: 608.2h), not a target; what changes hands is the source itself
+        if m["p"].startswith("that "):
+            return ([{"do": "gain_control", "who": "self", "to": "it.controller", **dur}], None) if kind == "self" else None
         pgroup = target_group(m["p"])
         if pgroup is None:
             return None

@@ -14,8 +14,10 @@ chosen as the effect resolves. Researched against the Comprehensive Rules of 202
 
 "the color of its controller's choice" (Wishmonger, Pale Wayfarer; wave 34B) is the same choice made by the player who controls the target as it resolves.
 
-Refused (manual): "the card type of your choice" (Pippin: which card types are offered isn't settled here),
-"the chosen color" after "Choose a color." (the binding isn't read), a player gaining protection (that's
+"the card type of your choice" (Pippin; wave 42C): any card type may be named (205.2a), but only the nine a Commander deck holds can matter in a game
+(a Dungeon, Plane, Scheme, Vanguard or Phenomenon is never a source, spell or permanent here), so those are offered.
+
+Refused (manual): "the chosen color" after "Choose a color." (the binding isn't read), a player gaining protection (that's
 app/rules/player_shields.py), a duration other than "until end of turn".
 """
 
@@ -36,6 +38,8 @@ CHOICES: dict[str, list[str]] = {
     "the color of your choice": COLORS,
     "colorless or from the color of your choice": ["Colorless", *COLORS],
     "artifacts or from the color of your choice": ["Artifacts", *COLORS],
+    # -- activated other (wave 42C) -- 205.2a: the card types a Commander deck can hold (language._COMMANDER_CARD_TYPES), as protection names them (702.16a)
+    "the card type of your choice": ["Artifacts", "Battles", "Creatures", "Enchantments", "Instants", "Kindreds", "Lands", "Planeswalkers", "Sorceries"],
 }
 
 

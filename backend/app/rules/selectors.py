@@ -247,6 +247,13 @@ def _thats_status(s: Selector, m: re.Match[str]) -> Selector:
     return s2
 
 
+# -- activated other (wave 42C) -- 506.5: "Target creature that's attacking alone gets +1/+1 until end of turn." (Viper, Cruel Conspirator), "Target creature you control
+# that's attacking alone" (Crowd of True Believers): an attacking creature while no other creature is attacking
+@_suffix(r"that['’]s attacking alone")
+def _attacking_alone(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, attacking=True, extras=(*s.extras, "attacking_alone"))
+
+
 @_suffix(r"that (?:isn['’]t|is not|aren['’]t|are not) attacking")  # -- as long as (wave 35D) -- 611.3a: Arcades Sabboth's "as long as it's not attacking"
 def _not_attacking(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "not_attacking"))
@@ -850,6 +857,12 @@ def _put_there_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     if m["who"]:  # the zone is the clause's own ("were put into your graveyard"), not an earlier "in your graveyard"
         s = _in_zone(s, "graveyard", {"your": "you", "a": None, "an opponent's": "opponent", "that player's": "that_player"}[m["who"]])
     return replace(s, extras=(*s.extras, "put_there:" + origin))
+
+
+# -- activated other (wave 42C) -- "target creature card in a graveyard that was milled this turn" (The Master, Transcendent; Tato Farmer): 701.17a, the same fact as Raul's
+@_suffix(r"that (?:was|were) milled this turn")
+def _milled_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "put_there:milled"))
 
 
 @_suffix(r"that wasn't put there this combat")
@@ -1799,6 +1812,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False  # (wave 12C)
         if extra.startswith(("samename", "nosamename")) and not _same_name_now(plan, extra, card, ch, you, source):
             return False  # (wave 32A)
+        if extra == "attacking_alone" and sum(1 for c in plan.state.cards.values() if c.attacking is not None and c.zone.endswith(":battlefield")) != 1:
+            return False  # -- activated other (wave 42C) -- 506.5 (the same count statics.py reads for "as long as it's attacking alone")
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --

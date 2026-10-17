@@ -189,10 +189,10 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [src] if record is not None and src in record.exiled and src in plan.state.cards \
             and plan.state.cards[src].zone.endswith(":exile") \
             and (not record.exiled_objects or plan.oid(src) in record.exiled_objects) else []  # (-- as long as (wave 37A) -- 400.7j: that object, not a later one)
-    if who == "self_gy":  # -- reanimation (wave 3R) -- "return this card from your graveyard": the source, only
-        # while it is still the same object in a graveyard (400.7)
+    if who in ("self_gy", "self_gy_exile"):  # -- reanimation (wave 3R) -- "return this card from your graveyard": the source, only
+        # while it is still the same object in a graveyard (400.7); -- activated other (wave 42C) -- "… from your graveyard or from exile": in either
         src = plan.state.cards.get(ctx.get("source_card") or "")
-        if src is not None and src.zone.endswith(":graveyard") and plan.oid(src) == ctx.get("source_object"):
+        if src is not None and src.zone.endswith((":graveyard", ":exile") if who == "self_gy_exile" else ":graveyard") and plan.oid(src) == ctx.get("source_object"):
             return [src.id]
         return []
     if who in ("self_hand", "self_command"):  # -- activated from hand / command zone (wave 27D) -- 113.6m: the source, only while it

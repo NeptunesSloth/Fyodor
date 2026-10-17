@@ -107,6 +107,8 @@ def definition_supported(d: dict[str, Any]) -> bool:
         return modal_supported(d)  # (wave 1A) a modal triggered / activated ability
     # -- reanimation (wave 3R) -- "return this card from your graveyard": only an activated ability works from
     # there (113.6m); a trigger or static line would need the graveyard scanned for triggers
+    if d.get("kind") != "activated" and '"self_gy_exile"' in json.dumps(d, default=str):
+        return False  # -- activated other (wave 42C) -- "from your graveyard or from exile": only an activated ability is read there (113.6m)
     if d.get("kind") != "activated" and '"self_gy"' in json.dumps(d, default=str):
         from app.rules.triggers import graveyard_trigger_ok  # -- refused zones/sized (wave 3R4) -- (113.6m)
 

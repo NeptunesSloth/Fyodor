@@ -788,6 +788,11 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 if antecedent not in ("event", "event_gone"):
                     return None
                 e["name_as"] = "event"
+            if e.get("do") == "gain_control" and e.get("to") in ("it.controller", "it.owner"):  # -- activated other (wave 42C) -- "That permanent's controller gains control of ~."
+                intro = objects(index, 1, None)  # (the permanent the instruction before was about, as it last existed if it is gone: 608.2h)
+                if intro is None:
+                    return None
+                e["to"] = f"ref:{bound(intro)}.{e['to'][3:]}"
             if e.get("do") == "copy_spell" and e.get("first") and not e.get("excepts") and index > 0 \
                     and (moved := objects(index, 1, "card")) is not None and moved.do in _MOVERS:
                 # -- cast a copy (wave 13C) -- "Exile target … card. Copy it.": the card an earlier instruction moved
@@ -2242,6 +2247,10 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
                   r"[Pp]ut (?:one(?: of them)?|those cards|them|that card|it) [^.]+?)(?:, then shuffle|\. Then shuffle)\b",
                   lambda m: f"{m[1]}, {m[2] + ', ' if m[2] else ''}{m[3][:1].lower()}{m[3][1:]}, then shuffle", body)
     body = re.sub(r"(?i)^(sacrifice (?:~|this \w+)), (search your library for )", r"\1. \2", body)  # (Defense of the Heart: two instructions in order)
+    # -- activated other (wave 42C) -- "Choose a creature card at random from target opponent's graveyard. Put that card onto the battlefield under your control." (Tariel,
+    # Reckoner of Souls): the table picks the card and it is put onto the battlefield, one instruction (the pick is nobody's choice, so nothing is lost by joining them)
+    body = re.sub(r"(?i)\bchoose (an? [\w -]+? card) at random from (target (?:opponent|player)'s graveyard)\. put (?:that card|it) onto the battlefield under your control",
+                  r"put \1 at random from \2 onto the battlefield under your control", body)
     # -- static_other sweep (wave 19A) -- "Choose a creature type. Draw a card for each permanent you control of that type." (Distant
     # Melody): "that type" is the type just chosen, as in "of the chosen type" (app/rules/chosen.py)
     body = re.sub(r"(Choose a creature type\. [^.]*?) of that type\b", r"\1 of the chosen type", body)  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
@@ -6359,6 +6368,8 @@ _CHOSEN.update({"edict": "n", "player_chooses": "n", "choose_from_hand": "n"})
 def _compound_subject(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     # -- X sized by a count (wave 4K) -- "Target player draws X cards and loses X life, where X is …": the trailing
     # definition of X is the whole sentence's (107.3c), so the left half reads it too
+    if m["l"].startswith("searches ") and (whole := _language.parse_sentence(m[0])) is not None:
+        return whole  # -- activated other (wave 42C) -- "Target player searches their library for a card, then shuffles and puts that card on top.": one search (701.23), not two halves
     rider = re.search(r", where X is [^\"]+$", m["r"])
     lead = f"{m['l']}{rider[0]}" if rider is not None and re.search(r"\bX\b", m["l"]) else m["l"]
     # (-- trigger other (wave 25B) -- "Target opponent sacrifices a creature, discards a card, and loses 3 life": a serial list, one subject, in order)
@@ -6432,6 +6443,16 @@ def _is_in_addition(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     o = "each of them" if m["o"].startswith("each of") else "it"
     found = _language.parse_become(f"{o} becomes {m['desc']}{m['eot'] or ''}")
     if found is None or any(e["do"] != "become" or e.get("abilities") or e.get("lose_abilities") for e in found[0]):
+        raise _NoMatch
+    return found
+
+
+# -- activated other (wave 42C) -- "It's a green Mutant with base power and toughness 3/3." (The Master, Transcendent): the object the instruction before put onto the
+# battlefield is that colour and creature type (they replace its own: 205.3m, 105.3) with that base power and toughness (613.4b) for as long as it exists (611.2a)
+@effect(r"(?P<o>it|that creature)(?:'s| is) (?P<desc>an? [a-z]+ [A-Z][\w-]* with base power and toughness \d+/\d+)")
+def _is_with_base_pt(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    found = _language.parse_become(f"it becomes {m['desc']}")
+    if found is None or any(e["do"] != "become" or e.get("abilities") or e.get("lose_abilities") or e.get("types") for e in found[0]):
         raise _NoMatch
     return found
 
