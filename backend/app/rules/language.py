@@ -72,6 +72,7 @@ PLAYER_GROUPS.update({f"{the} {kind}'s controller": "it.controller" for the in (
 # "~ deals 3 damage to target player or planeswalker. That player or that planeswalker's controller discards two cards."
 # (Blightning): the target player, or the target planeswalker's controller (app/rules/effects._players)
 PLAYER_GROUPS["that player or that planeswalker's controller"] = "target_player_or_controller"
+PLAYER_GROUPS["an opponent chosen at random"] = "random_opponent"  # -- random choices (wave 47B) -- app/rules/random_choice.py (scripts: the pick is made right before it)
 PLAYER_GROUPS["the exiled card's owner"] = "it.owner"  # -- resolution memory (wave 22D) -- 607.2a (exiled_with.linked_cards binds the card)
 # "Whenever ~ blocks or becomes blocked by a creature, ~ deals 3 damage to that creature and 3 damage to that creature's
 # controller" (Assembled Alphas): the creature on the other side of the block (509.3c-d; the trigger event's ``other``)

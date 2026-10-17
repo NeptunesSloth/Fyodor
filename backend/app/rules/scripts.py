@@ -549,6 +549,7 @@ _TOKEN_MAKERS = {"create_token", "create_attacking"}  # (what they introduce are
 _RECORDING["rest_looked"] = None  # (wave 44A: its verb is _verb_of's)
 _RECORDING["linked_cards"] = "exiled"  # -- resolution memory (wave 22D) -- exiled_with.linked_cards
 _MOVERS.add("linked_cards")
+_RECORDING["choose_random"] = None  # -- random choices (wave 47B) -- the pick is bound as the player "that player" names
 _RECORDING["transform"] = None  # -- most-played cards II (wave 45A) -- "Transform this land, then untap it." (Westvale Abbey): "it" is the permanent that transformed (701.28: the same object)
 _RECORDING["double_pt"] = None  # -- trigger other (wave 41C) -- "double the power of each other creature you control until end of turn. Those creatures gain vigilance …"
 _RECORDING["create_attacking"] = None  # -- keywords (wave 15E) -- "create … tokens that are tapped and attacking. Sacrifice them …":
@@ -611,6 +612,8 @@ class _Introducer:
                 self.number = 1  # -- damage sized by a count (wave 20A) -- "until you reveal a nonland card. … that card's mana value": the one found
         if self.do == "destroy_all":
             self.number = 2
+        if self.do == "choose_random":  # -- random choices (wave 47B) -- "Choose an opponent at random. … that player": a player, no object
+            self.player, self.objects = True, False
         if self.do == "damage" and g is None and who in ("you", "each_player", "each_opponent", "each_other_opponent", "event_player", "that_player",
                                                          "chosen_player", "defending_player"):
             self.objects = False  # -- damage sized by a count (wave 42D) -- damage to a player names no object: "~ deals damage to you equal to that card's mana value. You may play it this turn." (Daredevil): "it" is still the card exiled before
@@ -944,7 +947,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     return None
             elif who == "that_player":
                 intro = find(lambda i: i.player, index)
-                if intro is not None:
+                if intro is not None and intro.do == "choose_random":  # -- random choices (wave 47B) -- "Choose an opponent at random. … that player"
+                    e["who"] = "ref:" + bound(intro)
+                elif intro is not None:
                     if event_player:
                         return None  # the trigger's player or the target player? (manual)
                     g = _group_of(out[intro.index])
@@ -962,7 +967,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 # -- damage sized by a count (wave 4E) -- "each creature that player controls": that player, bound the same way
                 intro = find(lambda i: i.player, index)
                 if intro is not None:
-                    if event_player:
+                    if event_player or intro.do == "choose_random":  # (-- random choices (wave 47B) -- the pick's own group isn't read)
                         return None
                     g = _group_of(out[intro.index])
                     player = "target" if groups is None else f"target:{g}"
@@ -2044,6 +2049,10 @@ def _one_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
 
     if (combat_found := combat_rules.clause(text)) is not None:
         return combat_found
+    from app.rules import random_choice  # -- random choices (wave 47B) -- "choose an opponent at random"
+
+    if (picked := random_choice.clause(text)) is not None:
+        return picked
     # -- token & pump wordings (wave 6C) -- "create a Monster Role token attached to it"
     from app.rules import roles
 
@@ -2485,13 +2494,16 @@ def _difference(body: str) -> str:
 
 def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
     body = _difference(body)
+    from app.rules import random_choice  # -- random choices (wave 47B) --
+
+    body, or_pw = random_choice.strip_pw(body)
     try:
         # -- top of library (wave 5I) -- "If it's a …, you may reveal it" (private)
         from app.rules import top_library
 
-        return _source_owner_draws(_entered_after_delayed(_no_regen_scope(top_library.private_gate(_excess_redirect(_value_targets(
+        return random_choice.post(pw=or_pw, got=_source_owner_draws(_entered_after_delayed(_no_regen_scope(top_library.private_gate(_excess_redirect(_value_targets(
             _that_players_hand(_attached_host(_gy_shuffle(_life_lost(this_way.dealt_to(this_way.excess_dealt(this_way.damage_dealt(_energy_paid(
-                _parse_effects(body, it, event_player))))))), it))))))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C)
+                _parse_effects(body, it, event_player))))))), it)))))))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C; random_choice: wave 47B)
     except _NoMatch:
         return None
 

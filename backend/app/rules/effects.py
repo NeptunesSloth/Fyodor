@@ -4529,6 +4529,11 @@ from app.rules import refused_zones  # noqa: E402, I001
 
 PRIMITIVES.update(refused_zones.PRIMITIVES)
 RESUME.update(refused_zones.RESUME)
+# -- random choices (wave 47B): app/rules/random_choice.py (a leaf module over this one) --
+from app.rules import random_choice  # noqa: E402, I001
+
+PRIMITIVES.update(random_choice.PRIMITIVES)
+RESUME.update(random_choice.RESUME)
 # -- end counters & designations (wave 3E) --
 
 # -- refused grants/replacements (wave 3R2) -- source-of-your-choice shields (609.7a, 615.8) and "Damage can't be

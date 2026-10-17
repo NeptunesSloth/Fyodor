@@ -501,7 +501,8 @@ def _keyword_supported(kw: str, line: str) -> bool:
         mine = [p for p in pieces if p.startswith(kw)]
         return bool(mine) and all(re.fullmatch(rf"{kw} \d+", p) for p in mine)
     if kw in ("bloodthirst", "toxic", "fabricate", "firebending", "dredge"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
-        return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None
+        return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None or (  # (-- random choices (wave 47B) -- 702.54b "Bloodthirst X": replacements.entering_counters)
+            kw == "bloodthirst" and line.strip().rstrip(".").lower() == "bloodthirst x")
     if kw == "plot":  # -- keywords (wave 15E) -- casting.plot: a mana plot cost
         return re.fullmatch(r"plot (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "suspend":  # casting.suspend_info: "Suspend N—{cost}"

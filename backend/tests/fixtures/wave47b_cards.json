@@ -1,0 +1,151 @@
+[
+ {
+  "name": "Vial Smasher the Fierce",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Goblin Berserker",
+  "oracle_text": "Whenever you cast your first spell each turn, choose an opponent at random. Vial Smasher deals damage equal to that spell's mana value to that player or a planeswalker that player controls.\nPartner (You can have two commanders if both have partner.)",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Partner"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Zaffai, Thunder Conductor",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{R}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Shaman",
+  "oracle_text": "Magecraft — Whenever you cast or copy an instant or sorcery spell, scry 1. If that spell's mana value is 5 or greater, create a 4/4 blue and red Elemental creature token. If that spell's mana value is 10 or greater, Zaffai deals 10 damage to an opponent chosen at random.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Magecraft",
+   "Scry"
+  ],
+  "power": "1",
+  "toughness": "4"
+ },
+ {
+  "name": "Indoraptor, the Perfect Hybrid",
+  "layout": "normal",
+  "mana_cost": "{1}{B/G}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Dinosaur Mutant",
+  "oracle_text": "Bloodthirst X (This creature enters with X +1/+1 counters on it, where X is the damage dealt to your opponents this turn.)\nMenace\nEnrage — Whenever Indoraptor is dealt damage, choose an opponent at random. Indoraptor deals damage equal to its power to that player unless they sacrifice a nontoken creature of their choice.",
+  "colors": [
+   "B",
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Enrage",
+   "Bloodthirst",
+   "Menace"
+  ],
+  "power": "3",
+  "toughness": "1"
+ },
+ {
+  "name": "Ruhan of the Fomori",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{R}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Giant Warrior",
+  "oracle_text": "At the beginning of combat on your turn, choose an opponent at random. Ruhan attacks that player this combat if able.",
+  "colors": [
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "7",
+  "toughness": "7"
+ },
+ {
+  "name": "Jace Beleren",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Planeswalker — Jace",
+  "oracle_text": "+2: Each player draws a card.\n−1: Target player draws a card.\n−10: Target player mills twenty cards.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Mill"
+  ],
+  "loyalty": "3"
+ },
+ {
+  "name": "Lightning Bolt",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Blaze",
+  "layout": "normal",
+  "mana_cost": "{X}{R}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Blaze deals X damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Ugin, the Spirit Dragon",
+  "layout": "normal",
+  "mana_cost": "{8}",
+  "cmc": 8.0,
+  "type_line": "Legendary Planeswalker — Ugin",
+  "oracle_text": "+2: Ugin deals 3 damage to any target.\n−X: Exile each permanent with mana value X or less that's one or more colors.\n−10: You gain 7 life, draw seven cards, then put up to seven permanent cards from your hand onto the battlefield.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "loyalty": "7"
+ }
+]
