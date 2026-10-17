@@ -4430,6 +4430,8 @@ def _conditional_static(ability: AbilityText, ch: Characteristics, text: str) ->
         return {**inner, "static_if": [cond]}
     if inner.get("static") == "grant" and inner.get("player_shield") and not inner.get("conditions"):
         return {**inner, "conditions": [cond]}
+    if inner.get("static") == "grant" and not inner.get("conditions") and all(r.startswith("attack_tax") for r in inner.get("rules") or ["-"]):
+        return {**inner, "conditions": [cond]}  # (wave 45D: Dáin) the attack tax is imposed (a grant's rules) only while the condition holds, 611.3a
     return None
 
 

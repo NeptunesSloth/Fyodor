@@ -1205,6 +1205,7 @@ class RulesState(BaseModel):
     # 309.2a / 309.4: each player's dungeon card in the command zone and the room their venture marker is on
     dungeons: dict[str, DungeonMark] = Field(default_factory=dict)
     completed_dungeons: dict[str, list[str]] = Field(default_factory=dict)  # 309.7: player -> dungeons completed, in order
+    enduring_story: list[str] = Field(default_factory=list)  # -- storied (wave 45D) -- 702.195b: players with the designation, for the rest of the game
     ring_tempted: dict[str, int] = Field(default_factory=dict)  # 701.54c: player -> times the Ring tempted them (their emblem)
     ring_bearers: dict[str, str] = Field(default_factory=dict)  # 701.54a: player -> their Ring-bearer (rules object id)
     # -- keyword actions & face-down (wave 3F) -- firebending (702.189a): the {R} each player added that
