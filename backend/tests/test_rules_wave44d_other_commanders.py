@@ -37,9 +37,9 @@ ZUKO, MIZZIX, WITCH = "Zuko, Firebending Master", "Mizzix of the Izmagnus", "The
 MINN, MASTER, VONDAM = "Minn, Wily Illusionist", "The Master of Lake-town", "Syr Vondam, Sunstar Exemplar"
 HISOKA, MAGETA, JOLRAEL = "Hisoka, Minamo Sensei", "Mageta the Lion", "Jolrael, Empress of Beasts"
 WILL, ROWAN, ZIMONE, AGATHA = "Will, Scion of Peace", "Rowan, Scion of War", "Zimone, Infinite Analyst", "Agatha of the Vile Cauldron"
-TIFA, HULK = "Tifa, Martial Artist", "Bruce Banner // The Incredible Hulk"
+TIFA, HULK, AZULA = "Tifa, Martial Artist", "Bruce Banner // The Incredible Hulk", "Azula, Ruthless Firebender"
 FULL = [BRISELA, NEVINYRRAL, KNIGHT, ELLIE, MEREN, BORTUK, JACE, NISSA, SHEOLDRED, ZUKO, MIZZIX, WITCH, MINN, MASTER, VONDAM, HISOKA, MAGETA, JOLRAEL, WILL, ROWAN,
-        ZIMONE, AGATHA, TIFA, HULK]
+        ZIMONE, AGATHA, TIFA, HULK, AZULA]
 
 
 @pytest.fixture()
@@ -574,4 +574,34 @@ def test_the_incredible_hulk_untaps_and_adds_a_combat_phase_when_dealt_damage_at
     pass_until_stack_empty(s)
     assert s.state.cards[hulk.id].counters.get("+1/+1") == 1 and not s.state.cards[hulk.id].tapped
     assert s.state.rules.extra_phases[:1] == ["begin_combat"]
+    check(s)
+
+
+def azula_attacks(cards):
+    s = build(cards, [AZULA], [])
+    az = put(s, AZULA)
+    next_turn(s)
+    to_hand_n(s, 1)
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": az.id, "target": "p2"}])
+    return s
+
+
+def test_azula_gets_an_experience_counter_for_the_player_who_discarded(cards):
+    s = azula_attacks(cards)
+    settle_all(s)  # (the first option of each question: both triggers in order, "yes" to the discard, the card)
+    assert exp(s) == 1 and len(s.state.zones["p1:graveyard"]) == 1
+    check(s)
+
+
+def test_azula_gets_none_when_nobody_discarded(cards):
+    s = azula_attacks(cards)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options] if d.kind == "order" else [])  # (order both, decline the discard)
+    pass_until_stack_empty(s)
+    assert exp(s) == 0 and not s.state.zones["p1:graveyard"]
     check(s)

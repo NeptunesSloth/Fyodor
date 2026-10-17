@@ -589,19 +589,6 @@
   "keywords": []
  },
  {
-  "name": "Plains",
-  "layout": "normal",
-  "mana_cost": "",
-  "cmc": 0.0,
-  "type_line": "Basic Land — Plains",
-  "oracle_text": "({T}: Add {W}.)",
-  "colors": [],
-  "color_identity": [
-   "W"
-  ],
-  "keywords": []
- },
- {
   "name": "Divination",
   "layout": "normal",
   "mana_cost": "{2}{U}",
@@ -634,23 +621,22 @@
   "toughness": "3"
  },
  {
-  "name": "Nessian Asp",
+  "name": "Azula, Ruthless Firebender",
   "layout": "normal",
-  "mana_cost": "{4}{G}",
-  "cmc": 5.0,
-  "type_line": "Creature — Snake",
-  "oracle_text": "Reach\n{6}{G}: Monstrosity 4. (If this creature isn't monstrous, put four +1/+1 counters on it and it becomes monstrous.)",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Noble",
+  "oracle_text": "Firebending 1 (Whenever this creature attacks, add {R}. This mana lasts until end of combat.)\nWhenever Azula attacks, you may discard a card. Then you get an experience counter for each player who discarded a card this turn.\n{2}{B}: Until end of turn, Azula gets +1/+1 for each experience counter you have and gains menace.",
   "colors": [
-   "G"
+   "B"
   ],
   "color_identity": [
-   "G"
+   "B"
   ],
   "keywords": [
-   "Reach",
-   "Monstrosity"
+   "Firebending"
   ],
-  "power": "4",
-  "toughness": "5"
+  "power": "3",
+  "toughness": "3"
  }
 ]
