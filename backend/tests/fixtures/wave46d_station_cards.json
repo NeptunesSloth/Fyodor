@@ -350,5 +350,27 @@
   ],
   "power": "3",
   "toughness": "4"
+ },
+ {
+  "name": "Owen Grady, Raptor Trainer",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Soldier Scientist",
+  "oracle_text": "Partner with Blue, Loyal Raptor\n{T}: Put your choice of a reach, menace, trample, or haste counter on target Dinosaur. Activate only as a sorcery.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Partner with",
+   "Partner"
+  ],
+  "power": "3",
+  "toughness": "2"
  }
 ]

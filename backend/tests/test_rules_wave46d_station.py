@@ -358,6 +358,22 @@ def test_synthesizer_labship_animates_another_artifact_at_the_beginning_of_comba
     check(s)
 
 
+def test_owen_grady_puts_your_choice_of_a_keyword_counter_on_a_target_dinosaur(cards):
+    """The target form of "put your choice of": the Dinosaur is chosen as the ability is put on the stack, the kind as it resolves (608.2d)."""
+    s = build(cards, ["Owen Grady, Raptor Trainer"])
+    owen = put(s, "Owen Grady, Raptor Trainer")
+    ready(s, "Owen Grady, Raptor Trainer")
+    raptor = creature(s, "p1", "Raptor", pt="3/3", type_line="Token Creature — Dinosaur")
+    index = next(a.index for a in ch_of(s, "Owen Grady, Raptor Trainer").abilities if a.text.startswith("{T}: Put your choice"))
+    act(s, "p1", type="activate_ability", card_id=owen.id, ability=index, targets=[raptor.id])
+    d = s.state.rules.decision
+    assert [o.id for o in d.options] == ["reach", "menace", "trample", "haste"]
+    pick(s, "trample")
+    answer(s)
+    assert s.state.cards[raptor.id].counters == {"trample": 1} and "trample" in ch_of_id(s, raptor.id).keywords
+    check(s)
+
+
 def test_larval_scoutlander_sacrifices_a_lander_for_two_basic_lands(cards):
     s = build(cards, ["Larval Scoutlander"])
     lander = creature(s, "p1", "Lander", pt="0/0", type_line="Token Artifact — Lander")
