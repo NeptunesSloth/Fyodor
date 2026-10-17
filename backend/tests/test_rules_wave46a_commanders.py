@@ -17,6 +17,7 @@ from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.errors import ActionError
 from app.rules import coverage
+from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_effects import pass_until_stack_empty
@@ -29,7 +30,7 @@ KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w46a", number=f"A{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 PUNK, OBOSH = "Spider-Punk", "Obosh, the Preypiercer"
-FULL = [PUNK, OBOSH, "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained", "Edgewalker", "Ragemonger", "Morophon, the Boundless", "Eluge, the Shoreless Sea", "Jared Carthalion, True Heir", "Momo, Friendly Flier", "Kadena, Slinking Sorcerer", "Kaza, Roil Chaser", "Maelstrom Muse", "Ghired, Conclave Exile", "Doc Aurlock, Grizzled Genius"]
+FULL = [PUNK, OBOSH, "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained", "Edgewalker", "Ragemonger", "Morophon, the Boundless", "Eluge, the Shoreless Sea", "Jared Carthalion, True Heir", "Momo, Friendly Flier", "Kadena, Slinking Sorcerer", "Kaza, Roil Chaser", "Maelstrom Muse", "Ghired, Conclave Exile", "Doc Aurlock, Grizzled Genius", "Paladin Danse, Steel Maverick"]
 
 
 @pytest.fixture()
@@ -453,4 +454,26 @@ def test_plotting_costs_its_full_price_without_doc_aurlock(cards):
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=robbery.id, ability=1)
     assert s.state.cards[robbery.id].zone == "p1:hand"
+    check(s)
+
+
+# ---- 611.2c: Paladin Danse ("that's an artifact or Human", the set fixed as the ability resolves) ---------------------------------------------------------------------------
+DANSE = "Paladin Danse, Steel Maverick"
+
+
+def keywords_of(s, name, pid="p1"):
+    c = s.state.cards[card_named(s, name, pid).id]
+    return Plan(s.state, "p1", s.cards, None).ch(c).keywords
+
+
+def test_paladin_danse_gives_indestructible_to_artifact_and_human_creatures_only(cards):
+    s = build(cards, [DANSE, "Memnite", "Monk Idealist", "Grizzly Bears"], [])
+    danse = put(s, DANSE)
+    for name in ("Memnite", "Monk Idealist", "Grizzly Bears"):
+        put(s, name)
+    act(s, "p1", type="activate_ability", card_id=danse.id, ability=1)  # Exile Paladin Danse
+    pass_until_stack_empty(s)
+    assert zone_of(s, DANSE) == "p1:exile"
+    assert "indestructible" in keywords_of(s, "Memnite") and "indestructible" in keywords_of(s, "Monk Idealist")
+    assert "indestructible" not in keywords_of(s, "Grizzly Bears")
     check(s)
