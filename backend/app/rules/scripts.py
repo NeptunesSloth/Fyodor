@@ -1592,7 +1592,7 @@ def _someone_creates(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
             return [{**e, "who": "target"} for e in made], SELECTORS[m["s"]]
         return [{**e, "who": language.PLAYER_GROUPS[m["s"]]} for e in made], None
     for pattern, build in EFFECTS:
-        if build not in (_create_creature, _create_predefined):
+        if build not in (_create_creature, _create_predefined, _create_that_many):  # (wave 49B: "that player creates that many 1/1 red Survivor creature tokens", Varchild)
             continue
         found = pattern.match("create " + m["rest"])
         if found:

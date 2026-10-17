@@ -217,5 +217,105 @@
   "keywords": [],
   "power": "1",
   "toughness": "1"
+ },
+ {
+  "name": "Moraug, Fury of Akoum",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature \u2014 Minotaur Warrior",
+  "oracle_text": "Each creature you control gets +1/+0 for each time it has attacked this turn.\nLandfall \u2014 Whenever a land you control enters, if it's your main phase, there's an additional combat phase after this phase. At the beginning of that combat, untap all creatures you control.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Landfall"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Mirri, Weatherlight Duelist",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature \u2014 Cat Warrior",
+  "oracle_text": "First strike\nWhenever Mirri attacks, each opponent can't block with more than one creature this combat.\nAs long as Mirri is tapped, no more than one creature can attack you each combat.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "First strike"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Varchild, Betrayer of Kjeldor",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature \u2014 Human Knight",
+  "oracle_text": "Whenever Varchild deals combat damage to a player, that player creates that many 1/1 red Survivor creature tokens.\nSurvivors your opponents control can't block, and they can't attack you or planeswalkers you control.\nWhen Varchild leaves the battlefield, gain control of all Survivors.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Sab-Sunen, Luxa Embodied",
+  "layout": "normal",
+  "mana_cost": "{3}{G}{U}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature \u2014 God",
+  "oracle_text": "Reach, trample, indestructible\nSab-Sunen can't attack or block unless it has an even number of counters on it. (Zero is even.)\nAt the beginning of your first main phase, put a +1/+1 counter on Sab-Sunen. Then if it has an odd number of counters on it, draw two cards.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Reach",
+   "Indestructible",
+   "Trample"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Sarkhan, Dragon Ascendant",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature \u2014 Human Druid",
+  "oracle_text": "When Sarkhan enters, you may behold a Dragon. If you do, create a Treasure token. (To behold a Dragon, choose a Dragon you control or reveal a Dragon card from your hand.)\nWhenever a Dragon you control enters, put a +1/+1 counter on Sarkhan. Until end of turn, Sarkhan becomes a Dragon in addition to his other types and gains flying.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Behold",
+   "Treasure"
+  ],
+  "power": "2",
+  "toughness": "2"
  }
 ]

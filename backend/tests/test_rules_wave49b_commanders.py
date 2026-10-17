@@ -7,6 +7,8 @@ Every scenario checks the replay and a save and a load.
 * 704.5j: "The "legend rule" doesn't apply to Slivers you control." (Sliver Gravemother); 702.141a, 113.6m: "Each Sliver creature card in your graveyard has encore {X}, where X is its mana value."
 * 700.11, 107.1: "creatures you control that are Fungi and/or Saprolings" (The Mycotyrant), "permanents you control that are Spirits and/or enchantments" (Katilda), and the
   number of times you descended this turn (a permanent card put into your graveyard from anywhere).
+* 509.1b, 508.1c: "Survivors your opponents control can't block, and they can't attack you or planeswalkers you control." and "that player creates that many 1/1 red Survivor creature tokens" (Varchild).
+* 122.1, 107.1: "can't attack or block unless it has an even number of counters on it" and "if it has an odd number of counters on it" (Sab-Sunen: zero is even).
 * 107.1a, 702.86a: "target opponent exiles the top half of their library, rounded up" and "annihilator X, where X is the number of +1/+1 counters on it" (Ulamog, the Defiler).
 """
 
@@ -24,7 +26,8 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import activate, attack, next_turn, settle, stops, to_phase
+from tests.test_rules_wave34b_activated import activate, ask, attack, next_turn, settle, stops, to_phase
+from tests.test_rules_wave35d_as_long_as import through_combat
 from tests.wave9c_kit import build, card_named, check, mana, pt, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave49b_cards.json").read_text("utf-8"))
@@ -33,7 +36,8 @@ EXTRA = [card(c["name"], set_code="w49b", number=f"B{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 HINATA, DARIEN, ARCHELOS, GRAVEMOTHER = "Hinata, Dawn-Crowned", "King Darien XLVIII", "Archelos, Lagoon Mystic", "Sliver Gravemother"
 KATILDA, MYCOTYRANT, ULAMOG, STOMP = "Katilda, Dawnhart Martyr // Katilda's Rising Dawn", "The Mycotyrant", "Ulamog, the Defiler", "Savage Stomp"
-NAMES = [HINATA, DARIEN, ARCHELOS, GRAVEMOTHER, KATILDA, MYCOTYRANT, ULAMOG]
+VARCHILD, SABSUNEN = "Varchild, Betrayer of Kjeldor", "Sab-Sunen, Luxa Embodied"
+NAMES = [HINATA, DARIEN, ARCHELOS, GRAVEMOTHER, KATILDA, MYCOTYRANT, ULAMOG, VARCHILD, SABSUNEN]
 
 
 @pytest.fixture()
@@ -283,3 +287,63 @@ def test_ulamog_annihilator_is_its_counters_as_the_trigger_resolves(cards):
     gone = [c for c in s.state.cards.values() if c.owner == "p2" and c.name in ("Grizzly Bears", "Llanowar Elves", "Lightning Bolt") and c.zone == "p2:graveyard"]
     assert len(gone) == 2  # two +1/+1 counters: two permanents
     check(s)
+
+
+# ---- Varchild, Betrayer of Kjeldor -------------------------------------------------------------------------------------------------------------
+def test_varchild_survivors_cannot_block_and_the_damaged_player_creates_that_many(cards):
+    s = build(cards, [VARCHILD], ["Llanowar Elves"])
+    varchild = put(s, VARCHILD)
+    survivor = token(s, "p2", "Survivor", "Token Creature — Survivor")
+    next_turn(s)
+    attack(s, varchild)
+    d = ask(s)
+    assert d.kind == "declare_blockers" and d.player == "p2"
+    with pytest.raises(ActionError):  # Survivors your opponents control can't block
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": survivor.id, "attacker_id": varchild.id}])
+    through_combat(s)
+    mine = [c for c in s.state.cards.values() if c.name == "Survivor" and c.owner == "p2" and c.zone == "p2:battlefield"]
+    assert len(mine) == 1 + 3 and s.state.players["p2"].life == 37  # Bob creates three more
+    check(s)
+
+
+def test_varchild_deals_no_damage_to_a_blocker_so_nothing_is_created(cards):
+    s = build(cards, [VARCHILD], ["Llanowar Elves"])
+    varchild = put(s, VARCHILD)
+    elves = put(s, "Llanowar Elves", "p2")
+    next_turn(s)
+    attack(s, varchild)
+    ask(s)
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": elves.id, "attacker_id": varchild.id}])  # an Elf is no Survivor: it may block
+    through_combat(s)
+    assert not [c for c in s.state.cards.values() if c.name == "Survivor"] and s.state.players["p2"].life == 40
+    check(s)
+
+
+# ---- Sab-Sunen, Luxa Embodied --------------------------------------------------------------------------------------------------------------------
+def test_sab_sunen_attacks_only_with_an_even_number_of_counters(cards):
+    s = build(cards, [SABSUNEN], [], forests=20)
+    sab = put(s, SABSUNEN)
+    stops(s)
+    to_phase(s, "main1", turn=3)  # its first main phase trigger: one counter, an odd number, so two cards are drawn
+    settle(s)
+    assert s.state.cards[sab.id].counters.get("+1/+1") == 1
+    hand = len(s.state.zones["p1:hand"])
+    assert not attackers_asked(s, 3)  # one counter is odd: it can't attack, so nothing is declared
+    to_phase(s, "main1", turn=5)  # two counters: even, and nothing is drawn
+    settle(s)
+    assert s.state.cards[sab.id].counters.get("+1/+1") == 2 and len(s.state.zones["p1:hand"]) == hand + 1  # (only the draw step's card)
+    assert attackers_asked(s, 5)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": sab.id, "target": "p2"}])
+    check(s)
+
+
+def attackers_asked(s, turn):
+    """Is Alice asked to declare attackers in this turn's combat (stopping at that decision)?"""
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            return True
+        if s.state.turn.number != turn or s.state.turn.phase == "main2":
+            return False
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("never settled")
