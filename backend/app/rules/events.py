@@ -1137,6 +1137,11 @@ def _object_event(c: str) -> Condition | None:
                 **({"during": "you"} if m["d"] else {})}  # (``other``: the Vehicle or Mount, for "that Mount or Vehicle")
     if c == "~ becomes crewed":
         return {"event": "crewed", "subject": "self"}
+    # -- damage events (wave 45C) -- 120.1: "Whenever combat damage is dealt to you" (Risona) is "you're dealt combat damage": the player dealt it, once for
+    # the simultaneous damage of the batch (603.2c)
+    m = re.fullmatch(r"(?P<c>combat |noncombat )?damage is dealt to (?P<p>you|an opponent|a player)", c)
+    if m:
+        return {"subject": "player", "player": _PLAYERS[m["p"]], "event": "dealt_damage", "combat": {"combat ": True, "noncombat ": False}.get(m["c"] or "")}
     # -- tap events (wave 45C) -- 701.26a: "Whenever you tap one or more untapped creatures your opponents control" (Sharae): the player whose step
     # tapped them (an untapped permanent is the only one that can become tapped), once for the batch (603.2c)
     m = re.fullmatch(r"you tap (?P<o>one or more) (?:untapped )?(?P<rest>.+)", c)
@@ -1241,6 +1246,14 @@ def _object_event(c: str) -> Condition | None:
                 raise _Refuse
             return {"event": "either", "subject": "mixed",
                     "conds": [{**extra, "subject": "player", "player": "you"}, {**extra, **perm}]}
+        # -- target events (wave 45C) -- 115.1: "a creature you control or a creature spell you control becomes the target of …" (Surrak): a permanent or a
+        # spell on the stack, each its own event
+        union = re.fullmatch(r"(?P<a>an? [\w ]+? you control) or (?P<b>an? [\w ]+? spell you control)", m["s"])
+        if union:
+            a, b = _subject(union["a"]), _subject(union["b"])
+            if a is None or b is None or m["first"]:
+                raise _Refuse
+            return {"event": "either", "subject": "mixed", "conds": [{**extra, **a}, {**extra, **b}]}
         base = _subject(m["s"], host=True)
         if base is None or (m["first"] and base["subject"] != "self"):
             raise _Refuse

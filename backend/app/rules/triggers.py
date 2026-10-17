@@ -1971,8 +1971,8 @@ def _targeted_generic(plan: Plan, stack_id: str, controller: str, targets: list[
                                                             "actor": controller}))
             continue
         card = plan.state.cards.get(tid)
-        if card is None or not card.zone.endswith(":battlefield") or plan.manual(card):
-            continue
+        if card is None or plan.manual(card) or not (card.zone.endswith(":battlefield") or (card.zone == "stack" and card.ability is None)):
+            continue  # (-- target events (wave 45C) -- 115.1: a spell on the stack can become a target too: "a creature spell you control", Surrak)
         oid = plan.oid(card)
         # "for the first time each turn" (603.2): the first time this turn that something targeted this object ("any"), or the
         # first time a spell or ability its controller controls did / an opponent's did ("by": the ones the trigger asks about);

@@ -341,5 +341,45 @@
    "U"
   ],
   "keywords": []
+ },
+ {
+  "name": "Risona, Asari Commander",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Samurai",
+  "oracle_text": "Haste\nWhenever Risona deals combat damage to a player, if it doesn't have an indestructible counter on it, put an indestructible counter on it.\nWhenever combat damage is dealt to you, remove an indestructible counter from Risona.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Haste"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Surrak, Elusive Hunter",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Warrior",
+  "oracle_text": "This spell can't be countered.\nTrample\nWhenever a creature you control or a creature spell you control becomes the target of a spell or ability an opponent controls, draw a card.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "4",
+  "toughness": "3"
  }
 ]
