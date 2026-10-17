@@ -123,6 +123,8 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
     # -- commanders (wave 50C) -- "Choose one. X is the number of spells you've cast this turn." (Gnostro): X for every mode that says it, as ", where X is …" (read as it resolves)
     xdef = _X_IS.match(m["rest"].strip()) if m is not None and m["end"] == "." and ab.kind != "triggered" else None
     hrest = "" if xdef else m["rest"].strip() if m is not None else ""
+    if xdef and not any(re.search(r"\bX\b", b.text) for b in _bullets(ch, ab.index)):
+        return {}  # (an X that no mode uses: not read)
     if m is None or (extra is None and not _header_ok(ab, m["prefix"], m["end"], hrest)):
         return {}
     if m["random"] and (ab.kind != "triggered" or m["count"] != "one" or m["memory"]):

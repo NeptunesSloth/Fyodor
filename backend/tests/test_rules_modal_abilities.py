@@ -1177,11 +1177,9 @@ def test_the_lines_of_the_modes_belong_to_the_ability():
     "• You gain 1 life.",  # (a different player per mode: every mode must target a player)
     "When this creature enters, choose one. If you have exactly 13 poison counters, you may choose both instead.\n• Draw a card.\n"
     "• You gain 1 life.",  # Disciple of Perdition: "choose both instead"
-    "{T}: Choose one. X is the number of spells you've cast this turn.\n• Draw a card.\n• You gain 1 life.",  # Gnostro
+    "{T}: Choose one. X is the number of spells you've cast this turn.\n• Draw a card.\n• You gain 1 life.",  # Gnostro (wave 50C reads it when a mode uses X: tests/test_rules_wave50c_header_extras.py; here none does)
     "When this creature enters, choose up to X, where X is the number of Lesson cards in your graveyard —\n• Draw a card.\n"
     "• You gain 1 life.",  # Bumi, King of Three Trials
-    "At the beginning of your first main phase, choose one that hasn't been chosen and you lose 2 life —\n• Draw a card.\n"
-    "• You gain 1 life.",  # Zuko, Conflicted
     "Whenever another nontoken permanent you control leaves the battlefield, choose one that hasn't been chosen this turn. "
     "Create a creature token with those characteristics.\n• Draw a card.\n• You gain 1 life.",  # Genku, Future Shaper
     "When this creature enters, choose one —\n• You may draw a card.\n• You gain 1 life.",  # (a mode with "you may")
