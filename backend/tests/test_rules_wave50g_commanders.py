@@ -507,7 +507,7 @@ def test_ketramose_draws_when_cards_are_exiled_from_the_battlefield_or_a_graveya
     put(s, "Ketramose, the New Dawn")
     bears, relic = put(s, "Grizzly Bears", "p2"), put(s, "Relic of Progenitus")
     mana(s, "p1", W=1)
-    hand, lib, hp = len(s.state.zones["p1:hand"]), len(s.state.zones["p1:library"]), life(s, "p1")
+    lib, hp = len(s.state.zones["p1:library"]), life(s, "p1")
     act(s, "p1", type="cast_spell", card_id=to_hand(s, "Swords to Plowshares").id, targets=[bears.id])
     settle(s)
     assert s.state.cards[bears.id].zone == "p2:exile"
