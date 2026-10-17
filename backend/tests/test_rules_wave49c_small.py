@@ -6,6 +6,10 @@ Every scenario checks the replay and a save and a load.
 * 115.2: "… can't be the target of spells" (Spectral Shield), "… of blue or black spells" (Karplusan Strider), "… unless it attacked or blocked this turn" (Lurker) - abilities still may.
 * 115.1, 608.2b: "Exile target creature with the greatest power among creatures on the battlefield." (Topple), "… target nonland permanent with the lowest mana value." (Culling Scales)
   - a tie is no beating, and the target must still be the one when it resolves; "Destroy target creature if it has the least power or is tied for least power …" (Wretched Banquet) judges as it resolves.
+* Gained along the way: "Creatures can't be the targets of spells." (Dense Foliage), "... unless an opponent has 10 or less life." (Vampire Lacerator), "... if an opponent has 0 or less life, ..."
+  (Heaven Sent), "Choose a card name, then target player mills a card. If a card with the chosen name was milled this way, you gain life equal to its mana value." (Lammastide Weave: the name is no
+  "it"), "... becomes a creature with haste and \"...\"" (Druid Class).
+* 102.4: "creatures your team controls" (Dwarven Lightsmith, Combo Attack), "another Warrior your team controls" (Thrasher Brute, Decorated Champion) - outside a team game "your team" is "you".
 * 118.12: "At the beginning of your upkeep, sacrifice this creature unless you mill two cards." (Deep Spawn) - the payment is the controller's choice.
 * 602.2: "{3}, {T} or {R}, {T}: This artifact deals 1 damage to any target." (Granite Shard and the other Shards) - the ability may be paid either way, not both (the rulings).
 * 702.129a: "Eternalize—{2}{W}{W}, Discard a card." (Sunscourge Champion, Sinuous Striker) - the keyword's cost has a second part, a discard from the hand (the card with
@@ -270,4 +274,100 @@ def test_culling_scales_destroys_the_nonland_permanent_with_the_lowest_mana_valu
     bears = put(s, "Grizzly Bears", "p2")  # 2
     to_phase(s, "main1", turn=3)
     assert s.state.cards[elves.id].zone == "p1:graveyard" and s.state.cards[bears.id].zone == "p2:battlefield"
+    check(s)
+
+
+def test_dense_foliage_stops_spells_targeting_creatures_but_not_players(cards):
+    s = build(cards, ["Dense Foliage", "Grizzly Bears", "Lightning Bolt"])
+    put(s, "Dense Foliage")
+    bears = put(s, "Grizzly Bears")
+    mana(s, R=2)
+    bolt = to_hand(s, "Lightning Bolt")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[bears.id])
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    settle(s)
+    assert life(s, "p2") == 37
+    check(s)
+
+
+@pytest.mark.parametrize(("bob", "after"), [(40, 39), (10, 40)])
+def test_vampire_lacerator_costs_life_unless_an_opponent_has_ten_or_less(cards, bob, after):
+    s = build(cards, ["Vampire Lacerator"])
+    put(s, "Vampire Lacerator")
+    act(s, "p1", type="set_life", player="p2", value=bob)
+    to_phase(s, "main1", turn=3)
+    assert life(s) == after
+    check(s)
+
+
+@pytest.mark.parametrize(("named", "gained"), [("Grizzly Bears", 2), ("Lightning Bolt", 0)])
+def test_lammastide_weave_gains_life_only_for_the_milled_card_with_the_chosen_name(cards, named, gained):
+    from tests.test_rules_wave49c_names import run
+    from tests.wave43b_kit import on_top
+
+    s = build(cards, ["Lammastide Weave"], ["Grizzly Bears"])
+    on_top(s, "Grizzly Bears", "p2")
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, G=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lammastide Weave").id, targets=["p2"])
+    run(s, named)
+    assert life(s) == 40 + gained and len(s.state.zones["p1:hand"]) == hand + 1  # (it draws a card besides)
+    check(s)
+
+
+def test_an_opponent_at_zero_life_is_read_in_a_conditional_clause(cards):
+    from app.rules import conditions
+
+    s = build(cards, [])
+    cond = conditions.parse("an opponent has 0 or less life", objects=True)
+    assert not conditions.holds(Plan(s.state, "p1", s.cards, None), {"controller": "p1"}, cond)
+    act(s, "p1", type="set_life", player="p2", value=0)
+    assert conditions.holds(Plan(s.state, "p1", s.cards, None), {"controller": "p1"}, cond)
+    assert not conditions.holds(Plan(s.state, "p2", s.cards, None), {"controller": "p2"}, cond)  # (Bob's opponent is Alice, who has 40)
+
+
+def test_dwarven_lightsmith_pumps_the_creatures_you_control(cards):
+    s = build(cards, ["Dwarven Lightsmith", "Grizzly Bears"], ["Grizzly Bears"])
+    mine = put(s, "Grizzly Bears")
+    theirs = put(s, "Grizzly Bears", "p2")
+    mana(s, W=1, C=5)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Dwarven Lightsmith").id)
+    settle(s)
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[mine.id]).pt == (3, 3)  # +1/+1 until end of turn
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[theirs.id]).pt == (2, 2)
+    check(s)
+
+
+def test_thrasher_brute_drains_when_it_or_another_warrior_enters(cards):
+    s = build(cards, ["Thrasher Brute", "Decorated Champion"])
+    champion = put(s, "Decorated Champion")
+    mana(s, B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Thrasher Brute").id, targets=["p2"])
+    settle(s)
+    assert life(s, "p2") == 39 and life(s) == 41  # its own trigger
+    assert s.state.cards[champion.id].counters.get("+1/+1") == 1  # another Warrior entered under Alice's control
+    check(s)
+
+
+def test_decorated_champion_ignores_a_creature_that_is_not_a_warrior(cards):
+    s = build(cards, ["Decorated Champion", "Grizzly Bears"])
+    champion = put(s, "Decorated Champion")
+    mana(s, G=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Grizzly Bears").id)
+    settle(s)
+    assert not s.state.cards[champion.id].counters.get("+1/+1")
+    check(s)
+
+
+def test_combo_attack_has_two_of_your_creatures_deal_their_power_to_a_creature(cards):
+    s = build(cards, ["Combo Attack", "Grizzly Bears", "Grizzly Bears"], ["Twisted Abomination"])
+    bears = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"]
+    for c in bears:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+    big = put(s, "Twisted Abomination", "p2")  # 5/3
+    mana(s, G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Combo Attack").id, targets=[bears[0].id, bears[1].id, big.id], target_counts=[2, 1])
+    settle(s)
+    assert s.state.cards[big.id].zone == "p2:graveyard"  # 2 + 2 damage to a toughness 3
     check(s)

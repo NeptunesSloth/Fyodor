@@ -1031,12 +1031,12 @@ CHOSEN_EXTRAS = {"chosen_type": "creature type", "chosen_color": "color", "not_c
 # that no object of the scope beats (a tie is no beating: "target any one of them"), judged as it is chosen and again as it resolves (608.2b); the scope is the sentence's own
 # ("among creatures you control") or the selector itself
 @_suffix(r"with the (?P<which>greatest|lowest|least) (?P<what>power|toughness|mana value)(?: among (?P<scope>.+?))?")
-def _extreme(s: Selector, m: re.Match[str]) -> Selector | None:
+def _extreme(s: Selector, m: re.Match[str]) -> Selector:
     scope = "self"
     if m["scope"]:
         scope_sel = _parse(re.sub(r"s( on the battlefield| you control| you don't control| an opponent controls)?$", r"\1", m["scope"]).replace(" on the battlefield", ""))
         if scope_sel is None or scope_sel.player is not None or scope_sel.card or scope_sel.zones != ("battlefield",):
-            return None
+            raise ValueError(m["scope"])  # (not a group of permanents: no selector)
         scope = scope_sel.key()
     return replace(s, extras=(*s.extras, f"ext:{'greatest' if m['which'] == 'greatest' else 'least'}:{ {'mana value': 'mv'}.get(m['what'], m['what']) }:{scope}"))
 

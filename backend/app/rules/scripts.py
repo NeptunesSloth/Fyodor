@@ -2305,6 +2305,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     ``event_player``: the trigger event names a player ("that player" may mean them)."""
     from app.rules import refused_zones  # -- refused zones/sized (wave 3R4) -- Gifts piles (a leaf module)
 
+    body = body.replace(" your team controls", " you control")  # -- static_other (wave 49C) -- 102.4: outside a team game "your team" is "you" (Combo Attack, Dwarven Lightsmith)
     if (gifts := refused_zones.gifts_ability(body)) is not None:
         return gifts
     from app.rules import (

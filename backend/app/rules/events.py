@@ -164,6 +164,7 @@ def parse_condition(cond: str) -> Condition | None:
     # -- attached events (wave 25D) -- the Genju: "When enchanted Forest is put into a graveyard" — what an Aura is attached to is on the battlefield,
     # so being put into a graveyard is dying (700.4); "enchanted Forest" is the land it's attached to
     cond = re.sub(r"\benchanted (?:Plains|Island|Swamp|Mountain|Forest)\b", "enchanted land", cond)
+    cond = cond.replace(" your team controls", " you control")  # -- triggers (wave 49C) -- 102.4: outside a team game "your team" is "you" (Decorated Champion)
     cond = re.sub(r"^(enchanted (?:creature|permanent|land|artifact)) is put into a graveyard(?: from the battlefield)?$", r"\1 dies", cond.strip())
     try:
         try:
