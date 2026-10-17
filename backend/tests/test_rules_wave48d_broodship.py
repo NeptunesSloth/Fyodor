@@ -43,6 +43,12 @@ def lands_played(s, ids):
         except ActionError:
             break
         played += 1
+        for _ in range(5):  # (a landfall trigger asks for its target, then resolves)
+            d = s.state.rules.decision
+            if d is not None:
+                act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])
+            elif s.state.zones.get("stack"):
+                act(s, s.state.rules.priority, type="pass_priority")
     return played
 
 
@@ -68,6 +74,18 @@ def test_broodship_loses_the_extra_land_play_when_the_counters_go_away(cards):
     charge(s, ship, 3)
     charge(s, ship, -1)  # 611.3a: read as the land is played
     assert lands_played(s, forests_in_hand(s, 3)) == 1
+    check(s)
+
+
+def test_thranduils_company_gives_the_extra_land_play_only_while_another_elf_is_there(cards):
+    # the same reading for "As long as you control another Elf, you may play an additional land on each of your turns." (611.3a, 305.2)
+    s = build(cards, ["Thranduil's Company", "Llanowar Elves"], [])
+    put(s, "Thranduil's Company")
+    assert lands_played(s, forests_in_hand(s, 3)) == 1
+    s = build(cards, ["Thranduil's Company", "Llanowar Elves"], [])
+    put(s, "Thranduil's Company")
+    put(s, "Llanowar Elves")
+    assert lands_played(s, forests_in_hand(s, 3)) == 2
     check(s)
 
 
