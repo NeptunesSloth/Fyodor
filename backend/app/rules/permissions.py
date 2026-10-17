@@ -1428,6 +1428,9 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
     reduction = affinity
     changes = cost_changes.Changes()  # -- cost changers (wave 4I) -- colored increases / reductions (118.7b/c)
     if info is not None:
+        from app.rules import spell_grants
+
+        reduction += spell_grants.cost_reduction(state, player, card, ch, info)  # (-- cant restrictions (wave 46A) -- "The next spell you cast this turn costs {1} less")
         for m in modifiers(state, player, card, ch, info, targets):  # (targets: wave 4I, "spells that target …")
             if m.mana:
                 changes.add(m.delta, m.mana)

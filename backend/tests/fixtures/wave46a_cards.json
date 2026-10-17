@@ -628,5 +628,95 @@
   ],
   "power": "1",
   "toughness": "2"
+ },
+ {
+  "name": "Kaza, Roil Chaser",
+  "layout": "normal",
+  "mana_cost": "{U}{R}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "Flying, haste\n{T}: The next instant or sorcery spell you cast this turn costs {X} less to cast, where X is the number of Wizards you control as this ability resolves.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Haste"
+  ],
+  "power": "1",
+  "toughness": "2"
+ },
+ {
+  "name": "Divination",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Draw two cards.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Mana Leak",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Counter target spell unless its controller pays {3}.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Hardened Berserker",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Berserker",
+  "oracle_text": "Whenever this creature attacks, the next spell you cast this turn costs {1} less to cast.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Maelstrom Muse",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U/R}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Djinn Wizard",
+  "oracle_text": "Flying\nWhenever this creature attacks, the next instant or sorcery spell you cast this turn costs {X} less to cast, where X is this creature's power as this ability resolves.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "2",
+  "toughness": "4"
  }
 ]

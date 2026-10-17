@@ -912,6 +912,7 @@ class NextSpellGrant(BaseModel):
     turn: int = 0
     source: str | None = None
     label: str = Field(default="", max_length=120)
+    amount: int = 0  # -- cant restrictions (wave 46A) -- keyword "cost": the generic mana it takes off ("The next spell you cast this turn costs {1} less to cast.", 601.2f, 118.7a)
 
 
 class TopReveal(BaseModel):

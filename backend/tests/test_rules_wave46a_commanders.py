@@ -21,6 +21,7 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_effects import pass_until_stack_empty
 from tests.test_rules_permissions import cost_of
+from tests.test_rules_wave34b_activated import next_turn, to_phase
 from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave46a_cards.json").read_text("utf-8"))
@@ -28,7 +29,7 @@ KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w46a", number=f"A{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 PUNK, OBOSH = "Spider-Punk", "Obosh, the Preypiercer"
-FULL = [PUNK, OBOSH, "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained", "Edgewalker", "Ragemonger", "Morophon, the Boundless", "Eluge, the Shoreless Sea", "Jared Carthalion, True Heir", "Momo, Friendly Flier", "Kadena, Slinking Sorcerer"]
+FULL = [PUNK, OBOSH, "Karrthus, Tyrant of Jund", "Giott, King of the Dwarves", "Polukranos, Unchained", "Edgewalker", "Ragemonger", "Morophon, the Boundless", "Eluge, the Shoreless Sea", "Jared Carthalion, True Heir", "Momo, Friendly Flier", "Kadena, Slinking Sorcerer", "Kaza, Roil Chaser", "Maelstrom Muse"]
 
 
 @pytest.fixture()
@@ -360,4 +361,49 @@ def test_kadena_makes_the_first_face_down_creature_spell_each_turn_free_of_its_t
     assert on_table(s, "Exalted Angel", "p1").zone == "p1:battlefield" and on_table(s, "Exalted Angel", "p1").face_down
     with pytest.raises(ActionError):  # the second one costs its {3}
         act(s, "p1", type="cast_spell", card_id=to_hand(s, "Battering Craghorn").id, face_down=True)
+    check(s)
+
+
+# ---- 601.2f, 118.7a: "the next spell you cast this turn costs {N} less" (Kaza, Hardened Berserker, Maelstrom Muse, Peerless Samurai) ------------------------------------------
+KAZA, BERSERKER, MUSE = "Kaza, Roil Chaser", "Hardened Berserker", "Maelstrom Muse"
+
+
+def test_kaza_takes_the_number_of_wizards_off_the_next_instant_or_sorcery_only(cards):
+    s = build(cards, [KAZA, "Snapcaster Mage", "Divination", "Mana Leak", "Grizzly Bears"], [])
+    put(s, KAZA)
+    put(s, "Snapcaster Mage")
+    next_turn(s)
+    divination, leak = to_hand(s, "Divination"), to_hand(s, "Mana Leak")
+    assert cost_of(s, divination, s.cards) == "{2}{U}"
+    act(s, "p1", type="activate_ability", card_id=card_named(s, KAZA).id, ability=1)  # {T}: two Wizards as it resolves
+    pass_until_stack_empty(s)
+    assert cost_of(s, divination, s.cards) == "{U}"  # only the generic part: {2}{U} less {2}
+    assert cost(s, "Grizzly Bears") == "{1}{G}"  # not an instant or sorcery
+    mana(s, U=1)
+    cast(s, "Divination")
+    pass_until_stack_empty(s)
+    assert cost_of(s, leak, s.cards) == "{1}{U}"  # used up by that cast
+    check(s)
+
+
+def test_hardened_berserker_takes_one_off_the_next_spell(cards):
+    s = build(cards, [BERSERKER, "Grizzly Bears"], [])
+    attacker = put(s, BERSERKER)
+    next_turn(s)
+    assert cost(s, "Grizzly Bears") == "{1}{G}"  # before it attacks
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": attacker.id, "target": "p2"}])
+    pass_until_stack_empty(s)
+    assert cost(s, "Grizzly Bears") == "{G}"
+    check(s)
+
+
+def test_maelstrom_muse_takes_its_power_off_the_next_instant_or_sorcery(cards):
+    s = build(cards, [MUSE, "Divination"], [])
+    attacker = put(s, MUSE)
+    next_turn(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": attacker.id, "target": "p2"}])
+    pass_until_stack_empty(s)
+    assert cost(s, "Divination") == "{U}"  # power 2: {2}{U} less {2}
     check(s)

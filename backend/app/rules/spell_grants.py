@@ -52,6 +52,7 @@ _BOTH = re.compile(r"^(?P<bf>[A-Za-z][A-Za-z' ,-]*? you control) and (?P<sel>[A-
                    + "|".join(KEYWORDS) + r")$", re.IGNORECASE)
 _NEXT = re.compile(r"^the next (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell you cast this turn (?:has|have) "
                    r"(?P<kw>convoke|improvise|cascade|storm|affinity for artifacts)$", re.IGNORECASE)
+_NEXT_COST = re.compile(r"^the next (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell you cast this turn costs \{(?P<n>\d+|X)\} less to cast(?:, where X is (?P<v>.+))?$", re.IGNORECASE)
 _NEXT_TWO = re.compile(r"^the next (?P<a>instant|sorcery|creature|noncreature) spell and the next (?P<b>instant|sorcery|creature|noncreature) spell "
                        r"you cast this turn each have (?P<kw>cascade|storm)$", re.IGNORECASE)
 
@@ -137,6 +138,19 @@ def clause(text: str) -> tuple[list[dict[str, Any]], None] | None:
     if two is not None:
         grants = [{"keyword": two["kw"].lower(), "what": "", "filter": _filter(two[x])[1]} for x in ("a", "b")]
         return [{"do": "next_spell_grant", "grants": grants}], None
+    cost = _NEXT_COST.fullmatch(t)  # -- cant restrictions (wave 46A) -- 601.2f: "The next instant or sorcery spell you cast this turn costs {X} less to cast, where X is …"
+    if cost is not None:
+        ok, key = _filter(cost["sel"])
+        amount: Any = int(cost["n"]) if cost["n"].isdigit() else None
+        if cost["n"] == "X" and cost["v"]:
+            from app.rules import cost_changes
+
+            amount = cost_changes._value(re.sub(r" as this ability resolves$", "", cost["v"]))
+            if not isinstance(amount, dict):
+                amount = None
+        if not ok or amount is None or (cost["n"] != "X") != (cost["v"] is None):
+            return None
+        return [{"do": "next_spell_grant", "grants": [{"keyword": "cost", "n": amount, "filter": key}]}], None
     m = _NEXT.fullmatch(t)
     if m is None:
         return None
@@ -153,10 +167,16 @@ def next_spell_grant(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool
 
     player = ctx["controller"]
     for g in e["grants"]:
+        amount = g.get("n", 0)
+        if isinstance(amount, dict):  # (wave 46A: "… costs {X} less, where X is the number of Wizards you control as this ability resolves": read now)
+            from app.rules import values
+
+            amount = max(0, int(values.evaluate(plan, ctx, amount)))
         plan.rules.next_spell_grants.append(NextSpellGrant(
             id=secrets.token_hex(4), player=player, keyword=g["keyword"], what=g.get("what") or "", filter=g.get("filter"),
-            turn=plan.state.turn.number, source=ctx.get("source_object"), label=(ctx.get("name") or "An effect")[:120]))
-    words = " and ".join(f"the next {'spell' if g.get('filter') is None else 'matching spell'} has {g['keyword']}" for g in e["grants"])
+            turn=plan.state.turn.number, source=ctx.get("source_object"), label=(ctx.get("name") or "An effect")[:120], amount=int(amount)))
+    words = " and ".join(f"the next {'spell' if g.get('filter') is None else 'matching spell'} {'costs less' if g['keyword'] == 'cost' else 'has ' + g['keyword']}"
+                         for g in e["grants"])
     plan.note(f"{plan.name(player)}: {words} this turn ({ctx.get('name') or 'an effect'})")
     return True
 
@@ -174,6 +194,11 @@ def pending(state: GameState, player: str, card: CardInstance, spell: Characteri
 
     return [g for g in r.next_spell_grants if g.player == player and g.keyword == keyword and g.turn == state.turn.number
             and (g.filter is None or spell_matches(state, player, card, spell, g.filter, info))]
+
+
+def cost_reduction(state: GameState, player: str, card: CardInstance, spell: Characteristics, info: CardInfo | None) -> int:
+    """-- cant restrictions (wave 46A) -- the generic mana the "next spell" cost grants take off the spell ``player`` is casting now (601.2f)."""
+    return sum(g.amount for g in pending(state, player, card, spell, info, "cost"))
 
 
 def consume(plan: Plan, card: Any, ch: Characteristics) -> None:
