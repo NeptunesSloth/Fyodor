@@ -923,6 +923,8 @@ def self_flash(state: GameState, player: str, card: CardInstance, ch: Characteri
     from app.rules.plan import Plan
 
     for d in scripts.definitions(ch).values():
+        if d.get("static") == "permission" and d.get("self") and d.get("flash") and d.get("flash_sac"):
+            return f"{ch.name}: as though it had flash"  # -- flash auras (wave 46B) -- unconditional (the sacrifice is casting.flash_sac's)
         if d.get("static") == "permission" and d.get("self") and d.get("flash") and d.get("if") is not None:
             ctx = {"controller": player, "source_card": card.id, "source_object": state.rules.object_id(card.id) if state.rules else None}
             if conditions.holds(Plan.view(state, player, info), ctx, d["if"]):

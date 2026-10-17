@@ -53,6 +53,15 @@ def definition(text: str) -> Definition | None:
         if mine is None or others is None or mine.get("also") or others["who"] == "self":
             return None
         return {**mine, "also": [others]}
+    # -- ability words (wave 46B) -- "Lieutenant — As long as you control your commander, this creature gets +2/+2 and other creatures you control get +2/+2 and have trample."
+    # (Thunderfoot Baloth), "… gets +2/+2 and creatures you control have vigilance." (Angelic Field Marshal): the same two statics of one permanent under one condition
+    both = re.match(r"^(?P<head>As long as [^,]+), (?:~|this creature) (?P<mine>(?:gets|has) .+?) and (?P<other>(?:other )?creatures you control (?:get|have) .+)\.$",
+                    text.strip())
+    if both is not None:
+        mine, others = statics.parse(f"{both['head']}, ~ {both['mine']}."), statics.parse(f"{both['head']}, {both['other'].capitalize()}.")
+        if mine is None or others is None or mine.get("also") or others["who"] == "self":
+            return None
+        return {**mine, "also": [others]}
     parts = _SENTENCES.split(text.strip())
     if not 2 <= len(parts) <= 3:
         return None
