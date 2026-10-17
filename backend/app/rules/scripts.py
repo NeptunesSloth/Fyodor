@@ -4246,6 +4246,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     from app.rules import exiled_with
 
     d = exiled_with.link(d, ability, ch)
+    # -- cost reductions paid with objects (wave 47C) -- "mana value less than X" (107.3f) reads the X announced for a spell or an ability with {X} in its cost; any other X
+    # (Scrap Welder's is the sacrificed artifact's) is unbound, so the ability stays manual
+    if d is not None and re.search(r'\["mv","<",-1\]', json.dumps(d, default=str).replace('\\"', '"')) \
+            and not ("{X}" in (ch.mana_cost or "") if d.get("kind") == "spell" else d.get("kind") == "activated" and "{X}" in (ability.cost or "")):
+        return None
     from app.rules import kicked_instead  # -- kicked / instead (wave 4G) -- 702.33g: a spell's targets only
 
     if d is not None and d.get("kind") != "spell" and kicked_instead.has_kicked_groups(d):
