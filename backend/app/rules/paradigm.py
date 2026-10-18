@@ -46,14 +46,13 @@ def main_phase(plan: Plan) -> None:
         card = plan.state.cards.get(entry["card"])
         if entry["player"] != plan.active:
             continue
-        if card is None or card.zone != zone_key(card.owner, "exile"):
-            continue  # (it left exile: nothing to copy)
         cast = permissions.parse_clause("you may cast the copy without paying its mana cost")
-        if cast is None:
+        if card is None or cast is None:
             continue
-        triggers.paradigm_trigger(plan, card, entry["player"], {
-            "kind": "triggered", "trigger": "main_you", "optional": False, "target": None,
-            "effects": [{"do": "copy_cards", "who": "event", "as": "p0"}, *({**e, "who": "ref:p0"} for e in cast[0])]})  # ("the copy": what the instruction before made, as scripts binds it)
+        effects = [{"do": "copy_cards", "who": "event", "as": "p0"}, *({**e, "who": "ref:p0"} for e in cast[0])]  # ("the copy": what the instruction before made, as scripts binds it)
+        if card.zone != zone_key(card.owner, "exile"):  # -- review 43 -- the 2026-03-20 ruling: once it has resolved, the card leaving exile doesn't matter; the copy (in exile) is made by hand
+            effects = [{"do": "room_by_hand", "text": f"Create a copy of {plan.ch(card).name or card.name} in exile. You may cast the copy without paying its mana cost."}]
+        triggers.paradigm_trigger(plan, card, entry["player"], {"kind": "triggered", "trigger": "main_you", "optional": False, "target": None, "effects": effects})
 
 
 PRIMITIVES = {"paradigm": paradigm}

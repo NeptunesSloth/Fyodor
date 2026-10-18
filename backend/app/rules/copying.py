@@ -650,6 +650,8 @@ def _retargeted(entry: StackEntry, pos: list[Position], refs: list[TargetRef]) -
 def _problem(plan: Plan, entry: StackEntry) -> str | None:
     """Is the final set of targets legal together (115.7d-e)? No object twice for one word
     "target" (115.3), "another target" not one of the earlier group's, one graveyard."""
+    from app.rules.targets import relation_ok
+
     for g, (refs, spec) in enumerate(zip(entry.groups, entry.group_specs, strict=False)):
         ids = [t.id for t in refs]
         if len(set(ids)) != len(ids):
@@ -659,6 +661,8 @@ def _problem(plan: Plan, entry: StackEntry) -> str | None:
             return "“another target” can't be one of the other targets (115.3)"
         if spec.get("same_graveyard") and len({plan.state.cards[t].owner for t in ids if t in plan.state.cards}) > 1:
             return "those targets must be in a single graveyard"
+        if not relation_ok(plan, spec, refs):  # -- group relations (wave 51A) -- 115.7e: the final set must still share a type / have different controllers
+            return "those targets must share a type" if spec.get("shares") else "those targets must have different controllers"
     return None
 
 
