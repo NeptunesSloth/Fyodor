@@ -255,9 +255,9 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
         elif opt == ("EXILED_COLORS",):  # -- imprint (wave 51B) -- 607.2a, 106.1b: the colors now (613) of the cards its linked ability exiled and that are still there (400.7); a colorless one gives no mana
             from app.rules.layers import derive
 
-            oid = state.rules.object_id
-            seen = {col for o in state.rules.exiled_with.get(oid(card.id), []) if (c := state.cards.get(o.rsplit(".", 1)[0])) is not None and c.zone.endswith(":exile")
-                    and oid(c.id) == o for col in derive(state, c, chars.of(c, info), info).colors}
+            rs = state.rules
+            seen = {col for o in (rs.exiled_with.get(rs.object_id(card.id), []) if rs is not None else []) if (c := state.cards.get(o.rsplit(".", 1)[0])) is not None
+                    and c.zone.endswith(":exile") and rs is not None and rs.object_id(c.id) == o for col in derive(state, c, chars.of(c, info), info).colors}
             out += [(m,) for m in M.COLORS if m in seen]
         elif opt == ("LANDS",):
             out += [(m,) for m in M.ALL_MANA if m in _land_mana(state, [card.controller], info, skip=card.id)]

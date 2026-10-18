@@ -144,5 +144,16 @@
     }
    }
   ]
+ },
+ {
+  "name": "Pit of Offerings",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land — Cave",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, exile up to three target cards from graveyards.\n{T}: Add {C}.\n{T}: Add one mana of any of the exiled cards' colors.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
  }
 ]

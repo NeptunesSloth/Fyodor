@@ -262,6 +262,32 @@ def test_valakut_awakening_bottoms_any_number_of_cards_and_draws_that_many_plus_
     check(s)
 
 
+def test_pit_of_offerings_adds_mana_of_the_exiled_cards_colors_never_colorless(cards):
+    """The same linked colors (607.2a) from a trigger that targets: Terminate (black, red), Lightning Bolt (red) and Sol Ring (colorless) exiled from graveyards give {B} or {R}
+    (ruling 2023-11-10: the last ability can't produce {C})."""
+    s = build(cards, ["Pit of Offerings", "Terminate", "Lightning Bolt", "Sol Ring"])
+    for name in ("Terminate", "Lightning Bolt", "Sol Ring"):
+        act(s, "p1", type="move", card_ids=[card_named(s, name).id], to={"player": "p1", "zone": "graveyard"})
+    pit = to_hand(s, "Pit of Offerings")
+    act(s, "p1", type="play_land", card_id=pit.id)
+    for _ in range(6):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:3])
+    answer(s)
+    assert all(zone_of(s, n).endswith(":exile") for n in ("Terminate", "Lightning Bolt", "Sol Ring"))
+    act(s, "p1", type="tap", card_ids=[pit.id], tapped=False)  # (it entered tapped: this is the later turn)
+    ability = next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[pit.id]).abilities if "exiled" in a.text)
+    act(s, "p1", type="activate_ability", card_id=pit.id, ability=ability)
+    d = s.state.rules.decision
+    assert d is not None and sorted(o.label for o in d.options) == ["{B}", "{R}"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "{B}")])
+    assert s.state.players["p1"].mana == {"B": 1}
+    check(s)
+
+
 def test_chrome_mox_with_nothing_imprinted_adds_no_mana(cards):
     s, c = mox(cards, ["Lightning Bolt"], None)
     assert zone_of(s, "Lightning Bolt").endswith(":hand")
