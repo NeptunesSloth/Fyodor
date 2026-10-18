@@ -135,7 +135,8 @@ def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_p
         # "That player may draw a card. If they do, that player can't attack you …" (Willie Lumpkin): the one player the trigger is about is the
         # group of one, read as "Each player may …. Each player who does …" for them alone
         text, following, one = f"each player may {o['act']}", f"Each player who does {d1['rest']}", True
-    m = _MAY.match(text)
+    evo = text.startswith("each of that player's opponents may ")  # -- player groups (wave 51G) -- Heartwood Storyteller: every player but the one the trigger names, asked like "each opponent"
+    m = _MAY.match("each opponent may " + text[36:] if evo else text)
     if m is None:
         return None
     cost_phrase = m["cost"].replace(" of their choice", "")
@@ -146,7 +147,7 @@ def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_p
         cost_phrase = "discard your hand"  # (the payer's own: each_may asks every player for theirs)
         then_texts.append(f"That player draws {inline['rest']}")
     nxt = re.sub(r"^then ", "", scripts._lower_first((following or "").rstrip(".").strip()))  # (wave 23A: "Then ~ deals 5 damage to each …")
-    entry: dict[str, Any] = {"do": "each_may", "who": "event_player" if one else _WHO[m["who"]]}
+    entry: dict[str, Any] = {"do": "each_may", "who": "event_player" if one else "event_opponents" if evo else _WHO[m["who"]]}
     if cost_phrase == _SHARES:
         if last_payment is None or not m["if"]:
             return None

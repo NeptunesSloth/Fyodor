@@ -199,15 +199,20 @@ _SELF_IF_FIRST = re.compile(rf"^if (?P<cond>[^,]+), (?P<rest>(?:this spell|~) co
 _SELF_TURN_FIRST = re.compile(rf"^during your turn, (?P<rest>(?:this spell|~) costs {_SELF_SYMBOLS} less to cast)$")  # (wave 49A) Discontinuity
 
 
+_BELOW_START = "if your life total is less than your starting life total, this spell costs {X} less to cast, where X is the difference"
+
+
 def is_self(t: str) -> bool:
     """Is this line the spell's own cost change ("This spell costs …", "If …, this spell costs {6} less to cast")?"""
-    return bool(SELF_SENTENCE.fullmatch(t) or _SELF_IF_FIRST.fullmatch(t) or _SELF_TURN_FIRST.fullmatch(t))
+    return bool(SELF_SENTENCE.fullmatch(t) or _SELF_IF_FIRST.fullmatch(t) or _SELF_TURN_FIRST.fullmatch(t) or t == _BELOW_START)
 
 
 def self_change(t: str) -> Change | None:
     """"This spell costs {X} less to cast, where X is the total power of creatures you control." (Ghalta) → change.
     "If an opponent controls seven or more lands, this spell costs {6} less to cast." (Avatar of Fury) reads as the
     same sentence with its condition last."""
+    if t == _BELOW_START:  # -- most-played cards IV (wave 51G) -- Shadow of Mortality
+        return {"dir": -1, "value": {"below_start": 1}, "cond": conditions.parse("your life total is less than your starting life total")}
     first = _SELF_IF_FIRST.fullmatch(t)
     if first:
         t = f"{first['rest']} if {first['cond']}"

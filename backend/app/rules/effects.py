@@ -120,6 +120,9 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who == "each_other_opponent":  # -- sized amounts (wave 3D) -- the opponents besides the player the trigger event was about
         named = set(context.players(plan, ctx, context.EVENT))
         return [p for p in plan.live() if p != me and p not in named]
+    if who == "event_opponents":  # -- player groups (wave 51G) -- "each of that player's opponents" (102.2): the other players, the controller among them when it isn't that player
+        named = set(context.players(plan, ctx, context.EVENT))
+        return [p for p in plan.live() if p not in named] if len(named) == 1 else []
     if who == "event_player":  # "that player": the one the trigger event was about (who drew, was dealt damage …)
         return context.players(plan, ctx, context.EVENT)
     if who == "source_owner":  # -- review 33 -- "~'s owner": the source card's owner, wherever it is now (108.3; a card shuffled into a

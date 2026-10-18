@@ -28,6 +28,29 @@ _OTHERWISE = re.compile(r"^Otherwise, it (?P<pred>(?:gets|has|can't) .+)\.$")  #
 _INSTEAD = re.compile(r"^(?:It|~) (?P<pred>(?:gets|has) .+?) instead as long as (?P<cond>.+)\.$")
 
 
+# "Equipped creature has lifelink if you control a Cleric, deathtouch if you control a Rogue, haste if you control a Warrior, and flying if you control a Wizard." (Multiclass
+# Baldric), "Each creature you control has vigilance if it's white, hexproof if it's blue, lifelink if it's black, first strike if it's red, and trample if it's green." (Scion of
+# Draco): each part is a grant of its own that applies while its condition is true (611.3a, 604.2): "has lifelink as long as you control a Cleric" / "that's white has vigilance"
+_KW_IFS = re.compile(r"^(?P<s>(?:Equipped|Enchanted) creature|Each creature you control) has (?P<list>(?:[a-z]+(?: strike)? if (?:you control an? [A-Z][a-z]+|it's (?:white|blue|black|red|green))"
+                     r"(?:, and |, |))+)\.$")
+_KW_IF = re.compile(r"([a-z]+(?: strike)?) if (you control an? [A-Z][a-z]+|it's (?:white|blue|black|red|green))")
+
+
+def _keyword_ifs(m: re.Match[str]) -> Definition | None:
+    from app.rules import statics
+
+    pieces = [_KW_IF.fullmatch(x) for x in re.split(r", (?:and )?", m["list"])]
+    each = m["s"].startswith("Each")
+    if len(pieces) < 2 or not all(pieces) or any(p[2].startswith("it's") != each for p in pieces if p):
+        return None  # (a condition on the creature goes with "each creature you control", one on what you control with the attached one)
+    defs = [statics.parse(f"{m['s']} that's {p[2][5:]} has {p[1]}." if each else f"{m['s']} has {p[1]} as long as {p[2]}.") for p in pieces if p]
+    if any(d is None for d in defs) or any(d["who"] != ("attached" if not each else d["who"]) or (not each and d.get("attached_kind") != "creature") for d in defs if d):
+        return None
+    first = dict(defs[0] or {})
+    first["also"] = defs[1:]
+    return first
+
+
 def _not(conds: list[dict[str, Any]]) -> dict[str, Any]:
     return {"static": "not", "cond": conds[0] if len(conds) == 1 else {"static": "all", "conds": conds}}
 
@@ -62,6 +85,8 @@ def definition(text: str) -> Definition | None:
         if mine is None or others is None or mine.get("also") or others["who"] == "self":
             return None
         return {**mine, "also": [others]}
+    if (kw := _KW_IFS.match(text.strip())) is not None:  # -- most-played cards IV (wave 51G) -- one conditional grant for each "keyword if condition" part
+        return _keyword_ifs(kw)
     parts = _SENTENCES.split(text.strip())
     if not 2 <= len(parts) <= 3:
         return None
