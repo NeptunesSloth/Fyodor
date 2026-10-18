@@ -19,13 +19,13 @@ from app.game.visibility import SPECTATOR
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle
-from tests.test_rules_wave34b_activated import activate, attack, stops
+from tests.test_rules_wave34b_activated import activate, attack, stops, to_phase
 from tests.wave9c_kit import card_named, check, mana, put, to_hand
 from tests.wave53a_kit import alice_next, open_repo, table, unseen_by, until_asked
 
 BEARS, GIANT, ANGEL, GRAIL, BOLT = "Grizzly Bears", "Hill Giant", "Serra Angel", "Sol Grail", "Lightning Bolt"
 NAMES = ["Grasping Tentacles", "Realmbreaker, the Invasion Tree", "Oblivion Sower", "Silent-Blade Oni", "Lord of the Void", "Ashling, the Extinguisher", "Myrkul's Edict",
-         "Sail into the West", "Intellectual Offering", "Down for Repairs", "Windgrace's Judgment", "Dark Salvation", "The Black Gate", "Disciple of Perdition", "Siege Dragon", "The Fall of Kroog", "Tibalt, the Fiend-Blooded"]
+         "Sail into the West", "Intellectual Offering", "Down for Repairs", "Windgrace's Judgment", "Dark Salvation", "The Black Gate", "Disciple of Perdition", "Siege Dragon", "The Fall of Kroog", "Tibalt, the Fiend-Blooded", "Elder Brain"]
 
 
 @pytest.fixture()
@@ -502,4 +502,30 @@ def test_tibalt_minus_four_damage_equal_to_the_cards_in_the_target_players_hand(
     activate(s, "p1", tibalt, contains="−4", targets=["p2"])
     settle(s)
     assert s.state.players["p2"].life == 40 - size and s.state.players["p3"].life == 40
+    check(s)
+
+
+# -- Elder Brain ------------------------------------------------------------------------------------------------------------------------
+def test_elder_brain_exiles_the_defending_players_hand_they_draw_that_many_and_you_play_the_exiled_cards(cards):
+    """508.5, 406.3, 608.2c: the hand of the player the Brain attacks (not Carol's) is exiled face up, that player draws as many cards, and the Brain's controller may play lands and cast
+    spells from among the exiled cards, spending mana as though it were mana of any color."""
+    s = table(cards, ["Elder Brain"], [GIANT, BOLT, BEARS], [BEARS])
+    stops(s)
+    brain = put(s, "Elder Brain")
+    giant, bolt = to_hand(s, GIANT, "p2"), to_hand(s, BOLT, "p2")
+    carols = to_hand(s, BEARS, "p3")
+    alice_next(s)
+    hand = len(s.state.zones["p2:hand"])  # (Bob drew for his turn)
+    drawn_from = list(s.state.zones["p2:library"])[:hand]
+    attack(s, brain)
+    settle(s)
+    assert s.state.cards[giant.id].zone == "p2:exile" and s.state.cards[bolt.id].zone == "p2:exile"  # face up, public: 406.3
+    assert s.state.cards[carols.id].zone == "p3:hand"
+    assert len(s.state.zones["p2:hand"]) == hand and all(c in s.state.zones["p2:hand"] for c in drawn_from)  # as many as were exiled
+    check(s)
+    to_phase(s, "main2")
+    mana(s, "p1", G=4)  # {3}{R}: the red from Forests' green
+    act(s, "p1", type="cast_spell", card_id=giant.id)
+    settle(s)
+    assert s.state.cards[giant.id].zone == "p1:battlefield" and s.state.cards[giant.id].controller == "p1"
     check(s)

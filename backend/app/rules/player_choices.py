@@ -129,7 +129,8 @@ def rewrite(body: str) -> str:
     # "Each player discards their hand, then returns up to three cards from their graveyard to their hand." (Ill-Gotten Gains): the discard first, then the choice (608.2c)
     body = re.sub(r"\b(Each player discards their hand), then (returns up to \w+ cards from their graveyard)", r"\1. Each player \2", body)
     # "Exile all cards from that player's hand, then they draw that many cards." (Elder Brain): that many is the number of cards exiled this way (the this-way count, not an event's amount)
-    body = re.sub(r"\b(Exile all cards from (?:that|target) player's hand), then (?:they|that player) draws? that many cards\b", r"\1. That player draws cards equal to the number of cards exiled this way", body)
+    body = re.sub(r"\b(Exile all cards from (that|target|defending) player's hand), then (?:they|that player|defending player) draws? that many cards\b",
+                  lambda m: f"{m[1]}. {'Defending' if m[2] == 'defending' else 'That'} player draws cards equal to the number of cards exiled this way", body, flags=re.I)
     # "You may play lands and cast spells from among the exiled cards for as long as they remain exiled. If you cast a spell this way, you may spend mana as though it were mana of any color
     # to cast it." (Elder Brain): the permission to play the cards, with the mana rider the grammar has for "You may play those cards for as long as they remain exiled, and …"
     body = re.sub(r"\bYou may play lands and cast spells from among the exiled cards for as long as they remain exiled\. If you cast a spell this way, you may spend mana as though it were mana of "

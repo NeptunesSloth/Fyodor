@@ -27,8 +27,8 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 PREFIX = "zones_of:"
-_WHO = {"target player's": ("target", "player"), "target opponent's": ("target", "opponent"), "that player's": ("that_player", None)}
-_P = r"(?P<p>target player's|target opponent's|that player's)"
+_WHO = {"target player's": ("target", "player"), "target opponent's": ("target", "opponent"), "that player's": ("that_player", None), "defending player's": ("defending_player", None)}
+_P = r"(?P<p>target player's|target opponent's|that player's|defending player's)"
 _SEL = r"(?P<sel>cards|[a-z]+(?:, [a-z]+)* cards)"
 _ZONES = {"hand": ["hand"], "graveyard": ["graveyard"], "hand and graveyard": ["hand", "graveyard"]}
 

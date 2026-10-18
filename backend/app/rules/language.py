@@ -4171,6 +4171,11 @@ def _manifest_forms(text: str) -> tuple[Effects, Any] | None:
                                                                               "that player": "that_player"}[m["p"]], "n": n}], None
     if (hand := re.fullmatch(r"(?P<v>manifest|cloak) a card from your hand", text)) is not None:  # -- hidden exile (wave 18A) --
         return [{"do": "manifest", "kind": hand["v"], "who": "you", "n": 1, "from": "hand"}], None  # (Scroll of Fate, Vannifar)
+    other = re.fullmatch(r"(?:you )?(?P<v>manifest|cloak) the top card of (?P<lib>that player's|target opponent's|target player's|defending player's) library", text)
+    if other is not None:  # -- player-relative selectors (wave 53A) -- 701.40a: the top card of another player's library goes onto the battlefield face down under your control
+        who_ = {"that player's": "that_player", "target opponent's": "target", "target player's": "target", "defending player's": "defending_player"}[other["lib"]]
+        group = target_group(other["lib"][:-2]) if who_ == "target" else None
+        return [{"do": "manifest", "kind": other["v"], "who": "you", "n": 1, "library": who_}], _one(group)
     m = _MANIFEST.fullmatch(text)
     if m is None:
         return None
@@ -4187,7 +4192,7 @@ def _manifest_forms(text: str) -> tuple[Effects, Any] | None:
 
 def keyword_forms(text: str) -> tuple[Effects, Any] | None:
     """The keyword-action wordings above; None when the sentence is not one of them."""
-    if text.startswith(("manifest", "cloak", "its controller ", "that player ", "target player ", "target opponent ",
+    if text.startswith(("manifest", "cloak", "you manifest", "you cloak", "its controller ", "that player ", "target player ", "target opponent ",
                         "each player ", "each opponent ")):
         found = _manifest_forms(text)
         if found is not None:

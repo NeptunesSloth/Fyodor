@@ -31,7 +31,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", ["Praetor's Grasp", "Thada Adel, Acquisitor", "Rootwater Thief", "Sadistic Sacrament", "Precognition", "Coral Fighters"])
+@pytest.mark.parametrize("name", ["Praetor's Grasp", "Thada Adel, Acquisitor", "Rootwater Thief", "Sadistic Sacrament", "Precognition", "Coral Fighters", "Thieving Amalgam", "Orochi Soul-Reaver"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -247,4 +247,52 @@ def test_coral_fighters_look_at_the_defending_players_top_card_only(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[top])
     settle(s)
     assert s.state.zones["p2:library"][-1] == top and s.state.zones["p3:library"][0] == ctop
+    check(s)
+
+
+# -- Thieving Amalgam / Orochi Soul-Reaver ----------------------------------------------------------------------------------------------
+def test_thieving_amalgam_manifests_the_top_card_of_each_opponents_library_at_their_upkeep(cards):
+    """701.40a: the top card of that player's library goes onto the battlefield face down under your control as a 2/2 (it is still their card, 108.3); nobody but its controller can look at it."""
+    s = table(cards, ["Thieving Amalgam"], [BEARS, GIANT, "Serra Angel"], [GIANT])
+    put(s, "Thieving Amalgam")
+    top, carols_top = s.state.zones["p2:library"][0], s.state.zones["p3:library"][0]
+    top_name = s.state.cards[top].name
+    for _ in range(40):
+        if s.state.turn.number == 2 and s.state.turn.phase == "main1":  # (past Bob's upkeep)
+            break
+        d = s.state.rules.decision
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    c = next(x for x in s.state.cards.values() if x.face_down)  # (a new object: 400.7)
+    assert c.name == top_name and c.zone == "p1:battlefield" and c.controller == "p1" and c.owner == "p2"
+    assert s.state.cards[carols_top].zone == "p3:library"  # only the opponent whose upkeep it is
+    assert not unseen_by(s, c, "p1")  # Alice looks at her face-down creature
+    assert unseen_by(s, c, "p2", "p3", SPECTATOR)
+    check(s)
+
+
+def test_orochi_soul_reaver_combat_damage_to_a_player_makes_a_treasure_and_manifests_their_top_card(cards):
+    s = table(cards, ["Orochi Soul-Reaver", BEARS], [BEARS, GIANT, "Serra Angel"], [GIANT])
+    stops(s)
+    snake = put(s, "Orochi Soul-Reaver")
+    alice_next(s)
+    top_name = s.state.cards[s.state.zones["p2:library"][0]].name
+    attack(s, snake)
+    for _ in range(40):
+        d = s.state.rules.decision
+        if any(c.name == "Treasure" for c in s.state.cards.values()) or s.state.turn.phase in ("main2", "end"):
+            break
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    settle(s)
+    c = next(x for x in s.state.cards.values() if x.face_down)
+    assert c.name == top_name and c.zone == "p1:battlefield" and c.controller == "p1" and c.owner == "p2"  # Bob's card, the player dealt damage
+    assert unseen_by(s, c, "p2", "p3", SPECTATOR)
+    assert any(x.name == "Treasure" and x.controller == "p1" for x in s.state.cards.values())
     check(s)
