@@ -250,5 +250,45 @@
   ],
   "power": "3",
   "toughness": "3"
+ },
+ {
+  "name": "Endurance",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Elemental Incarnation",
+  "oracle_text": "Flash\nReach\nWhen this creature enters, up to one target player puts all the cards from their graveyard on the bottom of their library in a random order.\nEvoke—Exile a green card from your hand.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Reach",
+   "Evoke",
+   "Flash"
+  ],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Deadbridge Chant",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{G}",
+  "cmc": 6.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, mill ten cards.\nAt the beginning of your upkeep, choose a card at random in your graveyard. If it's a creature card, put it onto the battlefield. Otherwise, put it into your hand.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Mill"
+  ]
  }
 ]

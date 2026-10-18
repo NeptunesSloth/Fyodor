@@ -19,6 +19,7 @@ from tests.game_helpers import act, deck, enable
 from tests.test_rules_conditionals import pick, token_of, until_asked
 from tests.test_rules_wave12a_counters_keywords import answer, rolls  # noqa: I001
 from tests.test_rules_wave33b_modal import cast as cast_choosing
+from tests.test_rules_wave33b_modal import stops
 from tests.test_rules_wave34b_activated import next_turn, to_phase
 from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, to_hand, zone_of
 from tests.wave52b_kit import open_repo, settle
@@ -308,4 +309,45 @@ def test_slithermuse_draws_the_difference_as_it_leaves(cards):
     answer(s)
     assert zone_of(s, MUSE) == "p1:graveyard"
     assert len(s.state.zones["p1:hand"]) == len(s.state.zones["p2:hand"])
+    check(s)
+
+
+# -- Endurance / Deadbridge Chant -------------------------------------------------------------------------------------------------------------
+ENDURANCE, CHANT = "Endurance", "Deadbridge Chant"
+
+
+@pytest.mark.parametrize("name", [ENDURANCE, CHANT])
+def test_the_third_batch_is_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+@pytest.mark.parametrize("target", ["p2", "p1"])
+def test_endurance_puts_the_targets_graveyard_on_the_bottom_of_their_library(cards, target):
+    s = build(cards, [ENDURANCE], [])
+    c = to_hand(s, ENDURANCE)
+    for pid in ("p1", "p2"):  # two cards in each graveyard
+        act(s, pid, type="move", card_ids=s.state.zones[f"{pid}:library"][:2], to={"zone": "graveyard"})
+    gy = list(s.state.zones[f"{target}:graveyard"])
+    lib = len(s.state.zones[f"{target}:library"])
+    other = "p1" if target == "p2" else "p2"
+    other_gy = list(s.state.zones[f"{other}:graveyard"])
+    mana(s, G=3)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    answer(s, [target])
+    assert s.state.zones[f"{target}:graveyard"] == [] and len(s.state.zones[f"{target}:library"]) == lib + 2
+    assert set(s.state.zones[f"{target}:library"][-2:]) == set(gy)  # (the last two: the bottom)
+    assert s.state.zones[f"{other}:graveyard"] == other_gy
+    check(s)
+
+
+# -- Deadbridge Chant --------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize(("card", "where"), [("Llanowar Elves", "p1:battlefield"), ("Lightning Bolt", "p1:hand")])
+def test_deadbridge_chant_returns_a_creature_to_the_battlefield_else_to_hand(cards, card, where):
+    s = build(cards, [CHANT, card], [])
+    put(s, CHANT)
+    act(s, "p1", type="move", card_ids=[card_named(s, card).id], to={"zone": "graveyard"})
+    stops(s, "upkeep")
+    to_phase(s, "upkeep", turn=3)
+    settle(s)
+    assert zone_of(s, card) == where
     check(s)
