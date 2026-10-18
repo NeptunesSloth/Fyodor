@@ -2414,7 +2414,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     body = _licids.rewrite(body)  # -- licids (wave 50A) --
     from app.rules import controller_each, counter_riders, this_way_words  # -- if you do (wave 52A) --
 
-    body = this_way_words.rewrite(counter_riders.rewrite(controller_each.rewrite(body)))
+    body = this_way_words.rewrite_excess(this_way_words.rewrite(counter_riders.rewrite(controller_each.rewrite(body))))
     if (cb := counter_riders.counterbalance(body, it)) is not None:
         return cb
     from app.rules import sacrifice_return  # -- if you do (wave 52A) --
@@ -5547,6 +5547,9 @@ def _has_player(cond: dict[str, Any]) -> bool:
     if cond.get("subject") == "sel" and cond["event"] in ("enter", "die", "leave") and not cond.get("aggregate") \
             and re.search(r'"controller":"(?:opponent|enchanted)"', str(cond.get("sel"))):
         return True
+    # -- if you do (wave 52A) -- "Whenever a card is put into an opponent's graveyard from anywhere, … that player loses 2 life" (Bloodchief Ascension): the owner of that graveyard
+    if cond.get("subject") == "sel" and cond["event"] == "to_graveyard" and not cond.get("aggregate") and re.search(r'"zone_owner":"opponent"', str(cond.get("sel"))):
+        return True
     # -- source damage (wave 11F) -- "that source's controller": the player who controlled the source (triggers._fire_generic)
     return cond["event"] == "deal_damage" and (cond.get("to") in ("player", "opponent", "you") or cond.get("subject") == "source")
 
@@ -7601,7 +7604,7 @@ def _probed_move(e: dict[str, Any]) -> bool:
     if e["do"] in ("tap", "transform"):  # -- if you do (wave 30G) -- "you may tap it. If you do, …": that one permanent, if it is untapped (effects._did_tap); wave 50C: "you may convert ~. When you do, …" (Ratchet): that permanent, if it turned over (effects._did_transform)
         return e.get("who") in ("self", "it") and not e.get("optional")
     if e["do"] == "lose_life":  # -- if you do (wave 30G) -- "you may have target player lose 3 life. If you do, …": chosen unless their life can't change (effects._did_lose_life)
-        return isinstance(e.get("who"), str) and e["who"].startswith("target") and isinstance(e.get("n"), int) and e["n"] > 0 and not e.get("optional")
+        return isinstance(e.get("who"), str) and (e["who"].startswith("target") or e["who"] in ("event_player", "that_player")) and isinstance(e.get("n"), int) and e["n"] > 0 and not e.get("optional")  # (wave 52A: "you may have that player lose 2 life. If you do, …", Bloodchief Ascension)
     if e["do"] == "sacrifice":  # -- if you do (wave 31A) -- "you may sacrifice it. If you do, …" (Foot Chopper): that one permanent, if it is still on the battlefield (701.21a)
         return e.get("who") in ("self", "it") and not e.get("optional")
     if e["do"] == "look_top":  # -- if you do (wave 31A) -- "you may reveal / look at the top card of [a] library. If you do, …" (Baneful Omen): one card, if there is one (effects._did_look)

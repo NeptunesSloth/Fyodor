@@ -1485,6 +1485,9 @@ def _each_own_qualifier(phrase: str) -> Selector | None:
 _CARD_EITHER = re.compile(r"(?P<a>[A-Za-z ]+? card) or (?P<b>[A-Za-z ]+? card) (?P<z>from (?:your|a) graveyard)")
 
 
+_OR_OTHER = re.compile(r"(?P<a>[a-z]+) (?:and/or|or) other (?P<b>[a-z]+)")
+
+
 def parse_either(phrase: str) -> Selector | None:
     """"artifact, enchantment, or creature with flying" (a target phrase: 115.1): an artifact, an enchantment, or a creature with
     flying — the qualifier is the last kind's only."""
@@ -1507,6 +1510,12 @@ def parse_either(phrase: str) -> Selector | None:
         if a is None or b is None or not (a.card and b.card) or a.either or b.either or a.zones != b.zones or a.zone_owner != b.zone_owner:
             return None
         return Selector(either=(a.key(), b.key()), zones=a.zones, zone_owner=a.zone_owner, card=True)
+    o = _OR_OTHER.fullmatch(phrase.strip())
+    if o is not None:  # -- if you do (wave 52A) -- "creature and/or other planeswalker" (Sorin, Lord of Innistrad): the "other" is the second kind's own, a creature is any creature
+        a, b = _parse(o["a"]), _parse(f"other {o['b']}")
+        if a is None or b is None or a.player or b.player or a.zones != ("battlefield",) or b.zones != ("battlefield",) or a.other or not b.other:
+            return None
+        return Selector(either=(a.key(), b.key()))
     m = _EITHER.match(phrase.strip())
     if m is None:
         return _each_own_qualifier(phrase.strip())

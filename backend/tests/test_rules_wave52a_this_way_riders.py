@@ -16,7 +16,7 @@ from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_
 from tests.wave52a_kit import build_n, open_repo
 
 ARCHWAY = "Arid Archway"
-WITCH_KING, BREW, STARFALL, MANUAL = "Rise of the Witch-king", "Deadly Brew", "Starfall Invocation", "Monster Manual // Zoological Study"
+WITCH_KING, BREW, STARFALL, MANUAL, BLAST = "Rise of the Witch-king", "Deadly Brew", "Starfall Invocation", "Monster Manual // Zoological Study", "Bottle-Cap Blast"
 
 
 @pytest.fixture()
@@ -24,7 +24,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ARCHWAY, WITCH_KING, BREW, STARFALL, MANUAL])
+@pytest.mark.parametrize("name", [ARCHWAY, WITCH_KING, BREW, STARFALL, MANUAL, BLAST])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -188,4 +188,46 @@ def test_zoological_study_returns_a_creature_card_milled_this_way_to_the_hand(ca
     settle(s)
     assert zone_of(s, "Hill Giant") == "p1:hand" and zone_of(s, "Soul Warden") == "p1:graveyard" and zone_of(s, "Grizzly Bears") == "p1:graveyard"
     assert zone_of(s, MANUAL) == "p1:exile"  # on an adventure (715.4)
+    check(s)
+
+
+# -- Bottle-Cap Blast --------------------------------------------------------------------------------------------------------------------
+def blasted(cards, target_name, pid="p2", damage=0):
+    s = build(cards, [BLAST], ["Grizzly Bears", "Hill Giant"])
+    victim = put(s, target_name, pid)
+    if damage:
+        act(s, "p1", type="set_damage", card_ids=[victim.id], value=damage)
+    c = to_hand(s, BLAST)
+    mana(s, "p1", R=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[victim.id])
+    settle(s)
+    return s
+
+
+def treasures(s):
+    return [c for c in s.state.cards.values() if c.is_token and c.name == "Treasure" and c.zone == "p1:battlefield"]
+
+
+def test_bottle_cap_blast_a_treasure_for_each_point_of_excess_damage(cards):
+    s = blasted(cards, "Grizzly Bears")  # 5 damage to a 2/2: 3 excess
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard"
+    assert len(treasures(s)) == 3 and all(t.tapped for t in treasures(s))  # "tapped Treasure tokens"
+    check(s)
+
+
+def test_bottle_cap_blast_counts_the_damage_already_marked(cards):
+    s = blasted(cards, "Hill Giant", damage=2)  # a 3/3 with 2 damage on it needs 1 more: 4 excess
+    assert len(treasures(s)) == 4
+    check(s)
+
+
+def test_bottle_cap_blast_no_excess_no_treasure(cards):
+    s = build(cards, [BLAST], ["Hill Giant"])
+    giant = put(s, "Hill Giant", "p2")
+    act(s, "p1", type="counter", card_ids=[giant.id], kind="+1/+1", delta=2)  # 5/5: exactly lethal
+    c = to_hand(s, BLAST)
+    mana(s, "p1", R=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[giant.id])
+    settle(s)
+    assert zone_of(s, "Hill Giant", "p2") == "p2:graveyard" and not treasures(s)
     check(s)
