@@ -1206,5 +1206,26 @@
   ],
   "power": "5",
   "toughness": "4"
+ },
+ {
+  "name": "Mindleech Mass",
+  "layout": "normal",
+  "mana_cost": "{5}{U}{B}{B}",
+  "cmc": 8.0,
+  "type_line": "Creature — Horror",
+  "oracle_text": "Trample\nWhenever this creature deals combat damage to a player, you may look at that player's hand. If you do, you may cast a spell from among those cards without paying its mana cost.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "6",
+  "toughness": "6"
  }
 ]

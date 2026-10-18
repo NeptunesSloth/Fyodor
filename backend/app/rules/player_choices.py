@@ -156,6 +156,8 @@ def rewrite(body: str) -> str:
     # "You may look at the top card of target opponent's library. If you do, you may put that card on the bottom of that player's library." (Precognition): the first "may" is the whole
     # ability's (it looks or it doesn't), the second is the choice of moving the card it saw
     body = re.sub(r"(\b[Yy]ou may look at the top card of (?:target opponent|target player)'s library\.) If you do, you may put", r"\1 You may put", body)
+    # "You may look at that player's hand. If you do, you may cast a spell from among those cards without paying its mana cost." (Mindleech Mass): the same two choices
+    body = re.sub(r"(\b[Yy]ou may look at that player's hand\.) If you do, you may cast", r"\1 You may cast", body)
     # "Target player creates X 2/2 black Zombie creature tokens, then up to one target creature gets -1/-1 until end of turn for each Zombie that player controls." (Dark Salvation): two
     # instructions of two targets (608.2c): the second is its own sentence
     body = re.sub(r"\b((?:[Tt]arget (?:player|opponent)|[Tt]hat player) creates [^.,]+? tokens?), then ((?:up to one )?target creature (?:gets|gains|deals))",

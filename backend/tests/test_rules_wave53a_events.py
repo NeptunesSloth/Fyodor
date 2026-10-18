@@ -25,7 +25,7 @@ from tests.wave53a_kit import alice_next, open_repo, table, unseen_by, until_ask
 
 BEARS, GIANT, ANGEL, GRAIL, BOLT = "Grizzly Bears", "Hill Giant", "Serra Angel", "Sol Grail", "Lightning Bolt"
 NAMES = ["Grasping Tentacles", "Realmbreaker, the Invasion Tree", "Oblivion Sower", "Silent-Blade Oni", "Lord of the Void", "Ashling, the Extinguisher", "Myrkul's Edict",
-         "Sail into the West", "Intellectual Offering", "Down for Repairs", "Windgrace's Judgment", "Dark Salvation", "The Black Gate", "Disciple of Perdition", "Siege Dragon", "The Fall of Kroog", "Tibalt, the Fiend-Blooded", "Elder Brain"]
+         "Sail into the West", "Intellectual Offering", "Down for Repairs", "Windgrace's Judgment", "Dark Salvation", "The Black Gate", "Disciple of Perdition", "Siege Dragon", "The Fall of Kroog", "Tibalt, the Fiend-Blooded", "Elder Brain", "Mindleech Mass"]
 
 
 @pytest.fixture()
@@ -528,4 +528,63 @@ def test_elder_brain_exiles_the_defending_players_hand_they_draw_that_many_and_y
     act(s, "p1", type="cast_spell", card_id=giant.id)
     settle(s)
     assert s.state.cards[giant.id].zone == "p1:battlefield" and s.state.cards[giant.id].controller == "p1"
+    check(s)
+
+
+# -- Mindleech Mass ---------------------------------------------------------------------------------------------------------------------
+def mass_prompt(s):
+    """Alice's first question (may she use the ability): answered; the hand is looked at only if she did."""
+    d = None
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.player == "p1" and d.kind not in ("declare_attackers", "declare_blockers"):
+            break
+        if d is not None:
+            act(s, d.player, type="declare_blockers", blocks=[]) if d.kind == "declare_blockers" else act(
+                s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p1"
+    return d
+
+
+def test_mindleech_mass_look_at_their_hand_then_cast_a_spell_from_it_without_paying(cards):
+    """701.20e (look), 608.2g, 601.2: two choices of the controller, each its own "may": use the ability (see the hand), then cast one of the cards seen."""
+    s = table(cards, ["Mindleech Mass"], [GIANT, BOLT], [BEARS])
+    stops(s)
+    mass = put(s, "Mindleech Mass")
+    giant, bolt = to_hand(s, GIANT, "p2"), to_hand(s, BOLT, "p2")
+    bears = to_hand(s, BEARS, "p3")
+    alice_next(s)
+    attack(s, mass)
+    d = mass_prompt(s)
+    while "look at the hand" not in d.prompt and d.kind == "confirm":
+        assert unseen_by(s, giant, "p1")  # not seen before she says so
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=["yes"])
+        d = mass_prompt(s)
+    assert "look at the hand" in d.prompt
+    for viewer in ("p3", SPECTATOR):
+        assert unseen_by(s, giant, viewer) and unseen_by(s, bolt, viewer)
+    assert not unseen_by(s, giant, "p1") and not unseen_by(s, bolt, "p1")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["ok"])
+    d = until_asked(s)
+    assert d.player == "p1" and {o.id for o in d.options} == {giant.id, bolt.id}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[giant.id])
+    settle(s)
+    assert s.state.cards[giant.id].zone == "p1:battlefield" and s.state.cards[bolt.id].zone == "p2:hand" and s.state.cards[bears.id].zone == "p3:hand"
+    check(s)
+
+
+def test_mindleech_mass_she_may_decline_and_then_sees_nothing(cards):
+    s = table(cards, ["Mindleech Mass"], [GIANT, BOLT], [BEARS])
+    stops(s)
+    mass = put(s, "Mindleech Mass")
+    giant = to_hand(s, GIANT, "p2")
+    alice_next(s)
+    attack(s, mass)
+    d = mass_prompt(s)
+    assert d.kind == "confirm" and "look at the hand" not in d.prompt
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["no"])
+    settle(s)
+    assert unseen_by(s, giant, "p1") and s.state.cards[giant.id].zone == "p2:hand"
     check(s)
