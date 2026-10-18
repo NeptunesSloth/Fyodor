@@ -15,10 +15,14 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import settle, stops, to_phase
-from tests.test_rules_wave51d_if_you_do import cards  # noqa: F401
 from tests.wave9c_kit import build, card_named, check, mana, pt, put, reloaded, to_hand, zone_of
+from tests.wave51d_kit import open_repo
 
 ELSHA, MIKEY, DRAGON = "Elsha of the Infinite", "Mikey & Don, Party Planners", "Thundermane Dragon"
+
+@pytest.fixture()
+def cards(settings):
+    yield from open_repo(settings)
 
 
 @pytest.mark.parametrize("name", [ELSHA, MIKEY, DRAGON])

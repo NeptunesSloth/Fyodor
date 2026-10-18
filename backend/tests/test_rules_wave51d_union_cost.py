@@ -14,10 +14,14 @@ from app.game.errors import ActionError
 from app.rules import coverage, selectors
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, settle
-from tests.test_rules_wave51d_if_you_do import cards  # noqa: F401
 from tests.wave9c_kit import build, card_named, check, mana, put, reloaded, to_hand, zone_of
+from tests.wave51d_kit import open_repo
 
 SANCTUM = "Sanctum of Shattered Heights"
+
+@pytest.fixture()
+def cards(settings):
+    yield from open_repo(settings)
 
 
 def test_the_card_is_full(cards):
@@ -58,7 +62,7 @@ def test_a_land_card_is_discarded_to_hurt_a_creature_for_each_shrine(cards):
 
 def test_a_nonland_nonshrine_card_cannot_pay_the_discard(cards):
     s, sanctum, giant = table(cards, [])
-    bears = to_hand(s, "Hill Giant")  # a creature card: neither a land card nor a Shrine card
+    to_hand(s, "Hill Giant")  # a creature card: neither a land card nor a Shrine card
     mana(s, "p1", G=1)
     with pytest.raises(ActionError):
         activate(s, "p1", sanctum, targets=[giant.id])

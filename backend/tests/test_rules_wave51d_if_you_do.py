@@ -14,24 +14,15 @@ Every scenario checks the replay and a save and a load.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import pytest
 
-from app.cards.images import ImageStore
-from app.cards.importer import build_database
-from app.cards.repository import CardRepository
+from app.game.errors import ActionError
 from app.rules import coverage
-from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import activate, attack, next_turn, settle, stops, to_phase
-from tests.wave9c_kit import build, card_named, cast, check, life, mana, pt, put, reloaded, to_hand, zone_of
+from tests.test_rules_wave34b_activated import activate, attack, next_turn, settle, stops
+from tests.wave9c_kit import build, card_named, cast, check, mana, put, reloaded, to_hand, zone_of
+from tests.wave51d_kit import drive, open_repo
 
-DATA = json.loads((Path(__file__).parent / "fixtures" / "wave51d_cards.json").read_text("utf-8"))
-KNOWN = {c["name"] for c in fixture_cards()}
-EXTRA = [card(c["name"], set_code="w51d", number=f"X{i:02d}", **{k: v for k, v in c.items() if k != "name"})
-         for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 STILTZKIN, SZAREKH = "Stiltzkin, Moogle Merchant", "Szarekh, the Silent King"
 LILIANA = "Liliana, Heretical Healer // Liliana, Defiant Necromancer"
 KALITAS, RITUAL, VISAGE = "Kalitas, Bloodchief of Ghet", "Ritual of the Returned", "Broken Visage"
@@ -39,11 +30,7 @@ KALITAS, RITUAL, VISAGE = "Kalitas, Bloodchief of Ghet", "Ritual of the Returned
 
 @pytest.fixture()
 def cards(settings):
-    settings.ensure_dirs()
-    build_database([*fixture_cards(), *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
-    repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
-    yield repo
-    repo.close()
+    yield from open_repo(settings)
 
 
 @pytest.mark.parametrize("name", [STILTZKIN, SZAREKH, LILIANA, KALITAS, RITUAL, VISAGE])
@@ -52,7 +39,7 @@ def test_the_cards_are_full(cards, name):
 
 
 # -- Stiltzkin ---------------------------------------------------------------------------------------------------------------------------
-def stiltzkin(cards, others):
+def stiltzkin(cards):
     s = build(cards, [STILTZKIN, "Grizzly Bears"], forests=30)
     stilt = put(s, STILTZKIN)
     bears = put(s, "Grizzly Bears")
@@ -62,7 +49,7 @@ def stiltzkin(cards, others):
 
 
 def test_stiltzkin_gives_another_permanent_to_the_opponent_and_draws(cards):
-    s, stilt, bears = stiltzkin(cards, [])
+    s, stilt, bears = stiltzkin(cards)
     hand = len([c for c in s.state.cards.values() if c.zone == "p1:hand"])
     activate(s, "p1", stilt, targets=["p2", bears.id], target_counts=[1, 1])
     settle(s)
@@ -73,8 +60,8 @@ def test_stiltzkin_gives_another_permanent_to_the_opponent_and_draws(cards):
 
 def test_stiltzkin_cannot_give_itself_away(cards):
     """"another": Stiltzkin is not a legal second target of its own ability (the source is not "another" permanent)."""
-    s, stilt, bears = stiltzkin(cards, [])
-    with pytest.raises(Exception):
+    s, stilt, bears = stiltzkin(cards)
+    with pytest.raises(ActionError):
         activate(s, "p1", stilt, targets=["p2", stilt.id], target_counts=[1, 1])
     assert s.state.cards[stilt.id].controller == "p1" and not s.state.zones.get("stack")
     check(s)
@@ -93,27 +80,13 @@ def szarekh(cards, top):
     return s
 
 
-def drive(s, pick):
-    for _ in range(60):
-        d = s.state.rules.decision
-        if d is None:
-            if not s.state.zones.get("stack") and s.state.turn.phase in ("end_combat", "main2", "end"):
-                return
-            act(s, s.state.rules.priority, type="pass_priority")
-        elif d.kind == "declare_blockers":
-            act(s, d.player, type="declare_blockers", blocks=[])
-        else:
-            names = {o.id: s.state.cards[o.id].name for o in d.options if o.id in s.state.cards}
-            ids = [i for i, n in names.items() if n in pick]
-            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids[: max(1, d.min_choices)] if ids else [])
-    raise AssertionError("never settled")
-
-
 @pytest.mark.parametrize("take", ["Ornithopter", "Smuggler's Copter"])
 def test_szarekh_takes_an_artifact_creature_or_a_vehicle_from_the_milled_cards(cards, take):
     s = szarekh(cards, ["Hill Giant", "Ornithopter", "Smuggler's Copter"])
     drive(s, {take})
     assert zone_of(s, take) == "p1:hand" and zone_of(s, "Grizzly Bears") == "p1:hand"
+    other = "Smuggler's Copter" if take == "Ornithopter" else "Ornithopter"
+    assert zone_of(s, other) == "p1:graveyard"  # only one card: "an artifact creature card or Vehicle card"
     assert zone_of(s, "Hill Giant") == "p1:graveyard"  # a plain creature is not one of the cards it may take
     check(s)
 
@@ -130,7 +103,7 @@ def zombies(s):
     return [c for c in s.state.cards.values() if c.is_token and c.name == "Zombie" and c.zone == "p1:battlefield"]
 
 
-def liliana_dies(cards, spell, mana_cost, extra=()):
+def liliana_dies(cards, spell, mana_cost):
     s = build(cards, [LILIANA, "Grizzly Bears", spell], forests=30)
     lili = put(s, LILIANA)
     bears = put(s, "Grizzly Bears")

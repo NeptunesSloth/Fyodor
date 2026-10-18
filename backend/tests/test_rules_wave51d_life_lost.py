@@ -11,11 +11,14 @@ import pytest
 
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.test_rules_wave34b_activated import settle
-from tests.test_rules_wave51d_if_you_do import cards  # noqa: F401
 from tests.wave9c_kit import build, check, life, mana, reloaded, to_hand
+from tests.wave51d_kit import open_repo
 
 NEGATIVE = "Mister Negative"
+
+@pytest.fixture()
+def cards(settings):
+    yield from open_repo(settings)
 
 
 def test_the_card_is_full(cards):

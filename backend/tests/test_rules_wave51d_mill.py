@@ -7,14 +7,19 @@
 
 from __future__ import annotations
 
-from app.game.errors import ActionError  # noqa: F401
+import pytest
+
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import attack, next_turn, stops
-from tests.test_rules_wave51d_if_you_do import cards, drive  # noqa: F401
 from tests.wave9c_kit import build, check, put, reloaded
+from tests.wave51d_kit import drive, open_repo
 
 ANOWON = "Anowon, the Ruin Thief"
+
+@pytest.fixture()
+def cards(settings):
+    yield from open_repo(settings)
 
 
 def test_the_card_is_full(cards):

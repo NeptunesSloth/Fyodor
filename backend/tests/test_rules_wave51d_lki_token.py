@@ -12,8 +12,15 @@ import pytest
 
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, next_turn, settle, stops, to_phase
-from tests.test_rules_wave51d_if_you_do import KALITAS, RITUAL, VISAGE, cards  # noqa: F401
 from tests.wave9c_kit import build, cast, check, mana, pt, put, reloaded, to_hand, zone_of
+from tests.wave51d_kit import open_repo
+
+KALITAS, RITUAL, VISAGE = "Kalitas, Bloodchief of Ghet", "Ritual of the Returned", "Broken Visage"
+
+
+@pytest.fixture()
+def cards(settings):
+    yield from open_repo(settings)
 
 
 def tokens(s, name, pid="p1"):

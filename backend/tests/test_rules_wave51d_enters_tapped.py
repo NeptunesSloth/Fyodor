@@ -13,10 +13,14 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, next_turn, settle
-from tests.test_rules_wave51d_if_you_do import cards  # noqa: F401
 from tests.wave9c_kit import build, card_named, check, mana, put, reloaded, to_hand, zone_of
+from tests.wave51d_kit import open_repo
 
 JORN = "Jorn, God of Winter // Kaldring, the Rimestaff"
+
+@pytest.fixture()
+def cards(settings):
+    yield from open_repo(settings)
 
 
 def test_the_card_is_full(cards):
