@@ -474,7 +474,7 @@ def _thats_colored(s: Selector, m: re.Match[str]) -> Selector:  # (wave 19D: "th
 # (-- counters (wave 33C) -- "each other creature you control that's a token or a Rabbit" (Finneas, Ace Archer): "token" is one of the alternatives, kept
 # as the word in the list and read as the object's being a token (111.7); alone it is no creature type: "that's a token" stays unread)
 # (-- cant restrictions (wave 46A) -- "each creature you control that's an artifact or Human" (Paladin Danse): a card type is one of the alternatives too, read from the object's types)
-_THAT_WORD = r"[A-Z][\w'’-]*|token|artifacts?|enchantments?|lands?|planeswalkers?|battles?"
+_THAT_WORD = r"[A-Z][\w'’-]*|token|artifacts?|creatures?|enchantments?|lands?|planeswalkers?|battles?"  # (wave 51A: "creature or Vehicle", Ao, the Dawn Sky)
 
 
 # (-- commander sweep (wave 49B) -- plural: "permanents you control that are Spirits and/or enchantments" (Katilda), "creatures you control that are Fungi and/or Saprolings" (The Mycotyrant))

@@ -217,3 +217,87 @@ def test_kitsune_with_creatures_of_one_player_only_is_removed(cards):
     settle(s)
     assert s.state.rules.decision is None and not s.state.rules.stack  # 603.3d: not enough legal targets
     check(s)
+
+
+# --- total mana value of cards chosen on resolution (no targets: 608.2d) ----------------------------------------------------------------
+
+
+def test_technomancer_returns_artifact_creatures_up_to_a_total_mana_value_of_six(cards):
+    s = build(cards, ["Technomancer", "Perilous Myr", "Foundry Inspector", "Frogmite"], [])
+    myr, inspector, frog = grave(s, "Perilous Myr"), grave(s, "Foundry Inspector"), grave(s, "Frogmite")
+    to_hand(s, "Technomancer")
+    mana(s, B=2, G=5)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Technomancer").id)
+    d = until_decision(s)
+    assert d is not None and {o.id for o in d.options} == {myr.id, inspector.id, frog.id} and "total mana value 6 or less" in d.prompt
+    with pytest.raises(ActionError, match="total mana value 6 or less"):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[inspector.id, frog.id])  # 3 + 4
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[myr.id, frog.id])  # 2 + 4
+    settle(s)
+    assert zone_of(s, "Perilous Myr") == zone_of(s, "Frogmite") == "p1:battlefield" and zone_of(s, "Foundry Inspector") == "p1:graveyard"
+    check(s)
+
+
+def test_technomancer_may_return_none(cards):
+    s = build(cards, ["Technomancer", "Perilous Myr"], [])
+    grave(s, "Perilous Myr")
+    to_hand(s, "Technomancer")
+    mana(s, B=2, G=5)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Technomancer").id)
+    d = until_decision(s)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[])
+    settle(s)
+    assert zone_of(s, "Perilous Myr") == "p1:graveyard"
+    check(s)
+
+
+def test_michelangelo_s_technique_puts_up_to_two_creatures_with_total_mana_value_six_from_the_top_eight(cards):
+    s = build(cards, ["Michelangelo's Technique", "Frogmite", "Foundry Inspector", "Grizzly Bears"], [])
+    to_hand(s, "Michelangelo's Technique")
+    mana(s, G=5)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Michelangelo's Technique").id)
+    d = until_decision(s)
+    frog, inspector, bears = (card_named(s, n) for n in ("Frogmite", "Foundry Inspector", "Grizzly Bears"))
+    assert d is not None and {frog.id, inspector.id, bears.id} <= {o.id for o in d.options}
+    with pytest.raises(ActionError, match="total mana value 6 or less"):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[frog.id, inspector.id])  # 4 + 3
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[frog.id, bears.id])  # 4 + 2
+    settle(s)
+    assert zone_of(s, "Frogmite") == zone_of(s, "Grizzly Bears") == "p1:battlefield" and zone_of(s, "Foundry Inspector") == "p1:library"
+    assert inspector.id not in str(s.view("p2")["rules"].get("decision"))  # (the cards looked at stay private)
+    check(s)
+
+
+def ao_dies(s):
+    put(s, "Ao, the Dawn Sky")
+    to_hand(s, "Murder")
+    mana(s, B=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Murder").id, targets=[card_named(s, "Ao, the Dawn Sky").id])
+    return until_decision(s)
+
+
+def test_ao_counters_on_each_creature_or_vehicle_you_control(cards):
+    s = build(cards, ["Ao, the Dawn Sky", "Murder", "Grizzly Bears", "Sky-Skiff", "Sol Grail"], [])
+    for n in ("Grizzly Bears", "Sky-Skiff", "Sol Grail"):
+        put(s, n)
+    d = ao_dies(s)
+    assert d is not None and "choose one mode" in d.prompt
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if "counters" in o.label)])
+    settle(s)
+    counters = lambda n: s.state.cards[card_named(s, n).id].counters.get("+1/+1", 0)  # noqa: E731
+    assert counters("Grizzly Bears") == counters("Sky-Skiff") == 2 and counters("Sol Grail") == 0  # (a Vehicle that isn't crewed is no creature)
+    check(s)
+
+
+def test_ao_puts_nonland_permanents_with_total_mana_value_four_from_the_top_seven(cards):
+    s = build(cards, ["Ao, the Dawn Sky", "Murder", "Frogmite", "Perilous Myr", "Foundry Inspector"], [])
+    d = ao_dies(s)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if "Look at the top seven" in o.label)])
+    d = until_decision(s)
+    frog, myr, inspector = (card_named(s, n) for n in ("Frogmite", "Perilous Myr", "Foundry Inspector"))
+    with pytest.raises(ActionError, match="total mana value 4 or less"):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[myr.id, inspector.id])  # 2 + 3
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[frog.id])
+    settle(s)
+    assert zone_of(s, "Frogmite") == "p1:battlefield" and zone_of(s, "Perilous Myr") == zone_of(s, "Foundry Inspector") == "p1:library"
+    check(s)
