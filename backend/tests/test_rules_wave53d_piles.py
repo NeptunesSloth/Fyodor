@@ -298,3 +298,19 @@ def test_boneyard_parley_an_opponent_separates_and_you_choose_the_pile_you_take(
     assert s.state.cards[theirs[0].id].controller == "p1" and s.state.cards[theirs[0].id].owner == "p2"
     assert s.state.cards[mine[1].id].zone == "p1:graveyard" and s.state.cards[theirs[1].id].zone == "p2:graveyard"
     check(s)
+
+
+def test_jace_architect_of_thought_an_opponent_separates_you_choose_one_pile_for_the_hand(cards):
+    """The -2 (the card is only PARTIAL: its -8 is manual): reveal three, an opponent separates, one pile to the hand, the other on the bottom in any order."""
+    s = table(cards, ["Jace, Architect of Thought", *FIVE[:3]], players=2)
+    top = stack_top(s, FIVE[:3])
+    jace = loyalty(s, "Jace, Architect of Thought", 4)
+    act(s, "p1", type="activate_ability", card_id=jace.id, ability=1)
+    resolve(s)
+    assert s.state.rules.decision.player == "p2"  # the opponent separates (the cards are revealed)
+    split(s, "p2", ["Llanowar Elves"])
+    pile(s, "p1", 2)  # Alice takes Bears and Wolf; Llanowar Elves goes to the bottom
+    resolve(s)
+    assert s.state.cards[top[1].id].zone == "p1:hand" and s.state.cards[top[2].id].zone == "p1:hand"
+    assert s.state.zones["p1:library"][-1] == top[0].id
+    check(s)

@@ -3746,6 +3746,8 @@ def _controlled(plan: Plan, key: str, pid: str, source: str | None, you: str | N
     """The permanents ``pid`` controls that match a selector, evaluated for that player (``you``: -- trigger other (wave 39A) -- or for the ability's
     controller, whose "you" a qualifier like "that dealt combat damage to you this turn" is)."""
     sel = selectors.from_key(key)
+    if sel.zones == ("graveyard",):  # -- group choices (wave 53D) -- "a creature card in their graveyard": the cards in the graveyard of ``pid`` (404.1)
+        return [c for c in selectors.candidates(plan, sel, you or pid, source) if plan.state.cards[c].zone == f"{pid}:graveyard"]
     return [c for c in selectors.candidates(plan, sel, you or pid, source)
             if plan.state.cards[c].controller == pid and plan.state.cards[c].zone.endswith(":battlefield")]
 
@@ -3765,10 +3767,16 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
         # -- per-player choices (wave 30K) -- a turn is a player and the kind of permanent chosen (an old save: just the player); "you choose …
         # for each player" (Tragic Arrogance): the ability's controller decides what each player's permanents are
         pid, key = (turn, e["sel"]) if isinstance(turn, str) else turn
-        mine = _controlled(plan, key, pid, ctx.get("source_card"), ctx["controller"] if "dealt_combat_damage_you" in key else None)
+        mine = _controlled(plan, key, plan.after(pid) if e.get("left") else pid, ctx.get("source_card"),  # (wave 53D: "the player to their left", Grenzo's Rebuttal)
+                           ctx["controller"] if "dealt_combat_damage_you" in key else None)
         if e.get("any"):  # -- per-player choices (wave 31B) -- any permanent the ability's words allow ("a creature you don't control"), whoever controls it
             mine = [c for c in selectors.candidates(plan, selectors.from_key(key), ctx["controller"], ctx.get("source_card"))
-                    if plan.state.cards[c].zone.endswith(":battlefield")]
+                    if plan.state.cards[c].zone.endswith(":battlefield") or selectors.from_key(key).zones != ("battlefield",)]  # (wave 53D: or cards of another zone)
+        if e.get("distinct"):  # -- group choices (wave 53D) -- "a creature card in your graveyard that hasn't been chosen" (Rejoin the Fight): no object twice
+            mine = [c for c in mine if c not in picked]
+        if e.get("cap_power"):  # -- group choices (wave 53D) -- "with equal or lesser power" than the creature chosen first (Sculpted Sunburst)
+            capped = context.objects(plan, ctx, e["cap_power"][len(context.PREFIX):])
+            mine = [c for c in mine if capped and _power_of(plan, c) <= _power_of(plan, capped[0])]
         if step == "edict" and not exiling and mine and _sacrifice_barred(plan, ctx, pid):
             mine = []  # -- prohibitions (wave 22B) -- nothing for them to sacrifice
         cap = e.get("power_cap")  # "any number of creatures they control with total power 4 or less" (Slaughter the Strong): always a choice
@@ -3786,6 +3794,8 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
             prompt = f"{ctx.get('name', '') or 'Choose'}: choose any number of {label} with total power {cap} or less"
         if by != pid:
             prompt += f" for {plan.name(pid)}"
+        if e.get("left"):
+            prompt += f" among {plan.name(plan.after(pid))}'s permanents"  # (wave 53D: the player to their left)
         if picked:
             prompt += f" — already chosen: {_labels(plan, picked)}"  # 101.4b: the earlier choices are known
         decide(plan, player=by, kind="choose_cards", prompt=prompt,
@@ -3804,9 +3814,13 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
                 if c not in picked]
         if e["rest"] == "sacrifice":
             _sacrifice_cards(plan, rest, ctx["controller"], ctx, e.get("as"))
+        elif e["rest"] == "exile":  # -- group choices (wave 53D) -- "chooses two cards in their graveyard and exiles the rest" (Watchers of the Dead)
+            exile_cards(plan, ctx, {}, rest)
         else:  # "Destroy the rest" (701.8): indestructible ones stay, regeneration may save the others
             _destroy_cards(plan, ctx, e, rest)
     else:
+        if e.get("add") and e.get("as"):  # -- group choices (wave 53D) -- the objects of this choice join those an earlier choice of the same name bound
+            picked = [*context.objects(plan, ctx, e["as"]), *picked]
         _remember(plan, ctx, e, list(dict.fromkeys(picked)))  # "that creature", "it": the chosen objects (they stay where they are; one chosen twice is one object)
         if e.get("did"):  # -- choose own (wave 32A) -- "You may choose a token you control. If you do, …": something was chosen (608.2c)
             context.bind_payment(ctx, e["did"], bool(picked))

@@ -246,7 +246,7 @@ def bind(body: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, An
     if _GATE.search(body) is None:
         return None
     text = body.strip()
-    for recipe in (_chosen_type, _words, _numbers):
+    for recipe in (_chosen_type, _words, _numbers, _chosen_objects):
         if (found := recipe(text, parse, split_sentences)) is not None:
             return found
     return None
@@ -357,4 +357,75 @@ def _numbers(text: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str
                 {"do": "damage", "who": "each_opponent", "n": 8},
                 {"do": "only_if", "cond": {"gc": {"as": "gc", "is": "mixed", "values": both}}, "skip": 1},
                 {"do": "damage", "who": "ref:gc:silence", "n": 12}], None, False
+    return None
+
+
+# -- choosing objects (101.4) ------------------------------------------------------------------------------------
+# Each player (opponent) chooses an object, and what was chosen (or what was not) is acted on once all have chosen: the existing ``player_chooses``
+# (effects._choose_next: APNAP, each knowing the earlier choices, 101.4b; a player with exactly as many as asked has no choice to make) with the
+# instruction after it aimed at the objects chosen (``as``) or at all the others (``except:``).
+_ONE_CHOICE = re.compile(r"^[Ee]ach player chooses an? (?P<sel>[a-z ]+?) they control\.$")
+_NOT_CHOSEN = re.compile(r"^(?P<verb>Return|Exile|Destroy) all (?P<sel>[a-z ]+?) not chosen this way(?: to their owners' hands)?\.$")
+_AND_COUNTER = re.compile(r"^[Ee]ach player chooses an? (?P<sel>[a-z ]+?) and puts an? (?P<kind>[a-z]+) counter on it\.$")
+_PLANAR = ("Each player chooses a land they control of each basic land type.", "Return those lands to their owners' hands.")
+_REJOIN = ("Mill three cards.", "Then starting with the next opponent in turn order, each opponent chooses a creature card in your graveyard that hasn't been chosen.",
+           "Return each card chosen this way to the battlefield under your control.")
+_DREDGE = ("Each opponent chooses a creature card in their graveyard.", "Put those cards onto the battlefield under your control.")
+_WATCHERS = ("Each opponent chooses two cards in their graveyard and exiles the rest.",)
+_GRENZO = ("Create a 4/4 red Ogre creature token.", "Starting with you, each player chooses an artifact, a creature, and a land from among the permanents "
+           "controlled by the player to their left.", "Destroy each permanent chosen this way.")
+_SUNBURST = ("Choose a creature you control, then each opponent chooses a creature they control with equal or lesser power.",
+             "If you chose a creature this way, exile each creature not chosen by any player this way.")
+_VERBS = {"Return": "bounce", "Exile": "exile", "Destroy": "destroy"}
+
+
+def _key(phrase: str) -> str | None:
+    from app.rules import selectors
+
+    sel = selectors.parse(phrase)
+    return None if sel is None else sel.key()
+
+
+def _chosen_objects(text: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    sentences = split_sentences(text)
+    m = _ONE_CHOICE.match(sentences[0]) if sentences else None
+    if m is not None and len(sentences) in (2, 3) and (n := _NOT_CHOSEN.match(sentences[1])) is not None:
+        # Consuming Tide: "Each player chooses a nonland permanent they control. Return all nonland permanents not chosen this way to their owners' hands."
+        # (+ "Then you draw a card for each opponent who has more cards in their hand than you.")
+        key, key2 = _key(m["sel"]), _key(n["sel"])
+        tail = parse(re.sub(r"^Then you draw (.+?) in their hand than you\.$", r"Draw \1 in hand than you.", sentences[2])) if len(sentences) == 3 else ([], None, False)
+        if key is None or key != key2 or tail is None or tail[1] is not None or tail[2]:
+            return None
+        return [{"do": "player_chooses", "who": "each_player", "sel": key, "n": 1, "label": m["sel"], "as": "gco"},
+                {"do": _VERBS[n["verb"]], "who": f"except:gco|{key}"}, *tail[0]], None, False
+    m = _AND_COUNTER.match(sentences[0]) if len(sentences) == 1 else None
+    if m is not None and (key := _key(m["sel"])) is not None:
+        # Eye of Doom: "Each player chooses a nonland permanent and puts a doom counter on it": any permanent, the counters all at once afterwards
+        return [{"do": "player_chooses", "who": "each_player", "sel": key, "n": 1, "label": m["sel"], "any": True, "as": "gco"},
+                {"do": "add_counters", "who": "ref:gco", "kind": m["kind"], "n": 1}], None, False
+    if tuple(sentences) == _PLANAR:  # Planar Overlay
+        from app.rules import language
+
+        got = language._kinds_effect("each player", ["Plains", "Island", "Swamp", "Mountain", "Forest"], "lands", rest=None)  # (205.3i)
+        return [{**got[0][0], "as": "gco"}, {"do": "bounce", "who": "ref:gco"}], None, False
+    if tuple(sentences) == _REJOIN and (key := _key("creature card in your graveyard")) is not None and (mill := parse(_REJOIN[0])) is not None:
+        return [*mill[0], {"do": "player_chooses", "who": "each_opponent", "sel": key, "n": 1, "label": "creature card", "any": True, "start": "next",
+                           "distinct": True, "as": "gco"},
+                {"do": "return_card", "who": "ref:gco", "to": "battlefield", "tapped": False, "under": "you"}], None, False
+    if tuple(sentences) == _DREDGE and (key := _key("creature card in your graveyard")) is not None:
+        return [{"do": "player_chooses", "who": "each_opponent", "sel": key, "n": 1, "label": "creature card", "as": "gco"},
+                {"do": "return_card", "who": "ref:gco", "to": "battlefield", "tapped": False, "under": "you"}], None, False
+    if tuple(sentences) == _WATCHERS and (key := _key("card in your graveyard")) is not None:
+        return [{"do": "player_chooses", "who": "each_opponent", "sel": key, "n": 2, "label": "card", "rest": "exile"}], None, False
+    if tuple(sentences) == _GRENZO and (token := parse(_GRENZO[0])) is not None:
+        kinds = [_key(k) for k in ("artifact", "creature", "land")]
+        if None in kinds or (all_perm := _key("permanent")) is None:
+            return None
+        return [*token[0], {"do": "player_chooses", "who": "each_player", "sel": all_perm, "sels": kinds, "labels": ["artifact", "creature", "land"], "n": 1,
+                            "label": "permanent", "start": "you", "left": True, "as": "gco"}, {"do": "destroy", "who": "ref:gco"}], None, False
+    if tuple(sentences) == _SUNBURST and (key := _key("creature")) is not None:
+        # Sculpted Sunburst: you choose first, then each opponent chooses one with equal or lesser power than yours; if you chose, every other creature goes
+        return [{"do": "player_chooses", "who": "you", "sel": key, "n": 1, "label": "creature", "as": "gco", "did": "gcd"},
+                {"do": "player_chooses", "who": "each_opponent", "sel": key, "n": 1, "label": "creature", "cap_power": "ref:gco", "add": True, "as": "gco"},
+                {"do": "only_if", "cond": {"succeeded": "gcd"}, "skip": 1}, {"do": "exile", "who": f"except:gco|{key}"}], None, False
     return None
