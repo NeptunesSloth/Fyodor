@@ -591,6 +591,7 @@ _TOKEN_MAKERS = {"create_token", "create_attacking"}  # (what they introduce are
 _RECORDING["rest_looked"] = None  # (wave 44A: its verb is _verb_of's)
 _RECORDING["haunt"] = None  # -- keywords (wave 50H) -- 702.55a (app/rules/haunt.py)
 _RECORDING["paradigm"] = None  # (702.192a: app/rules/paradigm.py)
+_RECORDING["draw"] = "drawn"  # -- if you do (wave 52A) -- "You draw a card for each card drawn this way." (Struggle for Project Purity): this_way.drawn
 _RECORDING["return_yours"] = "returned"  # -- if you do (wave 52A) -- "Return a land you control to its owner's hand. If another Desert was returned this way, …" (Arid Archway)
 _MOVERS.add("return_yours")
 _RECORDING["linked_cards"] = "exiled"  # -- resolution memory (wave 22D) -- exiled_with.linked_cards
@@ -637,7 +638,7 @@ class _Introducer:
         self.do = e.get("do")
         self.verb = _verb_of(e)  # (-- resolution memory (wave 22D) -- "Exile a creature you control": what it exiled, not sacrificed)
         self.recording = self.do in _RECORDING  # (can carry a binding: "its controller", "its power")
-        self.objects = self.recording
+        self.objects = self.recording and self.do != "draw"  # (-- if you do (wave 52A) -- a draw records how many it drew, never objects a pronoun could name)
         self.player = False
         self.number: int | None = 1  # 1 (singular), 2 (several), None (unknown)
         g = _group_of(e)
@@ -1178,7 +1179,7 @@ def _each_controller_creates(text: str) -> list[dict[str, Any]] | None:
 def _this_way_binding(kinds: tuple[str, ...], at: int, find: Any, bound: Any) -> str | None:
     """-- "this way" outcomes (wave 4A) -- the binding of the latest instruction before ``at`` that did one of
     ``kinds`` ("destroyed", "milled", …: _RECORDING's verbs), marking it to record what it acted on."""
-    found = find(lambda i: i.objects and i.recording and i.verb in kinds, at)
+    found = find(lambda i: (i.objects or i.do == "draw") and i.recording and i.verb in kinds, at)
     return bound(found) if found is not None else None
 
 

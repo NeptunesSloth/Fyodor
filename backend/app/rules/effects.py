@@ -317,6 +317,10 @@ def _moved(plan: Plan, ctx: Context, e: dict[str, Any], before: list[ObjectRef])
 def draw(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # -- replacement effects stage 2 (wave 2E): the draw choke point (app/rules/replace.py: 121.2,
     # 121.2c APNAP, 121.6a / 614.11 with an empty library, 704.5b) --
+    if e.get("as"):  # -- if you do (wave 52A) -- "for each card drawn this way": what each player had drawn this turn before (this_way.drawn reads the difference)
+        from app.rules import this_way
+
+        this_way.mark_drawn(plan, ctx, e["as"])
     players = _players(plan, ctx, e["who"])
     if e.get("may") and players and ctx.get("may_ok") != ctx["next"]:  # -- activated sweep (wave 17B) -- "Target opponent may draw a card": their choice (608.2d)
         decide(plan, player=players[0], kind="confirm", prompt=f"{ctx.get('name') or 'It'}: draw a card?",

@@ -47,12 +47,13 @@ _VERBS = {"destroyed": ("destroyed",), "exiled": ("exiled", "blinked"), "sacrifi
           "discarded": ("discarded",), "milled": ("milled",), "returned": ("returned", "blinked"), "your_hand": ("returned", "put_hand", "blinked"),
           "graveyard": ("destroyed", "sacrificed", "milled", "discarded", "put_graveyard"), "your_graveyard": ("destroyed", "sacrificed", "milled", "discarded", "put_graveyard"),  # (wave 52A: "Destroy all creatures. … a creature card put into your graveyard this way" - only those that went to your graveyard, _matched)
           "died": ("destroyed", "sacrificed"), "tapped": ("tapped",), "goaded": ("goaded",),  # (goaded: wave 50J)
+          "drawn": ("drawn",),  # -- if you do (wave 52A) -- "each card drawn this way" (effects.draw marks what was drawn before; ``drawn`` reads the difference)
           "revealed": ("revealed",), "shuffled": ("shuffled",),  # (wave 10C: reveal_hand.py)
           "battlefield_put": ("put_battlefield",),  # -- most-played cards II (wave 45A) -- "If you put a Cave onto the battlefield this way" (put_from_hand)
           "created": ("created",)}  # -- reflexive this way (wave 30G) -- 603.12: "create a token. When you do, …" (the tokens it made)
 _PHRASE = re.compile(
     r"^(?P<what>.+?) (?:(?P<ctl>you controlled|they controlled) )?(?:that (?:was|were) |who )?"
-    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|goaded|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?|you put into your hand|you put onto the battlefield"
+    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|drawn|tapped|goaded|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?|you put into your hand|you put onto the battlefield"
     r"|put into (?P<gy>a|your|their|its owner's|that player's|their owners') graveyards?|died|that died|returned) this way$")  # (wave 52A: a bare "returned", Arid Archway: to a hand)
 _NOUN_ONLY = re.compile(r"^(?:cards?)$")
 _GREATEST = re.compile(r"^the greatest number of cards a player (?P<verb>discarded|milled) this way$")
@@ -79,6 +80,8 @@ def parse(phrase: str) -> dict[str, Any] | None:
     if (types :=re.fullmatch(r"card types? among (cards? .+ this way)", p)) is not None:  # -- if you do (wave 44A) -- "a card for each card type among cards discarded this way" (Kefka)
         inner = parse(types[1])
         return {**inner, "distinct": "types"} if inner is not None and inner.get("of") is None else None
+    if re.fullmatch(r"opponents? who drew (?:a|one or more) cards? this way", p):  # -- if you do (wave 52A) -- "a card for each opponent who drew a card this way" (Cut a Deal)
+        return {"this_way": "drawn", "of": None, "players": "opponent"}
     m = _PHRASE.match(p)
     if m is None:
         return None
@@ -338,6 +341,8 @@ def count(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     """How many of the objects the bound instruction acted on it actually did this to (and that
     match the qualifier): see the module docstring. ``max_by: "owner"``: the most any one player had (a
     discarded or milled card is its owner's: 701.9a, 701.17a)."""
+    if v["this_way"] == "drawn":
+        return drawn(plan, ctx, v)
     found = _matched(plan, ctx, v)
     if v.get("stat"):  # -- any number as an additional cost (wave 48B) -- "the total power of the sacrificed creatures": each as it is, or as it last existed (608.2h)
         from app.game.rules_state import ObjectRef
@@ -361,6 +366,26 @@ def count(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
                 owners[card.owner] = owners.get(card.owner, 0) + 1
         return max(owners.values(), default=0)
     return len(found)
+
+
+# -- if you do (wave 52A) -- "You draw a card for each card drawn this way." (Struggle for Project Purity), "… for each opponent who drew a card this way." (Cut a Deal): 121.2 the cards the
+# draw instruction made each player draw, as the turn's own record of cards drawn (history: it counts what the instruction drew, a draw a replacement effect replaced or
+# a prohibition stopped was not drawn, 121.2a / 614.11) less what each player had drawn when the instruction began.
+def mark_drawn(plan: Plan, ctx: dict[str, Any], name: str) -> None:
+    from app.rules import context, history
+
+    context.refs(ctx)[name] = {"kind": "drew", "drew": dict(history.log_for(plan).drew)}
+
+
+def drawn(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
+    from app.rules import history
+
+    before = ((ctx.get("refs") or {}).get(v["ref_count"]) or {}).get("drew") or {}
+    now = history.log_for(plan).drew
+    each = {p: max(0, n - before.get(p, 0)) for p, n in now.items() if p in plan.live()}
+    if v.get("players") == "opponent":
+        return sum(1 for p, n in each.items() if n and p != ctx["controller"])
+    return sum(each.values())
 
 
 def by_controller(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> dict[str, int]:
