@@ -2464,6 +2464,8 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
 
     body = body.replace(" your team controls", " you control")  # -- static_other (wave 49C) -- 102.4: outside a team game "your team" is "you" (Combo Attack, Dwarven Lightsmith)
     body = _licids.rewrite(body)  # -- licids (wave 50A) --
+    body = re.sub(r"\bcreate an? ((?:[a-z]+ )*[A-Z][\w ]*? creature token) with base power and toughness each equal to (the total power of those creatures)\b",
+                  r"create an X/X \1, where X is \2", body)  # -- trigger other (wave 52B) -- The Skullspore Nexus: the token is an X/X (208.2), X the batch's total power as they last existed (608.2h)
     if (traded := top_trade.parse(body)) is not None:  # -- trigger other (wave 52B) -- Keen Duelist, Parker Luck, Duskmantle Seer (app/rules/top_trade.py)
         trade_groups: list[dict[str, Any]] = []
         trade_effects = _add_groups(trade_groups, traded[0], traded[1])
@@ -5636,7 +5638,8 @@ def _event_refs_ok(d: Definition) -> bool:
         return False  # -- trigger other (wave 52B) -- "each opponent dealt damage": the recipients of a "one or more … deal damage to … opponents" batch
     if '"of": "roll"' in raw and not (ev is not None and ev["event"] == "roll_die"):
         return False  # -- dice (wave 24B) -- "if the roll was 4 or higher": the one die a roll trigger is about
-    if '"of": "event"' in raw and not (ev is not None and (ev["event"] == "you_attack" and ev.get("min_attackers") or ev["event"] == "attack" and ev.get("aggregate"))):
+    if '"of": "event"' in raw and not (ev is not None and (ev["event"] == "you_attack" and ev.get("min_attackers") or ev["event"] == "attack" and ev.get("aggregate")
+                                                          or ev["event"] == "die" and ev.get("aggregate"))):  # (-- trigger other (wave 52B) -- or the creatures a "one or more … die" batch counted, as they last existed: The Skullspore Nexus)
         return False  # -- event batches (wave 34C) -- "the greatest power among them": the attackers a "one or more" attack trigger counted
     if '"died": 1' in raw and not (ev is not None and ev["event"] == "die" and not ev.get("aggregate")):
         return False  # -- value grammar (wave 23C) -- "the power of the creature that died": the one creature a "dies" trigger is about

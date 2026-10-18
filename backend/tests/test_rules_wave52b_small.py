@@ -643,3 +643,27 @@ def test_consuming_aberration_reveals_down_to_a_land_and_mills_those_cards(cards
     assert {zone_of(s, "Counterspell", "p2"), zone_of(s, "Arcane Signet", "p2")} == {"p2:graveyard"}
     assert len(s.state.zones["p2:library"]) == library - 3 and len(s.state.zones["p2:graveyard"]) == 5  # (two before, three revealed: the first land stops it)
     check(s)
+
+
+# -- The Skullspore Nexus / Temur War Shaman / Nessian Wilds Ravager -----------------------------------------------------------------------------
+NEXUS, SHAMAN, RAVAGER = "The Skullspore Nexus", "Temur War Shaman", "Nessian Wilds Ravager"
+
+
+@pytest.mark.parametrize("name", [NEXUS, SHAMAN, RAVAGER])
+def test_the_last_batch_is_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name  # (the last two: "if …, you may have it fight target creature", a conditional "may have")
+
+
+def test_skullspore_nexus_makes_one_token_as_big_as_the_total_power_of_the_nontoken_creatures_that_died(cards):
+    s = build(cards, [NEXUS, "Llanowar Elves", "Grizzly Bears"], [])
+    put(s, NEXUS)
+    for name in ("Llanowar Elves", "Grizzly Bears"):
+        put(s, name)
+    token_of(s, "p1", "Fodder", "Token Creature — Test", "4/4")  # (a token's death counts for nothing)
+    ids = [card_named(s, n).id for n in ("Llanowar Elves", "Grizzly Bears")] + [card_named(s, "Fodder").id]
+    act(s, "p1", type="set_damage", card_ids=ids, value=20)  # all three die together (704.5g)
+    act(s, s.state.rules.priority or "p1", type="pass_priority")
+    answer(s)
+    fungus = [c for c in s.state.cards.values() if c.name == "Fungus Dinosaur" and c.is_token and c.zone == "p1:battlefield"]
+    assert len(fungus) == 1 and pt(s, "Fungus Dinosaur") == (3, 3)  # 1 + 2
+    check(s)
