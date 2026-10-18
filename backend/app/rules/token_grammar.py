@@ -206,15 +206,16 @@ def parse(sentence: str) -> list[Effect] | None:
         text = sentence
     if (c := _CHOSEN_TOKEN.match(text)) is not None and each is None and half is None:  # -- chosen filters (wave 53B) -- "an X/X creature token of the chosen color and type": the color and creature type its source chose as it entered (effects.create_token)
         p, t = (_qty(x) if x == "X" else x for x in c["pt"].split("/"))
-        n, token = _qty(c["n"]), {"name": "token", "power": p, "toughness": t, "colors": [], "type_line": "Token Creature", "text": "", "chosen": True}
+        n = _qty(c["n"])
+        spec: dict[str, Any] = {"name": "token", "power": p, "toughness": t, "colors": [], "type_line": "Token Creature", "text": "", "chosen": True}
         if xdef is not None:
             from app.rules import language
 
             v = language.x_definition(xdef)
             if v is None or not language._has_x([n, p, t]):
                 return None
-            n, token = language._bind_x(n, v), language._bind_x(token, v)
-        return [{"do": "create_token", "who": "you", "n": n, "token": token}]
+            n, spec = language._bind_x(n, v), language._bind_x(spec, v)
+        return [{"do": "create_token", "who": "you", "n": n, "token": spec}]
     m = _SENTENCE.match(text)
     if not m:
         return None
