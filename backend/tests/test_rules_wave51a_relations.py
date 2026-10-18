@@ -317,6 +317,31 @@ def test_tainted_adversary_counters_and_twice_that_many_zombies(cards):
     check(s)
 
 
+# --- "permanents you control that are creatures and/or Vehicles" / "a commander that's a creature or planeswalker" ------------------------
+
+
+def test_collision_course_counts_creatures_and_vehicles_you_control(cards):
+    s = build(cards, ["Collision Course", "Llanowar Elves", "Sky-Skiff", "Sol Grail"], ["Grizzly Bears"])
+    for n in ("Llanowar Elves", "Sky-Skiff", "Sol Grail"):
+        put(s, n)
+    bears = put(s, "Grizzly Bears", "p2")
+    to_hand(s, "Collision Course")
+    mana(s, W=1, G=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Collision Course").id, modes=[0], targets=[bears.id])
+    settle(s)
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard"  # X = 2: the Elf and the Vehicle; the Sol Grail is neither
+    check(s)
+
+
+def test_gray_harbor_merfolk_gets_plus_two_with_a_creature_commander(cards):
+    s = build(cards, ["Gray Harbor Merfolk"], [])
+    put(s, "Gray Harbor Merfolk")
+    assert pt(s, "Gray Harbor Merfolk")[0] == 0  # (Krenko is in the command zone)
+    put(s, "Krenko, Mob Boss")
+    assert pt(s, "Gray Harbor Merfolk")[0] == 2
+    check(s)
+
+
 def ao_dies(s):
     put(s, "Ao, the Dawn Sky")
     to_hand(s, "Murder")
