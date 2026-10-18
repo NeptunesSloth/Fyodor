@@ -7325,7 +7325,24 @@ def _replaceable(base: list[dict[str, Any]], alt: list[dict[str, Any]]) -> bool:
     rest of X would be wrong. Neither may itself branch (a chain of "instead" clauses)."""
     if not base or not alt or len(alt) < len(base):
         return False
-    return not any(e["do"] in _BRANCHING for e in (*base, *alt))
+    # (wave 51C: a branch of one gated instruction, "Destroy that creature if it has mana value 4 or less instead if …" (Fatal Push): its one plain gate is the branch's own, 608.2c)
+    def inner(b: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return b[1:] if len(b) == 2 and b[0]["do"] == "only_if" and not b[0].get("bind") and b[0].get("skip") == 1 else b
+
+    return not any(e["do"] in _BRANCHING for e in (*inner(base), *inner(alt)))
+
+
+def _gated_alt(rest: str, base: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], Any] | None:
+    """-- instead (wave 51C) -- "Destroy that creature if it has mana value 4 or less instead if …" (Fatal Push): a gated instruction about the one plain target of the replaced
+    sentence. In the "instead" branch the replaced one never ran, so "that creature" is the target itself, not an object the replaced instruction moved (608.2c)."""
+    found = _trailing_conditional(rest)
+    whos = {str(e["who"]) for e in base if str(e.get("who") or "").startswith("target")}
+    if found is None or found[1] is not None or len(whos) != 1:
+        return None
+    (target,) = whos
+    effects = [{**e, "who": target} if e.get("who") == "it" else {**e, "cond": _bind_cond(e["cond"], target)} if e["do"] == "only_if" and _cond_has_it(e["cond"]) else e
+               for e in found[0]]
+    return None if _holds_pronoun(effects) or "\"it\"" in json.dumps(effects) else (effects, None)
 
 
 def _next_flag(effects: list[dict[str, Any]]) -> str:
@@ -7370,7 +7387,7 @@ def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: 
             from app.rules import each_may as _each_may
 
             unless = _each_may.unless_sentence(rest)
-            alt = (unless, None) if unless is not None else None
+            alt = (unless, None) if unless is not None else _gated_alt(rest, base)
         if alt is None or alt[1] is not None or not _replaceable(base, alt[0]):
             return False
         if _cond_has_it(cond) and not spell_cond:  # "it": what the replaced sentence is about — its one target (else an earlier object)

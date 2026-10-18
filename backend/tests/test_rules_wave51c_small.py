@@ -42,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant", "Zenith Chronicler", "Court of Ambition"])
+@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant", "Zenith Chronicler", "Court of Ambition", "Fatal Push"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -551,4 +551,21 @@ def test_court_of_ambition_loses_more_life_when_you_are_the_monarch(cards, monar
     pick(s, "decline")
     settle(s)
     assert life(s, "p2") == 40 - lost and len(s.state.zones["p2:hand"]) == held
+    check(s)
+
+
+# -- Fatal Push ----------------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("revolt,target,dies", [(False, "Grizzly Bears", True), (False, "Hill Giant", False), (True, "Hill Giant", True), (True, "Craw Wurm", False)])
+def test_fatal_push_mana_value_two_or_four_with_revolt(cards, revolt, target, dies):
+    """Mana values: Grizzly Bears 2, Hill Giant 4, Craw Wurm 6. Revolt (a permanent left the battlefield under your control this turn) raises the limit from 2 to 4 instead."""
+    s = build(cards, ["Fatal Push", "Llanowar Elves"], ["Grizzly Bears", "Hill Giant", "Craw Wurm"])
+    victim = put(s, target, "p2")
+    if revolt:
+        elves = put(s, "Llanowar Elves")
+        act(s, "p1", type="move", card_ids=[elves.id], to={"player": "p1", "zone": "graveyard"})
+    push = to_hand(s, "Fatal Push")
+    mana(s, B=1)
+    act(s, "p1", type="cast_spell", card_id=push.id, targets=[victim.id])
+    settle(s)
+    assert (s.state.cards[victim.id].zone == "p2:graveyard") is dies
     check(s)
