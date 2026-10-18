@@ -617,6 +617,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
 
         if cast_limits.SELF_FLASH_IF.fullmatch(t) or cast_limits.HAS_FLASH_WHILE.fullmatch(t):
             return cast_limits.static_definition(text)
+        if t.startswith("escape—"):  # -- static_other (wave 52C) -- 702.138a: an instant's or sorcery's printed escape (Cling to Dust): functions from the graveyard
+            from app.rules import escape
+
+            return escape.define_static(t)
     if kind != "static":
         return None
     # -- small wordings (wave 11E) -- "Creature spells you control can't be countered." (101.2, 701.6)
