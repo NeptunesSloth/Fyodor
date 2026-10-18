@@ -1134,6 +1134,7 @@ def end_combat(plan: Plan) -> None:
             for marker in [m for m in card.effects if m.text == "this combat"]:
                 plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=plan.active)
     r.replacements = [x for x in r.replacements if x.get("until") != "end_of_combat"]  # -- one-shot shields (wave 35A) -- "this combat"
+    r.delayed = [t for t in r.delayed if not t.until_combat]  # -- block events (wave 53C) -- "whenever … this combat" stops watching (500.5)
     r.blocked = []
     r.block_split = {}
     r.assign_unblocked = {}

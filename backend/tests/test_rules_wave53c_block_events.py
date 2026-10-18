@@ -1228,3 +1228,96 @@ def test_strangling_grasp_still_costs_the_life_when_the_enchanted_creature_is_sa
 
 def test_the_double_faced_attach_cards_are_full(cards):
     assert all(full(cards, n) for n in (WITCH, GRACE, STRANGLER))
+
+
+def test_zombie_boa_destroys_each_blocker_of_the_chosen_color_this_turn(cards):
+    s = sandbox(cards, "Zombie Boa")
+    boa = on_field(s, "Zombie Boa")
+    red = token_of(s, "p2", "Imp", "Token Creature — Imp", "1/9", colors=["R"])
+    green = token_of(s, "p2", "Elf", "Token Creature — Elf", "1/9", colors=["G"])
+    red2 = token_of(s, "p2", "Imp Two", "Token Creature — Imp", "1/9", colors=["R"])
+    main_step(s)
+    pool(s, B=1, C=1)
+    activate(s, "p1", boa, "Choose a color")
+    d = ask(s)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Red"])
+    settle(s)
+    until(s, lambda s: s.state.turn.phase == "declare_attackers", limit=30)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": boa.id, "target": "p2"}])
+    for _ in range(8):
+        if s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": boa.id} for b in (red, green, red2)])
+    settle(s)
+    assert not alive(s, red) and not alive(s, red2) and alive(s, green)  # a trigger for each red blocker (509.3c); the green one is left alone
+    check(s)
+
+
+def test_zombie_boa_needs_the_sorcery_timing(cards):
+    s = sandbox(cards, "Zombie Boa")
+    boa = on_field(s, "Zombie Boa")
+    combat_step(s)
+    pool(s, B=1, C=1)
+    with pytest.raises(ActionError):
+        activate(s, "p1", boa, "Choose a color")
+    check(s)
+
+
+def _flotilla_table(cards, pay):
+    """Alice's Goblin Flotilla attacks Bob, who blocks it with Guard (Bystander stays out); Alice pays {R} at the beginning of combat or not."""
+    from tests.game_helpers import turn_on
+
+    s = sandbox(cards, "Goblin Flotilla")
+    flotilla = on_field(s, "Goblin Flotilla")
+    guard = creature(s, "p2", "Guard", "1/9")
+    bystander = creature(s, "p2", "Bystander", "1/9")
+    turn_on(s)
+    act(s, "p1", type="pass_priority")  # → main 1
+    for pid in ("p1", "p2"):
+        act(s, pid, type="set_stops", own=["begin_combat", "declare_attackers", "declare_blockers"], others=["begin_combat", "declare_attackers", "declare_blockers"], smart_pass=False)
+    until(s, lambda s: s.state.turn.phase == "begin_combat" and s.state.zones.get("stack"), limit=10)  # the beginning of combat: Flotilla's trigger waits on the stack
+    priority_to(s, "p1")
+    if pay:
+        pool(s, R=1)
+    for _ in range(4):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["pay" if pay else "decline"])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    until(s, lambda s: s.state.turn.phase == "declare_attackers", limit=20)
+    swing(s, [flotilla], [(guard, flotilla)])
+    settle(s)
+    return s, flotilla, guard, bystander
+
+
+def test_goblin_flotilla_gives_the_creature_it_fights_first_strike_unless_its_controller_paid(cards):
+    s, flotilla, guard, bystander = _flotilla_table(cards, pay=False)
+    pl = Plan(s.state, "p1", s.cards, None)
+    assert "first strike" in pl.ch(s.state.cards[guard.id]).keywords  # it blocked Flotilla (509.3b): "that creature" gains first strike until end of turn
+    assert "first strike" not in pl.ch(s.state.cards[bystander.id]).keywords
+    to_postcombat(s)
+    assert not [t for t in s.state.rules.delayed if t.when.get("kind") == "watch"]  # the watch ended with the combat (500.5)
+    check(s)
+
+
+def test_goblin_flotilla_paid_for_gives_nothing(cards):
+    s, flotilla, guard, bystander = _flotilla_table(cards, pay=True)
+    pl = Plan(s.state, "p1", s.cards, None)
+    assert "first strike" not in pl.ch(s.state.cards[guard.id]).keywords
+    check(s)
+
+
+def test_goblin_flotilla_blocking_also_gives_the_attacker_first_strike(cards):
+    s = sandbox(cards, "Goblin Flotilla")
+    flotilla = on_field(s, "Goblin Flotilla")
+    raider = creature(s, "p2", "Raider", "1/9")
+    combat_step(s)
+    to_postcombat(s)
+    bob_swings(s, [raider], [(flotilla, raider)])  # Bob's combat: each combat gets the trigger, Alice has no {R} to pay
+    settle(s)
+    assert "first strike" in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[raider.id]).keywords  # "blocks or becomes blocked by a creature": that creature
+    check(s)

@@ -2513,6 +2513,8 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # one object (611.2a: no duration, so for good), the keyword given as the ability it is ("Bushido 1", 702.45a)
     body = re.sub(r"\b(That creature) gains bushido (\d+) and becomes (an? [A-Z][a-z]+ in addition to its other creature types)\b", r'\1 gains "Bushido \2". \1 becomes \3', body)
     body = re.sub(r"(can't be blocked by creatures) of that color\b", r"\1 of the chosen color", body)  # -- chosen type (wave 50J) -- Skrelv: the color chosen before
+    body = re.sub(r"^unless you pay ((?:\{[^}]+\})+), (whenever [^,]+? this combat, [^.]+)\.$", r"\2 unless you pay \1.", body)  # -- block events (wave 53C) -- Goblin Flotilla: the watch is what the payment keeps from happening
+    body = re.sub(r"^(Choose a color\. Whenever ~ becomes blocked by an? creature of) that color\b", r"\1 the chosen color", body)  # -- block events (wave 53C) -- Zombie Boa: the color chosen just before (the watch reads it as it is created)
     # -- exile with a counter (wave 50J) -- "Choose target creature card in a graveyard. Exile it with a brain counter on it." (Rex, Cyber-Hound): the counter goes on the card in exile
     body = re.sub(r"\b([Ee]xile (?:it|that card)(?: from their graveyard)?) with an? ([a-z]+) counter on it\.", r"\1. Put a \2 counter on it.", body)
     if " times. When you " in body:  # -- pay N times (wave 51A) -- app/rules/paid_x.py
@@ -7193,6 +7195,15 @@ def _watch_whenever(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import watches
 
     return _from_language(watches.parse(m["cond"], m["clause"]))  # (-- turn-long triggers (wave 33A) -- or on the one object it names)
+
+
+# -- block events (wave 53C) -- "Whenever ~ blocks or becomes blocked by a creature this combat, that creature gains first strike until end of turn." (Goblin Flotilla): the same watch, for the
+# combat phase it is made in (it stops watching as that combat ends: combat.end_combat); its "unless you pay {R}" lead is the creating ability's (118.12a: _unless_sentence)
+@effect(r"whenever (?P<cond>.+?) this combat, (?P<clause>(?:(?! unless ).)+)")  # (an "unless you pay" tail is the whole watch's: _unless_sentence)
+def _watch_whenever_combat(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import watches
+
+    return _from_language(watches.parse(m["cond"], m["clause"], this_combat=True))
 
 
 # -- turn-long triggers (wave 33A) -- "Until end of turn, whenever a creature you control dies, …" / "This turn, whenever …" (611.2a)
