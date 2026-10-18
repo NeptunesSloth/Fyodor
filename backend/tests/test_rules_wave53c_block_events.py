@@ -1321,3 +1321,70 @@ def test_goblin_flotilla_blocking_also_gives_the_attacker_first_strike(cards):
     settle(s)
     assert "first strike" in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[raider.id]).keywords  # "blocks or becomes blocked by a creature": that creature
     check(s)
+
+
+def test_godsend_exiles_one_of_the_creatures_blocking_the_equipped_creature_and_bars_its_name(cards):
+    s = sandbox(cards, "Godsend", p2=("Grizzly Bears", "Grizzly Bears"))
+    godsend = on_field(s, "Godsend")
+    brute = creature(s, "p1", "Brute", "5/5")
+    bears = on_field(s, "Grizzly Bears", "p2")
+    other = creature(s, "p2", "Guard", "1/9")
+    attach(s, godsend, brute)
+    combat_step(s)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": brute.id, "target": "p2"}])
+    for _ in range(8):
+        if s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": brute.id} for b in (bears, other)])
+    for _ in range(6):  # one trigger for both blockers (603.2c): Alice may exile one of them, chosen as it resolves (not a target)
+        d = s.state.rules.decision
+        if d is not None:
+            assert d.player == "p1" and {o.card_id for o in d.options} == {bears.id, other.id}
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id])
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    else:
+        raise AssertionError("Godsend never asked")
+    settle(s)
+    assert zone_of(s, bears) == "p2:exile" and alive(s, other)
+    hand_bears = next(c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2" and c.zone == "p2:library")
+    act(s, "p2", type="move", card_ids=[hand_bears.id], to={"zone": "hand"})
+    pool(s, "p2", G=1, C=1)
+    priority_to(s, "p2")
+    with pytest.raises(ActionError):  # 201.2a: the same name as the card exiled with Godsend
+        act(s, "p2", type="cast_spell", card_id=hand_bears.id)
+    check(s)
+
+
+def _godsend_blocks(cards, choice):
+    """Bob's Raider attacks; Alice's Godsend-equipped Wall blocks it; Alice answers Godsend's "you may exile one of those creatures" with ``choice``."""
+    s = sandbox(cards, "Godsend")
+    godsend = on_field(s, "Godsend")
+    wall = creature(s, "p1", "Wall", "0/9")
+    raider = creature(s, "p2", "Raider", "1/9")
+    attach(s, godsend, wall)
+    combat_step(s)
+    to_postcombat(s)
+    bob_swings(s, [raider], [(wall, raider)])
+    for _ in range(6):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p1" and [o.card_id for o in d.options] == [raider.id]  # the equipped creature blocked it (509.3b)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[raider.id] if choice else [])
+    settle(s)
+    return s, raider
+
+
+def test_godsend_exiles_the_creature_the_equipped_creature_blocked(cards):
+    s, raider = _godsend_blocks(cards, True)
+    assert not alive(s, raider) and zone_of(s, raider) in (None, "p2:exile")  # (a token exiled ceases to exist, 111.7)
+    check(s)
+
+
+def test_godsend_is_a_may(cards):
+    s, raider = _godsend_blocks(cards, False)
+    assert alive(s, raider)
+    check(s)

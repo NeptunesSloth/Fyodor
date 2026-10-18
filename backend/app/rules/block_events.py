@@ -13,7 +13,7 @@ blocked by a legendary creature this turn", "destroy all Auras attached to that 
 The reference ("it", "that creature", "target creature") is a placeholder in the selector (extra ``rel:<kind>@<ref>``) bound when an instruction
 runs (``bind``): ``@that`` the object the trigger event is about (else the first target), ``@target`` the first target, ``@targets`` every target,
 ``@src`` the ability's source (an activated ability, a trigger about the source itself, a static: the ``source`` the selector is matched with, as
-the older ``blocking_source`` extras), ``@pron`` an unresolved "it" that scripts.define turns into one of these by what the ability is. A bound reference
+the older ``blocking_source`` extras), ``@host`` what that source is attached to ("equipped creature", "enchanted creature"), ``@pron`` an unresolved "it" that scripts.define turns into one of these by what the ability is. A bound reference
 is ``@obj:<object id>[,…]`` (JSON-native: it survives a pause for a decision, a save, undo and replay). A reference with nothing to bind is
 ``@none``: it matches nothing.
 
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 PLACEHOLDER = re.compile(r"rel:(\w+)@(that|target|targets)\b")
 _REFS = {"it": "pron", "that creature": "that", "that permanent": "that", "~": "src", "this creature": "src", "those creatures": "targets",
-         "one of those creatures": "targets"}
+         "one of those creatures": "targets", "equipped creature": "host", "enchanted creature": "host"}
 _TARGET = r"target (?:creature|land|permanent(?: you (?:own|control))?|artifact|enchantment)"
 _REF = "|".join([*sorted(map(re.escape, _REFS), key=len, reverse=True), _TARGET])
 
@@ -96,8 +96,8 @@ def register() -> None:
 
     suffixes = [
         # (the older extras read ~ and "blocking it": selectors._blocking_source, _block_pair_source)
-        (re.compile(r"(?:,)? (?P<k>blocking or blocked by|blocked by) (?P<r>it|that creature|target creature|those creatures)$"), _blocks),
-        (re.compile(r"(?:,)? (?P<k>blocking) (?P<r>that creature|target creature|those creatures|one of those creatures)$"), _blocks),
+        (re.compile(r"(?:,)? (?P<k>blocking or blocked by|blocked by) (?P<r>it|that creature|target creature|those creatures|equipped creature|enchanted creature)$"), _blocks),
+        (re.compile(r"(?:,)? (?P<k>blocking) (?P<r>that creature|target creature|those creatures|one of those creatures|equipped creature|enchanted creature)$"), _blocks),
         (re.compile(rf"(?:,)? that (?P<v>blocked or (?:was|were) blocked by|blocked|was blocked by|were blocked by) (?:(?P<r>{_REF})|(?P<sel>an? .+?)) "
                     r"this (?P<t>turn|combat)$"), _history),
         (re.compile(rf"(?:,)? (?:that(?:'s| is| are) )?attached to (?P<r>that creature|it|{_TARGET})$"), _attached),
@@ -111,6 +111,10 @@ def _refs(ref: str, source: str | None, plan: Plan) -> list[str]:
     """The object ids a bound reference names; ``@src``: the source, as it is (or as it last existed, 608.2h)."""
     if ref.startswith("obj:"):
         return ref[4:].split(",")
+    if ref == "host" and source:  # (the permanent the source Equipment / Aura is attached to now: "equipped creature", "enchanted creature")
+        src = plan.state.cards.get(source)
+        host = plan.state.cards.get(src.attached_to or "") if src is not None and src.zone.endswith(":battlefield") else None
+        return [plan.oid(host)] if host is not None and host.zone.endswith(":battlefield") else []
     if ref == "src" and source:
         src = plan.state.cards.get(source)
         if src is not None and src.zone.endswith(":battlefield"):
@@ -254,6 +258,15 @@ def both_creatures(cond: dict[str, Any], body: str) -> tuple[list[dict[str, Any]
         return None
     if cond.get("subject") == "host" and body == "destroy both creatures.":
         return [{"do": "destroy", "who": "union:ref:event_other+host"}], None, False
+    if cond.get("subject") == "host" and cond.get("aggregate") and body == "you may exile one of those creatures.":
+        # (Godsend: one of the creatures blocking or blocked by the equipped creature as this resolves, chosen by its controller, not targeted: 608.2d, 115.1; the exile is the linked ability's, 607.2a)
+        from app.rules import selectors
+
+        sel = selectors.parse("creature blocking or blocked by equipped creature")
+        if sel is None:
+            return None
+        pick = {"do": "player_chooses", "who": "you", "sel": sel.key(), "n": 1, "label": "creature", "any": True, "upto": True, "optional": True, "as": "e0"}
+        return [pick, {"do": "exile", "who": "ref:e0", "link": True}], None, False
     if cond.get("subject", "self") == "self" and body == "~ and that creature phase out.":  # (Dream Fighter: both phase out, 702.26a)
         return [{"do": "phase_out", "who": "union:self+ref:event_other"}], None, False
     if cond.get("subject", "self") == "self" and cond["event"] == "blocked" and body == "that creature gets -X/-0 until end of turn, where X is half the creature's power, rounded down.":
