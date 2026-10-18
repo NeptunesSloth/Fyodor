@@ -904,6 +904,9 @@ class Permission(BaseModel):
     # of them may be used (consume ends the others when the last is)
     group: str = ""
     left: int = 0
+    # -- trigger other (wave 51E) -- "During any turn you attacked with a token, you may play that card.": a condition (conditions grammar) the turn must meet, read
+    # whenever the card is played or cast; ``source`` is the object whose ability granted it
+    when: dict[str, Any] | None = None
 
 
 class CostModifier(BaseModel):

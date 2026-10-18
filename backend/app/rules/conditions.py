@@ -1819,6 +1819,8 @@ def _cast_how(t: str) -> Condition | None:
         # -- named permanents (wave 35C) -- Fblthp: put onto the battlefield from the library, or cast from it (it enters from the stack then: 400.7, 601.2a)
         who = _cast_who(m["w"])
         return {"any": [{"object": who, "cast": {"entered_from": "your library"}}, {"object": who, "cast": {"by_you": False, "from": "library"}}]}
+    if t == "none of them were cast or no mana was spent to cast them":  # -- trigger other (wave 51E) -- Satoru, the Infiltrator: every object of an aggregated enter
+        return {"object": "event", "cast": {"none_paid": True}}
     if t == "it wasn't put onto the battlefield with this ability":  # -- trigger other (wave 51E) -- Kodama of the East Tree: Entry.via (the source's own effect)
         return {"object": "it", "cast": {"put_by_this": False}}
     m = re.fullmatch(r"(?P<who>it|~|this creature|that creature) entered from (?P<z>your graveyard|a graveyard|exile|your hand)", t)
@@ -1893,6 +1895,11 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         refs = context._object_refs(ctx, context.EVENT) if cond.get("object") == "event" else []
         oid = refs[0].object_id if refs else ctx.get("source_object") if cond.get("object") == "self" else None
         return history.entry_came_from(plan, oid, how["entered_from"], ctx["controller"])
+    if how.get("none_paid"):  # -- trigger other (wave 51E) -- each object either wasn't cast or had no mana spent on it (a cast by hand: not known, so it never holds, as _no_mana_spent)
+        from app.rules import context
+
+        recs = [plan.rules.payments.get(r.object_id) for r in context._object_refs(ctx, context.EVENT)]
+        return all(r is None or r.cast_from is None or (r.mana_known and sum(r.mana_spent.values()) == 0) for r in recs)
     if "put_by_this" in how:  # -- trigger other (wave 51E) -- the entry of the object the event is about, put there by this source's effect (Kodama)
         from app.rules import context, history
 
