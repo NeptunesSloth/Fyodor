@@ -42,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant", "Zenith Chronicler", "Court of Ambition", "Fatal Push", "Case of the Ransacked Lab", "Case of the Locked Hothouse", "Case of the Shifting Visage", "Swarmyard Massacre", "Summon: Leviathan", "Thraben Charm", "Stonespeaker Crystal", "The Death of Gwen Stacy", "Reaver Titan", "Persistent Constrictor", "Open the Way"])
+@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant", "Zenith Chronicler", "Court of Ambition", "Fatal Push", "Case of the Ransacked Lab", "Case of the Locked Hothouse", "Case of the Shifting Visage", "Swarmyard Massacre", "Summon: Leviathan", "Thraben Charm", "Stonespeaker Crystal", "The Death of Gwen Stacy", "Reaver Titan", "Persistent Constrictor", "Open the Way", "Old Stickfingers", "Skyserpent Seeker", "The Ring Goes South"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -688,6 +688,34 @@ def test_open_the_way_reveals_until_x_lands_and_x_is_capped_by_the_players(cards
     check(s)
 
 
+def test_old_stickfingers_cast_trigger_reveals_until_x_creature_cards(cards):
+    """"When you cast this spell, reveal cards ... until you reveal X creature cards. Put all creature cards revealed this way into your graveyard, then put the rest on the bottom ...": X = 2 takes Bears and Hill Giant."""
+    s = build(cards, ["Old Stickfingers", "Grizzly Bears", "Hill Giant"], forests=12)
+    for name in reversed(["Grizzly Bears", "Forest", "Hill Giant"]):
+        act(s, "p1", type="move", card_ids=[card_named(s, name).id], to={"player": "p1", "zone": "library"}, position="top")
+    spell = to_hand(s, "Old Stickfingers")
+    mana(s, B=1, G=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id, x_value=2)
+    settle(s)
+    assert zone_of(s, "Grizzly Bears") == "p1:graveyard" and zone_of(s, "Hill Giant") == "p1:graveyard"
+    assert zone_of(s, "Old Stickfingers") == "p1:battlefield" and pt(s, "Old Stickfingers") == (2, 2)  # (its size: the creature cards in my graveyard)
+    check(s)
+
+
+def test_skyserpent_seeker_exhaust_reveals_until_two_lands(cards):
+    s = build(cards, ["Skyserpent Seeker", "Grizzly Bears"], forests=12)
+    for name in reversed(["Grizzly Bears", "Forest"]):
+        act(s, "p1", type="move", card_ids=[card_named(s, name).id], to={"player": "p1", "zone": "library"}, position="top")
+    seeker = put(s, "Skyserpent Seeker")
+    mana(s, C=4)
+    act(s, "p1", type="activate_ability", card_id=seeker.id, ability=next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(seeker).abilities if a.text.startswith("Exhaust")))
+    settle(s)
+    lands = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Forest"]
+    assert len(lands) == 2 and all(c.tapped for c in lands) and zone_of(s, "Grizzly Bears") == "p1:library"
+    assert s.state.cards[seeker.id].counters.get("+1/+1", 0) == 1
+    check(s)
+
+
 def test_reaver_titan_has_protection_from_mana_value_three_or_less_despite_its_flavor_word(cards):
     """"Void Shields - Protection from mana value 3 or less" (a flavor word, 207.2d): Bob's Grizzly Bears (mana value 2) can't block it, his Hill Giant (4) can."""
     s = build(cards, ["Reaver Titan", "Craw Wurm"], ["Grizzly Bears", "Hill Giant"])
@@ -726,4 +754,24 @@ def test_case_of_the_locked_hothouse_is_solved_with_seven_lands(cards):
     to_phase(s, "end")
     settle(s)
     assert "Solved" in s.state.cards[case.id].choices
+    check(s)
+
+
+@pytest.mark.parametrize("legends, taken", [(2, 2), (0, 0)])
+def test_the_ring_goes_south_reveals_until_x_lands_where_x_is_your_legendary_creatures(cards, legends, taken):
+    """"Reveal cards ... until you reveal X land cards, where X is the number of legendary creatures you control" (701.20, 608.2c): X = 2 takes two Forests, X = 0 reveals nothing."""
+    s = build(cards, ["The Ring Goes South", "Grizzly Bears", "Krenko, Mob Boss", "Karador, Ghost Chieftain"], forests=12)
+    for name in ["Krenko, Mob Boss", "Karador, Ghost Chieftain"][:legends]:
+        put(s, name)
+    for name in reversed(["Grizzly Bears", "Forest"]):
+        act(s, "p1", type="move", card_ids=[card_named(s, name).id], to={"player": "p1", "zone": "library"}, position="top")
+    spell = to_hand(s, "The Ring Goes South")
+    mana(s, G=4)
+    before = len(s.state.zones["p1:library"])
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    settle(s)
+    lands = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Forest"]
+    assert len(lands) == taken and all(c.tapped for c in lands)
+    assert len(s.state.zones["p1:library"]) == before - taken
+    assert zone_of(s, "Grizzly Bears") == "p1:library"  # (revealed cards that were not lands went to the bottom)
     check(s)

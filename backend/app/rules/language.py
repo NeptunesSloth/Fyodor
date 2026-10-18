@@ -1073,7 +1073,7 @@ _PUT_DOWN = re.compile(rf"put (?:the top {_N_CARDS} of {_LIB}|(?P<hand>any numbe
 _DOWN = re.compile(rf"(?P<s>target opponent|an opponent|you) separates? the top {_N_CARDS} of your library into a face-down pile and a "
                    r"face-up pile, then (?P<tail>you put one pile into your hand and the other into your graveyard|an opponent chooses "
                    r"one of them, then you put that pile into your hand and the other into your graveyard)")
-_UNTIL = re.compile(rf"(?P<verb>reveal|exile) cards from the top of {_LIB} until you (?P=verb) (?:(?P<cnt>two|three|four|five|six|seven|X) |an? )(?P<sel>.+)")  # (wave 51C: "until you reveal two land cards" / "X land cards", the Nth match)
+_UNTIL = re.compile(rf"(?P<verb>reveal|exile) cards from the top of {_LIB} until you (?P=verb) (?:(?P<cnt>two|three|four|five|six|seven|X) |an? )(?P<sel>.+?)(?:, where X is (?P<w>.+))?")  # (wave 51C: "until you reveal two land cards" / "X land cards, where X is the number of legendary creatures you control" (The Ring Goes South), the Nth match)
 # -- look and distribute (wave 3L) -- where the picked / remaining cards go; a library may be "that library"
 # / "that player's library" (the one looked at), a graveyard "their graveyard"
 _LIBREF = r"(?:your|that|their|that player's) library"
@@ -1343,8 +1343,11 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         do = "look_top" if m["verb"] == "reveal" else "exile_top"
         if m["cnt"] and do != "look_top":
             raise _Fail
+        if m["w"] and m["cnt"] != "X":
+            raise _Fail
+        need = (_rider_value(m["w"]) if m["w"] else {"x": 1}) if m["cnt"] == "X" else values.NUMBERS[m["cnt"]] if m["cnt"] else None
         return [{"do": do, "n": 0, "player": who, "until": _card_sel(m["sel"]), **({"reveal": True} if do == "look_top" else {}),
-                 **({"need": {"x": 1} if m["cnt"] == "X" else values.NUMBERS[m["cnt"]]} if m["cnt"] else {})}], \
+                 **({"need": need} if m["cnt"] else {})}], \
             _one(group)
     kinds = _pick_kinds(text) or _pick_alts(text)  # -- refused look/cast-free (wave 3R5) -- (_pick_alts: wave 16F)
     if kinds is not None:
