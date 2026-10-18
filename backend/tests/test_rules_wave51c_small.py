@@ -42,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant", "Zenith Chronicler", "Court of Ambition", "Fatal Push", "Case of the Ransacked Lab", "Case of the Locked Hothouse", "Case of the Shifting Visage"])
+@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant", "Zenith Chronicler", "Court of Ambition", "Fatal Push", "Case of the Ransacked Lab", "Case of the Locked Hothouse", "Case of the Shifting Visage", "Swarmyard Massacre", "Summon: Leviathan", "Thraben Charm", "Stonespeaker Crystal", "The Death of Gwen Stacy"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -623,6 +623,46 @@ def test_case_of_the_locked_hothouse_plays_from_the_top_of_the_library_once_solv
     else:
         with pytest.raises(ActionError):
             act(s, "p1", type="play_land", card_id=top)
+    check(s)
+
+
+def test_swarmyard_massacre_shrinks_everything_that_is_not_a_squirrel_insect_rat_or_spider(cards):
+    """Two Squirrel tokens, then each creature that isn't an Insect, Rat, Spider, or Squirrel gets -1/-1 for each of those I control (2): Bears (2/2) and Elves (1/1) die, Hill Giant (3/3) lives, the Squirrels aren't hit."""
+    s = build(cards, ["Swarmyard Massacre", "Llanowar Elves"], ["Grizzly Bears", "Hill Giant"])
+    elves, bears, giant = put(s, "Llanowar Elves"), put(s, "Grizzly Bears", "p2"), put(s, "Hill Giant", "p2")
+    mana(s, B=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Swarmyard Massacre").id)
+    settle(s)
+    assert (s.state.cards[elves.id].zone, s.state.cards[bears.id].zone, s.state.cards[giant.id].zone) == ("p1:graveyard", "p2:graveyard", "p2:battlefield")
+    assert pt(s, "Hill Giant", "p2") == (1, 1)
+    assert sum(1 for c in s.state.cards.values() if c.name == "Squirrel" and c.zone == "p1:battlefield") == 2
+    check(s)
+
+
+@pytest.mark.parametrize("targets,exiled", [(["p1", "p2"], {"p1", "p2"}), (["p2"], {"p2"}), ([], set())])
+def test_thraben_charm_exiles_the_graveyards_of_the_players_it_targets(cards, targets, exiled):
+    """"Exile any number of target players' graveyards.": zero, one or both players, each graveyard whole."""
+    s = build(cards, ["Thraben Charm", "Llanowar Elves", "Lightning Bolt"], ["Grizzly Bears", "Hill Giant"])
+    for pid, names in (("p1", ("Llanowar Elves", "Lightning Bolt")), ("p2", ("Grizzly Bears", "Hill Giant"))):
+        act(s, pid, type="move", card_ids=[card_named(s, n, pid).id for n in names], to={"player": pid, "zone": "graveyard"})
+    mana(s, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Thraben Charm").id, modes=[2], targets=targets, target_counts=[len(targets)])
+    settle(s)
+    for pid in ("p1", "p2"):
+        own_spell = 1 if pid == "p1" else 0  # (Thraben Charm itself goes to Alice's graveyard once it has resolved)
+        assert len(s.state.zones[f"{pid}:graveyard"]) == (own_spell if pid in exiled else 2 + own_spell)
+        assert len(s.state.zones[f"{pid}:exile"]) == (2 if pid in exiled else 0)
+    check(s)
+
+
+def test_summon_leviathan_returns_creatures_that_are_not_sea_creatures(cards):
+    s = build(cards, ["Summon: Leviathan", "Llanowar Elves"], ["Grizzly Bears"])
+    elves, bears = put(s, "Llanowar Elves"), put(s, "Grizzly Bears", "p2")
+    mana(s, U=2, C=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Summon: Leviathan").id)
+    settle(s)
+    assert (s.state.cards[elves.id].zone, s.state.cards[bears.id].zone) == ("p1:hand", "p2:hand")
+    assert zone_of(s, "Summon: Leviathan") == "p1:battlefield"  # (it is a Leviathan itself)
     check(s)
 
 

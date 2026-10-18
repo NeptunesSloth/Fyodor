@@ -431,12 +431,12 @@ def _power_over_base(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "power_gt_base"))
 
 
-@_suffix(r"that (?:isn't|is not|aren't|are not) an? (?P<sub>[A-Z][A-Za-z]+)")  # -- commanders (wave 47A) -- Heliod, the Radiant Dawn: "enchantment card that isn't a God" (a subtype, 205.3)
+@_suffix(r"that (?:isn't|is not|aren't|are not) an? (?P<sub>[A-Z][A-Za-z]+(?:(?:, | or |, or )[A-Z][A-Za-z]+)*)")  # -- commanders (wave 47A) -- Heliod, the Radiant Dawn: "enchantment card that isn't a God" (a subtype, 205.3); wave 51C: a list, "that isn't a Kraken, Leviathan, or Serpent" - none of them
 def _isnt_subtype(s: Selector, m: re.Match[str]) -> Selector:
-    core = _core(m["sub"])
-    if core is None or core[0] != "sub":
+    cores = [_core(w) for w in re.split(r", or |, | or ", m["sub"])]
+    if any(core is None or core[0] != "sub" for core in cores):
         raise ValueError(m["sub"])
-    return replace(s, not_subtypes=(*s.not_subtypes, core[1]))
+    return replace(s, not_subtypes=(*s.not_subtypes, *(core[1] for core in cores if core)))
 
 
 @_suffix(r"with toughness greater than (?:its|their) power")  # (Ghalta the Immovable, Bedrock Tortoise)

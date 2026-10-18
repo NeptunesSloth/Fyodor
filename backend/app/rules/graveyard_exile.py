@@ -39,4 +39,12 @@ def _effect(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "exile", "who": PREFIX + who}], target
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_EXILE, _effect)]
+def _many(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """-- graveyard exile (wave 51C) -- "Exile any number of target players' graveyards." (Thraben Charm, Stonespeaker Crystal): one target group of zero or more players (115.1, 601.2c),
+    each one's whole graveyard exiled at once"""
+    from app.rules import language  # (a leaf module)
+
+    return [{"do": "exile", "who": PREFIX + "target"}], language.target_group("any number of target players")
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_EXILE, _effect), (re.compile(r"^exile any number of target players' graveyards$"), _many)]
