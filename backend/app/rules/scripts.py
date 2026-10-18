@@ -4719,11 +4719,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     from app.rules import (
         merged,  # -- merged permanents (wave 18D) -- meld wordings carry card names with commas
+        reanimate_auras,  # -- reanimation Auras (wave 51F) -- Animate Dead, Dance of the Dead, Necromancy: the whole enters trigger
     )
 
     text = self_text(merged.protect(ability.text), ch.name)
-    from app.rules import reanimate_auras  # -- reanimation Auras (wave 51F) -- Animate Dead, Dance of the Dead, Necromancy: the whole enters trigger
-
     if (reanimating := reanimate_auras.define(text, ch)) is not None:
         return reanimating
     # -- token copies (wave 31C) -- a plural name's own "they" / "them" (The Notary Hobbits: "When ~ enter, if they're not a token, create two tokens that are copies of them")

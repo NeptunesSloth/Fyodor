@@ -71,7 +71,7 @@ def attach_returned(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     mine, new = effects._cards(plan, ctx, "self"), effects._cards(plan, ctx, "ref:e0")
     if mine and new:
-        plan.rules.aura_links[plan.oid(mine[0])] = [plan.oid(c) for c in new]
+        plan.rules.aura_links.setdefault(plan.oid(mine[0]), []).extend(plan.oid(c) for c in new)
         attachments.attach(plan, mine[0], new[0], ctx["controller"])  # (doesn't move if it can't be enchanted, 303.4j: 704.5m then ends it)
     return True
 
