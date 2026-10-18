@@ -547,7 +547,7 @@ def _aura_card_effects(effects: list[dict[str, Any]]) -> list[dict[str, Any]] | 
         # battlefield" (the Genju, Screams from Within): the trigger is the Aura's own, put on the stack while it is still on the battlefield, and
         # "this card" is its new object in the graveyard when the ability resolves (400.7f; effects._aura_card)
         returns = e.get("do") in ("return_card", "deferred:return_card") and e.get("who") in ("self", "self_gy") and e.get("to") in ("hand", "battlefield") \
-            and not e.get("host")  # (-- attached events (wave 40B) -- a delayed one ("at the beginning of the next end step") is the same card, flat in the list)
+            and e.get("host") in (None, "target")  # (-- block events (wave 53C) -- "… transformed under your control attached to target opponent" (Radiant Grace): a host the ability targets)  # (-- attached events (wave 40B) -- a delayed one ("at the beginning of the next end step") is the same card, flat in the list)
         if (e.get("do") == "bounce" and e.get("who") == "self") or returns:
             e = {**e, "who": AURA_CARD}
         out.append(e)
@@ -7073,6 +7073,21 @@ def _host_controller_sacrifices_it(m: re.Match[str]) -> tuple[list[dict[str, Any
     if made is None:
         raise _NoMatch
     return sacrifice + made, None
+
+
+# -- block events (wave 53C) -- 701.21a: "At the beginning of your upkeep, enchanted permanent's controller sacrifices a nonland permanent of their choice, then that player loses 1 life."
+# (Strangling Grasp): the controller of what it enchants chooses among their own permanents; that player is fixed as it is first read (effects._players "host_controller"), so the life
+# is lost even when the permanent they chose was the enchanted one
+@effect(r"enchanted (?:creature|permanent)'s controller sacrifices an? (?P<sel>[^,.]+?) of their choice(?:, then that player loses (?P<life>\d+) life)?")
+def _host_controller_edict(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language
+
+    try:
+        key = language._permanent_sel(m["sel"])
+    except language._Fail:
+        raise _NoMatch from None
+    edict = {"do": "edict", "who": "host_controller", "sel": key, "n": 1, "label": m["sel"]}
+    return [edict, *([{"do": "lose_life", "who": "host_controller", "n": int(m["life"])}] if m["life"] else [])], None
 
 
 @effect(rf"at the beginning of (?P<when>{_delayed.WHEN_RE}), (?P<clause>.+)")

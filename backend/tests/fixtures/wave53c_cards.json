@@ -277,44 +277,6 @@
   "toughness": "2"
  },
  {
-  "name": "Radiant Grace // Radiant Restraints",
-  "layout": "transform",
-  "mana_cost": "{W} // ",
-  "cmc": 1.0,
-  "type_line": "Enchantment — Aura // Enchantment — Aura Curse",
-  "oracle_text": "Enchant creature\nEnchanted creature gets +1/+0 and has vigilance.\nWhen enchanted creature dies, return this card to the battlefield transformed under your control attached to target opponent.\n//\nEnchant player\nCreatures enchanted player controls enter tapped.",
-  "colors": [
-   "W"
-  ],
-  "color_identity": [
-   "W"
-  ],
-  "keywords": [
-   "Transform",
-   "Enchant"
-  ],
-  "card_faces": [
-   {
-    "name": "Radiant Grace",
-    "mana_cost": "{W}",
-    "type_line": "Enchantment — Aura",
-    "oracle_text": "Enchant creature\nEnchanted creature gets +1/+0 and has vigilance.\nWhen enchanted creature dies, return this card to the battlefield transformed under your control attached to target opponent.",
-    "colors": [
-     "W"
-    ]
-   },
-   {
-    "name": "Radiant Restraints",
-    "mana_cost": "",
-    "type_line": "Enchantment — Aura Curse",
-    "oracle_text": "Enchant player\nCreatures enchanted player controls enter tapped.",
-    "colors": [
-     "W"
-    ]
-   }
-  ]
- },
- {
   "name": "Magitek Scythe",
   "layout": "normal",
   "mana_cost": "{4}",
@@ -1360,6 +1322,44 @@
   ],
   "keywords": [
    "Enchant"
+  ]
+ },
+ {
+  "name": "Radiant Grace // Radiant Restraints",
+  "layout": "transform",
+  "mana_cost": "{W} // ",
+  "cmc": 1.0,
+  "type_line": "Enchantment — Aura // Enchantment — Aura Curse",
+  "oracle_text": "Enchant creature\nEnchanted creature gets +1/+0 and has vigilance.\nWhen enchanted creature dies, return this card to the battlefield transformed under your control attached to target opponent.\n//\nEnchant player\nCreatures enchanted player controls enter tapped.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Transform",
+   "Enchant"
+  ],
+  "card_faces": [
+   {
+    "name": "Radiant Grace",
+    "mana_cost": "{W}",
+    "type_line": "Enchantment — Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +1/+0 and has vigilance.\nWhen enchanted creature dies, return this card to the battlefield transformed under your control attached to target opponent.",
+    "colors": [
+     "W"
+    ]
+   },
+   {
+    "name": "Radiant Restraints",
+    "mana_cost": "",
+    "type_line": "Enchantment — Aura Curse",
+    "oracle_text": "Enchant player\nCreatures enchanted player controls enter tapped.",
+    "colors": [
+     "W"
+    ]
+   }
   ]
  }
 ]

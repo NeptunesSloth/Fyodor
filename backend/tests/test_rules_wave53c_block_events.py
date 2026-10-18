@@ -1118,3 +1118,113 @@ def test_sungold_sentinel_needs_three_creatures_with_different_powers(cards):
     with pytest.raises(ActionError):
         activate(s, "p1", sentinel, "Choose a color")
     check(s)
+
+
+# -- double-faced Auras and Curses that come back attached to an opponent (701.3, 303.4, 712.14a) --
+WITCH = "Accursed Witch // Infectious Curse"
+GRACE = "Radiant Grace // Radiant Restraints"
+STRANGLER = "Vengeful Strangler // Strangling Grasp"
+
+
+def kill(s, c, answer=True):
+    """Lethal damage, then the state-based actions (704.5g): the creature dies by the rules, and what it triggered resolves (``answer``: with the first options)."""
+    act(s, "p1", type="set_damage", card_ids=[c.id], delta=99)
+    act(s, s.state.rules.priority or "p1", type="pass_priority")
+    if answer:
+        settle(s)
+
+
+def until_asked(s, limit=200):
+    """Pass priority until a decision other than the combat declarations is asked (returned)."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        else:
+            return d
+    raise AssertionError("nothing was asked")
+
+
+def test_accursed_witch_comes_back_as_a_curse_on_the_opponent_and_drains_them(cards):
+    s = sandbox(cards, WITCH)
+    witch = on_field(s, WITCH)
+    main_step(s)
+    old = s.state.rules.object_id(witch.id)
+    kill(s, witch)
+    now = s.state.cards[witch.id]
+    assert now.zone == "p1:battlefield" and now.face == 1 and now.attached_player == "p2" and now.attached_to is None  # 712.14a: a Curse (an Aura) on Bob
+    assert s.state.rules.object_id(witch.id) != old and now.controller == "p1"  # 400.7: a new object, under Alice's control
+    assert Plan(s.state, "p1", s.cards, None).ch(now).name == "Infectious Curse"
+    until(s, lambda s: s.state.turn.number == 3, limit=200)
+    assert s.state.players["p2"].life == 39 and s.state.players["p1"].life == 41  # Bob's upkeep: he loses 1 and Alice gains 1, once
+    check(s)
+
+
+def test_infectious_curse_makes_spells_that_target_the_enchanted_player_cost_one_less(cards):
+    s = sandbox(cards, WITCH, "Rift Bolt")
+    witch = on_field(s, WITCH)
+    guard = creature(s, "p2", "Guard", "2/2")
+    main_step(s)
+    kill(s, witch)
+    with pytest.raises(ActionError):  # the bolt at a creature costs {2}{R} in full
+        cast_now(s, "Rift Bolt", [guard], R=1, C=1)
+    assert alive(s, guard) and s.state.players["p2"].life == 40
+    s = sandbox(cards, WITCH, "Rift Bolt")
+    witch = on_field(s, WITCH)
+    main_step(s)
+    kill(s, witch)
+    cast_now(s, "Rift Bolt", ["p2"], R=1, C=1)  # at the enchanted player: {1}{R} is enough
+    assert s.state.players["p2"].life == 37
+    check(s)
+
+
+def test_radiant_grace_returns_transformed_attached_to_the_opponent_when_its_creature_dies(cards):
+    s = sandbox(cards, GRACE)
+    bear = creature(s, "p1", "Bear", "2/2")
+    main_step(s)
+    aura = cast_now(s, GRACE, [bear], W=1)
+    assert s.state.cards[aura.id].zone == "p1:battlefield" and s.state.cards[aura.id].attached_to == bear.id
+    kill(s, bear)
+    now = s.state.cards[aura.id]
+    assert now.zone == "p1:battlefield" and now.face == 1 and now.attached_player == "p2" and now.attached_to is None  # Radiant Restraints on Bob
+    assert Plan(s.state, "p1", s.cards, None).ch(now).name == "Radiant Restraints"
+    check(s)
+
+
+def test_strangling_grasp_makes_the_enchanted_permanents_controller_sacrifice_and_lose_life(cards):
+    s = sandbox(cards, STRANGLER)
+    strangler = on_field(s, STRANGLER)
+    guard = creature(s, "p2", "Guard", "2/2")  # (Bob's only creature: the one it comes back on)
+    spare = creature(s, "p2", "Spare", "1/1")
+    main_step(s)
+    kill(s, strangler, answer=False)
+    drive(s, prefer=[guard.id])
+    now = s.state.cards[strangler.id]
+    assert now.zone == "p1:battlefield" and now.face == 1 and now.attached_to == guard.id
+    d = until_asked(s)
+    assert d.player == "p2" and s.state.turn.number == 3  # Alice's upkeep: Bob chooses what he sacrifices (701.21a), Alice doesn't
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[spare.id])
+    settle(s)
+    assert not alive(s, spare) and alive(s, guard)
+    assert s.state.players["p2"].life == 39  # then that player loses 1 life
+    check(s)
+
+
+def test_strangling_grasp_still_costs_the_life_when_the_enchanted_creature_is_sacrificed(cards):
+    s = sandbox(cards, STRANGLER)
+    strangler = on_field(s, STRANGLER)
+    guard = creature(s, "p2", "Guard", "2/2")
+    main_step(s)
+    kill(s, strangler)
+    until(s, lambda s: s.state.turn.number == 3, limit=200)  # (Bob's one nonland permanent is the enchanted creature: he must sacrifice it)
+    assert not alive(s, guard) and zone_of(s, strangler) == "p1:graveyard"  # the Aura falls off with it
+    assert s.state.players["p2"].life == 39  # that player is still the one who loses 1 life
+    check(s)
+
+
+def test_the_double_faced_attach_cards_are_full(cards):
+    assert all(full(cards, n) for n in (WITCH, GRACE, STRANGLER))

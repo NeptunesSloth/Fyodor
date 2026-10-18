@@ -169,7 +169,7 @@ def test_the_cards_are_full(name):
     "You may pay {X} rather than pay the mana cost for Samurai spells you cast, where X is that spell's mana value.",
     # (Bruenor's "{0} rather than the equip cost of the first equip ability … each of your turns" is read since wave 48D)
     # cost changers that read something this grammar doesn't (targets, the first spell each turn, chosen names)
-    "Spells you cast that target enchanted player cost {1} less to cast.",
+    # ("Spells you cast that target enchanted player cost {1} less to cast." is read since wave 53C: Infectious Curse, tests/test_rules_wave53c_block_events.py)
     "Spells with the chosen name cost {3} more to cast.",
     "Activated abilities cost {2} more to activate unless they're mana abilities.",
 ])

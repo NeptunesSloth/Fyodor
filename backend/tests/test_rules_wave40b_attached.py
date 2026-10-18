@@ -123,7 +123,12 @@ MANUAL = [card(c["name"], set_code="t40m", number=f"M{i:02d}", **{k: v for k, v 
           for i, c in enumerate(json.loads((Path(__file__).parent / "fixtures" / "wave40b_manual.json").read_text("utf-8")))]
 
 
-@pytest.mark.parametrize("name", [c["name"] for c in json.loads((Path(__file__).parent / "fixtures" / "wave40b_manual.json").read_text("utf-8"))])
+# -- block events (wave 53C) -- Radiant Grace (the Aura returns attached to a target opponent, 303.4f, 712.14a) and Hedron Blade ("becomes blocked by one or more colorless creatures"
+# for equipped creature, 509.3c) are read now (tests/test_rules_wave53c_block_events.py)
+LIFTED_53C = ("Radiant Grace // Radiant Restraints", "Hedron Blade")
+
+
+@pytest.mark.parametrize("name", [c["name"] for c in json.loads((Path(__file__).parent / "fixtures" / "wave40b_manual.json").read_text("utf-8")) if c["name"] not in LIFTED_53C])
 def test_these_stay_manual(name):
     """Never faked: their attached-object wording needs more than this wave reads — Rhuk (the Equipment a creature that died had: unsettled), Preston Garvey and
     Scriv (an Aura token with its own enchant ability), Gift of Immortality / Radiant Grace (the Aura returns attached to another object), Hedron Blade

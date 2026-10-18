@@ -93,6 +93,12 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [who[7:]] if who[7:] in plan.live() else []
     if who == "each_player":
         return list(plan.live())
+    if who == "host_controller":  # -- block events (wave 53C) -- "enchanted permanent's controller": the controller of what the source is attached to, fixed when first read
+        # (608.2c: "then that player loses 1 life" is still that player when the permanent was just sacrificed); no host, nobody
+        if "host_controller" not in ctx:
+            hosts = _cards(plan, ctx, "host")
+            ctx["host_controller"] = plan.state.cards[hosts[0]].controller if hosts else ""
+        return [ctx["host_controller"]] if ctx["host_controller"] in plan.live() else []
     if who == "looked_owner":  # -- most-played cards III (wave 46C) -- the owner of the library the last look or reveal was at
         return [ctx["looked_owner"]] if ctx.get("looked_owner") in plan.live() else []
     if who == "each_opponent":
@@ -2624,8 +2630,9 @@ def _attached_entries(plan: Plan, ctx: Context, host_ref: str, entries: list[dic
     out = []
     for entry in entries:
         card = plan.state.cards[entry["card"]]
-        kind = attachments.attach_kind(plan.ch(card))
-        legal = host is not None and attachments.host_problem(plan, card, host, entry["player"]) is None
+        face = attachments.entering_face(plan, card, entry)  # -- block events (wave 53C) -- 712.14a: transformed, it is the back face that attaches
+        kind = attachments.attach_kind(face or plan.ch(card))
+        legal = host is not None and attachments.host_problem(plan, card, host, entry["player"], face=face) is None
         if kind == "aura" and not legal:
             plan.note("The Aura can't be attached to that: it stays where it is (303.4i)", [card.id])
             continue

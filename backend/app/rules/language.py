@@ -3691,7 +3691,8 @@ _RA_WITH = (r"(?: with (?:(?:an?|one) (?P<add1>additional )?(?P<ck>[+-]\d+/[+-]\
 # "… attached to this creature / that creature" (303.4f, 303.4i, 301.5e): app/rules/effects._return_cards
 # -- attached events (wave 25D) -- also "attached to enchanted creature" (Mantle of the Ancients) and "attached to target creature [you control]"
 # (Gryff's Boon: a target of the ability, chosen with it, 115.1)
-_RA_HOST = r"(?: attached to (?P<host>this creature|~|that creature|enchanted creature|target creature(?: you control)?(?: with power \d+ or less)?))?"
+_RA_HOST = (r"(?: attached to (?P<host>this creature|~|that creature|enchanted creature|target creature(?: you control)?(?: with power \d+ or less)?"
+             r"|target opponent|target creature or planeswalker an opponent controls))?")  # (-- block events (wave 53C) -- a Curse / Aura the other face of a double-faced card, 712.14a)
 # -- enter attacking (wave 30P) -- "… tapped and attacking [that player]" before "under your control" or after it
 # ("put target creature card from that player's graveyard onto the battlefield under your control tapped and attacking that player")
 _RA_TAPPED = rf"(?P<t> tapped(?P<atk> and attacking{token_grammar.AT})?)?"
@@ -3937,6 +3938,9 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         kind, key, group = ref(obj)
     except _Fail:
         return None
+    if kind == "it" and host_group is not None and not may and not hand:  # -- block events (wave 53C) -- "When this creature dies, return it to the battlefield transformed
+        # under your control attached to target opponent": the pronoun is the antecedent's (scripts.resolve_it), the host is the one target
+        return [{**effect, "who": "it", "host": "target"}], _one(host_group)
     if kind == "them" and "|" in key and not may:  # -- resolution memory (wave 22D) -- "each creature card put into a graveyard this way"
         return [{**effect, "who": _who(kind, key)}], None
     if kind not in ("target", "each") or not _graveyard_cards(key):
