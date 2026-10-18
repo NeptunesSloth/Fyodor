@@ -76,6 +76,11 @@ def manifest(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                "the battlefield face down", options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
                min_choices=1, max_choices=1, resume={"step": "manifest_hand", "ctx": ctx, "e": e})
         return False
+    if e.get("library"):  # -- player-relative selectors (wave 53A) -- "you manifest the top card of that player's library" (Thieving Amalgam): another player's card, put onto the battlefield under your control
+        lib = effects._players(plan, ctx, e["library"])
+        if len(lib) != 1:
+            return True
+        e = {**e, "lib_pid": lib[0]}
     order = [p for p in plan.apnap() if p in players]
     ctx.setdefault("manifested", [])
     todo = [(p, effects._amount(plan, ctx, e.get("n", 1))) for p in order]
@@ -95,7 +100,7 @@ def _manifest_next(plan: Plan, ctx: Context, e: dict[str, Any], todo: list[tuple
             todo = todo[1:]
             continue
         todo = [(pid, left - 1), *todo[1:]]
-        library = plan.state.zones.get(zone_key(pid, "library"), [])
+        library = plan.state.zones.get(zone_key(e.get("lib_pid", pid), "library"), [])
         if not library:
             continue  # (nothing to manifest: 701.40f in spirit — the instruction does what it can)
         if e.get("dread"):

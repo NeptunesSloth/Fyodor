@@ -1877,7 +1877,7 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     # players whether one was eligible, so the looker is asked whenever there were cards to look at)
     # (-- hideaway (wave 29D) -- 406.3: a face-down exiled card is as hidden as one in a hand: "has nothing to cast" would tell the table it is a land
     # with no land play left, or a spell that can't be cast)
-    hidden = (e["zone"] in ("hand", "looked") or any(plan.state.cards[c].face_down for c in pool)) and bool(pool)
+    hidden = (e["zone"] in ("hand", "looked", "revealed") or any(plan.state.cards[c].face_down for c in pool)) and bool(pool)
     if not options and not hidden:
         plan.note(f"{plan.name(pid)} has nothing to cast" + ("" if e.get("paid") else " without paying its mana cost"))
         return _free_cast_over(ctx, e)
@@ -1982,6 +1982,8 @@ def _free_pool(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> list[str]:
         owner = ctx.get("looked_owner") or pid
         library = plan.state.zones.get(zone_key(owner, "library"), [])
         return [c for c in ctx.get("looked") or [] if c in library]
+    if zone == "revealed":  # -- player-relative selectors (wave 53A) -- the cards seen in a hand ("look at that player's hand"), while they are still there (400.7)
+        return [c for c in ctx.get("looked_hand") or [] if c in plan.state.cards and plan.state.cards[c].zone.endswith(":hand")]
     if zone == "found":
         found = ctx.get("found")
         card = plan.state.cards.get(found or "")

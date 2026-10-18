@@ -2259,10 +2259,14 @@ def bind_that_player(t: PendingTrigger) -> None:
     player" (controller "that_player") becomes the one player the trigger event is about, as the ability is put on the
     stack and its targets are chosen (603.3d, 608.2k) — "player:<id>", kept for the 608.2b check. An event with no
     single player leaves it unbound (nothing matches: no legal target)."""
-    raw = json.dumps(t.ability)
+    # -- player-relative selectors (wave 53A) -- an instruction tagged ``that`` names its own player (a target, a choice: scripts.resolve_it): the trigger event's player is not it
+    keep = {i: e for i, e in enumerate(t.ability.get("effects") or []) if e.get("that")}
+    raw = json.dumps({**t.ability, "effects": [None if i in keep else e for i, e in enumerate(t.ability["effects"])]} if keep else t.ability)
     if t.event is not None and t.event.defended and '\\"defended_player\\"' in raw:  # -- triggers (wave 19B) -- 508.5: the player the attacker attacked
         raw = raw.replace('\\"controller\\":\\"defended_player\\"', f'\\"controller\\":\\"player:{t.event.defended}\\"')
         t.ability = json.loads(raw)
+        if keep:
+            t.ability = {**t.ability, "effects": [keep.get(i, e) for i, e in enumerate(t.ability["effects"])]}
     players = list(t.event.players) if t.event is not None else []
     if t.event is not None and t.event.kind == "you_attack" and t.event.defended and (t.ability.get("cond") or {}).get("player") == "you":
         players = [t.event.defended]  # (review 27B) "Whenever you attack a player, tap target creature that player controls": the one attacked (508.3e)
@@ -2272,6 +2276,8 @@ def bind_that_player(t: PendingTrigger) -> None:
         marker = f'\\"{key}\\":\\"that_player\\"'
         raw = raw.replace(marker, f'\\"{key}\\":\\"player:{players[0]}\\"')
     t.ability = json.loads(raw)
+    if keep:
+        t.ability = {**t.ability, "effects": [keep.get(i, e) for i, e in enumerate(t.ability["effects"])]}
 
 
 def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:

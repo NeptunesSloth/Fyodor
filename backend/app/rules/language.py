@@ -826,9 +826,9 @@ def _search_selectors(text: str, one: bool) -> dict[str, Any]:
 # your control." (Bribery, Acquire), "… up to three creature cards and put them into their graveyard." (Life's Finale), "… for a card and
 # exile it." (Extract, Bitter Ordeal): the searcher is the ability's controller, the library is the target player's (701.23a); the cards
 # found are the library owner's, so they go to that owner's graveyard or exile, or enter under the searcher's control
-_SEARCH_THEIRS = re.compile(r"search (?P<t>target opponent|target player)'s library for (?P<mid>.+?),? and "
+_SEARCH_THEIRS = re.compile(r"search (?P<t>target opponent|target player|that player)'s library for (?P<mid>.+?)(?:,? and |, )"  # (-- player-relative selectors (wave 53A) -- "that player's": the trigger event's player; "face down": Praetor's Grasp; ", exile them": Sadistic Sacrament)
                             r"(?:put (?:that card|it|them|those cards) (?:(?P<bf>onto the battlefield under your control)|(?P<gy>into (?:their|that player's) graveyard))"
-                            r"|exile (?:it|them))")
+                            r"|exile (?P<pl>it|them)(?P<fd> face down)?)")
 SELECTORS_TARGET = {"target opponent": "opponent", "target player": "player"}
 # -- activated other (wave 42C) -- "Target player searches their library for a card, then shuffles and puts that card on top." (Varragoth): the target player is the
 # searcher (701.23a) and chooses the card from their own library (hidden from the rest); read as "each player searches …", aimed at the one target
@@ -847,11 +847,13 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
             raise _Fail
         return [{**found[0][0], "who": "target"}], SELECTORS_TARGET[tt["t"]]
     if (theirs := _SEARCH_THEIRS.fullmatch(text)) is not None:  # -- static_other sweep (wave 26A) -- another player's library (701.23)
-        std = {"b": "put it onto the battlefield", "g": "put it into your graveyard", "x": "exile it"}[
+        std = {"b": "put it onto the battlefield", "g": "put it into your graveyard", "x": f"exile {theirs['pl']}" + (theirs["fd"] or "")}[
             "b" if theirs["bf"] else "g" if theirs["gy"] else "x"]
         found = _search(f"search your library for {theirs['mid']}, {std}")
         if found is None or found[0][0].get("who", "you") != "you" or found[0][0].get("parts") or found[0][0].get("to2"):
             raise _Fail
+        if theirs["t"] == "that player":  # -- player-relative selectors (wave 53A) -- the player the trigger event names (scripts.resolve_it binds it)
+            return [{**found[0][0], "library": "that_player"}], None
         return [{**found[0][0], "library": "target"}], SELECTORS_TARGET[theirs["t"]]
     # -- recursion & tutors (wave 4M) -- "… then shuffle. You may search your library for a basic land card, put it onto the
     # battlefield, then shuffle." (Demolition Field, mid-ability): searching is the controller's choice, asked first; one
@@ -1068,9 +1070,9 @@ def _search_gy(text: str) -> tuple[Effects, str | None] | None:
 
 # -- the top of a library (401, 701.20 reveal, 701.20e look, 701.24 shuffle) ----------------------
 # Whose library: "your library" (default), a target player's (a target group), everyone's.
-_LIB = r"(?P<lib>your|target player's|target opponent's|that player's|their|each player's|each opponent's) library"
+_LIB = r"(?P<lib>your|target player's|target opponent's|that player's|their|each player's|each opponent's|defending player's) library"  # (-- player-relative selectors (wave 53A) -- defending player's: 508.5)
 _LIB_WHO = {"your": "you", "target player's": "target player", "target opponent's": "target opponent",
-            "that player's": "that player", "their": "that player", "each player's": "each player", "each opponent's": "each opponent"}
+            "that player's": "that player", "their": "that player", "each player's": "each player", "each opponent's": "each opponent", "defending player's": "defending player"}
 _SUBJECTS = r"(?P<subj>target player|target opponent|that player|its controller|that creature's controller|that permanent's controller|defending player|each player|each opponent|each of your opponents)"
 _N_CARDS = rf"(?:(?P<n>{AMT}) cards|card)"
 # (wave 26B: "reveal that many cards from the top of your library": the trigger event's amount, Ojer Kaslem)
@@ -2977,7 +2979,7 @@ LOOK_HAND = rf"look at (?P<s>{CHOOSER})'s hand(?: and (?P<ch>choose .+))?"  # (P
 # "Target player reveals their hand and discards all nonland cards." (Amnesia, Trapfinder's Trick)
 DISCARD_ALL_REVEALED = (rf"(?P<s>{CHOOSER}) reveals their hand and discards all (?:(?P<sel>.+?) )?cards?"
                         r"(?P<tail> with (?:(?:the chosen|that) name|that spell's mana value|mana value (?:equal to the chosen number|\d+))| of the chosen (?:color|type))?")  # (wave 22B: Cabal Therapy, "all cards with that name"; wave 36A: Infernal Kirin)
-DISCARD_NAMED = r"(?:that player|they|its owner) discards? (?P<o>that card|those cards|it|them)"
+DISCARD_NAMED = r"(?:that player|the player|they|its owner) discards? (?P<o>that card|those cards|it|them)"  # (-- player-relative selectors (wave 53A) -- "The player discards that card.": Doomsday Specter)
 CHOICE_KINDS = ("color", "creature type", "basic land type", "opponent", "player")
 CHOOSE_VALUE = rf"choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player with the most life or tied for most life|player|odd or even|{_NAME_WHAT}|{_chosen.TYPE_CHOICE}|{_chosen.NUMBER_CHOICE})"  # (wave 53C: The Black Gate; wave 53B: chosen type and number)  # (wave 50J: odd or even, Thanos)
 CARD_TYPE_FIVE = "artifact, creature, enchantment, instant, or sorcery"  # -- commanders (wave 47A) -- Cloud Key: the five card types it offers
@@ -3734,7 +3736,7 @@ _RA_TAPPED2 = rf"(?P<t2> tapped(?P<atk2> and attacking{token_grammar.at_re('2')}
 _RA_RETURN = re.compile(rf"return (?P<o>.+?) to (?:(?P<h>your hand|its owner's hand|their owner's hand|their owners' hands|their hand)|"
                         rf"the battlefield{_RA_TAPPED}(?P<xf> transformed)?(?P<fd> face down)?{_RA_UNDER}{_RA_TAPPED2}{_RA_WITH}{_RA_HOST})")  # (face down: wave 18A, 708.4; transformed: wave 37B, 712.14a)
 _RA_PUT = re.compile(rf"put (?P<o>.+?) onto the battlefield{_RA_TAPPED}{_RA_UNDER}{_RA_TAPPED2}{_RA_WITH}{_RA_HOST}")
-_RA_ZONE = r"(?:your graveyard|your hand or graveyard|a graveyard|an opponent's graveyard)"  # (-- reanimation (wave 37B) -- Danitha: "from your hand or graveyard")
+_RA_ZONE = r"(?:your graveyard|your hand or graveyard|a graveyard|an opponent's graveyard|that player's graveyard|their graveyard)"  # (-- reanimation (wave 37B) -- Danitha: "from your hand or graveyard"; -- player-relative selectors (wave 53A) -- "that player's / their graveyard": the player named before)
 _RA_CHOICE = re.compile(rf"(?:(?:an?|one) |up to (?P<upto>{AMT}) |(?P<any>any number of )|(?P<n>{AMT}) )(?P<what>(?:[^,]|,(?= [^,]+, or | or ))+?)(?P<rand> at random)?"  # (wave 50I: "an artifact, instant, or sorcery card")
                         rf" from (?P<z>{_RA_ZONE})")
 _RA_SELF = re.compile(r"(?:this card|~) from your graveyard")
@@ -3952,7 +3954,7 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
                 return None
             what = tm[1]
         words = re.sub(r"\bcards\b", "card", what)
-        sel = selectors.parse(f"{words} from {c['z']}")
+        sel = selectors.parse(f"{words} from {c['z'].replace('their graveyard', 'that player' + chr(39) + 's graveyard')}")  # (their = that player's, scripts.resolve_it tags the player)
         if sel is None:
             return None
         if c["z"] == "your hand or graveyard":  # -- reanimation (wave 37B) -- the hidden hand is asked about whether or not a card is there (effects.return_choice)
@@ -4220,6 +4222,11 @@ def _manifest_forms(text: str) -> tuple[Effects, Any] | None:
                                                                               "that player": "that_player"}[m["p"]], "n": n}], None
     if (hand := re.fullmatch(r"(?P<v>manifest|cloak) a card from your hand", text)) is not None:  # -- hidden exile (wave 18A) --
         return [{"do": "manifest", "kind": hand["v"], "who": "you", "n": 1, "from": "hand"}], None  # (Scroll of Fate, Vannifar)
+    other = re.fullmatch(r"(?:you )?(?P<v>manifest|cloak) the top card of (?P<lib>that player's|target opponent's|target player's|defending player's) library", text)
+    if other is not None:  # -- player-relative selectors (wave 53A) -- 701.40a: the top card of another player's library goes onto the battlefield face down under your control
+        who_ = {"that player's": "that_player", "target opponent's": "target", "target player's": "target", "defending player's": "defending_player"}[other["lib"]]
+        group = target_group(other["lib"][:-2]) if who_ == "target" else None
+        return [{"do": "manifest", "kind": other["v"], "who": "you", "n": 1, "library": who_}], _one(group)
     m = _MANIFEST.fullmatch(text)
     if m is None:
         return None
@@ -4236,7 +4243,7 @@ def _manifest_forms(text: str) -> tuple[Effects, Any] | None:
 
 def keyword_forms(text: str) -> tuple[Effects, Any] | None:
     """The keyword-action wordings above; None when the sentence is not one of them."""
-    if text.startswith(("manifest", "cloak", "its controller ", "that player ", "target player ", "target opponent ",
+    if text.startswith(("manifest", "cloak", "you manifest", "you cloak", "its controller ", "that player ", "target player ", "target opponent ",
                         "each player ", "each opponent ")):
         found = _manifest_forms(text)
         if found is not None:

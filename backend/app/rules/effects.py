@@ -35,6 +35,8 @@ from app.rules import (
     layers,
     optional_payment,
     permissions,
+    player_relative,  # -- player-relative selectors (wave 53A) --
+    player_zones,
     protection,
     regeneration,
     replace,  # -- replacement effects stage 2 (wave 2E): the choke points --
@@ -89,6 +91,8 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [p for p in plan.live() if selectors.matches_player(plan, sel, p, me)] if sel.player else []
     if who == "you":
         return [me]
+    if who.startswith(player_relative.TP):  # -- player-relative selectors (wave 53A) -- the player (or the permanent's controller) a target group names
+        return player_relative.players_in(plan, ctx, int(who[len(player_relative.TP):]))
     if who.startswith("player:"):  # -- keywords (wave 15E) -- one named player (ward: the player whose spell or ability targeted)
         return [who[7:]] if who[7:] in plan.live() else []
     if who == "each_player":
@@ -171,6 +175,10 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         return this_way.filtered(plan, ctx, _cards(plan, ctx, base), key)
     if who.startswith("union:"):  # -- block events (wave 53C) -- several references at once: "destroy both creatures"
         return list(dict.fromkeys(c for w in who[len("union:"):].split("+") for c in _cards(plan, ctx, w)))
+    if who.startswith("typed:"):  # -- player-relative selectors (wave 53A) -- "all creature cards of a type chosen this way" (Patriarch's Bidding)
+        return _player_choices.cards_of_types(plan, ctx, who)
+    if who.startswith(player_zones.PREFIX):  # -- player-relative selectors (wave 53A) -- "all cards from target player's hand and graveyard"
+        return player_zones.cards(plan, ctx, who)
     if who.startswith("controlled:"):  # -- damage sized by a count (wave 4E) -- "each creature that player controls"
         return _controlled_by(plan, ctx, who)
     if who.startswith("graveyard_of:"):  # -- graveyard exile (wave 4J) -- "target player's graveyard": every card in it
@@ -763,8 +771,10 @@ def _controlled_by(plan: Plan, ctx: Context, who: str) -> list[str]:
     if players == "target:0" and not ctx.get("groups"):
         players = "target"  # (one target group: the spell's plain target)
     owners = set(_players(plan, ctx, players))
-    return [c for c in selectors.candidates(plan, selectors.from_key(key), ctx["controller"], ctx.get("source_card"))
-            if plan.state.cards[c].controller in owners]
+    sel = selectors.from_key(key)
+    skip = {t["id"] for t in player_relative.other_than(ctx, players, sel)}  # (-- player-relative selectors (wave 53A) -- "each other creature that player controls")
+    return [c for c in selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card"))
+            if plan.state.cards[c].controller in owners and c not in skip]
 # -- end damage sized by a count (wave 4E) --
 
 
@@ -944,7 +954,8 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # read through the selector's "player:<id>" controller, so a creature that comes under their control later this turn is affected too
         players, _, key = who[len("controlled:"):].partition("|")
         for pid in _players(plan, ctx, "target" if players == "target:0" and not ctx.get("groups") else players):
-            mine = selectors.replace(selectors.from_key(key), controller=f"player:{pid}").key()
+            sel = selectors.from_key(key)
+            mine = selectors.replace(sel, controller=f"player:{pid}", extras=(*sel.extras, *(f"not_oid:{t['object_id']}" for t in player_relative.other_than(ctx, players, sel)))).key()  # (-- player-relative selectors (wave 53A) -- "Other creatures that player controls can't block": other than the target)
             made = layers.add_effect(plan, affected=[], layer="6", source=ctx.get("source_object"), controller=ctx["controller"],
                                      imposes=tuple(e["rules"]), label=", ".join(e["rules"]), who=mine, source_card=ctx.get("source_card"),
                                      duration="end_of_next_turn" if duration == "their_turn" else duration)
@@ -3204,7 +3215,8 @@ def shuffle_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     shuffle": asked."""
     if e.get("optional"):
         pid = ctx["controller"]
-        decide(plan, player=pid, kind="confirm", prompt="Shuffle your library?",
+        named = [p for p in _players(plan, ctx, e["who"]) if p != pid]  # -- player-relative selectors (wave 53A) -- "You may have that player shuffle": the choice is the controller's
+        decide(plan, player=pid, kind="confirm", prompt=f"Have {plan.name(named[0])} shuffle their library?" if named else "Shuffle your library?",
                options=[DecisionOption(id="yes", label="Shuffle"), DecisionOption(id="no", label="Don't shuffle")],
                resume={"step": "shuffle_library", "ctx": ctx, "e": {**e, "optional": False}})
         return False
@@ -3585,7 +3597,8 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
         for refs, gspec in zip(entry.groups, entry.group_specs, strict=False):
             # an illegal target keeps its place (None), so the division stays as announced (115.7f)
             together = relation_ok(plan, gspec, refs)  # (wave 51A) "that share a creature type": no longer so, all of the group's targets are illegal (608.2b; Shifting Loyalties ruling)
-            groups.append([t.model_dump() if together and still_legal(plan, gspec["what"], entry.controller, t, src, entry.source_card, attacker)
+            what = player_relative.bind_what(plan, gspec, entry.groups)  # (-- player-relative selectors (wave 53A) -- "that player controls": the player group ``of`` names, as it last was)
+            groups.append([t.model_dump() if together and still_legal(plan, what, entry.controller, t, src, entry.source_card, attacker)
                            else None for t in refs])
         chosen = sum(len(refs) for refs in entry.groups)
         if chosen and not any(t for g in groups for t in g):
@@ -3673,6 +3686,8 @@ def _continue_effects(plan: Plan, ctx: Context) -> None:
         if replacements.ask_903_9b_first(plan, ctx, e):
             return  # 903.9b: a commander's owner chooses before it would be put into a hand or library
         ctx["next"] += 1
+        if e.get("that"):  # -- player-relative selectors (wave 53A) -- "cards that player owns in exile": that player, as the instruction before left it
+            e = player_relative.bind_effect(plan, ctx, e)
         if e.get("note_group"):  # -- counters (wave 5H) -- the permanents a count reads, for a later "those creatures"
             context.bind_objects(plan, ctx, e["note_group"]["as"], _cards(plan, ctx, e["note_group"]["who"]))
         e = block_events.bind(plan, ctx, e)  # -- block events (wave 53C) -- "creatures blocking it", "Auras attached to that creature": the object bound now
@@ -3772,10 +3787,13 @@ def _labels(plan: Plan, cards: list[str]) -> str:
     return ", ".join(plan.state.cards[c].name or "a card" for c in cards if c in plan.state.cards)
 
 
-def _controlled(plan: Plan, key: str, pid: str, source: str | None, you: str | None = None) -> list[str]:
+def _controlled(plan: Plan, key: str, pid: str, source: str | None, you: str | None = None, zone: str | None = None) -> list[str]:
     """The permanents ``pid`` controls that match a selector, evaluated for that player (``you``: -- trigger other (wave 39A) -- or for the ability's
-    controller, whose "you" a qualifier like "that dealt combat damage to you this turn" is)."""
+    controller, whose "you" a qualifier like "that dealt combat damage to you this turn" is). ``zone``: -- player-relative selectors (wave 53A) -- the cards
+    ``pid`` owns in that public zone instead ("choose a creature card in that player's graveyard", 404.1)."""
     sel = selectors.from_key(key)
+    if zone is not None:
+        return [c for c in selectors.candidates(plan, sel, you or pid, source) if plan.state.cards[c].owner == pid and plan.state.cards[c].zone == f"{pid}:{zone}"]
     if sel.zones == ("graveyard",):  # -- group choices (wave 53D) -- "a creature card in their graveyard": the cards in the graveyard of ``pid`` (404.1)
         return [c for c in selectors.candidates(plan, sel, you or pid, source) if plan.state.cards[c].zone == f"{pid}:graveyard"]
     return [c for c in selectors.candidates(plan, sel, you or pid, source)
@@ -3799,7 +3817,7 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
         # for each player" (Tragic Arrogance): the ability's controller decides what each player's permanents are
         pid, key = (turn, e["sel"]) if isinstance(turn, str) else turn
         mine = _controlled(plan, key, plan.after(pid) if e.get("left") else pid, ctx.get("source_card"),  # (wave 53D: "the player to their left", Grenzo's Rebuttal)
-                           ctx["controller"] if "dealt_combat_damage_you" in key else None)
+                           ctx["controller"] if "dealt_combat_damage_you" in key else None, e.get("zone"))  # (wave 53A: a zone of that player)
         if e.get("any"):  # -- per-player choices (wave 31B) -- any permanent the ability's words allow ("a creature you don't control"), whoever controls it
             mine = [c for c in selectors.candidates(plan, selectors.from_key(key), ctx["controller"], ctx.get("source_card"))
                     if plan.state.cards[c].zone.endswith(":battlefield") or selectors.from_key(key).zones != ("battlefield",)]  # (wave 53D: or cards of another zone)
@@ -3954,6 +3972,8 @@ def reveal_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     ctx["revealed"] = revealed
     if e.get("as") and not e.get("private"):  # -- chosen filters (wave 53B) -- "for each card of the chosen type revealed this way": the cards shown to everyone (701.20a)
         context.bind_objects(plan, ctx, e["as"], revealed)
+    if e.get("private"):
+        ctx["looked_hand"] = list(revealed)  # -- player-relative selectors (wave 53A) -- "look at that player's hand. You may cast a spell from among those cards": the cards seen (permissions._free_pool "revealed")
     if not ctx.get("hide_queued"):  # (appended in place: the resolver walks the same list)
         ctx["hide_queued"] = True
         ctx["effects"].append({"do": "hide_revealed"})
@@ -4076,6 +4096,8 @@ def discard_named(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 # Named choices (105.1 colors, 205.3m creature types, 205.3i basic land types, players).
+MOST_LIFE = "player with the most life or tied for most life"  # -- player-relative selectors (wave 53A), block events (wave 53C) -- The Black Gate
+PLAYER_CHOICES = ("opponent", "player", MOST_LIFE)
 CHOICE_OPTIONS: dict[str, list[str]] = {
     "color": ["White", "Blue", "Black", "Red", "Green"],
     "odd or even": ["Odd", "Even"],  # -- chosen quality (wave 50J) -- 107.1: zero is even
@@ -4142,8 +4164,6 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
     return [DecisionOption(id=v, label=v) for v in CHOICE_OPTIONS[what]]
 
 
-MOST_LIFE = "player with the most life or tied for most life"
-
 
 def _bind_chosen_player(ctx: Context, pid: str) -> None:
     """-- block events (wave 53C) -- "Choose a player with the most life or tied for most life. Target creature can't be blocked by creatures that player controls": "that player" of the
@@ -4179,12 +4199,13 @@ def choose_value(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
     value = chosen[0]
-    shown = plan.name(value) if e["what"] in ("opponent", "player", MOST_LIFE) else value
+    shown = plan.name(value) if e["what"] in PLAYER_CHOICES else value
     if e["what"] == MOST_LIFE:
         _bind_chosen_player(ctx, value)
     plan.note(f"{plan.name(d.player)} chooses {shown} ({e['what']})", actor=d.player)
     if e.get("as"):
-        context.refs(ctx)[e["as"]] = {"kind": "choice", "what": e["what"], "value": value}
+        context.refs(ctx)[e["as"]] = {"kind": "choice", "what": e["what"], "value": value,
+                                      **({"players": [value]} if e["what"] in PLAYER_CHOICES else {})}  # (-- player-relative selectors (wave 53A) -- "Choose an opponent. That player …")
     if not e.get("remember") and (e["what"] in ("creature type", "color", "odd or even", "card type", "number") or card_names.is_choice(e["what"])):  # -- chosen type (wave 4J) -- (wave 53B: a card type)
         from app.rules import chosen as picked
 
@@ -4988,6 +5009,10 @@ from app.rules import decayed as _decayed  # noqa: E402, I001  (702.147: decayed
 
 PRIMITIVES.update(_decayed.PRIMITIVES)
 # -- end token & pump wordings (wave 6C) --
+from app.rules import player_choices as _player_choices  # noqa: E402, I001  -- player-relative selectors (wave 53A) --
+
+PRIMITIVES.update(_player_choices.PRIMITIVES)
+RESUME.update(_player_choices.RESUME)
 
 # -- token copies & attach on entry (wave 5J) -- "attach it to target creature you control" (app/rules/attach_entry.py),
 # populate and "for each …, create a token that's a copy of that …" (app/rules/populate.py)
