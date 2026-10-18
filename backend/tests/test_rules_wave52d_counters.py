@@ -17,7 +17,7 @@ from tests.test_rules_wave34b_activated import settle
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_of
 from tests.wave52d_kit import open_repo
 
-NAMES = ["Hooded Hydra", "Bubble Smuggler", "Ascendant Acolyte", "Embodiment of Agonies", "Valkyrie's Call"]
+NAMES = ["Hooded Hydra", "Bubble Smuggler", "Ascendant Acolyte", "Embodiment of Agonies", "Valkyrie's Call", "Pugnacious Hammerskull", "Essence Symbiote", "Sigil Captain"]
 
 
 @pytest.fixture()
@@ -138,4 +138,59 @@ def test_valkyries_call_ignores_an_angel(cards):
     act(s, "p1", type="cast_spell", card_id=card_named(s, "Lightning Bolt").id, targets=[card_named(s, "Llanowar Elves").id])
     settle(s)
     assert zone_of(s, "Llanowar Elves") == "p1:graveyard"  # ...so it does not return a second time
+    check(s)
+
+
+# ---- Pugnacious Hammerskull ---------------------------------------------------------------------------------------------------------------------
+def attack_with(s, name):
+    from tests.test_rules_wave34b_activated import attack, next_turn
+
+    next_turn(s)
+    attack(s, card_named(s, name))
+    settle(s)
+
+
+def test_hammerskull_attacking_alone_among_dinosaurs_gets_a_stun_counter(cards):
+    s = build(cards, ["Pugnacious Hammerskull"])
+    put(s, "Pugnacious Hammerskull")
+    attack_with(s, "Pugnacious Hammerskull")
+    assert counters(s, "Pugnacious Hammerskull", kind="stun") == 1
+    check(s)
+
+
+def test_hammerskull_with_another_dinosaur_gets_no_counter(cards):
+    s = build(cards, ["Pugnacious Hammerskull", "Ripjaw Raptor"])
+    put(s, "Pugnacious Hammerskull")
+    put(s, "Ripjaw Raptor")
+    attack_with(s, "Pugnacious Hammerskull")
+    assert counters(s, "Pugnacious Hammerskull", kind="stun") == 0
+    check(s)
+
+
+# ---- Essence Symbiote ---------------------------------------------------------------------------------------------------------------------------
+def test_essence_symbiote_adds_a_counter_and_two_life_when_a_creature_you_control_mutates(cards):
+    from tests.test_rules_wave18d_merged import mutate
+
+    s = build(cards, ["Essence Symbiote", "Gemrazer", "Llanowar Elves"])
+    put(s, "Essence Symbiote")
+    elves = put(s, "Llanowar Elves")
+    before = s.state.players["p1"].life
+    mutate(s, "Gemrazer", elves, G=3)
+    host = s.state.cards[elves.id]
+    assert host.name == "Gemrazer" and host.counters.get("+1/+1") == 1 and s.state.players["p1"].life == before + 2
+    check(s)
+
+
+# ---- Sigil Captain ------------------------------------------------------------------------------------------------------------------------------
+def test_sigil_captain_puts_two_counters_on_a_1_1_that_enters_and_ignores_a_2_2(cards):
+    s = build(cards, ["Sigil Captain", "Llanowar Elves", "Grizzly Bears"])
+    put(s, "Sigil Captain")
+    mana(s, "p1", G=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Llanowar Elves").id)
+    settle(s)
+    mana(s, "p1", G=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Grizzly Bears").id)
+    settle(s)
+    assert counters(s, "Llanowar Elves") == 2 and power_toughness(s, "Llanowar Elves") == (3, 3)
+    assert counters(s, "Grizzly Bears") == 0
     check(s)

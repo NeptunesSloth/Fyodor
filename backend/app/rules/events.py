@@ -612,6 +612,12 @@ def _parse(c: str) -> Condition | None:
     # -- merged permanents (wave 18D) -- 702.140d: "Whenever this creature mutates" (it merged with a mutating creature spell)
     if c in ("~ mutates", "this creature mutates", "this permanent mutates"):
         return {"subject": "self", "event": "mutate"}
+    m = re.fullmatch(r"(?P<s>(?:a|another) [^,]+? you control) mutates", c)  # -- counters (wave 52D) -- Essence Symbiote: 702.140d, any creature of yours that a mutating creature spell merged with
+    if m:
+        base = _subject(m["s"])
+        if base is None or base.get("aggregate"):
+            return None
+        return {**base, "event": "mutate"}
     m = re.fullmatch(r"(?P<s>.+?) becomes (?P<d>monstrous|renowned)", c)
     if m:
         base = _subject(m["s"])
@@ -874,7 +880,7 @@ def _combat(c: str) -> Condition | None:
         if holds is None or base is None:
             raise _Refuse
         return {**base, "while": holds}
-    m = re.fullmatch(r"(?P<s>.+?) attacks while (?P<w>you control .+|there (?:is|are) .+|you have .+|saddled)", c)  # (wave 23D: 702.171b "while saddled", ~ itself)
+    m = re.fullmatch(r"(?P<s>.+?) attacks while (?P<w>you (?:don't )?control .+|there (?:is|are) .+|you have .+|saddled)", c)  # (wave 52D: "you don't control another Dinosaur", Pugnacious Hammerskull)  # (wave 23D: 702.171b "while saddled", ~ itself)
     if m:
         from app.rules import conditions  # (selectors and values only)
 
