@@ -1388,3 +1388,51 @@ def test_godsend_is_a_may(cards):
     s, raider = _godsend_blocks(cards, False)
     assert alive(s, raider)
     check(s)
+
+
+def _blocked_attacker(cards, name, guard_pt):
+    """Alice's ``name`` attacks and is blocked by Bob's Guard (``guard_pt``); the table waits in the declare blockers step."""
+    s = sandbox(cards, name)
+    mine = on_field(s, name)
+    guard = creature(s, "p2", "Guard", guard_pt)
+    combat_step(s)
+    swing(s, [mine], [(guard, mine)])
+    return s, mine, guard
+
+
+def test_sentinel_sets_its_base_toughness_for_good_from_the_power_of_the_creature_it_fights(cards):
+    s, sentinel, guard = _blocked_attacker(cards, "Sentinel", "4/9")
+    pl = lambda: Plan(s.state, "p1", s.cards, None).ch(s.state.cards[sentinel.id]).pt  # noqa: E731
+    assert pl() == (1, 1)
+    activate(s, "p1", sentinel, "base toughness")
+    settle(s)
+    assert pl() == (1, 5)  # 1 plus the blocker's power (613.4b, 611.2c: read as it resolves)
+    to_postcombat(s)
+    assert alive(s, sentinel) and s.state.cards[sentinel.id].damage == 4  # it survived the 4 damage it would have died to
+    until(s, lambda s: s.state.turn.number == 3, limit=200)
+    assert pl() == (1, 5)  # "This effect lasts indefinitely"
+    check(s)
+
+
+def test_sentinel_needs_a_creature_blocking_or_blocked_by_it(cards):
+    s = sandbox(cards, "Sentinel")
+    sentinel = on_field(s, "Sentinel")
+    creature(s, "p2", "Guard", "4/9")
+    main_step(s)
+    with pytest.raises(ActionError):
+        activate(s, "p1", sentinel, "base toughness")
+    check(s)
+
+
+def test_sworn_defender_trades_its_power_and_toughness_for_the_ones_of_the_creature_it_fights(cards):
+    s, defender, guard = _blocked_attacker(cards, "Sworn Defender", "3/6")
+    pool(s, W=1)
+    activate(s, "p1", defender, "power becomes")
+    settle(s)
+    pl = Plan(s.state, "p1", s.cards, None)
+    assert pl.ch(s.state.cards[defender.id]).pt == (5, 4)  # power: its toughness 6 minus 1; toughness: 1 plus its power 3
+    to_postcombat(s)
+    assert alive(s, defender) and s.state.cards[guard.id].damage == 5 and s.state.cards[defender.id].damage == 3
+    until(s, lambda s: s.state.turn.number == 3, limit=200)
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[defender.id]).pt == (1, 3)  # until end of turn
+    check(s)

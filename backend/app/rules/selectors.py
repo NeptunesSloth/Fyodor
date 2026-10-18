@@ -403,7 +403,7 @@ def _blocking_source(s: Selector, m: re.Match[str]) -> Selector:  # blocks (509.
 
 # -- combat history (wave 31D) -- "each creature blocking or blocked by this creature" (Kjeldoran Frostbeast, Greater Werewolf), "all creatures
 # blocked by this creature" (Wall of Nets): the source's blocks as they stand (509.1; they still stand as the end of combat step begins)
-@_suffix(r"(?P<b>blocking or blocked by|blocked by) (?:this creature|~)")  # (named: "it" would need an antecedent, scripts._event_refs_ok)
+@_suffix(r"(?P<b>blocking or (?:being )?blocked by|blocked by) (?:this creature|~)")  # (wave 53C: "blocking or being blocked by this creature", Sworn Defender)  # (named: "it" would need an antecedent, scripts._event_refs_ok)
 def _block_pair_source(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "block_pair_this" if m["b"].startswith("blocking") else "blocked_by_this"))
 

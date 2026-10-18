@@ -392,6 +392,10 @@ def _stat(phrase: str, its: str = "it") -> Any:
     m = re.fullmatch(r"the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (?P<stat>power|toughness|mana value)", phrase)
     if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
         return {_STATS[m["stat"]]: "cost:sacrificed"}
+    if (m := re.fullmatch(r"(?P<n>\d+|one|two|three) plus (?P<v>the (?:power|toughness|mana value) of target .+)", phrase)) is not None:
+        return {"plus": [_stat(m["v"], its), values.parse_amount(m["n"])]}  # -- block events (wave 53C) -- Sentinel: "1 plus the power of target creature blocking or blocked by ~"
+    if (m := re.fullmatch(r"(?P<v>the (?:power|toughness|mana value) of target .+) minus (?P<n>\d+|one|two|three)", phrase)) is not None:
+        return {"minus": [_stat(m["v"], its), values.parse_amount(m["n"])]}  # (Sworn Defender: "the toughness of target creature … minus 1", 107.1b: no less than 0)
     if (m := re.fullmatch(r"the (?P<stat>power|toughness|mana value) of the creature tapped this way", phrase)) is not None:
         return {_STATS[m["stat"]]: "cost:tapped"}  # -- activated sweep (wave 26C) -- the one creature a cost tapped (an activated ability only: scripts.define checks)
     if (m := re.fullmatch(r"the revealed card's (?P<stat>power|toughness|mana value)", phrase)) is not None:
@@ -487,12 +491,12 @@ def _wants_target_player(v: Any) -> bool:
 def _pop_target_sel(v: Any) -> str | None:
     """The selector of the "target …" a value names (``_stat``), taken out of it."""
     if isinstance(v, list):
-        return next((k for x in v if (k := _pop_target_sel(x)) is not None), None)
+        return next((k for k in [_pop_target_sel(x) for x in v] if k is not None), None)  # (every one is taken out: -- block events (wave 53C) -- two values of one sentence name the same target)
     if not isinstance(v, dict):
         return None
     if "target_sel" in v:
         return str(v.pop("target_sel"))
-    return next((k for x in v.values() if (k := _pop_target_sel(x)) is not None), None)
+    return next((k for k in [_pop_target_sel(x) for x in v.values()] if k is not None), None)
 
 
 def _value_target(n: Any, target: str | None) -> str | None:
@@ -3437,7 +3441,7 @@ def _become_forms(text: str) -> str:
 # "Its base power and toughness become equal to Galion's power and toughness until end of turn.": the same layer 7b setting (613.4b, 208.4a) as
 # "<object> has base power and toughness …", which ``BASE_PT`` / ``BASE_EQ`` read. Outside quotes only (a granted ability keeps its words).
 _BASE_OF = re.compile(r"(?:\bhave )?\bthe base power( and toughness)? of (?P<o>[^.,\"]+?) becomes? (?=\S)")
-_BASE_OWN = re.compile(r"(?<![\w'])(?:have )?(?:(?P<o>~|that creature|that permanent)'s|(?P<it>[Ii]ts)) base power( and toughness)? becomes? (?=\S)")
+_BASE_OWN = re.compile(r"(?<![\w'])(?:have )?(?:(?P<o>~|that creature|that permanent)'s|(?P<it>[Ii]ts)) base (?P<w>power|toughness)( and toughness)? becomes? (?=\S)")  # (-- block events (wave 53C) -- also one stat alone: Sentinel's "base toughness")
 
 
 def base_become(text: str) -> str:
@@ -3446,7 +3450,7 @@ def base_become(text: str) -> str:
         return f"{m['o']} has base power{m[1] or ''} "
 
     def own(m: re.Match[str]) -> str:
-        return f"{m['o'] or ('It' if m['it'] == 'Its' else 'it')} has base power{m[3] or ''} "
+        return f"{m['o'] or ('It' if m['it'] == 'Its' else 'it')} has base {m['w']}{m[4] or ''} "
 
     parts = text.split('"')
     return '"'.join(_BASE_OWN.sub(own, _BASE_OF.sub(of, p)) if i % 2 == 0 else p for i, p in enumerate(parts))

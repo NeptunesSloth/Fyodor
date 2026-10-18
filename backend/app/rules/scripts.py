@@ -7124,8 +7124,7 @@ def _delayed_this_turns_end_combat(m: re.Match[str]) -> tuple[list[dict[str, Any
     return [{**effects[0], "this_turn": True}, *effects[1:]], target
 
 
-# -- block events (wave 53C) -- "Choose target creature. At this turn's next end of combat, destroy all creatures that blocked or were blocked by it this turn." (Venomous Breath):
-# the sentence only names the target (115.1) the following sentence's "it" / "that creature" is
+# -- block events (wave 53C) -- "Target unblocked attacking creature becomes blocked." (Curtain of Light, Dazzling Beauty, Trap Runner): 509.1h, 509.3c (block_events.become_blocked)
 @effect(r"(?P<t>target unblocked attacking creature) becomes blocked")
 def _becomes_blocked(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
@@ -7133,17 +7132,7 @@ def _becomes_blocked(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     group = language.target_group(m["t"])
     if group is None:
         raise _NoMatch
-    return [{"do": "become_blocked", "who": "target"}], group["what"]  # -- block events (wave 53C) -- 509.1h, 509.3c (block_events.become_blocked)
-
-
-@effect(r"choose (?P<t>target [^.,]+?)")
-def _choose_target_only(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    from app.rules import language
-
-    group = language.target_group(m["t"])
-    if group is None or group["min"] != 1 or group["max"] != 1:
-        raise _NoMatch
-    return [], group["what"]
+    return [{"do": "become_blocked", "who": "target"}], group["what"]
 
 
 @effect(r"(?P<clause>.+?) at end of combat")
@@ -7221,6 +7210,17 @@ def _watch_when_blocked(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import watches
 
     return _from_language(watches.parse(m["cond"], re.sub(r"\b(blocking) it\b", r"\1 that creature", m["clause"]), once=True))
+
+
+# -- block events (wave 53C) -- "This creature's power becomes the toughness of target creature blocking or being blocked by this creature minus 1 until end of turn, and its toughness becomes 1 plus
+# the power of that creature until end of turn." (Sworn Defender): layer 7b settings of the one target's numbers as the ability resolves (613.4b, 611.2c), both from the same target
+@effect(r"~'s power becomes the toughness of target (?P<sel>[^,]+?) minus (?P<n>\d+) until end of turn, and its toughness becomes (?P<m>\d+) plus the power of that creature until end of turn")
+def _sworn_defender(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language
+
+    p = language._stat(f"the toughness of target {m['sel']} minus {m['n']}")
+    t = language._stat(f"{m['m']} plus the power of target {m['sel']}")
+    return [{"do": "become", "who": "self", "types": [], "duration": "end_of_turn", "p": p, "t": t}], language._value_target([p, t], None)
 
 
 @effect(r"the next (?:(?P<sel>[a-z, ]+?) )?spell you cast this turn can't be countered")

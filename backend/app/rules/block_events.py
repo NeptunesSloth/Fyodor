@@ -240,7 +240,10 @@ def rewrite(body: str) -> str:
     """Wordings that say "When you do" another way: "attach any number of target Equipment you control to target creature you control. When one or more Equipment become attached
     to that creature this way, that creature deals damage equal to its power to up to one target creature." (Thorin, Mountain-king): a reflexive ability (603.12) that triggers
     if any Equipment was attached to it."""
-    return re.sub(r"\bWhen one or more Equipment become attached to that creature this way, ", "When you do, ", body)
+    body = re.sub(r"\bWhen one or more Equipment become attached to that creature this way, ", "When you do, ", body)
+    # "Choose target creature. At this turn's next end of combat, destroy all creatures that blocked or were blocked by it this turn." (Venomous Breath): the target the first sentence only names,
+    # named in the relation (115.1: chosen as the spell is cast, read when the end of combat comes)
+    return re.sub(r"^Choose (target [^.,]+)\. (At this turn's next end of combat, [^.]*?) it( this turn\.)$", r"\2 \1\3", body)
 
 
 def host_wording(body: str) -> str:
