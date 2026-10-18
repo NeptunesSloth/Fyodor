@@ -2566,6 +2566,8 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # ponytail: Silkguard's one list "Auras, Equipment, and modified creatures you control gain hexproof until end of turn" read as its two groups (the same set, judged together: grants change no counters)
     body = re.sub(r"\bAuras, Equipment, and modified creatures you control gain (hexproof|indestructible) until end of turn\b",
                   r"Auras and Equipment you control gain \1 until end of turn. Modified creatures you control gain \1 until end of turn", body)
+    if event_player:  # -- trigger other (wave 51C) -- "each other player" in a trigger about a player is every player but that one
+        body = re.sub(r"\b([Ee]ach) other player\b", r"\1 player other than that player", body)
     if it in ("event", "event_gone"):  # -- either with two actions (wave 51C) -- "you may put that card from a graveyard onto the battlefield under your control" (Tergrid): the trigger's card, which moves only while it is in a graveyard (400.7)
         body = re.sub(r"(?i)\bput (that card|it) from a graveyard onto the battlefield\b", r"put \1 onto the battlefield", body)
     body = _split_tails(body, event_player)  # -- activated other (wave 34B) --
@@ -5510,7 +5512,7 @@ def _event_refs_ok(d: Definition) -> bool:
 
     skip = watches.deferred_event_effects(effects)
     effects = [e for i, e in enumerate(effects) if i not in skip]
-    wants_player = any(e.get("who") in ("event_player", "each_other_opponent")
+    wants_player = any(e.get("who") in ("event_player", "each_other_opponent", "each_other_than_event")
                        or str(e.get("who")).startswith("controlled:event_player|") for e in effects) or '"for_player": "event"' in raw \
         or any(e.get("player") == "event_player" or e.get("by") == "event_player" for e in effects)  # (wave 4E; "player": wave 6E; 25D: "by")
     wants_amount = any(_wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t", "mv", "max"))  # ("mv": a free cast's limit, wave 3R5; wave 26A "max": "search … for that many cards")

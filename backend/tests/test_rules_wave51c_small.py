@@ -42,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant"])
+@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant", "Zenith Chronicler"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -508,4 +508,24 @@ def test_eclipsed_realms_mana_is_only_for_spells_of_the_chosen_type(cards):
     act(s, "p1", type="cast_spell", card_id=elves.id)
     settle(s)
     assert zone_of(s, "Llanowar Elves") == "p1:battlefield"
+    check(s)
+
+
+# -- Zenith Chronicler ---------------------------------------------------------------------------------------------------------------------------
+def test_zenith_chronicler_draws_for_everyone_but_the_caster_once_a_turn(cards):
+    """"Whenever a player casts their first multicolored spell each turn, each other player draws a card.": Bob draws for Alice's Helix, nobody for her Bolt or her second multicolored spell."""
+    s = build(cards, ["Zenith Chronicler", "Lightning Helix", "Terminate", "Lightning Bolt"], ["Llanowar Elves"], forests=20, islands=20)
+    put(s, "Zenith Chronicler")
+    elves = put(s, "Llanowar Elves", "p2")
+    hands = lambda: (len(s.state.zones["p1:hand"]), len(s.state.zones["p2:hand"]))  # noqa: E731
+    mana(s, R=4, W=1, B=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=["p2"])  # (mono-coloured: nothing)
+    settle(s)
+    assert hands() == (0, 0)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Helix").id, targets=["p2"])
+    settle(s)
+    assert hands() == (0, 1)  # (Bob draws; Alice, who cast it, does not)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Terminate").id, targets=[elves.id])  # (her second multicolored spell this turn)
+    settle(s)
+    assert hands() == (0, 1)
     check(s)

@@ -117,6 +117,9 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
             if pid is not None and pid in plan.live() and pid not in out:
                 out.append(pid)
         return out
+    if who == "each_other_than_event":  # -- trigger other (wave 51C) -- every player but the one(s) the trigger event was about
+        named = set(context.players(plan, ctx, context.EVENT))
+        return [p for p in plan.live() if p not in named]
     if who == "each_other_opponent":  # -- sized amounts (wave 3D) -- the opponents besides the player the trigger event was about
         named = set(context.players(plan, ctx, context.EVENT))
         return [p for p in plan.live() if p != me and p not in named]
