@@ -281,7 +281,9 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         key = _selector(m["what"], zone="battlefield", other=m["n"] == "another")
         if key is None and m["n"] in ("a", "an", "another") and " or " in m["what"]:  # -- keywords (wave 43C) -- "Sacrifice a legendary artifact or legendary creature"
             one, two = m["what"].split(" or ", 1)  # (wave 50G: "Sacrifice another creature or a Blood token" (Anje): "another" is the first kind's only, the second kind has its own article)
-            first, second = _selector(one, zone="battlefield", other=m["n"] == "another"), _selector(re.sub(r"^an? ", "", two), zone="battlefield")  # (Sauron, the Dark Lord's ward): two kinds, each
+            first, second = _selector(one, zone="battlefield", other=m["n"] == "another"), \
+                _selector(re.sub(r"^an? ", "", two), zone="battlefield", other=m["n"] == "another" and not re.match(r"an? ", two))  # (Sauron, the Dark Lord's ward): two kinds, each;
+            # ("another creature or token" (Ice Cream Kitty): no article of its own, so "another" covers both, as in "another artifact or creature")
             return CostComponent(SACRIFICE, selector=first, alt=second, text=part) if first and second else None  # with its own adjective: either one
         return CostComponent(SACRIFICE, amount=_n(m["n"]), selector=key, text=part) if key else None
     if m := _DISCARD.match(part):
