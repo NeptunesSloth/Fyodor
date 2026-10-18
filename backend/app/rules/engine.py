@@ -1509,6 +1509,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "kinship_look": kinship.resume_look,  # -- kinship (wave 9C) --
     "kinship_reveal": kinship.resume_reveal,
     "reveal_hand_cards": effects._reveal_hand.resume,  # -- if you do (wave 10C) --
+    "reveal_some": effects._reveal_hand.resume_some,  # -- hand disruption (wave 52C) --
     "wish": effects._wishes.resume,  # -- wishes (wave 52C) --
     "library_place": effects.resume_library_place,
     "shuffle_library": effects.resume_shuffle_library,
