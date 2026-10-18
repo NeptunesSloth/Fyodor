@@ -2855,7 +2855,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.rules.flashback.append(plan.oid(card))  # 702.34a: exiled instead of going anywhere else (702.133a, 702.180a)
     if grant is not None and grant.exile_gy and (grant.exile_gy == "all" or ch.is_instant_or_sorcery):  # -- cast from graveyard (wave 19C) -- 614.1a
         plan.rules.exile_if_graveyard.append(plan.oid(card))
-    if grant is not None and grant.enters:  # -- cast permissions (wave 30Q) -- "If you cast a spell this way, that artifact enters tapped / with a finality counter on it"
+    if grant is not None and grant.enters and (grant.enters.get("only") is None or grant.enters["only"] in ch.types):  # -- cast permissions (wave 30Q; wave 51D: "If you cast a creature spell this way") -- "If you cast a spell this way, that artifact enters tapped / with a finality counter on it"
         plan.rules.cast_enters[plan.oid(card)] = grant.enters  # (applied as it enters: engine.resolve_top; a countered spell never does, and a new object is a new id, 400.7)
     if a.x_value is not None or tags:
         info: dict[str, Any] = {"type": "set_stack_info", "card_id": card.id}

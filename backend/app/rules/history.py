@@ -700,9 +700,33 @@ def named_like(plan: Plan, ctx: dict[str, Any], ch: Any) -> bool:
     return src is not None and card_names.share(ch, plan.ch(src))
 
 
+def _attacked_with(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: Any) -> bool:
+    """-- trigger other (wave 51E) -- "you attacked with a token / a commander / this creature this turn": a creature of the kind was declared as an attacker (508.1), as it
+    is or as it last existed (a token that has died since still attacked)."""
+    from app.rules import selectors
+    from app.rules.triggers import _snapshot_card
+
+    ids = log.attackers.get(ctx["controller"], [])
+    if cond.get("self"):
+        return ctx.get("source_object") in ids
+    sel = selectors.from_key(cond["sel"])
+    for oid in ids:
+        card = next((c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) == oid), None)
+        if card is not None:
+            ch = plan.ch(card)
+        elif (snap := plan.rules.lki.get(oid)) is not None:
+            card, ch = _snapshot_card(plan, snap)
+        else:
+            continue
+        if selectors.matches(plan, sel, card, ch, ctx["controller"], None):
+            return True
+    return False
+
+
 _WAVE_4D: dict[str, Any] = {
     "tokens": lambda plan, ctx, cond, log: _facts_holds(plan, ctx, {**cond, "kind": "token"}, log),
     "attackers": lambda plan, ctx, cond, log: len(log.attackers.get(ctx["controller"], [])) >= int(cond.get("n", 1)),
+    "attacked_with": lambda plan, ctx, cond, log: _attacked_with(plan, ctx, cond, log),  # (wave 51E)
     "cast": _cast,
     "facts": _facts_holds,
     "damage": _damage,

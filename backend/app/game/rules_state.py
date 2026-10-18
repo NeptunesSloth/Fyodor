@@ -448,6 +448,9 @@ class Entry(BaseModel):
     # -- history (wave 22E) -- the zone it entered from (a zone key, "<owner>:graveyard" / "<owner>:stack" …): "enters from your
     # graveyard", "if it entered from a graveyard" (603.2, 603.4); None: from nowhere (created) or an older save
     from_zone: str | None = Field(default=None, max_length=40)
+    # -- trigger other (wave 51E) -- the object whose effect put it onto the battlefield (Kodama of the East Tree: "if it wasn't put onto the battlefield with
+    # this ability"); None: nobody's, or an older save
+    via: str | None = Field(default=None, max_length=80)
 # -- end refused modal/conditional (wave 3R1) --
 
 
@@ -894,6 +897,7 @@ class Permission(BaseModel):
     exile_gy: Literal["", "all", "is"] = ""
     exile_own: bool = False
     sorcery: bool = False
+    enters: dict[str, Any] | None = None  # -- if you do (wave 51D) -- "You may play target … card from your graveyard this turn. If you do, it enters tapped." (the Grant's ``enters``, 614.1c)
     # -- trigger other (wave 25B) -- airbend 701.65a: the card may be cast only by paying this rather than its mana cost (an alternative
     # cost, 118.9), for as long as it remains exiled (the permission follows the object, 400.7h)
     alt_mana: str = ""
@@ -901,6 +905,9 @@ class Permission(BaseModel):
     # of them may be used (consume ends the others when the last is)
     group: str = ""
     left: int = 0
+    # -- trigger other (wave 51E) -- "During any turn you attacked with a token, you may play that card.": a condition (conditions grammar) the turn must meet, read
+    # whenever the card is played or cast; ``source`` is the object whose ability granted it
+    when: dict[str, Any] | None = None
 
 
 class CostModifier(BaseModel):

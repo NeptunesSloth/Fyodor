@@ -637,7 +637,7 @@ DEFILER = re.compile(
 # -- casting costs (wave 22F) -- 601.2b: "As an additional cost to cast this spell, you may collect evidence 6." (701.59a) / "… you may behold a
 # Dragon." (701.4a): the caster announces it with the other optional costs and pays it with the rest (601.2h); the spell's own "if evidence
 # was collected" / "if a Dragon was beheld" read the record of that choice (conditions._cast_how)
-OWN_OPTIONAL = re.compile(r"^as an additional cost to cast this spell, you may (?P<cost>collect evidence \d+|behold an? [A-Z][a-z]+)\.?(?: \(.*\))?$")
+OWN_OPTIONAL = re.compile(r"^as an additional cost to cast this spell, you may (?P<cost>collect evidence \d+|behold an? [A-Z][a-z]+|blight [1-5])\.?(?: \(.*\))?$")  # (-- blight (wave 51E) -- 701.68a)
 
 
 def own_cost(text: str) -> Any:
@@ -674,7 +674,7 @@ def optional_definition(t: str) -> dict[str, Any] | None:
         parsed = own_cost(text)
         if parsed is None:
             return None
-        kind = "evidence" if text.startswith("Collect") else "behold"
+        kind = {"Collect": "evidence", "Behold": "behold", "Blight": "blight"}[text.split()[0]]
         return {"kind": "static", "static": "own_optional", "optional": kind, "cost": text, "effects": []}
     m = DEFILER.fullmatch(t)
     if m is None or m["color"].lower() != m["color2"].lower() or _COLORS[m["color"].lower()] != m["sym"]:
@@ -710,7 +710,7 @@ def keyword_component(o: Optional) -> Any:
     if o.kind == "bargain":  # -- keywords (wave 30E) -- 702.166a: "you may sacrifice an artifact, enchantment, or token" (you control, 701.21a)
         either = tuple(Selector(controller="you", **kw).key() for kw in ({"types": ("Artifact",)}, {"types": ("Enchantment",)}, {"token": True}))
         return C.CostComponent(C.SACRIFICE, amount=1, selector=Selector(either=either).key(), text="Sacrifice an artifact, enchantment, or token")
-    if o.kind in ("evidence", "behold"):  # -- casting costs (wave 22F) --
+    if o.kind in ("evidence", "behold", "blight"):  # -- casting costs (wave 22F) --
         return own_cost(o.text)
     if o.kind == "reduce":  # -- cost reductions paid with objects (wave 47C) --
         return C.any_number_part(o.text, o.n)

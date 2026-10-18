@@ -35,7 +35,7 @@ PATTERN = (r"put (?P<cnt>an?|any number of|up to (?P<upto>\d+|one|two|three|four
            # -- put from hand (wave 30P) -- "with mana value 3 or less" / "X or less, where X is the number of attacking creatures you control"
            # (Kinscaer Sentry), "less than that creature's mana value" (Arni Metalbrow), "less than or equal to that creature's power" (Minn, Wily Illusionist; wave 44D), "with lesser power" (Shadowfax): the limit is read as the card is chosen
            r"(?: with (?:mana value (?:(?P<op>less than or equal to|less than|equal to) (?P<v>that damage|the number of [^.]+?|that creature's (?:mana value|power))"
-           r"|(?P<n>\d+|X) or less)|(?P<lp>lesser power)))? from your hand "
+           r"|(?P<n>\d+|X) or less)|(?P<lp>lesser power)|(?P<elv>equal or lesser mana value)))? from your hand "
            rf"onto the battlefield(?P<tapped> tapped(?P<atk> and attacking{AT})?)?(?:, where X is (?P<xdef>[^.]+))?")
 
 
@@ -76,6 +76,12 @@ def parse(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
         effect["mv"] = ["<=", value]
     elif m["xdef"]:
         return None  # (a "where X is" nothing here uses)
+    if m["elv"]:  # -- trigger other (wave 51E) -- "a permanent card with equal or lesser mana value" (Kodama of the East Tree): than the permanent that entered, as it entered
+        from app.rules import language
+
+        if (value := language.x_definition("that creature's mana value")) is None:
+            return None
+        effect["mv"] = ["<=", value]
     if m["lp"]:  # "a creature card with lesser power" (Shadowfax): less than the source creature's power
         effect["pw"] = ["<", {"power": "self"}]
     if m["cnt"] == "any number of":
@@ -174,7 +180,7 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     before = effects._remember(plan, ctx, e, cards)
     if e.get("did"):  # -- if you do (wave 26C) -- 608.2c: a card was chosen and entered (the grammar reads it only for cards that can't stay in the hand)
         context.bind_payment(ctx, e["did"], bool(cards))
-    entries = [{"card": c, "player": pid, "actor": pid, "tapped": bool(e.get("tapped"))} for c in cards]
+    entries = [{"card": c, "player": pid, "actor": pid, "tapped": bool(e.get("tapped")), "via": ctx.get("source_object")} for c in cards]  # (wave 51E: Entry.via)
     if entries and not attachments.enter(plan, entries, ctx):
         return  # (an Aura chooses what it enchants; the resolution goes on from there)
     effects._moved(plan, ctx, e, before)

@@ -437,7 +437,11 @@ def exchange_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if (why := life_lock.why_not(plan, high, "lose")) is not None:
         plan.note(f"{why}: the life totals aren't exchanged", actor=ctx["controller"])
         return True
+    me = ctx["controller"]
+    before = plan.state.players[me].life
     replace.lose_life(plan, [(high, diff)], actor=ctx["controller"])  # -- life modifiers (wave 28B) -- 701.12c
+    if e.get("bind"):  # -- if you do (wave 51D) -- "If you lost life this way, draw that many cards." (Mister Negative): what the controller really lost (119.3), none when they gained
+        context.bind_amount(ctx, e["bind"], max(0, before - plan.state.players[me].life))
     return replace.gain_life(plan, [(low, diff)], actor=ctx["controller"], then=_then(ctx, e), ctx=ctx)
 
 
