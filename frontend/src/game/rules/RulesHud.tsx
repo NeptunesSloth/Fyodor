@@ -462,7 +462,12 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   if (d.kind === "choose_one" || d.kind === "confirm" || d.kind === "manual_resolution") {
     return (
       <div className="decision-options">
-        {options.map((o) => (
+        {options.some((o) => o.group === "seen") && ( /* the cards the chooser looked at (an opponent's hand) are shown, never answers */
+          <div className="decision-seen" data-testid="card-name-seen">
+            {options.filter((o) => o.group === "seen").map((o) => <span key={o.id} className="tt-chip">{optionLabel(o, view)}</span>)}
+          </div>
+        )}
+        {options.filter((o) => o.group !== "seen").map((o) => (
           <button key={o.id} className="tt-btn" data-testid={`option-${o.id}`} onClick={() => done([o.id])}>{o.label}</button>
         ))}
         {d.rememberable && (
