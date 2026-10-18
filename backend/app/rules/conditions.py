@@ -1705,6 +1705,8 @@ def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
     card = plan.state.cards.get(ctx.get("source_card") or "")
     if test == "in_graveyard":  # -- graveyard triggers (wave 19C) -- 400.7: a card that left is a new object, which isn't there
         return card is not None and card.zone == f"{card.owner}:graveyard" and plan.oid(card) == ctx.get("source_object")
+    if test == "on_battlefield":  # -- reanimation Auras (wave 51F) -- 603.4: "if it's on the battlefield" as the ability resolves: still that object (400.7)
+        return card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object")
     if test == "in_command":  # -- trailing & intervening ifs (wave 38A) -- still that object, in the command zone (400.7): a commander cast in response is a new object
         return card is not None and card.zone.endswith(":command") and plan.oid(card) == ctx.get("source_object")
     if test == "command_or_battlefield":  # -- trigger other (wave 25B) -- eminence: 113.6b, the zones the ability names (still that object, 400.7)
