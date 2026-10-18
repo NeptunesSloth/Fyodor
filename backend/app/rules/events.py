@@ -293,6 +293,15 @@ def _parse(c: str) -> Condition | None:
                 or b.get("subject") != "player" or a.get("player") != b.get("player") or {a["event"], b["event"]} & {"either", "multi"}:
             return None
         return {"event": "either", "subject": "player", "player": a["player"], "conds": [a, b]}
+    # -- either with two actions (wave 51C) -- "Whenever an opponent sacrifices a nontoken permanent or discards a permanent card" (Tergrid, God of Fright): one player's two
+    # actions, each its own event (603.2c); both halves must read on their own, neither a "one or more" batch
+    m = re.fullmatch(r"(?P<p>you|an opponent|a player) (?P<a>sacrifices? an? [^,]+?) or (?P<b>discards? an? [^,]+)", c)
+    if m:
+        a, b = _parse(f"{m['p']} {m['a']}"), _parse(f"{m['p']} {m['b']}")
+        if a is None or b is None or a.get("aggregate") or b.get("aggregate") or a.get("subject") != "player" or b.get("subject") != "player" \
+                or a.get("player") != b.get("player"):
+            return None
+        return {"event": "either", "subject": "player", "player": a["player"], "conds": [a, b]}
     # -- trigger other (wave 25B) -- 701.18b: to play a card is to play it as a land or cast it as a spell, whichever is appropriate
     # (-- trigger from (wave 30F) -- "Whenever you play a card from exile" (Prosper): a land played from there or a spell cast from there)
     m = re.fullmatch(rf"(?P<p>you|a player|an opponent) plays? a card(?P<f>{_PLAY_FROM})?", c)

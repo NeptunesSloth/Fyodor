@@ -178,5 +178,103 @@
    "W"
   ],
   "keywords": []
+ },
+ {
+  "name": "Tergrid, God of Fright // Tergrid's Lantern",
+  "layout": "modal_dfc",
+  "mana_cost": "{3}{B}{B} // {3}{B}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — God // Legendary Artifact",
+  "oracle_text": "Menace\nWhenever an opponent sacrifices a nontoken permanent or discards a permanent card, you may put that card from a graveyard onto the battlefield under your control.\n//\n{T}: Target player loses 3 life unless they sacrifice a nonland permanent of their choice or discard a card.\n{3}{B}: Untap Tergrid's Lantern.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Menace"
+  ],
+  "power": "4",
+  "toughness": "5",
+  "card_faces": [
+   {
+    "name": "Tergrid, God of Fright",
+    "mana_cost": "{3}{B}{B}",
+    "type_line": "Legendary Creature — God",
+    "oracle_text": "Menace\nWhenever an opponent sacrifices a nontoken permanent or discards a permanent card, you may put that card from a graveyard onto the battlefield under your control.",
+    "power": "4",
+    "toughness": "5",
+    "colors": [
+     "B"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/1/4/14dc88ee-bba9-4625-af0d-89f3762a0ead.jpg?1783928244",
+     "normal": "https://cards.scryfall.io/normal/front/1/4/14dc88ee-bba9-4625-af0d-89f3762a0ead.jpg?1783928244",
+     "large": "https://cards.scryfall.io/large/front/1/4/14dc88ee-bba9-4625-af0d-89f3762a0ead.jpg?1783928244",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/1/4/14dc88ee-bba9-4625-af0d-89f3762a0ead.jpg?1783928244"
+    }
+   },
+   {
+    "name": "Tergrid's Lantern",
+    "mana_cost": "{3}{B}",
+    "type_line": "Legendary Artifact",
+    "oracle_text": "{T}: Target player loses 3 life unless they sacrifice a nonland permanent of their choice or discard a card.\n{3}{B}: Untap Tergrid's Lantern.",
+    "colors": [
+     "B"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/1/4/14dc88ee-bba9-4625-af0d-89f3762a0ead.jpg?1783928244",
+     "normal": "https://cards.scryfall.io/normal/back/1/4/14dc88ee-bba9-4625-af0d-89f3762a0ead.jpg?1783928244",
+     "large": "https://cards.scryfall.io/large/back/1/4/14dc88ee-bba9-4625-af0d-89f3762a0ead.jpg?1783928244",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/1/4/14dc88ee-bba9-4625-af0d-89f3762a0ead.jpg?1783928244"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Mind Rot",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target player discards two cards.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Diabolic Edict",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Target player sacrifices a creature of their choice.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Nexus of Fate",
+  "layout": "normal",
+  "mana_cost": "{5}{U}{U}",
+  "cmc": 7.0,
+  "type_line": "Instant",
+  "oracle_text": "Take an extra turn after this one.\nIf Nexus of Fate would be put into a graveyard from anywhere, reveal Nexus of Fate and shuffle it into its owner's library instead.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
  }
 ]

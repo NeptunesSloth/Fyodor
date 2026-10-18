@@ -469,6 +469,9 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
         return None
     if event == "either" and cond.get("subject") in ("self", "self_or", "sel", "host") and all(c["event"] in _GONE for c in cond["conds"]):
         return "self_gone" if cond["subject"] == "self" else "event_gone"  # -- trigger tail (wave 15B) -- "dies or is put into exile"
+    if event == "either" and cond.get("subject") == "player" and {c["event"] for c in cond["conds"]} == {"sacrifice", "discard"} \
+            and all(c.get("obj") for c in cond["conds"]):
+        return "event_gone"  # -- either with two actions (wave 51C) -- Tergrid: the card in the graveyard after either (context.EVENT_NEW reads a discarded card as it is)
     if event == "either" and cond.get("subject") == "self" and all(c["event"] in _STAYING for c in cond["conds"]):
         return "self"  # -- history (wave 22E) -- "Whenever ~ attacks, blocks, or becomes the target of a spell, it deals …"
     if event == "either" and cond.get("subject") == "sel" and all(c["event"] in _STAYING and not c.get("aggregate") for c in cond["conds"]):
@@ -2556,6 +2559,8 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # -- resolution memory (wave 51C) -- "Each player mills four cards. Put a creature card … from among the milled cards onto the battlefield under your control." (Gyruda): the cards every
     # one of them milled, as "milled this way" names them
     body = re.sub(r"(?i)\b(each (?:player|opponent) mills [^.]+\. Put an? [^.]+?) from among the milled cards\b", r"\1 milled this way", body)
+    if it in ("event", "event_gone"):  # -- either with two actions (wave 51C) -- "you may put that card from a graveyard onto the battlefield under your control" (Tergrid): the trigger's card, which moves only while it is in a graveyard (400.7)
+        body = re.sub(r"(?i)\bput (that card|it) from a graveyard onto the battlefield\b", r"put \1 onto the battlefield", body)
     body = _split_tails(body, event_player)  # -- activated other (wave 34B) --
     body = _dice.plain(trigger_words.plain_amounts(body))  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
     if re.match(r"(?i)choose a creature type\.", body):  # -- value grammar (wave 23C) -- "Choose a creature type. Draw a card for each creature you control of that type."
@@ -5852,6 +5857,7 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab) and not graveyard_only_ability(defs.get(ab.index))
              and not own_card_event_ability(defs.get(ab.index))  # (wave 36A: cycling / discard triggers of the card itself)
              and defs.get(ab.index, {}).get("trigger") != "cast_self"  # -- spell copies (wave 31D) -- 601.2i: "When you cast this spell, …" triggers
+             and defs.get(ab.index, {}).get("replacement") != "shuffle_instead"  # -- zone replacements (wave 51C) -- Nexus of Fate: where the spell card goes (614.1), not what it does
              and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional")  # (own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
                       and (defs[ab.index].get("free") or defs[ab.index].get("zone") in ("graveyard", "exile")

@@ -47,12 +47,13 @@ def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
-def settle(s, limit=40):
-    """Resolve everything; a choice is answered with its first option."""
+def settle(s, answer="yes", limit=40):
+    """Resolve everything; an optional ability is answered ``answer``, any other choice with its first option."""
     for _ in range(limit):
         d = s.state.rules.decision
         if d is not None:
-            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[answer] if answer in ids else ids[: max(1, d.min_choices)])
         elif s.state.zones.get("stack"):
             act(s, s.state.rules.priority, type="pass_priority")
         else:
@@ -250,4 +251,54 @@ def test_gyruda_takes_an_even_creature_milled_by_either_player(cards):
     bears = card_named(s, "Grizzly Bears", "p2")
     assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.cards[bears.id].controller == "p1"
     assert zone_of(s, "Llanowar Elves") == "p1:graveyard"
+    check(s)
+
+
+# -- Tergrid, God of Fright ----------------------------------------------------------------------------------------------------------------------
+TERGRID = "Tergrid, God of Fright // Tergrid's Lantern"
+
+
+def test_tergrid_is_full_and_nexus_of_fate_too(cards):
+    for name in (TERGRID, "Nexus of Fate"):
+        assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def tergrid_table(cards, theirs):
+    s = build(cards, [TERGRID, "Mind Rot", "Diabolic Edict"], list(theirs))
+    put(s, TERGRID)
+    return s
+
+
+def test_tergrid_takes_a_discarded_permanent_card_but_not_a_spell(cards):
+    s = tergrid_table(cards, ["Grizzly Bears", "Lightning Bolt"])
+    for n in ("Grizzly Bears", "Lightning Bolt"):
+        to_hand(s, n, "p2")
+    to_hand(s, "Mind Rot")
+    mana(s, B=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Mind Rot").id, targets=["p2"])
+    settle(s)
+    assert zone_of(s, "Grizzly Bears", "p2") == "p1:battlefield"  # (put onto the battlefield under Alice's control)
+    assert zone_of(s, "Lightning Bolt", "p2") == "p2:graveyard"  # (not a permanent card)
+    check(s)
+
+
+def test_tergrid_takes_a_sacrificed_nontoken_permanent(cards):
+    s = tergrid_table(cards, ["Grizzly Bears"])
+    bears = put(s, "Grizzly Bears", "p2")
+    to_hand(s, "Diabolic Edict")
+    mana(s, B=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Diabolic Edict").id, targets=["p2"])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_tergrid_ignores_its_own_controllers_discards(cards):
+    s = tergrid_table(cards, [])
+    to_hand(s, "Mind Rot")
+    to_hand(s, "Diabolic Edict")
+    mana(s, B=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Mind Rot").id, targets=["p1"])  # (Alice discards: Tergrid is hers)
+    settle(s)
+    assert zone_of(s, "Diabolic Edict") == "p1:graveyard"
     check(s)
