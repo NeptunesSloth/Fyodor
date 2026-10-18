@@ -2566,6 +2566,8 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # ponytail: Silkguard's one list "Auras, Equipment, and modified creatures you control gain hexproof until end of turn" read as its two groups (the same set, judged together: grants change no counters)
     body = re.sub(r"\bAuras, Equipment, and modified creatures you control gain (hexproof|indestructible) until end of turn\b",
                   r"Auras and Equipment you control gain \1 until end of turn. Modified creatures you control gain \1 until end of turn", body)
+    if re.search(r"until you reveal (?:two|three|four|five|six|seven|X) ", body):  # -- look top (wave 51C) -- "Put those land cards onto the battlefield tapped …" after a counted reveal-until: every revealed card of that kind
+        body = re.sub(r"\bPut those ([a-z]+ cards) (onto|into) ", r"Put all \1 revealed this way \2 ", body)
     if event_player:  # -- trigger other (wave 51C) -- "each other player" in a trigger about a player is every player but that one
         body = re.sub(r"\b([Ee]ach) other player\b", r"\1 player other than that player", body)
     if it in ("event", "event_gone"):  # -- either with two actions (wave 51C) -- "you may put that card from a graveyard onto the battlefield under your control" (Tergrid): the trigger's card, which moves only while it is in a graveyard (400.7)
@@ -4739,6 +4741,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     )
 
     text = self_text(merged.protect(ability.text), ch.name)
+    if text == "X can't be greater than the number of players in the game.":  # -- X caps (wave 51C) -- 601.2b: the cap on the X announced as it is cast (casting.cast_spell), spelled "the number of players"
+        return {"kind": "static", "static": "x_cap", "n": {"count": 'sel:{"player":"any"}'}, "effects": []}
     # -- Case (wave 51C) -- 719.3a: "To solve — [Condition]" means "At the beginning of your end step, if [condition] and this Case is not solved, this Case becomes solved."
     if (solve := re.fullmatch(r"To solve — (?P<c>.+?)\.(?: \(If unsolved, solve at the beginning of your end step\.\))?", text)) is not None:
         from app.rules import conditions as _conditions
@@ -5895,7 +5899,7 @@ def spell_definition(ch: Characteristics) -> Definition | None:
              and not own_card_event_ability(defs.get(ab.index))  # (wave 36A: cycling / discard triggers of the card itself)
              and defs.get(ab.index, {}).get("trigger") != "cast_self"  # -- spell copies (wave 31D) -- 601.2i: "When you cast this spell, …" triggers
              and defs.get(ab.index, {}).get("replacement") != "shuffle_instead"  # -- zone replacements (wave 51C) -- Nexus of Fate: where the spell card goes (614.1), not what it does
-             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional")  # (own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
+             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional", "x_cap")  # (x_cap: wave 51C; own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
                       and (defs[ab.index].get("free") or defs[ab.index].get("zone") in ("graveyard", "exile")
                            or defs[ab.index].get("flash")))]  # (wave 17C: retrace, 702.81a; wave 22F: "cast this spell as though it had flash if …", 601.3d)

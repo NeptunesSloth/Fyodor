@@ -42,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant", "Zenith Chronicler", "Court of Ambition", "Fatal Push", "Case of the Ransacked Lab", "Case of the Locked Hothouse", "Case of the Shifting Visage", "Swarmyard Massacre", "Summon: Leviathan", "Thraben Charm", "Stonespeaker Crystal", "The Death of Gwen Stacy", "Reaver Titan", "Persistent Constrictor"])
+@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant", "Zenith Chronicler", "Court of Ambition", "Fatal Push", "Case of the Ransacked Lab", "Case of the Locked Hothouse", "Case of the Shifting Visage", "Swarmyard Massacre", "Summon: Leviathan", "Thraben Charm", "Stonespeaker Crystal", "The Death of Gwen Stacy", "Reaver Titan", "Persistent Constrictor", "Open the Way"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -666,6 +666,25 @@ def test_persistent_constrictor_drains_each_opponent_and_shrinks_one_of_their_cr
     pick(s, bears.id)
     settle(s)
     assert life(s, "p2") == 39 and s.state.cards[bears.id].counters.get("-1/-1", 0) == 1 and not s.state.cards[elves.id].counters
+    check(s)
+
+
+def test_open_the_way_reveals_until_x_lands_and_x_is_capped_by_the_players(cards):
+    """"X can't be greater than the number of players in the game. Reveal cards ... until you reveal X land cards. Put those land cards onto the battlefield tapped and the rest on the bottom ...":
+    two players, so X = 3 is refused; X = 2 reveals Bears, Forest, Hill Giant, Forest and puts the two Forests onto the battlefield tapped."""
+    s = build(cards, ["Open the Way", "Grizzly Bears", "Hill Giant"], forests=12)
+    for name in reversed(["Grizzly Bears", "Forest", "Hill Giant"]):  # (top of the library: these, then Forests)
+        act(s, "p1", type="move", card_ids=[card_named(s, name).id], to={"player": "p1", "zone": "library"}, position="top")
+    spell = to_hand(s, "Open the Way")
+    mana(s, G=5)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=spell.id, x_value=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id, x_value=2)
+    settle(s)
+    lands = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Forest"]
+    assert len(lands) == 2 and all(c.tapped for c in lands)
+    assert zone_of(s, "Grizzly Bears") == "p1:library" and zone_of(s, "Hill Giant") == "p1:library"  # (the rest went to the bottom)
+    assert len(s.state.zones["p1:library"]) == 14 - 2  # (12 Forests, Bears and Giant, less the two Forests taken)
     check(s)
 
 

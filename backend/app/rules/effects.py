@@ -2823,13 +2823,14 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for pid in owners:
         library = _library(plan, pid)
         if e.get("until"):
-            at = _first_match(plan, ctx, library, e["until"], ctx["controller"])
-            for _ in range(int(e.get("need") or 1) - 1):  # -- trigger other (wave 44B) -- "until they reveal four land cards": down to the Nth match (all of it if fewer)
+            need = _amount(plan, ctx, e["need"]) if e.get("need") is not None else 1  # (wave 51C: X, the announced value)
+            at = _first_match(plan, ctx, library, e["until"], ctx["controller"]) if need > 0 else None
+            for _ in range(need - 1):  # -- trigger other (wave 44B) -- "until they reveal four land cards": down to the Nth match (all of it if fewer)
                 if at is None:
                     break
                 nxt = _first_match(plan, ctx, library[at + 1:], e["until"], ctx["controller"])
                 at = None if nxt is None else at + 1 + nxt
-            top = library if at is None else library[: at + 1]
+            top = (library if need > 0 else []) if at is None else library[: at + 1]
             if at is not None and len(owners) == 1 and not e.get("need"):
                 ctx["found"] = library[at]
         else:
