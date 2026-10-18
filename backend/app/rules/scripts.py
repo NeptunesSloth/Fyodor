@@ -7928,6 +7928,8 @@ def _probe_previous(effects: list[dict[str, Any]], prev_start: int, reflex: bool
     base = effects[prev_start:]
     if len(base) == 2 and base[0]["do"] == "only_if" and not base[0].get("bind") and base[0].get("skip") == 1:
         base = base[1:]  # (a trigger's intervening "if" in that sentence: it gates A, and so B)
+    if len(base) == 2 and base[0]["do"] == "exile" and base[0].get("who") == "self" and base[1]["do"] == "return_card" and base[1].get("who") == "it":
+        base = base[:1]  # -- if you do (wave 51D) -- "Exile ~, then return her to the battlefield transformed. If you do, …" (Liliana, Heretical Healer): the exile is what can fail (ruling 2015-06-22: only the first of several triggers does anything, the source is no longer that object)
     if len(base) != 1 or base[0]["do"] not in _DID_MANDATORY or base[0].get("did") or base[0].get("optional"):
         return None
     if base[0].get("all"):  # -- "this way" outcomes (wave 4A) -- "Discard your hand. If you do, …" with an empty hand:
@@ -7991,8 +7993,9 @@ def _did_refs_ok(effects: list[dict[str, Any]]) -> bool:
     acts on ("who") what a probed A moved is refused. Reading its characteristics (its toughness, "it deals") is
     fine: that is the object as it last existed (608.2h)."""
     probed = {str(e["as"]) for e in effects if str(e.get("did") or "").startswith("mdid") and e.get("as")}
+    gate = next((i for i, e in enumerate(effects) if e["do"] == "only_if" and str((e["cond"] or {}).get("succeeded", "")).startswith("mdid")), 0)  # (wave 51D: A's own sentence, before the gate, may name what A moved: "Exile ~, then return her …", Liliana)
     return not probed or not any(isinstance(e.get("who"), str) and (m := _REF_NAME.match(e["who"])) is not None
-                                 and m["name"] in probed for e in effects)
+                                 and m["name"] in probed for e in effects[gate:])
 
 
 def _cast_conditions_ok(effects: list[dict[str, Any]]) -> bool:

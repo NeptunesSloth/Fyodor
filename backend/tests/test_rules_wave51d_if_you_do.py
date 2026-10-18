@@ -3,6 +3,8 @@ Every scenario checks the replay and a save and a load.
 
 * 118.12 / 115.3 / 702.151a: Stiltzkin - "Target opponent gains control of another target permanent you control. If they do, you draw a card." The first target is a
   player, so "another" is than the source itself (as reconfigure's "another target creature you control"), never Stiltzkin.
+* 118.12 / 701.13: Liliana, Heretical Healer - "exile Liliana, then return her to the battlefield transformed under her owner's control. If you do, create a 2/2 black
+  Zombie creature token." (ruling 2015-06-22: with several triggers only the first one does anything, Liliana is no longer the object that was exiled).
 * 608.2c / 205.2: Szarekh - "You may put an artifact creature card or Vehicle card from among the cards milled this way into your hand." (an artifact creature, or a
   Vehicle, which is an artifact that is not necessarily a creature).
 """
@@ -21,13 +23,14 @@ from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, attack, next_turn, settle, stops, to_phase
-from tests.wave9c_kit import build, card_named, check, life, mana, put, reloaded, zone_of
+from tests.wave9c_kit import build, card_named, cast, check, life, mana, put, reloaded, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave51d_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w51d", number=f"X{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 STILTZKIN, SZAREKH = "Stiltzkin, Moogle Merchant", "Szarekh, the Silent King"
+LILIANA = "Liliana, Heretical Healer // Liliana, Defiant Necromancer"
 
 
 @pytest.fixture()
@@ -39,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", [STILTZKIN, SZAREKH])
+@pytest.mark.parametrize("name", [STILTZKIN, SZAREKH, LILIANA])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -115,4 +118,44 @@ def test_szarekh_declined_takes_nothing(cards):
     s = szarekh(cards, ["Hill Giant", "Ornithopter", "Smuggler's Copter"])
     drive(s, set())
     assert zone_of(s, "Ornithopter") == "p1:graveyard" and zone_of(s, "Smuggler's Copter") == "p1:graveyard"
+    check(s)
+
+
+# -- Liliana, Heretical Healer ---------------------------------------------------------------------------------------------------------
+def zombies(s):
+    return [c for c in s.state.cards.values() if c.is_token and c.name == "Zombie" and c.zone == "p1:battlefield"]
+
+
+def liliana_dies(cards, spell, mana_cost, extra=()):
+    s = build(cards, [LILIANA, "Grizzly Bears", spell], forests=30)
+    lili = put(s, LILIANA)
+    bears = put(s, "Grizzly Bears")
+    to_hand(s, spell)
+    mana(s, "p1", **mana_cost)
+    cast(s, spell, **({"targets": [bears.id]} if spell == "Lightning Bolt" else {}))
+    settle(s)
+    return s, lili, bears
+
+
+def test_liliana_returns_transformed_and_makes_one_zombie(cards):
+    s, lili, bears = liliana_dies(cards, "Lightning Bolt", {"R": 1})
+    assert zone_of(s, "Grizzly Bears") == "p1:graveyard"
+    assert s.state.cards[lili.id].zone == "p1:battlefield" and s.state.cards[lili.id].face == 1  # Liliana, Defiant Necromancer
+    assert len(zombies(s)) == 1
+    check(s)
+    assert len(zombies(reloaded(s))) == 1
+
+
+def test_liliana_that_dies_with_the_creature_cannot_be_exiled_and_makes_no_zombie(cards):
+    """400.7: simultaneously dead, she is a new object in the graveyard: nothing to exile, so "If you do" is false."""
+    s, lili, bears = liliana_dies(cards, "Day of Judgment", {"W": 4})
+    assert s.state.cards[lili.id].zone == "p1:graveyard" and not zombies(s)
+    check(s)
+
+
+def test_liliana_does_nothing_when_no_creature_dies(cards):
+    s = build(cards, [LILIANA], forests=30)
+    lili = put(s, LILIANA)
+    settle(s)
+    assert s.state.cards[lili.id].face == 0 and not zombies(s)
     check(s)

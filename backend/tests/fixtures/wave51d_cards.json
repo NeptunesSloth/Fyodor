@@ -86,5 +86,60 @@
   "keywords": [],
   "power": "3",
   "toughness": "3"
+ },
+ {
+  "name": "Liliana, Heretical Healer // Liliana, Defiant Necromancer",
+  "layout": "transform",
+  "mana_cost": "{1}{B}{B} // ",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Cleric // Legendary Planeswalker — Liliana",
+  "oracle_text": "Lifelink\nWhenever another nontoken creature you control dies, exile Liliana, Heretical Healer, then return her to the battlefield transformed under her owner's control. If you do, create a 2/2 black Zombie creature token.\n//\n+2: Each player discards a card.\n−X: Return target nonlegendary creature card with mana value X from your graveyard to the battlefield.\n−8: You get an emblem with \"Whenever a creature dies, return it to the battlefield under your control at the beginning of the next end step.\"",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Lifelink",
+   "Transform"
+  ],
+  "power": "2",
+  "toughness": "3",
+  "card_faces": [
+   {
+    "name": "Liliana, Heretical Healer",
+    "mana_cost": "{1}{B}{B}",
+    "type_line": "Legendary Creature — Human Cleric",
+    "oracle_text": "Lifelink\nWhenever another nontoken creature you control dies, exile Liliana, Heretical Healer, then return her to the battlefield transformed under her owner's control. If you do, create a 2/2 black Zombie creature token.",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+     "B"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/d/8/d8b718d8-fca3-4b3e-9448-6067c8656a9a.jpg?1783924142",
+     "normal": "https://cards.scryfall.io/normal/front/d/8/d8b718d8-fca3-4b3e-9448-6067c8656a9a.jpg?1783924142",
+     "large": "https://cards.scryfall.io/large/front/d/8/d8b718d8-fca3-4b3e-9448-6067c8656a9a.jpg?1783924142",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/d/8/d8b718d8-fca3-4b3e-9448-6067c8656a9a.jpg?1783924142"
+    }
+   },
+   {
+    "name": "Liliana, Defiant Necromancer",
+    "mana_cost": "",
+    "type_line": "Legendary Planeswalker — Liliana",
+    "oracle_text": "+2: Each player discards a card.\n−X: Return target nonlegendary creature card with mana value X from your graveyard to the battlefield.\n−8: You get an emblem with \"Whenever a creature dies, return it to the battlefield under your control at the beginning of the next end step.\"",
+    "loyalty": "3",
+    "colors": [
+     "B"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/d/8/d8b718d8-fca3-4b3e-9448-6067c8656a9a.jpg?1783924142",
+     "normal": "https://cards.scryfall.io/normal/back/d/8/d8b718d8-fca3-4b3e-9448-6067c8656a9a.jpg?1783924142",
+     "large": "https://cards.scryfall.io/large/back/d/8/d8b718d8-fca3-4b3e-9448-6067c8656a9a.jpg?1783924142",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/d/8/d8b718d8-fca3-4b3e-9448-6067c8656a9a.jpg?1783924142"
+    }
+   }
+  ]
  }
 ]
