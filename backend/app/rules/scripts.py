@@ -3449,7 +3449,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                   r"\1 \2. That player puts that card onto the battlefield. Shuffle that library.", body)
     if "until you reveal " in body:
         body = re.sub(r"(until you reveal [^.]*?)\. If you do, put ", r"\1. Put ", body) if "ou may reveal cards" in body else body
-        body = re.sub(r"(?:, then| and) shuffle (?:the rest|all other cards revealed this way) into your library", ", then shuffle", body)
+        body = re.sub(r"(?:, then| and) shuffle (?:the rest(?: of the revealed cards)?|all other cards revealed this way) into your library", ", then shuffle", body)  # (wave 53B: Kindred Summons)
     from app.rules import watches  # -- turn watches (wave 7D) --
 
     body = watches.join_choose(watches.join_retarget(body))  # (-- turn-long triggers (wave 33A) --)
@@ -6113,6 +6113,14 @@ def own_card_event_ability(d: Definition | None) -> bool:
 
 def spell_definition(ch: Characteristics) -> Definition | None:
     """A whole instant/sorcery as one definition, if every line is automated (else None)."""
+    whole = _spell_definition(ch)
+    if whole is None or not whole.get("modes"):
+        return whole
+    whole = _chosen.retag(whole, ch)  # -- chosen filters (wave 53B) -- a modal spell's modes are judged one by one: the lines of a mode aren't a definition of their own (define), so "Choose artifact or enchantment. Destroy all permanents of the chosen type." there is read here
+    return whole if _chosen.chosen_value_ok(whole, ch) else None
+
+
+def _spell_definition(ch: Characteristics) -> Definition | None:
     if not ch.is_instant_or_sorcery:
         return None
     # (-- static_other sweep (wave 16B) -- a hand ability on the card — reinforce 702.77a, "{cost}, Discard this card: …" — is not
@@ -6332,6 +6340,13 @@ def _enters_self_check(d: Definition | None, ch: Characteristics) -> Definition 
     counted (614.12: replacements._counter_amount, ``not_yet_entered``)."""
     from app.rules import selectors
 
+    if d is not None and d.get("counters") is not None and "self_sels" in d["counters"]:  # -- chosen filters (wave 53B) -- "enters with a counter for each creature you control of the chosen type": a creature entering might count itself (unsettled, as above), so only a card that can't be in the group is read
+        inner = dict(d["counters"])
+        for k in inner.pop("self_sels"):
+            s = selectors.from_key(k)
+            if set(s.types) & ch.types or set(s.subtypes) & ch.subtypes:
+                return None
+        return {**d, "counters": inner}
     if d is None or "self_sels" not in d:
         return d
     d = dict(d)
@@ -6487,6 +6502,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     if (esc := re.fullmatch(r"(~ enters with (?P<n>\w+) (?P<k>[+-]\d+/[+-]\d+) counters on it)\. It escapes with (?P<e>\w+) (?P=k) counters on it instead\.", text)) is not None \
             and (base := define_replacement(ability, esc[1] + ".")) is not None and base.get("replacement") == "enters_with_counters" and (escaped := {**NUMBERS, "eleven": 11, "twelve": 12}.get(esc["e"])) is not None:
         return {**base, "escaped_n": escaped}
+    if (combo := _chosen.enters_with_choice(text, lambda t: define_replacement(ability, t))) is not None:  # -- chosen filters (wave 53B) -- Banner of Kinship
+        return combo
     text = re.sub(r"^~ enters tapped if it's not your turn\.$", "~ enters tapped unless it's your turn.", text)  # (wave 19A: Eddymurk Crab)
     from app.rules import (
         counters52d,  # -- counters (wave 52D) -- 708.11: "As ~ is turned face up, put five +1/+1 counters on it."

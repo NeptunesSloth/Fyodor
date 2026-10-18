@@ -4092,7 +4092,9 @@ def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
         from app.rules import chosen as picked
 
         what = "card name" if card_names.is_choice(e["what"]) else e["what"]  # (wave 22B)
-        ctx["effects"] = ctx["effects"][: ctx["next"]] + picked.bind_effects(ctx["effects"][ctx["next"]:], what, value)
+        rest = ctx["effects"][ctx["next"]:]
+        cut = next((i for i, x in enumerate(rest) if x.get("do") == "choose_value" and x.get("what") == e["what"] and not x.get("remember")), len(rest))  # (wave 53B: down to the next choice of the same kind: a mode chosen twice, "Choose artifact or enchantment" in Season of Gathering, chooses twice)
+        ctx["effects"] = ctx["effects"][: ctx["next"]] + picked.bind_effects(rest[:cut], what, value) + rest[cut:]
     src = plan.state.cards.get(ctx.get("source_card") or "")
     if e.get("remember") and src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
         plan.do({"type": "set_choice", "card_id": src.id, "key": card_names.LABEL if card_names.is_choice(e["what"]) else CHOICE_LABELS[e["what"]], "value": shown}, actor=d.player)

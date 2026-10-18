@@ -353,6 +353,13 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
                     n = _counter_amount(plan, card.id, controller, part, x, newcomers)
                     if n > 0:
                         counters[part["counter"]] = counters.get(part["counter"], 0) + n
+        for d in scripts.definitions(ch).values():  # -- chosen filters (wave 53B) -- "As ~ enters, choose a creature type. ~ enters with a counter for each creature you control of the chosen type." (614.12a, 614.1c)
+            if d.get("replacement") == "enters_choice" and d.get("counters") and (picked := (choices or {}).get(d["counters_choice"])):
+                from app.rules import chosen as _chosen
+
+                part = _chosen.bind_effects([d["counters"]], d["counters_choice"], picked)[0]
+                if (n := _counter_amount(plan, card.id, controller, part, x, newcomers)) > 0:
+                    counters[part["counter"]] = counters.get(part["counter"], 0) + n
         from app.rules import copying
 
         for kind, n in copying.entry_counters(plan, card, controller, ch, choices, x).items():  # -- copy exceptions (wave 24A) -- 707.9e

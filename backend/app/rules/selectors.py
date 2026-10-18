@@ -555,7 +555,7 @@ def _opp_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "graveyard", "opponent")
 
 
-@_suffix(r"(?:from|in) graveyards")
+@_suffix(r"(?:from|in) (?:graveyards|each graveyard|all graveyards)")  # (wave 53B: "each card named ~ in each graveyard", 400.1: every player's)
 def _graveyards(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "graveyard", None)  # any graveyards (400.1: each player has their own)
 

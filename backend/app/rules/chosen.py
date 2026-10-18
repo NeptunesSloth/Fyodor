@@ -83,7 +83,7 @@ def _enters_choices(ch: Characteristics) -> list[str]:
     from app.rules.language import ENTERS_CHOICE
     from app.rules.scripts import self_text
 
-    texts = [self_text(ab.text, ch.name) for ab in ch.abilities]
+    texts = [choice_head(self_text(ab.text, ch.name)) for ab in ch.abilities]  # (wave 53B: a line that also puts counters on it)
     named = [e["what"] for t in texts if (d := card_names.enters_choice(t)) is not None for e in d["effects"] if card_names.is_choice(e["what"])]
     return ["card type" if m["what"].startswith(("card type", "artifact, ")) else "number" if m["what"].startswith("number") else "abilities" if m["what"].startswith("two abilities") else "creature type" if m["what"][:1].isupper() else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None] + ["card name" for _ in named]  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
 
@@ -98,12 +98,17 @@ def _kind(what: str | None) -> str | None:
 
 def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     """Whether every "of the chosen type / color" in this definition names a choice the engine knows (see above)."""
+    if d.get("modes"):  # -- chosen filters (wave 53B) -- 700.2: each mode is its own run of instructions (a choice made in a mode serves that mode only)
+        rest = {k: v for k, v in d.items() if k != "modes"}
+        return chosen_value_ok(rest, ch) and all(chosen_value_ok({"kind": d.get("kind"), **m}, ch) for m in d["modes"])
     if d.get("chosen_type") and _enters_choices(ch).count("basic land type" if d["chosen_type"] == "land" else "creature type") != 1:
         return False  # (wave 11E: "~ is the chosen type in addition to its other types" needs that one choice)
 
     if d.get("chosen_keywords") and _enters_choices(ch).count("abilities") != 1:
         return False  # (wave 49B: "Humans you control have each of the chosen abilities." needs that one choice, Greymond)
 
+    if d.get("counters"):  # -- chosen filters (wave 53B) -- "enters with a counter for each creature you control of the chosen type": counted with the answer of the same line
+        return all(w == d["counters_choice"] for _, w in _uses(d["counters"]))
     dumped = json.dumps(d)
     for line, (kind, _) in PROTECTION.items():  # -- attached events (wave 25D) -- an Aura's static: its own enters choice (wave 53B: a card type, a creature type)
         if line in dumped and d.get("static") == "grant":
@@ -287,6 +292,8 @@ def _walk_keys(node: Any, fn: Any) -> Any:
 def retag(d: dict[str, Any], ch: Characteristics) -> dict[str, Any]:
     """"of the chosen type" is read as a creature type; where the one choice it can mean is a card type (an earlier "Choose a card type."
     of the resolution, or the object's one "As ~ enters, choose a card type"), it is the card type (205.2a)."""
+    if d.get("modes"):  # (each mode on its own: the choice of one mode isn't the other modes')
+        return {**d, "modes": [{k: v for k, v in retag({**m, "kind": d.get("kind")}, ch).items() if k in m} for m in d["modes"]]}
     effects = d.get("effects") or []
     picks = {_kind(e.get("what")) for e in effects if e.get("do") == "choose_value" and not e.get("remember")} | set(_enters_choices(ch))
     if "card type" not in picks or picks & {"creature type", "basic land type"}:
@@ -305,6 +312,9 @@ def rewrite(body: str) -> str:
     body = _CHOOSE_THEN.sub(lambda m: f"{m['c']}hoose a {m['what']}. {m['r'].upper()}", body)
     body = re.sub(r"((?:If you do, )?)(that player reveals their hand) and (~ deals damage) to the player (equal to the number of [^.]* revealed this way)",
                   r"\1\2. \1\3 to that player \4", body)  # (Darigaaz: two instructions, one after the other, the second under the same "If you do")
+    if (u := re.search(r"until you reveal (?:X|two|three|four|five|six|seven) (?P<sel>[a-z]+ cards? of the chosen (?:type|color))\b", body)) is not None:
+        body = re.sub(r"\bPut those cards (onto|into) ", f"Put all {u['sel']} revealed this way \\1 ", body)  # (Kindred Summons: "those cards" are the matches the reveal stopped at)
+    body = re.sub(r"\b(It gets) an additional (?=[+-]\d)", r"\1 ", body)  # (Growth Cycle: a second pump of the same creature, 611.2a: they add up)
     m = _CHOOSE_SENTENCE.search(body)
     if m is None:
         return body
@@ -333,4 +343,27 @@ def protection_line(text: str, choices: dict[str, str]) -> str | None:
         plural = next((k for k, v in protection.CARD_TYPES.items() if v == value), None)
         return f"Protection from {plural}" if plural else None
     return f"Protection from {value.lower()} creatures" if value else None
+
+
+# "As ~ enters, choose a creature type. ~ enters with a fellowship counter on it for each creature you control of the chosen type." (Banner of Kinship): one entering
+# replacement (614.12a, 614.1c): the choice first, then the counters, counted with the answer (replacements.entering_counters binds it).
+_ENTERS_WITH = re.compile(r"^(?P<head>As ~ enters, choose (?:a|an) (?:creature type|color))\. (?P<tail>~ enters with .+)$")
+
+
+def choice_head(text: str) -> str:
+    """The "As ~ enters, choose …" sentence of an entering line, or the line as it is."""
+    m = _ENTERS_WITH.match(text)
+    return m["head"] + "." if m else text
+
+
+def enters_with_choice(text: str, define: Any) -> dict[str, Any] | None:
+    """The entering replacement of the two-sentence line above (``define``: the reader of "~ enters with … counters"), or None."""
+    from app.rules import language
+
+    m = _ENTERS_WITH.match(text)
+    head = language.enters_choice(m["head"] + ".") if m else None
+    counters = define(m["tail"]) if m else None
+    if head is None or counters is None or counters.get("replacement") != "enters_with_counters" or set(counters) - {"kind", "replacement", "counter", "n", "effects", "self_sels"}:
+        return None
+    return {**head, "counters": {k: v for k, v in counters.items() if k in ("counter", "n", "self_sels")}, "counters_choice": head["effects"][0]["what"]}
 # -- end chosen filters (wave 53B) -----------------------------------------------------------------------------------------

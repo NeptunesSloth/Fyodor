@@ -9,6 +9,7 @@ from __future__ import annotations
 import pytest
 
 from app.rules import coverage
+from app.rules.plan import Plan
 from tests.game_helpers import act
 from tests.test_rules_conditionals import until
 from tests.test_rules_wave12a_counters_keywords import answer, on_top
@@ -534,4 +535,173 @@ def test_sanctum_prelate_stops_noncreature_spells_with_the_chosen_mana_value(car
     assert "can't cast" in str(can_cast(s, "Probe Bolt", R=1))  # a noncreature spell with mana value 1
     assert can_cast(s, "Probe Elf", C=1) is None  # a creature spell with mana value 1
     assert can_cast(s, "Probe Gem", C=4) is None  # mana value 4
+    check(s)
+
+
+# ---- more chosen filters (step 5): counters counted with the entering choice, reveal until X of the chosen type, copies of the chosen type, named cards in graveyards ------
+STEP5 = ["Kindred Summons", "Kindred Charge", "Renewed Solidarity", "Banner of Kinship", "Life Burst", "Rune Snag", "Growth Cycle"]
+
+
+@pytest.mark.parametrize("name", STEP5)
+def test_step5_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def counters_on(s, card):
+    return dict(s.state.cards[card.id].counters)
+
+
+def test_banner_of_kinship_counts_the_creatures_of_the_type_chosen_as_it_enters(cards):
+    s = build(cards, ["Banner of Kinship", "Probe Elf", "Probe Elf Two", "Probe Goblin"])
+    for n in ("Probe Elf", "Probe Elf Two", "Probe Goblin"):
+        on_field(s, n)
+    banner = enter(s, "Banner of Kinship", "Elf", C=5)
+    assert counters_on(s, banner) == {"fellowship": 2}  # 614.12a, 614.1c: the two Elves, counted with the answer
+    assert s.state.cards[banner.id].choices == {"Chosen creature type": "Elf"}
+    plan = Plan(s.state, "p1", s.cards, None)
+    elf, elf2, goblin = (card_named(s, n) for n in ("Probe Elf", "Probe Elf Two", "Probe Goblin"))
+    assert (plan.ch(elf).pt, plan.ch(elf2).pt, plan.ch(goblin).pt) == ((3, 3), (4, 4), (1, 1))  # +1/+1 for each of the 2 counters, Elves only
+    check(s)
+
+
+def to_graveyard(s, name, pid="p1", n=1):
+    """Put the last ``n`` cards named ``name`` of ``pid``'s library into their graveyard (``card_named`` finds the first, which stays for casting)."""
+    for c in [c for c in s.state.cards.values() if c.name == name and c.owner == pid and c.zone == f"{pid}:library"][-n:]:
+        act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "graveyard"})
+
+
+def stack_library(s, *names, pid="p1"):
+    """Put these cards (still in the library) on top of it, the first named on top."""
+    for name in reversed(names):
+        c = next(c for c in s.state.cards.values() if c.name == name and c.owner == pid and c.zone == f"{pid}:library")
+        act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "library"})
+
+
+def test_kindred_summons_reveals_until_x_creatures_of_the_chosen_type(cards):
+    s = build(cards, ["Kindred Summons", "Probe Elf", "Probe Elf", "Probe Elf Two", "Probe Elf Two", "Probe Goblin", "Probe Relic"])
+    on_field(s, "Probe Elf")
+    on_field(s, "Probe Elf Two")
+    stack_library(s, "Probe Goblin", "Probe Elf", "Probe Relic", "Probe Elf Two")  # X is 2: down to the second Elf
+    cast(s, "Kindred Summons", G=2, C=5)
+    answer(s, "Elf")
+    on_bf = sorted(c.name for c in s.state.cards.values() if c.zone == "p1:battlefield")
+    assert on_bf == ["Probe Elf", "Probe Elf", "Probe Elf Two", "Probe Elf Two"]  # the two found came in; Goblin and Relic, revealed, did not
+    assert s.state.cards[card_named(s, "Probe Goblin").id].zone == "p1:library" and s.state.cards[card_named(s, "Probe Relic").id].zone == "p1:library"
+    check(s)
+
+
+def test_kindred_summons_with_no_creature_of_the_type_reveals_nothing(cards):
+    s = build(cards, ["Kindred Summons", "Probe Elf", "Probe Goblin"])
+    on_field(s, "Probe Goblin")
+    stack_library(s, "Probe Elf")
+    cast(s, "Kindred Summons", G=2, C=5)
+    answer(s, "Elf")  # X is 0: no card is revealed
+    assert zone_of(s, "Probe Elf") == "p1:library"
+    check(s)
+
+
+def test_kindred_charge_copies_each_creature_of_the_type_and_exiles_the_copies_at_end_step(cards):
+    s = build(cards, ["Kindred Charge", "Probe Elf", "Probe Elf Two", "Probe Goblin"])
+    for n in ("Probe Elf", "Probe Elf Two", "Probe Goblin"):
+        on_field(s, n)
+    cast(s, "Kindred Charge", R=2, C=4)
+    answer(s, "Elf")
+    tokens = [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
+    assert sorted(t.name for t in tokens) == ["Probe Elf", "Probe Elf Two"]  # the Goblin isn't copied
+    plan = Plan(s.state, "p1", s.cards, None)
+    assert all("haste" in plan.ch(t).keywords for t in tokens)
+    until(s, lambda s: not [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"] and s.state.turn.phase in ("end", "cleanup", "main2"), limit=60)
+    check(s)
+
+
+def test_renewed_solidarity_copies_the_tokens_of_the_chosen_type_that_entered_this_turn(cards):
+    s = build(cards, ["Renewed Solidarity", "Probe Elf", "Krenko, Mob Boss"])
+    krenko = on_field(s, "Krenko, Mob Boss")[0]
+    enter(s, "Renewed Solidarity", "Goblin", W=1, C=2)
+    s.state.rules.controlled_since[krenko.id].turn = 0
+    act(s, "p1", type="activate_ability", card_id=krenko.id, ability=0)  # Krenko: create X 1/1 Goblin tokens, X the Goblins you control (one)
+    answer(s)
+    goblins = lambda: [c for c in s.state.cards.values() if c.is_token and c.name == "Goblin" and c.zone == "p1:battlefield"]  # noqa: E731
+    assert len(goblins()) == 1
+    until(s, lambda s: len(goblins()) > 1 or s.state.turn.number > 1, limit=60)
+    assert len(goblins()) == 2  # the end step: a copy of the token that entered this turn (the Goblin Krenko isn't a token)
+    check(s)
+
+
+def test_life_burst_counts_the_cards_with_its_name_in_every_graveyard(cards):
+    s = build(cards, ["Life Burst", "Life Burst", "Life Burst"], ["Life Burst"])
+    to_graveyard(s, "Life Burst", "p1")
+    to_graveyard(s, "Life Burst", "p2")
+    before = life(s, "p1")
+    cast(s, "Life Burst", targets=["p1"], W=1, C=1)
+    answer(s)
+    assert life(s, "p1") == before + 4 + 4 * 2  # 4 life, then 4 for each of the two in graveyards (the one resolving is on the stack)
+    check(s)
+
+
+@pytest.mark.parametrize("extra,countered", [(5, True), (6, False)])
+def test_rune_snag_asks_two_more_for_each_copy_in_a_graveyard(cards, extra, countered):
+    s = build(cards, ["Rune Snag", "Rune Snag", "Rune Snag", "Probe Gem"])
+    to_graveyard(s, "Rune Snag", "p1", 2)  # {2} plus {2} for each of the two: {6}
+    act(s, "p1", type="set_prefs", hold_priority=True)
+    mana(s, "p1", C=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Probe Gem").id)
+    snag = to_hand(s, "Rune Snag")
+    mana(s, "p1", U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=snag.id, targets=[card_named(s, "Probe Gem").id])
+    mana(s, "p1", C=extra)  # the six it asks, or one short
+    answer(s)
+    assert zone_of(s, "Probe Gem") == ("p1:graveyard" if countered else "p1:battlefield")
+    check(s)
+
+
+def test_growth_cycle_adds_two_for_each_copy_in_your_graveyard(cards):
+    s = build(cards, ["Growth Cycle", "Growth Cycle", "Growth Cycle", "Probe Elf"])
+    elf = on_field(s, "Probe Elf")[0]
+    to_graveyard(s, "Growth Cycle", "p1", 2)
+    cast(s, "Growth Cycle", targets=[elf.id], G=1, C=1)
+    answer(s)
+    assert Plan(s.state, "p1", s.cards, None).ch(elf).pt == (1 + 3 + 2 * 2, 1 + 3 + 2 * 2)
+    check(s)
+
+
+def test_season_of_gathering_chooses_a_type_each_time_the_mode_is_chosen(cards):
+    s = build(cards, ["Season of Gathering", "Probe Relic", "Probe Charm", "Probe Elf"], ["Probe Relic"])
+    for n in ("Probe Relic", "Probe Charm", "Probe Elf"):
+        on_field(s, n)
+    on_field(s, "Probe Relic", "p2")
+    mana(s, "p1", G=2, C=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Season of Gathering").id, modes=[1, 1])  # {P}{P} twice
+    assert option_ids(s) == ["Artifact", "Enchantment"]
+    answer(s, "Artifact", "Enchantment")  # each time its own answer: the first destroys artifacts, the second enchantments (608.2c)
+    assert [zone_of(s, "Probe Relic"), zone_of(s, "Probe Charm"), zone_of(s, "Probe Elf")] == ["p1:graveyard", "p1:graveyard", "p1:battlefield"]
+    assert zone_of(s, "Probe Relic", "p2") == "p2:graveyard"
+    check(s)
+
+
+def test_season_of_gathering_one_mode_chooses_only_once(cards):
+    s = build(cards, ["Season of Gathering", "Probe Relic", "Probe Charm"])
+    for n in ("Probe Relic", "Probe Charm"):
+        on_field(s, n)
+    mana(s, "p1", G=2, C=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Season of Gathering").id, modes=[1])
+    answer(s, "Enchantment")
+    assert [zone_of(s, "Probe Relic"), zone_of(s, "Probe Charm")] == ["p1:battlefield", "p1:graveyard"]
+    check(s)
+
+
+@pytest.mark.parametrize("named,found", [("Probe Bolt", True), ("Probe Land", False)])
+def test_isperia_searches_only_when_the_chosen_name_is_in_the_revealed_hand(cards, named, found):
+    s = build(cards, ["Isperia the Inscrutable", "Probe Bird", "Probe Elf"], ["Probe Bolt", "Probe Charm"])
+    for n in ("Probe Bolt", "Probe Charm"):
+        to_hand(s, n, "p2")
+    isperia = put(s, "Isperia the Inscrutable")
+    s.state.rules.controlled_since[isperia.id].turn = 0
+    act(s, "p1", type="pass_priority")  # → combat
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": isperia.id, "target": "p2"}])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.options[0].id == "__name__")
+    name_it(s, named)
+    answer(s)
+    assert zone_of(s, "Probe Bolt", "p2") == "p2:hand"  # revealing moves nothing
+    assert zone_of(s, "Probe Bird") == ("p1:hand" if found else "p1:library") and zone_of(s, "Probe Elf") == "p1:library"
     check(s)

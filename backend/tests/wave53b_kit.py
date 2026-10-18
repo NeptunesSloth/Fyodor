@@ -17,15 +17,17 @@ DATA = json.loads((Path(__file__).parent / "fixtures" / "wave53b_cards.json").re
 KNOWN = {c["name"] for c in fixture_cards()}
 
 
-def probe(name: str, types: str, colors: str = "", text: str = "", pt: tuple[str, str] | None = None, cost: str = "{1}", cmc: int = 1) -> dict[str, Any]:
+def probe(name: str, types: str, colors: str = "", text: str = "", pt: tuple[str, str] | None = None, cost: str = "{1}", cmc: int = 1,
+          keywords: tuple[str, ...] = ()) -> dict[str, Any]:
     extra = {"power": pt[0], "toughness": pt[1]} if pt else {}
     return card(name, set_code="p53b", number=f"P-{name[:9]}", mana_cost=cost, cmc=float(cmc), type_line=types, oracle_text=text,
-                colors=list(colors), color_identity=list(colors), keywords=[], **extra)
+                colors=list(colors), color_identity=list(colors), keywords=list(keywords), **extra)
 
 
 PROBES = [
     probe("Probe Elf", "Creature — Elf Druid", "G", pt=("1", "1")),
     probe("Probe Elf Two", "Creature — Elf Warrior", "G", pt=("2", "2"), cost="{1}{G}", cmc=2),
+    probe("Probe Bird", "Creature — Bird", "W", text="Flying", pt=("1", "1"), keywords=("Flying",)),
     probe("Probe Goblin", "Creature — Goblin", "R", pt=("1", "1")),
     probe("Probe Knight", "Creature — Human Knight", "W", pt=("3", "3"), cost="{2}{W}", cmc=3),
     probe("Probe Bolt", "Instant", "R", cost="{R}"),
