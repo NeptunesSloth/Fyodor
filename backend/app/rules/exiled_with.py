@@ -124,6 +124,16 @@ _PICK = re.compile(r"^(?:return|put) an? (?:(?P<spec>[\w\-]+) )?card exiled with
 _COUNT = {"one": 1, "two": 2, "three": 3, "four": 4}
 
 
+# -- group choices (wave 53D) -- Foreboding Steamboat: "put a card exiled with it into its owner's graveyard" -- ONE of the linked cards, chosen by the controller as it resolves
+_PICK_GRAVEYARD = re.compile(r"^put an? (?:(?P<spec>[\w\-]+) )?card exiled with (?:it|~) into (?:its|their) owner(?:'s|s') graveyard$")
+
+
+def _pick_graveyard(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    if (own := _off(m)) is not None:
+        return own
+    return [{"do": "return_choice", "who": _who(m), "n": 1, "upto": False, "random": False, "label": f"{m['spec']} card" if m["spec"] else "card", "to": "graveyard"}], None
+
+
 def _pick(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if (own := _off(m)) is not None:
         return own
@@ -158,7 +168,7 @@ def _top_of_pile(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_HAND, _hand), (_GRAVEYARD, _graveyard), (_COPY, _copy), (_PICK, _pick), (_PICK_RANDOM, _pick_random),
-                                                (_TOP_OF_PILE, _top_of_pile)]
+                                                (_TOP_OF_PILE, _top_of_pile), (_PICK_GRAVEYARD, _pick_graveyard)]
 
 # -- linked casting (wave 30H) -- 607.2a, 608.2g: in an ability that only refers to what another exiled, "cast a spell from among cards exiled with ~
 # [without paying its mana cost]" casts from the linked cards (the ones ``linked_cards`` binds, as "them"), as this ability resolves

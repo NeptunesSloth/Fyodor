@@ -695,6 +695,8 @@ def bind(body: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, An
         from app.rules import pile_groups
 
         return pile_groups.bind(body, parse, split_sentences)
+    if " exiled with " in body:  # -- exiled with (wave 53D) -- 607.2a: "Put a card exiled with it into its owner's graveyard. If you do, investigate." (Foreboding Steamboat)
+        return _linked_graveyard(body.strip(), parse, split_sentences)
     if _GATE.search(body) is None:
         return None
     text = body.strip()
@@ -834,6 +836,7 @@ _STICK = ("Each player chooses a party from among creatures they control, then s
 _BALANCE = re.compile(r"^Each player chooses a number of (?P<k>lands|permanents) they control equal to the number of (?P=k) controlled by the player who controls the "
                       r"fewest, then sacrifices the rest\. (?P<tail>Players sacrifice creatures and discard cards the same way|Players discard cards and sacrifice "
                       r"creatures the same way|Each player discards cards the same way)\.$")
+_STEAMBOAT = ("Each player chooses two nontoken, non-Vehicle creatures they control.", "Exile them until ~ leaves the battlefield.")
 _SOTHERA = ("Each opponent chooses a creature they control and exiles it.",)
 _GRUDGE = "Each opponent chooses a permanent they control that shares a card type with the sacrificed permanent and sacrifices it."
 _MANIFOLD = ("Reveal the top ten cards of your library.", "Starting with the next opponent in turn order, each opponent chooses a different nonland card from "
@@ -869,6 +872,10 @@ def _chosen_objects(text: str, parse: Any, split_sentences: Any) -> tuple[list[d
                 {"do": "only_if", "cond": {"gc": {"as": "gc", "is": "match"}}, "skip": 2}, {"do": "return_card", "who": "exiled_with", "to": "hand"},
                 {"do": "sacrifice", "who": "self"}, {"do": "only_if", "cond": {"gc": {"as": "gc", "is": "differ"}}, "skip": 1},
                 {"do": "gc_exile_linked", "n": 1, "player": "you", "face_down": True}], "opponent", False
+    if len(sentences) == 2 and [sentences[0][:1].upper() + sentences[0][1:], re.sub(r"\bthis (?:Vehicle|creature|artifact|permanent)\b", "~", sentences[1])] == list(_STEAMBOAT) \
+            and (chosen := parse(_STEAMBOAT[0])) is not None and len(chosen[0]) == 1 and chosen[0][0].get("do") == "player_chooses":
+        # Foreboding Steamboat: starting with the active player each player chooses two (101.4), then all the chosen creatures are exiled at once, until it leaves
+        return [{**chosen[0][0], "as": "gco"}, {"do": "exile_until", "who": "ref:gco"}], None, False
     if sentences and [sentences[0][:1].upper() + sentences[0][1:]] == list(_SOTHERA) and len(sentences) == 1 and (key := _key("creature")) is not None:
         # Sothera, the Supervoid: each opponent chooses a creature they control and exiles it (the exiles are linked to Sothera, 607.2a: exiled_with.link)
         return [{"do": "player_chooses", "who": "each_opponent", "sel": key, "n": 1, "label": "creature", "as": "gco"}, {"do": "exile", "who": "ref:gco"}], None, False
@@ -1038,3 +1045,14 @@ def _auction(text: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str
     if tuple(split_sentences(text)) != _AUCTION or (exile := parse(_AUCTION[0])) is None or len(exile[0]) != 1:
         return None
     return [{**exile[0][0], "as": "ex"}, {"do": "gc_auction", "from": "ref:ex", "as": "ac"}], None, False
+
+
+def _linked_graveyard(text: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """Foreboding Steamboat: one of the cards exiled with it goes into its owner's graveyard, and if a card did, investigate."""
+    sentences = split_sentences(text)
+    if sentences:
+        sentences[0] = sentences[0][:1].upper() + sentences[0][1:]  # (a trigger's body)
+    if len(sentences) != 2 or sentences[1] != "If you do, investigate." or (put := parse(sentences[0])) is None or len(put[0]) != 1 or put[0][0].get("do") != "return_choice" \
+            or put[0][0].get("to") != "graveyard" or (clue := parse("Investigate.")) is None or len(clue[0]) != 1:
+        return None
+    return [{**put[0][0], "did": "rd"}, {"do": "only_if", "cond": {"succeeded": "rd"}, "skip": 1}, clue[0][0]], None, False

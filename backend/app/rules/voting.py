@@ -27,6 +27,11 @@ control. Exile each permanent with the most votes or tied for most votes." (Coun
 * (wave 53D) "For each creature with one or more votes, put that many stun counters on it, then tap it." (Trap the Trespassers): ``vote_objects``, the counters
   (as many as it has votes, at once) and the tap for each creature voted for.
 
+* (wave 53D) "For each fellowship vote, the voter chooses a creature they control. You gain control of each creature chosen this way, and they gain "This creature can't attack
+  its owner." Then for each aid vote, put a +1/+1 counter on each creature you control." (Elrond of the White Council): ``vote_choose`` has each voter choose a creature they control
+  for each of their votes for the word (``group_choice``'s object choice, starting with the player whose turn it is: the ruling of 2023-06-16; the same creature may be chosen
+  again), then control changes, the quoted restriction is given (``restrict``, "@owner": the creature's own owner) and the counters follow.
+
 Not read (manual): several-choice results that move cards between voters (Expropriate), a "this way" count of a repeated instruction
 (Messenger Jays) and "You choose how each player votes" (Illusion of Choice).
 
@@ -64,6 +69,9 @@ _DRAW_NUMBER = re.compile(r"^(?:You )?[Dd]raw cards equal to the number of (?P<w
 _LEADERS = re.compile(r"^(?P<pre>Otherwise, )?(?P<verb>[A-Za-z]+) each (?P<noun>[a-z ]+?) with the most votes or tied for most votes"
                       r"(?P<rest>[^.]*)\.$")
 _EACH_OBJECT = re.compile(r"^For each creature with one or more votes, put that many (?P<k>[a-z]+) counters on it, then tap it\.$")  # -- group choices (wave 53D) -- Trap the Trespassers
+_CHOOSE_FOR_VOTES = re.compile(r"^For each (?P<w>[\w' ]+?) vote, the voter chooses a creature they control\.$")  # -- group choices (wave 53D) -- Elrond of the White Council
+_GAIN_CHOSEN = ("You gain control of each creature chosen this way, and they gain \"This creature can't attack its owner.\"",
+                "You gain control of each creature chosen this way, and they gain \"~ can't attack its owner.\"")
 _PICK_RANDOM = re.compile(r"^(?:Then )?[Cc]hoose (?P<w>an opponent|a player) at random\.$")
 _EACH_RECEIVED = re.compile(r"^(?P<s>Each player|Each opponent) (?P<v>.+?) for each vote (?:they|that player) received\.$")
 _FOR_RECEIVED = re.compile(r"^For each vote (?P<s>an opponent|you) received, (?P<e>.+)\.$")
@@ -199,7 +207,18 @@ def bind(head: dict[str, Any], parse: Any, split_sentences: Any) -> tuple[list[d
         return True
 
     for sentence in split_sentences(head["rest"]):
-        if (m := _PICK_RANDOM.match(sentence)) is not None and words and not any(x.get("do") == "choose_random" for x in effects):
+        if any(x.get("do") == "vote_choose" for x in effects) and sentence.startswith("Then for each "):
+            sentence = "F" + sentence[len("Then f"):]
+        if (m := _CHOOSE_FOR_VOTES.match(sentence)) is not None and words and m["w"].lower() in opts and not any(x.get("do") == "vote_choose" for x in effects):
+            from app.rules import selectors
+
+            if not flush() or (creature := selectors.parse("creature")) is None:
+                return None
+            effects.append({"do": "vote_choose", "choice": m["w"].lower(), "as": "vc", "sel": creature.key()})
+        elif sentence in _GAIN_CHOSEN and any(x.get("do") == "vote_choose" for x in effects) and flush():
+            effects.extend([{"do": "gain_control", "who": "ref:vc:chosen"},
+                            {"do": "restrict", "who": "ref:vc:chosen", "rules": ["cant_attack_player:@owner"], "locked": True, "duration": "permanent"}])
+        elif (m := _PICK_RANDOM.match(sentence)) is not None and words and not any(x.get("do") == "choose_random" for x in effects):
             if not flush():
                 return None
             effects.append({"do": "choose_random", "pool": "opponent" if m["w"] == "an opponent" else "player", "as": "vr"})
@@ -479,6 +498,18 @@ def objects(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def choose_for_votes(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- group choices (wave 53D) -- "For each fellowship vote, the voter chooses a creature they control.": each voter, starting with the player whose turn it is and in turn
+    order, chooses one for each of their votes for the word (the decisions are group_choice's object choices); the chosen creatures are bound as ``<as>:chosen``."""
+    from app.rules import group_choice
+
+    ballots = ctx["vote"]["ballots"]
+    turns = [[p, 0] for p in plan.apnap() if p in plan.live() for b in ballots if b[0] == p and b[1] == e["choice"]]
+    choice = {"do": "gc_choose", "what": "object", "as": e["as"], "kinds": [{"sel": e["sel"], "mine": True, "say": "a creature you control"}]}
+    ctx.setdefault("gc", {})[e["as"]] = {"order": list(dict.fromkeys(p for p, _ in turns)), "turns": turns, "i": 0, "ballots": [], "secret": False}
+    return group_choice._ask(plan, ctx, choice)
+
+
 def bind_object(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import context
 
@@ -494,5 +525,5 @@ def bind_player(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES = {"vote": vote, "vote_repeat": repeat, "vote_control": vote_control, "vote_each": each, "vote_bind": bind_player,
-              "vote_objects": objects, "vote_bind_object": bind_object}
+              "vote_objects": objects, "vote_bind_object": bind_object, "vote_choose": choose_for_votes}
 RESUME = {"vote": resume}

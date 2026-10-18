@@ -1003,3 +1003,85 @@ def test_sothera_does_nothing_at_the_end_step_while_every_player_controls_a_crea
     until(s, lambda s: s.state.turn.number > 1, limit=100)
     assert SOTHERA in names_on(s, "p1") and names_on(s, "p2", "exile") == ["Young Wolf"]  # every player controlled a creature as her end step began: nothing triggered
     check(s)
+
+
+# -- secret council: each voter chooses a creature for each fellowship vote (wave 53D; 701.38, 101.4) ----------------------------------
+ELROND = "Elrond of the White Council"
+
+
+def test_elrond_is_full(cards):
+    assert coverage.of_card_data(cards.resolve(ELROND)).level == "FULL"
+
+
+def test_elrond_fellowship_voters_give_a_creature_which_cannot_attack_its_owner_and_aid_votes_add_counters(cards):
+    s = table(cards, [ELROND, "Llanowar Elves"], ["Grizzly Bears", "Young Wolf"], ["Llanowar Elves"])
+    bears, wolf = put(s, "Grizzly Bears", "p2"), put(s, "Young Wolf", "p2")
+    elves = put(s, "Llanowar Elves", "p3")
+    cast(s, ELROND, G=1, U=1, C=3)
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p1" and {o.label for o in d.options} == {"fellowship", "aid"} and "(secret)" in d.prompt
+    answer(s, "p1", "aid")
+    for viewer, _seen in seen_by_others(s, "p1"):
+        assert "voted" not in json.dumps(s.view(viewer)["log"]), viewer  # nothing of the votes is shown before they are revealed
+    answer(s, "p2", "fellowship")
+    answer(s, "p3", "fellowship")
+    assert "The votes are revealed: Alice voted for aid; Bob voted for fellowship; Carol voted for fellowship" in log(s, "p3")
+    d = s.state.rules.decision  # starting with the player whose turn it is: Bob chooses one of his two creatures (Carol has only the one)
+    assert d.player == "p2" and sorted(o.label for o in d.options) == ["Grizzly Bears", "Young Wolf"]
+    pick(s, "p2", "Grizzly Bears")
+    resolve(s)
+    assert s.state.cards[bears.id].controller == "p1" and s.state.cards[elves.id].controller == "p1" and s.state.cards[wolf.id].controller == "p2"
+    counters = {c.name: c.counters.get("+1/+1", 0) for c in s.state.cards.values() if c.zone == "p1:battlefield"}
+    assert counters == {ELROND: 1, "Grizzly Bears": 1, "Llanowar Elves": 1}  # one aid vote: a +1/+1 counter on each creature Alice controls, the new ones too
+    check(s)
+    until(s, lambda s: s.state.turn.number == 4 and s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers", limit=400)
+    life = {p: s.state.players[p].life for p in ("p2", "p3")}
+    with pytest.raises(Exception, match="can't attack"):
+        act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])  # Bob's Bears cannot attack Bob
+    with pytest.raises(Exception, match="can't attack"):
+        act(s, "p1", type="declare_attackers", attackers=[{"card_id": elves.id, "target": "p3"}])  # nor Carol's Elves, Carol
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p3"}, {"card_id": elves.id, "target": "p2"}])
+    until(s, lambda s: s.state.turn.phase == "main2", limit=40)
+    assert s.state.players["p3"].life < life["p3"] and s.state.players["p2"].life < life["p2"]
+    check(s)
+
+
+# -- each player chooses creatures, all exiled until the Vehicle leaves (wave 53D; 101.4, 610.3, 607.2a) ------------------------------
+BOAT = "Foreboding Steamboat"
+
+
+def test_foreboding_steamboat_is_full(cards):
+    assert coverage.of_card_data(cards.resolve(BOAT)).level == "FULL"
+
+
+def test_foreboding_steamboat_each_player_exiles_two_creatures_and_attacking_puts_one_into_a_graveyard_for_a_clue(cards):
+    s = table(cards, [BOAT, "Llanowar Elves", "Grizzly Bears", "Young Wolf"], ["Soul Warden", "Dregscape Zombie"], players=2)
+    put(s, "Llanowar Elves"), put(s, "Grizzly Bears"), put(s, "Young Wolf")
+    put(s, "Soul Warden", "p2"), put(s, "Dregscape Zombie", "p2")
+    pilot = creature(s, "p1", "Alice Pilot", "3/3")  # (tokens are not chosen)
+    creature(s, "p2", "Bob Token")
+    boat = card_named(s, BOAT)
+    cast(s, BOAT, B=2, C=3)
+    resolve(s)
+    d = s.state.rules.decision  # starting with the active player, each player chooses two: Alice has three to choose from, Bob exactly two
+    assert d.player == "p1" and sorted(o.label for o in d.options) == ["Grizzly Bears", "Llanowar Elves", "Young Wolf"] and (d.min_choices, d.max_choices) == (2, 2)
+    pick(s, "p1", "Llanowar Elves", "Grizzly Bears")
+    resolve(s)
+    assert s.state.rules.decision is None
+    assert sorted(s.state.cards[c].name for p in ("p1", "p2") for c in s.state.zones[f"{p}:exile"]) == ["Dregscape Zombie", "Grizzly Bears", "Llanowar Elves", "Soul Warden"]
+    assert names_on(s, "p1") == ["Alice Pilot", BOAT, "Young Wolf"] and names_on(s, "p2") == ["Bob Token"]
+    check(s)
+    act(s, "p1", type="set_prefs", response="on")
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None, limit=400)
+    act(s, "p1", type="activate_ability", card_id=boat.id, ability=2, crew=[pilot.id])
+    resolve(s)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers", limit=40)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": boat.id, "target": "p2"}])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "choose_cards", limit=40)
+    d = s.state.rules.decision  # one of the cards exiled with it goes into its owner's graveyard
+    assert d.player == "p1" and sorted(o.label for o in d.options) == ["Dregscape Zombie", "Grizzly Bears", "Llanowar Elves", "Soul Warden"]
+    pick(s, "p1", "Soul Warden")
+    resolve(s)
+    assert names_on(s, "p2", "graveyard") == ["Soul Warden"] and any(c.name == "Clue" for c in s.state.cards.values() if c.zone == "p1:battlefield")  # and she investigates
+    check(s)

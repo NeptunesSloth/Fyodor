@@ -518,27 +518,6 @@
   ]
  },
  {
-  "name": "Elrond of the White Council",
-  "layout": "normal",
-  "mana_cost": "{3}{G}{U}",
-  "cmc": 5.0,
-  "type_line": "Legendary Creature — Elf Noble",
-  "oracle_text": "Secret council — When Elrond enters, each player secretly votes for fellowship or aid, then those votes are revealed. For each fellowship vote, the voter chooses a creature they control. You gain control of each creature chosen this way, and they gain \"This creature can't attack its owner.\" Then for each aid vote, put a +1/+1 counter on each creature you control.",
-  "colors": [
-   "G",
-   "U"
-  ],
-  "color_identity": [
-   "G",
-   "U"
-  ],
-  "keywords": [
-   "Secret council"
-  ],
-  "power": "3",
-  "toughness": "3"
- },
- {
   "name": "Mages' Contest",
   "layout": "normal",
   "mana_cost": "{1}{R}{R}",
@@ -890,5 +869,46 @@
    "B"
   ],
   "keywords": []
+ },
+ {
+  "name": "Elrond of the White Council",
+  "layout": "normal",
+  "mana_cost": "{3}{G}{U}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Elf Noble",
+  "oracle_text": "Secret council — When Elrond enters, each player secretly votes for fellowship or aid, then those votes are revealed. For each fellowship vote, the voter chooses a creature they control. You gain control of each creature chosen this way, and they gain \"This creature can't attack its owner.\" Then for each aid vote, put a +1/+1 counter on each creature you control.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Secret council"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Foreboding Steamboat",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{B}",
+  "cmc": 5.0,
+  "type_line": "Artifact — Vehicle",
+  "oracle_text": "When this Vehicle enters, each player chooses two nontoken, non-Vehicle creatures they control. Exile them until this Vehicle leaves the battlefield.\nWhenever this Vehicle attacks, put a card exiled with it into its owner's graveyard. If you do, investigate.\nCrew 2",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Investigate",
+   "Crew"
+  ],
+  "power": "5",
+  "toughness": "7"
  }
 ]

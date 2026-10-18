@@ -915,6 +915,10 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     who = _GROUPS.get(e["who"], e["who"])
     cards = _cards(plan, ctx, who)
     _remember(plan, ctx, e, cards)
+    if any("@owner" in r for r in e["rules"]):  # -- group choices (wave 53D) -- "can't attack its owner": one restriction for each creature, naming its own owner
+        for cid in cards:
+            restrict(plan, ctx, {**e, "who": f"object:{plan.oid(cid)}", "rules": [r.replace("@owner", plan.state.cards[cid].owner) for r in e["rules"]]})
+        return True
     if any("@that" in r for r in e["rules"]):  # -- random choices (wave 47B) -- "attacks that player": the player picked before (none left: nothing is required)
         that = _players(plan, ctx, e["player"])
         if not that:
@@ -2552,6 +2556,8 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
     from app.rules import attachments  # attachments → effects (resume)
 
     before = _remember(plan, ctx, e, cards)
+    if e.get("did"):  # -- group choices (wave 53D) -- "Put a card exiled with it into its owner's graveyard. If you do, investigate." (Foreboding Steamboat): a card was put
+        context.bind_payment(ctx, e["did"], bool(cards))
     if e["to"] == "library_top":  # -- refused zones/sized (wave 3R4) -- "put a land card from your graveyard on top of
         for cid in cards[:1]:  # your library": one card, to its owner's library (400.3)
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
