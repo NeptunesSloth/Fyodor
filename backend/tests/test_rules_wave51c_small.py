@@ -42,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant", "Zenith Chronicler", "Court of Ambition", "Fatal Push", "Case of the Ransacked Lab", "Case of the Locked Hothouse", "Case of the Shifting Visage", "Swarmyard Massacre", "Summon: Leviathan", "Thraben Charm", "Stonespeaker Crystal", "The Death of Gwen Stacy"])
+@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant", "Zenith Chronicler", "Court of Ambition", "Fatal Push", "Case of the Ransacked Lab", "Case of the Locked Hothouse", "Case of the Shifting Visage", "Swarmyard Massacre", "Summon: Leviathan", "Thraben Charm", "Stonespeaker Crystal", "The Death of Gwen Stacy", "Reaver Titan"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -652,6 +652,24 @@ def test_thraben_charm_exiles_the_graveyards_of_the_players_it_targets(cards, ta
         own_spell = 1 if pid == "p1" else 0  # (Thraben Charm itself goes to Alice's graveyard once it has resolved)
         assert len(s.state.zones[f"{pid}:graveyard"]) == (own_spell if pid in exiled else 2 + own_spell)
         assert len(s.state.zones[f"{pid}:exile"]) == (2 if pid in exiled else 0)
+    check(s)
+
+
+def test_reaver_titan_has_protection_from_mana_value_three_or_less_despite_its_flavor_word(cards):
+    """"Void Shields - Protection from mana value 3 or less" (a flavor word, 207.2d): Bob's Grizzly Bears (mana value 2) can't block it, his Hill Giant (4) can."""
+    s = build(cards, ["Reaver Titan", "Craw Wurm"], ["Grizzly Bears", "Hill Giant"])
+    titan, wurm = put(s, "Reaver Titan"), put(s, "Craw Wurm")
+    bears, giant = put(s, "Grizzly Bears", "p2"), put(s, "Hill Giant", "p2")
+    next_turn(s)
+    crew = next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(titan).abilities if a.text.startswith("Crew"))
+    act(s, "p1", type="activate_ability", card_id=titan.id, ability=crew, crew=[wurm.id])
+    settle(s)
+    attack(s, titan)
+    to_blockers(s)
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": bears.id, "attacker_id": titan.id}])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": giant.id, "attacker_id": titan.id}])
+    settle(s)
     check(s)
 
 
