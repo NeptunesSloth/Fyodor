@@ -287,9 +287,9 @@ def test_stick_together_two_creatures_for_the_same_member_are_no_party(cards):
 
 def test_balancing_act_everyone_keeps_as_many_permanents_and_cards_as_the_player_with_the_fewest(cards):
     s = table(cards, [ACT])
-    a = [creature(s, "p1", f"A{i}") for i in range(4)]
-    b = [creature(s, "p2", f"B{i}") for i in range(2)]
-    c = [creature(s, "p3", f"C{i}") for i in range(3)]
+    [creature(s, "p1", f"A{i}") for i in range(4)]
+    [creature(s, "p2", f"B{i}") for i in range(2)]
+    [creature(s, "p3", f"C{i}") for i in range(3)]
     for p, k in (("p1", 4), ("p2", 1), ("p3", 3)):
         act(s, p, type="draw", player=p, count=k)
     cast(s, ACT, W=2, C=2)
