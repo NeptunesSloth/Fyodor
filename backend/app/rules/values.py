@@ -722,6 +722,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
             event_creatures = context.objects(plan, ctx, context.EVENT)
             sel = selectors.replace(sel, extras=tuple("blocking_source" if x == "blocking_event" else x for x in sel.extras))
             return sum(1 for c in selectors.candidates(plan, sel, you, event_creatures[0] if event_creatures else "") if c not in away)
+        if "other_event" in sel.extras:  # -- trigger other (wave 52B) -- "five other Mountains" of "Whenever a Mountain you control enters, if …" (Valakut): other than the object that entered
+            from app.rules import context
+
+            event_objects = context._object_refs(ctx, context.EVENT)
+            sel = selectors.replace(sel, other=True, extras=tuple(x for x in sel.extras if x != "other_event"))
+            return sum(1 for c in selectors.candidates(plan, sel, you, event_objects[0].card if event_objects else None) if c not in away)
         if "shares_type_event" in sel.extras:  # -- most-played cards (wave 43B) -- "for each other attacking creature that shares a creature type with it" (Shared Animosity): "it"
             from app.rules import (
                 context,  # is the creature the trigger is about, as this resolves; the others than IT are counted

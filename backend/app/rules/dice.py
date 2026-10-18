@@ -179,6 +179,8 @@ def rewrite(body: str) -> str:
         for s in split_sentences(body[m.end():end].strip()):
             out.append(f"If the result is {lo} to {hi}, {s[:1].lower()}{s[1:]}")
     spans.sort()
+    if tok := re.search(r"\bcreate an? (\d+/\d+ [^.,]+? token)\b", head + " " + body[rows[0].end():], re.IGNORECASE):  # -- trigger other (wave 52B) -- 706.3: "Create two of those tokens." (Swarming Goblins) is the token a row before made
+        out = [re.sub(r"\b(two|three|four|five) of those tokens\b", lambda m: f"{m[1]} {tok[1]}s", x) for x in out]
     if [s[0] for s in spans][0] != 1 or spans[-1][1] != top or any(b[0] != a[1] + 1 for a, b in zip(spans, spans[1:], strict=False)):
         return body
     return " ".join(out)

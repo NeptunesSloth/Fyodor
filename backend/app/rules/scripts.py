@@ -194,6 +194,8 @@ _HAVE_VERBS = {"fight": "fights", "deal": "deals", "lose": "loses", "become": "b
 def _may_have(body: str, ante: str | None) -> str:
     """"you may have it fight target creature" / "you may have target creature lose flying" is the same optional instruction
     in the third person; "it" is the source itself only when the trigger is about it (``ante``), else it stays unread."""
+    if (lead := re.match(r"^(if [^,]+, )(you may have .+)$", body)) is not None and (tail := _may_have(lead[2], ante)) != lead[2]:  # -- trigger other (wave 52B) -- "…, if you control five other Mountains, you may have ~ deal 3 damage to any target." (Valakut)
+        return lead[1] + tail
     # -- tapped and attacking (wave 38B) -- "you may have its controller create a 1/1 … token that's tapped and attacking" (Najeela): you decide, the
     # controller of the creature the event is about creates it (a player who isn't the attacking player gets one that never attacks, 506.3b)
     if ante == "event" and (made := re.match(r"^you may have its controller create( .+)$", body)) is not None:
@@ -311,7 +313,8 @@ def self_text(text: str, name: str) -> str:
             # (wave 20C: the short name before "the/of Capital" starts another name: "create Tuktuk the Returned, a legendary …")
             # (-- static_other (wave 36B) -- a shortened name that is also a creature type is that type before "creature(s)": "becomes a green Lizard creature" on
             # Lizard, Connors's Curse is no self-reference ("a green ~ creature" is nothing a card says)
-            part = re.sub(r"(?<![\w-])" + (r"(?<!create )" if n != name else "") + (r"(?<!other )(?<!another )" if n in _CREATURE_TYPES else "")  # (wave 41B: a Rat token's "each other Rat you control" is the type, not itself)
+            # (-- trigger other (wave 52B) -- "this Case" on "Case of …" is the type word after "this", not the short name)
+            part = re.sub(r"(?<![\w-])" + (r"(?<!create )(?<!this )(?<!This )" if n != name else "") + (r"(?<!other )(?<!another )" if n in _CREATURE_TYPES else "")  # (wave 41B: a Rat token's "each other Rat you control" is the type, not itself)
                           + rf"{re.escape(n)}(?!\w)(?! target\b)" + (r"(?! (?:the|of) [A-Z])" if n == short else "")  # (-- most-played cards (wave 49A) -- "Exile target …" on Exile is the verb)
                           + (r"(?! (?:creature|token)s?\b)" if n != name else ""),  # (-- attached events (wave 40B) -- "create Icingdeath, Frost Tongue, a legendary … token": the token's own name, on Icingdeath, Frost Tyrant)
                           "~", part)  # (wave 16D: a name ending in "!" has no \b after it; wave 26C: not "non-Spirit" on a Spirit token)
@@ -333,7 +336,9 @@ def self_text(text: str, name: str) -> str:
     out = '"'.join(own(p) if i % 2 == 0 else _own(p) if self_grant.search(parts[i - 1]) or parts[i - 1].endswith(" counters on it, it has ") else granter(p) for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
     out = re.sub(r"\b(?:a|an) ((?:[a-z]+ )*?card) other than this card\b", r"another \1", out)  # (wave 19C: Ichorid; the source is that card)
     out = re.sub(r"(\bto the battlefield) and (attach this (?:Equipment|Aura) to it\b)", lambda m: f"{m[1]}. {m[2][0].upper()}{m[2][1:]}", out)  # (wave 19C: Nim Deathmantle: two instructions in order)
-    out = re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room|Spacecraft|Planet)\b", "~", out)
+    out = re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Case|Equipment|Vehicle|Aura|emblem|Room|Spacecraft|Planet)\b", "~", out)
+    out = re.sub(r"(\bcreate an? [^.,]+? token), then create (an? [^.,]+? token) and attach ~ to it\b", r"\1. Create \2. Attach ~ to it", out)  # (Field-Tested Frying Pan: the Food, then the Halfling it is attached to)
+    out = re.sub(r"(\btokens?) and attach ~ to it\b", r"\1. Attach ~ to it", out)  # -- trigger other (wave 52B) -- "create a 2/2 Robot artifact creature token and attach this Equipment to it" (Auxiliary Boosters): two instructions in order, "it" the token (608.2c)
     out = re.sub(r"^(When) ~ enters or the creature (?:it|this card) haunts dies, ", r"\1 ~ enters and whenever the creature it haunts dies, ", out)  # -- keywords (wave 50H) -- 702.55: two halves
     out = re.sub(r"\b([Cc])onvert(s|ed)?\b", lambda m: f"{m[1].replace('c', 't').replace('C', 'T')}ransform{m[2] or ''}", out)  # (-- commanders (wave 50C) -- 701.28a: to convert a permanent is to turn it over as transforming does; "Convert Starscream." is "Transform ~.")
     # -- gift (wave 23D) -- 702.174k: a promised gift is read as the spell having been kicked (app/rules/gift.py): "If the gift was promised, …"
@@ -444,6 +449,22 @@ def _condition_says_other(cond: dict[str, Any]) -> bool:
         return True
     key = (cond.get("value") or {}).get("count")
     return isinstance(key, str) and selectors.from_key(key).other
+
+
+def _other_than_entered(c: Any) -> Any:
+    """-- trigger other (wave 52B) -- "Whenever a Mountain you control enters, if you control at least five other Mountains, …" (Valakut): "other" leaves out the
+    permanent that entered (the object the trigger is about), not the ability's source; values.py counts it from the event (extra "other_event")."""
+    from app.rules import selectors
+
+    if isinstance(c, list):
+        return [_other_than_entered(x) for x in c]
+    if not isinstance(c, dict):
+        return c
+    out = {k: _other_than_entered(v) for k, v in c.items()}
+    key = c["value"].get("count") if isinstance(c.get("value"), dict) else None
+    if isinstance(key, str) and (sel := selectors.from_key(key)).other:
+        out["value"] = {**c["value"], "count": replace(sel, other=False, extras=(*sel.extras, "other_event")).key()}
+    return out
 
 
 def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
@@ -5052,6 +5073,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         # as true when the ability resolves as when it triggers (603.4)
         text = re.sub(r"^Whenever (an? [^,]+?) dies, if ~ dealt damage to it this turn, ", r"Whenever \1 dealt damage by ~ this turn dies, ", text)
         text = _first_time_gate(text)  # (-- this-turn state (wave 42B) --)
+        text = re.sub(r"^When you cast or cycle ~, ", "When you cast this spell and when you cycle ~, ", text)  # -- trigger other (wave 52B) -- 702.29d, 601.2i: a cast trigger and a cycle trigger, each its own (603.2)
         # -- counters sweep (wave 19D) -- "At the beginning of your upkeep and whenever you cast a white spell, …" (the Shrines): the same
         # two conditions as "Whenever you cast a white spell and at the beginning of your upkeep, …" (603.2: it triggers on each)
         text = re.sub(r"^At the beginning of your (upkeep|end step) and (?:when|whenever) ([^,]+), (.+)$",
@@ -5295,6 +5317,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if parsed is None:
                     return None
                 effects, target, optional = parsed
+                if cond is not None and cond.get("event") == "enter" and cond.get("subject") == "sel" and not cond.get("aggregate"):
+                    effects = [{**e, "cond": _other_than_entered(e["cond"])} if e.get("do") == "only_if" and "cond" in e else e for e in effects]  # (-- trigger other (wave 52B) --)
                 if cond is not None and cond.get("event") == "you_attack" and cond.get("player") == "you" and cond.get("defender") \
                         and ("event_player" in json.dumps(effects) or '"for_player": "event"' in json.dumps(effects)):  # (wave 30N: its count too)
                     return None  # (review 27B) "Whenever you attack enchanted player, that player loses 2 life": the player attacked, not the event's (you)
