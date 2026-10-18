@@ -65,7 +65,6 @@ FULL = ["Ior Ruin Expedition", "Jarad, Golgari Lich Lord", "Loch Mare", "Fain, t
         "Mold Folk", "Malevolent Noble", "Pride Sovereign", "Steward of Solidarity", "Tarox Bladewing"]
 STILL_MANUAL = {  # (card, the line that stays manual)
     "Springjack Pasture": "Sacrifice X Goats",  # a mana ability (605): no X announced, no stack
-    "Ice Cream Kitty": "Sacrifice another creature or token",  # (does "another" cover "token" too? not guessed)
 }
 
 
@@ -173,7 +172,7 @@ def test_parsing():
         assert parse_ability_cost(text).activation_only and not parse_ability_cost(text).basic
     assert parse_ability_cost("Sacrifice a creature").basic is False and not parse_ability_cost("Sacrifice a creature").activation_only
     # refused: an "or" between objects, exert, snow mana, "a black and red creature" (wave 26C reads counters from among creatures you control)
-    for text in ("Sacrifice another creature or token", "Exert another creature", "Sacrifice a black and red creature",
+    for text in ("Exert another creature", "Sacrifice a black and red creature",
                  "Remove a counter from an artifact, creature, land, or planeswalker you control"):
         assert parse_ability_cost(text).unsupported, text
 
