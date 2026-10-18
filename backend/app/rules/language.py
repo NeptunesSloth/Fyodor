@@ -1060,9 +1060,9 @@ def _search_gy(text: str) -> tuple[Effects, str | None] | None:
 
 # -- the top of a library (401, 701.20 reveal, 701.20e look, 701.24 shuffle) ----------------------
 # Whose library: "your library" (default), a target player's (a target group), everyone's.
-_LIB = r"(?P<lib>your|target player's|target opponent's|that player's|their|each player's|each opponent's) library"
+_LIB = r"(?P<lib>your|target player's|target opponent's|that player's|their|each player's|each opponent's|defending player's) library"  # (-- player-relative selectors (wave 53A) -- defending player's: 508.5)
 _LIB_WHO = {"your": "you", "target player's": "target player", "target opponent's": "target opponent",
-            "that player's": "that player", "their": "that player", "each player's": "each player", "each opponent's": "each opponent"}
+            "that player's": "that player", "their": "that player", "each player's": "each player", "each opponent's": "each opponent", "defending player's": "defending player"}
 _SUBJECTS = r"(?P<subj>target player|target opponent|that player|its controller|that creature's controller|that permanent's controller|defending player|each player|each opponent|each of your opponents)"
 _N_CARDS = rf"(?:(?P<n>{AMT}) cards|card)"
 # (wave 26B: "reveal that many cards from the top of your library": the trigger event's amount, Ojer Kaslem)

@@ -135,6 +135,11 @@ def rewrite(body: str) -> str:
     # "~ deals 3 damage to that player and 1 damage to each creature they control." (The Fall of Kroog): the player a target named, then the creatures that player controls (two damage
     # instructions, 608.2c: only a trigger that batches the damage of one instruction could tell them from one event)
     body = re.sub(r"(~) deals (\d+) damage to that player and (\d+) damage to each creature they control", r"\1 deals \2 damage to that player. \1 deals \3 damage to each creature that player controls", body)
+    # "~ deals damage equal to the number of cards in target player's hand to that player." (Tibalt, the Fiend-Blooded -4): the damage to the target player, sized by their hand
+    body = re.sub(r"(~) deals damage equal to the number of cards in (target player)'s hand to that player\b", r"\1 deals damage to \2 equal to the number of cards in their hand", body)
+    # "You may look at the top card of target opponent's library. If you do, you may put that card on the bottom of that player's library." (Precognition): the first "may" is the whole
+    # ability's (it looks or it doesn't), the second is the choice of moving the card it saw
+    body = re.sub(r"(\b[Yy]ou may look at the top card of (?:target opponent|target player)'s library\.) If you do, you may put", r"\1 You may put", body)
     # "Target player creates X 2/2 black Zombie creature tokens, then up to one target creature gets -1/-1 until end of turn for each Zombie that player controls." (Dark Salvation): two
     # instructions of two targets (608.2c): the second is its own sentence
     body = re.sub(r"\b((?:[Tt]arget (?:player|opponent)|[Tt]hat player) creates [^.,]+? tokens?), then ((?:up to one )?target creature (?:gets|gains|deals))",

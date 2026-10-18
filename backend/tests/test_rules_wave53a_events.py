@@ -25,7 +25,7 @@ from tests.wave53a_kit import alice_next, open_repo, table, unseen_by, until_ask
 
 BEARS, GIANT, ANGEL, GRAIL, BOLT = "Grizzly Bears", "Hill Giant", "Serra Angel", "Sol Grail", "Lightning Bolt"
 NAMES = ["Grasping Tentacles", "Realmbreaker, the Invasion Tree", "Oblivion Sower", "Silent-Blade Oni", "Lord of the Void", "Ashling, the Extinguisher", "Myrkul's Edict",
-         "Sail into the West", "Intellectual Offering", "Down for Repairs", "Windgrace's Judgment", "Dark Salvation", "The Black Gate", "Disciple of Perdition", "Siege Dragon", "The Fall of Kroog"]
+         "Sail into the West", "Intellectual Offering", "Down for Repairs", "Windgrace's Judgment", "Dark Salvation", "The Black Gate", "Disciple of Perdition", "Siege Dragon", "The Fall of Kroog", "Tibalt, the Fiend-Blooded"]
 
 
 @pytest.fixture()
@@ -485,4 +485,21 @@ def test_the_fall_of_kroog_the_land_and_the_damage_belong_to_the_opponent_chosen
     assert s.state.players["p2"].life == 37 and s.state.players["p3"].life == 40
     assert s.state.cards[bbears.id].zone == "p2:battlefield" and s.state.cards[bbears.id].damage == 1  # (a 2/2 takes 1)
     assert s.state.cards[cbears.id].zone == "p3:battlefield" and not s.state.cards[cbears.id].damage
+    check(s)
+
+
+# -- Tibalt, the Fiend-Blooded ----------------------------------------------------------------------------------------------------------
+def test_tibalt_minus_four_damage_equal_to_the_cards_in_the_target_players_hand(cards):
+    """120.3, 608.2h: the amount is the target player's own hand as the ability resolves; the damage goes to that player."""
+    s = table(cards, ["Tibalt, the Fiend-Blooded"], [BEARS, GIANT, ANGEL], [BEARS])
+    tibalt = put(s, "Tibalt, the Fiend-Blooded")
+    act(s, "p1", type="counter", card_ids=[tibalt.id], kind="loyalty", delta=5)
+    for name in (BEARS, GIANT, ANGEL):
+        to_hand(s, name, "p2")
+    to_hand(s, BEARS, "p3")
+    size = len(s.state.zones["p2:hand"])
+    assert size == 3
+    activate(s, "p1", tibalt, contains="−4", targets=["p2"])
+    settle(s)
+    assert s.state.players["p2"].life == 40 - size and s.state.players["p3"].life == 40
     check(s)

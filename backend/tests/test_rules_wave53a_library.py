@@ -7,6 +7,8 @@ scenario checks the replay and a save and a load.
   play that card." (Thada Adel, Acquisitor); "you may pay {2}. If you do, search that player's library for a card and exile it, then the player shuffles." (Rootwater Thief).
 * 601.2c, 702.33: "Search target player's library for up to three cards, exile them, then that player shuffles. If this spell was kicked, instead search that player's library for up to
   fifteen cards" (Sadistic Sacrament).
+* 401.5, 701.20 (look), 508.5: "you may look at the top card of target opponent's library. If you do, you may put that card on the bottom of that player's library." (Precognition),
+  "look at the top card of defending player's library. You may put that card on the bottom of that player's library." (Coral Fighters) - only the looker sees the card.
 """
 
 from __future__ import annotations
@@ -29,7 +31,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", ["Praetor's Grasp", "Thada Adel, Acquisitor", "Rootwater Thief", "Sadistic Sacrament"])
+@pytest.mark.parametrize("name", ["Praetor's Grasp", "Thada Adel, Acquisitor", "Rootwater Thief", "Sadistic Sacrament", "Precognition", "Coral Fighters"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -172,4 +174,77 @@ def test_sadistic_sacrament_kicked_searches_for_up_to_fifteen(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:15])
     settle(s)
     assert len(s.state.zones["p2:exile"]) == in_library and s.state.zones["p2:library"] == []
+    check(s)
+
+
+# -- Precognition / Coral Fighters ------------------------------------------------------------------------------------------------------
+def ask(s, kind=None, limit=60):
+    """Pass priority (no attackers, no blockers) until a decision of this kind is open."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers") and kind != d.kind:
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            return d
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no decision")
+
+
+def test_precognition_you_look_at_the_top_card_and_may_put_it_on_the_bottom(cards):
+    """The target opponent's top card is seen by Alice alone; if she puts it on the bottom it is the bottom of Bob's library (not shuffled, not Carol's)."""
+    s = table(cards, ["Precognition"], [BEARS, GIANT, "Serra Angel"], [GIANT])
+    put(s, "Precognition")
+    d = ask(s)  # (Alice's next upkeep: Bob has drawn since)
+    assert d.player == "p1" and {o.id for o in d.options} == {"p2", "p3"}  # target opponent
+    top = s.state.zones["p2:library"][0]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])
+    d = ask(s)
+    assert d.kind == "confirm" and d.player == "p1"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["yes"])
+    d = ask(s)
+    assert d.player == "p1" and top in {o.id for o in d.options}  # the card she saw
+    assert not unseen_by(s, s.state.cards[top], "p1") and unseen_by(s, s.state.cards[top], "p2", "p3", SPECTATOR)  # nobody else sees it
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[top])
+    settle(s)
+    assert s.state.zones["p2:library"][-1] == top and s.state.zones["p2:library"][0] != top
+    check(s)
+
+
+def test_precognition_the_player_may_decline_to_look(cards):
+    s = table(cards, ["Precognition"], [BEARS, GIANT], [GIANT])
+    put(s, "Precognition")
+    d = ask(s)
+    before = list(s.state.zones["p2:library"])
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])
+    d = ask(s)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["no"])
+    settle(s)
+    assert list(s.state.zones["p2:library"]) == before
+    check(s)
+
+
+def test_coral_fighters_look_at_the_defending_players_top_card_only(cards):
+    """508.5: the player the Fighters attack (Bob, not Carol); the card goes to the bottom of his library when she says so."""
+    s = table(cards, ["Coral Fighters"], [BEARS, GIANT], [GIANT])
+    stops(s)
+    fighters = put(s, "Coral Fighters")
+    alice_next(s)
+    top, ctop = s.state.zones["p2:library"][0], s.state.zones["p3:library"][0]
+    attack(s, fighters)
+    d = None
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.player == "p1" and d.kind not in ("declare_attackers", "declare_blockers"):
+            break
+        if d is not None:
+            act(s, d.player, type="declare_blockers", blocks=[]) if d.kind == "declare_blockers" else act(
+                s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and top in {o.id for o in d.options}, d
+    assert unseen_by(s, s.state.cards[top], "p2", "p3", SPECTATOR)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[top])
+    settle(s)
+    assert s.state.zones["p2:library"][-1] == top and s.state.zones["p3:library"][0] == ctop
     check(s)
