@@ -2495,7 +2495,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if base.x and (limited := _x_limits.cast_problem(plan.state, plan.actor, card, ch, plan.info, announced=a.x_value or 0)):
         raise ActionError(limited)  # -- review 38 -- 601.2e: the X announced counts in its mana value ("spells with mana value 3 or less", Brisela)
     if base.x and a.x_value and not plan.manual(card):  # -- X caps (wave 51C) -- 601.2b: "X can't be greater than the number of players in the game." (Open the Way): an X above it isn't a legal announcement
-        from app.rules import scripts as _caps, values as _cap_values
+        from app.rules import scripts as _caps
+        from app.rules import values as _cap_values
 
         for d in _caps.definitions(ch).values():
             if d.get("static") == "x_cap" and a.x_value > (cap := _cap_values.evaluate(plan, {"controller": plan.actor}, d["n"])):

@@ -4803,9 +4803,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         cond = _conditions.parse(solve["c"][:1].lower() + solve["c"][1:])
         if cond is None:
             return None
-        gate = {"all": [cond, {"object": "self", "test": "solved", "negate": True}]}
-        return {"kind": "triggered", "trigger": "end_step_you", "if": gate, "optional": False, "target": None,
-                "effects": [{"do": "only_if", "cond": gate, "skip": 1}, {"do": "become_solved"}]}
+        unsolved = {"all": [cond, {"object": "self", "test": "solved", "negate": True}]}
+        return {"kind": "triggered", "trigger": "end_step_you", "if": unsolved, "optional": False, "target": None,
+                "effects": [{"do": "only_if", "cond": unsolved, "skip": 1}, {"do": "become_solved"}]}
     # -- trigger other (wave 51C) -- "…, they lose 1 life and you put a -1/-1 counter on up to one target creature they control." (Persistent Constrictor): the second instruction is the
     # controller's own, about the player the trigger names
     text = re.sub(r"(, they lose \d+ life) and you put (an? [^.,]+? counters? on (?:up to one )?target [^.,]+?) they control\.$", r"\1. Put \2 that player controls.", text)
