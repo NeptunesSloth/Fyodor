@@ -17,8 +17,11 @@ the older ``blocking_source`` extras), ``@host`` what that source is attached to
 is ``@obj:<object id>[,…]`` (JSON-native: it survives a pause for a decision, a save, undo and replay). A reference with nothing to bind is
 ``@none``: it matches nothing.
 
-State: none of its own (reads ``CardInstance.blocking``/``attached_to``, ``TurnLog.blocks``, last known information). Decisions: none. Hidden
-information: only battlefield facts, public by construction. Save/load: nothing stored, so old saves load as before.
+State: ``ObjectSnapshot.blocked_by_ids`` (who blocked it when it left; default empty) and ``DelayedTrigger.until_combat`` ("whenever … this combat" watches stop as
+the combat phase ends: combat.end_combat; default off); the relations themselves store nothing (they read ``CardInstance.blocking``/``attached_to``,
+``TurnLog.blocks``, last known information). Decisions: the existing ones only (a choice among the creatures blocking or blocked by one, 608.2d; a player with the most life,
+effects.MOST_LIFE). Hidden information: only battlefield facts, public by construction. Save/load: the two
+defaulted fields above, so old saves load as before.
 """
 
 from __future__ import annotations
