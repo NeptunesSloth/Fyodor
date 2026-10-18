@@ -1471,3 +1471,112 @@ def test_cass_does_nothing_for_a_creature_that_was_neither_enchanted_nor_equippe
     assert not s.state.zones.get("stack") and (d is None or d.kind == "declare_attackers")  # the intervening "if" (603.4): it never triggered
     assert zone_of(s, pacifism) == "p1:graveyard"  # (a loose Aura in the graveyard that was never attached to it: not brought back)
     check(s)
+
+
+@pytest.mark.parametrize("name", ["Scriv, the Obligator", "Galea, Kindler of Hope", "Shuriken", "General Jarkeld", "Glyph of Reincarnation", "Battering Ram", "Dread Wight",
+                                  "Infinite Authority", "False Orders", "Balduvian Warlord", "Ydwen Efreet", "Nacatl War-Pride", "Motion Sickness"])
+def test_the_rest_of_the_list_stays_manual(cards, name):
+    """Never faked: banding (702.22), unblocking and re-blocking by an effect, one delayed ability reading what another did, an Aura token with its own enchant ability,
+    a creature that stops blocking one attacker and blocks another, tokens that are copies attacking, Attractions, a cast from the library: not read."""
+    assert not full(cards, name)
+
+
+@pytest.mark.parametrize("text", [
+    "Exile one of those creatures.",  # (no event that names them)
+    "Creatures it was blocking become unblocked.",  # (509.1h: a blocked creature stays blocked unless a card says so, and these are not read)
+    "Destroy all creatures blocked by target creature and target artifact.",  # (two kinds of target for one relation)
+    "~'s base toughness becomes equal to 1 plus the power of target creature and target artifact.",
+])
+def test_near_misses_parse_to_nothing(text):
+    from app.rules import scripts
+
+    assert scripts._parse_effects(text, None) is None
+
+
+# -- cards the same readings made FULL besides the list (each played against its Oracle text) --
+def test_bob_the_claymore_gives_each_blocker_minus_five_when_the_equipped_creature_becomes_blocked(cards):
+    s = sandbox(cards, "Bob the Claymore")
+    claymore = on_field(s, "Bob the Claymore")
+    brute = creature(s, "p1", "Brute", "0/9")  # (no power: nothing to divide among the two blockers as combat damage comes)
+    a = creature(s, "p2", "Guard A", "1/9")
+    b = creature(s, "p2", "Guard B", "2/9")
+    c = creature(s, "p2", "Bystander", "2/9")
+    attach(s, claymore, brute)
+    combat_step(s)
+    swing(s, [brute], [(a, brute), (b, brute)])
+    settle(s)
+    pl = Plan(s.state, "p1", s.cards, None)
+    assert [pl.ch(s.state.cards[x.id]).pt for x in (a, b, c)] == [(-4, 4), (-3, 4), (2, 9)]  # -5/-5 for each creature blocking it, not the bystander
+    to_postcombat(s)
+    until(s, lambda s: s.state.turn.number == 3, limit=200)
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[a.id]).pt == (1, 9)  # until end of turn
+    check(s)
+
+
+def test_coils_of_the_medusa_destroys_the_blockers_that_are_not_walls_when_sacrificed(cards):
+    s = sandbox(cards, "Coils of the Medusa")
+    coils = on_field(s, "Coils of the Medusa")
+    brute = creature(s, "p1", "Brute", "2/4")
+    wall = creature(s, "p2", "Brick", "0/9", type_line="Token Creature — Wall")
+    goblin = creature(s, "p2", "Goblin", "1/9")
+    bystander = creature(s, "p2", "Bystander", "1/9")
+    attach(s, coils, brute)
+    combat_step(s)
+    swing(s, [brute], [(wall, brute), (goblin, brute)])
+    activate(s, "p1", coils, "Sacrifice")
+    settle(s)
+    assert zone_of(s, coils) == "p1:graveyard"  # sacrificed as the cost: the enchanted creature is read as it was (608.2h)
+    assert not alive(s, goblin) and alive(s, wall) and alive(s, bystander)  # destroy all non-Wall creatures blocking it
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[brute.id]).pt == (2, 4)  # the Aura's +1/-1 went with it
+    check(s)
+
+
+def test_murderous_spoils_gives_you_the_equipment_that_were_attached_to_the_creature(cards):
+    s = sandbox(cards, "Murderous Spoils", p2=("Bonesplitter", "Behemoth Sledge", "Holy Strength"))
+    guard = token_of(s, "p2", "Guard", "Token Creature — Test", "2/2", colors=["G"])
+    other = creature(s, "p2", "Other", "2/2")
+    bone, sledge, kept = on_field(s, "Bonesplitter", "p2"), on_field(s, "Behemoth Sledge", "p2"), on_field(s, "Holy Strength", "p2")
+    attach(s, bone, guard, "p2")
+    attach(s, sledge, guard, "p2")
+    attach(s, kept, other, "p2")
+    main_step(s)
+    cast_now(s, "Murderous Spoils", [guard], B=1, C=5)
+    assert not alive(s, guard)
+    assert [s.state.cards[x.id].controller for x in (bone, sledge)] == ["p1", "p1"]  # all the Equipment that were attached to it
+    assert all(s.state.cards[x.id].zone == "p1:battlefield" and s.state.cards[x.id].owner == "p2" for x in (bone, sledge))
+    assert s.state.cards[kept.id].controller == "p2" and s.state.cards[kept.id].attached_to == other.id  # one on another creature: not Alice's
+    check(s)
+
+
+def test_wall_of_tombstones_sets_its_base_toughness_at_each_upkeep_for_good(cards):
+    s = sandbox(cards, "Wall of Tombstones", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears")
+    wall = on_field(s, "Wall of Tombstones")
+    bears = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"]
+    main_step(s)  # (Alice's first upkeep has come and gone with no creature card in her graveyard: 1 plus none)
+    for c in bears[:2]:
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    pl = lambda: Plan(s.state, "p1", s.cards, None).ch(s.state.cards[wall.id]).pt  # noqa: E731
+    assert pl() == (0, 1)
+    until(s, lambda s: s.state.turn.number == 3, limit=300)  # Alice's next upkeep: 1 plus the two creature cards in her graveyard
+    settle(s)
+    assert pl() == (0, 3)
+    act(s, "p1", type="move", card_ids=[bears[2].id], to={"zone": "graveyard"})
+    assert pl() == (0, 3)  # "This effect lasts indefinitely": set once, not counted again until the next upkeep
+    check(s)
+
+
+def test_stensian_sanguinist_becomes_prepared_when_the_creature_it_gave_deathtouch_hits_a_player(cards):
+    s = sandbox(cards, "Stensian Sanguinist // Exsanguinate")
+    sanguinist = on_field(s, "Stensian Sanguinist // Exsanguinate")
+    raider = creature(s, "p1", "Raider", "2/2")
+    other = creature(s, "p1", "Other", "2/2")
+    combat_step(s)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": raider.id, "target": "p2"}, {"card_id": other.id, "target": "p2"}])
+    drive(s, prefer=[raider.id])  # "target creature gains deathtouch": Raider
+    assert "deathtouch" in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[raider.id]).keywords
+    assert not s.state.rules.prepared
+    to_postcombat(s)
+    assert len(s.state.rules.prepared) == 1 and list(s.state.rules.prepared)[0].rsplit(".", 1)[0] == sanguinist.id  # its combat damage to Bob: "this creature becomes prepared"
+    until(s, lambda s: s.state.turn.number == 3, limit=300)
+    assert len(s.state.rules.prepared) == 1  # stays prepared
+    check(s)

@@ -117,9 +117,15 @@ def _refs(ref: str, source: str | None, plan: Plan) -> list[str]:
     """The object ids a bound reference names; ``@src``: the source, as it is (or as it last existed, 608.2h)."""
     if ref.startswith("obj:"):
         return ref[4:].split(",")
-    if ref == "host" and source:  # (the permanent the source Equipment / Aura is attached to now: "equipped creature", "enchanted creature")
+    if ref == "host" and source:  # (the permanent the source Equipment / Aura is attached to now: "equipped creature", "enchanted creature"; if the source left, as it last existed:
+        # "Sacrifice this Aura: Destroy all non-Wall creatures blocking enchanted creature", 608.2h)
         src = plan.state.cards.get(source)
-        host = plan.state.cards.get(src.attached_to or "") if src is not None and src.zone.endswith(":battlefield") else None
+        if src is not None and src.zone.endswith(":battlefield"):
+            attached = src.attached_to
+        else:
+            last = max((x for x in plan.rules.lki.values() if x.card == source), key=lambda x: x.turn, default=None)
+            attached = last.attached_to if last is not None else None
+        host = plan.state.cards.get(attached or "")
         return [plan.oid(host)] if host is not None and host.zone.endswith(":battlefield") else []
     if ref == "src" and source:
         src = plan.state.cards.get(source)

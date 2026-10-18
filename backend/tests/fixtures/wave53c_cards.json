@@ -1361,5 +1361,104 @@
   ],
   "power": "4",
   "toughness": "3"
+ },
+ {
+  "name": "Bob the Claymore",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Legendary Artifact — Equipment",
+  "oracle_text": "Whenever equipped creature becomes blocked, each creature blocking it gets -5/-5 until end of turn.\nWhenever equipped creature deals combat damage to an opponent, you may search your library for a Praetor card, reveal it, and put it into your hand. Then shuffle.\nEquip {3}",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Coils of the Medusa",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature gets +1/-1.\nSacrifice this Aura: Destroy all non-Wall creatures blocking enchanted creature.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Murderous Spoils",
+  "layout": "normal",
+  "mana_cost": "{5}{B}",
+  "cmc": 6.0,
+  "type_line": "Instant",
+  "oracle_text": "Destroy target nonblack creature. It can't be regenerated. You gain control of all Equipment that were attached to it. (This effect lasts indefinitely.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Stensian Sanguinist // Exsanguinate",
+  "layout": "prepare",
+  "mana_cost": "{1}{B} // {X}{B}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Vampire Cleric // Sorcery",
+  "oracle_text": "Whenever you attack, target creature gains deathtouch until end of turn. Whenever that creature deals combat damage to a player this combat, this creature becomes prepared. (While it's prepared, you may cast a copy of its spell. Doing so unprepares it.)\n//\nEach opponent loses X life. You gain life equal to the life lost this way.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Prepared"
+  ],
+  "power": "2",
+  "toughness": "2",
+  "card_faces": [
+   {
+    "name": "Stensian Sanguinist",
+    "mana_cost": "{1}{B}",
+    "type_line": "Creature — Vampire Cleric",
+    "oracle_text": "Whenever you attack, target creature gains deathtouch until end of turn. Whenever that creature deals combat damage to a player this combat, this creature becomes prepared. (While it's prepared, you may cast a copy of its spell. Doing so unprepares it.)",
+    "power": "2",
+    "toughness": "2"
+   },
+   {
+    "name": "Exsanguinate",
+    "mana_cost": "{X}{B}{B}",
+    "type_line": "Sorcery",
+    "oracle_text": "Each opponent loses X life. You gain life equal to the life lost this way."
+   }
+  ]
+ },
+ {
+  "name": "Wall of Tombstones",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Wall",
+  "oracle_text": "Defender (This creature can't attack.)\nAt the beginning of your upkeep, this creature's base toughness becomes equal to 1 plus the number of creature cards in your graveyard. (This effect lasts indefinitely.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Defender"
+  ],
+  "power": "0",
+  "toughness": "1"
  }
 ]
