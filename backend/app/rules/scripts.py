@@ -2586,10 +2586,10 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     from app.rules import trigger_words  # -- triggers (wave 5D) -- "create a number of … equal to …"
 
     body = _dice.plain(trigger_words.plain_amounts(_dice.rewrite(body)))  # (rewrite: a results table, wave 16B)
-    # -- static_other sweep (wave 16B) -- 701.48a: "Learn." means "You may reveal a Lesson card you own from outside the game and put it
-    # into your hand. If you don't, you may discard a card. If you do, draw a card." A game here has no cards outside it (no sideboard is
-    # modelled: the decks are the games'), so the reveal never has a Lesson to show and the rest is the rummage
-    body = re.sub(r"(^\s*|\. )[Ll]earn\.", r"\1You may discard a card. If you do, draw a card.", body)  # (wave 52D: a leading space, an activated ability's body)
+    # -- static_other sweep (wave 16B) -- 701.48a: "Learn." means "You may discard a card. If you do, draw a card. If you didn't discard a card, you may reveal
+    # a Lesson card you own from outside the game and put it into your hand." (-- review 52 -- outside the game is the sideboard, as for the Wishes: wishes.py)
+    body = re.sub(r"(^\s*|\. )[Ll]earn\.", r"\1You may discard a card. If you do, draw a card. If you don't, you may reveal a Lesson card you own from outside the game "
+                  r"and put it into your hand.", body)  # (wave 52D: a leading space, an activated ability's body)
     body = _extra_turns.one_sentence(body)  # -- static_other sweep (wave 19A) -- Final Fortune
     # -- tutor (wave 20D) -- the same search spelled as sentences: "Search your library for two cards[ and reveal them]. Put one into your hand
     # and the other into your graveyard. Then shuffle." (Final Parting, Fork in the Road), "… for a white card, …, and a green card. Reveal
@@ -3518,7 +3518,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             pay_untap as _pay_untap,  # -- if you do (wave 25C) -- "that player may choose any number of tapped … and pay {2} for each …"
         )
 
-        if (wished := wishes.sentence(texts, i, text)) is not None:
+        if (wished := wishes.sentence(texts, i, text, _last_payment(effects))) is not None:
             effects += wished[0]
             skip_to = i + wished[1]
             continue

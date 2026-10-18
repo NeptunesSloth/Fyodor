@@ -70,3 +70,35 @@ def test_embodiment_a_split_card_has_its_halves_combined_cost(cards):
     settle(s)
     assert s.state.cards[card_named(s, "Embodiment of Agonies").id].counters.get("+1/+1") == 2  # {2}{U}{R} once, {R}
     check(s)
+
+
+# -- 701.48a: "Learn." is the rummage, else a Lesson card from outside the game (the sideboard, as for the Wishes: 400.11a); Overgrown Arch
+def learned(cards, discard):
+    s = build(cards, ["Overgrown Arch", "Environmental Sciences", "Grizzly Bears"])
+    arch = put(s, "Overgrown Arch")
+    lesson = card_named(s, "Environmental Sciences")
+    act(s, "p1", type="move", card_ids=[lesson.id], to={"zone": "sideboard"})
+    to_hand(s, "Grizzly Bears")
+    mana(s, "p1", C=2)
+    act(s, "p1", type="activate_ability", card_id=arch.id, ability=2)
+    asked = []
+
+    def answer(d):
+        asked.append(d.prompt)
+        ids = [o.id for o in d.options]
+        return [x for x in ids if x in ("yes", "pay")][:1] or ids[:1] if discard else [x for x in ids if x in ("no", "decline")][:1] or [lesson.id]
+    settle(s, answer)
+    return s, lesson, asked
+
+
+def test_overgrown_arch_learn_declined_rummage_fetches_a_lesson_from_the_sideboard(cards):
+    s, lesson, asked = learned(cards, discard=False)
+    assert s.state.cards[lesson.id].zone == "p1:hand" and zone_of(s, "Grizzly Bears") == "p1:hand"
+    check(s)
+
+
+def test_overgrown_arch_learn_rummage_taken_asks_for_no_lesson(cards):
+    s, lesson, asked = learned(cards, discard=True)
+    assert s.state.cards[lesson.id].zone == "p1:sideboard" and zone_of(s, "Grizzly Bears") == "p1:graveyard"
+    assert not any("outside the game" in p for p in asked)
+    check(s)
