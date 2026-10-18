@@ -616,7 +616,7 @@ def test_brilliant_ultimatum_is_full(cards):
 def test_brilliant_ultimatum_an_opponent_separates_the_exiled_cards_and_you_play_from_the_pile_you_choose(cards):
     names = ["Forest", "Forest", "Grizzly Bears", "Lightning Bolt", "Mulldrifter"]
     s = table(cards, [ULTIMATUM, "Grizzly Bears", "Lightning Bolt", "Mulldrifter"], players=2)
-    top = stack_top(s, names)
+    stack_top(s, names)
     cast(s, ULTIMATUM, W=2, U=3, B=2)
     resolve(s)
     d = s.state.rules.decision
