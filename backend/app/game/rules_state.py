@@ -1312,6 +1312,11 @@ class RulesState(BaseModel):
     def prefs_for(self, player: str) -> PlayerPrefs:
         return self.prefs.get(player) or PlayerPrefs()
 
+    def last_known(self, card_id: str) -> ObjectSnapshot | None:
+        """The newest last known information of a card (608.2h). ``lki`` gains an entry as each object leaves, so the last one is its latest
+        incarnation, even when it left the battlefield twice this turn (blinked, then sacrificed)."""
+        return next((x for x in reversed(self.lki.values()) if x.card == card_id), None)
+
     def object_id(self, card_id: str) -> str:
         return f"{card_id}.{self.objects.get(card_id, 0)}"
 

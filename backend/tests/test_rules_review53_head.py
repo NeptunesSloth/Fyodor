@@ -63,3 +63,22 @@ def test_a_game_saved_inside_an_old_pile_split_still_resumes():
     assert engine.RESUME["piles_opponent"] is piles_legacy.resume_opponent
     assert engine.RESUME["piles_split"] is piles_legacy.resume_split
     assert engine.RESUME["piles_pick"] is piles_legacy.resume_pick
+
+
+def test_enchanted_creature_of_a_gone_aura_is_its_latest_incarnations_host():
+    """608.2h: an Aura that left the battlefield twice this turn (blinked while on A, then attached to B and sacrificed): its "enchanted creature" is
+    B, the host of the object it was last (Codex review on PR #17: the oldest same-turn snapshot used to win)."""
+    from types import SimpleNamespace
+
+    from app.game.rules_state import ObjectSnapshot, RulesState
+    from app.rules import block_events
+
+    rules = RulesState()
+    for n, host in ((1, "a"), (2, "b")):
+        rules.lki[f"aura.{n}"] = ObjectSnapshot(object_id=f"aura.{n}", card="aura", owner="p1", controller="p1", zone="p1:battlefield", turn=3,
+                                                attached_to=host)
+    cards = {c: SimpleNamespace(id=c, zone="p2:battlefield") for c in ("a", "b")}
+    plan = SimpleNamespace(state=SimpleNamespace(cards=cards), rules=rules, oid=lambda c: f"{c.id}.0")
+    assert rules.last_known("aura").object_id == "aura.2"
+    assert block_events._refs("host", "aura", plan) == ["b.0"]
+    assert block_events._refs("src", "aura", plan) == ["aura.2"]

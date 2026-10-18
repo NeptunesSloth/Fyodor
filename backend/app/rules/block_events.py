@@ -126,7 +126,7 @@ def _refs(ref: str, source: str | None, plan: Plan) -> list[str]:
         if src is not None and src.zone.endswith(":battlefield"):
             attached = src.attached_to
         else:
-            last = max((x for x in plan.rules.lki.values() if x.card == source), key=lambda x: x.turn, default=None)
+            last = plan.rules.last_known(source)
             attached = last.attached_to if last is not None else None
         host = plan.state.cards.get(attached or "")
         return [plan.oid(host)] if host is not None and host.zone.endswith(":battlefield") else []
@@ -134,7 +134,7 @@ def _refs(ref: str, source: str | None, plan: Plan) -> list[str]:
         src = plan.state.cards.get(source)
         if src is not None and src.zone.endswith(":battlefield"):
             return [plan.oid(src)]
-        last = max((x for x in plan.rules.lki.values() if x.card == source), key=lambda x: x.turn, default=None)
+        last = plan.rules.last_known(source)
         return [last.object_id] if last is not None else []
     return []
 

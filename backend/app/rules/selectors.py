@@ -2224,7 +2224,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 # whom it was blocking; whoever blocks it still blocks the attacker that left the battlefield (506.4, 509.1h: a blocker stays blocking)
                 if not card.zone.endswith(":battlefield"):
                     return False
-                last = max((x for x in plan.rules.lki.values() if x.card == src.id), key=lambda x: x.turn, default=None)
+                last = plan.rules.last_known(src.id)
                 if (not card.blocks(src.id)) if extra == "blocking_source" else (last is None or card.id not in last.blocking_ids):
                     return False
             elif src is None or not src.zone.endswith(":battlefield") or not card.zone.endswith(":battlefield") or ((not card.blocks(src.id)) if extra == "blocking_source" else (not src.blocks(card.id)) if extra in ("blocked_by_source", "blocked_by_this") \
