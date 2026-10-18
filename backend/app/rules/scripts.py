@@ -4771,9 +4771,14 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     from app.rules import (
         merged,  # -- merged permanents (wave 18D) -- meld wordings carry card names with commas
+        reanimate_auras,  # -- reanimation Auras (wave 51F) -- Animate Dead, Dance of the Dead, Necromancy: the whole enters trigger
     )
 
     text = self_text(merged.protect(ability.text), ch.name)
+    if (reanimating := reanimate_auras.define(text, ch)) is not None:
+        return reanimating
+    if ability.kind == "activated":  # -- most-played cards (wave 51F) -- 106.6: Throne of Eldraine's payment restriction is read by casting.ability_cost (its mana is paid as colored mana)
+        text = text.removesuffix(" Spend only mana of the chosen color to activate this ability.")
     # -- token copies (wave 31C) -- a plural name's own "they" / "them" (The Notary Hobbits: "When ~ enter, if they're not a token, create two tokens that are copies of them")
     text = re.sub(r"^(When ~ enter, if )they're( not a token, create [^.]+? cop(?:y|ies) of )them\b", r"\1it's\2it", text)
     # -- counters (wave 41A) -- a plural name's own "them" after its own event ("Whenever Tui and La become untapped, put a +1/+1 counter on them."): the one object

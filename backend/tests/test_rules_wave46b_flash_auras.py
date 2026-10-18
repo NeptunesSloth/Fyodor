@@ -35,11 +35,6 @@ def test_the_flash_auras_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
-def test_necromancy_stays_manual(cards):
-    """Its second ability (a graveyard creature put onto the battlefield, an Aura only on the battlefield) isn't read."""
-    assert coverage.of_card_data(cards.resolve("Necromancy")).level != "FULL"
-
-
 def over_a_spell(s):
     """Alice has a creature spell on the stack (so a sorcery couldn't be cast) and a creature of hers on the battlefield."""
     put(s, "Grizzly Bears")
