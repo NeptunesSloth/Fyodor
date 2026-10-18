@@ -227,7 +227,8 @@ def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answe
             if what in answers:
                 out.setdefault("choices", {})[what] = answers[what]
             elif "choice" not in out:
-                out["choice"] = {"what": what, **({"look": answers.get(card_names.LOOK)} if e.get("look") else {})}
+                out["choice"] = {"what": what, **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}),
+                                 **({"options": e["options"]} if e.get("options") else {})}  # (wave 51C: "choose Elemental, Elf, …": only the creature types listed)
 
 
 # -- replacement effects stage 2 (wave 2E) -----------------------------------------------------------
@@ -463,7 +464,7 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
         return f"{card.name}: as it enters, choose {' or '.join(picks)}", _choice_options(plan, {"controller": controller, "source_card": card.id}, what)
     article = "an" if what[:1] in "aeiou" else "a"
     return (f"{card.name}: as it enters, choose {article} {what}",  # (-- enter as copy (wave 5F) --: the entering card)
-            _choice_options(plan, {"controller": controller, "source_card": card.id}, what))
+            [o for o in _choice_options(plan, {"controller": controller, "source_card": card.id}, what) if not choice.get("options") or o.id in choice["options"]])
 
 
 def _answer(entry_or_answers: dict[str, Any], choice: dict[str, Any], chosen: str) -> dict[str, Any]:

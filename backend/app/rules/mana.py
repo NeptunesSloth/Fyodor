@@ -705,12 +705,14 @@ def _alt(words: str, *, source: bool) -> dict[str, object] | None:
             subs.append(w)  # (a planeswalker type: "a Chandra planeswalker spell", 205.3j)
         elif w in ("source", "sources", "permanent", "permanents") and source:
             pass
+        elif w in ("spell", "spells") and not source and out.get("chosen"):  # -- chosen type (wave 51C) -- "a spell of the chosen type" (Eclipsed Realms): any spell with that creature type
+            pass
         else:
             return None
         i += 1
-    if not (types or subs or supers or "color" in out or "non" in out or out.get("kicked")):
+    if not (types or subs or supers or "color" in out or "non" in out or out.get("kicked") or out.get("chosen")):
         return None
-    if out.get("chosen") and types != ["Creature"]:
+    if out.get("chosen") and types not in ([], ["Creature"]):  # (wave 51C: no card type named: any spell / source of the chosen creature type)
         return None
     if types:
         out["types"] = types

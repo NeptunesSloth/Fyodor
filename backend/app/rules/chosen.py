@@ -75,7 +75,7 @@ def _enters_choices(ch: Characteristics) -> list[str]:
 
     texts = [self_text(ab.text, ch.name) for ab in ch.abilities]
     named = [e["what"] for t in texts if (d := card_names.enters_choice(t)) is not None for e in d["effects"] if card_names.is_choice(e["what"])]
-    return ["card type" if m["what"].startswith(("card type", "artifact, ")) else "number" if m["what"].startswith("number") else "abilities" if m["what"].startswith("two abilities") else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None] + ["card name" for _ in named]  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
+    return ["card type" if m["what"].startswith(("card type", "artifact, ")) else "number" if m["what"].startswith("number") else "abilities" if m["what"].startswith("two abilities") else "creature type" if m["what"][:1].isupper() else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None] + ["card name" for _ in named]  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
 
 
 def _kind(what: str | None) -> str | None:

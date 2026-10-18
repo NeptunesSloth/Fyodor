@@ -4010,6 +4010,8 @@ def choose_value(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     the record a permanent keeps of what was chosen as it entered (614.12a), gone with the object
     when it changes zones (400.7)."""
     options = _choice_options(plan, ctx, e["what"])
+    if e.get("options"):  # -- chosen type (wave 51C) -- "choose Elemental, Elf, …": only the creature types it lists
+        options = [o for o in options if o.id in e["options"]]
     if not options:
         return True  # (no opponent left to choose: 800.4)
     src = plan.state.cards.get(ctx.get("source_card") or "")

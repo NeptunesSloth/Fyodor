@@ -42,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard"])
+@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -468,4 +468,44 @@ def test_silkguard_gives_hexproof_to_the_creature_it_made_modified_only(cards):
     act(s, "p2", type="cast_spell", card_id=bolt.id, targets=[elves.id])  # (no counter, no Aura, no Equipment: targetable)
     settle(s)
     assert zone_of(s, "Llanowar Elves") == "p1:graveyard"
+    check(s)
+
+
+# -- Dawn-Blessed Pennant, Eclipsed Realms -----------------------------------------------------------------------------------------------------
+TRIBES = ["Elemental", "Elf", "Faerie", "Giant", "Goblin", "Kithkin", "Merfolk", "Treefolk"]
+
+
+def choose_tribe(s, tribe):
+    d = until_asked(s)
+    assert d is not None and d.player == "p1" and sorted(o.id for o in d.options) == sorted(TRIBES)  # (only the eight Lorwyn types are offered)
+    pick(s, tribe)
+    settle(s)
+
+
+def test_dawn_blessed_pennant_gains_life_for_permanents_of_the_chosen_type(cards):
+    s = build(cards, ["Dawn-Blessed Pennant", "Llanowar Elves", "Grizzly Bears"])
+    mana(s, C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Dawn-Blessed Pennant").id)
+    choose_tribe(s, "Elf")
+    assert s.state.cards[card_named(s, "Dawn-Blessed Pennant").id].choices["Chosen creature type"] == "Elf"
+    mana(s, G=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Grizzly Bears").id)
+    settle(s)
+    assert life(s) == 40  # (a Bear is not an Elf)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Llanowar Elves").id)
+    settle(s)
+    assert life(s) == 41
+    check(s)
+
+
+def test_eclipsed_realms_mana_is_only_for_spells_of_the_chosen_type(cards):
+    s = build(cards, ["Eclipsed Realms", "Llanowar Elves", "Lightning Bolt"])
+    act(s, "p1", type="play_land", card_id=to_hand(s, "Eclipsed Realms").id)
+    choose_tribe(s, "Elf")
+    elves, bolt = to_hand(s, "Llanowar Elves"), to_hand(s, "Lightning Bolt")
+    with pytest.raises(ActionError):  # (its one coloured mana is restricted to spells of the chosen type: a Bolt is no Elf)
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    act(s, "p1", type="cast_spell", card_id=elves.id)
+    settle(s)
+    assert zone_of(s, "Llanowar Elves") == "p1:battlefield"
     check(s)
