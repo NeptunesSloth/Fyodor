@@ -516,6 +516,26 @@ def _player_templates() -> list[tuple[re.Pattern[str], Any]]:
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [_template(EFFECT_CAST, _effect_cast), _template(EFFECT_NEXT_FLASH, _effect_next_flash), _template(EFFECT_BAN_NAMED, _effect_ban_named), *_player_templates()]
 
 
+# -- chosen filters (wave 53B) -- "If you won five flips this way, you may cast spells from your hand this turn without paying their mana costs." (Yusri): 118.9, a stored
+# permission for the spells in the controller's hand until end of turn (611.2a), each cast free (the other costs are still paid, 118.9d)
+EFFECT_FREE = re.compile(r"^(?:until end of turn, )?you may cast spells from your hand(?: this turn)? without paying their mana costs$")
+
+
+def free_sentence(text: str) -> list[dict[str, Any]] | None:
+    return [{"do": "free_permission"}] if EFFECT_FREE.fullmatch(text) else None
+
+
+def free_permission(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import Permission
+
+    pid = ctx["controller"]
+    label = ctx.get("name") or "An effect"
+    plan.rules.permissions.append(Permission(id=secrets.token_hex(4), player=pid, cast=True, zone="hand", free=True, until="end_of_turn", turn=plan.state.turn.number,
+                                             source=ctx.get("source_object"), label=f"{label}: without paying their mana costs"))
+    plan.note(f"{plan.name(pid)} may cast spells from their hand this turn without paying their mana costs ({label})", actor=pid)
+    return True
+
+
 def flash_sentence(text: str) -> list[dict[str, Any]] | None:
     """A whole sentence "You may cast [<sel>] spells this turn as though they had flash." (``scripts._parse_effects``
     reads it before its "you may" choices: it grants a permission, nothing is chosen as it resolves)."""
@@ -586,7 +606,7 @@ def _life_primitives() -> dict[str, Any]:
     return life_lock.PRIMITIVES  # -- can't lose life (wave 29D) --
 
 
-PRIMITIVES = {"cast_limit": cast_limit, "flash_permission": flash_permission, **_player_primitives()[0], **_life_primitives()}
+PRIMITIVES = {"cast_limit": cast_limit, "flash_permission": flash_permission, "free_permission": free_permission, **_player_primitives()[0], **_life_primitives()}
 RESUME = dict(_player_primitives()[1])
 
 

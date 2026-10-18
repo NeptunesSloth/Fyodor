@@ -34,17 +34,52 @@ Context = dict[str, Any]
 
 _FLIP = re.compile(r"^flip a coin(?P<until> until you lose a flip)?$")
 _COND = re.compile(r"^(?:you (?P<w>win|lose) the flip|(?:it|the coin) comes up (?P<f>heads|tails)|(?P<c>you win))$")
+# -- chosen filters (wave 53B) -- several flips, as many as the number chosen earlier in this resolution: "Flip a coin that many times or until you lose a flip, whichever comes first."
+# (Squee's Revenge), "Flip that many coins." (Yusri); each is its own flip (705.2) and the ones won / lost are counted: "for each flip you win, draw a card", "If you win all the flips",
+# "If you won five flips this way", "draw two cards for each flip"
+_MANY = re.compile(r"^flip (?:a coin (?:that many|the chosen number) times(?P<until> or until you lose a flip, whichever comes first)|(?:that many|the chosen number) coins)$")
+_FOR_EACH = re.compile(r"^for each flip you (?P<w>win|lose), (?P<rest>.+)$")
+_DRAW_EACH = re.compile(r"^draw (?P<n>a|an|one|two|three|four|five) cards? for each flip$")
+_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
+_WON_N = re.compile(r"^you won (?P<n>one|two|three|four|five|six|seven|eight|nine|ten) flips this way$")
+_NUMS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
 
 
 def _build(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "coin_flip", **({"until_lose": True} if m["until"] else {})}], None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_FLIP, _build)]
+def _build_many(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "coin_flip", "n": {"chosen_n": 1}, **({"until_lose": True} if m["until"] else {})}], None
+
+
+def _counted(effect: dict[str, Any], kind: str, factor: int | None = None) -> dict[str, Any]:
+    n = factor if factor is not None else effect.get("n")
+    return {**effect, "n": {"coin_flips": kind} if n == 1 else {"times": [n, {"coin_flips": kind}]}}
+
+
+def _build_for_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules.scripts import _NoMatch, _one_clause
+
+    found = _one_clause(m["rest"])
+    if found is None or found[1] is not None or len(found[0]) != 1 or not isinstance(found[0][0].get("n"), int):
+        raise _NoMatch
+    return [_counted(found[0][0], "won" if m["w"] == "win" else "lost")], None
+
+
+def _build_draw_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [_counted({"do": "draw", "who": "you"}, "flips", _WORDS[m["n"]])], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_FLIP, _build), (_MANY, _build_many), (_FOR_EACH, _build_for_each), (_DRAW_EACH, _build_draw_each)]
 
 
 def condition(text: str) -> dict[str, Any] | None:
     """"you win the flip" / "it comes up tails" → ``{"coin": "win" | "lose"}`` (heads is a win, 705.2), else None."""
+    if text == "you win all the flips":  # -- chosen filters (wave 53B) -- every flip of this resolution was won (none stopped by a lost one)
+        return {"coin": "all"}
+    if (won := _WON_N.fullmatch(text)) is not None:
+        return {"coin": "wins", "n": _NUMS.index(won["n"])}
     m = _COND.fullmatch(text)
     if m is None:
         return None
@@ -65,7 +100,17 @@ def event_condition(text: str) -> dict[str, Any] | None:
             "won": m["v"].startswith("win")}
 
 
+def count(ctx: Context, kind: str) -> int:
+    """-- chosen filters (wave 53B) -- the flips of this resolution: "won", "lost" or all of them."""
+    flips = ctx.get("flips") or []
+    return flips.count(True) if kind == "won" else flips.count(False) if kind == "lost" else len(flips)
+
+
 def holds(ctx: Context, cond: dict[str, Any]) -> bool:
+    if cond["coin"] == "all":  # (wave 53B)
+        return bool(ctx.get("flips")) and all(ctx["flips"])
+    if cond["coin"] == "wins":
+        return count(ctx, "won") == cond["n"]
     flipped = ctx.get("clash" if cond.get("of") else "coin")
     return flipped is not None and bool(flipped) == (cond["coin"] == "win")
 
@@ -76,12 +121,15 @@ def coin_flip(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if plan.rng is None:
         plan.rng = secrets.SystemRandom()  # (the result is recorded on the step: the history replays it, not the generator)
     face = "'face': True" in str(ctx.get("effects"))  # (705.2: the effect reads heads or tails: no winner or loser)
-    for _ in range(1000 if e.get("until_lose") else 1):  # (ponytail: no game wins 1000 flips in a row)
+    many = e.get("n") if isinstance(e.get("n"), int) else None  # (wave 53B: the number chosen, bound by chosen.bind_effects)
+    ctx["flips"] = []
+    for _ in range(many if many is not None else 1000 if e.get("until_lose") else 1):  # (ponytail: no game wins 1000 flips in a row)
         done = plan.do({"type": "coin", "count": 1}, actor=ctx["controller"])
         ctx["coin"] = bool(done.r.results[0])  # type: ignore[union-attr]
+        ctx["flips"].append(ctx["coin"])
         if not face:
             emit(plan.state, "designation", counter="coin_flip", player=ctx["controller"], amount=int(ctx["coin"]))
-        if not ctx["coin"]:
+        if not ctx["coin"] and e.get("until_lose"):
             break
     return True
 
@@ -93,7 +141,7 @@ def refs_ok(effects: list[dict[str, Any]]) -> bool:
         text = str(e)
         if "'coin_flip'" in text or "'do': 'clash'" in text:
             flipped = True
-        elif "'coin':" in text and not flipped:
+        elif ("'coin':" in text or "'coin_flips'" in text) and not flipped:
             return False
     return True
 

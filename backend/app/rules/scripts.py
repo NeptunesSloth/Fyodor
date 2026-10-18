@@ -3905,6 +3905,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 inner = _conditional_inner(cond_m["rest"])
             else:
                 inner = _conditional_inner(cond_m["rest"], cond) if cond is not None else None
+            from app.rules import cast_limits as _cl
+
+            if inner is None and cond is not None and (free_rest := _cl.free_sentence(cond_m["rest"])) is not None:
+                inner = (free_rest, None)  # -- chosen filters (wave 53B) -- "If you won five flips this way, you may cast spells from your hand this turn without paying their mana costs." (a permission, not a choice)
             if inner is None and cond is not None and cond_m["rest"].startswith("you may ") and i == len(texts) - 1 and effects:
                 # -- transform (wave 20F) -- "Then if you have seven or more cards in your graveyard, you may transform ~." at the end of
                 # the ability (608.2c): the gate, then the controller's choice for the rest (unless_pays.may_rest, 603.5)
@@ -3934,7 +3938,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         # -- cast limits (wave 5E) -- "You may cast spells this turn as though they had flash."
         from app.rules import cast_limits
 
-        if (flash := cast_limits.flash_sentence(text)) is not None:  # (a permission, not a choice made on resolution)
+        if (flash := cast_limits.flash_sentence(text) or cast_limits.free_sentence(text)) is not None:  # (a permission, not a choice made on resolution; wave 53B: free casts from hand)
             effects += flash
             continue
         if (extra_land := _land_plays.sentence(text)) is not None:  # -- one-shot extra land plays (wave 8A) -- 305.2 (a permission)

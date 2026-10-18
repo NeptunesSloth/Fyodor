@@ -648,6 +648,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return max(0, int(ctx.get("x") or 0))
     if "chosen_n" in v:  # (wave 53B: never left unbound by a definition chosen.chosen_value_ok accepts)
         return 0
+    if "coin_flips" in v:  # -- chosen filters (wave 53B) -- the flips this resolution made, won or lost (app/rules/coin_flips.py)
+        from app.rules import coin_flips
+
+        return coin_flips.count(ctx, v["coin_flips"])
     if "die" in v:  # -- rolling dice (wave 12A) -- this resolution's own roll (app/rules/dice.py)
         from app.rules import dice
 

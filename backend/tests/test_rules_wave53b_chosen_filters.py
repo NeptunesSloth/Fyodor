@@ -1473,3 +1473,68 @@ def test_rukarumel_gives_the_chosen_type_to_slivers_and_nontoken_creatures_you_c
     sliver = tokens(s)[0]
     assert Plan(s.state, "p1", s.cards, None).ch(sliver).subtypes == frozenset({"Sliver", "Elf"})  # a token Sliver is one of the first group
     check(s)
+
+
+# ---- as many coin flips as the number chosen, counted (step 26): 705.2, 608.2c, 118.9 ----------------------------------
+def rigged(monkeypatch, *results):
+    """The next coins come up as asked (heads wins, 705.2); the iterator left over shows how many were flipped."""
+    left = iter(results)
+    monkeypatch.setattr("app.game.resolve._rng_int", lambda rng, lo, hi: 1 if next(left) else 0)
+    return left
+
+
+def test_squees_revenge_draws_two_cards_for_each_flip_when_every_flip_is_won(cards, monkeypatch):
+    s = build(cards, ["Squee's Revenge", *["Probe Land"] * 9])
+    assert coverage.of_card_data(cards.resolve("Squee's Revenge")).level == "FULL"
+    left = rigged(monkeypatch, True, True, True)
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, "p1", U=1, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Squee's Revenge").id)
+    answer(s, "3")
+    assert len(s.state.zones["p1:hand"]) == hand + 6 and list(left) == []  # three flips won: 2 cards for each of the 3 flips
+    check(s)
+
+
+def test_squees_revenge_stops_at_the_first_lost_flip_and_draws_nothing(cards, monkeypatch):
+    s = build(cards, ["Squee's Revenge", *["Probe Land"] * 9])
+    left = rigged(monkeypatch, True, False, True, True)
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, "p1", U=1, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Squee's Revenge").id)
+    answer(s, "4")
+    assert len(s.state.zones["p1:hand"]) == hand and list(left) == [True, True]  # (the third and fourth coins were never flipped: "or until you lose a flip")
+    check(s)
+
+
+def yusri_attacks(cards, monkeypatch, number, *results):
+    s = build(cards, ["Yusri, Fortune's Flame", "Probe Gain", *["Probe Land"] * 9])
+    left = rigged(monkeypatch, *results)
+    yusri = put(s, "Yusri, Fortune's Flame")
+    s.state.rules.controlled_since[yusri.id].turn = 0
+    to_hand(s, "Probe Gain")
+    act(s, "p1", type="pass_priority")  # → combat
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": yusri.id, "target": "p2"}])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "choose_one")
+    hand = len(s.state.zones["p1:hand"])
+    answer(s, number)
+    return s, left, hand
+
+
+def test_yusri_draws_for_each_flip_won_and_five_won_lets_you_cast_from_hand_free(cards, monkeypatch):
+    s, left, hand = yusri_attacks(cards, monkeypatch, "5", True, True, True, True, True)
+    assert coverage.of_card_data(cards.resolve("Yusri, Fortune's Flame")).level == "FULL"
+    assert len(s.state.zones["p1:hand"]) == hand + 5 and life(s) == 40 and list(left) == []
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Probe Gain").id, free=True)  # {R} paid by nothing: the spell from the hand is free this turn
+    answer(s)
+    assert life(s) == 41 and zone_of(s, "Probe Gain") == "p1:graveyard"
+    check(s)
+
+
+def test_yusri_deals_two_damage_to_you_for_each_flip_lost_and_four_wins_is_not_enough(cards, monkeypatch):
+    from app.game.errors import ActionError
+
+    s, left, hand = yusri_attacks(cards, monkeypatch, "4", True, False, True, False)
+    assert len(s.state.zones["p1:hand"]) == hand + 2 and life(s) == 40 - 4 and list(left) == []  # two won, two lost
+    with pytest.raises(ActionError):  # (no free casts)
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Probe Gain").id, free=True)
+    check(s)
