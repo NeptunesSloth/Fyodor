@@ -72,6 +72,7 @@ PLAYER_GROUPS.update({f"{the} {kind}'s controller": "it.controller" for the in (
 # "~ deals 3 damage to target player or planeswalker. That player or that planeswalker's controller discards two cards."
 # (Blightning): the target player, or the target planeswalker's controller (app/rules/effects._players)
 PLAYER_GROUPS["that player or that planeswalker's controller"] = "target_player_or_controller"
+PLAYER_GROUPS["each player other than that player"] = "each_other_than_event"  # -- trigger other (wave 51C) -- "each other player" in a trigger about a player (Zenith Chronicler): every player but the one the event is about, you included
 PLAYER_GROUPS["each of that player's opponents"] = "event_opponents"  # -- player groups (wave 51G) -- every player but the one the trigger event names (Heartwood Storyteller, Standstill)
 PLAYER_GROUPS["an opponent chosen at random"] = "random_opponent"  # -- random choices (wave 47B) -- app/rules/random_choice.py (scripts: the pick is made right before it)
 PLAYER_GROUPS["the exiled card's owner"] = "it.owner"  # -- resolution memory (wave 22D) -- 607.2a (exiled_with.linked_cards binds the card)
@@ -1082,7 +1083,7 @@ _PUT_DOWN = re.compile(rf"put (?:the top {_N_CARDS} of {_LIB}|(?P<hand>any numbe
 _DOWN = re.compile(rf"(?P<s>target opponent|an opponent|you) separates? the top {_N_CARDS} of your library into a face-down pile and a "
                    r"face-up pile, then (?P<tail>you put one pile into your hand and the other into your graveyard|an opponent chooses "
                    r"one of them, then you put that pile into your hand and the other into your graveyard)")
-_UNTIL = re.compile(rf"(?P<verb>reveal|exile) cards from the top of {_LIB} until you (?P=verb) (?:a|an) (?P<sel>.+)")
+_UNTIL = re.compile(rf"(?P<verb>reveal|exile) cards from the top of {_LIB} until you (?P=verb) (?:(?P<cnt>two|three|four|five|six|seven|X) |an? )(?P<sel>.+?)(?:, where X is (?P<w>.+))?")  # (wave 51C: "until you reveal two land cards" / "X land cards, where X is the number of legendary creatures you control" (The Ring Goes South), the Nth match)
 # -- look and distribute (wave 3L) -- where the picked / remaining cards go; a library may be "that library"
 # / "that player's library" (the one looked at), a graveyard "their graveyard"
 _LIBREF = r"(?:your|that|their|that player's) library"
@@ -1350,7 +1351,13 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     if m:
         who, group = _lib_owner(m["lib"])
         do = "look_top" if m["verb"] == "reveal" else "exile_top"
-        return [{"do": do, "n": 0, "player": who, "until": _card_sel(m["sel"]), **({"reveal": True} if do == "look_top" else {})}], \
+        if m["cnt"] and do != "look_top":
+            raise _Fail
+        if m["w"] and m["cnt"] != "X":
+            raise _Fail
+        need = (_rider_value(m["w"]) if m["w"] else {"x": 1}) if m["cnt"] == "X" else values.NUMBERS[m["cnt"]] if m["cnt"] else None
+        return [{"do": do, "n": 0, "player": who, "until": _card_sel(m["sel"]), **({"reveal": True} if do == "look_top" else {}),
+                 **({"need": need} if m["cnt"] else {})}], \
             _one(group)
     kinds = _pick_kinds(text) or _pick_alts(text)  # -- refused look/cast-free (wave 3R5) -- (_pick_alts: wave 16F)
     if kinds is not None:
@@ -2950,7 +2957,8 @@ DISCARD_NAMED = r"(?:that player|they|its owner) discards? (?P<o>that card|those
 CHOICE_KINDS = ("color", "creature type", "basic land type", "opponent", "player")
 CHOOSE_VALUE = rf"choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|odd or even|{_NAME_WHAT})"  # (wave 50J: odd or even, Thanos)
 CARD_TYPE_FIVE = "artifact, creature, enchantment, instant, or sorcery"  # -- commanders (wave 47A) -- Cloud Key: the five card types it offers
-ENTERS_CHOICE = re.compile(rf"^As ~ enters, choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|odd or even|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink)\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key)
+TYPE_LIST = r"[A-Z][a-z]+(?:, [A-Z][a-z]+)+, or [A-Z][a-z]+"  # -- chosen type (wave 51C) -- "choose Elemental, Elf, Faerie, Giant, Goblin, Kithkin, Merfolk, or Treefolk" (Eclipsed Realms, Dawn-Blessed Pennant)
+ENTERS_CHOICE = re.compile(rf"^As ~ enters, choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|odd or even|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink|{TYPE_LIST})\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key; wave 51C: a short list of creature types)
 
 
 # -- choose own (wave 32A) -- "Then you may choose a token you control." (Brudiclad), "Choose a Giant creature you control. It deals damage equal to its
@@ -3204,6 +3212,14 @@ def enters_choice(text: str) -> dict[str, Any] | None:
     m = ENTERS_CHOICE.match(text)
     if m is None:
         return None
+    if m["what"][:1].isupper():  # (wave 51C: the creature types it lists, each a real one; the choice is still "a creature type" for "the chosen type", offered from the list)
+        from app.rules.creature_types import CREATURE_TYPES
+
+        listed = re.split(r", or |, ", m["what"])
+        if not all(t in CREATURE_TYPES for t in listed):
+            return None
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": "creature type", "options": listed, "remember": True}]}
     return {"kind": "replacement", "replacement": "enters_choice",
             "effects": [{"do": "choose_value", "who": "you", "what": m["what"], "remember": True}]}
 

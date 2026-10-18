@@ -302,6 +302,12 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                resume={"step": STEP, "ctx": ctx, "opt": {"cost": "", "bind": str(e.get("bind") or "pay0"), "payer": who, "chosen": {}},
                        "cost": "{0}", "ask": True}, source=plan.state.cards.get(ctx.get("source_card") or ""))
         return False
+    if (alt := e.get("alt")) and alt.get("hard"):  # -- unless pays (wave 51C) -- "If you control a creature with power 4 or greater, counter that spell instead." (Stubborn Denial): checked as it resolves (608.2c), nothing is offered when it holds
+        from app.rules import conditions
+
+        if conditions.holds(plan, ctx, alt["cond"]):
+            context.bind_payment(ctx, str(e.get("bind") or "pay0"), False)
+            return True
     text = unless_pays.concrete_cost(plan, ctx, e)
     cost = parse(text)
     # -- end unless pays (wave 4C) --

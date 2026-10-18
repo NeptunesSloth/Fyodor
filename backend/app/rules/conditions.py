@@ -247,6 +247,9 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     m = re.fullmatch(r"(?:~|this [a-z]+) has an (?P<p>even|odd) number of counters on (?:it|~)", t)
     if m:  # -- commander sweep (wave 49B) -- "~ has an even number of counters on it" (Sab-Sunen, Luxa Embodied): all kinds together (122.1); zero is even
         return {"value": {"counters": None, "on": "self"}, "op": "parity", "n": int(m["p"] == "odd")}
+    m = re.fullmatch(r"there are (?P<n>\w+) or more counters on (?:it|~|this [a-z]+)", t)
+    if m and (n := _num(m["n"])) is not None:  # -- value grammar (wave 51C) -- "there are twenty or more counters on it" (Twenty-Toed Toad): all kinds together (122.1)
+        return {"value": {"counters": None, "on": "self"}, "op": ">=", "n": n}
     m = _SELF_COUNTS.fullmatch(t)
     if m and m["k"] not in ("any", "more", "fewer"):
         n = 0 if m["no"] else _num(m["ex"] or m["n"])
@@ -428,6 +431,9 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     m = re.fullmatch(r"there are (?P<n>\w+) or more cards in exile", t)
     if m and (n := _num(m["n"])) is not None and (exiled := selectors.parse("cards in exile")) is not None:  # -- cant restrictions (wave 50G) -- "unless there are seven or
         return {"value": {"count": exiled.key()}, "op": ">=", "n": n}  # or more cards in exile" (Ketramose): every player's exile zone, 400.1
+    m = re.fullmatch(r"a graveyard has (?P<n>\w+) or more cards in it", t)
+    if m and (n := _num(m["n"])) is not None:  # -- value grammar (wave 51C) -- "If a graveyard has twenty or more cards in it" (Visions of Beyond): some player's graveyard (404.1)
+        return {"value": {"graveyards_with": n}, "op": ">=", "n": 1}
     m = _GRAVEYARD_TYPES.fullmatch(t)
     if m:  # delirium: "there are four or more card types among cards in your graveyard" (205.2a)
         n = _num(m["n"])
@@ -1707,6 +1713,8 @@ def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
     card = plan.state.cards.get(ctx.get("source_card") or "")
     if test == "in_graveyard":  # -- graveyard triggers (wave 19C) -- 400.7: a card that left is a new object, which isn't there
         return card is not None and card.zone == f"{card.owner}:graveyard" and plan.oid(card) == ctx.get("source_object")
+    if test == "solved":  # -- Case (wave 51C) -- 719.3b: the designation is the permanent's "Solved" choice, gone when it leaves the battlefield (400.7)
+        return card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object") and "Solved" in card.choices
     if test == "on_battlefield":  # -- reanimation Auras (wave 51F) -- 603.4: "if it's on the battlefield" as the ability resolves: still that object (400.7)
         return card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object")
     if test == "in_command":  # -- trailing & intervening ifs (wave 38A) -- still that object, in the command zone (400.7): a commander cast in response is a new object

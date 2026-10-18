@@ -126,7 +126,6 @@ def test_flash_and_haste_wordings():
 
 
 @pytest.mark.parametrize("text", [
-    "Your opponents can't cast spells with even mana values.",
     "As long as this Equipment is attached to a creature, your opponents can't cast spells during your turn.",
     "Each opponent who attacked with a creature this turn can't cast spells.",
 ])
@@ -135,7 +134,6 @@ def test_refused_statics(text):
 
 
 @pytest.mark.parametrize("text", [
-    "Counter target spell. Its controller can't cast spells this turn.",
     "You may cast spells as though they had flash.",  # (an effect without a duration)
     "Defending player can't cast spells this turn.",
 ])

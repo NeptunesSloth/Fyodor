@@ -82,7 +82,7 @@ def companion_warnings(cards, companion, commander, spells):
 
 
 ALONE = {LURRUS, "Zirda, the Dawnwaker", "Kaheera, the Orphanguard", "Keruga, the Macrosage", "Lutri, the Spellchaser",
-         "Obosh, the Preypiercer", "Umori, the Collector"}  # the companion line was all they lacked (Obosh since wave 46A, Umori since 47A)
+         "Obosh, the Preypiercer", "Umori, the Collector", "Gyruda, Doom of Depths"}  # the companion line was all they lacked (Obosh since wave 46A, Umori since 47A, Gyruda since 51C: mill-and-take enters trigger)
 
 
 @pytest.mark.parametrize("name", [*CASES, "Yorion, Sky Nomad"])

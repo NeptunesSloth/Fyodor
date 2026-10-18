@@ -47,7 +47,7 @@ OTHER_SUBTYPES = {"Equipment", "Aura", "Vehicle", "Food", "Clue", "Treasure", "B
                   "Curse", "Plains", "Island", "Swamp", "Mountain", "Forest", "Desert", "Gate", "Cave", "Town",
                   "Sphere", "Lesson", "Adventure", "Arcane", "Trap", "Room", "Class", "Case", "Background",
                   "Fortification", "Attraction", "Contraption", "Powerstone", "Map", "Incubator", "Junk",
-                  "Lair", "Locus", "Bobblehead", "Cartouche", "Spacecraft", "Rune", "Plan", "Lander"}  # (wave 25C: Rune, 205.3h; wave 35D: Plan, 205.3h)  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
+                  "Lair", "Locus", "Bobblehead", "Cartouche", "Spacecraft", "Rune", "Plan", "Lander", "Planet"}  # (wave 25C: Rune, 205.3h; wave 35D: Plan, 205.3h)  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
 # -- kicked / instead (wave 4G) -- 205.3j: the planeswalker types ("If you control a Jace planeswalker, …"), read only
 # when written capitalized (a word like "will" is never one)
 PLANESWALKER_TYPES = frozenset({
@@ -436,12 +436,12 @@ def _power_over_base(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "power_gt_base"))
 
 
-@_suffix(r"that (?:isn't|is not|aren't|are not) an? (?P<sub>[A-Z][A-Za-z]+)")  # -- commanders (wave 47A) -- Heliod, the Radiant Dawn: "enchantment card that isn't a God" (a subtype, 205.3)
+@_suffix(r"that (?:isn't|is not|aren't|are not) an? (?P<sub>[A-Z][A-Za-z]+(?:(?:, | or |, or )[A-Z][A-Za-z]+)*)")  # -- commanders (wave 47A) -- Heliod, the Radiant Dawn: "enchantment card that isn't a God" (a subtype, 205.3); wave 51C: a list, "that isn't a Kraken, Leviathan, or Serpent" - none of them
 def _isnt_subtype(s: Selector, m: re.Match[str]) -> Selector:
-    core = _core(m["sub"])
-    if core is None or core[0] != "sub":
+    cores = [_core(w) for w in re.split(r", or |, | or ", m["sub"])]
+    if any(core is None or core[0] != "sub" for core in cores):
         raise ValueError(m["sub"])
-    return replace(s, not_subtypes=(*s.not_subtypes, core[1]))
+    return replace(s, not_subtypes=(*s.not_subtypes, *(core[1] for core in cores if core)))
 
 
 @_suffix(r"with toughness greater than (?:its|their) power")  # (Ghalta the Immovable, Bedrock Tortoise)
@@ -1094,6 +1094,11 @@ def _of_chosen(s: Selector, m: re.Match[str]) -> Selector:
 @_suffix(r"with (?P<stat>mana value|power) of (?:the chosen|that) quality")  # -- chosen quality (wave 50J) -- "Choose odd or even. Destroy each creature with mana value of the chosen quality." (Thanos)
 def _of_chosen_parity(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "chosen_parity_mv" if m["stat"] == "mana value" else "chosen_parity_power"))
+
+
+@_suffix(r"with (?:an? )?(?P<q>even|odd) (?P<stat>mana values?|power)")  # -- chosen quality (wave 51C) -- "creatures with even mana values" (Void Winnower), "a permanent with an even mana value" (Desecrate Reality): 107.1, the parity test of wave 50J
+def _with_parity(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, f"parity:{'mv' if m['stat'].startswith('mana') else 'power'}:{m['q']}"))
 
 
 @_suffix(r"with mana value, power, or toughness equal to the chosen number")  # -- commander sweep (wave 49B) -- Talion, the Kindly Lord: any of the three equals the number chosen as it entered

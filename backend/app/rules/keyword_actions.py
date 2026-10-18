@@ -400,6 +400,16 @@ def suspect(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+# -- Case (wave 51C) -- 719.3b: solved is a designation a permanent has until it leaves the battlefield, kept as the card's public "Solved" choice (reset by every zone change,
+# 400.7; characteristics.of drops the "Solved — [ability]" lines of a Case that doesn't have it, 719.3c)
+def become_solved(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    if card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object") and "Solved" not in card.choices:
+        plan.do({"type": "set_choice", "card_id": card.id, "key": "Solved", "value": "Yes"}, actor=ctx["controller"])
+        plan.note(f"{card.name} becomes solved", [card.id], actor=ctx["controller"])
+    return True
+
+
 # -- prepared (wave 13C) -- 722.3: the designation is kept by rules object (``rules.prepared``: object -> its copy)
 def prepared_permanent(state: GameState, copy_id: str) -> CardInstance | None:
     """The permanent this exiled copy belongs to while it is still that prepared object on the battlefield (722.3c)."""
@@ -620,7 +630,7 @@ def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[st
 
 
 PRIMITIVES = {"class_level": class_level, "amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
-              "goad": goad, "detain": detain, "suspect": suspect, "prepare": prepare, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "empower_jace": empower_jace, "transform": transform, "flip": flip,
+              "goad": goad, "detain": detain, "suspect": suspect, "become_solved": become_solved, "prepare": prepare, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "empower_jace": empower_jace, "transform": transform, "flip": flip,
               **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
               **token_grammar.PRIMITIVES}
 RESUME = {"amass_choose": resume_amass, "empower_choose": resume_empower, "bolster_choose": resume_bolster, "connive_discard": resume_connive,

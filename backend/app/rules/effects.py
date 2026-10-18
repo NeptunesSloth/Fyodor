@@ -117,6 +117,9 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
             if pid is not None and pid in plan.live() and pid not in out:
                 out.append(pid)
         return out
+    if who == "each_other_than_event":  # -- trigger other (wave 51C) -- every player but the one(s) the trigger event was about
+        named = set(context.players(plan, ctx, context.EVENT))
+        return [p for p in plan.live() if p not in named]
     if who == "each_other_opponent":  # -- sized amounts (wave 3D) -- the opponents besides the player the trigger event was about
         named = set(context.players(plan, ctx, context.EVENT))
         return [p for p in plan.live() if p != me and p not in named]
@@ -2833,13 +2836,14 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for pid in owners:
         library = _library(plan, pid)
         if e.get("until"):
-            at = _first_match(plan, ctx, library, e["until"], ctx["controller"])
-            for _ in range(int(e.get("need") or 1) - 1):  # -- trigger other (wave 44B) -- "until they reveal four land cards": down to the Nth match (all of it if fewer)
+            need = _amount(plan, ctx, e["need"]) if e.get("need") is not None else 1  # (wave 51C: X, the announced value)
+            at = _first_match(plan, ctx, library, e["until"], ctx["controller"]) if need > 0 else None
+            for _ in range(need - 1):  # -- trigger other (wave 44B) -- "until they reveal four land cards": down to the Nth match (all of it if fewer)
                 if at is None:
                     break
                 nxt = _first_match(plan, ctx, library[at + 1:], e["until"], ctx["controller"])
                 at = None if nxt is None else at + 1 + nxt
-            top = library if at is None else library[: at + 1]
+            top = (library if need > 0 else []) if at is None else library[: at + 1]
             if at is not None and len(owners) == 1 and not e.get("need"):
                 ctx["found"] = library[at]
         else:
@@ -4035,6 +4039,8 @@ def choose_value(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     the record a permanent keeps of what was chosen as it entered (614.12a), gone with the object
     when it changes zones (400.7)."""
     options = _choice_options(plan, ctx, e["what"])
+    if e.get("options"):  # -- chosen type (wave 51C) -- "choose Elemental, Elf, …": only the creature types it lists
+        options = [o for o in options if o.id in e["options"]]
     if not options:
         return True  # (no opponent left to choose: 800.4)
     src = plan.state.cards.get(ctx.get("source_card") or "")

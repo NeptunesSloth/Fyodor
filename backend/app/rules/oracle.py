@@ -188,7 +188,7 @@ def word_prefix(line: str) -> tuple[str, str] | None:
     word = m["w"].lower().replace("’", "'")
     from app.rules.scripts import ABILITY_WORDS  # (scripts imports this module at load time)
 
-    if word in ABILITY_WORDS:
+    if word in ABILITY_WORDS or word == "solved":  # -- Case (wave 51C) -- 719.3c: "Solved — [ability]" is that ability, which works only while the Case is solved (characteristics.of drops it otherwise)
         return m["w"], m["rest"]
     kw = keyword_name(m["w"])
     # (-- long tail (wave 16D) -- a flavor word that merely starts with a keyword's name, "Toxic Spores —", is still a flavor word)
@@ -316,6 +316,10 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
     # -- keywords (wave 50H) -- 207.2d: a flavor word before an equip cost ("Machina — Equip {4}", Final Fantasy equipment) has no rules meaning
     for i, line in enumerate(lines):
         if not spell and " — Equip" in line and (w := word_prefix(line)) is not None and w[1].startswith("Equip") and _keywords_line(w[1]) == ("equip",):
+            lines[i] = w[1]
+    # -- keywords (wave 51C) -- 207.2d: a flavor word before a protection keyword line ("Void Shields — Protection from mana value 3 or less", Reaver Titan) has no rules meaning either
+    for i, line in enumerate(lines):
+        if not spell and " — Protection from " in line and (w := word_prefix(line)) is not None and w[1].startswith("Protection from ") and _keywords_line(w[1]) == ("protection",):
             lines[i] = w[1]
     # -- any number as an additional cost (wave 48B) -- 603.12: "As an additional cost to cast this spell, you may sacrifice one or more creatures. When you do, copy this spell for each
     # creature sacrificed this way." (Plumb the Forbidden) is the cost and a trigger of the spell on being cast (601.2i), which only exists if something was sacrificed
