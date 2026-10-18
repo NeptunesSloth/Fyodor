@@ -663,7 +663,7 @@ class _Introducer:
         self.do = e.get("do")
         self.verb = _verb_of(e)  # (-- resolution memory (wave 22D) -- "Exile a creature you control": what it exiled, not sacrificed)
         self.recording = self.do in _RECORDING  # (can carry a binding: "its controller", "its power")
-        self.objects = self.recording and self.do != "draw"  # (-- if you do (wave 52A) -- a draw records how many it drew, never objects a pronoun could name)
+        self.objects = self.recording and self.do not in ("draw", "reveal_hand")  # (-- if you do (wave 52A) -- a draw records how many it drew, never objects a pronoun could name; -- player-relative selectors (wave 53A) -- nor does a look at a hand: "look at that player's hand and choose a card from it. That player discards that card" (Doomsday Specter))
         self.player = False
         self.number: int | None = 1  # 1 (singular), 2 (several), None (unknown)
         g = _group_of(e)

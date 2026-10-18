@@ -158,6 +158,8 @@ def rewrite(body: str) -> str:
     body = re.sub(r"(\b[Yy]ou may look at the top card of (?:target opponent|target player)'s library\.) If you do, you may put", r"\1 You may put", body)
     # "You may look at that player's hand. If you do, you may cast a spell from among those cards without paying its mana cost." (Mindleech Mass): the same two choices
     body = re.sub(r"(\b[Yy]ou may look at that player's hand\.) If you do, you may cast", r"\1 You may cast", body)
+    # "Look at target opponent's hand and choose a card from it. Put that card on top of that player's library." (Painful Memories): the card is theirs (108.3), so their library is its owner's
+    body = re.sub(r"(choose a card from it\. [Pp]ut that card on (?:top|the bottom) of) that player's library", r"\1 its owner's library", body)
     # "Target player creates X 2/2 black Zombie creature tokens, then up to one target creature gets -1/-1 until end of turn for each Zombie that player controls." (Dark Salvation): two
     # instructions of two targets (608.2c): the second is its own sentence
     body = re.sub(r"\b((?:[Tt]arget (?:player|opponent)|[Tt]hat player) creates [^.,]+? tokens?), then ((?:up to one )?target creature (?:gets|gains|deals))",

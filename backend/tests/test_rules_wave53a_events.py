@@ -25,7 +25,7 @@ from tests.wave53a_kit import alice_next, open_repo, table, unseen_by, until_ask
 
 BEARS, GIANT, ANGEL, GRAIL, BOLT = "Grizzly Bears", "Hill Giant", "Serra Angel", "Sol Grail", "Lightning Bolt"
 NAMES = ["Grasping Tentacles", "Realmbreaker, the Invasion Tree", "Oblivion Sower", "Silent-Blade Oni", "Lord of the Void", "Ashling, the Extinguisher", "Myrkul's Edict",
-         "Sail into the West", "Intellectual Offering", "Down for Repairs", "Windgrace's Judgment", "Dark Salvation", "The Black Gate", "Disciple of Perdition", "Siege Dragon", "The Fall of Kroog", "Tibalt, the Fiend-Blooded", "Elder Brain", "Mindleech Mass"]
+         "Sail into the West", "Intellectual Offering", "Down for Repairs", "Windgrace's Judgment", "Dark Salvation", "The Black Gate", "Disciple of Perdition", "Siege Dragon", "The Fall of Kroog", "Tibalt, the Fiend-Blooded", "Elder Brain", "Mindleech Mass", "Doomsday Specter", "Leshrac's Sigil", "Painful Memories"]
 
 
 @pytest.fixture()
@@ -587,4 +587,77 @@ def test_mindleech_mass_she_may_decline_and_then_sees_nothing(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["no"])
     settle(s)
     assert unseen_by(s, giant, "p1") and s.state.cards[giant.id].zone == "p2:hand"
+    check(s)
+
+
+# -- Painful Memories / Doomsday Specter / Leshrac's Sigil ------------------------------------------------------------------------------
+def test_painful_memories_the_card_you_choose_goes_on_top_of_their_library(cards):
+    """701.20e (a private look), 108.3: Alice alone sees Bob's hand, picks a card and it goes on top of Bob's library (the owner's, not hers)."""
+    s = table(cards, ["Painful Memories"], [GIANT, BOLT, BEARS], [BEARS])
+    giant, bolt, bears = to_hand(s, GIANT, "p2"), to_hand(s, BOLT, "p2"), to_hand(s, BEARS, "p2")
+    carols = to_hand(s, BEARS, "p3")
+    to_hand(s, "Painful Memories")
+    mana(s, "p1", B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Painful Memories").id, targets=["p2"])
+    d = until_asked(s)
+    assert d.player == "p1" and {o.id for o in d.options} == {giant.id, bolt.id, bears.id}  # Bob's hand only, seen by her alone
+    for viewer in ("p3", SPECTATOR):
+        assert all(unseen_by(s, c, viewer) for c in (giant, bolt, bears))
+    assert not unseen_by(s, bolt, "p1")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bolt.id])
+    settle(s)
+    top = s.state.zones["p2:library"][0]
+    assert s.state.cards[top].name == BOLT and s.state.cards[top].owner == "p2"
+    assert s.state.cards[giant.id].zone == "p2:hand" and s.state.cards[carols.id].zone == "p3:hand"
+    check(s)
+
+
+def test_doomsday_specter_you_choose_a_card_of_the_hand_you_looked_at_and_the_player_discards_it(cards):
+    s = table(cards, ["Doomsday Specter"], [GIANT, BOLT], [BEARS])
+    stops(s)
+    specter = put(s, "Doomsday Specter")  # (put onto the table: its enters trigger doesn't run)
+    giant, bolt = to_hand(s, GIANT, "p2"), to_hand(s, BOLT, "p2")
+    bears = to_hand(s, BEARS, "p3")
+    alice_next(s)
+    attack(s, specter)
+    d = None
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.player == "p1" and d.kind not in ("declare_attackers", "declare_blockers"):
+            break
+        if d is not None:
+            act(s, d.player, type="declare_blockers", blocks=[]) if d.kind == "declare_blockers" else act(
+                s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p1" and {o.id for o in d.options} == set(s.state.zones["p2:hand"]) >= {giant.id, bolt.id}  # Bob's hand (with what he drew), not Carol's
+    for viewer in ("p3", SPECTATOR):
+        assert unseen_by(s, giant, viewer) and unseen_by(s, bolt, viewer)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bolt.id])
+    settle(s)
+    assert s.state.cards[bolt.id].zone == "p2:graveyard" and s.state.cards[giant.id].zone == "p2:hand" and s.state.cards[bears.id].zone == "p3:hand"
+    check(s)
+
+
+def test_leshracs_sigil_pay_and_the_caster_discards_the_card_you_choose(cards):
+    """603.2: the caster is "that player" (the event's); you pay {B}{B} as the ability resolves (118.12), then look at their hand and choose."""
+    s = table(cards, ["Leshrac's Sigil"], [BEARS, GIANT, BOLT], [])
+    stops(s)
+    put(s, "Leshrac's Sigil")
+    giant, bolt = to_hand(s, GIANT, "p2"), to_hand(s, BOLT, "p2")
+    bears = to_hand(s, BEARS, "p2")
+    to_phase(s, "main1", turn=2)  # Bob's turn: his first main phase
+    assert s.state.rules.priority == "p2"
+    mana(s, "p2", G=1, C=1)
+    act(s, "p2", type="cast_spell", card_id=bears.id)
+    mana(s, "p1", B=2)
+    d = until_asked(s)
+    assert d.player == "p1" and {o.id for o in d.options} == {"pay", "decline"}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
+    d = until_asked(s)
+    assert d.player == "p1" and {o.id for o in d.options} == set(s.state.zones["p2:hand"]) >= {giant.id, bolt.id}  # Bob's hand; the Bears are on the stack
+    assert unseen_by(s, giant, "p3", SPECTATOR) and not unseen_by(s, giant, "p1")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bolt.id])
+    settle(s)
+    assert s.state.cards[bolt.id].zone == "p2:graveyard" and s.state.cards[giant.id].zone == "p2:hand"
     check(s)

@@ -2960,7 +2960,7 @@ LOOK_HAND = rf"look at (?P<s>{CHOOSER})'s hand(?: and (?P<ch>choose .+))?"  # (P
 # "Target player reveals their hand and discards all nonland cards." (Amnesia, Trapfinder's Trick)
 DISCARD_ALL_REVEALED = (rf"(?P<s>{CHOOSER}) reveals their hand and discards all (?:(?P<sel>.+?) )?cards?"
                         r"(?P<tail> with (?:(?:the chosen|that) name|that spell's mana value))?")  # (wave 22B: Cabal Therapy, "all cards with that name"; wave 36A: Infernal Kirin)
-DISCARD_NAMED = r"(?:that player|they|its owner) discards? (?P<o>that card|those cards|it|them)"
+DISCARD_NAMED = r"(?:that player|the player|they|its owner) discards? (?P<o>that card|those cards|it|them)"  # (-- player-relative selectors (wave 53A) -- "The player discards that card.": Doomsday Specter)
 CHOICE_KINDS = ("color", "creature type", "basic land type", "opponent", "player")
 CHOOSE_VALUE = rf"choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|odd or even|{_NAME_WHAT})"  # (wave 50J: odd or even, Thanos)
 CARD_TYPE_FIVE = "artifact, creature, enchantment, instant, or sorcery"  # -- commanders (wave 47A) -- Cloud Key: the five card types it offers
