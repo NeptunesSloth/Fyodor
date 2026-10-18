@@ -112,7 +112,7 @@ TRIGGERS = [
     (re.compile(r"^Whenever (?P<filter>another creature you control|a creature you control|another nontoken creature you control|"
                 r"a nontoken creature you control|another creature|a creature) enters, (?P<body>.+)$"), "enters_other"),
     # 503.1a / 504 / 505 / 507 / 513: "At the beginning of [whose] [step]" (generic: see step_trigger)
-    (re.compile(r"^At the beginning of (?:(?:each of )?(?P<whose>your|each|each player's|each opponent's|the|enchanted player's|the chosen player's) "
+    (re.compile(r"^At the beginning of (?:(?:each of )?(?P<whose>your|each|each player's|each opponent's|each other player's|the|enchanted player's|the chosen player's) "
                 r"(?P<step>upkeep|draw step|end step|first main phase|precombat main phase|second main phase|"
                 r"postcombat main phases?)|the (?P<hstep>upkeep|draw step|end step) of enchanted (?:creature|permanent|land|artifact|"
                 r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's|each player's) turn|(?P<each_combat>each combat)), "
@@ -137,7 +137,7 @@ TRIGGERS = [
 STEPS = {"upkeep": "upkeep", "draw step": "draw", "end step": "end", "first main phase": "main1",
          "precombat main phase": "main1", "second main phase": "main2", "postcombat main phase": "main2",
          "postcombat main phases": "main2"}  # (-- triggers (wave 30J) -- "each of your postcombat main phases": 505.1a, every main phase but the first, additional ones included)
-WHOSE = {"your": "you", "each": "each", "each player's": "each", "the": "each", "each opponent's": "opponent",
+WHOSE = {"your": "you", "each": "each", "each player's": "each", "the": "each", "each opponent's": "opponent", "each other player's": "opponent",  # (wave 51G: every other player is an opponent in Commander, 102.2: Well of Ideas)
          "enchanted player's": "enchanted_player",
          "the chosen player's": "chosen_player"}  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
 
@@ -3187,6 +3187,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = re.sub(r"\b(Destroy all) (creatures and planeswalkers) except for commanders\b", r"\1 noncommander \2", body)
     body = re.sub(r"\b(Destroy all other) permanents except for lands and tokens\b", r"\1 nonland nontoken permanents", body)
     body = re.sub(r"\bReturn to their owners' hands (all creatures with [^.]+)\.", r"Return \1 to their owners' hands.", body)
+    # "Each player loses 1 life, discards a card, sacrifices a creature of their choice, then sacrifices a land of their choice." (Smallpox, Death Cloud): every player does each
+    # instruction in turn, as four sentences say (608.2c); "half"/"third" chains keep their own reading (Fraying Omnipotence's "Round up each time")
+    body = re.sub(r"\bEach player ((?:loses|discards|sacrifices) [^.,]+(?:, (?:then )?(?:loses|discards|sacrifices) [^.,]+){2,})\.(?! Round)",
+                  lambda m: m[0] if re.search(r"\b(?:half|third)\b", m[1]) else ". ".join("Each player " + x for x in re.split(r", (?:then )?", m[1])) + ".", body)
     # -- activated other (wave 44D) -- "Destroy all creatures except for ~. Those creatures can't be regenerated." (Mageta the Lion): all the others, the source being the only one
     # left out, as "Destroy all other creatures. They can't be regenerated." says
     body = re.sub(r"\b([Dd]estroy all) (creatures|artifacts|enchantments|lands) except for ~\. Those \2 can't be regenerated\.", r"\1 other \2. They can't be regenerated.", body)

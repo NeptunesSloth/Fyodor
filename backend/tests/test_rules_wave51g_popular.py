@@ -343,3 +343,82 @@ def test_preacher_of_the_schism_draws_nothing_when_an_opponent_has_more_life(car
     s, before = preacher_attack(cards, 50)
     assert (hand(s), life(s)) == before and len(tokens(s, "p1", "Vampire")) == 1  # (the token trigger is the other one: the player attacked has the most life)
     check(s)
+
+
+# ---- Well of Ideas, Smallpox / Death Cloud, Multiclass Baldric, Scion of Draco, Mind into Matter -------------------------------------------------------
+def test_well_of_ideas_draws_an_extra_card_for_each_other_player_in_their_draw_step(cards):
+    s = build(cards, ["Well of Ideas"], forests=30, islands=30)
+    put(s, "Well of Ideas")
+    to_phase(s, "main1", turn=2)
+    assert hand(s, "p2") == 2  # the draw step's card and the extra one
+    to_phase(s, "main1", turn=3)
+    assert hand(s) == 3  # its own controller's draw step is not "another player's": the draw and the two additional cards of its own ability
+    check(s)
+
+
+def test_smallpox_makes_every_player_lose_life_discard_and_sacrifice_a_creature_and_a_land(cards):
+    s = build(cards, ["Smallpox", "Grizzly Bears"], ["Grizzly Bears"])
+    put(s, "Grizzly Bears")
+    put(s, "Grizzly Bears", "p2")
+    for pid, land in (("p1", "Forest"), ("p2", "Island")):
+        spare = next(c for c in s.state.cards.values() if c.owner == pid and c.name == land and c.zone == f"{pid}:library")
+        act(s, pid, type="move", card_ids=[spare.id], to={"player": pid, "zone": "battlefield"})
+        forests = [c.id for c in s.state.cards.values() if c.owner == pid and c.name == land and c.zone == f"{pid}:library"][:2]
+        act(s, pid, type="move", card_ids=forests, to={"player": pid, "zone": "hand"})
+    mana(s, "p1", B=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Smallpox").id)
+    settle(s)
+    assert (life(s, "p1"), life(s, "p2")) == (39, 39)
+    assert (hand(s), hand(s, "p2")) == (1, 1)  # each discarded one of two cards (Smallpox itself had left the hand)
+    assert zone_of(s, "Grizzly Bears") == "p1:graveyard" and zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard"
+    assert not [c for c in s.state.cards.values() if c.zone in ("p1:battlefield", "p2:battlefield") and c.name in ("Forest", "Island")]  # (the one land each had)
+    check(s)
+
+
+def keywords(s, name, pid="p1"):
+    from app.rules.plan import Plan
+
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card_named(s, name, pid).id]).keywords
+
+
+def test_multiclass_baldric_gives_a_keyword_for_each_kind_of_creature_you_control(cards):
+    s = build(cards, ["Multiclass Baldric", "Grizzly Bears", "Preacher of the Schism"])
+    bears = put(s, "Grizzly Bears")
+    baldric = put(s, "Multiclass Baldric")
+    act(s, "p1", type="attach", card_ids=[baldric.id], to=bears.id)
+    assert "lifelink" not in keywords(s, "Grizzly Bears")  # no Cleric yet
+    put(s, "Preacher of the Schism")  # a Vampire Cleric
+    assert {"lifelink"} <= keywords(s, "Grizzly Bears") and not {"deathtouch", "haste", "flying"} & keywords(s, "Grizzly Bears")
+    check(s)
+    assert "lifelink" in keywords(reloaded(s), "Grizzly Bears")
+
+
+def test_scion_of_draco_gives_each_creature_the_keyword_of_its_colors(cards):
+    s = build(cards, ["Scion of Draco", "Soul Warden", "Merfolk Looter", "Young Pyromancer", "Grizzly Bears"])
+    put(s, "Scion of Draco")
+    for name in ("Soul Warden", "Merfolk Looter", "Young Pyromancer", "Grizzly Bears"):
+        put(s, name)
+    assert "vigilance" in keywords(s, "Soul Warden") and "hexproof" not in keywords(s, "Soul Warden")
+    assert "hexproof" in keywords(s, "Merfolk Looter") and "first strike" in keywords(s, "Young Pyromancer") and "trample" in keywords(s, "Grizzly Bears")
+    assert "trample" not in keywords(s, "Soul Warden")
+    check(s)
+    assert "trample" in keywords(reloaded(s), "Grizzly Bears")
+
+
+def test_mind_into_matter_puts_a_permanent_with_mana_value_x_or_less_from_your_hand(cards):
+    s = build(cards, ["Mind into Matter", "Grizzly Bears", "Twisted Abomination"], forests=30)
+    empty_hand(s)
+    bears, abomination = to_hand(s, "Grizzly Bears"), to_hand(s, "Twisted Abomination")
+    mana(s, "p1", G=3, U=1)  # {X}{G}{U} with X = 2
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Mind into Matter").id, x_value=2)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and (d.resume or {}).get("step") == "put_from_hand":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    ids = {o.id for o in d.options}
+    assert bears.id in ids and abomination.id not in ids  # mana value 2 fits X = 2, mana value 6 does not
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[bears.id])
+    settle(s)
+    assert zone_of(s, "Grizzly Bears") == "p1:battlefield" and zone_of(s, "Twisted Abomination") == "p1:hand" and s.state.cards[bears.id].tapped
+    check(s)
