@@ -53,7 +53,7 @@ _VERBS = {"destroyed": ("destroyed",), "exiled": ("exiled", "blinked"), "sacrifi
 _PHRASE = re.compile(
     r"^(?P<what>.+?) (?:(?P<ctl>you controlled|they controlled) )?(?:that (?:was|were) |who )?"
     r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|goaded|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?|you put into your hand|you put onto the battlefield"
-    r"|put into (?P<gy>a|your|their|its owner's|that player's|their owners') graveyards?|died|that died) this way$")
+    r"|put into (?P<gy>a|your|their|its owner's|that player's|their owners') graveyards?|died|that died|returned) this way$")  # (wave 52A: a bare "returned", Arid Archway: to a hand)
 _NOUN_ONLY = re.compile(r"^(?:cards?)$")
 _GREATEST = re.compile(r"^the greatest number of cards a player (?P<verb>discarded|milled) this way$")
 _TOTAL = re.compile(r"^the total (?P<stat>power|toughness) of the (?P<verb>sacrificed|tapped) (?P<what>.+)$")
@@ -104,8 +104,10 @@ def parse(phrase: str) -> dict[str, Any] | None:
         if m["ctl"] == "you controlled":
             what = f"{what} you control"
         sel = selectors.parse(what)
-        if sel is None or sel.player is not None or sel.other or sel.zones not in ((), ("battlefield",)):
+        if sel is None or sel.player is not None or sel.zones not in ((), ("battlefield",)):
             return None
+        if sel.other and (sel.card or kind not in ("returned", "your_hand", "exiled", "destroyed", "sacrificed", "died")):
+            return None  # -- if you do (wave 52A) -- "another" is than the source (a permanent as it last existed): not read for a card in a hidden or other zone
         of = sel.key()
     elif m["ctl"]:
         return None
@@ -150,7 +152,7 @@ def filtered(plan: Plan, ctx: dict[str, Any], cards: list[str], key: str) -> lis
                                                   ctx.get("source_card"))]
 
 
-_IF_PASSIVE = re.compile(r"^(?:a|an|at least one|one or more|any) (?P<what>.+?) (?:is|was|were|are) (?P<rest>.+ this way)$")
+_IF_PASSIVE = re.compile(r"^(?:a|an|(?P<another>another)|at least one|one or more|any) (?P<what>.+?) (?:is|was|were|are) (?P<rest>.+ this way)$")  # (wave 52A: another)
 _IF_THAT = re.compile(r"^that (?:creature|permanent) (?:(?:was|is) (?P<verb>destroyed|sacrificed|exiled)|(?P<dies>dies|died)) this way$")
 _IF_YOU_PUT = re.compile(r"^you put (?:a|an|one or more) (?P<what>.+?) (?P<dest>into your hand|onto the battlefield) this way$")  # (wave 45A)
 _IF_YOU = re.compile(r"^you (?P<verb>sacrificed|exiled|discarded|milled|destroyed) (?:a|an|one or more) (?P<what>.+?) this way$")
@@ -231,7 +233,7 @@ def condition(text: str) -> dict[str, Any] | None:
     dies this way, …" / "If you sacrificed a creature this way, …": at least one object counted (a
     ``conditions`` quantity, judged as the resolution reaches it: 608.2c)."""
     m = _IF_PASSIVE.match(text)
-    phrase = f"{m['what']} {m['rest']}" if m else None
+    phrase = f"{'another ' if m['another'] else ''}{m['what']} {m['rest']}" if m else None  # (-- if you do (wave 52A) -- "If another Desert was returned this way" (Arid Archway): other than the source)
     if m is None and (m := _IF_THAT.match(text)) is not None:
         phrase = "permanent " + ("died this way" if m["dies"] else f"{m['verb']} this way")
     if phrase is None and (m := _IF_YOU.match(text)) is not None:
@@ -454,7 +456,7 @@ def _matched(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> list[tuple[d
                 if here is None and snap is None:
                     continue
                 card, ch = here if here is not None else _snapshot_card(plan, snap)  # type: ignore[arg-type]
-                if not selectors.matches(plan, sel, card, ch, you):
+                if not selectors.matches(plan, sel, card, ch, you, ctx.get("source_card")):  # (wave 52A: "another" is than the ability's source)
                     continue
         out.append((new, was))
     return out

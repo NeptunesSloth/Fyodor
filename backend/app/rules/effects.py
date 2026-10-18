@@ -1316,12 +1316,19 @@ def return_yours(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if n == 0:
         return True
     if n == len(pool):
-        _return_to_hands(plan, pool, pid)
+        _return_yours_to_hands(plan, ctx, e, pool, pid)
         return True
     decide(plan, player=pid, kind="choose_cards", prompt=f"Return {n} {e['what']}{'s' if n != 1 else ''} you control to hand",
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool],
-           min_choices=n, max_choices=n, resume={"step": "return_yours", "ctx": ctx})
+           min_choices=n, max_choices=n, resume={"step": "return_yours", "ctx": ctx, "e": e})
     return False
+
+
+def _return_yours_to_hands(plan: Plan, ctx: Context, e: dict[str, Any], ids: list[str], actor: str) -> None:
+    """-- if you do (wave 52A) -- what it returned is bound ("If another Desert was returned this way", Arid Archway): the permanents as they were (608.2h)."""
+    before = _remember(plan, ctx, e, ids)
+    _return_to_hands(plan, ids, actor)
+    _moved(plan, ctx, e, before)
 
 
 def return_any(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -1354,7 +1361,7 @@ def _return_to_hands(plan: Plan, ids: list[str], actor: str) -> None:
 
 
 def resume_return_yours(plan: Plan, d: Any, chosen: list[str]) -> None:
-    _return_to_hands(plan, chosen, d.player)
+    _return_yours_to_hands(plan, d.resume["ctx"], d.resume.get("e") or {}, chosen, d.player)
     continue_effects(plan, d.resume["ctx"])
 
 

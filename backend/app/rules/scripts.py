@@ -591,6 +591,8 @@ _TOKEN_MAKERS = {"create_token", "create_attacking"}  # (what they introduce are
 _RECORDING["rest_looked"] = None  # (wave 44A: its verb is _verb_of's)
 _RECORDING["haunt"] = None  # -- keywords (wave 50H) -- 702.55a (app/rules/haunt.py)
 _RECORDING["paradigm"] = None  # (702.192a: app/rules/paradigm.py)
+_RECORDING["return_yours"] = "returned"  # -- if you do (wave 52A) -- "Return a land you control to its owner's hand. If another Desert was returned this way, …" (Arid Archway)
+_MOVERS.add("return_yours")
 _RECORDING["linked_cards"] = "exiled"  # -- resolution memory (wave 22D) -- exiled_with.linked_cards
 _MOVERS.add("linked_cards")
 _RECORDING["reveal_random"] = "revealed"  # -- random choices (wave 47B) -- "that card" is the card revealed at random
@@ -601,7 +603,7 @@ _RECORDING["transform"] = None  # -- most-played cards II (wave 45A) -- "Transfo
 _RECORDING["double_pt"] = None  # -- trigger other (wave 41C) -- "double the power of each other creature you control until end of turn. Those creatures gain vigilance …"
 _RECORDING["create_attacking"] = None  # -- keywords (wave 15E) -- "create … tokens that are tapped and attacking. Sacrifice them …":
 _MOVERS.add("create_attacking")  # the pronoun names the tokens made, not the ability's source (was bound to the source)
-_CHOSEN = {"sacrifice_choice": "n", "edict": "n", "discard": "n", "mill": "n", "create_token": "n", "search": "max", "pick_looked": "n",
+_CHOSEN = {"sacrifice_choice": "n", "edict": "n", "discard": "n", "mill": "n", "create_token": "n", "search": "max", "pick_looked": "n", "return_yours": "n",
            "create_attacking": "n", "reveal_random": "n"}  # (reveal_random, wave 47B: a targeted player's reveal names cards, not only the player)
 # ("on": "for each +1/+1 counter on it" — the object a pronoun names, as for its power. Not "hand":
 # "that player's hand" names a player, which _bind_stats (objects only) can't bind — values reads
@@ -3411,7 +3413,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (per := _each_controller_creates(text)) is not None:  # -- "this way" outcomes (wave 4A) --
             effects += per
             continue
-        from app.rules import controller_each, counters_removed  # -- if you do (wave 52A) -- its controller draws / cloaks / investigates; mana for the counters removed this way
+        from app.rules import (  # -- if you do (wave 52A) -- its controller draws / cloaks / investigates; mana for the counters removed this way
+            controller_each,
+            counters_removed,
+        )
 
         if (per := controller_each.parse(text, _clause, _lower_first(texts[i - 1].rstrip(".")) if i else None) or counters_removed.parse(text, effects)) is not None:
             effects += per
