@@ -317,7 +317,7 @@ def self_text(text: str, name: str) -> str:
             # (-- static_other (wave 36B) -- a shortened name that is also a creature type is that type before "creature(s)": "becomes a green Lizard creature" on
             # Lizard, Connors's Curse is no self-reference ("a green ~ creature" is nothing a card says)
             # (-- trigger other (wave 52B) -- "this Case" on "Case of …" is the type word after "this", not the short name)
-            part = re.sub(r"(?<![\w-])" + (r"(?<!create )(?<!this )(?<!This )" if n != name else "") + (r"(?<!other )(?<!another )" if n in _CREATURE_TYPES else "")  # (wave 41B: a Rat token's "each other Rat you control" is the type, not itself)
+            part = re.sub(r"(?<![\w-])" + (r"(?<!create )(?<!this )(?<!This )" if n != name else "") + (r"(?<!other )(?<!another )(?<![Tt]arget )" if n in _CREATURE_TYPES else "")  # (wave 41B: a Rat token's "each other Rat you control" is the type, not itself)
                           + rf"{re.escape(n)}(?!\w)(?! target\b)" + (r"(?! (?:the|of) [A-Z])" if n == short else "")  # (-- most-played cards (wave 49A) -- "Exile target …" on Exile is the verb)
                           + (r"(?! (?:creature|token)s?\b)" if n != name else ""),  # (-- attached events (wave 40B) -- "create Icingdeath, Frost Tongue, a legendary … token": the token's own name, on Icingdeath, Frost Tyrant)
                           "~", part)  # (wave 16D: a name ending in "!" has no \b after it; wave 26C: not "non-Spirit" on a Spirit token)
@@ -1652,7 +1652,7 @@ def _granted_token_text(quoted: str) -> str:
     return quoted
 
 
-@effect(r"(?P<s>its controller|its owner|the exiled card's owner|that player|that creature's controller|that permanent's controller|"
+@effect(r"(?P<s>its controller|its owner|the exiled card's owner|that permanent's controller or that player|that player|that creature's controller|that permanent's controller|"  # (wave 52D: Acorn Catapult)
         r"target player|target opponent|each opponent|each player) creates (?P<rest>.+)")
 def _someone_creates(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     """"Its controller creates a 3/3 green Beast creature token": the create templates with a
@@ -2589,7 +2589,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # -- static_other sweep (wave 16B) -- 701.48a: "Learn." means "You may reveal a Lesson card you own from outside the game and put it
     # into your hand. If you don't, you may discard a card. If you do, draw a card." A game here has no cards outside it (no sideboard is
     # modelled: the decks are the games'), so the reveal never has a Lesson to show and the rest is the rummage
-    body = re.sub(r"(^|\. )[Ll]earn\.", r"\1You may discard a card. If you do, draw a card.", body)
+    body = re.sub(r"(^\s*|\. )[Ll]earn\.", r"\1You may discard a card. If you do, draw a card.", body)  # (wave 52D: a leading space, an activated ability's body)
     body = _extra_turns.one_sentence(body)  # -- static_other sweep (wave 19A) -- Final Fortune
     # -- tutor (wave 20D) -- the same search spelled as sentences: "Search your library for two cards[ and reveal them]. Put one into your hand
     # and the other into your graveyard. Then shuffle." (Final Parting, Fork in the Road), "… for a white card, …, and a green card. Reveal
@@ -2691,6 +2691,9 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     if it in ("event", "event_gone"):  # -- either with two actions (wave 51C) -- "you may put that card from a graveyard onto the battlefield under your control" (Tergrid): the trigger's card, which moves only while it is in a graveyard (400.7)
         body = re.sub(r"(?i)\bput (that card|it) from a graveyard onto the battlefield\b", r"put \1 onto the battlefield", body)
     body = _split_tails(body, event_player)  # -- activated other (wave 34B) --
+    from app.rules import rewrites52d  # -- activated other (wave 52D) --
+
+    body = rewrites52d.rewrite(body)
     body = _dice.plain(trigger_words.plain_amounts(body))  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
     if re.match(r"(?i)choose a creature type\.", body):  # -- value grammar (wave 23C) -- "Choose a creature type. Draw a card for each creature you control of that type."
         body = body.replace(" of that type", " of the chosen type")  # (the type this very instruction chose)
@@ -5735,7 +5738,7 @@ def _event_refs_ok(d: Definition) -> bool:
     # sacrifices it — Tinder Wall — leaves only its last known block, which isn't kept)
     if "blocking_source" in json.dumps(d) or "blocked_by_source" in json.dumps(d):
         self_trigger = d.get("kind") == "triggered" and _trigger_antecedent(str(d.get("trigger")), d.get("cond")) == "self"
-        mine = d.get("kind") == "activated" and not re.search(r"\b[Ss]acrifice (?:this|~)", str(d.get("cost")))
+        mine = d.get("kind") == "activated"  # (-- activated other (wave 52D) -- also with the source sacrificed as a cost: its last known blocks are kept, selectors)
         shield = d.get("kind") == "static" and d.get("static") == "prevent"  # -- damage wordings (wave 50E) -- 615.1: "Prevent all damage that would be dealt to this creature by creatures it's blocking" (Wall of Vapor): the shield's source is on the battlefield (replacements._object_matches)
         if not (self_trigger or mine or shield):
             return False
@@ -6362,7 +6365,16 @@ def _for_each(phrase: str) -> Any:
         return {"plus": halves} if len(halves) == 2 and all(h is not None and "count" in h for h in halves) else None
     sel = selectors.parse(phrase)
     if sel is None or sel.player is not None:  # (a battlefield group it might belong to: tagged by the caller, ``_enters_self_check``)
-        return None
+        # -- counters (wave 52D) -- "for each +1/+1 counter among other creatures you control" (Ascendant Acolyte), "for each loyalty counter on planeswalkers you control"
+        # (Bioessence Hydra), "for each different mana cost among nonland cards in your graveyard" (Embodiment of Agonies): counts of counters and of distinct values among a group
+        # (the group is tagged by the caller, ``_enters_self_check``, as for any battlefield group)
+        from app.rules import values
+
+        found = values.parse_count("the number of " + phrase) if re.search(r"\bcounters? (?:among|on) |\bdifferent mana costs? among ", phrase) else None
+        if not isinstance(found, dict) or not set(found) <= {"counters_among", "distinct", "of", "among"}:
+            return None
+        # (a count of distinct values is read for cards outside the battlefield only: the entering permanent isn't on it yet, 614.12, ``_self_sels`` doesn't look at "among")
+        return found if "counters_among" in found or selectors.from_key(found["among"]).zones == ("graveyard",) else None
     return {"count": sel.key()}
 
 
@@ -6475,6 +6487,12 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
             and (base := define_replacement(ability, esc[1] + ".")) is not None and base.get("replacement") == "enters_with_counters" and (escaped := {**NUMBERS, "eleven": 11, "twelve": 12}.get(esc["e"])) is not None:
         return {**base, "escaped_n": escaped}
     text = re.sub(r"^~ enters tapped if it's not your turn\.$", "~ enters tapped unless it's your turn.", text)  # (wave 19A: Eddymurk Crab)
+    from app.rules import (
+        counters52d,  # -- counters (wave 52D) -- 708.11: "As ~ is turned face up, put five +1/+1 counters on it."
+    )
+
+    if (face_up := counters52d.face_up_definition(text)) is not None:
+        return face_up
     # -- refused grants/replacements (wave 3R2) -- "Damage can't be prevented." and friends (615.12)
     from app.rules import skips, source_shields
 
@@ -9190,3 +9208,10 @@ EFFECTS[:0] = _discover.TEMPLATES
 from app.rules import x_actions as _x_actions  # noqa: E402, I001
 
 EFFECTS[:0] = _x_actions.templates(_SEL)
+# -- activated other (wave 52D) -- the edge of a graveyard or library, and more (app/rules/activated52d.py)
+from app.rules import activated52d as _activated52d  # noqa: E402, I001
+
+EFFECTS[:0] = _activated52d.TEMPLATES
+_MOVERS.update(_activated52d.RECORDING)
+_RECORDING.update(_activated52d.RECORDING)
+_CHOSEN.update(_activated52d.CHOSEN)

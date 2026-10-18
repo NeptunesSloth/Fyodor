@@ -150,6 +150,12 @@ def left_battlefield(plan: Plan, ctx: Context, who: str, their: bool) -> list[tu
         # target creature. … create a token that's a copy of it", Kaya, Intangible Slayer; Identity Thief): as it last existed there (608.2h)
         for ref in gone_refs(plan, ctx, who):
             snaps.append(context.snapshot(plan, ref))
+    elif who == "cost:sacrificed":  # -- activated other (wave 52D) -- "Create two tokens that are copies of the sacrificed creature." (Cleaver Skaab): what the cost sacrificed, as it last existed (608.2h)
+        sid = ctx.get("stack_id")
+        record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+        oids = record.sacrificed_objects if record is not None else []
+        if len(oids) == 1 and (snap := plan.rules.lki.get(oids[0])) is not None and snap.zone.endswith("battlefield"):
+            snaps.append(snap)
     elif who == "self":
         oid = ctx.get("source_object")
         src = plan.state.cards.get(ctx.get("source_card") or "")

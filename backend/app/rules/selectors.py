@@ -776,6 +776,11 @@ def _with_mana_ability(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "mana_ability"))
 
 
+@_suffix(r"(?:that )?has an activated ability with \{T\} in its cost")  # -- activated other (wave 52D) -- Magewright's Stone: 602.1, a mana ability is an activated ability too (605.1a)
+def _with_tap_ability(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "tap_ability"))
+
+
 @_suffix(r"with (?:a )?(?:cycling|cycling abilit(?:y|ies))")  # -- reanimation (wave 20C) -- 702.29f: typecycling abilities are cycling abilities (wave 32C: "a cycling ability", Rooting Moloch)
 def _with_cycling(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "cycling_ability"))
@@ -1948,6 +1953,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if "mana_ability" in sel.extras and not any(a.kind == "mana" for a in ch.abilities):  # (wave 45D)
         return False
+    if "tap_ability" in sel.extras and not any(a.kind in ("activated", "mana") and "{T}" in (a.cost or "") for a in ch.abilities):  # (wave 52D)
+        return False
     if set(sel.without_keywords) & ch.keywords:
         return False
     for what, op, n in sel.compare:
@@ -2165,10 +2172,16 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 return False
         if extra in ("blocking_source", "blocked_by_source", "block_pair_this", "blocked_by_this"):  # -- damage wordings (wave 6B) -- the source's block now
             src = plan.state.cards.get(source or "")
-            if src is None or not src.zone.endswith(":battlefield") or not card.zone.endswith(":battlefield"):
-                return False
-            if (not card.blocks(src.id)) if extra == "blocking_source" else (not src.blocks(card.id)) if extra in ("blocked_by_source", "blocked_by_this") \
-                    else not (card.blocks(src.id) or src.blocks(card.id)):  # (wave 31D: "blocking or blocked by this creature")
+            if src is not None and not src.zone.endswith(":battlefield") and extra in ("blocking_source", "blocked_by_source"):
+                # -- activated other (wave 52D) -- 608.2b: the source left (sacrificed as a cost: Tinder Wall, Wall of Corpses, Urborg Panther) - its last known information says
+                # whom it was blocking; whoever blocks it still blocks the attacker that left the battlefield (506.4, 509.1h: a blocker stays blocking)
+                if not card.zone.endswith(":battlefield"):
+                    return False
+                last = max((x for x in plan.rules.lki.values() if x.card == src.id), key=lambda x: x.turn, default=None)
+                if (not card.blocks(src.id)) if extra == "blocking_source" else (last is None or card.id not in last.blocking_ids):
+                    return False
+            elif src is None or not src.zone.endswith(":battlefield") or not card.zone.endswith(":battlefield") or ((not card.blocks(src.id)) if extra == "blocking_source" else (not src.blocks(card.id)) if extra in ("blocked_by_source", "blocked_by_this") \
+                    else not (card.blocks(src.id) or src.blocks(card.id))):
                 return False
         if extra in ("shares_type_source", "shares_type_event"):  # -- most-played cards (wave 43B) -- a creature type in common with the object ``source`` names (205.3m)
             from app.rules.creature_types import CREATURE_TYPES

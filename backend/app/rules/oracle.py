@@ -227,7 +227,7 @@ def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], s
     m = _ADD_MANA.match(line)
     if m and re.search(r"\bmill\b|\blibrary\b", m.group("cost"), re.I):  # -- mana riders (wave 5A) -- 605.1a: a cost moving
         m = None  # a card to or from a library ("{T}, Mill a card: Add {C}.", Millikin): not a mana ability (uses the stack)
-    if m and not _LOYALTY.match(line) and "target" not in (line.replace("choose new targets for the copy", "") if "that mana is spent" in line else line) and '"' not in m.group("cost") \
+    if m and not _LOYALTY.match(line) and "target" not in (line.replace("choose new targets for the copy", "") if "that mana is spent" in line else line).lower() and '"' not in m.group("cost") \
             and not _TRIGGER.match(line) and not line.startswith("•"):  # a granted/token ability isn't one
         return "mana", (), m.group("cost")
     kws = _keywords_line(line)

@@ -1261,6 +1261,10 @@ def _object(t: str) -> Condition | None:
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)) had (?=(?:power|toughness|mana value) \w+ or )", r"\1's ", t)
     t = re.sub(r"^(that (?:creature|permanent|card|artifact|land|token)'s (?:power|toughness|mana value)) (\w+ or )", r"\1 was \2", t)
     t = re.sub(r"^it has the same (power|toughness|mana value) as the (discarded|revealed) card$", r"its \1 is equal to the \2 card's \1", t)  # (wave 44D: Hisoka, Minamo Sensei)
+    m = re.fullmatch(r"(it|that (?:creature|permanent))(?:'s| is) (\d+)/(\d+)", t)
+    if m:  # -- counters (wave 52D) -- "if that creature is 1/1" (Sigil Captain): its power and toughness as it is (or last existed, 608.2h)
+        who = "it"
+        return {"all": [{"object": who, "stat": "power", "op": "==", "n": int(m[2])}, {"object": who, "stat": "toughness", "op": "==", "n": int(m[3])}]}
     m = _OBJECT_VS_COLORS.fullmatch(t)
     if m:  # (wave 25B) the spell's own payment record, read as it resolves
         return {"object": "it", "stat": m["stat"].replace(" ", "_"), "op": _REF_OPS[m["cmp"]], "n": {"colors_spent": 1}}

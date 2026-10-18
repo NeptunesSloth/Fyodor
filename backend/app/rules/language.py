@@ -72,6 +72,7 @@ PLAYER_GROUPS.update({f"{the} {kind}'s controller": "it.controller" for the in (
 # "~ deals 3 damage to target player or planeswalker. That player or that planeswalker's controller discards two cards."
 # (Blightning): the target player, or the target planeswalker's controller (app/rules/effects._players)
 PLAYER_GROUPS["that player or that planeswalker's controller"] = "target_player_or_controller"
+PLAYER_GROUPS["that permanent's controller or that player"] = "target_player_or_controller"  # -- activated other (wave 52D) -- Acorn Catapult: the same, for "any target"
 PLAYER_GROUPS["each player other than that player"] = "each_other_than_event"  # -- trigger other (wave 51C) -- "each other player" in a trigger about a player (Zenith Chronicler): every player but the one the event is about, you included
 PLAYER_GROUPS["each of that player's opponents"] = "event_opponents"  # -- player groups (wave 51G) -- every player but the one the trigger event names (Heartwood Storyteller, Standstill)
 PLAYER_GROUPS["an opponent chosen at random"] = "random_opponent"  # -- random choices (wave 47B) -- app/rules/random_choice.py (scripts: the pick is made right before it)
@@ -1496,7 +1497,7 @@ def parse_sentence(text: str) -> tuple[Effects, Any] | None:
         return None
     # -- damage sized by a count (wave 4E) -- an amount read per recipient player is a damage instruction's only
     # ("each player creates X tokens, where X is the number of lands they control": not read)
-    if any(e.get("do") not in ("damage", "lose_life") and sized_damage.has_per_player(e) for e in found[0]):
+    if any(e.get("do") not in ("damage", "lose_life", "mill") and sized_damage.has_per_player(e) for e in found[0]):  # (wave 52D: mill)
         # -- value grammar (wave 30N) -- ... unless the recipient is one player ("You gain 1 life for each artifact that player controls",
         # "that player discards a card for each artifact they control"): the count is that player's, bound by scripts._that_players_hand
         if any(sized_damage.has_per_player(e) and not _one_recipient(e) for e in found[0]):
@@ -1713,6 +1714,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["stat"]:
             if rider is not None:
                 raise _Fail
+            # -- activated other (wave 52D) -- "Each opponent mills cards equal to the number of cards in their hand." (Folio of Fancies): each one's own count (608.2h)
+            if verb == "mill" and who in ("each_opponent", "each_player") and (pp := sized_damage.per_player(m["stat"])) is not None:
+                return [{"do": verb, "who": who, "n": pp}], target
             n = _stat(m["stat"])
             return [{"do": verb, "who": who, "n": n}], _value_target(n, target)
         return [{"do": verb, "who": who, "n": _apply(_amount(m["n"]), rider)}], target
