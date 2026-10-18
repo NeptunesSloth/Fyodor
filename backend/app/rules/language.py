@@ -3977,6 +3977,8 @@ def control_forms(text: str) -> tuple[Effects, Any] | None:
             return None
         if kind != "target":  # "Target opponent gains control of this creature / of all other permanents you control"
             return [{"do": "gain_control", "who": _who(kind, key), "to": "target", **dur}], pgroup
+        if group is not None and set(group) == {"what", "min", "max", "another"}:  # -- if you do (wave 51D) -- "Target opponent gains control of another target permanent you control." (Stiltzkin): the first target is a player, so "another" is than the source (as reconfigure's, 702.151a), which the selector already says (``other``)
+            group = {k: v for k, v in group.items() if k != "another"}
         if group is None or not simple(group):
             return None
         return [{"do": "gain_control", "who": "target:1", "to": "target:0", **dur}], [pgroup, group]

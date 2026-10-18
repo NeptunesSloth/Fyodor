@@ -2048,6 +2048,23 @@ def _create_named(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
                        "mana_cost": cost}}], None
 
 
+# -- if you do (wave 51D) -- "Destroy target creature. If that creature dies this way, create a black Vampire creature token. Its power is equal to that creature's power and its
+# toughness is equal to that creature's toughness." (Kalitas, Bloodchief of Ghet; Ritual of the Returned): the token's power and toughness are worked out as it is created from
+# the creature as it last existed (608.2h; ruling 2009-10-01), a printed P/T from then on (111.3), not a characteristic-defining ability
+@_first
+@effect(r"create (?:a|an) (?P<color>white|blue|black|red|green) (?P<sub>[A-Z][a-z]+) creature token with power equal to that (?:creature|card)'s power and toughness equal to that (?:creature|card)'s toughness")
+def _create_lki_token(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules.creature_types import CREATURE_TYPES
+
+    if m["sub"] not in CREATURE_TYPES:
+        raise _NoMatch
+    return [{"do": "create_token", "who": "you", "n": 1, "token": {"name": m["sub"], "power": {"power": "it"}, "toughness": {"toughness": "it"}, "colors": [_COLOR_LETTER[m["color"]]],
+                                                                   "type_line": f"Token Creature — {m['sub']}", "text": ""}}], None
+
+
+_COLOR_LETTER = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
+
+
 # -- token & pump wordings (wave 6C) -- the token grammar's newer forms (app/rules/token_grammar.py): "For each …, create
 # …", "Create Voja, a legendary 2/2 …", "… named Kobolds of Kher Keep", "… with flying named Wasp", "… that's all
 # colors", "Create thirteen …" (never a copy, nor an instruction joined to another one)
@@ -2551,7 +2568,12 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # -- reflexive this way (wave 30G) -- "you may discard one or more land cards" is "any number" to a player who may choose none (Loamcrafter Faun)
     body = re.sub(r"(?i)(?<!spell, )\byou may (discard|sacrifice) one or more ", r"you may \1 any number of ", body)
     body = _COUNTED_IF_YOU_DO.sub(_counted_if_you_do, body)  # -- reflexive this way (wave 30G) -- Neheb: "… draw that many cards and add that much {R}."
-    body = re.sub(r"^(target (?:opponent|player) gains control of [^.]+)\. If they do, ", r"\1. If you do, ", body, flags=re.I)  # (-- commanders (wave 50C) -- Bill Ferny: "If they do" asks whether the control changed, as "If you do" after the instruction)
+    body = re.sub(r"\b([Cc]reate an? (?:white|blue|black|red|green) [A-Z][a-z]+ creature token)\. Its power is equal to (that (?:creature|card)'s) power and its toughness is equal to \2 toughness\b",
+                  r"\1 with power equal to \2 power and toughness equal to \2 toughness", body)  # (-- if you do (wave 51D) -- Kalitas, Bloodchief of Ghet; see _create_lki_token)
+    body = re.sub(r"\b(that player mills) a card for each 1 damage dealt to them\b", r"\1 that many cards", body)  # (-- if you do (wave 51D) -- Anowon, the Ruin Thief: the damage the trigger is about)
+    body = re.sub(r"(?<=\. )If (?:the|that) player mills at least one (\w+) card this way,", r"If a \1 card was milled this way,", body)  # (-- if you do (wave 51D) -- Anowon: the one mill instruction before; a creature card milled this way is a count of one or more)
+    body = re.sub(r"(?<=\. )If you lost life this way, draw that many cards\b", "Draw cards equal to the life lost this way", body)  # (-- if you do (wave 51D) -- Mister Negative: drawing none when no life was lost is the same as not drawing; see _life_lost)
+    body = re.sub(r"^(\s*target (?:opponent|player) gains control of [^.]+)\. If they do, ", r"\1. If you do, ", body, flags=re.I)  # (-- commanders (wave 50C) -- Bill Ferny; wave 51D: an activated ability's body starts with a space, Stiltzkin: "If they do" asks whether the control changed, as "If you do" after the instruction)
     body = re.sub(r"(?i)\b(discard (?:up to \w+|any number of|\w+) cards?)(?:, then |\. (?:then )?)draw that many cards\b(?! plus| and )",
                   r"\1, then draw a card for each card discarded this way", body)
     # (wave 45D) Jared Carthalion: "For each of them, put a number of +1/+1 counters on it equal to the number of colors it is." is each chosen creature's own count
@@ -2659,7 +2681,7 @@ def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tup
 
         return random_choice.post(mode=or_pw, got=_source_owner_draws(_entered_after_delayed(_no_regen_scope(top_library.private_gate(_excess_redirect(_value_targets(
             _that_players_hand(_attached_host(_gy_shuffle(_life_lost(this_way.dealt_to(this_way.excess_dealt(this_way.damage_dealt(_energy_paid(
-                _parse_effects(body, it, event_player))))))), it)))))))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C; random_choice: wave 47B)
+                _lki_token_ok(_parse_effects(body, it, event_player)))))))), it)))))))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C; random_choice: wave 47B)
     except _NoMatch:
         return None
 
@@ -3038,6 +3060,19 @@ def _gy_shuffle(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[l
     return effects, found[1], found[2]
 
 
+def _lki_token_ok(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """-- if you do (wave 51D) -- "Create a black Zombie creature token with power equal to that card's power …": "that card" is a card (or the creature an earlier
+    instruction destroyed), never a token just made (111.1: Soul Separator's copy of the exiled card has numbers of its own, not the Zombie's): refused then."""
+    if found is None:
+        return found
+    made = {str(e["as"]) for e in found[0] if e.get("do") in (*_TOKEN_MAKERS, "token_copy") and e.get("as")}
+    for e in found[0]:
+        t = e.get("token") if e.get("do") == "create_token" else None
+        if t is not None and any(isinstance(t.get(k), dict) and str(next(iter(t[k].values()), "")).removeprefix("ref:") in made for k in ("power", "toughness")):
+            return None
+    return found
+
+
 def _life_lost(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """-- refused zones/sized (wave 3R4) -- "Each opponent loses 3 life. You gain life equal to the life
     lost this way": the total the instruction just before actually took (119.3, 608.2c). Anything
@@ -3049,7 +3084,7 @@ def _life_lost(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[li
         if '"life_lost"' not in json.dumps(e):
             continue
         prev = effects[i - 1] if i else None
-        if prev is None or prev.get("do") != "lose_life" or e.get("do") != "gain_life" or prev.get("bind"):
+        if prev is None or prev.get("bind") or (prev.get("do"), e.get("do")) not in (("lose_life", "gain_life"), ("exchange_life", "draw")):  # (wave 51D: exchange_life, Mister Negative)
             return None
         effects = [*effects[:i - 1], {**prev, "bind": "life_lost"}, *effects[i:]]
     return effects, found[1], found[2]
@@ -3404,6 +3439,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (exile_gy := _FREE_EXILE_GY.fullmatch(text)) and effects and effects[-1]["do"] in ("free_cast", "deferred:free_cast"):  # (deferred: wave 47B, "At the beginning of your next upkeep, you may cast that card …", Power Pack)
             effects[-1] = {**effects[-1], "exile_gy": "is" if exile_gy["is"] else True,  # -- refused look/cast-free (wave 3R5) -- 614.1a, on the spell cast
                            **({"exile_own": True} if exile_gy["g"] == "your" else {})}
+            continue
+        if text == "if you do, it enters tapped" and effects and effects[-1]["do"] == "grant_play" and str(effects[-1].get("who")).startswith("target"):
+            effects[-1] = {**effects[-1], "enters": {"tapped": True}}  # -- if you do (wave 51D) -- 614.1d, on the land played / the permanent spell cast with the permission (Jorn); the rest of the sentence before is the permission's own choice
             continue
         if (exile_gy := _FREE_EXILE_GY.fullmatch(text)) and effects and effects[-1]["do"] == "grant_play" and effects[-1].get("cast"):
             effects[-1] = {**effects[-1], "exile_gy": "is" if exile_gy["is"] else "all",  # -- if you do (wave 25C) -- 614.1a: on the spell cast with the permission
@@ -7949,6 +7987,8 @@ def _probe_previous(effects: list[dict[str, Any]], prev_start: int, reflex: bool
     base = effects[prev_start:]
     if len(base) == 2 and base[0]["do"] == "only_if" and not base[0].get("bind") and base[0].get("skip") == 1:
         base = base[1:]  # (a trigger's intervening "if" in that sentence: it gates A, and so B)
+    if len(base) == 2 and base[0]["do"] == "exile" and base[0].get("who") == "self" and base[1]["do"] == "return_card" and base[1].get("who") == "it":
+        base = base[:1]  # -- if you do (wave 51D) -- "Exile ~, then return her to the battlefield transformed. If you do, …" (Liliana, Heretical Healer): the exile is what can fail (ruling 2015-06-22: only the first of several triggers does anything, the source is no longer that object)
     if len(base) != 1 or base[0]["do"] not in _DID_MANDATORY or base[0].get("did") or base[0].get("optional"):
         return None
     if base[0].get("all"):  # -- "this way" outcomes (wave 4A) -- "Discard your hand. If you do, …" with an empty hand:
@@ -8012,8 +8052,9 @@ def _did_refs_ok(effects: list[dict[str, Any]]) -> bool:
     acts on ("who") what a probed A moved is refused. Reading its characteristics (its toughness, "it deals") is
     fine: that is the object as it last existed (608.2h)."""
     probed = {str(e["as"]) for e in effects if str(e.get("did") or "").startswith("mdid") and e.get("as")}
+    gate = next((i for i, e in enumerate(effects) if e["do"] == "only_if" and str((e["cond"] or {}).get("succeeded", "")).startswith("mdid")), 0)  # (wave 51D: A's own sentence, before the gate, may name what A moved: "Exile ~, then return her …", Liliana)
     return not probed or not any(isinstance(e.get("who"), str) and (m := _REF_NAME.match(e["who"])) is not None
-                                 and m["name"] in probed for e in effects)
+                                 and m["name"] in probed for e in effects[gate:])
 
 
 def _cast_conditions_ok(effects: list[dict[str, Any]]) -> bool:

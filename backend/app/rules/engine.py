@@ -1183,7 +1183,8 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
         r.priority = plan.actor
         return
     # -- end entering for a cost (wave 5G) --
-    payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"}, "tapped": bool(ep["tapped"])}
+    payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"},
+                               "tapped": bool(ep["tapped"]) or bool(grant is not None and grant.enters and grant.enters.get("tapped"))}  # (wave 51D: "If you do, it enters tapped", 614.1d)
     if a.x is not None and a.y is not None:
         payload.update(x=a.x, y=a.y)
     if probe.face:  # (review 25B) 712.12: a modal double-faced land played back face up enters that way (leaving the hand resets the face)
