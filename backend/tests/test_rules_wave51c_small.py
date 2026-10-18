@@ -42,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant", "Zenith Chronicler", "Court of Ambition", "Fatal Push", "Case of the Ransacked Lab", "Case of the Locked Hothouse", "Case of the Shifting Visage", "Swarmyard Massacre", "Summon: Leviathan", "Thraben Charm", "Stonespeaker Crystal", "The Death of Gwen Stacy", "Reaver Titan"])
+@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant", "Zenith Chronicler", "Court of Ambition", "Fatal Push", "Case of the Ransacked Lab", "Case of the Locked Hothouse", "Case of the Shifting Visage", "Swarmyard Massacre", "Summon: Leviathan", "Thraben Charm", "Stonespeaker Crystal", "The Death of Gwen Stacy", "Reaver Titan", "Persistent Constrictor"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -652,6 +652,20 @@ def test_thraben_charm_exiles_the_graveyards_of_the_players_it_targets(cards, ta
         own_spell = 1 if pid == "p1" else 0  # (Thraben Charm itself goes to Alice's graveyard once it has resolved)
         assert len(s.state.zones[f"{pid}:graveyard"]) == (own_spell if pid in exiled else 2 + own_spell)
         assert len(s.state.zones[f"{pid}:exile"]) == (2 if pid in exiled else 0)
+    check(s)
+
+
+def test_persistent_constrictor_drains_each_opponent_and_shrinks_one_of_their_creatures(cards):
+    """"At the beginning of each opponent's upkeep, they lose 1 life and you put a -1/-1 counter on up to one target creature they control.": Bob's creature, never Alice's own."""
+    s = build(cards, ["Persistent Constrictor", "Llanowar Elves"], ["Grizzly Bears"])
+    put(s, "Persistent Constrictor")
+    elves, bears = put(s, "Llanowar Elves"), put(s, "Grizzly Bears", "p2")
+    to_phase(s, "upkeep", turn=2)
+    d = until_asked(s)
+    assert d is not None and d.player == "p1" and [o.label for o in d.options if o.id != "none"] == ["Grizzly Bears"], [o.label for o in d.options]
+    pick(s, bears.id)
+    settle(s)
+    assert life(s, "p2") == 39 and s.state.cards[bears.id].counters.get("-1/-1", 0) == 1 and not s.state.cards[elves.id].counters
     check(s)
 
 

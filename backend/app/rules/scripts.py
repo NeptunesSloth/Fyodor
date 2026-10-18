@@ -4749,6 +4749,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         gate = {"all": [cond, {"object": "self", "test": "solved", "negate": True}]}
         return {"kind": "triggered", "trigger": "end_step_you", "if": gate, "optional": False, "target": None,
                 "effects": [{"do": "only_if", "cond": gate, "skip": 1}, {"do": "become_solved"}]}
+    # -- trigger other (wave 51C) -- "…, they lose 1 life and you put a -1/-1 counter on up to one target creature they control." (Persistent Constrictor): the second instruction is the
+    # controller's own, about the player the trigger names
+    text = re.sub(r"(, they lose \d+ life) and you put (an? [^.,]+? counters? on (?:up to one )?target [^.,]+?) they control\.$", r"\1. Put \2 that player controls.", text)
     # -- token copies (wave 31C) -- a plural name's own "they" / "them" (The Notary Hobbits: "When ~ enter, if they're not a token, create two tokens that are copies of them")
     text = re.sub(r"^(When ~ enter, if )they're( not a token, create [^.]+? cop(?:y|ies) of )them\b", r"\1it's\2it", text)
     # -- counters (wave 41A) -- a plural name's own "them" after its own event ("Whenever Tui and La become untapped, put a +1/+1 counter on them."): the one object
