@@ -54,7 +54,7 @@ def rewrite(body: str) -> str:
 # The Stone Brain): the same search as above, for the name chosen earlier in the resolution (201.4, 709.4a: one of the card's names), in the
 # targeted player's zones; "up to four" limits what the searcher may take (701.23b: they may find fewer).
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
-NAMED_PATTERN = (r"search target (?P<w>player|opponent)'s graveyard, hand, and library for (?P<q>all|any number of|up to (?P<n>one|two|three|four|five)) "
+NAMED_PATTERN = (r"search (?:target (?P<w>player|opponent)|(?P<again>the targeted player))'s graveyard, hand, and library for (?P<q>all|any number of|up to (?P<n>one|two|three|four|five)) "
                  r"cards with (?:that|the chosen) name and exile them, then that player shuffles(?P<draw>, then draws a card for each card exiled "
                  r"from their hand this way)?")
 
@@ -66,7 +66,7 @@ def build_named(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if sel is None:
         raise language._Fail
     return [{"do": "name_search", "by": "named", "sel": sel.key(), "all": m["q"] == "all", "max": _NUMBERS[m["n"]] if m["n"] else None,
-             "draw": bool(m["draw"])}], language._one(language.target_group(f"target {m['w']}"))
+             "draw": bool(m["draw"])}], None if m["again"] else language._one(language.target_group(f"target {m['w']}"))  # (wave 53B: "the targeted player", the one target an earlier sentence made: chosen.rewrite)
 
 
 def build(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:

@@ -7275,6 +7275,7 @@ from app.rules import name_search as _name_search  # noqa: E402  (a leaf module)
 
 _choice_template(_name_search.PATTERN, _name_search.build)  # (wave 11D)
 _choice_template(_name_search.NAMED_PATTERN, _name_search.build_named)  # (wave 22B: card names)
+_choice_template(_chosen.DISCARD_PATTERN, _chosen.build_discard)  # (wave 53B: Brain Pry)
 from app.rules import drawn_toll as _drawn_toll  # noqa: E402  (a leaf module)
 
 _choice_template(_drawn_toll.PATTERN, _drawn_toll.build)  # (wave 18G)
@@ -8001,6 +8002,8 @@ def _verb_of(e: dict[str, Any]) -> str | None:
     """The verb "… <verb> this way" names for an instruction (_RECORDING; a move to exile by another name is an exile)."""
     if (e["do"] == "sacrifice_choice" and e.get("exile")) or (e["do"] == "discard" and e.get("to") == "exile"):
         return "exiled"
+    if e["do"] in ("pick_looked", "rest_looked") and e.get("to") == "exile":
+        return "exiled"  # -- chosen filters (wave 53B) -- "Exile all other cards revealed this way. You lose 1 life for each card exiled this way." (Spoils of the Vault)
     if e["do"] in ("pick_looked", "rest_looked") and e.get("to") in ("hand", "graveyard"):
         return "put_" + e["to"]  # -- if you do (wave 44A) -- "for each card put into your graveyard / you put into your hand this way" after a look (Dihada, Blex)
     return _RECORDING.get(e["do"])

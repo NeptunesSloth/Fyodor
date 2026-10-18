@@ -3991,10 +3991,16 @@ def discard_named(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     cards = [c for c in named if plan.state.cards[c].zone.endswith(":hand")
              and prohibitions.cant_cause_discard(plan, plan.state.cards[c].owner, ctx["controller"]) is None]
+    if e.get("n"):  # -- chosen filters (wave 53B) -- "discards a card with that name": one of them (701.9a)
+        cards = cards[: e["n"]]
     before = _remember(plan, ctx, e, cards)
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
     _moved(plan, ctx, e, before)
+    if e.get("else_draw") and not cards:  # "If they can't, you draw a card." (Brain Pry)
+        from app.rules import replace
+
+        return replace.draw_cards(plan, [ctx["controller"]], 1, then={"do": "continue", "ctx": ctx}, ctx=ctx)
     return True
 
 

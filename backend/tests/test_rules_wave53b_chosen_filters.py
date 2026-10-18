@@ -570,11 +570,19 @@ def to_graveyard(s, name, pid="p1", n=1):
         act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "graveyard"})
 
 
+def draw_named(s, name, pid="p1", n=1):
+    """Put the first ``n`` cards named ``name`` of ``pid``'s library into their hand."""
+    for c in [c for c in s.state.cards.values() if c.name == name and c.owner == pid and c.zone == f"{pid}:library"][:n]:
+        act(s, pid, type="move", card_ids=[c.id], to={"zone": "hand"})
+
+
 def stack_library(s, *names, pid="p1"):
-    """Put these cards (still in the library) on top of it, the first named on top."""
-    for name in reversed(names):
-        c = next(c for c in s.state.cards.values() if c.name == name and c.owner == pid and c.zone == f"{pid}:library")
-        act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "library"})
+    """Put these cards (still in the library, a name repeated is another copy) on top of it, the first named on top."""
+    picked: list[str] = []
+    for name in names:
+        picked.append(next(c.id for c in s.state.cards.values() if c.name == name and c.owner == pid and c.zone == f"{pid}:library" and c.id not in picked))
+    for cid in reversed(picked):
+        act(s, pid, type="move", card_ids=[cid], to={"player": pid, "zone": "library"})
 
 
 def test_kindred_summons_reveals_until_x_creatures_of_the_chosen_type(cards):
@@ -704,4 +712,116 @@ def test_isperia_searches_only_when_the_chosen_name_is_in_the_revealed_hand(card
     answer(s)
     assert zone_of(s, "Probe Bolt", "p2") == "p2:hand"  # revealing moves nothing
     assert zone_of(s, "Probe Bird") == ("p1:hand" if found else "p1:library") and zone_of(s, "Probe Elf") == "p1:library"
+    check(s)
+
+
+# ---- a card name chosen as the spell resolves, then used on a hand, a library, a graveyard (step 6): 201.4, 701.20, 701.23, 701.9 ---------------------------------------
+STEP6 = ["Spoils of the Vault", "Desperate Research", "Brain Pry", "Thought Hemorrhage", "Cabal Therapist"]
+
+
+@pytest.mark.parametrize("name", STEP6)
+def test_step6_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def test_spoils_of_the_vault_takes_the_named_card_and_exiles_the_rest_for_life(cards):
+    s = build(cards, ["Spoils of the Vault", "Probe Goblin", "Probe Elf", "Probe Relic", "Probe Land"])
+    stack_library(s, "Probe Goblin", "Probe Elf", "Probe Relic", "Probe Land")
+    before = life(s)
+    cast(s, "Spoils of the Vault", B=1)
+    name_it(s, "Probe Relic")
+    answer(s)
+    assert zone_of(s, "Probe Relic") == "p1:hand" and zone_of(s, "Probe Land") == "p1:library"
+    assert (zone_of(s, "Probe Goblin"), zone_of(s, "Probe Elf")) == ("p1:exile", "p1:exile") and life(s) == before - 2  # 1 life for each exiled card
+    check(s)
+
+
+def test_spoils_of_the_vault_with_no_such_card_reveals_and_exiles_the_whole_library(cards):
+    s = build(cards, ["Spoils of the Vault"], forests=3)
+    to_hand(s, "Spoils of the Vault")
+    n = len(s.state.zones["p1:library"])
+    before = life(s)
+    cast(s, "Spoils of the Vault", B=1)
+    name_it(s, "Probe Bird")  # not in the library
+    answer(s)
+    assert not s.state.zones["p1:library"] and life(s) == before - n
+    check(s)
+
+
+def test_desperate_research_takes_the_named_cards_of_the_top_seven_and_exiles_the_rest(cards):
+    s = build(cards, ["Desperate Research", "Probe Elf", "Probe Elf", "Probe Goblin", "Probe Relic", "Probe Land", "Probe Bolt", "Probe Gem", "Probe Hex"])
+    stack_library(s, "Probe Goblin", "Probe Elf", "Probe Relic", "Probe Elf", "Probe Land", "Probe Bolt", "Probe Gem", "Probe Hex")
+    cast(s, "Desperate Research", B=1, C=1)
+    name_it(s, "Probe Elf")
+    answer(s)
+    assert sorted(c.name for c in s.state.cards.values() if c.zone == "p1:hand") == ["Probe Elf", "Probe Elf"]
+    assert sorted(c.zone for c in s.state.cards.values() if c.owner == "p1" and c.name in ("Probe Goblin", "Probe Relic", "Probe Land", "Probe Bolt", "Probe Gem")) == ["p1:exile"] * 5
+    assert zone_of(s, "Probe Hex") == "p1:library"  # the eighth card was not revealed
+    check(s)
+
+
+@pytest.mark.parametrize("named,discarded", [("Probe Bolt", True), ("Probe Charm", False)])
+def test_brain_pry_discards_one_named_card_or_draws(cards, named, discarded):
+    s = build(cards, ["Brain Pry"], ["Probe Bolt", "Probe Bolt", "Probe Elf"])
+    draw_named(s, "Probe Bolt", "p2", 2)
+    draw_named(s, "Probe Elf", "p2")
+    cast(s, "Brain Pry", targets=["p2"], B=1, C=1)
+    name_it(s, named)
+    answer(s)
+    mine = len(s.state.zones["p1:hand"])
+    if discarded:
+        assert sorted(c.name for c in s.state.cards.values() if c.zone == "p2:graveyard") == ["Probe Bolt"]  # one card with that name, not both
+        assert mine == 0  # no draw
+    else:
+        assert not [c for c in s.state.cards.values() if c.zone == "p2:graveyard"]
+        assert mine == 1  # "If they can't, you draw a card"
+    check(s)
+
+
+def test_thought_hemorrhage_hits_for_the_hand_and_exiles_every_copy(cards):
+    s = build(cards, ["Thought Hemorrhage"], ["Probe Bolt", "Probe Bolt", "Probe Bolt", "Probe Bolt", "Probe Elf"])
+    draw_named(s, "Probe Bolt", "p2", 2)
+    to_graveyard(s, "Probe Bolt", "p2")  # the fourth stays in the library
+    before = life(s, "p2")
+    cast(s, "Thought Hemorrhage", targets=["p2"], B=1, R=1, C=2)
+    name_it(s, "Probe Bolt")
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d.player == "p1" and d.kind == "choose_cards" and len(d.options) == 4  # the searcher sees the copies in the graveyard, hand and library
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+    answer(s)
+    assert before - life(s, "p2") == 6  # 3 damage for each of the two in the revealed hand
+    assert sorted(c.zone for c in s.state.cards.values() if c.name == "Probe Bolt" and c.owner == "p2") == ["p2:exile"] * 4
+    assert zone_of(s, "Probe Elf", "p2") in ("p2:library", "p2:hand")
+    check(s)
+
+
+def test_cabal_therapist_names_a_card_when_a_creature_is_sacrificed(cards):
+    s = build(cards, ["Cabal Therapist", "Probe Elf"], ["Probe Bolt", "Probe Bolt", "Probe Elf"])
+    on_field(s, "Cabal Therapist")
+    on_field(s, "Probe Elf")
+    draw_named(s, "Probe Bolt", "p2", 2)
+    draw_named(s, "Probe Elf", "p2")
+    for _ in range(300):
+        d = s.state.rules.decision
+        if zone_of(s, "Probe Bolt", "p2") == "p2:graveyard" and d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d.options and d.options[0].id == "__name__":
+            name_it(s, "Probe Bolt", who=d.player)
+        else:
+            ids = [o.id for o in d.options]
+            labels = {o.label: o.id for o in d.options}
+            pick = "p2" if "p2" in ids else "pay" if "pay" in ids else "yes" if "yes" in ids else labels.get("Probe Elf") or ids[0]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+    assert sorted(c.zone for c in s.state.cards.values() if c.owner == "p2" and c.name == "Probe Bolt") == ["p2:graveyard"] * 2 and zone_of(s, "Probe Elf", "p2") == "p2:hand"  # every card with that name, no other
+    assert zone_of(s, "Probe Elf") == "p1:graveyard"  # the sacrifice that made the reflexive ability
     check(s)

@@ -96,8 +96,15 @@ def _kind(what: str | None) -> str | None:
     return "card name" if card_names.is_choice(what) else what
 
 
+def _reflexives(d: dict[str, Any]) -> list[dict[str, Any]]:
+    return [e["ability"] for e in d.get("effects") or [] if e.get("do") == "reflexive" and isinstance(e.get("ability"), dict)]
+
+
 def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     """Whether every "of the chosen type / color" in this definition names a choice the engine knows (see above)."""
+    if nested := _reflexives(d):  # -- chosen filters (wave 53B) -- 603.12: the reflexive ability is its own run of instructions ("When you do, choose a nonland card name, then …")
+        outer = {**d, "effects": [{k: v for k, v in e.items() if k != "ability"} if e.get("do") == "reflexive" else e for e in d["effects"]]}
+        return chosen_value_ok(outer, ch) and all(chosen_value_ok(n, ch) for n in nested)
     if d.get("modes"):  # -- chosen filters (wave 53B) -- 700.2: each mode is its own run of instructions (a choice made in a mode serves that mode only)
         rest = {k: v for k, v in d.items() if k != "modes"}
         return chosen_value_ok(rest, ch) and all(chosen_value_ok({"kind": d.get("kind"), **m}, ch) for m in d["modes"])
@@ -281,24 +288,26 @@ def number_choice(text: str) -> dict[str, Any] | None:
     return {"do": "choose_value", "who": "you", "what": "number", "options": [str(n) for n in range(lo, max(lo, hi) + 1)]}
 
 
-def _walk_keys(node: Any, fn: Any) -> Any:
+def _walk_keys(node: Any, fn: Any, skip: str | None = None) -> Any:
     if isinstance(node, dict):
-        return {k: _walk_keys(v, fn) for k, v in node.items()}
+        return {k: v if k == skip else _walk_keys(v, fn, skip) for k, v in node.items()}
     if isinstance(node, list):
-        return [_walk_keys(v, fn) for v in node]
+        return [_walk_keys(v, fn, skip) for v in node]
     return fn(node) if isinstance(node, str) else node
 
 
 def retag(d: dict[str, Any], ch: Characteristics) -> dict[str, Any]:
     """"of the chosen type" is read as a creature type; where the one choice it can mean is a card type (an earlier "Choose a card type."
     of the resolution, or the object's one "As ~ enters, choose a card type"), it is the card type (205.2a)."""
+    if _reflexives(d):  # (a reflexive ability on its own; the rest of this one below)
+        d = {**d, "effects": [{**e, "ability": retag(e["ability"], ch)} if e.get("do") == "reflexive" and isinstance(e.get("ability"), dict) else e for e in d["effects"]]}
     if d.get("modes"):  # (each mode on its own: the choice of one mode isn't the other modes')
         return {**d, "modes": [{k: v for k, v in retag({**m, "kind": d.get("kind")}, ch).items() if k in m} for m in d["modes"]]}
     effects = d.get("effects") or []
     picks = {_kind(e.get("what")) for e in effects if e.get("do") == "choose_value" and not e.get("remember")} | set(_enters_choices(ch))
     if "card type" not in picks or picks & {"creature type", "basic land type"}:
         return d
-    return _walk_keys(d, lambda s: s.replace('"chosen_type"', '"chosen_card_type"').replace('"not_chosen_type"', '"not_chosen_card_type"') if "chosen_type" in s else s)
+    return _walk_keys(d, lambda s: s.replace('"chosen_type"', '"chosen_card_type"').replace('"not_chosen_type"', '"not_chosen_card_type"') if "chosen_type" in s else s, skip="ability")  # (a reflexive ability was read on its own)
 
 
 _CHOOSE_SENTENCE = re.compile(rf"(?:^|(?<=\. ))(?:[Yy]ou may )?[Cc]hoose (?:an? )?(?P<what>color|creature type|{TYPE_CHOICE}|{NUMBER_CHOICE})\.")
@@ -314,6 +323,11 @@ def rewrite(body: str) -> str:
                   r"\1\2. \1\3 to that player \4", body)  # (Darigaaz: two instructions, one after the other, the second under the same "If you do")
     if (u := re.search(r"until you reveal (?:X|two|three|four|five|six|seven) (?P<sel>[a-z]+ cards? of the chosen (?:type|color))\b", body)) is not None:
         body = re.sub(r"\bPut those cards (onto|into) ", f"Put all {u['sel']} revealed this way \\1 ", body)  # (Kindred Summons: "those cards" are the matches the reveal stopped at)
+    body = re.sub(r"(That player discards a card with (?:that|the chosen) name)\. If they can't, you draw a card", r"\1, and if they can't, you draw a card", body)
+    if len(re.findall(r"[Tt]arget (?:player|opponent)", body)) == 1:  # "Search that player's graveyard, hand, and library …": the one player this spell targets (Thought Hemorrhage; name_search reads the target)
+        body = body.replace("Search that player's graveyard, hand, and library for", "Search the targeted player's graveyard, hand, and library for")
+    body = re.sub(r", and (you lose \w+ life) for each of the exiled cards", r". \1 for each card exiled this way", body)  # (Spoils of the Vault: the cards the exile before it moved)
+    body = re.sub(r"\bput all of them with (?:that|the chosen) name into\b", "put all cards with the chosen name revealed this way into", body)  # (Desperate Research: the top seven just revealed)
     body = re.sub(r"\b(It gets) an additional (?=[+-]\d)", r"\1 ", body)  # (Growth Cycle: a second pump of the same creature, 611.2a: they add up)
     m = _CHOOSE_SENTENCE.search(body)
     if m is None:
@@ -366,4 +380,18 @@ def enters_with_choice(text: str, define: Any) -> dict[str, Any] | None:
     if head is None or counters is None or counters.get("replacement") != "enters_with_counters" or set(counters) - {"kind", "replacement", "counter", "n", "effects", "self_sels"}:
         return None
     return {**head, "counters": {k: v for k, v in counters.items() if k in ("counter", "n", "self_sels")}, "counters_choice": head["effects"][0]["what"]}
+
+
+# "That player discards a card with that name. If they can't, you draw a card." (Brain Pry): one card of the revealed hand with the chosen name (701.9a: the discarding player picks it,
+# and any of them is the same to the table); "if they can't" is when none is there (or a prohibition stops it, 614.17).
+DISCARD_PATTERN = r"that player discards a card with (?:that|the chosen) name(?P<draw>, and if they can't, you draw a card)?"
+
+
+def build_discard(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language, selectors
+
+    sel = selectors.parse("card with the chosen name")
+    if sel is None:
+        raise language._Fail
+    return [{"do": "discard_named", "who": "revealed", "sel": sel.key(), "n": 1, **({"else_draw": True} if m["draw"] else {})}], None
 # -- end chosen filters (wave 53B) -----------------------------------------------------------------------------------------
