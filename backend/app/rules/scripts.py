@@ -2409,6 +2409,9 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
 
     body = body.replace(" your team controls", " you control")  # -- static_other (wave 49C) -- 102.4: outside a team game "your team" is "you" (Combo Attack, Dwarven Lightsmith)
     body = _licids.rewrite(body)  # -- licids (wave 50A) --
+    from app.rules import controller_each  # -- if you do (wave 52A) --
+
+    body = controller_each.rewrite(body)
     # -- damage wordings (wave 51B) -- "Then each player creates X Treasure tokens and this enchantment deals X damage to each player, where X is the number of descent counters on this
     # enchantment." (Descent into Avernus): two instructions in order (608.2c), the same X for both (nothing between them changes the counters)
     body = re.sub(r"\b(each player creates X [A-Z][a-z]+ tokens?) and ((?:this \w+|~) deals) X damage to (each player), where X is ([^.]+)\.",
@@ -3404,6 +3407,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         prev_groups, groups_at = groups_at, len(groups)  # -- kicked / instead (wave 4G) -- each sentence's own target groups
         sentences.append(start)
         if (per := _each_controller_creates(text)) is not None:  # -- "this way" outcomes (wave 4A) --
+            effects += per
+            continue
+        from app.rules import controller_each  # -- if you do (wave 52A) -- its controller draws / cloaks / investigates
+
+        if (per := controller_each.parse(text, _clause, _lower_first(texts[i - 1].rstrip(".")) if i else None)) is not None:
             effects += per
             continue
         if (swap := this_way.graveyard_swap(text)) is not None:  # -- if you do (wave 5G) -- Living Death

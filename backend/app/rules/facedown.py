@@ -79,6 +79,11 @@ def manifest(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     order = [p for p in plan.apnap() if p in players]
     ctx.setdefault("manifested", [])
     todo = [(p, effects._amount(plan, ctx, e.get("n", 1))) for p in order]
+    if e.get("per_controller"):  # -- if you do (wave 52A) -- "For each permanent exiled this way, its controller cloaks the top card of their library." (Unexplained Absence)
+        from app.rules import this_way
+
+        counts = this_way.by_controller(plan, ctx, e["per_controller"])
+        todo = [(p, counts[p]) for p in order if counts.get(p)]
     return _manifest_next(plan, ctx, e, todo)
 
 
