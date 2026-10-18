@@ -11,10 +11,12 @@ import pytest
 
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.wave9c_kit import check, zone_of
+from tests.test_rules_wave34b_activated import settle
+from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_of
 from tests.wave52a_kit import build_n, open_repo
 
 ARCHWAY = "Arid Archway"
+WITCH_KING, BREW = "Rise of the Witch-king", "Deadly Brew"
 
 
 @pytest.fixture()
@@ -22,8 +24,9 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-def test_the_cards_are_full(cards):
-    assert coverage.of_card_data(cards.resolve(ARCHWAY)).level == "FULL"
+@pytest.mark.parametrize("name", [ARCHWAY, WITCH_KING, BREW])
+def test_the_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
 
 def steps(s, answer=None, limit=20):
@@ -83,4 +86,60 @@ def test_archway_returning_a_forest_does_not_surveil(cards):
     asked = steps(s, answer=forest.id)
     assert s.state.cards[forest.id].zone == "p1:hand" and zone_of(s, ARCHWAY) == "p1:battlefield"
     assert not any("Surveil" in p for p in asked), asked
+    check(s)
+
+
+# -- Rise of the Witch-king / Deadly Brew ------------------------------------------------------------------------------------------------
+def to_graveyard(s, name, pid="p1"):
+    c = card_named(s, name, pid)
+    act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "graveyard"})
+    return c
+
+
+def brewed(cards, spell, in_graveyard=("Hill Giant",), sacrificer="Grizzly Bears"):
+    """Alice with ``sacrificer`` on the battlefield (none if None), Bob with a creature; the permanent cards ``in_graveyard`` in Alice's graveyard; the spell cast."""
+    s = build(cards, [spell, "Hill Giant", "Soul Warden", *([sacrificer] if sacrificer else [])], ["Hill Giant"])
+    put(s, "Hill Giant", "p2")
+    if sacrificer:
+        put(s, sacrificer)
+    for name in in_graveyard:
+        to_graveyard(s, name)
+    to_hand(s, spell)
+    mana(s, "p1", B=1, G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, spell).id)
+    return s
+
+
+def test_witch_king_returns_another_permanent_card_but_not_the_one_sacrificed(cards):
+    s = brewed(cards, WITCH_KING, in_graveyard=("Hill Giant", "Soul Warden"))
+    d = s.state.rules.decision  # which permanent card to return: the Bears, just sacrificed, is no choice ("another")
+    assert d is not None and {s.state.cards[o.id].name for o in d.options} == {"Hill Giant", "Soul Warden"}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if s.state.cards[o.id].name == "Hill Giant")])
+    settle(s)
+    assert zone_of(s, "Hill Giant") == "p1:battlefield" and zone_of(s, "Grizzly Bears") == "p1:graveyard" and zone_of(s, "Soul Warden") == "p1:graveyard"
+    assert zone_of(s, "Hill Giant", "p2") == "p2:graveyard"  # Bob sacrificed his only creature too
+    check(s)
+
+
+def test_witch_king_with_only_the_sacrificed_card_in_the_graveyard_returns_nothing(cards):
+    s = brewed(cards, WITCH_KING, in_graveyard=())
+    settle(s)
+    assert zone_of(s, "Grizzly Bears") == "p1:graveyard"  # (the Bears is the only permanent card there, and it is no "another")
+    check(s)
+
+
+def test_witch_king_without_a_creature_to_sacrifice_returns_nothing(cards):
+    s = brewed(cards, WITCH_KING, in_graveyard=("Hill Giant",), sacrificer=None)
+    settle(s)
+    assert zone_of(s, "Hill Giant") == "p1:graveyard"  # "If you sacrificed a creature this way": she did not
+    check(s)
+
+
+def test_deadly_brew_returns_another_permanent_card_to_the_hand(cards):
+    s = brewed(cards, BREW, in_graveyard=("Soul Warden",))
+    d = s.state.rules.decision
+    if d is not None:
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])
+    settle(s)
+    assert zone_of(s, "Soul Warden") == "p1:hand" and zone_of(s, "Grizzly Bears") == "p1:graveyard"
     check(s)

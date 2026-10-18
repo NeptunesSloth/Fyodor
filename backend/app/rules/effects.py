@@ -4514,6 +4514,8 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     found = (_cards(plan, ctx, e["who"]) if e.get("who") else  # (-- wave 22D -- "a creature card put into a graveyard this way")
              selectors.candidates(plan, selectors.from_key(e["sel"]), pid, ctx.get("source_card")))
     # -- reanimation (wave 37B) -- "the top creature card of your graveyard": the last matching card of the graveyard's order (index -1 is the top), nothing chosen
+    if e.get("exclude"):  # -- if you do (wave 52A) -- "return another permanent card" after "sacrificed a creature this way": not the card just sacrificed (Rise of the Witch-king)
+        found = [c for c in found if c not in context.objects(plan, ctx, e["exclude"])]
     pool = found[-1:] if e.get("top") else sorted(found)
     want = _amount(plan, ctx, e["n"])
     if e.get("random"):
@@ -4551,6 +4553,8 @@ def resume_return_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
     pool = set(_cards(plan, ctx, e["who"]) if e.get("who") else
                selectors.candidates(plan, selectors.from_key(e["sel"]), d.player if e.get("chooser") else ctx["controller"], ctx.get("source_card")))
+    if e.get("exclude"):
+        pool -= set(context.objects(plan, ctx, e["exclude"]))
     cards = [c for c in chosen if c in pool]  # (still there and still matching)
     _within_total(plan, e, cards)
     if e.get("different"):  # -- refused zones/sized (wave 3R4) -- "… cards with different names / mana values"
