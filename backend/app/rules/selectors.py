@@ -406,6 +406,11 @@ def _has_x_cost(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "x_cost"))
 
 
+@_suffix(r"with mana cost (?P<c>\{[^}]+\}(?: or \{[^}]+\})*)")  # -- saga grants (wave 51B) -- Urza's Saga: "an artifact card with mana cost {0} or {1}" is the printed cost itself (202.1), not its mana value
+def _mana_cost_is(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "cost_is:" + "|".join(m["c"].split(" or "))))
+
+
 # -- static_other (wave 42A) -- "creatures you control with no abilities" / "creatures with abilities" (Jasmine Boreal of the Seven, Muraganda Petroglyphs, Ruxa): an
 # object has an ability when any of its ability lines is there, the printed ones and the ones granted (113.1, 613.1f), judged on it as it is now
 @_suffix(r"with no abilities")
@@ -1564,6 +1569,9 @@ def _parse(phrase: str) -> Selector | None:
                     break
     except ValueError:
         return None
+    if not qualified and (two := re.fullmatch(r"(?P<a>(?:[A-Za-z]+ )?[A-Za-z]+) card or (?:an? )?(?P<b>[A-Za-z]+) card", text.strip())) is not None \
+            and all(w in CARD_TYPES or w[0].isupper() for w in (*two["a"].split(), two["b"])):  # (card types and subtypes only: "basic land card or Cave card" has a supertype that is not the Cave's)
+        text = f"{two['a']} or {two['b']} card"  # -- if you do (wave 51D) -- "an artifact creature card or Vehicle card" (Szarekh): the same cards as "artifact creature or Vehicle card" (a supertype in front, "legendary or …", stays unread)
     if any(isinstance(c[2], str) and c[2].startswith((SOURCE_STAT, EVENT_STAT)) for c in s.compare) and (
             (s.zones != ("graveyard",) or not s.card) and (s.zones != ("battlefield",) or s.card)):
         return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source; -- keywords
@@ -2155,6 +2163,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if mine is None or any(p is not None and (p < mine if extra.startswith("least") else p > mine) for p in rivals):
                 return False
         if (extra == "no_abilities" and ch.abilities) or (extra == "has_abilities" and not ch.abilities):  # (wave 42A)
+            return False
+        if extra.startswith("cost_is:") and ch.mana_cost not in extra[8:].split("|"):  # (wave 51B)
             return False
         if extra == "x_cost" and "{X}" not in ch.mana_cost:  # -- activated wordings (wave 15D) -- (107.3: printed in its mana cost)
             return False

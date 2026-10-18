@@ -97,7 +97,7 @@ def _graveyard(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # -- copied abilities (wave 18F) -- imprint (607.2a): "you may exile an instant card with mana value 2 or less from your hand" (the cost of
 # an optional payment, public once in exile: 406.3), and "you may copy the exiled card" (707.12: the copy is made in exile, may be cast
 # while this resolves; one not cast ceases to exist, 707.10a - so a copy not taken and a copy not cast are the same)
-_IMPRINT = re.compile(r"^you may exile (?P<what>(?:an?|one) (?:[\w\-]+ )*card(?: with mana value \d+ or less)?) from your hand$")
+_IMPRINT = re.compile(r"^you may exile (?P<what>(?:an?|one) (?:[\w\-]+,? )*card(?: with mana value \d+ or less)?) from your hand$")  # (wave 51B: "a nonartifact, nonland card", Chrome Mox)
 _COPY = re.compile(rf"^(?:you may )?copy {_THE}$")
 
 
