@@ -40,6 +40,7 @@ PROBES = [
     probe("Probe Zapper", "Artifact", text="{T}: Probe Zapper deals 1 damage to any target.", cost="{1}"),
     probe("Probe Wagon", "Artifact Creature — Vehicle", pt=("2", "2"), cost="{2}", cmc=2),
     probe("Probe Hex", "Enchantment — Aura", "R", text="Enchant creature", cost="{R}"),
+    probe("Probe Freeze", "Sorcery", "U", text="Tap target land.", cost="{U}"),
     probe("Probe Swamp", "Basic Land — Swamp", text="({T}: Add {B}.)", cost="", cmc=0),
 ]
 EXTRA = [card(c["name"], set_code="w53b", number=f"X{i:02d}", **{k: v for k, v in c.items() if k != "name"})

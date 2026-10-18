@@ -1068,7 +1068,7 @@ def _has_counter(card: CardInstance, kind: str) -> bool:
 # creature type. Destroy all creatures that aren't of the chosen type": bind_chosen substitutes that answer).
 # ``matches`` reads the source's record; without a source or a valid record nothing matches (never a guess).
 CHOSEN_EXTRAS = {"chosen_type": "creature type", "chosen_color": "color", "not_chosen_type": "creature type",
-                 "not_chosen_color": "color", "chosen_name": "card name", "chosen_card_type": "card type", "not_chosen_card_type": "card type", "chosen_number": "number",
+                 "not_chosen_color": "color", "chosen_name": "card name", "chosen_card_type": "card type", "not_chosen_card_type": "card type", "chosen_land_type": "basic land type", "not_chosen_land_type": "basic land type", "chosen_number": "number",
                  "chosen_parity_mv": "odd or even", "chosen_parity_power": "odd or even", "chosen_cmp": "number"}  # (wave 50J: the quality chosen as the ability resolves)  # (wave 47A: card type, Umori; wave 49B: number, Talion)  # (-- card names (wave 22B) -- app/rules/card_names.py)
 
 
@@ -1127,6 +1127,9 @@ def _cmp_chosen_number(s: Selector, m: re.Match[str]) -> Selector:  # -- chosen 
     return replace(s, extras=(*s.extras, "chosen_cmp"), compare=(*s.compare, (what, _CMP_OPS[m["op"] or "equal to"], "chosen_n")))
 
 
+BASIC_LAND_TYPES_SEL = ("Plains", "Island", "Swamp", "Mountain", "Forest")
+
+
 def chosen_what(sel: Selector) -> str | None:
     """"creature type" / "color" when the selector reads a chosen value, else None."""
     found = {CHOSEN_EXTRAS[e] for e in sel.extras if e in CHOSEN_EXTRAS}
@@ -1150,6 +1153,10 @@ def bind_chosen(sel: Selector, value: str) -> Selector | None:
         if neg:
             return replace(sel, extras=rest, not_subtypes=(value,))
         return replace(sel, extras=rest, subtypes=(value,))
+    if what == "basic land type" and value in BASIC_LAND_TYPES_SEL:  # -- chosen filters (wave 53B) -- "a land of the chosen type" (Roots of Life, Shimmer): 305.6, 205.3i
+        if sel.subtypes or sel.not_subtypes or sel.union:
+            return None
+        return replace(sel, extras=rest, not_subtypes=(value,)) if neg else replace(sel, extras=rest, subtypes=(value,))
     if what == "card type" and value in CARD_TYPES.values():  # -- commanders (wave 47A) -- the card type chosen as the source entered (Umori, Stenn)
         if sel.types or sel.not_types:
             return None
@@ -1170,7 +1177,7 @@ def source_choice(plan: Plan, source: str | None, what: str) -> str | None:
     card = plan.state.cards.get(source or "")
     if card is None:
         return None
-    label = {"creature type": "Chosen creature type", "color": "Chosen color", "card name": "Chosen card name", "card type": "Chosen card type", "number": "Chosen number", "odd or even": "Chosen quality"}[what]
+    label = {"creature type": "Chosen creature type", "basic land type": "Chosen basic land type", "color": "Chosen color", "card name": "Chosen card name", "card type": "Chosen card type", "number": "Chosen number", "odd or even": "Chosen quality"}[what]
     value = card.choices.get(label)
     return value.strip() if value else None
 

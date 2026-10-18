@@ -67,7 +67,7 @@ def _colors(state: GameState, st: Static) -> dict[str, Any] | None:
     d = st.definition
     if d.get("chosen_color"):
         value = state.cards[st.source].choices.get("Chosen color", "").strip().lower()
-        return {"add_colors": [selectors.COLORS[value]]} if value in selectors.COLORS else None
+        return ({"set_colors" if d["chosen_color"] == "set" else "add_colors": [selectors.COLORS[value]]}) if value in selectors.COLORS else None
     return {k: d[k] for k in ("set_colors", "add_colors") if k in d}
 
 
@@ -324,6 +324,8 @@ def _elsewhere(st: Static, card: CardInstance, ch: Characteristics) -> bool:
     (every other zone, the command zone too); Mycosynth Lattice: all of them."""
     where = st.definition.get("everywhere")
     if not where or card.ability is not None or card.zone.endswith(":battlefield"):
+        return False
+    if where.get("zones") and card.zone.split(":")[-1] not in where["zones"]:  # (wave 53B: Ashes of the Fallen, "in your graveyard")
         return False
     if where["own"] and (card.controller if card.zone == "stack" else card.owner) != st.controller:
         return False

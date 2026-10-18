@@ -133,7 +133,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     # (the face and flip state are part of the key: a transformed permanent has only its back
     # face's characteristics, 712.8e — its front face's statics are gone, 611.3a)
     key = tuple(sorted((cid, c.controller, c.face_down, c.face, c.flipped, c.card_id or c.name, c.token.text if c.token else "",
-                        r.card_mode(cid) if r else "", timestamp(state, cid), c.choices.get("Chosen word", ""),  # (wave 33B: linked words, 607.2f)
+                        r.card_mode(cid) if r else "", timestamp(state, cid), tuple(sorted(c.choices.items())),  # (wave 33B: linked words, 607.2f; wave 53B: and what else it chose as it entered, 614.12a: a type or a color written into its statics)
                         copies.get(r.object_id(cid), (0, "")) if r else (0, ""))
                        for cid, c in state.cards.items() if c.zone.endswith(":battlefield")))
     # -- conditional statics (wave 4B) -- statics that function from a graveyard (113.6b): which cards are there
@@ -175,6 +175,8 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     for cid, c in field:
         for d in scripts.definitions(copiable(state, c, info)).values():
             if d["kind"] == "static" and d.get("static") in ("grant", "attached_rule") and not grammar.zone_static(d):
+                if (d := _chosen.resolve_marks(d, c)) is None:  # type: ignore[assignment]  # (wave 53B: the type or color it chose; none recorded: nothing to apply)
+                    continue
                 out.append(Static(cid, c.controller, d, timestamp(state, cid)))
                 # -- as long as (wave 9B) -- the other sentences of one ability (static_pairs.py): statics of the same permanent
                 out += [Static(cid, c.controller, extra, timestamp(state, cid)) for extra in d.get("also", ())]

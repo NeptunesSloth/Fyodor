@@ -1455,7 +1455,9 @@ def modifiers(state: GameState, player: str, card: CardInstance, ch: Characteris
         delta = cost_changes.static_delta(state, info, src, d, player, card, ch, targets)
         if delta is None:
             continue
-        found.append(CostModifier(id=f"{src.id}:{index}", controller=src.controller, delta=delta, caster=d["caster"],
+        if d["caster"] == "enchanted" and src.attached_player != player:  # -- chosen filters (wave 53B) -- "Spells … enchanted player casts" (Curse of Silence): only the player this Aura enchants
+            continue
+        found.append(CostModifier(id=f"{src.id}:{index}", controller=src.controller, delta=delta, caster="any" if d["caster"] == "enchanted" else d["caster"],
                                   filter=d["filter"], until="permanent", source=r.object_id(src.id), label=src.name,
                                   mana=cost_changes.stored_mana(d)))
     found += [m for m in r.cost_modifiers  # ("until your next turn": over once its controller's next turn began)

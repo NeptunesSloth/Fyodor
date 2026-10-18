@@ -978,3 +978,186 @@ def test_lifecraft_engine_gives_the_chosen_type_to_vehicle_creatures_only(cards)
     plan = Plan(s.state, "p1", s.cards, None)
     assert (plan.ch(card_named(s, "Probe Wagon")).pt, plan.ch(card_named(s, "Probe Elf")).pt) == ((3, 3), (2, 2))  # its second line: +1/+1 to each creature of the chosen type, the Wagon (an Elf now) too
     check(s)
+
+
+# ---- a basic land type or a color chosen as it entered, set on the land it enchants, itself or the table (step 10): 305.7, 105.3, 613.1d-e ----------------------------------
+STEP10 = ["Phantasmal Terrain", "Convincing Mirage", "Shimmerwilds Growth", "Alloy Golem", "Shifting Sky"]
+
+
+@pytest.mark.parametrize("name", STEP10)
+def test_step10_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def enchant(s, aura, host, *picks, **pool):
+    """Cast the Aura ``aura`` on ``host`` and answer its entering choice."""
+    mana(s, "p1", **pool)
+    for prefs in s.state.rules.prefs.values():
+        prefs.response = "on"
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, aura).id, targets=[host.id])
+    answer(s, *picks)
+    return card_named(s, aura)
+
+
+@pytest.mark.parametrize("aura,cost", [("Phantasmal Terrain", dict(U=2)), ("Convincing Mirage", dict(U=2, C=1))])
+def test_the_land_aura_sets_the_land_type_it_chose(cards, aura, cost):
+    s = build(cards, [aura, "Probe Land"], forests=3)
+    forest = on_field(s, "Forest")[0]
+    assert kinds(s, "Forest") == frozenset({"Forest"})
+    enchant(s, aura, forest, "Island", **cost)
+    assert kinds(s, "Forest") == frozenset({"Island"})  # 305.7: the old land type is gone
+    assert card_named(s, aura).choices == {"Chosen basic land type": "Island"}
+    check(s)
+
+
+def test_shimmerwilds_growth_makes_the_land_the_chosen_color(cards):
+    s = build(cards, ["Shimmerwilds Growth"], forests=3)
+    forest = on_field(s, "Forest")[0]
+    assert Plan(s.state, "p1", s.cards, None).ch(forest).colors == frozenset()
+    enchant(s, "Shimmerwilds Growth", forest, "Blue", G=2)
+    assert Plan(s.state, "p1", s.cards, None).ch(forest).colors == frozenset({"U"})
+    check(s)
+
+
+def test_alloy_golem_is_the_chosen_color(cards):
+    s = build(cards, ["Alloy Golem"])
+    golem = enter(s, "Alloy Golem", "Red", C=6)
+    assert Plan(s.state, "p1", s.cards, None).ch(golem).colors == frozenset({"R"})
+    check(s)
+
+
+def test_shifting_sky_makes_every_nonland_permanent_the_chosen_color(cards):
+    s = build(cards, ["Shifting Sky", "Probe Elf", "Probe Relic"], ["Probe Goblin"])
+    on_field(s, "Probe Elf")
+    on_field(s, "Probe Relic")
+    on_field(s, "Probe Goblin", "p2")
+    forest = on_field(s, "Forest")[0]
+    enter(s, "Shifting Sky", "White", U=1, C=2)
+    plan = Plan(s.state, "p1", s.cards, None)
+    assert [plan.ch(card_named(s, n, p)).colors for n, p in (("Probe Elf", "p1"), ("Probe Relic", "p1"), ("Probe Goblin", "p2"))] == [frozenset({"W"})] * 3
+    assert plan.ch(forest).colors == frozenset()  # (lands are left alone)
+    check(s)
+
+
+# ---- a creature type or a basic land type chosen as it entered, filtering a hand card / a land that became tapped (step 11): 608.2c, 603.2 ----------------------------------
+STEP11 = ["Belbe's Portal", "Roots of Life"]
+
+
+@pytest.mark.parametrize("name", STEP11)
+def test_step11_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def portal_offer(s, portal):
+    mana(s, "p1", C=3)
+    act(s, "p1", type="activate_ability", card_id=portal.id, ability=1)  # (0 is the entering choice)
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    return s.state.rules.decision
+
+
+def test_belbes_portal_puts_only_a_creature_card_of_the_chosen_type_from_hand(cards):
+    s = build(cards, ["Belbe's Portal", "Probe Elf", "Probe Goblin"])
+    portal = enter(s, "Belbe's Portal", "Elf", C=5)
+    elf, goblin = to_hand(s, "Probe Elf"), to_hand(s, "Probe Goblin")
+    assert [o.label for o in portal_offer(s, portal).options] == ["Probe Elf"]  # the Goblin card is not offered
+    answer(s)
+    assert (s.state.cards[elf.id].zone, s.state.cards[goblin.id].zone) == ("p1:battlefield", "p1:hand")
+    assert s.state.cards[portal.id].tapped
+    check(s)
+
+
+def test_belbes_portal_with_no_card_of_the_type_in_hand_puts_nothing(cards):
+    s = build(cards, ["Belbe's Portal", "Probe Elf", "Probe Goblin"])
+    portal = enter(s, "Belbe's Portal", "Elf", C=5)
+    goblin = to_hand(s, "Probe Goblin")
+    assert not portal_offer(s, portal).options  # nothing to pick: the Goblin card is not of the chosen type
+    answer(s)
+    assert s.state.cards[goblin.id].zone == "p1:hand"
+    check(s)
+
+
+def test_roots_of_life_gains_life_when_an_opponents_land_of_the_chosen_type_becomes_tapped(cards):
+    s = build(cards, ["Roots of Life", "Probe Freeze"], ["Probe Swamp", "Island"])
+    isle, swamp = on_field(s, "Island", "p2")[0], on_field(s, "Probe Swamp", "p2")[0]
+    enter(s, "Roots of Life", "Swamp", G=3)
+    assert s.state.cards[card_named(s, "Roots of Life").id].choices == {"Chosen basic land type": "Swamp"}
+    before = life(s)
+    for land in (isle, swamp):
+        mana(s, "p1", U=1)
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Probe Freeze").id, targets=[land.id])
+        answer(s)
+        act(s, "p1", type="move", card_ids=[card_named(s, "Probe Freeze").id], to={"player": "p1", "zone": "library"})
+        gained = life(s) - before
+        assert gained == (1 if land is swamp else 0), (land.name, gained)  # 603.2: only the chosen type, 1 life each time
+    check(s)
+
+
+# ---- the chosen creature type given to the creature cards in a graveyard (step 12): 205.1b, 611.3 ----------------------------------
+def test_ashes_of_the_fallen_gives_the_chosen_type_to_the_creature_cards_in_your_graveyard_only(cards):
+    s = build(cards, ["Ashes of the Fallen", "Probe Elf", "Probe Elf Two", "Probe Relic"], ["Probe Elf"])
+    assert coverage.of_card_data(cards.resolve("Ashes of the Fallen")).level == "FULL"
+    on_field(s, "Probe Elf Two")
+    to_graveyard(s, "Probe Elf")
+    to_graveyard(s, "Probe Relic")
+    to_graveyard(s, "Probe Elf", "p2")
+    enter(s, "Ashes of the Fallen", "Goblin", C=2)
+    assert kinds(s, "Probe Elf") == frozenset({"Elf", "Druid", "Goblin"})  # in addition to its other types (205.1b)
+    assert kinds(s, "Probe Elf", "p2") == frozenset({"Elf", "Druid"})  # (only your graveyard)
+    assert kinds(s, "Probe Elf Two") == frozenset({"Elf", "Warrior"})  # (on the battlefield it is not a card in a graveyard)
+    assert kinds(s, "Probe Relic") == frozenset()
+    check(s)
+
+
+# ---- "they also have" after a pump of the chosen type (step 13): 604.2, 611.3a, 702.131 ----------------------------------
+def test_radiant_destiny_pumps_the_chosen_type_and_gives_vigilance_with_the_citys_blessing(cards):
+    s = build(cards, ["Radiant Destiny", "Probe Elf", "Probe Goblin"], forests=8)
+    assert coverage.of_card_data(cards.resolve("Radiant Destiny")).level == "FULL"
+    on_field(s, "Probe Elf")
+    on_field(s, "Probe Goblin")
+    on_field(s, "Forest", n=6)
+    enter(s, "Radiant Destiny", "Elf", W=1, C=2)
+    plan = Plan(s.state, "p1", s.cards, None)
+    elf, goblin = plan.ch(card_named(s, "Probe Elf")), plan.ch(card_named(s, "Probe Goblin"))
+    assert (elf.pt, goblin.pt) == ((2, 2), (1, 1)) and not s.state.players["p1"].city_blessing  # 9 permanents: no blessing yet
+    assert "vigilance" not in elf.keywords
+    on_field(s, "Forest")
+    plan = Plan(s.state, "p1", s.cards, None)
+    elf, goblin = plan.ch(card_named(s, "Probe Elf")), plan.ch(card_named(s, "Probe Goblin"))
+    assert "vigilance" in elf.keywords and "vigilance" not in goblin.keywords  # 10 permanents: Ascend gives the blessing
+    check(s)
+
+
+# ---- a card name chosen as an Aura enters, taxing the spells of the player it enchants (step 14): 601.2f, 614.12a ----------------------------------
+def test_curse_of_silence_taxes_the_named_spell_of_the_enchanted_player_only(cards):
+    s = build(cards, ["Curse of Silence", "Probe Bolt"], ["Probe Bolt", "Probe Elf"])
+    assert coverage.of_card_data(cards.resolve("Curse of Silence")).level == "FULL"
+    mana(s, "p1", W=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Curse of Silence").id, targets=["p2"])
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    name_it(s, "Probe Bolt")
+    curse = card_named(s, "Curse of Silence")
+    assert (s.state.cards[curse.id].attached_player, s.state.cards[curse.id].choices) == ("p2", {"Chosen card name": "Probe Bolt"})
+    assert (cost_of(s, "Probe Bolt", "p2"), cost_of(s, "Probe Bolt")) == ("{2}{R}", "{R}")  # {2} more for the enchanted player's named spell only
+    assert cost_of(s, "Probe Elf", "p2") == "{1}"
+    check(s)
+
+
+def test_curse_of_silence_lets_you_sacrifice_it_to_draw_when_the_enchanted_player_casts_the_named_spell(cards):
+    s = build(cards, ["Curse of Silence", "Probe Bolt", "Probe Relic"], ["Probe Bolt", "Probe Elf"])
+    mana(s, "p1", W=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Curse of Silence").id, targets=["p2"])
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    name_it(s, "Probe Bolt")
+    curse = card_named(s, "Curse of Silence")
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1")  # Bob's turn: he has priority
+    act(s, "p2", type="add_mana", player="p2", mana={"R": 1, "C": 2})
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Probe Bolt", "p2").id)
+    hand = len(s.state.zones["p1:hand"])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1"  # 603.2: Alice's trigger asks her, not Bob
+    answer(s, "pay")
+    assert s.state.cards[curse.id].zone == "p1:graveyard" and len(s.state.zones["p1:hand"]) == hand + 1
+    check(s)

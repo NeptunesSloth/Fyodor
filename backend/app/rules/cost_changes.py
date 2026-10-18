@@ -337,7 +337,7 @@ _FROM = {"from your graveyard": ("your_graveyard",), "from graveyards": ("gravey
 STATIC = re.compile(
     r"^(?P<during>during your turn, |during turns other than yours, )?(?:each )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? "
     r"(?:(?P<chosen1>of the chosen type) )?(?P<named1>with the chosen name )?"  # (wave 46A: "Spells of the chosen type you cast cost …", Morophon; wave 53B: "Spells with the chosen name cost {3} more", Disruptor Flute)
-    r"(?:(?P<with>with (?:flying|flash|mana value \d+ or (?:greater|less))) )?(?P<who>you cast |your opponents cast )?(?P<named2>with the chosen name )?(?:(?P<with2>with (?:mana value \d+ or (?:greater|less)|toughness greater than its power)|that (?:has|have) an Adventure) )?(?P<own>but don't own )?(?P<chosen>of the chosen type )?"
+    r"(?:(?P<with>with (?:flying|flash|mana value \d+ or (?:greater|less))) )?(?P<who>you cast |your opponents cast |enchanted player casts )?(?P<named2>with the chosen name )?(?:(?P<with2>with (?:mana value \d+ or (?:greater|less)|toughness greater than its power)|that (?:has|have) an Adventure) )?(?P<own>but don't own )?(?P<chosen>of the chosen type )?"
     r"(?:(?P<from>from (?:your graveyard or from exile|graveyards or from exile|your graveyard|graveyards|exile"
     r"|anywhere other than your hand)) )?"
     rf"costs? {_SYMBOLS} (?P<dir>less|more) to cast(?P<rest>.*)$")
@@ -414,7 +414,9 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
     key = spell_filter(sel, with_) if sel or with_ else None
     if (sel or with_) and key is None:
         return None
-    caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[m["who"]]
+    caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent", "enchanted player casts ": "enchanted"}[m["who"]]  # (wave 53B: Curse of Silence, read by permissions.modifiers)
+    if caster == "enchanted" and not re.search(r"^Enchant player$", "\n".join(x.strip() for x in lines), re.M):
+        return None
     out: dict[str, Any] = {"kind": "static", "static": "cost_modifier", "delta": change["dir"] * int(change.get("n", 0)),
                            "caster": caster, "filter": key, "change": change, "effects": []}
     if m["own"]:  # -- cost changers (wave 20E) -- "Spells you cast but don't own" (Gonti): the spell's owner is another player (108.3)

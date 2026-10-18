@@ -85,7 +85,7 @@ def _enters_choices(ch: Characteristics) -> list[str]:
 
     texts = [choice_head(self_text(ab.text, ch.name)) for ab in ch.abilities]  # (wave 53B: a line that also puts counters on it)
     named = [e["what"] for t in texts if (d := card_names.enters_choice(t)) is not None for e in d["effects"] if card_names.is_choice(e["what"])]
-    singles = ["card type" if m["what"].startswith("card type") or type_choice(m["what"]) is not None else "number" if m["what"].startswith("number") else "abilities" if m["what"].startswith("two abilities") else "creature type" if m["what"][:1].isupper() else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] != "color and a creature type"]
+    singles = ["card type" if m["what"].startswith("card type") or type_choice(m["what"]) is not None else "number" if m["what"].startswith("number") else "abilities" if m["what"].startswith("two abilities") else "basic land type" if re.fullmatch(r"\w+ or \w+", m["what"]) and m["what"][:1].isupper() else "creature type" if m["what"][:1].isupper() else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] != "color and a creature type"]
     both = [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "color and a creature type" for k in ("color", "creature type")]  # (wave 53B: "choose a color and a creature type")
     return singles + both + ["card name" for _ in named]  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
 
@@ -112,6 +112,12 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
         return chosen_value_ok(rest, ch) and all(chosen_value_ok({"kind": d.get("kind"), **m}, ch) for m in d["modes"])
     if d.get("chosen_type") and _enters_choices(ch).count("basic land type" if d["chosen_type"] == "land" else "creature type") != 1:
         return False  # (wave 11E: "~ is the chosen type in addition to its other types" needs that one choice)
+
+    if d.get("chosen_color") and _enters_choices(ch).count("color") != 1:
+        return False  # (wave 53B: "All nonland permanents are the chosen color." needs that one choice, Shifting Sky)
+    marked = json.dumps(d)
+    if (MARK_LAND in marked and _enters_choices(ch).count("basic land type") != 1) or (MARK_COLOR in marked and _enters_choices(ch).count("color") != 1):
+        return False  # (wave 53B: "Enchanted land is the chosen type / color.", "This creature is the chosen color." need that one choice)
 
     if d.get("chosen_keywords") and _enters_choices(ch).count("abilities") != 1:
         return False  # (wave 49B: "Humans you control have each of the chosen abilities." needs that one choice, Greymond)
@@ -310,9 +316,13 @@ def retag(d: dict[str, Any], ch: Characteristics) -> dict[str, Any]:
         return {**d, "modes": [{k: v for k, v in retag({**m, "kind": d.get("kind")}, ch).items() if k in m} for m in d["modes"]]}
     effects = d.get("effects") or []
     picks = {_kind(e.get("what")) for e in effects if e.get("do") == "choose_value" and not e.get("remember")} | set(_enters_choices(ch))
-    if "card type" not in picks or picks & {"creature type", "basic land type"}:
+    if "card type" in picks and not picks & {"creature type", "basic land type"}:
+        kind = "card"
+    elif "basic land type" in picks and not picks & {"creature type", "card type"}:
+        kind = "land"  # (wave 53B: "a land of the chosen type", Roots of Life)
+    else:
         return d
-    return _walk_keys(d, lambda s: s.replace('"chosen_type"', '"chosen_card_type"').replace('"not_chosen_type"', '"not_chosen_card_type"') if "chosen_type" in s else s, skip="ability")  # (a reflexive ability was read on its own)
+    return _walk_keys(d, lambda s: s.replace('"chosen_type"', f'"chosen_{kind}_type"').replace('"not_chosen_type"', f'"not_chosen_{kind}_type"') if "chosen_type" in s else s, skip="ability")  # (a reflexive ability was read on its own)
 
 
 _CHOOSE_SENTENCE = re.compile(rf"(?:^|(?<=\. ))(?:[Yy]ou may )?[Cc]hoose (?:an? )?(?P<what>color|creature type|{TYPE_CHOICE}|{NUMBER_CHOICE})\.")
@@ -411,4 +421,31 @@ def chosen_token(plan: Plan, source: str | None, token: dict[str, Any]) -> dict[
     if color not in protection.COLORS or not kind:
         return None
     return {**token, "chosen": False, "name": kind, "colors": [protection.COLORS[color]], "type_line": f"Token Creature — {kind}"}
+
+
+# A static that sets a type or a color to "the chosen type / color" carries a mark where the answer goes (the table is built from the printed lines): ``@land`` in
+# ``layer4.set_land_types`` (the basic land type), ``@color`` in ``set_colors``. The answer is the source's own entering choice (614.12a, public); with none recorded the
+# static does nothing (``resolve_marks`` returns None).
+MARK_LAND, MARK_COLOR = "@land", "@color"
+
+
+def resolve_marks(d: dict[str, Any], source: CardInstance) -> dict[str, Any] | None:
+    text = json.dumps(d)
+    if MARK_LAND not in text and MARK_COLOR not in text:
+        return d
+    from app.rules import protection
+
+    land = (source.choices.get("Chosen basic land type") or "").strip()
+    color = protection.COLORS.get((source.choices.get("Chosen color") or "").strip().lower())
+
+    def fill(node: Any) -> Any:
+        if isinstance(node, dict):
+            return {k: fill(v) for k, v in node.items()}
+        if isinstance(node, list):
+            return [x for v in node for x in ([land] if v == MARK_LAND else [color] if v == MARK_COLOR else [fill(v)])]
+        return node
+
+    if (MARK_LAND in text and not land) or (MARK_COLOR in text and not color):
+        return None
+    return fill(d)
 # -- end chosen filters (wave 53B) -----------------------------------------------------------------------------------------

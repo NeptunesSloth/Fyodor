@@ -183,7 +183,7 @@ def _layered(text: str) -> dict[str, Any] | None:
             if everywhere is None:
                 return None
         if m["c"] == "the chosen color":
-            parts: dict[str, Any] = {"chosen_color": True, "add_colors": []} if m["add"] else {}
+            parts: dict[str, Any] = {"chosen_color": True, "add_colors": []} if m["add"] else {"chosen_color": "set", "set_colors": []}  # (wave 53B: Shifting Sky, 105.3)
         else:
             codes = [] if m["c"] == "colorless" else _ALL_COLORS if m["c"] == "all colors" else [_COLOR_CODES[m["c"]]]
             parts = {"add_colors": codes} if m["add"] else {"set_colors": codes}
@@ -206,6 +206,16 @@ def _layered(text: str) -> dict[str, Any] | None:
         kind = "land" if m["s"].startswith("Lands") else "creature" if m["add"] else "creature_set"
         found = _definition(m["s"], {"add_subtypes": [], "chosen_type": kind}, everywhere=everywhere)
         return {**found, "chosen_type": found["layer4"]["chosen_type"]} if found is not None else None
+    if text == "Each creature card in your graveyard has the chosen creature type in addition to its other types.":  # -- chosen filters (wave 53B) --
+        # Ashes of the Fallen: 205.1b, 611.3: only the creature cards in the controller's graveyard (no battlefield member: the selector names the graveyard)
+        from app.rules import selectors
+        from app.rules.statics import _definition as grant
+
+        who = selectors.parse("creature cards in your graveyard")
+        if who is None:
+            return None
+        return {**grant(who.key(), None, []), "layered": True, "layer4": {"add_subtypes": [], "chosen_type": "creature"}, "chosen_type": "creature",
+                "everywhere": {"own": True, "types": ["Creature"], "not_types": [], "permanent": False, "zones": ["graveyard"]}}
     if (m := re.fullmatch(rf"{_SUBJ} (?:is|are) snow\.", text)) is not None:  # (wave 26D) 205.4: the supertype snow is added (Rimefeather Owl)
         return _definition(m["s"], {"add_supertypes": ["Snow"]})
     if (m := _ANIMATE_MV.fullmatch(text)) is not None:  # Opalescence, March of the Machines: 205.1b ("an artifact creature" keeps the
