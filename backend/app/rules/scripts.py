@@ -6234,7 +6234,16 @@ def _for_each(phrase: str) -> Any:
         return {"plus": halves} if len(halves) == 2 and all(h is not None and "count" in h for h in halves) else None
     sel = selectors.parse(phrase)
     if sel is None or sel.player is not None:  # (a battlefield group it might belong to: tagged by the caller, ``_enters_self_check``)
-        return None
+        # -- counters (wave 52D) -- "for each +1/+1 counter among other creatures you control" (Ascendant Acolyte), "for each loyalty counter on planeswalkers you control"
+        # (Bioessence Hydra), "for each different mana cost among nonland cards in your graveyard" (Embodiment of Agonies): counts of counters and of distinct values among a group
+        # (the group is tagged by the caller, ``_enters_self_check``, as for any battlefield group)
+        from app.rules import values
+
+        found = values.parse_count("the number of " + phrase) if re.search(r"\bcounters? (?:among|on) |\bdifferent mana costs? among ", phrase) else None
+        if not isinstance(found, dict) or not set(found) <= {"counters_among", "distinct", "of", "among"}:
+            return None
+        # (a count of distinct values is read for cards outside the battlefield only: the entering permanent isn't on it yet, 614.12, ``_self_sels`` doesn't look at "among")
+        return found if "counters_among" in found or selectors.from_key(found["among"]).zones == ("graveyard",) else None
     return {"count": sel.key()}
 
 
@@ -6347,6 +6356,12 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
             and (base := define_replacement(ability, esc[1] + ".")) is not None and base.get("replacement") == "enters_with_counters" and (escaped := {**NUMBERS, "eleven": 11, "twelve": 12}.get(esc["e"])) is not None:
         return {**base, "escaped_n": escaped}
     text = re.sub(r"^~ enters tapped if it's not your turn\.$", "~ enters tapped unless it's your turn.", text)  # (wave 19A: Eddymurk Crab)
+    from app.rules import (
+        counters52d,  # -- counters (wave 52D) -- 708.11: "As ~ is turned face up, put five +1/+1 counters on it."
+    )
+
+    if (face_up := counters52d.face_up_definition(text)) is not None:
+        return face_up
     # -- refused grants/replacements (wave 3R2) -- "Damage can't be prevented." and friends (615.12)
     from app.rules import skips, source_shields
 

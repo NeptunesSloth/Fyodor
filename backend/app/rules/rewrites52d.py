@@ -24,7 +24,13 @@ _BOTTOM_PUT = re.compile(r"(Put the bottom card of your library into your gravey
 _RANDOM_EXILED = re.compile(r"(^\s*|\. )Choose a card at random that was exiled with (~|it)\. Put (?:that card|it) into its owner's hand\.")
 
 
+# 611.2a, 613.1d, 613.1f: "It has flying and is an Angel in addition to its other types." (Valkyrie's Call) states two continuous effects of no duration on the card just
+# returned: "It gains flying. It's an Angel in addition to its other types." (the grammar's two sentences).
+_HAS_AND_IS = re.compile(r"(^\s*|\. )(?:It|That creature) has ([a-z]+(?: strike)?) and is (an? [A-Z][a-z]+ in addition to its other (?:creature )?types)\.")
+
+
 def rewrite(body: str) -> str:
+    body = _HAS_AND_IS.sub(lambda m: f"{m[1]}It gains {m[2]}. It's {m[3]}.", body)
     body = _RANDOM_EXILED.sub(lambda m: f"{m[1]}Choose a card at random exiled with {m[2]} and put it into its owner's hand.", body)
     body = body.replace("noncreature, nonland card", "noncreature nonland card")
     body = _REVEALED_PUT.sub(r"\1put it onto the battlefield", body)

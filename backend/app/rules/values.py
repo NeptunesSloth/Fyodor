@@ -118,7 +118,8 @@ _DISTINCT = {"card types": "types", "different card types": "types", "card type"
              "creature type": "creature_types",
              "different power": "powers", "different powers": "powers",  # (wave 17B: Selvala, Eager Trailblazer)
              "mana values": "mana_values", "different mana values": "mana_values", "mana value": "mana_values",
-             "different mana value": "mana_values", "planeswalker types": "planeswalker_types"}  # (wave 21F: Eris, Roar of the Storm)  # (wave 20B)
+             "different mana value": "mana_values", "planeswalker types": "planeswalker_types",
+             "different mana cost": "mana_costs", "different mana costs": "mana_costs", "mana costs": "mana_costs"}  # (-- counters (wave 52D) -- Embodiment of Agonies, 202.1)  # (wave 21F: Eris, Roar of the Storm)  # (wave 20B)
 _AMONG = re.compile(r"^(?P<kind>" + "|".join(sorted(map(re.escape, _DISTINCT), key=len, reverse=True)) + r") among (?P<sel>.+)$")
 _DEVOTION = re.compile(r"^your devotion to (?P<c1>white|blue|black|red|green)(?: and (?P<c2>white|blue|black|red|green))?$")
 _AGGREGATE = re.compile(r"^the (?:(?P<max>greatest|highest)|(?P<sum>total)) (?P<stat>power and/or toughness|power|toughness|mana value) "
@@ -995,6 +996,9 @@ def _distinct(plan: Plan, ctx: dict[str, Any], kind: str, key: str) -> int:
         elif kind == "planeswalker_types":  # -- value grammar (wave 23C) -- 205.3j: the planeswalker subtypes of the planeswalkers
             if "Planeswalker" in ch.types:
                 found |= ch.subtypes & selectors.PLANESWALKER_TYPES
+        elif kind == "mana_costs":  # -- counters (wave 52D) -- 202.1b: no mana cost is no cost to pay, not a cost of its own (a nonland card with none, a suspend-only card: not counted)
+            if ch.mana_cost:
+                found.add(ch.mana_cost)
         elif kind == "mana_values":  # -- as long as (wave 20B) -- "five or more mana values among cards in your graveyard" (202.3)
             found.add(str(int(ch.mana_value)))
         elif kind == "powers":  # "creatures with different powers" (conditions.py): how many distinct values

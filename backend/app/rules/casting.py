@@ -1887,6 +1887,11 @@ def turned_up(plan: Plan, card: CardInstance) -> None:
     turned face up" and the table's "Whenever a permanent you control is turned face up" abilities trigger (702.37e: not
     "enters" abilities, 708.8)."""
     emit(plan.state, "turned_face_up", object_id=plan.oid(card), card=card.id, player=card.controller)
+    from app.rules import (
+        counters52d,  # -- counters (wave 52D) -- 708.11: "As ~ is turned face up, put five +1/+1 counters on it."
+    )
+
+    counters52d.turned_up(plan, card)
     from app.rules import triggers  # (triggers imports this module)
 
     face_up = plan.ch(plan.state.cards[card.id])
