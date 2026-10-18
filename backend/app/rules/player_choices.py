@@ -208,3 +208,79 @@ def _from_among(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 TEMPLATES.append((_FROM_AMONG, _from_among))
+
+
+# "Choose a player with the most life or tied for most life." (The Black Gate): the controller chooses among the players whose life total is the greatest (a public number, 119.1); the
+# sentence after names that player ("creatures that player controls", resolve_it binds it to the choice)
+_MOST_LIFE = re.compile(r"^choose a player with the most life or tied for most life$")
+
+
+def _most_life(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "choose_value", "who": "you", "what": "player with the most life"}], None
+
+
+TEMPLATES.append((_MOST_LIFE, _most_life))
+
+
+# -- "Each player chooses a creature type. Each player returns all creature cards of a type chosen this way from their graveyard to the battlefield." (Patriarch's Bidding) -------------
+# Every player names a creature type, in turn order (101.4), each knowing the earlier ones (101.4b: announced); the types together are the binding "chosen_types" the next sentence reads
+# (``typed:chosen_types|<selector>``: effects._cards - the cards of the selector that have one of them, a changeling every one, 702.73a).
+_EACH_TYPE = re.compile(r"^each player chooses a creature type$")
+_TYPED = re.compile(r"^each player returns all creature cards of a type chosen this way from their graveyard to the battlefield$")
+BINDING = "chosen_types"
+
+
+def _each_type(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "choose_each", "who": "each_player", "what": "creature type"}], None
+
+
+def _typed(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    sel = _graveyard_selector("creature cards")
+    return [{"do": "return_card", "who": f"typed:{BINDING}|{sel}", "to": "battlefield", "tapped": False, "under": "owner"}], None
+
+
+TEMPLATES.extend([(_EACH_TYPE, _each_type), (_TYPED, _typed)])
+
+
+def cards_of_types(plan: Any, ctx: dict[str, Any], who: str) -> list[str]:
+    """``typed:<binding>|<selector key>``: the cards the selector finds that have a creature type among those chosen."""
+    from app.rules import context
+
+    name, _, key = who[len("typed:"):].partition("|")
+    values = set((context.refs(ctx).get(name) or {}).get("values") or [])
+    return [c for c in selectors.candidates(plan, selectors.from_key(key), ctx["controller"], ctx.get("source_card")) if plan.ch(plan.state.cards[c]).subtypes & values]
+
+
+def choose_each(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    return _ask(plan, ctx, e, [p for p in plan.apnap() if p in effects._players(plan, ctx, e["who"])], [])
+
+
+def _ask(plan: Any, ctx: dict[str, Any], e: dict[str, Any], order: list[str], values: list[str]) -> bool:
+    from app.game.rules_state import DecisionOption  # noqa: F401  (the options come from effects._choice_options)
+    from app.rules import context, effects
+    from app.rules.plan import decide
+
+    while order and order[0] not in plan.live():  # (a player who left the game chooses nothing, 800.4a)
+        order = order[1:]
+    if not order:
+        context.refs(ctx)[e.get("as") or BINDING] = {"kind": "choice", "what": e["what"], "values": values}
+        return True
+    pid, rest = order[0], order[1:]
+    decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name') or 'Choose'}: choose a {e['what']}" + (f" (already chosen: {', '.join(values)})" if values else ""),
+           options=effects._choice_options(plan, ctx, e["what"]), resume={"step": "choose_each", "ctx": ctx, "e": e, "rest": rest, "values": values})
+    return False
+
+
+def resume_choose_each(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    plan.note(f"{plan.name(d.player)} chooses {chosen[0]} ({r['e']['what']})", actor=d.player)  # 101.4b
+    if _ask(plan, r["ctx"], r["e"], r["rest"], [*r["values"], chosen[0]]):
+        effects.continue_effects(plan, r["ctx"])
+
+
+PRIMITIVES["choose_each"] = choose_each
+RESUME: dict[str, Any] = {"choose_each": resume_choose_each}

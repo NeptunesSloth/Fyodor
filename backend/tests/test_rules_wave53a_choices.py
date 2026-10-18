@@ -22,7 +22,7 @@ from tests.wave53a_kit import open_repo, table, until_asked
 
 BEARS, GIANT, ANGEL, GRAIL = "Grizzly Bears", "Hill Giant", "Serra Angel", "Sol Grail"
 NAMES = ["Breach the Multiverse", "Exhume", "Crypt Champion", "Fall of the Thran", "Dredge the Mire", "Scrounge", "Enslaved Horror", "The Eternal Wanderer", "Chaos Defiler",
-         "Underworld Cerberus", "Pyrrhic Revival", "Ill-Gotten Gains", "Skullwinder"]
+         "Underworld Cerberus", "Pyrrhic Revival", "Ill-Gotten Gains", "Skullwinder", "Patriarch's Bidding"]
 
 
 @pytest.fixture()
@@ -295,4 +295,27 @@ def test_skullwinder_the_opponent_you_choose_returns_a_card_of_their_graveyard(c
     settle(s)
     assert s.state.cards[mine.id].zone == "p1:hand" and s.state.cards[angel.id].zone == "p2:hand"
     assert s.state.cards[bears.id].zone == "p2:graveyard" and s.state.cards[carols.id].zone == "p3:graveyard"  # only the chosen opponent
+    check(s)
+
+
+# -- Patriarch's Bidding ----------------------------------------------------------------------------------------------------------------
+def test_patriarchs_bidding_every_card_of_any_type_chosen_returns_for_its_owner(cards):
+    """101.4, 101.4b: each player names a creature type in turn order, knowing the earlier ones; then each player returns all creature cards of ANY of the types chosen from their own
+    graveyard, at once, under their control."""
+    s = table(cards, ["Patriarch's Bidding", BEARS, GIANT], [GIANT, ANGEL, BEARS], [ANGEL])
+    abears, agiant = to_gy(s, BEARS, "p1"), to_gy(s, GIANT, "p1")
+    bgiant, bangel, bbears = to_gy(s, GIANT, "p2"), to_gy(s, ANGEL, "p2"), to_gy(s, BEARS, "p2")
+    cangel = to_gy(s, ANGEL, "p3")
+    to_hand(s, "Patriarch's Bidding")
+    mana(s, "p1", B=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Patriarch's Bidding").id)
+    for who, kind in (("p1", "Bear"), ("p2", "Giant"), ("p3", "Bear")):  # turn order from the active player
+        d = until_asked(s)
+        assert d.player == who and "Bear" in {o.id for o in d.options}
+        if who == "p3":
+            assert "Bear" in d.prompt and "Giant" in d.prompt  # 101.4b: she knows what the others chose
+        act(s, who, type="choose", decision_id=d.id, option_ids=[kind])
+    settle(s)
+    assert [where(s, c) for c in (abears, agiant, bgiant, bbears)] == [("p1:battlefield", "p1"), ("p1:battlefield", "p1"), ("p2:battlefield", "p2"), ("p2:battlefield", "p2")]
+    assert s.state.cards[bangel.id].zone == "p2:graveyard" and s.state.cards[cangel.id].zone == "p3:graveyard"  # Angels: nobody chose Angel
     check(s)

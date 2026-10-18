@@ -687,7 +687,7 @@ class _Introducer:
                 self.number = 1  # -- damage sized by a count (wave 20A) -- "until you reveal a nonland card. … that card's mana value": the one found
         if self.do == "destroy_all":
             self.number = 2
-        if self.do == "choose_random" or (self.do == "choose_value" and e.get("what") in ("opponent", "player")):  # -- random choices (wave 47B) -- "Choose an opponent at random. … that
+        if self.do == "choose_random" or (self.do == "choose_value" and e.get("what") in ("opponent", "player", "player with the most life")):  # -- random choices (wave 47B) -- "Choose an opponent at random. … that
             self.player, self.objects = True, False  # player": a player, no object; -- player-relative selectors (wave 53A) -- and "Choose an opponent. That player …"
         if self.do == "choose_value" and str(e.get("what", "")).endswith("card name"):  # -- card names (wave 49C) -- a name is no object: "Choose a card name, then reveal a card at random from your hand. If it has …" (Cursed Scroll)
             self.objects = False

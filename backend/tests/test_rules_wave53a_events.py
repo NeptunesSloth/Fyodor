@@ -25,7 +25,7 @@ from tests.wave53a_kit import alice_next, open_repo, table, unseen_by, until_ask
 
 BEARS, GIANT, ANGEL, GRAIL, BOLT = "Grizzly Bears", "Hill Giant", "Serra Angel", "Sol Grail", "Lightning Bolt"
 NAMES = ["Grasping Tentacles", "Realmbreaker, the Invasion Tree", "Oblivion Sower", "Silent-Blade Oni", "Lord of the Void", "Ashling, the Extinguisher", "Myrkul's Edict",
-         "Sail into the West", "Intellectual Offering", "Down for Repairs"]
+         "Sail into the West", "Intellectual Offering", "Down for Repairs", "Windgrace's Judgment", "Dark Salvation", "The Black Gate", "Disciple of Perdition"]
 
 
 @pytest.fixture()
@@ -386,4 +386,54 @@ def test_dark_salvation_counts_the_zombies_of_the_player_not_of_the_creatures_co
     act(s, "p1", type="cast_spell", card_id=card_named(s, "Dark Salvation").id, targets=["p1", angel.id], target_counts=[1, 1], x_value=3)
     settle(s)
     assert len([c for c in s.state.cards.values() if c.name == "Zombie" and c.zone == "p1:battlefield"]) == 3 and pt(s, ANGEL, "p2") == (1, 1)  # Alice's three Zombies, Bob's Angel
+    check(s)
+
+
+# -- The Black Gate ---------------------------------------------------------------------------------------------------------------------
+def black_gate(cards, defender):
+    """Bob has the most life and is the chosen player; ``defender`` is attacked by Alice's creature the Gate was used on."""
+    from tests.test_rules_wave34b_activated import to_phase
+
+    s = table(cards, ["The Black Gate", BEARS], [BEARS], [BEARS])
+    stops(s)
+    gate = put(s, "The Black Gate")
+    mine = put(s, BEARS)
+    bob_blocker, carol_blocker = put(s, BEARS, "p2"), put(s, BEARS, "p3")
+    alice_next(s)
+    act(s, "p1", type="set_life", player="p2", value=45)
+    mana(s, "p1", B=1, C=1)
+    activate(s, "p1", gate, contains="Choose a player", targets=[mine.id])
+    d = until_asked(s)
+    assert d.player == "p1" and {o.id for o in d.options} == {"p2"}  # 119.1: Bob alone has the most life (a public number)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])
+    settle(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": mine.id, "target": defender}])
+    to_phase(s, "declare_blockers")
+    return s, mine, bob_blocker, carol_blocker
+
+
+def test_the_black_gate_creatures_of_the_player_with_the_most_life_cannot_block_it(cards):
+    s, mine, bob_blocker, _ = black_gate(cards, "p2")
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": bob_blocker.id, "attacker_id": mine.id}])
+    act(s, "p2", type="declare_blockers", blocks=[])
+    check(s)
+
+
+def test_the_black_gate_other_players_creatures_still_block_it(cards):
+    s, mine, _, carol_blocker = black_gate(cards, "p3")
+    act(s, "p3", type="declare_blockers", blocks=[{"blocker_id": carol_blocker.id, "attacker_id": mine.id}])
+    settle(s)
+    check(s)
+
+
+def test_the_black_gate_tied_players_are_all_offered(cards):
+    s = table(cards, ["The Black Gate", BEARS], [BEARS], [BEARS])
+    gate = put(s, "The Black Gate")
+    mine = put(s, BEARS)
+    mana(s, "p1", B=1, C=1)
+    activate(s, "p1", gate, contains="Choose a player", targets=[mine.id])
+    d = until_asked(s)
+    assert {o.id for o in d.options} == {"p1", "p2", "p3"}  # all at 40
     check(s)

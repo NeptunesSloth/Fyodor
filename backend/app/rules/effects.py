@@ -165,6 +165,8 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
 
         base, _, key = who.partition("|")
         return this_way.filtered(plan, ctx, _cards(plan, ctx, base), key)
+    if who.startswith("typed:"):  # -- player-relative selectors (wave 53A) -- "all creature cards of a type chosen this way" (Patriarch's Bidding)
+        return _player_choices.cards_of_types(plan, ctx, who)
     if who.startswith(player_zones.PREFIX):  # -- player-relative selectors (wave 53A) -- "all cards from target player's hand and graveyard"
         return player_zones.cards(plan, ctx, who)
     if who.startswith("controlled:"):  # -- damage sized by a count (wave 4E) -- "each creature that player controls"
@@ -4015,6 +4017,8 @@ def discard_named(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 # Named choices (105.1 colors, 205.3m creature types, 205.3i basic land types, players).
+MOST_LIFE = "player with the most life"  # -- player-relative selectors (wave 53A) --
+PLAYER_CHOICES = ("opponent", "player", MOST_LIFE)
 CHOICE_OPTIONS: dict[str, list[str]] = {
     "color": ["White", "Blue", "Black", "Red", "Green"],
     "odd or even": ["Odd", "Even"],  # -- chosen quality (wave 50J) -- 107.1: zero is even
@@ -4057,6 +4061,9 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
     if what in ("opponent", "player"):
         pids = [p for p in plan.live() if what == "player" or p != ctx["controller"]]
         return [DecisionOption(id=p, label=plan.name(p)) for p in pids]
+    if what == MOST_LIFE:  # -- player-relative selectors (wave 53A) -- "Choose a player with the most life or tied for most life." (The Black Gate): the life totals now, public (119.1)
+        most = max((plan.state.players[p].life for p in plan.live()), default=0)
+        return [DecisionOption(id=p, label=plan.name(p)) for p in plan.live() if plan.state.players[p].life == most]
     # -- counters (wave 7C) -- "enters with your choice of a flying or a hexproof counter"
     from app.rules import counter_choice
 
@@ -4095,11 +4102,11 @@ def choose_value(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
     value = chosen[0]
-    shown = plan.name(value) if e["what"] in ("opponent", "player") else value
+    shown = plan.name(value) if e["what"] in PLAYER_CHOICES else value
     plan.note(f"{plan.name(d.player)} chooses {shown} ({e['what']})", actor=d.player)
     if e.get("as"):
         context.refs(ctx)[e["as"]] = {"kind": "choice", "what": e["what"], "value": value,
-                                      **({"players": [value]} if e["what"] in ("opponent", "player") else {})}  # (-- player-relative selectors (wave 53A) -- "Choose an opponent. That player …")
+                                      **({"players": [value]} if e["what"] in PLAYER_CHOICES else {})}  # (-- player-relative selectors (wave 53A) -- "Choose an opponent. That player …")
     if not e.get("remember") and (e["what"] in ("creature type", "color", "odd or even") or card_names.is_choice(e["what"])):  # -- chosen type (wave 4J) --
         from app.rules import chosen as picked
 
@@ -4901,6 +4908,7 @@ PRIMITIVES.update(_decayed.PRIMITIVES)
 from app.rules import player_choices as _player_choices  # noqa: E402, I001  -- player-relative selectors (wave 53A) --
 
 PRIMITIVES.update(_player_choices.PRIMITIVES)
+RESUME.update(_player_choices.RESUME)
 
 # -- token copies & attach on entry (wave 5J) -- "attach it to target creature you control" (app/rules/attach_entry.py),
 # populate and "for each …, create a token that's a copy of that …" (app/rules/populate.py)
