@@ -260,7 +260,14 @@ def rewrite(body: str) -> str:
     body = re.sub(r"\bWhen one or more Equipment become attached to that creature this way, ", "When you do, ", body)
     # "Choose target creature. At this turn's next end of combat, destroy all creatures that blocked or were blocked by it this turn." (Venomous Breath): the target the first sentence only names,
     # named in the relation (115.1: chosen as the spell is cast, read when the end of combat comes)
-    return re.sub(r"^Choose (target [^.,]+)\. (At this turn's next end of combat, [^.]*?) it( this turn\.)$", r"\2 \1\3", body)
+    body = re.sub(r"^Choose (target [^.,]+)\. (At this turn's next end of combat, [^.]*?) it( this turn\.)$", r"\2 \1\3", body)
+    # "create a white Aura enchantment token named Contract attached to target creature an opponent controls. The token has enchant creature and "Whenever enchanted creature attacks, …"" (Scriv,
+    # the Obligator): the token roles.NAMED knows, with exactly those abilities
+    from app.rules import roles
+
+    contract = roles.NAMED["Contract"][1]
+    return body.replace('create a white Aura enchantment token named Contract attached to target creature an opponent controls. The token has enchant creature and "' + contract + '"',
+                        "create a Contract Aura token attached to target creature an opponent controls.")
 
 
 def host_wording(body: str) -> str:

@@ -38,11 +38,19 @@ ROLES: dict[str, str] = {
                   "put a +1/+1 counter on it.\"",
 }
 TYPE_LINE = "Token Enchantment — Aura Role"
-_CLAUSE = re.compile(rf"create an? (?P<role>{'|'.join(ROLES)}) Role token attached to (?P<o>.+)")
+# -- block events (wave 53C) -- an Aura token that is no Role, made attached to a target: Scriv, the Obligator's "a white Aura enchantment token named Contract attached to target creature an
+# opponent controls. The token has enchant creature and "…"" (read as "a Contract Aura token", block_events.rewrite): its colors and its abilities after "Enchant creature"
+NAMED: dict[str, tuple[list[str], str]] = {
+    "Contract": (["W"], "Whenever enchanted creature attacks, it gets +2/+0 until end of turn if it's attacking one of your opponents. Otherwise, its controller loses 2 life."),
+}
+_CLAUSE = re.compile(rf"create an? (?:(?P<role>{'|'.join(ROLES)}) Role|(?P<named>{'|'.join(NAMED)}) Aura) token attached to (?P<o>.+)")
 
 
 def token(role: str) -> dict[str, Any]:
-    """The token spec of a Role (111.10j-r: named after the Role, colorless)."""
+    """The token spec of a Role (111.10j-r: named after the Role, colorless) or of a named Aura token."""
+    if role in NAMED:
+        colors, text = NAMED[role]
+        return {"name": role, "power": None, "toughness": None, "colors": colors, "type_line": "Token Enchantment — Aura", "text": f"Enchant creature\n{text}"}
     return {"name": role, "power": None, "toughness": None, "colors": [], "type_line": TYPE_LINE,
             "text": f"Enchant creature\n{ROLES[role]}"}
 
@@ -50,7 +58,7 @@ def token(role: str) -> dict[str, Any]:
 def clause(text: str) -> tuple[Effects, Any] | None:
     """"create a <Role> Role token attached to <one object>" → a ``create_role`` effect, or None."""
     m = _CLAUSE.fullmatch(text)
-    if m is None or not supported(m["role"]):
+    if m is None or not supported(m["role"] or m["named"]):
         return None
     from app.rules import language
 
@@ -62,7 +70,7 @@ def clause(text: str) -> tuple[Effects, Any] | None:
         return None
     if group is not None and (group.get("max", 1) != 1):
         return None  # (one object: "up to one" / one target)
-    return [{"do": "create_role", "role": m["role"], "who": language._who(kind, key)}], language._one(group)
+    return [{"do": "create_role", "role": m["role"] or m["named"], "who": language._who(kind, key)}], language._one(group)
 
 
 @cache
@@ -79,7 +87,7 @@ def _characteristics(role: str) -> Any:
 
     spec = token(role)
     return printed_from_data({"id": f"role:{role}", "name": spec["name"], "type_line": spec["type_line"],
-                              "oracle_text": spec["text"], "colors": []})  # (cached per "printing": one per Role)
+                              "oracle_text": spec["text"], "colors": spec["colors"]})  # (cached per "printing": one per Role)
 
 
 def _host_ok(plan: Plan, card: CardInstance, role_ch: Any) -> bool:
@@ -101,7 +109,7 @@ def create_role(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     hosts = [c for c in effects._cards(plan, ctx, e["who"]) if _host_ok(plan, plan.state.cards[c], role_ch)]
     name = e.get("did")  # -- block events (wave 53C) -- "Create a Monster Role token attached to target creature you control. When you do, …" (603.12): done if a Role is attached to it
     if len(hosts) != 1:
-        plan.note(f"No {e['role']} Role token is created: nothing it could enchant (303.4i)", actor=ctx["controller"])
+        plan.note(f"No {e['role']} {'Aura ' if e['role'] in NAMED else 'Role '}token is created: nothing it could enchant (303.4i)", actor=ctx["controller"])
         if name:
             context.refs(ctx)[name] = {"kind": "probe", "attached": {}}
         return True

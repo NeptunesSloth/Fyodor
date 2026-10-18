@@ -1473,10 +1473,10 @@ def test_cass_does_nothing_for_a_creature_that_was_neither_enchanted_nor_equippe
     check(s)
 
 
-@pytest.mark.parametrize("name", ["Scriv, the Obligator", "Galea, Kindler of Hope", "Shuriken", "General Jarkeld", "Glyph of Reincarnation", "Battering Ram", "Dread Wight",
+@pytest.mark.parametrize("name", ["Galea, Kindler of Hope", "Shuriken", "General Jarkeld", "Glyph of Reincarnation", "Battering Ram", "Dread Wight",
                                   "Infinite Authority", "False Orders", "Balduvian Warlord", "Ydwen Efreet", "Nacatl War-Pride", "Motion Sickness"])
 def test_the_rest_of_the_list_stays_manual(cards, name):
-    """Never faked: banding (702.22), unblocking and re-blocking by an effect, one delayed ability reading what another did, an Aura token with its own enchant ability,
+    """Never faked: banding (702.22), unblocking and re-blocking by an effect, one delayed ability reading what another did,
     a creature that stops blocking one attacker and blocks another, tokens that are copies attacking, Attractions, a cast from the library: not read."""
     assert not full(cards, name)
 
@@ -1579,4 +1579,56 @@ def test_stensian_sanguinist_becomes_prepared_when_the_creature_it_gave_deathtou
     assert len(s.state.rules.prepared) == 1 and list(s.state.rules.prepared)[0].rsplit(".", 1)[0] == sanguinist.id  # its combat damage to Bob: "this creature becomes prepared"
     until(s, lambda s: s.state.turn.number == 3, limit=300)
     assert len(s.state.rules.prepared) == 1  # stays prepared
+    check(s)
+
+
+def _scriv_contract(cards, players=2):
+    """Alice's Scriv attacks (so its trigger fires) and puts a Contract on Bob's Guard; returns the table, the token and the Guard."""
+    s = sandbox(cards, "Scriv, the Obligator", players=players)
+    scriv = on_field(s, "Scriv, the Obligator")
+    guard = creature(s, "p2", "Guard", "2/2")
+    combat_step(s)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": scriv.id, "target": "p2"}])
+    settle(s)
+    contract = next(c for c in s.state.cards.values() if c.name == "Contract" and c.zone.endswith(":battlefield"))
+    return s, contract, guard
+
+
+def _guard_attacks(s, guard, target):
+    """Bob's turn: the Guard attacks ``target`` (nobody has an untapped creature to block with) and the Contract's trigger resolves."""
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "declare_attackers", limit=200)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": guard.id, "target": target}])
+    settle(s)
+
+
+def test_scriv_puts_a_contract_aura_on_an_opponents_creature_that_costs_its_controller_life_for_attacking_you(cards):
+    s, contract, guard = _scriv_contract(cards)
+    assert contract.token is not None and contract.controller == "p1" and s.state.cards[contract.id].attached_to == guard.id  # 303.4f: it enters attached to the target
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[contract.id])
+    assert ch.colors == frozenset({"W"}) and {"Enchantment", "Aura"} <= set(ch.types) | set(ch.subtypes) and ch.name == "Contract"
+    to_postcombat(s)
+    before = s.state.players["p2"].life
+    _guard_attacks(s, guard, "p1")  # Bob's Guard attacks Alice, who controls the Contract: not "one of your opponents"
+    assert s.state.players["p2"].life == before - 2  # "Otherwise, its controller loses 2 life": Bob
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[guard.id]).pt == (2, 2)
+    check(s)
+
+
+def test_scriv_contract_pumps_the_creature_that_attacks_another_opponent_of_its_controller(cards):
+    s, contract, guard = _scriv_contract(cards, players=3)
+    to_postcombat(s)
+    before = s.state.players["p2"].life
+    _guard_attacks(s, guard, "p3")  # Carol is one of Alice's opponents
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[guard.id]).pt == (4, 2)  # it gets +2/+0 until end of turn
+    assert s.state.players["p2"].life == before  # and its controller loses nothing
+    check(s)
+
+
+def test_scriv_makes_the_contract_as_it_enters_too(cards):
+    s = sandbox(cards, "Scriv, the Obligator")
+    guard = creature(s, "p2", "Guard", "2/2")
+    main_step(s)
+    scriv = cast_now(s, "Scriv, the Obligator", [], W=1, B=1, C=2)
+    contracts = [c for c in s.state.cards.values() if c.name == "Contract" and c.zone.endswith(":battlefield")]
+    assert len(contracts) == 1 and contracts[0].attached_to == guard.id and s.state.cards[scriv.id].zone == "p1:battlefield"
     check(s)

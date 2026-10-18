@@ -5263,6 +5263,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     # mills ten cards instead" (Exhibition Tidecaller): the caster is "you", never "that player"
                 # -- sagas & attached-object triggers (wave 3S) -- "When enchanted creature dies, return
                 # this card to its owner's hand": the Aura's new object in its owner's graveyard (400.7f)
+                if cond is not None and cond.get("subject") == "host":  # -- block events (wave 53C) -- Contract: "it gets +2/+0 … if …. Otherwise, its controller loses 2 life": the "it" of the
+                    body = re.sub(r"\bOtherwise, its controller\b", "Otherwise, enchanted creature's controller", body)  # event is the host, whose controller is read once (effects._players)
                 aura_card = cond is not None and cond.get("subject") == "host" and cond["event"] in _GONE \
                     and re.search(r"\bthis card\b", body) is not None
                 if aura_card:

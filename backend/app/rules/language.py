@@ -81,6 +81,7 @@ PLAYER_GROUPS["the exiled card's owner"] = "it.owner"  # -- resolution memory (w
 # controller" (Assembled Alphas): the creature on the other side of the block (509.3c-d; the trigger event's ``other``)
 OTHER_SIDE = "the creature on the other side of the block"
 PLAYER_GROUPS[OTHER_SIDE + "'s controller"] = "ref:event_other.controller"
+PLAYER_GROUPS.update({"enchanted creature's controller": "host_controller", "enchanted permanent's controller": "host_controller"})  # -- block events (wave 53C) -- the controller of what the source Aura enchants, fixed when first read (effects._players)
 # -- end damage wordings (wave 6B) --
 PLAYER_PHRASES = "|".join(sorted(PLAYER_GROUPS, key=len, reverse=True))
 
