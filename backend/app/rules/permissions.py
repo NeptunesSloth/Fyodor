@@ -1215,7 +1215,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue
         zone_ok = p.object_id is not None or p.zone != "any"  # (a flash-only permission grants no zone)
         out.append(Grant("permission", p.label, zone_ok=zone_ok, free=p.free, flash=p.flash, permission=p.id, spend=p.spend,
-                         sorcery=p.sorcery, alt_mana=p.alt_mana,
+                         sorcery=p.sorcery, alt_mana=p.alt_mana, enters=p.enters,  # (wave 51D: "If you do, it enters tapped", Jorn)
                          exile_gy=p.exile_gy if not p.exile_own or card.owner == player else ""))  # (wave 25C)
     if verb == "cast" and where in ("graveyard", "exile") and card.owner == player and not card.face_down:
         for index, d in _definitions(ch).items():  # the card's own ability, functioning in the graveyard (113.6) / exile (wave 20D)
@@ -1616,7 +1616,7 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             r.permissions.append(Permission(id=secrets.token_hex(4), player=holder, play=e["play"], cast=e["cast"], zone="any",
                                             object_id=plan.oid(card), card=cid, until=e["until"], turn=turn, free=bool(e.get("free")), spend=e.get("spend", ""),
                                             filter=e.get("filter"),  # (-- free cast (wave 40D) -- "noncreature spells from among those cards")
-                                            exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")),  # (wave 25C)
+                                            exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")), enters=e.get("enters"),  # (wave 25C; wave 51D: enters)
                                             source=ctx.get("source_object"), group=group, left=int(e.get("limit") or 0),
                                             label=f"{ctx.get('name') or 'An effect'}: {verb} it {when}" + (" without paying its mana cost" if e.get("free") else "")))
             plan.note(f"{plan.name(holder)} may {verb} {card.name} {when}", [cid])

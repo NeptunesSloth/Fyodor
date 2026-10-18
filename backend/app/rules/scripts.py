@@ -3410,6 +3410,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects[-1] = {**effects[-1], "exile_gy": "is" if exile_gy["is"] else True,  # -- refused look/cast-free (wave 3R5) -- 614.1a, on the spell cast
                            **({"exile_own": True} if exile_gy["g"] == "your" else {})}
             continue
+        if text == "if you do, it enters tapped" and effects and effects[-1]["do"] == "grant_play" and str(effects[-1].get("who")).startswith("target"):
+            effects[-1] = {**effects[-1], "enters": {"tapped": True}}  # -- if you do (wave 51D) -- 614.1d, on the land played / the permanent spell cast with the permission (Jorn); the rest of the sentence before is the permission's own choice
+            continue
         if (exile_gy := _FREE_EXILE_GY.fullmatch(text)) and effects and effects[-1]["do"] == "grant_play" and effects[-1].get("cast"):
             effects[-1] = {**effects[-1], "exile_gy": "is" if exile_gy["is"] else "all",  # -- if you do (wave 25C) -- 614.1a: on the spell cast with the permission
                            **({"exile_own": True} if exile_gy["g"] == "your" else {})}
