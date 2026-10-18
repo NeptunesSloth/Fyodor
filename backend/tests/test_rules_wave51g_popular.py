@@ -22,7 +22,7 @@ from tests.test_rules_wave34b_activated import activate, attack, next_turn, sett
 from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, reloaded, to_hand, zone_of
 from tests.wave51g_kit import open_repo
 
-NAMES = ["Heartwood Storyteller", "Standstill", "Rot Hulk", "Slash the Ranks", "Elspeth Tirel", "Engulf the Shore", "Sorin Markov", "Ensnaring Bridge",
+NAMES = ["Heartwood Storyteller", "Standstill", "Stranglehold", "Faebloom Trick", "Repay in Kind", "Well of Ideas", "Smallpox", "Death Cloud", "Multiclass Baldric", "Scion of Draco", "Mind into Matter", "Rot Hulk", "Slash the Ranks", "Elspeth Tirel", "Engulf the Shore", "Sorin Markov", "Ensnaring Bridge",
          "Nightmare Unmaking", "Rampant Frogantua", "Shadow of Mortality", "Brood Sliver", "Prophet of the Scarab", "Preacher of the Schism"]
 
 
@@ -422,3 +422,61 @@ def test_mind_into_matter_puts_a_permanent_with_mana_value_x_or_less_from_your_h
     settle(s)
     assert zone_of(s, "Grizzly Bears") == "p1:battlefield" and zone_of(s, "Twisted Abomination") == "p1:hand" and s.state.cards[bears.id].tapped
     check(s)
+
+
+# ---- Stranglehold ----------------------------------------------------------------------------------------------------------------------------------
+def test_stranglehold_skips_an_opponent_s_extra_turn(cards):
+    s = build(cards, ["Stranglehold"], ["Time Warp"], forests=30, islands=30)
+    put(s, "Stranglehold")
+    to_phase(s, "main1", turn=2)
+    mana(s, "p2", U=5)
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Time Warp", "p2").id, targets=["p2"])
+    settle(s)
+    to_phase(s, "main1", turn=3)
+    assert s.state.turn.active_player == "p1"  # Bob's extra turn would have been turn 3
+    check(s)
+    assert reloaded(s).state.turn.active_player == "p1"
+
+
+def test_stranglehold_leaves_your_own_extra_turn_alone(cards):
+    s = build(cards, ["Stranglehold", "Time Warp"], forests=30, islands=30)
+    put(s, "Stranglehold")
+    mana(s, "p1", U=2, G=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Time Warp").id, targets=["p1"])
+    settle(s)
+    to_phase(s, "main1", turn=2)
+    assert s.state.turn.active_player == "p1"  # Alice's extra turn
+    check(s)
+
+
+# ---- Faebloom Trick, Repay in Kind -----------------------------------------------------------------------------------------------------------------
+def test_faebloom_trick_taps_a_creature_chosen_when_the_reflexive_ability_goes_on_the_stack(cards):
+    s = build(cards, ["Faebloom Trick"], ["Grizzly Bears"])
+    bears = put(s, "Grizzly Bears", "p2")
+    mana(s, "p1", U=1, G=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Faebloom Trick").id)  # no target at the time it is cast
+    settle(s)
+    assert len(tokens(s, "p1", "Faerie")) == 2 and s.state.cards[bears.id].tapped
+    check(s)
+    assert s.state.cards[bears.id].tapped and len(tokens(reloaded(s), "p1", "Faerie")) == 2
+
+
+def test_faebloom_trick_still_makes_the_faeries_when_there_is_nothing_to_tap(cards):
+    s = build(cards, ["Faebloom Trick"])
+    mana(s, "p1", U=1, G=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Faebloom Trick").id)
+    settle(s)
+    assert len(tokens(s, "p1", "Faerie")) == 2
+    check(s)
+
+
+def test_repay_in_kind_brings_every_life_total_down_to_the_lowest(cards):
+    s = build(cards, ["Repay in Kind"])
+    act(s, "p1", type="set_life", player="p1", value=12)
+    act(s, "p1", type="set_life", player="p2", value=30)
+    mana(s, "p1", B=2, G=5)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Repay in Kind").id)
+    settle(s)
+    assert (life(s, "p1"), life(s, "p2")) == (12, 12)
+    check(s)
+    assert life(reloaded(s), "p2") == 12

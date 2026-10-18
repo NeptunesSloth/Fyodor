@@ -7,7 +7,7 @@ A value is an int (a literal) or a dict:
 * ``{"x": 1}`` — the X the spell or ability was cast / activated with (107.3);
 * ``{"count": "<selector key>"}`` — the number of objects (or players) matching a selector;
 * ``{"hand": "you" | "target" | "opponent_max"}`` — the number of cards in a player's hand (opponent_max, wave 42A: the largest hand among your opponents);
-* ``{"opponents": 1}`` — the number of opponents still in the game; ``{"players_lost": 1}`` — the players who have lost the game, ``{"below_start": 1}`` — how far your life total is below the starting one, ``{"greater": [a, b]}`` — the larger of two values (wave 51G);
+* ``{"opponents": 1}`` — the number of opponents still in the game; ``{"players_lost": 1}`` — the players who have lost the game, ``{"lowest_life": 1}`` — the lowest life total among the players, ``{"below_start": 1}`` — how far your life total is below the starting one, ``{"greater": [a, b]}`` — the larger of two values (wave 51G);
 * ``{"power": "self" | "target" | "it" | "event" | "ref:<b>"}`` / ``{"toughness": …}`` /
   ``{"mana_value": …}`` — of an object (as it is, or as it last existed: 608.2h);
 * ``{"counters": kind | None, "on": "self" | "target" | …}`` — counters of a kind (None: of all
@@ -802,6 +802,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sum(len(plan.state.zones.get(f"{p}:library", [])) for p in players if p in plan.live())
     if "opponents" in v:
         return sum(1 for p in plan.live() if p != you)
+    if "lowest_life" in v:  # -- most-played cards IV (wave 51G) -- the lowest life total among the players still in the game (Repay in Kind)
+        return min(plan.state.players[p].life for p in plan.live())
     if "below_start" in v:  # -- most-played cards IV (wave 51G) -- "the difference" between the starting life total and a lower life total (119.1, 903.7), Shadow of Mortality
         return max(0, plan.state.settings.starting_life - plan.state.players[you].life)
     if "players_lost" in v:  # (wave 51G)

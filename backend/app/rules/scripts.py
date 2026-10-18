@@ -7821,7 +7821,7 @@ def _reflex_sacrificed(rest: str, it: str | None) -> dict[str, Any] | None:
 def _makes_one_token(e: dict[str, Any]) -> bool:
     """The creation of one token for its controller ("Create a 2/1 … token."): not several (whether "When you do" triggers once for them or once
     for each is not settled by the rulings: Faebloom Trick says once, Ajani's says once for each token a Doubling Season makes)."""
-    return e["do"] == "create_token" and e.get("n") == 1 and e.get("who") == "you" and not e.get("more") and not e.get("per_controller")
+    return e["do"] == "create_token" and isinstance(e.get("n"), int) and e["n"] >= 1 and e.get("who") == "you" and not e.get("more") and not e.get("per_controller")  # (wave 51G: several, Faebloom Trick)
 
 
 def _reflex_created(rest: str, made: dict[str, Any]) -> dict[str, Any] | None:
@@ -7835,8 +7835,12 @@ def _reflex_created(rest: str, made: dict[str, Any]) -> dict[str, Any] | None:
     parsed = parse_effects(body[:1].upper() + body[1:], "event")
     if parsed is None or not parsed[0] or "event_amount" in json.dumps(parsed, default=str):
         return None  # ("that many" of one token each: nothing to count)
+    many = made["n"] != 1  # -- most-played cards IV (wave 51G) -- "Create two 1/1 blue Faerie creature tokens with flying. When you do, tap target creature an opponent controls." (Faebloom Trick, ruling 2024-11-08): it
+    # triggers once when the tokens are created, not for each; "it" / "that token" would be which of them, so B names none
+    if many and re.search(r'"(?:ref:|event)|"it"', json.dumps(parsed, default=str)):
+        return None
     named = {"named": made["token"]["name"]}  # (only the tokens this instruction asked for: Chatterfang's extra Squirrels aren't "this way", the Ajani ruling)
-    return {"do": "reflexive", "cond": {"value": {"this_way": "created", "of": None, **named}, "op": ">=", "n": 1}, "lki": "cond_ref", "each": True,
+    return {"do": "reflexive", "cond": {"value": {"this_way": "created", "of": None, **named}, "op": ">=", "n": 1}, "lki": "cond_ref", "each": not many,
             "ability": {"kind": "triggered", "trigger": "reflexive", "effects": parsed[0], "optional": parsed[2], **target_fields(parsed[1])}}
 
 

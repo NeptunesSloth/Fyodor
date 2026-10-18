@@ -94,7 +94,7 @@ def take(plan: Plan) -> str | None:
         pid = str(rec["player"])
         if pid not in plan.live():
             continue
-        label = skips.take(plan, pid, "turn")
+        label = skips.take(plan, pid, "turn") or skips._static(plan, pid, "extra_turn")  # (wave 51G: a permanent that skips extra turns, 614.10)
         if label is not None:
             plan.note(f"{plan.name(pid)} skips their extra turn ({label}, 614.10)", actor=plan.active)
             continue

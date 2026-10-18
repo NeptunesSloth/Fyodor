@@ -1641,6 +1641,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["s"] == "your":
             return [{"do": "set_life", "who": "you", "n": n}], None
         return [{"do": "set_life", "who": "target", "n": n}], _one(target_group("up to one target player")) if m["s"].startswith("up") else _LEGACY_TARGETS[m["s"][:-2]]
+    # -- most-played cards IV (wave 51G) -- 119.5: "Each player's life total becomes the lowest life total among all players." (Repay in Kind): each higher total loses the difference
+    if rider is None and text == "each player's life total becomes the lowest life total among all players":
+        return [{"do": "set_life", "who": "each_player", "n": {"lowest_life": 1}}], None
     # -- most-played cards II (wave 45A) -- 701.10d: "Double target player's life total." (Beacon of Immortality), "Double your life total." (Revenge): the player
     # gains or loses what it takes to reach twice the total (119.5, effects.set_life: gain and loss events, so their triggers and replacements apply)
     m = re.fullmatch(r"double (?P<s>target player's|your) life total", text)
