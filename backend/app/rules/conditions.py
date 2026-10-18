@@ -1709,6 +1709,8 @@ def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
     card = plan.state.cards.get(ctx.get("source_card") or "")
     if test == "in_graveyard":  # -- graveyard triggers (wave 19C) -- 400.7: a card that left is a new object, which isn't there
         return card is not None and card.zone == f"{card.owner}:graveyard" and plan.oid(card) == ctx.get("source_object")
+    if test == "solved":  # -- Case (wave 51C) -- 719.3b: the designation is the permanent's "Solved" choice, gone when it leaves the battlefield (400.7)
+        return card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object") and "Solved" in card.choices
     if test == "in_command":  # -- trailing & intervening ifs (wave 38A) -- still that object, in the command zone (400.7): a commander cast in response is a new object
         return card is not None and card.zone.endswith(":command") and plan.oid(card) == ctx.get("source_object")
     if test == "command_or_battlefield":  # -- trigger other (wave 25B) -- eminence: 113.6b, the zones the ability names (still that object, 400.7)

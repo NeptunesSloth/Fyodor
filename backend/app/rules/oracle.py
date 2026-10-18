@@ -188,7 +188,7 @@ def word_prefix(line: str) -> tuple[str, str] | None:
     word = m["w"].lower().replace("’", "'")
     from app.rules.scripts import ABILITY_WORDS  # (scripts imports this module at load time)
 
-    if word in ABILITY_WORDS:
+    if word in ABILITY_WORDS or word == "solved":  # -- Case (wave 51C) -- 719.3c: "Solved — [ability]" is that ability, which works only while the Case is solved (characteristics.of drops it otherwise)
         return m["w"], m["rest"]
     kw = keyword_name(m["w"])
     # (-- long tail (wave 16D) -- a flavor word that merely starts with a keyword's name, "Toxic Spores —", is still a flavor word)

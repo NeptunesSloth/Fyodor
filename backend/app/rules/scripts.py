@@ -4739,6 +4739,16 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     )
 
     text = self_text(merged.protect(ability.text), ch.name)
+    # -- Case (wave 51C) -- 719.3a: "To solve — [Condition]" means "At the beginning of your end step, if [condition] and this Case is not solved, this Case becomes solved."
+    if (solve := re.fullmatch(r"To solve — (?P<c>.+?)\.(?: \(If unsolved, solve at the beginning of your end step\.\))?", text)) is not None:
+        from app.rules import conditions as _conditions
+
+        cond = _conditions.parse(solve["c"][:1].lower() + solve["c"][1:])
+        if cond is None:
+            return None
+        gate = {"all": [cond, {"object": "self", "test": "solved", "negate": True}]}
+        return {"kind": "triggered", "trigger": "end_step_you", "if": gate, "optional": False, "target": None,
+                "effects": [{"do": "only_if", "cond": gate, "skip": 1}, {"do": "become_solved"}]}
     # -- token copies (wave 31C) -- a plural name's own "they" / "them" (The Notary Hobbits: "When ~ enter, if they're not a token, create two tokens that are copies of them")
     text = re.sub(r"^(When ~ enter, if )they're( not a token, create [^.]+? cop(?:y|ies) of )them\b", r"\1it's\2it", text)
     # -- counters (wave 41A) -- a plural name's own "them" after its own event ("Whenever Tui and La become untapped, put a +1/+1 counter on them."): the one object

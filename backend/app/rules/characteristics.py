@@ -390,6 +390,15 @@ def as_cast(card: CardInstance, info: CardInfo, face: int | None, fused: bool = 
 
 def of(card: CardInstance, info: CardInfo) -> Characteristics:
     """Current characteristics of a card instance (printed layer; see module docstring)."""
+    ch = _of_kept(card, info)
+    if "Case" in ch.subtypes and card.zone.endswith(":battlefield") and "Solved" not in card.choices:  # -- Case (wave 51C) -- 719.3c: "Solved — [ability]" works only while it is solved (719.3b, the designation is not copiable)
+        kept = tuple(a for a in ch.abilities if not a.text.startswith("Solved — "))
+        if len(kept) != len(ch.abilities):
+            return replace(ch, abilities=kept)
+    return ch
+
+
+def _of_kept(card: CardInstance, info: CardInfo) -> Characteristics:
     sc = read_pass.for_info(info)
     if sc is not None and sc.state.cards.get(card.id) is card:  # -- hints speed (wave 29A) -- a card of the table a read-only pass is over: looked up once
         kept = sc.printed.get(id(card))

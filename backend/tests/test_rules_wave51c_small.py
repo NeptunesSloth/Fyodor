@@ -42,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant", "Zenith Chronicler", "Court of Ambition", "Fatal Push"])
+@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant", "Zenith Chronicler", "Court of Ambition", "Fatal Push", "Case of the Ransacked Lab", "Case of the Locked Hothouse", "Case of the Shifting Visage"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -568,4 +568,71 @@ def test_fatal_push_mana_value_two_or_four_with_revolt(cards, revolt, target, di
     act(s, "p1", type="cast_spell", card_id=push.id, targets=[victim.id])
     settle(s)
     assert (s.state.cards[victim.id].zone == "p2:graveyard") is dies
+    check(s)
+
+
+# -- Cases (719) ---------------------------------------------------------------------------------------------------------------------------------
+def solved(s, name):
+    return "Solved" in s.state.cards[card_named(s, name).id].choices
+
+
+@pytest.mark.parametrize("spells,is_solved", [(4, True), (3, False)])
+def test_case_of_the_ransacked_lab_solves_at_the_end_step_with_four_instants_or_sorceries(cards, spells, is_solved):
+    """719.3a: "To solve - You've cast four or more instant and sorcery spells this turn": at the beginning of your end step, if that holds and it is not solved, it becomes solved."""
+    s = build(cards, ["Case of the Ransacked Lab", "Lightning Bolt", "Opt", "Seething Song", "Swords to Plowshares"], ["Llanowar Elves"])
+    put(s, "Case of the Ransacked Lab")
+    elves = put(s, "Llanowar Elves", "p2")
+    mana(s, R=3, U=1, W=1, C=1)
+    casts = [("Lightning Bolt", {"targets": ["p2"]}), ("Opt", {}), ("Seething Song", {}), ("Swords to Plowshares", {"targets": [elves.id]})]
+    for name, kw in casts[:spells]:
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, name).id, **kw)
+        settle(s)
+    assert not solved(s, "Case of the Ransacked Lab")
+    stops(s)
+    to_phase(s, "end")
+    settle(s)
+    assert solved(s, "Case of the Ransacked Lab") is is_solved
+    check(s)
+
+
+@pytest.mark.parametrize("is_solved,draws", [(False, 0), (True, 1)])
+def test_case_solved_ability_works_only_while_solved(cards, is_solved, draws):
+    """719.3c: "Solved - Whenever you cast an instant or sorcery spell, draw a card." triggers only if the Case has the solved designation."""
+    s = build(cards, ["Case of the Ransacked Lab", "Lightning Bolt"], forests=20)
+    case = put(s, "Case of the Ransacked Lab")
+    if is_solved:
+        act(s, "p1", type="set_choice", card_id=case.id, key="Solved", value="Yes")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=["p2"])
+    settle(s)
+    assert len(s.state.zones["p1:hand"]) == draws
+    check(s)
+
+
+@pytest.mark.parametrize("is_solved", [True, False])
+def test_case_of_the_locked_hothouse_plays_from_the_top_of_the_library_once_solved(cards, is_solved):
+    s = build(cards, ["Case of the Locked Hothouse"], forests=20)
+    case = put(s, "Case of the Locked Hothouse")
+    if is_solved:
+        act(s, "p1", type="set_choice", card_id=case.id, key="Solved", value="Yes")
+    top = s.state.zones["p1:library"][0]
+    assert s.state.cards[top].name == "Forest"
+    if is_solved:
+        act(s, "p1", type="play_land", card_id=top)  # (719.3c: the Solved ability gives the permission to play lands from the top)
+        assert s.state.cards[top].zone == "p1:battlefield"
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="play_land", card_id=top)
+    check(s)
+
+
+def test_case_of_the_locked_hothouse_is_solved_with_seven_lands(cards):
+    s = build(cards, ["Case of the Locked Hothouse"], forests=20)
+    case = put(s, "Case of the Locked Hothouse")
+    lands = [c.id for c in s.state.cards.values() if c.zone == "p1:library" and c.name == "Forest"][:7]
+    act(s, "p1", type="move", card_ids=lands, to={"player": "p1", "zone": "battlefield"})
+    stops(s)
+    to_phase(s, "end")
+    settle(s)
+    assert "Solved" in s.state.cards[case.id].choices
     check(s)
