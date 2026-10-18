@@ -2939,6 +2939,11 @@ def _that_players_hand(found: tuple[list[dict[str, Any]], Any, bool] | None) -> 
     elif found[1] is None and (marked or relative in text) and (any(e.get("who") == "event_player" for e in found[0]) or all(
             e.get("who", "you") == "you" for e in found[0] if marker in json.dumps(e) or library in json.dumps(e) or relative in json.dumps(e))):
         bound = "event"  # -- value grammar (wave 30N) -- ... or you: "you gain 1 life for each artifact that player controls" (the trigger's player; _event_refs_ok checks it has one)
+    elif relative in text and not marked and found[1] is None and all(
+            e.get("do") == "damage" and e.get("who") == "defending_player" for e in found[0] if relative in json.dumps(e)):
+        # -- damage sized by a count (wave 51C) -- "deals damage to defending player equal to the number of artifacts they control" (Generous Plunderer): the one defending player is the
+        # recipient whose own count it is (the per-recipient amount of wave 4E, for one player)
+        return _per_recipient(found[0]), found[1], found[2]
     else:
         return None if marked or relative in text else found
     effects = json.loads(text.replace(marker, '{"hand": "' + bound + '"}').replace(library, '{"library": "' + bound + '"}').replace(relative, f'"for_player": "{bound}"'))
@@ -2968,6 +2973,16 @@ def _value_targets(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tupl
         renumbered = _renumber(json.loads(text.replace(f'"for_player": "target_{who}"', '"for_player": "target:0"')), list(range(1, len(groups) + 1)))
         return renumbered, [{"what": who, "min": 1, "max": 1}, *groups], found[2]
     return json.loads(text.replace(f'"for_player": "target_{who}"', '"for_player": "target"')), who, found[2]
+
+
+def _per_recipient(v: Any) -> Any:
+    if isinstance(v, list):
+        return [_per_recipient(x) for x in v]
+    if not isinstance(v, dict):
+        return v
+    if v.get("for_player") == "that_player" and "of" in v:
+        return {"per_player": v["of"]}
+    return {k: _per_recipient(x) for k, x in v.items()}
 
 
 def _own_counts(v: Any) -> Any:

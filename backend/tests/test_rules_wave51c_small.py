@@ -25,7 +25,7 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import pick, until_asked
 from tests.test_rules_wave34b_activated import attack, next_turn, stops, to_phase
-from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand, zone_of
+from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave51c_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
@@ -42,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno"])
+@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -375,4 +375,37 @@ def test_collective_inferno_doubles_damage_of_the_chosen_type(cards, chosen, dea
     attack(s, bears, elves)
     to_phase(s, "main2")
     assert life(s, "p2") == 40 - dealt
+    check(s)
+
+
+# -- Loading Zone ------------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("target_pid,counters", [("p1", 2), ("p2", 1)])
+def test_loading_zone_doubles_counters_on_your_creatures_only(cards, target_pid, counters):
+    s = build(cards, ["Loading Zone", "Battlegrowth", "Grizzly Bears"], ["Grizzly Bears"])
+    put(s, "Loading Zone")
+    bears = put(s, "Grizzly Bears", target_pid)
+    spell = to_hand(s, "Battlegrowth")
+    mana(s, G=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears.id])
+    settle(s)
+    assert s.state.cards[bears.id].counters.get("+1/+1", 0) == counters
+    check(s)
+
+
+# -- Generous Plunderer ------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("artifacts", [0, 2])
+def test_generous_plunderer_hits_defending_player_for_their_artifacts(cards, artifacts):
+    """"it deals damage to defending player equal to the number of artifacts they control": the count is Bob's, read as the trigger resolves (his Treasure from the upkeep trigger counts)."""
+    s = build(cards, ["Generous Plunderer"], ["Sol Ring", "Arcane Signet"])
+    plunderer = put(s, "Generous Plunderer")
+    for name in ("Sol Ring", "Arcane Signet")[:artifacts]:
+        put(s, name, "p2")
+    next_turn(s)  # (the upkeep trigger is answered with its first option)
+    stops(s)
+    attack(s, plunderer)
+    mine = sum(1 for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Treasure")
+    theirs = sum(1 for c in s.state.cards.values() if c.zone == "p2:battlefield" and c.name in ("Sol Ring", "Arcane Signet", "Treasure"))
+    assert theirs >= artifacts and mine in (0, 1)
+    to_phase(s, "main2")
+    assert life(s, "p2") == 40 - theirs - pt(s, "Generous Plunderer")[0]  # (the trigger's damage, then its combat damage)
     check(s)
