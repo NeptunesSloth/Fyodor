@@ -879,5 +879,16 @@
    "W"
   ],
   "keywords": []
+ },
+ {
+  "name": "Phyrexian Portal",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "{3}: If your library has ten or more cards in it, target opponent looks at the top ten cards of your library and separates them into two face-down piles. Exile one of those piles. Search the other pile for a card, put it into your hand, then shuffle the rest of that pile into your library.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
  }
 ]

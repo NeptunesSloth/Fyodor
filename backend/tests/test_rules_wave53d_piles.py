@@ -635,3 +635,52 @@ def test_brilliant_ultimatum_an_opponent_separates_the_exiled_cards_and_you_play
     assert names_on(s, "p1") == ["Forest", "Grizzly Bears"]
     assert sorted(s.state.cards[c].name for c in s.state.zones["p1:exile"]) == ["Forest", "Lightning Bolt", "Mulldrifter"]  # the rest stays exiled
     check(s)
+
+
+# -- the opponent separates the top ten cards of your library, nobody else looks (wave 53D; 701.20e, 700.3) ------------------------
+PORTAL = "Phyrexian Portal"
+TEN = ["Llanowar Elves", "Grizzly Bears", "Young Wolf", "Dregscape Zombie", "Mulldrifter", "Elvish Visionary", "Soul Warden", "Lightning Bolt", "Perilous Myr", "Gravel Slinger"]
+
+
+def test_phyrexian_portal_is_full(cards):
+    assert coverage.of_card_data(cards.resolve(PORTAL)).level == "FULL"
+
+
+def test_phyrexian_portal_the_opponent_looks_and_separates_you_exile_a_pile_unseen_and_search_the_other(cards):
+    s = table(cards, [PORTAL, *TEN], players=2)
+    portal = put(s, PORTAL)
+    stack_top(s, TEN)
+    lib = len(s.state.zones["p1:library"])
+    mana(s, "p1", C=3)
+    act(s, "p1", type="activate_ability", card_id=portal.id, ability=0, targets=["p2"])
+    resolve(s)
+    d = s.state.rules.decision  # Bob looks at the top ten cards of Alice's library and separates them
+    assert d.player == "p2" and sorted(o.label for o in d.options) == sorted(TEN)
+    assert not any(n in json.dumps(s.view("p1")) for n in TEN)  # Alice looks at nothing
+    split(s, "p2", ["Llanowar Elves", "Grizzly Bears", "Young Wolf", "Dregscape Zombie"])
+    d = s.state.rules.decision  # she chooses a pile to exile, unseen: a number of face-down cards each
+    assert d.player == "p1" and [o.label for o in d.options] == ["Pile 1: 4 cards, face down", "Pile 2: 6 cards, face down"]
+    assert not any(n in json.dumps(s.view("p1")) for n in TEN) and not any(n in log(s, "p1") for n in TEN)
+    pile(s, "p1", 1)  # exile the four; search the six
+    assert sorted(s.state.cards[c].name for c in s.state.zones["p1:exile"]) == sorted(TEN[:4])  # (face up in exile: public)
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.kind == "choose_cards" and sorted(o.label for o in d.options) == sorted(TEN[4:])  # she looks at the other pile now
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "Mulldrifter")])
+    resolve(s)
+    assert [s.state.cards[c].name for c in s.state.zones["p1:hand"]] == ["Mulldrifter"]
+    assert len(s.state.zones["p1:library"]) == lib - 5  # four exiled, one in her hand; the other five were shuffled into the library
+    spectator = json.dumps(s.view("__spectator__"))
+    assert all(n in spectator for n in TEN[:4]) and not any(n in spectator for n in TEN[4:])  # the exiled pile is public now; the searched pile and the card taken are not
+    assert "shuffled their library" in log(s, "p2")
+    check(s)
+
+
+def test_phyrexian_portal_does_nothing_with_fewer_than_ten_cards_in_the_library(cards):
+    s = table(cards, [PORTAL, *TEN[:3]], players=2, forests=3)
+    portal = put(s, PORTAL)
+    assert len(s.state.zones["p1:library"]) == 6
+    mana(s, "p1", C=3)
+    act(s, "p1", type="activate_ability", card_id=portal.id, ability=0, targets=["p2"])
+    resolve(s)
+    assert s.state.rules.decision is None and len(s.state.zones["p1:library"]) == 6 and not s.state.zones["p1:exile"]
+    check(s)

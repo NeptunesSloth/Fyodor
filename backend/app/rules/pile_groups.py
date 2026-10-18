@@ -94,6 +94,8 @@ def bind(body: str, parse: Any, split_sentences: Any) -> Found | None:
     first = sentences[0]
     if first in (_TOYMAKER[0], _TOYMAKER_END):
         return _toymaker(sentences, parse)
+    if tuple(sentences) == _PORTAL:
+        return _portal()
     if tuple(sentences) == _ULTIMATUM:
         return _ultimatum(parse)
     if (sp := _SEARCH_PILE.match(first)) is not None and sentences[1:] == ["Then shuffle your library."]:
@@ -132,6 +134,22 @@ def _down_piles(sentences: list[str], parse: Any) -> Found | None:
                 {"do": "pile_deal", "src": "made", **made, "split": "you", "pick": "opponent", "n": 2, "chosen": "graveyard", "other": "look", "say": "cards", "as": "po"},
                 free, rest], None, False
     return None
+
+
+_PORTAL = ("If your library has ten or more cards in it, target opponent looks at the top ten cards of your library and separates them into two face-down piles.",
+           "Exile one of those piles.", "Search the other pile for a card, put it into your hand, then shuffle the rest of that pile into your library.")
+
+
+def _portal() -> Found | None:
+    """Phyrexian Portal: with ten cards in the library the target opponent looks at the top ten and separates them into two face-down piles (nobody else sees them); you choose
+    one pile to exile, search the other for a card for your hand, and the rest of it is shuffled into the library."""
+    from app.rules import conditions
+
+    cond = conditions.parse("there are ten or more cards in your library")
+    if cond is None:
+        return None
+    return [{"do": "only_if", "cond": cond, "skip": 1},
+            {"do": "pile_deal", "src": "top", "top": 10, "look": True, "split": "target", "pick": "you", "n": 2, "chosen": "exile", "other": "search_hand", "say": "cards"}], "opponent", False
 
 
 _ULTIMATUM = ("Exile the top five cards of your library.", "An opponent separates those cards into two piles.", "You may play lands and cast spells from one of those piles.",
@@ -282,6 +300,10 @@ def _group_cards(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[dict[str, 
                  "down": [m["down"] for m in made]}]
     if e.get("src") == "looked":
         return [{"owner": me, "cards": _looked(plan, ctx)[1], "piles": []}]
+    if e.get("src") == "top":  # the top cards of your library, grouped where they are (700.3a): the splitter looks at them (``look``), nobody else does
+        from app.rules.effects import _library
+
+        return [{"owner": me, "cards": _library(plan, me)[: int(e["top"])], "piles": []}]
     if e.get("src"):
         return [{"owner": me, "cards": context.objects(plan, ctx, e["src"][len(context.PREFIX):]), "piles": []}]
     owners = [p for p in plan.apnap() if p in _players(plan, ctx, e["who"])]
@@ -340,6 +362,7 @@ def _opponent(plan: Plan, ctx: Context, e: dict[str, Any]) -> str | None:
 
 
 def _run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules.effects import _players
     from app.rules.plan import decide
 
     st = ctx["pile"]
@@ -351,9 +374,12 @@ def _run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if not cards or len(grp["piles"]) >= n:  # (nothing to separate, or the piles were made already)
             st["g"] += 1
             continue
-        split_by = ctx["controller"] if e["split"] == "you" else grp["owner"] if e["split"] == "owner" else _opponent(plan, ctx, e)
+        split_by = ctx["controller"] if e["split"] == "you" else grp["owner"] if e["split"] == "owner" else \
+            (_players(plan, ctx, "target") or [""])[0] if e["split"] == "target" else _opponent(plan, ctx, e)
         if split_by is None:
             return False  # (waiting for which opponent separates)
+        if e.get("look") and split_by in plan.live():  # "looks at the top ten cards" (701.20e): shown to the one who separates them alone
+            plan.do({"type": "reveal", "card_ids": cards, "to": [split_by]}, actor=split_by)
         placed = [c for p in grp["piles"] for c in p]
         rest = [c for c in cards if c not in placed]
         if split_by not in plan.live():  # (the separator left the game: 800.4a, everything in the first pile)
@@ -481,6 +507,12 @@ def _steps(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                    options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in cards],
                    min_choices=1, max_choices=1, resume={"step": "pile_card", "ctx": ctx, "e": e, "cards": cards, "rest": [], "picked": []})
             return False
+        if op == "search_hand":  # "Search the other pile for a card, put it into your hand, then shuffle the rest of that pile into your library": the controller looks at the pile
+            plan.do({"type": "reveal", "card_ids": cards, "to": [ctx["controller"]]}, actor=ctx["controller"])
+            decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{ctx.get('name') or 'Piles'}: search the pile for a card to put into your hand",
+                   options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in cards], min_choices=1, max_choices=1,
+                   resume={"step": "pile_card", "ctx": ctx, "e": e, "cards": cards, "shuffle": True, "rest": [], "picked": []})
+            return False
         if op == "bottom":  # always the last step: the order is the controller's private choice (401.4), then the resolution goes on
             del ctx["pile"]
             return _bottom(plan, ctx, cards)
@@ -497,7 +529,11 @@ def resume_card(plan: Plan, d: Any, chosen: list[str]) -> None:
     cards = [c for c in d.resume["cards"] if c in plan.state.cards]
     picked = [c for c in cards if c in chosen] or cards[:1]  # (the chooser left the game: the first)
     _do(plan, ctx, e, "hand", picked, False)
-    if st["steps"]:
+    if d.resume.get("shuffle"):  # a search: the rest of the pile (still in the library) is shuffled into it
+        if len(cards) > len(picked):
+            owner = plan.state.cards[cards[0]].owner
+            plan.do({"type": "shuffle", "player": owner, "zone": "library"}, actor=ctx["controller"])
+    elif st["steps"]:
         st["steps"][0][1] = [*st["steps"][0][1], *(c for c in cards if c not in picked)]
     if _steps(plan, ctx, e):
         continue_effects(plan, ctx)
