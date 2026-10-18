@@ -1,0 +1,121 @@
+[
+ {
+  "name": "Satoru, the Infiltrator",
+  "layout": "normal",
+  "mana_cost": "{U}{B}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Ninja Rogue",
+  "oracle_text": "Menace\nWhenever Satoru and/or one or more other nontoken creatures you control enter, if none of them were cast or no mana was spent to cast them, draw a card.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Menace"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Dose of Dawnglow",
+  "layout": "normal",
+  "mana_cost": "{4}{B}",
+  "cmc": 5.0,
+  "type_line": "Instant",
+  "oracle_text": "Return target creature card from your graveyard to the battlefield. Then if it isn't your main phase, blight 2. (Put two -1/-1 counters on a creature you control.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Blight"
+  ]
+ },
+ {
+  "name": "Neyali, Suns' Vanguard",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Rebel",
+  "oracle_text": "Attacking tokens you control have double strike.\nWhenever one or more tokens you control attack a player, exile the top card of your library. During any turn you attacked with a token, you may play that card.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Goblin Researcher",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Goblin Wizard",
+  "oracle_text": "When this creature enters, exile the top card of your library. During any turn you attacked with this creature, you may play that card.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Boros Strike-Captain",
+  "layout": "normal",
+  "mana_cost": "{1}{R/W}{R/W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Minotaur Soldier",
+  "oracle_text": "Battalion — Whenever this creature and at least two other creatures attack, exile the top card of your library. During any turn you attacked with three or more creatures, you may play that card.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Battalion"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Neriv, Crackling Vanguard",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{W}{B}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Spirit Dragon",
+  "oracle_text": "Flying, deathtouch\nWhen Neriv enters, create two 1/1 red Goblin creature tokens.\nWhenever Neriv attacks, exile a number of cards from the top of your library equal to the number of differently named tokens you control. During any turn you attacked with a commander, you may play those cards.",
+  "colors": [
+   "B",
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Deathtouch",
+   "Flying"
+  ],
+  "power": "4",
+  "toughness": "4"
+ }
+]

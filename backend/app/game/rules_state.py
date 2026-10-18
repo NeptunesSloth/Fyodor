@@ -448,6 +448,9 @@ class Entry(BaseModel):
     # -- history (wave 22E) -- the zone it entered from (a zone key, "<owner>:graveyard" / "<owner>:stack" …): "enters from your
     # graveyard", "if it entered from a graveyard" (603.2, 603.4); None: from nowhere (created) or an older save
     from_zone: str | None = Field(default=None, max_length=40)
+    # -- trigger other (wave 51E) -- the object whose effect put it onto the battlefield (Kodama of the East Tree: "if it wasn't put onto the battlefield with
+    # this ability"); None: nobody's, or an older save
+    via: str | None = Field(default=None, max_length=80)
 # -- end refused modal/conditional (wave 3R1) --
 
 
@@ -902,6 +905,9 @@ class Permission(BaseModel):
     # of them may be used (consume ends the others when the last is)
     group: str = ""
     left: int = 0
+    # -- trigger other (wave 51E) -- "During any turn you attacked with a token, you may play that card.": a condition (conditions grammar) the turn must meet, read
+    # whenever the card is played or cast; ``source`` is the object whose ability granted it
+    when: dict[str, Any] | None = None
 
 
 class CostModifier(BaseModel):
@@ -1209,6 +1215,9 @@ class RulesState(BaseModel):
     draws_turn: int = 0
     # Aura spells on the stack -> what they target (303.4a); they enter attached to it (303.4f).
     aura_targets: dict[str, TargetRef] = Field(default_factory=dict)
+    # -- reanimation Auras (wave 51F) -- Aura object id -> the objects it is tied to: the creature card in a graveyard it enchants (303.4a: not a permanent, so not
+    # ``attached_to``), then the creature it put onto the battlefield (Animate Dead, Dance of the Dead, Necromancy; app/rules/reanimate_auras.py)
+    aura_links: dict[str, list[str]] = Field(default_factory=dict)
     # Battles on the battlefield (object id) -> their protector (310.9; app/rules/battles.py).
     protectors: dict[str, str] = Field(default_factory=dict)
     # -- chosen player (wave 4J) -- "As ~ enters, choose an opponent / a player": object id -> the chosen player's id
