@@ -89,6 +89,8 @@ def bind(body: str, parse: Any, split_sentences: Any) -> Found | None:
         return None
     sentences[0] = sentences[0][:1].upper() + sentences[0][1:]  # (a trigger's body: "reveal the top five cards …")
     first = sentences[0]
+    if first in (_TOYMAKER[0], _TOYMAKER_END):
+        return _toymaker(sentences, parse)
     if first.startswith(("Exile the top three cards of your library in a face-down", "Exile the top four cards of your library in a face-down")):
         return _down_piles(sentences, parse)
     if _SEPARATE.match(first):
@@ -120,6 +122,22 @@ def _down_piles(sentences: list[str], parse: Any) -> Found | None:
         return [{"do": "pile_exile", "n": 4, "down": True, "as": "pa"}, {"do": "pile_exile", "n": 4, "down": False, "as": "pb"},
                 {"do": "pile_deal", "src": "made", **made, "split": "you", "pick": "opponent", "n": 2, "chosen": "graveyard", "other": "look", "say": "cards", "as": "po"},
                 free, rest], None, False
+    return None
+
+
+_TOYMAKER = ("Look at the top three cards of your library.", "Exile any number of them in a face-down pile and the rest in a face-up pile.",
+             "Defending player chooses one of those piles.", "Put that pile into your hand.")
+_TOYMAKER_END = "Each opponent loses 2 life for each spell or ability that caused one or more players to guess or to group cards or permanents into a pile this turn."
+
+
+def _toymaker(sentences: list[str], parse: Any) -> Found | None:
+    """The Celestial Toymaker: look at three (a private look), exile any number face down and the rest face up, the defending player chooses a pile and it goes
+    to your hand (the other stays exiled); and at each end step each opponent loses 2 life for each pile-making or guessing spell or ability this turn."""
+    if tuple(sentences) == (_TOYMAKER_END,):
+        return [{"do": "pile_grouped_drain", "n": 2}], None, False
+    if tuple(sentences) == _TOYMAKER and (look := parse(_TOYMAKER[0])) is not None and len(look[0]) == 1:
+        return [look[0][0], {"do": "pile_deal", "src": "looked", "split": "you", "pick": "defending", "n": 2, "chosen": "hand", "other": None, "say": "cards",
+                             "exile": ["down", "up"]}], None, False
     return None
 
 
@@ -195,12 +213,25 @@ def _names(plan: Plan, cards: list[str]) -> str:
     return ", ".join(plan.state.cards[c].name or "a card" for c in cards) or "no cards"
 
 
+def _public(plan: Plan, cards: list[str]) -> bool:
+    """Can every player in the game see these cards (revealed, or in a public zone face up)? A note or an option about them may name them only then."""
+    from app.game.visibility import can_see
+
+    return all(can_see(plan.state, plan.state.cards[c], p) for c in cards for p in plan.live())
+
+
+def _say(plan: Plan, cards: list[str]) -> str:
+    return _names(plan, cards) if _public(plan, cards) else f"{len(cards)} card{'s' if len(cards) != 1 else ''}, face down"
+
+
 def _pile_text(plan: Plan, ctx: Context, grp: dict[str, Any], i: int, viewer: str) -> str:
-    """A pile as ``viewer`` may see it: its cards, or only how many if it is face down and they are not its controller (they have looked at it, or been told to)."""
+    """A pile as ``viewer`` may see it: its cards, or only how many if they can't see them (a face-down pile nobody has told them about)."""
+    from app.game.visibility import can_see
+
     pile = grp["piles"][i]
-    if (grp.get("down") or [])[i:i + 1] == [True] and viewer != ctx["controller"]:
-        return f"{len(pile)} card{'s' if len(pile) != 1 else ''}, face down"
-    return _names(plan, pile)
+    if all(can_see(plan.state, plan.state.cards[c], viewer) for c in pile):
+        return _names(plan, pile)
+    return f"{len(pile)} card{'s' if len(pile) != 1 else ''}, face down"
 
 
 def _group_cards(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[dict[str, Any]]:
@@ -225,7 +256,32 @@ def _group_cards(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[dict[str, 
     return [{"owner": p, "cards": [c for c in found if plan.state.cards[c].zone.split(":")[0] == p], "piles": []} for p in owners]
 
 
+def note_grouping(plan: Plan, ctx: Context) -> None:
+    """The spell or ability being resolved had players group cards or permanents into a pile (or guess): The Celestial Toymaker counts such spells and abilities
+    this turn, each once however many piles it made."""
+    sid = ctx.get("stack_id")
+    if not sid:
+        return
+    r = plan.rules
+    turn = plan.state.turn.number
+    r.grouped = [g for g in r.grouped if g[0] == turn]
+    if [turn, r.object_id(sid)] not in r.grouped:
+        r.grouped.append([turn, r.object_id(sid)])
+
+
+def grouped_drain(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Each opponent loses 2 life for each spell or ability that caused one or more players to guess or to group cards or permanents into a pile this turn."
+    (The Celestial Toymaker): the number of such spells and abilities is read as the ability resolves; the life loss is one event."""
+    turn = plan.state.turn.number
+    count = len({g[1] for g in plan.rules.grouped if g[0] == turn})
+    if count:
+        at = ctx["next"]
+        ctx["effects"][at:at] = [{"do": "lose_life", "who": "each_opponent", "n": int(e["n"]) * count}]
+    return True
+
+
 def pile_deal(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    note_grouping(plan, ctx)
     ctx["pile"] = {"stage": "split", "g": 0, "groups": _group_cards(plan, ctx, e)}
     return _run(plan, ctx, e)
 
@@ -277,9 +333,17 @@ def _run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                    resume={"step": "pile_split", "ctx": ctx, "e": e, "rest": [], "picked": []})  # (rest, picked: engine._settle_decision)
             return False
         plan.note(f"{plan.name(split_by)} separates {plan.name(grp['owner']) + chr(39) + 's ' if e.get('who') else ''}{e['say']} into piles: "
-                  + " / ".join(_names(plan, p) for p in grp["piles"]), cards, actor=split_by if split_by in plan.live() else None)
+                  + " / ".join(_say(plan, p) for p in grp["piles"]), cards if _public(plan, cards) else [], actor=split_by if split_by in plan.live() else None)
         st["g"] += 1
     if st["stage"] == "split":
+        if e.get("exile"):  # "Exile any number of them in a face-down pile and the rest in a face-up pile": the piles are exiled before anyone chooses
+            for grp in groups:
+                for i, face in enumerate(e["exile"]):
+                    cards = [c for c in (grp["piles"][i] if i < len(grp["piles"]) else []) if c in plan.state.cards]
+                    if cards:
+                        plan.do({"type": "move", "card_ids": cards, "to": {"player": ctx["controller"], "zone": "exile"}, "face_down": face == "down",
+                                 "face_down_kind": "exile"}, actor=ctx["controller"])
+                grp["down"] = [face == "down" for face in e["exile"]]
         st.update(stage="pick", g=0)
     while st["stage"] == "pick" and st["g"] < len(groups):
         grp = groups[st["g"]]
@@ -288,11 +352,11 @@ def _run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             continue
         if e["pick"] == "random":  # every pile equally likely, an empty one too
             grp["pick"] = (plan.rng or secrets.SystemRandom()).choice(range(n))
-            plan.note(f"{plan.name(grp['owner'])}'s pile {grp['pick'] + 1} is chosen at random: {_names(plan, grp['piles'][grp['pick']])}",
-                      grp["piles"][grp["pick"]])
+            plan.note(f"{plan.name(grp['owner'])}'s pile {grp['pick'] + 1} is chosen at random: {_say(plan, grp['piles'][grp['pick']])}",
+                      grp["piles"][grp["pick"]] if _public(plan, grp["piles"][grp["pick"]]) else [])
             st["g"] += 1
             continue
-        chooser = ctx["controller"] if e["pick"] == "you" else grp["owner"] if e["pick"] == "owner" else _opponent(plan, ctx, e)
+        chooser = ctx["controller"] if e["pick"] == "you" else grp["owner"] if e["pick"] == "owner" else _defender(plan, ctx) if e["pick"] == "defending" else _opponent(plan, ctx, e)
         if chooser is None:
             return False  # (waiting for which opponent chooses)
         if not chooser or chooser not in plan.live():  # (nobody to choose, or the chooser left the game: 800.4a, the first pile)
@@ -305,6 +369,14 @@ def _run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                resume={"step": "pile_pick", "ctx": ctx, "e": e, "rest": [], "picked": []})
         return False
     return _apply(plan, ctx, e)
+
+
+def _defender(plan: Plan, ctx: Context) -> str:
+    """"Defending player" (508.5): the player the attacking creature attacks (a planeswalker's or battle's controller / protector too); "" if none is left."""
+    from app.rules import defending
+
+    found = defending.players(plan, ctx)
+    return str(found[0]) if found else ""
 
 
 def resume_split(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -336,9 +408,8 @@ def resume_pick(plan: Plan, d: Any, chosen: list[str]) -> None:
     st = ctx["pile"]
     grp = st["groups"][st["g"]]
     grp["pick"] = int(chosen[0]) - 1 if chosen else 0
-    down = (grp.get("down") or [])[grp["pick"]:][:1] == [True]  # (a face-down pile is not named: nobody has seen it)
-    plan.note(f"{plan.name(d.player)} chooses pile {grp['pick'] + 1}" + ("" if down else f": {_names(plan, grp['piles'][grp['pick']])}"),
-              [] if down else grp["piles"][grp["pick"]], actor=d.player)
+    chosen_pile = grp["piles"][grp["pick"]]  # (a pile nobody can see is not named)
+    plan.note(f"{plan.name(d.player)} chooses pile {grp['pick'] + 1}: {_say(plan, chosen_pile)}", chosen_pile if _public(plan, chosen_pile) else [], actor=d.player)
     st["g"] += 1
     if _run(plan, ctx, e):
         continue_effects(plan, ctx)
@@ -435,6 +506,7 @@ def pile_exile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import context
     from app.rules.effects import _library
 
+    note_grouping(plan, ctx)
     pid = ctx["controller"]
     taken = list(_library(plan, pid)[: int(e["n"])])
     if taken:
@@ -487,5 +559,5 @@ def resume_turn_up(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
-PRIMITIVES = {"pile_deal": pile_deal, "pile_exile": pile_exile, "pile_look": pile_look, "pile_turn_up": pile_turn_up}
+PRIMITIVES = {"pile_deal": pile_deal, "pile_exile": pile_exile, "pile_grouped_drain": grouped_drain, "pile_look": pile_look, "pile_turn_up": pile_turn_up}
 RESUME = {"pile_split": resume_split, "pile_pick": resume_pick, "pile_opponent": resume_opponent, "pile_card": resume_card, "pile_turn_up": resume_turn_up}

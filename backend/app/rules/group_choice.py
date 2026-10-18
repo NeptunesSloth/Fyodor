@@ -602,7 +602,7 @@ _SECRET_NUMBERS = ("Each player secretly chooses a number", "each player secretl
 
 def bind(body: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """The effects of a group-choice body, or None when it isn't one (or isn't read)."""
-    if " piles" in body or " pile," in body:  # -- piles (wave 53D) -- 700.3 (app/rules/pile_groups.py)
+    if " pile" in body:  # -- piles (wave 53D) -- 700.3 (app/rules/pile_groups.py)
         from app.rules import pile_groups
 
         return pile_groups.bind(body, parse, split_sentences)

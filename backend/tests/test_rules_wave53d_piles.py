@@ -15,7 +15,7 @@ import pytest
 
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.test_rules_conditionals import creature
+from tests.test_rules_conditionals import creature, until
 from tests.wave9c_kit import card_named, mana, put
 from tests.wave53d_kit import (
     check,
@@ -383,4 +383,37 @@ def test_abstract_performance_the_other_pile_is_looked_at_cast_free_and_the_rest
     resolve(s)
     assert s.state.players["p2"].life == life_bob - 3  # the Bolt, cast free from exile
     assert {s.state.cards[c.id].zone for c in top[1:4]} == {"p1:hand"}  # the rest into her hand
+    check(s)
+
+
+TOYMAKER = "The Celestial Toymaker"
+
+
+def test_celestial_toymaker_attack_piles_the_defender_chooses_and_the_end_step_drains(cards):
+    s = table(cards, [TOYMAKER, "Llanowar Elves", "Grizzly Bears", "Young Wolf"], players=2)
+    assert coverage.of_card_data(cards.resolve(TOYMAKER)).level == "FULL"
+    toy = put(s, TOYMAKER)
+    top = stack_top(s, ["Llanowar Elves", "Grizzly Bears", "Young Wolf"])
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None, limit=300)
+    top = stack_top(s, ["Llanowar Elves", "Grizzly Bears", "Young Wolf"])
+    life0 = s.state.players["p2"].life
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": toy.id, "target": "p2"}])
+    resolve(s)
+    d = s.state.rules.decision  # Alice looked at the top three; she exiles any number of them face down, the rest face up
+    assert d.player == "p1" and {o.label for o in d.options} == {"Llanowar Elves", "Grizzly Bears", "Young Wolf"}
+    split(s, "p1", ["Young Wolf", "Grizzly Bears"])  # the face-down pile
+    d = s.state.rules.decision  # the defending player chooses between a pile he cannot see and a face-up one
+    assert d.player == "p2" and [o.label for o in d.options] == ["Pile 1: 2 cards, face down", "Pile 2: Llanowar Elves"]
+    assert not any(n in json.dumps(s.view("p2")) for n in ("Grizzly Bears", "Young Wolf"))  # (neither in the log nor anywhere else: Alice only looked at them)
+    pile(s, "p2", 1)
+    resolve(s)
+    assert {s.state.cards[c.id].zone for c in top[1:]} == {"p1:hand"} and s.state.cards[top[0].id].zone == "p1:exile"  # the other pile stays exiled
+    until(s, lambda s: s.state.turn.phase == "end" or s.state.players["p2"].life < life0, limit=100)
+    resolve(s)
+    assert s.state.players["p2"].life == life0 - 2  # one ability made piles this turn: 2 life at the end step
     check(s)

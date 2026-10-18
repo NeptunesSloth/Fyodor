@@ -1070,6 +1070,10 @@ class RulesState(BaseModel):
     # exiled object id -> "hand" (absent: the battlefield)
     linked_exile_from: dict[str, str] = Field(default_factory=dict)
     vote_control: list[list[Any]] = Field(default_factory=list)  # -- voting (wave 18C) -- [turn, chooser]: "You choose how each player votes this turn"
+    # -- group choices (wave 53D) -- the spells and abilities that had players guess or group cards or permanents into a pile this turn: [turn, object id] (The Celestial
+    # Toymaker counts them); and the numbers an object has chosen so far, by object id (The Toymaker's Trap: "a number … that hasn't been chosen"; a new object has none, 400.7)
+    grouped: list[list[Any]] = Field(default_factory=list)
+    chosen_numbers: dict[str, list[int]] = Field(default_factory=dict)
     opening_revealed: list[str] = Field(default_factory=list)  # -- opening hand (wave 18C) -- cards revealed until the first turn (103.6b)
     delayed: list[DelayedTrigger] = Field(default_factory=list)  # delayed triggered abilities (603.7; app/rules/delayed.py)
     exile_if_leaves: list[str] = Field(default_factory=list)  # objects exiled instead of leaving (unearth)

@@ -44,9 +44,10 @@ def _down_cards(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> list[str]
 
 def piles_down(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Start: which opponent takes part (a target, or the controller's choice, 608.2d), then the separation."""
-    from app.rules import effects
+    from app.rules import effects, pile_groups
     from app.rules.effects import decide
 
+    pile_groups.note_grouping(plan, ctx)  # -- piles (wave 53D) -- The Celestial Toymaker counts spells and abilities that made piles
     pid = ctx["controller"]
     if not _down_cards(plan, ctx, e):
         return True

@@ -747,5 +747,26 @@
    "U"
   ],
   "keywords": []
+ },
+ {
+  "name": "The Celestial Toymaker",
+  "layout": "normal",
+  "mana_cost": "{W}{U}{B}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Rogue Artificer",
+  "oracle_text": "Whenever The Celestial Toymaker attacks, look at the top three cards of your library. Exile any number of them in a face-down pile and the rest in a face-up pile. Defending player chooses one of those piles. Put that pile into your hand.\nAt the beginning of each end step, each opponent loses 2 life for each spell or ability that caused one or more players to guess or to group cards or permanents into a pile this turn.",
+  "colors": [
+   "B",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "4"
  }
 ]
