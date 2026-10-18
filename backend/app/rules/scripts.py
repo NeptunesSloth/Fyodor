@@ -2421,6 +2421,10 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
 
     if (sr := sacrifice_return.parse(body, lambda t: _parse_effects_plain(t, it, event_player=event_player))) is not None:
         return sr
+    from app.rules import counters_removed as _counters_removed  # -- if you do (wave 52A) --
+
+    if (cw := _counters_removed.either_way(body, lambda t: _parse_effects_plain(t, it, event_player=event_player))) is not None:
+        return cw
     # -- damage wordings (wave 51B) -- "Then each player creates X Treasure tokens and this enchantment deals X damage to each player, where X is the number of descent counters on this
     # enchantment." (Descent into Avernus): two instructions in order (608.2c), the same X for both (nothing between them changes the counters)
     body = re.sub(r"\b(each player creates X [A-Z][a-z]+ tokens?) and ((?:this \w+|~) deals) X damage to (each player), where X is ([^.]+)\.",

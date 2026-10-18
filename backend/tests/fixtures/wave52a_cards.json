@@ -510,5 +510,22 @@
   ],
   "keywords": [],
   "loyalty": "3"
+ },
+ {
+  "name": "Bounty of the Luxa",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{U}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of your first main phase, remove all flood counters from this enchantment. If no counters were removed this way, put a flood counter on this enchantment and draw a card. Otherwise, add {C}{G}{U}.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": []
  }
 ]

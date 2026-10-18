@@ -22,3 +22,23 @@ def parse(text: str, effects: list[dict[str, Any]]) -> list[dict[str, Any]] | No
     effects[-1] = {**effects[-1], "bind": name}
     n = {"ref_amount": name}
     return [{"do": "add_mana", "sym": m["sym"], "n": n} if m["sym"] else {"do": "add_mana", "of": list("WUBRG"), "n": n}]
+
+
+# "Remove all flood counters from this enchantment. If no counters were removed this way, [A]. Otherwise, [B]." (Bounty of the Luxa): 608.2c, 122.8 — the number it actually removed
+# decides which of the two is carried out (never both): none removed → A, some removed → B.
+_EITHER_WAY = re.compile(r"^(?P<remove>[Rr]emove all [\w+/-]+ counters from [^.]+?)\. If no counters were removed this way, (?P<a>[^.]+)\. Otherwise, (?P<b>[^.]+)\.?$")
+
+
+def either_way(body: str, read: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    m = _EITHER_WAY.match(body.strip())
+    if m is None:
+        return None
+    first, a, b = read(f"{m['remove']}."), read(f"{m['a']}."), read(f"{m['b']}.")
+    if not first or not a or not b or len(first[0]) != 1 or first[0][0].get("do") != "remove_counters" or any(x[1] is not None or x[2] for x in (first, a, b)):
+        return None
+    if any("ref:" in str(x[0]) or "event" in str(x[0]) for x in (a, b)):
+        return None  # (a pronoun or a reference to an earlier instruction: not read)
+    name = "removed0"
+    return [{**first[0][0], "bind": name},
+            {"do": "only_if", "cond": {"value": {"ref_amount": name}, "op": "==", "n": 0}, "skip": len(a[0])}, *a[0],
+            {"do": "only_if", "cond": {"value": {"ref_amount": name}, "op": ">=", "n": 1}, "skip": len(b[0])}, *b[0]], None, False
