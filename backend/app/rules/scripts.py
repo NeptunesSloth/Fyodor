@@ -3456,7 +3456,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         # "other" may be relative to the event's player — not read there
         # (not where the grammar reads it already: an edict, language.EDICT_OTHERS; "during each other player's …")
         body = re.sub(r"\b([Ee])ach other player\b(?! sacrifices)(?!'s)", lambda m: f"{m[1]}ach opponent", body)
-    body = _choose_then(body)  # -- if you do (wave 6F) --
+    body = _chosen.rewrite(_choose_then(body))  # -- if you do (wave 6F) -- (-- chosen filters (wave 53B) -- "Choose a card type, then …", "of that type")
     # -- if you do (wave 40A) -- "If it's a land card, you may put it onto the battlefield tapped. If you didn't put a card onto the battlefield this way, create …"
     # (Rulik Mons), "You may put … into your hand. If you put no cards into your hand this way, …" (Nashi): the instruction "this way" names is the optional one
     # just before, so the question is the one "If you don't" asks (the pick records whether it moved a card, effects._picked; 608.2c)
@@ -4828,6 +4828,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # player" in one resolution — Haunt the Network — is another choice: not read as this)
     if d is not None and _chosen.WHO in json.dumps(d, default=str) and not _chosen.chooses_player(ch):
         return None
+    if d is not None:
+        d = _chosen.retag(d, ch)  # -- chosen filters (wave 53B) -- "of the chosen type" after a card type choice
     if d is not None and not _chosen.chosen_value_ok(d, ch):  # -- chosen type (wave 4J) -- "of the chosen type / color"
         return None
     # -- discover (wave 9A) -- the free cast ends the resolution (effects.resume_suspend_cast): nothing may follow it

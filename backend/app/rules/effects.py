@@ -4081,7 +4081,7 @@ def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
     plan.note(f"{plan.name(d.player)} chooses {shown} ({e['what']})", actor=d.player)
     if e.get("as"):
         context.refs(ctx)[e["as"]] = {"kind": "choice", "what": e["what"], "value": value}
-    if not e.get("remember") and (e["what"] in ("creature type", "color", "odd or even") or card_names.is_choice(e["what"])):  # -- chosen type (wave 4J) --
+    if not e.get("remember") and (e["what"] in ("creature type", "color", "odd or even", "card type") or card_names.is_choice(e["what"])):  # -- chosen type (wave 4J) -- (wave 53B: a card type)
         from app.rules import chosen as picked
 
         what = "card name" if card_names.is_choice(e["what"]) else e["what"]  # (wave 22B)

@@ -25,6 +25,7 @@ from typing import Any
 
 from app.game import actions as A
 from app.rules import characteristics as chars
+from app.rules import chosen as _chosen  # -- chosen filters (wave 53B) --
 from app.rules import (  # (this_way: wave 4A; sized_damage: wave 4E; token_grammar: wave 30P)
     selectors,
     sized_damage,
@@ -2957,10 +2958,10 @@ CHOOSE_FROM_HAND_GY = (r"you choose (?:a|an) (?P<sel>.+?) from (?:it or (?:a|an)
 LOOK_HAND = rf"look at (?P<s>{CHOOSER})'s hand(?: and (?P<ch>choose .+))?"  # (Painful Memories, Extortion: "… and choose a card from it")
 # "Target player reveals their hand and discards all nonland cards." (Amnesia, Trapfinder's Trick)
 DISCARD_ALL_REVEALED = (rf"(?P<s>{CHOOSER}) reveals their hand and discards all (?:(?P<sel>.+?) )?cards?"
-                        r"(?P<tail> with (?:(?:the chosen|that) name|that spell's mana value))?")  # (wave 22B: Cabal Therapy, "all cards with that name"; wave 36A: Infernal Kirin)
+                        r"(?P<tail> with (?:(?:the chosen|that) name|that spell's mana value)| of the chosen (?:color|type))?")  # (wave 22B: Cabal Therapy, "all cards with that name"; wave 36A: Infernal Kirin)
 DISCARD_NAMED = r"(?:that player|they|its owner) discards? (?P<o>that card|those cards|it|them)"
 CHOICE_KINDS = ("color", "creature type", "basic land type", "opponent", "player")
-CHOOSE_VALUE = rf"choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|odd or even|{_NAME_WHAT})"  # (wave 50J: odd or even, Thanos)
+CHOOSE_VALUE = rf"choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|odd or even|{_NAME_WHAT}|{_chosen.TYPE_CHOICE})"  # (wave 50J: odd or even, Thanos)
 CARD_TYPE_FIVE = "artifact, creature, enchantment, instant, or sorcery"  # -- commanders (wave 47A) -- Cloud Key: the five card types it offers
 TYPE_LIST = r"[A-Z][a-z]+(?:, [A-Z][a-z]+)+, or [A-Z][a-z]+"  # -- chosen type (wave 51C) -- "choose Elemental, Elf, Faerie, Giant, Goblin, Kithkin, Merfolk, or Treefolk" (Eclipsed Realms, Dawn-Blessed Pennant)
 ENTERS_CHOICE = re.compile(rf"^As ~ enters, choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|odd or even|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink|{TYPE_LIST})\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key; wave 51C: a short list of creature types)
@@ -3205,7 +3206,7 @@ def discard_named(m: re.Match[str]) -> tuple[Effects, Any]:
 
 
 def choose_value(m: re.Match[str]) -> tuple[Effects, Any]:
-    return [{"do": "choose_value", "who": "you", "what": m["what"]}], None
+    return [_chosen.type_choice(m["what"]) or {"do": "choose_value", "who": "you", "what": m["what"]}], None  # (-- chosen filters (wave 53B) -- a card type)
 
 
 # -- card names (wave 49C) -- "Target player chooses a card name, then reveals the top card of their library." (Petra Sphinx, Vexing Arcanix): the target player names it as this resolves

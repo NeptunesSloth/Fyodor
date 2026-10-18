@@ -219,3 +219,61 @@ def record_word(plan: Plan, card_id: str, word: str) -> None:
     on_field = {plan.oid(c) for c in plan.state.cards.values() if c.zone.endswith(":battlefield")}
     r.chosen_words = {oid: w for oid, w in r.chosen_words.items() if oid in on_field or oid in r.lki}  # (400.7)
     r.chosen_words[plan.oid(card_id)] = word
+
+
+# -- chosen filters (wave 53B) ---------------------------------------------------------------------------------------------
+# A value chosen as the ability resolves ("Choose a color / a creature type / a card type / artifact, creature, or land / a
+# number / a card name.", 608.2c-d: the instruction is reached, the chooser answers, public) and then used as the filter of the
+# instructions after it ("all cards of the chosen type revealed this way", "discards all cards of that color", "creatures with power
+# greater than or equal to the chosen number"). State: none beyond the answer, which ``bind_effects`` writes into the selectors after
+# the choice (a resolution is one run; nothing is kept). Chooser: the controller (or the target player, "Target player chooses a card
+# name"); the answer is public. A choice listing its own words ("artifact, creature, or land") offers only those; a permanent type
+# is the six permanent card types (205.2a). All card-type family choices are the one value "card type"; the grammar's "of the chosen
+# type" is a creature type unless the choice that goes with it is a card type (``retag``, 205.3m vs 205.2a).
+_TYPE_WORD = "artifact|battle|creature|enchantment|instant|kindred|land|planeswalker|sorcery"
+TYPE_CHOICE = rf"(?:card type|permanent type|(?:{_TYPE_WORD})(?:, (?:{_TYPE_WORD}))*,? or (?:{_TYPE_WORD}))"
+PERMANENT_TYPES = ["Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker"]  # 205.2a
+
+
+def type_choice(text: str) -> dict[str, Any] | None:
+    """The ``choose_value`` instruction for "card type" / "permanent type" / "artifact, creature, or land" (None: not one of them)."""
+    if text == "card type":
+        return {"do": "choose_value", "who": "you", "what": "card type"}
+    if text == "permanent type":
+        return {"do": "choose_value", "who": "you", "what": "card type", "options": PERMANENT_TYPES}
+    if re.fullmatch(TYPE_CHOICE, text):
+        return {"do": "choose_value", "who": "you", "what": "card type", "options": [w.capitalize() for w in re.findall(_TYPE_WORD, text)]}
+    return None
+
+
+def _walk_keys(node: Any, fn: Any) -> Any:
+    if isinstance(node, dict):
+        return {k: _walk_keys(v, fn) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_walk_keys(v, fn) for v in node]
+    return fn(node) if isinstance(node, str) else node
+
+
+def retag(d: dict[str, Any], ch: Characteristics) -> dict[str, Any]:
+    """"of the chosen type" is read as a creature type; where the one choice it can mean is a card type (an earlier "Choose a card type."
+    of the resolution, or the object's one "As ~ enters, choose a card type"), it is the card type (205.2a)."""
+    effects = d.get("effects") or []
+    picks = {_kind(e.get("what")) for e in effects if e.get("do") == "choose_value" and not e.get("remember")} | set(_enters_choices(ch))
+    if "card type" not in picks or picks & {"creature type", "basic land type"}:
+        return d
+    return _walk_keys(d, lambda s: s.replace('"chosen_type"', '"chosen_card_type"').replace('"not_chosen_type"', '"not_chosen_card_type"')
+                      if s.startswith((RULE_PREFIX, "sel:")) else s)
+
+
+_CHOOSE_SENTENCE = re.compile(rf"(?:^|(?<=\. ))[Cc]hoose (?:an? )?(?P<what>color|creature type|{TYPE_CHOICE})\.")
+_CHOOSE_THEN = re.compile(rf"(?:^|(?<=\. ))(?P<c>[Cc])hoose (?:an? )?(?P<what>{TYPE_CHOICE}), then (?P<r>\w)")
+_THAT = re.compile(r"\bof that (color|type)\b")
+
+
+def rewrite(body: str) -> str:
+    """"Choose a card type, then reveal …" is two sentences; after a "Choose a color / creature type / card type." sentence, "of that color /
+    type" is "of the chosen color / type" (the value just chosen: 608.2c)."""
+    body = _CHOOSE_THEN.sub(lambda m: f"{m['c']}hoose a {m['what']}. {m['r'].upper()}", body)
+    m = _CHOOSE_SENTENCE.search(body)
+    return body if m is None else body[: m.end()] + _THAT.sub(r"of the chosen \1", body[m.end():])
+# -- end chosen filters (wave 53B) -----------------------------------------------------------------------------------------
