@@ -68,7 +68,14 @@ def number_answer(d: Decision, typed: str | None) -> str:
 
 
 # -- the choice ------------------------------------------------------------------------------------------------
-def _options(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[DecisionOption]:
+def _options(plan: Plan, ctx: Context, e: dict[str, Any], pid: str = "", k: int = 0) -> list[DecisionOption]:
+    if e["what"] == "object":  # a permanent the chooser controls (``mine``) or doesn't, that the selector names (Call to the Void)
+        from app.rules import selectors
+
+        kind = e["kinds"][k]
+        found = selectors.candidates(plan, selectors.from_key(kind["sel"]), pid, ctx.get("source_card"))
+        return [DecisionOption(id=c, label=(plan.state.cards[c].name or "Permanent") + ("" if kind["mine"] else f" — {plan.name(plan.state.cards[c].controller)}"), card_id=c)
+                for c in found if plan.state.cards[c].zone.endswith(":battlefield") and (plan.state.cards[c].controller == pid) == kind["mine"]]
     if e["what"] == "word":
         return [DecisionOption(id=w.lower(), label=w) for w in e["opts"]]
     if e["what"] == "number":
@@ -78,7 +85,9 @@ def _options(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[DecisionOption
     return _choice_options(plan, ctx, e["what"])
 
 
-def _label(e: dict[str, Any], value: str) -> str:
+def _label(e: dict[str, Any], value: str, plan: Plan | None = None) -> str:
+    if e["what"] == "object" and plan is not None:
+        return plan.state.cards[value].name or "a permanent" if value in plan.state.cards else "a permanent"
     return next((w for w in e.get("opts") or [] if w.lower() == value), value)
 
 
@@ -94,7 +103,9 @@ def choose(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         first = ctx["controller"] if e["start"] == "you" else plan.after(ctx["controller"])
         at = order.index(first) if first in order else 0
         order = order[at:] + order[:at]
-    ctx.setdefault("gc", {})[e["as"]] = {"order": order, "i": 0, "ballots": [], "secret": bool(e.get("secret"))}
+    # a turn is a player and the kind of thing they choose (one choice for each kind, in the order written: 101.4c)
+    turns = [[p, k] for p in order for k in range(len(e.get("kinds") or [None]))]
+    ctx.setdefault("gc", {})[e["as"]] = {"order": order, "turns": turns, "i": 0, "ballots": [], "secret": bool(e.get("secret"))}
     return _ask(plan, ctx, e)
 
 
@@ -102,16 +113,22 @@ def _ask(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules.plan import decide
 
     g = ctx["gc"][e["as"]]
-    while g["i"] < len(g["order"]):
-        pid = g["order"][g["i"]]
-        options = _options(plan, ctx, e) if pid in plan.live() else []
-        if not options:  # (800.4a: a player who left the game chooses nothing)
+    while g["i"] < len(g["turns"]):
+        pid, k = g["turns"][g["i"]]
+        options = _options(plan, ctx, e, pid, k) if pid in plan.live() else []
+        if not options:  # (800.4a: a player who left the game chooses nothing; nothing of that kind to choose)
+            g["i"] += 1
+            continue
+        if e["what"] == "object" and len(options) == 1:  # the only one there is: no choice to make (from the public table, so nothing is told by it)
+            g["ballots"].append([pid, options[0].id])
             g["i"] += 1
             continue
         known = "" if g["secret"] or not g["ballots"] else " — chosen: " + ", ".join(f"{plan.name(p)} {_label(e, v)}" for p, v in g["ballots"])
-        decide(plan, player=pid, kind="choose_one",
-               prompt=f"{ctx.get('name') or 'Choose'}: choose {e.get('say') or e['what']}{' (secret)' if g['secret'] else ''}{known}",
-               options=options, resume={"step": "gc_choose", "ctx": ctx, "e": e, "rest": [], "picked": []})  # (rest, picked: engine._settle_decision)
+        label = e["kinds"][k]["say"] if e["what"] == "object" else e.get("say") or e["what"]
+        decide(plan, player=pid, kind="choose_one" if e["what"] != "object" else "choose_cards",
+               prompt=f"{ctx.get('name') or 'Choose'}: choose {label}{' (secret)' if g['secret'] else ''}{known}",
+               options=options, resume={"step": "gc_choose", "ctx": ctx, "e": e, "rest": [], "picked": []},  # (rest, picked: engine._settle_decision)
+               **({"min_choices": 1, "max_choices": 1} if e["what"] == "object" else {}))
         return False
     return _finish(plan, ctx, e)
 
@@ -121,12 +138,12 @@ def resume(plan: Plan, d: Decision, chosen: list[str]) -> None:
 
     ctx, e = d.resume["ctx"], d.resume["e"]  # type: ignore[index]
     g = ctx["gc"][e["as"]]
-    pid = g["order"][g["i"]]
+    pid = g["turns"][g["i"]][0]
     g["i"] += 1
     if chosen:  # (none: the chooser left the game, 800.4)
         g["ballots"].append([pid, chosen[0]])
         if not g["secret"]:
-            plan.note(f"{plan.name(pid)} chooses {_label(e, chosen[0])}", actor=pid)  # 101.4b
+            plan.note(f"{plan.name(pid)} chooses {_label(e, chosen[0], plan)}", [chosen[0]] if e["what"] == "object" else [], actor=pid)  # 101.4b
     if _ask(plan, ctx, e):
         continue_effects(plan, ctx)
 
@@ -138,7 +155,11 @@ def _finish(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     g = ctx["gc"][e["as"]]
     g["ballots"] = [b for b in g["ballots"] if b[0] in plan.live()]
     if g["secret"] and g["ballots"]:
-        plan.note("The choices are revealed: " + "; ".join(f"{plan.name(p)} chose {_label(e, v)}" for p, v in g["ballots"]))
+        plan.note("The choices are revealed: " + "; ".join(f"{plan.name(p)} chose {_label(e, v, plan)}" for p, v in g["ballots"]),
+                  [v for _, v in g["ballots"]] if e["what"] == "object" else [])
+    if e["what"] == "object":  # "Destroy each creature chosen this way": the objects chosen (one chosen twice is one object)
+        context.bind_objects(plan, ctx, f"{e['as']}:chosen", list(dict.fromkeys(v for _, v in g["ballots"])))
+        return True
     for value in dict.fromkeys(v for _, v in g["ballots"]):
         context.bind_players(ctx, f"{e['as']}:{value}", [p for p, v in g["ballots"] if v == value])
     if e.get("bind"):  # "of a type chosen this way": any of the types chosen
@@ -215,6 +236,10 @@ def holds(plan: Plan, ctx: Context, cond: dict[str, Any]) -> bool:
     c = cond["gc"]
     ballots = (ctx.get("gc") or {}).get(c["as"], {}).get("ballots") or []
     values = {v for _, v in ballots}
+    if c["is"] == "match":  # "If they match"
+        return len(ballots) >= 2 and len(values) == 1
+    if c["is"] == "differ":  # (otherwise)
+        return len(values) >= 2
     if c["is"] == "all":  # "if each opponent chose silence"
         return bool(ballots) and values == {c["value"]}
     if c["is"] == "mixed":  # neither of the "each opponent chose …" cases
@@ -302,7 +327,14 @@ def resume_bid(plan: Plan, d: Decision, chosen: list[str]) -> None:
         continue_effects(plan, ctx)
 
 
-PRIMITIVES = {"gc_choose": choose, "gc_each": each, "gc_extremes": extremes, "gc_bid": bid}
+def exile_linked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Exile the top card of your library face down", linked to the object (607.2a): effects.exile_top, recorded as exiled with the source."""
+    from app.rules.effects import exile_top
+
+    return exile_top(plan, ctx, {**e, "link": True})
+
+
+PRIMITIVES = {"gc_choose": choose, "gc_each": each, "gc_extremes": extremes, "gc_bid": bid, "gc_exile_linked": exile_linked}
 RESUME = {"gc_choose": resume, "gc_bid": resume_bid}
 
 
@@ -475,8 +507,28 @@ def _key(phrase: str) -> str | None:
     return None if sel is None else sel.key()
 
 
+_VOID = ("Each player secretly chooses a creature they control and a creature they don't control.", "Then those choices are revealed.",
+         "Destroy each creature chosen this way.")
+_SAFE = ("You and target opponent each secretly choose 1, 2, or 3.", "Then those choices are revealed.",
+         "If they match, sacrifice ~ and put all cards exiled with it into their owners' hands.", "Otherwise, exile the top card of your library face down.")
+
+
 def _chosen_objects(text: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
     sentences = split_sentences(text)
+    if tuple(sentences) == _VOID and (key := _key("creature")) is not None:
+        # Call to the Void: a creature they control and a creature they don't, in secret (101.4c: in that order), revealed at once, each destroyed once
+        return [{"do": "gc_choose", "who": "each_player", "what": "object", "secret": True, "as": "gc", "kinds": [
+            {"sel": key, "mine": True, "say": "a creature you control"}, {"sel": key, "mine": False, "say": "a creature you don't control"}]},
+                {"do": "destroy", "who": "ref:gc:chosen"}], None, False
+    if tuple(sentences) == _SAFE:
+        # Expert-Level Safe: you and the target opponent each secretly choose 1, 2 or 3; if they match, the cards exiled with it go to hand and it is sacrificed
+        # (the cards first: "exiled with it" is read while it is here; the two happen together), otherwise the top card of your library is exiled face down (linked).
+        # (built here, not read from the sentences; the exile is a primitive of its own so that this is no "ability that exiles and refers to its own exiled card",
+        # which exiled_with._link reads again without the templates and refuses: it refers to everything exiled with it, by this ability and by the other, 607.2a)
+        return [{"do": "gc_choose", "who": ["you", "target"], "what": "word", "opts": ["1", "2", "3"], "secret": True, "as": "gc", "say": "1, 2, or 3"},
+                {"do": "only_if", "cond": {"gc": {"as": "gc", "is": "match"}}, "skip": 2}, {"do": "return_card", "who": "exiled_with", "to": "hand"},
+                {"do": "sacrifice", "who": "self"}, {"do": "only_if", "cond": {"gc": {"as": "gc", "is": "differ"}}, "skip": 1},
+                {"do": "gc_exile_linked", "n": 1, "player": "you", "face_down": True}], "opponent", False
     m = _ONE_CHOICE.match(sentences[0]) if sentences else None
     if m is not None and len(sentences) in (2, 3) and (n := _NOT_CHOSEN.match(sentences[1])) is not None:
         # Consuming Tide: "Each player chooses a nonland permanent they control. Return all nonland permanents not chosen this way to their owners' hands."

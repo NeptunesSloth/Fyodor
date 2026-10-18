@@ -24,8 +24,10 @@ control. Exile each permanent with the most votes or tied for most votes." (Coun
   instruction for each player (turn order, 101.4) once for each vote that player got (``vote_each``), "that player" being the one voted for.
   "Each player who received no votes may …" is a per-player filter (player_filter, ``{"votes": 0}``).
 
-Not read (manual): "for each creature with one or more votes, … that many …" (Trap the
-Trespassers), several-choice results that move cards between voters (Expropriate), a "this way" count of a repeated instruction
+* (wave 53D) "For each creature with one or more votes, put that many stun counters on it, then tap it." (Trap the Trespassers): ``vote_objects``, the counters
+  (as many as it has votes, at once) and the tap for each creature voted for.
+
+Not read (manual): several-choice results that move cards between voters (Expropriate), a "this way" count of a repeated instruction
 (Messenger Jays) and "You choose how each player votes" (Illusion of Choice).
 
 * (wave 48D) "Whenever players finish voting" (Model of Unity, Erestor of the Council, Grudge Keeper) triggers as the last ballot is in (``_finish``), carrying
@@ -61,6 +63,7 @@ _NUMBER_OF = re.compile(r"^(?P<e>.+?) a number of (?P<what>.+?) equal to (?P<twi
 _DRAW_NUMBER = re.compile(r"^(?:You )?[Dd]raw cards equal to the number of (?P<w>[\w' ]+?) votes\.$")
 _LEADERS = re.compile(r"^(?P<pre>Otherwise, )?(?P<verb>[A-Za-z]+) each (?P<noun>[a-z ]+?) with the most votes or tied for most votes"
                       r"(?P<rest>[^.]*)\.$")
+_EACH_OBJECT = re.compile(r"^For each creature with one or more votes, put that many (?P<k>[a-z]+) counters on it, then tap it\.$")  # -- group choices (wave 53D) -- Trap the Trespassers
 _PICK_RANDOM = re.compile(r"^(?:Then )?[Cc]hoose (?P<w>an opponent|a player) at random\.$")
 _EACH_RECEIVED = re.compile(r"^(?P<s>Each player|Each opponent) (?P<v>.+?) for each vote (?:they|that player) received\.$")
 _FOR_RECEIVED = re.compile(r"^For each vote (?P<s>an opponent|you) received, (?P<e>.+)\.$")
@@ -200,6 +203,10 @@ def bind(head: dict[str, Any], parse: Any, split_sentences: Any) -> tuple[list[d
             if not flush():
                 return None
             effects.append({"do": "choose_random", "pool": "opponent" if m["w"] == "an opponent" else "player", "as": "vr"})
+        elif (m := _EACH_OBJECT.match(sentence)) is not None and "sel" in head and head["zone"] == "battlefield":
+            if not flush():
+                return None
+            effects.append({"do": "vote_objects", "kind": m["k"]})
         elif (m := _EACH_RECEIVED.match(sentence)) is not None:
             if not (flush() and received("each_player" if m["s"] == "Each player" else "each_opponent", f"that player {m['v']}", True)):
                 return None
@@ -458,6 +465,27 @@ def each(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def objects(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- group choices (wave 53D) -- "For each creature with one or more votes, put that many stun counters on it, then tap it." (Trap the Trespassers): for each object
+    voted for (in the order of the ballots), the counters (one event: that many at once), then the tap."""
+    tally = ctx["vote"]["tally"]
+    out: list[dict[str, Any]] = []
+    for card_id, votes in tally.items():
+        if votes and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
+            out += [{"do": "vote_bind_object", "card": card_id, "as": "vo"}, {"do": "add_counters", "who": "ref:vo", "kind": e["kind"], "n": int(votes)},
+                    {"do": "tap", "who": "ref:vo"}]
+    at = ctx["next"]
+    ctx["effects"][at:at] = out
+    return True
+
+
+def bind_object(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    context.bind_objects(plan, ctx, e["as"], [e["card"]] if e["card"] in plan.state.cards else [])
+    return True
+
+
 def bind_player(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import context
 
@@ -465,5 +493,6 @@ def bind_player(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"vote": vote, "vote_repeat": repeat, "vote_control": vote_control, "vote_each": each, "vote_bind": bind_player}
+PRIMITIVES = {"vote": vote, "vote_repeat": repeat, "vote_control": vote_control, "vote_each": each, "vote_bind": bind_player,
+              "vote_objects": objects, "vote_bind_object": bind_object}
 RESUME = {"vote": resume}

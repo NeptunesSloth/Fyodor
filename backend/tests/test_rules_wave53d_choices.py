@@ -10,6 +10,8 @@ replay and a save and a load.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from app.rules import coverage
@@ -532,4 +534,108 @@ def test_mages_contest_the_other_player_wins_the_bidding_and_the_spell_stays(car
     bid(s, "p1", "pass")
     resolve(s)
     assert s.state.players["p2"].life == life0["p2"] - 2 and s.state.players["p1"].life == life0["p1"] - 3  # (Bob lost the 2 he bid; the Bolt was not countered)
+    check(s)
+
+
+# -- secret choices of objects and numbers; secret council ---------------------------------------------------------------
+VOID, SAFE, TRAP = "Call to the Void", "Expert-Level Safe", "Trap the Trespassers"
+
+
+@pytest.mark.parametrize("name", [VOID, SAFE, TRAP])
+def test_the_secret_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def test_call_to_the_void_secret_choices_revealed_together_each_creature_destroyed_once(cards):
+    s = table(cards, [VOID])
+    a1, a2 = creature(s, "p1", "Alice One"), creature(s, "p1", "Alice Two")
+    b1, b2 = creature(s, "p2", "Bob One"), creature(s, "p2", "Bob Two")
+    c1 = creature(s, "p3", "Carol One")
+    cast(s, VOID, B=2, C=3)
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p1" and "a creature you control" in d.prompt and "(secret)" in d.prompt
+    pick(s, "p1", "Alice One")
+    d = s.state.rules.decision  # a creature she doesn't control: Bob's or Carol's (Carol has only one: but she isn't the question yet)
+    assert d.player == "p1" and "a creature you don't control" in d.prompt and {o.label for o in d.options} == {"Bob One — Bob", "Bob Two — Bob", "Carol One — Carol"}
+    pick(s, "p1", "Bob One")
+    for viewer, seen in seen_by_others(s, "p1"):  # nothing of Alice's two choices is shown
+        assert "chooses" not in json.dumps(s.view(viewer)["log"]) and "revealed" not in json.dumps(s.view(viewer)["log"]) and "chose" not in seen, viewer
+    assert s.state.rules.decision.player == "p2"
+    pick(s, "p2", "Bob Two")  # his own creature
+    pick(s, "p2", "Carol One")
+    pick(s, "p3", "Bob One")  # Carol's one creature is chosen without a question (it is her only one); then one she doesn't control: Bob One again
+    resolve(s)
+    assert "The choices are revealed: Alice chose Alice One" in log(s, "p2") and "Bob chose Bob Two" in log(s, "p2")
+    assert [c.id in s.state.cards for c in (a1, a2, b1, b2, c1)] == [False, True, False, False, False]  # (Bob One was chosen twice and is destroyed once; Alice Two nobody chose)
+    check(s)
+
+
+def seen_by_others(s, pid):
+    from tests.wave53d_kit import seen_by_others as seen
+
+    return seen(s, pid)
+
+
+def test_expert_level_safe_matching_numbers_open_it_and_a_mismatch_hides_another_card(cards):
+    s = table(cards, [SAFE], players=2)
+    safe = put(s, SAFE)  # (it did not enter by being cast: its enters trigger is not what is under test)
+    top = [c for c in s.state.zones["p1:library"][:3]]
+    act(s, "p1", type="move", card_ids=[top[0]], to={"player": "p1", "zone": "exile"})
+    mana(s, "p1", C=1)
+    act(s, "p1", type="activate_ability", card_id=safe.id, ability=1, targets=["p2"])
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p1" and {o.label for o in d.options} == {"1", "2", "3"} and "(secret)" in d.prompt
+    answer(s, "p1", "2")
+    for viewer, seen in seen_by_others(s, "p1"):
+        assert "chose" not in seen and "ballot" not in seen, viewer
+    assert s.state.rules.decision.player == "p2"
+    answer(s, "p2", "3")
+    resolve(s)
+    assert "The choices are revealed: Alice chose 2; Bob chose 3" in log(s, "p2")
+    # they differ: the top card of Alice's library is exiled face down, linked to the Safe
+    exiled = [c for c in s.state.zones["p1:exile"] if c != top[0]]
+    assert len(exiled) == 1 and s.state.cards[exiled[0]].face_down
+    assert safe.id in s.state.zones["p1:battlefield"]
+    check(s)
+
+
+def test_expert_level_safe_matching_choices_return_the_exiled_cards_and_sacrifice_it(cards):
+    s = table(cards, [SAFE], players=2)
+    cast(s, SAFE, C=2)
+    resolve(s)  # it enters: the top two cards of Alice's library are exiled face down
+    safe = card_named(s, SAFE)
+    exiled = list(s.state.zones["p1:exile"])
+    assert len(exiled) == 2 and all(s.state.cards[c].face_down for c in exiled)
+    mana(s, "p1", C=1)
+    act(s, "p1", type="activate_ability", card_id=safe.id, ability=1, targets=["p2"])
+    resolve(s)
+    answer(s, "p1", "3")
+    answer(s, "p2", "3")
+    resolve(s)
+    assert s.state.cards[safe.id].zone == "p1:graveyard"
+    assert all(s.state.cards[c].zone == "p1:hand" for c in exiled)  # into their owners' hands
+    check(s)
+
+
+def test_trap_the_trespassers_secret_votes_stun_counters_for_each_vote_and_tap(cards):
+    s = table(cards, [TRAP])
+    mine = creature(s, "p1", "Alice One")
+    b1, b2 = creature(s, "p2", "Bob One"), creature(s, "p2", "Bob Two")
+    c1 = creature(s, "p3", "Carol One")
+    cast(s, TRAP, U=1, C=2)
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p1" and {o.label for o in d.options} == {"Bob One", "Bob Two", "Carol One"} and "secret" in d.prompt  # creatures Alice doesn't control
+    pick(s, "p1", "Bob One")
+    for viewer, seen in seen_by_others(s, "p1"):
+        assert "voted for" not in seen and "ballots" not in seen, viewer
+    pick(s, "p2", "Carol One")
+    pick(s, "p3", "Bob One")
+    resolve(s)
+    assert "The votes are revealed" in log(s, "p2")
+    assert s.state.cards[b1.id].counters == {"stun": 2} and s.state.cards[b1.id].tapped
+    assert s.state.cards[c1.id].counters == {"stun": 1} and s.state.cards[c1.id].tapped
+    assert not s.state.cards[b2.id].counters and not s.state.cards[b2.id].tapped and not s.state.cards[mine.id].counters
     check(s)
