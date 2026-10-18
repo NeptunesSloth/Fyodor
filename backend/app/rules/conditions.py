@@ -1425,6 +1425,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         defended = (ctx.get("event") or {}).get("defended")
         return defended in plan.state.players and any(
             p not in (defended, ctx["controller"]) and plan.state.players[p].life < plan.state.players[defended].life for p in plan.live())
+    if "gc" in cond:  # -- group choices (wave 53D) -- this resolution's own group choice (app/rules/group_choice.py)
+        from app.rules import group_choice
+
+        return group_choice.holds(plan, ctx, cond)
     if "vote" in cond:  # -- voting (wave 18C) -- this resolution's own vote (app/rules/voting.py)
         from app.rules import voting
 

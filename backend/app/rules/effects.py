@@ -3253,6 +3253,9 @@ PRIMITIVES.update(_tempting.PRIMITIVES)
 from app.rules import friend_foe as _friend_foe  # noqa: E402, I001  -- friend or foe (wave 18C) --
 
 PRIMITIVES.update(_friend_foe.PRIMITIVES)
+from app.rules import group_choice as _group_choice  # noqa: E402, I001  -- group choices (wave 53D) --
+
+PRIMITIVES.update(_group_choice.PRIMITIVES)
 from app.rules import reanimate_auras as _reanimate_auras  # noqa: E402, I001  -- reanimation Auras (wave 51F) --
 
 PRIMITIVES.update(_reanimate_auras.PRIMITIVES)
@@ -4113,6 +4116,7 @@ RESUME["pick_counter"] = _counter_pick.resume
 RESUME.update(_voting.RESUME)  # -- voting (wave 18C) --
 RESUME.update(_tempting.RESUME)
 RESUME.update(_friend_foe.RESUME)
+RESUME.update(_group_choice.RESUME)  # -- group choices (wave 53D) --
 # -- name search (wave 11D) -- "Search its controller's graveyard, hand, and library for all cards with the same name …"
 from app.rules import name_search as _name_search  # noqa: E402, I001
 

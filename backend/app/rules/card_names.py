@@ -53,7 +53,7 @@ def option(what: str) -> DecisionOption:
 
 
 def is_free_text(d: Decision) -> bool:
-    return bool(d.options) and d.options[0].id == FREE_TEXT  # (further options only show what the chooser looked at)
+    return bool(d.options) and d.options[0].id in (FREE_TEXT, "__number__")  # (further options only show what the chooser looked at; wave 53D: a typed number, group_choice)
 
 
 def _allowed(what: str, type_line: str) -> bool:
@@ -96,6 +96,10 @@ def canonical(plan: Plan, what: str, typed: str | None) -> str:
 
 
 def answer(plan: Plan, d: Decision, typed: str | None) -> str:
+    if d.options[0].id == "__number__":  # -- group choices (wave 53D) -- "secretly chooses a number"
+        from app.rules import group_choice
+
+        return group_choice.number_answer(d, typed)
     return canonical(plan, d.options[0].group or "card name", typed)
 
 

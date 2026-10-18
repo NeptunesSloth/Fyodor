@@ -2585,6 +2585,10 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
 
     if (vote := voting.split(body)) is not None:
         return voting.bind(vote, lambda t: parse_effects(t, it, event_player=event_player), split_sentences)
+    from app.rules import group_choice  # -- group choices (wave 53D) -- 101.4, 700.3: "each player chooses …", secret choices, piles, bids
+
+    if (grouped := group_choice.bind(body, lambda t: parse_effects(t, it, event_player=event_player), split_sentences)) is not None:
+        return grouped
     from app.rules import trigger_words  # -- triggers (wave 5D) -- "create a number of … equal to …"
 
     body = _dice.plain(trigger_words.plain_amounts(_dice.rewrite(body)))  # (rewrite: a results table, wave 16B)
