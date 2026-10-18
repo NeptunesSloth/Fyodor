@@ -21,7 +21,7 @@ from tests.test_rules_wave34b_activated import activate, next_turn, settle
 from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, to_hand, zone_of
 from tests.wave52d_kit import open_repo
 
-NAMES = ["Doubling Cube", "Tainted Sigil", "Assembly-Worker", "Witch Engine", "Skyship Weatherlight", "Folio of Fancies", "Overgrown Arch", "Patron of the Orochi", "Cauldron of Souls", "Silent Gravestone", "Phyrexian Furnace", "Grenzo, Dungeon Warden", "Cellar Door",
+NAMES = ["Tinder Wall", "Wall of Corpses", "Acorn Catapult", "Magewright's Stone", "Cleaver Skaab", "Doubling Cube", "Tainted Sigil", "Assembly-Worker", "Witch Engine", "Skyship Weatherlight", "Folio of Fancies", "Overgrown Arch", "Patron of the Orochi", "Cauldron of Souls", "Silent Gravestone", "Phyrexian Furnace", "Grenzo, Dungeon Warden", "Cellar Door",
          "Druidic Satchel"]
 
 
@@ -359,4 +359,111 @@ def test_weatherlight_returns_one_of_its_exiled_cards_to_hand(cards):
     activate(s, "p1", card_named(s, "Skyship Weatherlight"), "random")
     settle(s)
     assert s.state.cards[exiled[0]].zone == "p1:hand" or "Llanowar Elves" in hand(s)
+    check(s)
+
+
+# ---- Cleaver Skaab ------------------------------------------------------------------------------------------------------------------------------
+def test_cleaver_skaab_makes_two_copies_of_the_sacrificed_zombie(cards):
+    s = build(cards, ["Cleaver Skaab", "Dregscape Zombie"])
+    skaab = put(s, "Cleaver Skaab")
+    put(s, "Dregscape Zombie")
+    next_turn(s)
+    mana(s, "p1", C=3)
+    activate(s, "p1", skaab)
+    settle(s)
+    zombies = [c for c in s.state.cards.values() if c.name == "Dregscape Zombie" and c.zone == "p1:battlefield"]
+    assert len(zombies) == 2 and all(c.is_token for c in zombies)  # the card itself was sacrificed
+    assert zone_of(s, "Dregscape Zombie") == "p1:graveyard"
+    check(s)
+
+
+# ---- Tinder Wall, Wall of Corpses (the source is sacrificed as a cost; what it was blocking is its last known information, 608.2b) -------------------
+def blocked_table(cards, wall):
+    from tests.test_rules_wave34b_activated import attack, block, priority_to, stops
+
+    s = build(cards, ["Hill Giant"], [wall])
+    giant = put(s, "Hill Giant")
+    blocker = put(s, wall, "p2")
+    stops(s)
+    next_turn(s)
+    attack(s, giant)
+    block(s, (blocker, giant))
+    priority_to(s, "p2")
+    return s, giant, blocker
+
+
+def test_wall_of_corpses_sacrifices_itself_and_destroys_the_creature_it_blocks(cards):
+    s, giant, wall = blocked_table(cards, "Wall of Corpses")
+    mana(s, "p2", B=1)
+    activate(s, "p2", wall, "Destroy", targets=[giant.id])
+    settle(s)
+    assert zone_of(s, "Wall of Corpses", "p2") == "p2:graveyard" and zone_of(s, "Hill Giant") == "p1:graveyard"
+    check(s)
+
+
+def test_tinder_wall_deals_two_damage_to_the_creature_it_blocks(cards):
+    s, giant, wall = blocked_table(cards, "Tinder Wall")
+    mana(s, "p2", R=1)
+    activate(s, "p2", wall, "damage", targets=[giant.id])
+    settle(s)
+    assert zone_of(s, "Tinder Wall", "p2") == "p2:graveyard" and s.state.cards[giant.id].damage == 2
+    check(s)
+
+
+def test_tinder_wall_cannot_target_a_creature_it_is_not_blocking(cards):
+    from tests.test_rules_wave34b_activated import attack, block, priority_to, stops
+
+    s = build(cards, ["Hill Giant", "Grizzly Bears"], ["Tinder Wall"])
+    giant, bears = put(s, "Hill Giant"), put(s, "Grizzly Bears")
+    wall = put(s, "Tinder Wall", "p2")
+    stops(s)
+    next_turn(s)
+    attack(s, giant, bears)
+    block(s, (wall, giant))
+    priority_to(s, "p2")
+    mana(s, "p2", R=1)
+    with pytest.raises(ActionError):
+        activate(s, "p2", wall, "damage", targets=[bears.id])  # the Wall blocks the Giant, not the Bears
+    assert zone_of(s, "Tinder Wall", "p2") == "p2:battlefield"
+    check(s)
+
+
+# ---- Acorn Catapult -----------------------------------------------------------------------------------------------------------------------------
+def test_acorn_catapult_gives_the_damaged_players_a_squirrel(cards):
+    s = build(cards, ["Acorn Catapult"])
+    cat = put(s, "Acorn Catapult")
+    next_turn(s)
+    mana(s, "p1", C=1)
+    activate(s, "p1", cat, targets=["p2"])
+    settle(s)
+    squirrels = [c for c in s.state.cards.values() if c.name == "Squirrel"]
+    assert life(s, "p2") == 39 and [c.controller for c in squirrels] == ["p2"]
+    check(s)
+
+
+def test_acorn_catapult_gives_a_damaged_creatures_controller_a_squirrel(cards):
+    s = build(cards, ["Acorn Catapult"], ["Grizzly Bears"])
+    cat = put(s, "Acorn Catapult")
+    bears = put(s, "Grizzly Bears", "p2")
+    next_turn(s)
+    mana(s, "p1", C=1)
+    activate(s, "p1", cat, targets=[bears.id])
+    settle(s)
+    assert s.state.cards[bears.id].damage == 1 and [c.controller for c in s.state.cards.values() if c.name == "Squirrel"] == ["p2"]
+    check(s)
+
+
+# ---- Magewright's Stone -------------------------------------------------------------------------------------------------------------------------
+def test_magewrights_stone_untaps_a_creature_with_a_tap_ability_only(cards):
+    s = build(cards, ["Magewright's Stone", "Llanowar Elves", "Grizzly Bears"])
+    stone = put(s, "Magewright's Stone")
+    elves, bears = put(s, "Llanowar Elves"), put(s, "Grizzly Bears")
+    next_turn(s)
+    act(s, "p1", type="tap", card_ids=[elves.id, bears.id], tapped=True)
+    mana(s, "p1", C=1)
+    with pytest.raises(ActionError):
+        activate(s, "p1", stone, targets=[bears.id])  # no activated ability with {T} in its cost
+    activate(s, "p1", stone, targets=[elves.id])
+    settle(s)
+    assert not s.state.cards[elves.id].tapped and s.state.cards[bears.id].tapped
     check(s)

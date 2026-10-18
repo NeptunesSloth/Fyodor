@@ -1622,6 +1622,7 @@ def parse_copy_target(what: str, exc: str | None) -> tuple[list[dict[str, Any]],
 _SOURCES = {"~": "self", "it": "it", "that creature": "it", "that permanent": "it", "that artifact": "it",
             "that token": "it", "that card": "it", "equipped creature": "host", "enchanted creature": "host",
             "enchanted permanent": "host", "enchanted artifact": "host",
+            "the sacrificed creature": "cost:sacrificed",  # -- activated other (wave 52D) -- an activation cost's sacrifice, as it last existed (populate.left_battlefield)
             "the exiled card": "pay_exiled",
             "the card exiled to activate this ability": "cost_exiled"}  # (wave 15E: embalm, 702.128a)  # -- if you do (wave 8C) -- bound to a payment's exiled card (pay_objects.bind)
 

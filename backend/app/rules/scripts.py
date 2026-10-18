@@ -1612,7 +1612,7 @@ def _granted_token_text(quoted: str) -> str:
     return quoted
 
 
-@effect(r"(?P<s>its controller|its owner|the exiled card's owner|that player|that creature's controller|that permanent's controller|"
+@effect(r"(?P<s>its controller|its owner|the exiled card's owner|that permanent's controller or that player|that player|that creature's controller|that permanent's controller|"  # (wave 52D: Acorn Catapult)
         r"target player|target opponent|each opponent|each player) creates (?P<rest>.+)")
 def _someone_creates(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     """"Its controller creates a 3/3 green Beast creature token": the create templates with a
@@ -5607,7 +5607,7 @@ def _event_refs_ok(d: Definition) -> bool:
     # sacrifices it — Tinder Wall — leaves only its last known block, which isn't kept)
     if "blocking_source" in json.dumps(d) or "blocked_by_source" in json.dumps(d):
         self_trigger = d.get("kind") == "triggered" and _trigger_antecedent(str(d.get("trigger")), d.get("cond")) == "self"
-        mine = d.get("kind") == "activated" and not re.search(r"\b[Ss]acrifice (?:this|~)", str(d.get("cost")))
+        mine = d.get("kind") == "activated"  # (-- activated other (wave 52D) -- also with the source sacrificed as a cost: its last known blocks are kept, selectors)
         shield = d.get("kind") == "static" and d.get("static") == "prevent"  # -- damage wordings (wave 50E) -- 615.1: "Prevent all damage that would be dealt to this creature by creatures it's blocking" (Wall of Vapor): the shield's source is on the battlefield (replacements._object_matches)
         if not (self_trigger or mine or shield):
             return False
