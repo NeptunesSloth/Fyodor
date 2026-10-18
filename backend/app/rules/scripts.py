@@ -2555,6 +2555,8 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     body = _COUNTED_IF_YOU_DO.sub(_counted_if_you_do, body)  # -- reflexive this way (wave 30G) -- Neheb: "… draw that many cards and add that much {R}."
     body = re.sub(r"\b([Cc]reate an? (?:white|blue|black|red|green) [A-Z][a-z]+ creature token)\. Its power is equal to (that (?:creature|card)'s) power and its toughness is equal to \2 toughness\b",
                   r"\1 with power equal to \2 power and toughness equal to \2 toughness", body)  # (-- if you do (wave 51D) -- Kalitas, Bloodchief of Ghet; see _create_lki_token)
+    body = re.sub(r"\b(that player mills) a card for each 1 damage dealt to them\b", r"\1 that many cards", body)  # (-- if you do (wave 51D) -- Anowon, the Ruin Thief: the damage the trigger is about)
+    body = re.sub(r"(?<=\. )If (?:the|that) player mills at least one (\w+) card this way,", r"If a \1 card was milled this way,", body)  # (-- if you do (wave 51D) -- Anowon: the one mill instruction before; a creature card milled this way is a count of one or more)
     body = re.sub(r"(?<=\. )If you lost life this way, draw that many cards\b", "Draw cards equal to the life lost this way", body)  # (-- if you do (wave 51D) -- Mister Negative: drawing none when no life was lost is the same as not drawing; see _life_lost)
     body = re.sub(r"^(\s*target (?:opponent|player) gains control of [^.]+)\. If they do, ", r"\1. If you do, ", body, flags=re.I)  # (-- commanders (wave 50C) -- Bill Ferny; wave 51D: an activated ability's body starts with a space, Stiltzkin: "If they do" asks whether the control changed, as "If you do" after the instruction)
     body = re.sub(r"(?i)\b(discard (?:up to \w+|any number of|\w+) cards?)(?:, then |\. (?:then )?)draw that many cards\b(?! plus| and )",
@@ -2664,7 +2666,7 @@ def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tup
 
         return random_choice.post(mode=or_pw, got=_source_owner_draws(_entered_after_delayed(_no_regen_scope(top_library.private_gate(_excess_redirect(_value_targets(
             _that_players_hand(_attached_host(_gy_shuffle(_life_lost(this_way.dealt_to(this_way.excess_dealt(this_way.damage_dealt(_energy_paid(
-                _parse_effects(body, it, event_player))))))), it)))))))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C; random_choice: wave 47B)
+                _lki_token_ok(_parse_effects(body, it, event_player)))))))), it)))))))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C; random_choice: wave 47B)
     except _NoMatch:
         return None
 
@@ -3041,6 +3043,19 @@ def _gy_shuffle(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[l
             return None
         effects[-1] = {**prev, "shuffle": True}
     return effects, found[1], found[2]
+
+
+def _lki_token_ok(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """-- if you do (wave 51D) -- "Create a black Zombie creature token with power equal to that card's power …": "that card" is a card (or the creature an earlier
+    instruction destroyed), never a token just made (111.1: Soul Separator's copy of the exiled card has numbers of its own, not the Zombie's): refused then."""
+    if found is None:
+        return found
+    made = {str(e["as"]) for e in found[0] if e.get("do") in (*_TOKEN_MAKERS, "token_copy") and e.get("as")}
+    for e in found[0]:
+        t = e.get("token") if e.get("do") == "create_token" else None
+        if t is not None and any(isinstance(t.get(k), dict) and str(next(iter(t[k].values()), "")).removeprefix("ref:") in made for k in ("power", "toughness")):
+            return None
+    return found
 
 
 def _life_lost(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
