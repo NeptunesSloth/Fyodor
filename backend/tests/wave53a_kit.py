@@ -49,3 +49,26 @@ def alice_next(s: Any) -> None:
     from tests.test_rules_wave34b_activated import to_phase
 
     to_phase(s, "main1", turn=s.state.turn.number + len(s.state.players))
+
+
+def card_view(s: Any, viewer: str, c: Any) -> str:
+    import json
+
+    return json.dumps(s.view(viewer)["cards"].get(c.id, {}))
+
+
+def unseen_by(s: Any, c: Any, *viewers: str) -> bool:
+    """Nothing in the viewers' views of the table names this card (its name, its printing)."""
+    return all(c.name not in card_view(s, v, c) and c.card_id not in card_view(s, v, c) for v in viewers)
+
+
+def until_asked(s: Any, limit: int = 30) -> Any:
+    """Pass priority until a decision is open (returned)."""
+    from tests.game_helpers import act
+
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            return d
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no decision")

@@ -971,19 +971,20 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 if intro is None:
                     return None
                 e["player"] = f"ref:{bound(intro)}.{e['player'][3:]}"
-            if e.get("player") == "that_player":  # -- static wordings (wave 6E) -- "that player exiles the top card of
-                intro = find(lambda i: i.player, index)  # their library": whose library, bound like "who" below
-                if intro is not None and intro.do == "choose_random":  # -- random choices (wave 47B) -- "Choose an opponent at random. … attacks that player"
-                    e["player"] = "ref:" + bound(intro)
-                elif intro is not None:
-                    if event_player:
-                        return None
-                    g = _group_of(out[intro.index])
-                    e["player"] = "target" if groups is None else f"target:{g}"
-                elif (np := named_player(index)) is not None:
-                    e["player"] = np  # (-- player-relative selectors (wave 53A) --)
-                else:
-                    e["player"] = "event_player"
+            for pkey in ("player", "library"):  # (-- player-relative selectors (wave 53A) -- "search that player's library for …" (Thada Adel, Sadistic Sacrament): a library is named like a player)
+                if e.get(pkey) == "that_player":  # -- static wordings (wave 6E) -- "that player exiles the top card of
+                    intro = find(lambda i: i.player, index)  # their library": whose library, bound like "who" below
+                    if intro is not None and intro.do == "choose_random":  # -- random choices (wave 47B) -- "Choose an opponent at random. … attacks that player"
+                        e[pkey] = "ref:" + bound(intro)
+                    elif intro is not None:
+                        if event_player:
+                            return None
+                        g = _group_of(out[intro.index])
+                        e[pkey] = "target" if groups is None else f"target:{g}"
+                    elif (np := named_player(index)) is not None:
+                        e[pkey] = np  # (-- player-relative selectors (wave 53A) --)
+                    else:
+                        e[pkey] = "event_player"
             who = e.get("who")
             if isinstance(who, str) and player_relative.marks(who) and '"controller":"that_player"' in who and not who.startswith(("controlled:", "graveyard_of:")):
                 who = e["who"] = player_relative.as_controlled(who)  # -- player-relative selectors (wave 53A) -- "each other creature that player controls": bound below like "each creature that player controls"

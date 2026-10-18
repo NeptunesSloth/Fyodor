@@ -820,9 +820,9 @@ def _search_selectors(text: str, one: bool) -> dict[str, Any]:
 # your control." (Bribery, Acquire), "… up to three creature cards and put them into their graveyard." (Life's Finale), "… for a card and
 # exile it." (Extract, Bitter Ordeal): the searcher is the ability's controller, the library is the target player's (701.23a); the cards
 # found are the library owner's, so they go to that owner's graveyard or exile, or enter under the searcher's control
-_SEARCH_THEIRS = re.compile(r"search (?P<t>target opponent|target player)'s library for (?P<mid>.+?),? and "
+_SEARCH_THEIRS = re.compile(r"search (?P<t>target opponent|target player|that player)'s library for (?P<mid>.+?)(?:,? and |, )"  # (-- player-relative selectors (wave 53A) -- "that player's": the trigger event's player; "face down": Praetor's Grasp; ", exile them": Sadistic Sacrament)
                             r"(?:put (?:that card|it|them|those cards) (?:(?P<bf>onto the battlefield under your control)|(?P<gy>into (?:their|that player's) graveyard))"
-                            r"|exile (?:it|them))")
+                            r"|exile (?P<pl>it|them)(?P<fd> face down)?)")
 SELECTORS_TARGET = {"target opponent": "opponent", "target player": "player"}
 # -- activated other (wave 42C) -- "Target player searches their library for a card, then shuffles and puts that card on top." (Varragoth): the target player is the
 # searcher (701.23a) and chooses the card from their own library (hidden from the rest); read as "each player searches …", aimed at the one target
@@ -841,11 +841,13 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
             raise _Fail
         return [{**found[0][0], "who": "target"}], SELECTORS_TARGET[tt["t"]]
     if (theirs := _SEARCH_THEIRS.fullmatch(text)) is not None:  # -- static_other sweep (wave 26A) -- another player's library (701.23)
-        std = {"b": "put it onto the battlefield", "g": "put it into your graveyard", "x": "exile it"}[
+        std = {"b": "put it onto the battlefield", "g": "put it into your graveyard", "x": f"exile {theirs['pl']}" + (theirs["fd"] or "")}[
             "b" if theirs["bf"] else "g" if theirs["gy"] else "x"]
         found = _search(f"search your library for {theirs['mid']}, {std}")
         if found is None or found[0][0].get("who", "you") != "you" or found[0][0].get("parts") or found[0][0].get("to2"):
             raise _Fail
+        if theirs["t"] == "that player":  # -- player-relative selectors (wave 53A) -- the player the trigger event names (scripts.resolve_it binds it)
+            return [{**found[0][0], "library": "that_player"}], None
         return [{**found[0][0], "library": "target"}], SELECTORS_TARGET[theirs["t"]]
     # -- recursion & tutors (wave 4M) -- "… then shuffle. You may search your library for a basic land card, put it onto the
     # battlefield, then shuffle." (Demolition Field, mid-ability): searching is the controller's choice, asked first; one

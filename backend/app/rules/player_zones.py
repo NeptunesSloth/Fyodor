@@ -122,4 +122,13 @@ def _shuffle(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "shuffle_library", "who": "that_player", "zones": [], "optional": True}], None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_EXILE, _exile), (_EXILES, _exiles), (_LIBRARY, _library), (_SHUFFLE_GY, _shuffle_gy), (_SHUFFLE, _shuffle)]
+# "..., then the player shuffles." (Rootwater Thief): the player whose library was searched
+_THE_PLAYER = re.compile(r"^(?:then )?the player shuffles(?: their library)?$")
+
+
+def _the_player(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "shuffle_library", "who": "that_player", "zones": []}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_EXILE, _exile), (_EXILES, _exiles), (_LIBRARY, _library), (_SHUFFLE_GY, _shuffle_gy), (_SHUFFLE, _shuffle),
+                                                (_THE_PLAYER, _the_player)]
