@@ -7366,6 +7366,11 @@ def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: 
         if rest.startswith("it deals ") and base[0]["do"] == "damage" and not base[0].get("src"):
             rest = "~ deals " + rest[len("it deals "):]  # (the source of the damage the sentence before it dealt)
         alt = (restated, None) if restated is not None else _bind_subject(cond, _clause(rest))
+        if alt is None:  # -- if you do (wave 51C) -- "If you're the monarch, instead each opponent loses 6 life unless they discard two cards." (Court of Ambition): the whole "unless they …" sentence
+            from app.rules import each_may as _each_may
+
+            unless = _each_may.unless_sentence(rest)
+            alt = (unless, None) if unless is not None else None
         if alt is None or alt[1] is not None or not _replaceable(base, alt[0]):
             return False
         if _cond_has_it(cond) and not spell_cond:  # "it": what the replaced sentence is about — its one target (else an earlier object)

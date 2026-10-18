@@ -42,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant", "Zenith Chronicler"])
+@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard", "Eclipsed Realms", "Dawn-Blessed Pennant", "Zenith Chronicler", "Court of Ambition"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -528,4 +528,27 @@ def test_zenith_chronicler_draws_for_everyone_but_the_caster_once_a_turn(cards):
     act(s, "p1", type="cast_spell", card_id=to_hand(s, "Terminate").id, targets=[elves.id])  # (her second multicolored spell this turn)
     settle(s)
     assert hands() == (0, 1)
+    check(s)
+
+
+# -- Court of Ambition ---------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("monarch,cost,lost", [(True, "Discard two cards", 6), (False, "Discard a card", 3)])
+def test_court_of_ambition_loses_more_life_when_you_are_the_monarch(cards, monarch, cost, lost):
+    """"... each opponent loses 3 life unless they discard a card. If you're the monarch, instead each opponent loses 6 life unless they discard two cards.": Bob declines."""
+    s = build(cards, ["Court of Ambition"], ["Grizzly Bears", "Llanowar Elves"])
+    mana(s, B=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Court of Ambition").id)
+    settle(s)
+    assert s.state.table.monarch == "p1"
+    if not monarch:
+        act(s, "p2", type="set_monarch", player="p2")
+    for n in ("Grizzly Bears", "Llanowar Elves"):
+        to_hand(s, n, "p2")
+    to_phase(s, "upkeep", turn=3)
+    d = until_asked(s)
+    assert d is not None and d.player == "p2" and cost in d.prompt
+    held = len(s.state.zones["p2:hand"])
+    pick(s, "decline")
+    settle(s)
+    assert life(s, "p2") == 40 - lost and len(s.state.zones["p2:hand"]) == held
     check(s)
