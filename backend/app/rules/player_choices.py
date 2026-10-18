@@ -17,6 +17,7 @@ the instruction says otherwise).
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 from typing import Any
 
 from app.rules import selectors
@@ -89,7 +90,21 @@ def _chooses(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
              "zone": "graveyard", **({"upto": True, "optional": True} if upto else {})}], (m["who"].removeprefix("target ") if target else None)
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_FOR_EACH, _for_each), (_EACH, _each), (_CHOOSES, _chooses)]
+# "Each player returns to the battlefield all artifact, creature, enchantment, and land cards in their graveyard that were put there from the battlefield this turn." (Second Sunrise):
+# every graveyard at once (no choice), each card back under its owner's control (the cards are theirs, 108.3), those that came from the battlefield this turn (selectors "put_there")
+_SUNRISE = re.compile(r"^each player returns to the battlefield all (?P<sel>[a-z, ]+? cards) in their graveyard (?P<tail>that were put there from the battlefield this turn)$")
+
+
+def _sunrise(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules.scripts import _NoMatch
+
+    sel = selectors.parse(re.sub(r"\bcards\b", "card", m["sel"]) + " in your graveyard " + m["tail"])
+    if sel is None or not sel.card or sel.player is not None or sel.zones != ("graveyard",) or not any(x.startswith("put_there:") for x in sel.extras):
+        raise _NoMatch
+    return [{"do": "return_card", "who": replace(sel, zone_owner=None).key(), "to": "battlefield", "tapped": False, "under": "owner"}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_FOR_EACH, _for_each), (_EACH, _each), (_CHOOSES, _chooses), (_SUNRISE, _sunrise)]
 
 # "Put those cards onto the battlefield under your control." / "Put that card onto the battlefield under your control." after a choice: what was chosen, moved from where it is (the
 # pronoun is bound to the instruction before by scripts.resolve_it); read last, after every wording that names the cards in another way

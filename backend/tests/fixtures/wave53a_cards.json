@@ -1132,5 +1132,20 @@
   "keywords": [],
   "power": "1",
   "toughness": "1"
+ },
+ {
+  "name": "Second Sunrise",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{W}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Each player returns to the battlefield all artifact, creature, enchantment, and land cards in their graveyard that were put there from the battlefield this turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
  }
 ]

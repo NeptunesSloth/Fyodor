@@ -25,7 +25,7 @@ from tests.wave53a_kit import open_repo, table, until_asked
 
 BEARS, GIANT, ANGEL, GRAIL = "Grizzly Bears", "Hill Giant", "Serra Angel", "Sol Grail"
 NAMES = ["Breach the Multiverse", "Exhume", "Crypt Champion", "Fall of the Thran", "Dredge the Mire", "Scrounge", "Enslaved Horror", "The Eternal Wanderer", "Chaos Defiler",
-         "Underworld Cerberus", "Pyrrhic Revival", "Ill-Gotten Gains", "Skullwinder", "Patriarch's Bidding", "Orzhov Advokist", "Afterlife from the Loam", "Strategic Betrayal"]
+         "Underworld Cerberus", "Pyrrhic Revival", "Ill-Gotten Gains", "Skullwinder", "Patriarch's Bidding", "Orzhov Advokist", "Afterlife from the Loam", "Strategic Betrayal", "Second Sunrise"]
 
 
 @pytest.fixture()
@@ -421,4 +421,23 @@ def test_strategic_betrayal_with_no_creature_the_graveyard_is_still_exiled(cards
     act(s, "p1", type="cast_spell", card_id=card_named(s, "Strategic Betrayal").id, targets=["p2"])
     settle(s)
     assert s.state.cards[giant.id].zone == "p2:exile"
+    check(s)
+
+
+# -- Second Sunrise ---------------------------------------------------------------------------------------------------------------------
+def test_second_sunrise_every_card_that_went_to_a_graveyard_from_the_battlefield_this_turn_returns_for_its_owner(cards):
+    """608.2c: all graveyards at once, no choice; only the card types named and only cards put there from the battlefield this turn (a card milled, discarded or put there on an earlier turn
+    stays); each returns under its owner's control (108.3), even though Alice cast the spell."""
+    s = table(cards, ["Second Sunrise", BEARS, GRAIL], [GIANT, ANGEL], [BEARS])
+    abears, grail = put(s, BEARS), put(s, GRAIL)
+    bgiant, bangel = put(s, GIANT, "p2"), put(s, ANGEL, "p2")
+    for c in (abears, grail, bgiant):
+        act(s, c.owner, type="move", card_ids=[c.id], to={"zone": "graveyard"})  # (died / was destroyed this turn)
+    milled = to_gy(s, BEARS, "p3")  # from the library: never on the battlefield
+    to_hand(s, "Second Sunrise")
+    mana(s, "p1", W=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Second Sunrise").id)
+    settle(s)
+    assert [where(s, c) for c in (abears, grail)] == [("p1:battlefield", "p1"), ("p1:battlefield", "p1")] and where(s, bgiant) == ("p2:battlefield", "p2")
+    assert s.state.cards[milled.id].zone == "p3:graveyard" and s.state.cards[bangel.id].zone == "p2:battlefield"
     check(s)
