@@ -517,9 +517,8 @@ def test_fire_lord_azula_copies_a_spell_cast_while_she_is_attacking(cards, attac
     # a delayed trigger that must flip, then judge the flip, then give an opponent (their choice) the creature (Fickle Efreet)
     ("Creature — Efreet", "Whenever this creature attacks or blocks, flip a coin at end of combat. If you lose the flip, an opponent gains control of "
                           "this creature."),
-    # a delayed sacrifice answered by "If the player does" (Basalt Golem), two objects returned to different owners (Contempt)
-    ("Creature — Golem", "Whenever this creature becomes blocked by a creature, that creature's controller sacrifices it at end of combat. If the "
-                         "player does, they create a 0/2 colorless Wall artifact creature token with defender."),
+    # two objects returned to different owners (Contempt); (Basalt Golem's delayed sacrifice answered by "If the player does": read since wave 53C,
+    # tests/test_rules_wave53c_block_events.py)
     ("Enchantment — Aura", "Enchant creature\nWhen enchanted creature attacks, return it and this Aura to their owners' hands at end of combat."),
     # "attacked or blocked this combat" is no condition yet (Daredevil Dragster, the Clockwork creatures)
     ("Artifact — Vehicle", "At end of combat, if this Vehicle attacked or blocked this combat, put a velocity counter on it."),

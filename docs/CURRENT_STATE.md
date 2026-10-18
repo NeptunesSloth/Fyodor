@@ -20,7 +20,7 @@ they disagree with this top part, this part wins.
 | Check | Status |
 |---|---|
 | Backend ruff / mypy (`app tools`) | Clean. |
-| Backend pytest (full) | See the PR #17 description for the final count on its head (15,542 passed on the wave 53D merge; the wave 53 head was rerun before the push). |
+| Backend pytest (full, `-n 4`) | 15,945 passed, 2 failed on the reviewed wave 53 head; both were pins of wordings wave 53C now reads ("Auras attached to it", Basalt Golem), moved in the last code commit and their two files rerun green (137 passed). |
 | Frontend tsc / vitest | Clean; 72 tests passed (wave 53 touched `RulesHud.tsx`). Playwright not rerun. |
 
 The full suite takes about 15 minutes with `-n 4` on an idle 4-CPU machine, an hour with `-n 2` while agents run.

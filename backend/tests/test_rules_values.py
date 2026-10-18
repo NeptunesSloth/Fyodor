@@ -62,7 +62,6 @@ def test_parse_count(phrase, value):
 @pytest.mark.parametrize("phrase", [
     "+1/+1 counters on it",  # a pronoun the caller can't bind
     "counters on target creature",  # (a target the value would have to declare)
-    "Auras attached to it",
     "creatures that were exiled this turn",  # ("… that died this turn": read since wave 4D)
     "the amount of mana spent to cast it",
     "rad counters on ~",  # a counter kind the engine doesn't model (hone: wave 24C, 122.1j)
@@ -70,6 +69,11 @@ def test_parse_count(phrase, value):
 ])
 def test_unknown_quantities_are_not_guessed(phrase):
     assert values.parse_count(phrase) is None
+
+
+def test_auras_attached_to_it_keeps_the_pronoun_unbound():
+    # wave 53C: "it" stays a reference (``@pron``) that scripts.define binds by what the ability is or refuses (block_events.settle_it, refs_ok)
+    assert values.parse_count("Auras attached to it") == {"count": 'sel:{"extras":["rel:att@pron"],"subtypes":["Aura"]}'}
 
 
 def test_counters_on_it_binds_only_when_the_caller_says_what_it_is():
