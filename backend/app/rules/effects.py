@@ -2906,7 +2906,7 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True
     # (with a filter, ask even when nothing matched, as search does: whether a decision appears
     # mustn't tell the other players what the hidden cards were)
-    decide(plan, player=pid, kind="choose_cards", prompt=e.get("prompt") or "Choose from among them",
+    decide(plan, player=pid, kind="choose_cards", prompt=e.get("prompt") or "Choose from among them" + (f" (total mana value {e['total_mv']} or less)" if e.get("total_mv") is not None else ""),
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in options],
            min_choices=least, max_choices=most, resume={"step": "pick_looked", "ctx": ctx, "e": e})
     return False
@@ -2914,6 +2914,7 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def resume_pick_looked(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
+    _within_total(plan, e, list(chosen))  # (wave 51A)
     if e.get("sels"):  # -- refused look/cast-free (wave 3R5) -- one card of each kind, each a different card
         from app.rules import looking
 
@@ -4489,10 +4490,20 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if not hidden and (most == 0 or (least == most == len(pool))):
         return _return_cards(plan, ctx, e, pool[:most])
     decide(plan, player=pid, kind="choose_cards",
-           prompt=f"Choose {'up to ' if e.get('upto') else ''}{max(most, 1) if hidden else most} ({e.get('label', 'card')})" + {"exile": " to exile", "choose": ""}.get(e["to"], " to return"),
+           prompt=f"Choose {'up to ' if e.get('upto') else ''}{max(most, 1) if hidden else most} ({e.get('label', 'card')})" + {"exile": " to exile", "choose": ""}.get(e["to"], " to return")
+           + (f" with total mana value {e['total_mv']} or less" if e.get("total_mv") is not None else ""),
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool],
            min_choices=least, max_choices=max(most, 1) if hidden else most, resume={"step": "return_choice", "ctx": ctx, "e": e})
     return False
+
+
+def _within_total(plan: Plan, e: dict[str, Any], cards: list[str]) -> None:
+    """-- total mana value (wave 51A) -- "up to two creature cards with total mana value 6 or less": checked as the cards are chosen (608.2d)."""
+    from app.game.errors import ActionError
+    from app.rules.targets import _total
+
+    if e.get("total_mv") is not None and _total(plan, cards, "mana_value") > e["total_mv"]:
+        raise ActionError(f"Those cards must have total mana value {e['total_mv']} or less")
 
 
 def resume_return_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -4500,6 +4511,7 @@ def resume_return_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     pool = set(_cards(plan, ctx, e["who"]) if e.get("who") else
                selectors.candidates(plan, selectors.from_key(e["sel"]), d.player if e.get("chooser") else ctx["controller"], ctx.get("source_card")))
     cards = [c for c in chosen if c in pool]  # (still there and still matching)
+    _within_total(plan, e, cards)
     if e.get("different"):  # -- refused zones/sized (wave 3R4) -- "… cards with different names / mana values"
         from app.rules.targets import _different
 

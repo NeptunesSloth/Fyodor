@@ -1373,8 +1373,13 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
             e["optional"] = optional or q.startswith(("up to", "any number"))
             e["n"] = 99 if q in ("any number of", "all") else _amount(q[6:] if q.startswith("up to ") else q)
             if m["sel"]:
-                historic = bool(re.match(r"historic (?!.* or )", m["sel"]))  # (700.6: artifact, legendary or Saga; "a historic card")
-                parsed = selectors.parse(m["sel"][9:] if historic else m["sel"])
+                sel_text = m["sel"]
+                if tm := re.fullmatch(r"(.+?) with total mana value (\d+) or less", sel_text):  # -- total mana value (wave 51A) -- "up to two creature cards with total mana
+                    if e["n"] < 2:  # value 6 or less from among them" (Michelangelo's Technique): checked as they're picked (effects.resume_pick_looked)
+                        raise _Fail
+                    sel_text, e["total_mv"] = tm[1], int(tm[2])
+                historic = bool(re.match(r"historic (?!.* or )", sel_text))  # (700.6: artifact, legendary or Saga; "a historic card")
+                parsed = selectors.parse(sel_text[9:] if historic else sel_text)
                 if parsed is None or parsed.player is not None:
                     raise _Fail
                 if historic:
@@ -3857,6 +3862,11 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         dm = _DIFFERENT.fullmatch(what)  # -- refused zones/sized (wave 3R4) -- "… cards with different names"
         if dm is not None:
             what, different = dm["a"] + (dm["b"] or ""), "name" if dm["k"] == "names" else "mana_value"
+        tm = re.fullmatch(r"(.+?) with total mana value (\d+) or less", what)  # -- total mana value (wave 51A) -- "any number of artifact creature cards with total mana value 6 or less" (Technomancer)
+        if tm is not None:
+            if not (c["any"] or c["upto"]):
+                return None
+            what = tm[1]
         words = re.sub(r"\bcards\b", "card", what)
         sel = selectors.parse(f"{words} from {c['z']}")
         if sel is None:
@@ -3871,7 +3881,7 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
             return None
         return [{**effect, "do": "return_choice", "sel": sel.key(), "n": n, "upto": bool(c["upto"] or c["any"] or may),
                  "random": bool(c["rand"]), "label": words, **({"optional": True} if may else {}),
-                 **({"different": different} if different else {})}], _one(host_group)
+                 **({"different": different} if different else {}), **({"total_mv": int(tm[2])} if tm is not None else {})}], _one(host_group)
     if not put and not (not hand and (m["atk"] or m["atk2"] or m["host"] or m["ck2"] or m["add1"])):  # (ck2/add1: wave 4M)  # (wave 3R4: "… tapped and attacking", "… attached to" read here)
         return None  # ("return target …" / "return all …": the grammar below)
     try:
