@@ -839,3 +839,65 @@ def test_order_of_succession_right_goes_the_other_way_round(cards):
     resolve(s)
     assert [s.state.cards[x.id].controller for x in (c[0], b[1], a[0])] == ["p1", "p3", "p2"]
     check(s)
+
+
+# -- a secretly chosen number, guessed by an opponent (wave 53D) ---------------------------------------------------------------
+TOY_TRAP = "The Toymaker's Trap"
+
+
+def to_trap_choice(s):
+    """Pass on until the Trap's secret choice is asked of Alice (nothing else is answered for the players)."""
+    until(s, lambda s: s.state.rules.decision is not None and "secret" in s.state.rules.decision.prompt, limit=400)
+    d = s.state.rules.decision
+    assert d.player == "p1"
+    return d
+
+
+def test_the_toymakers_trap_is_full(cards):
+    assert coverage.of_card_data(cards.resolve(TOY_TRAP)).level == "FULL"
+
+
+def test_the_toymakers_trap_a_wrong_guess_loses_life_and_draws_and_the_number_is_not_offered_again_and_a_right_guess_sacrifices_it(cards):
+    s = table(cards, [TOY_TRAP], players=2)
+    trap = put(s, TOY_TRAP)
+    d = to_trap_choice(s)
+    assert [o.label for o in d.options] == ["1", "2", "3", "4", "5"]
+    hand, life = len(s.state.zones["p1:hand"]), s.state.players["p2"].life
+    answer(s, "p1", "3")  # Alice writes down 3
+    d = s.state.rules.decision
+    assert d.player == "p2" and "chosen" in d.prompt  # Bob guesses
+    assert "ballots" not in json.dumps(s.view("p2")) and "reveals" not in log(s, "p2")  # (nothing is told before the reveal)
+    assert s.state.rules.decision is not None and all("3" not in o.label or o.label == "3" for o in d.options)
+    answer(s, "p2", "2")
+    assert "Alice reveals the number they chose: 3" in log(s, "p2") and "Bob chooses 2" in log(s, "p2")
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.players["p2"].life == life - 2 and len(s.state.zones["p1:hand"]) == hand + 2  # he lost life equal to his guess; she drew (and then for her turn)
+    assert s.state.cards[trap.id].zone == "p1:battlefield"
+    assert s.state.rules.chosen_numbers
+    check(s)
+    # Alice's next upkeep: 3 has been chosen; she picks 4 and Bob guesses it
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase != "upkeep" or s.state.turn.number > 3, limit=100)
+    d = to_trap_choice(s)
+    assert [o.label for o in d.options] == ["1", "2", "4", "5"]
+    answer(s, "p1", "4")
+    answer(s, "p2", "4")
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[trap.id].zone == "p1:graveyard"  # a right guess: she sacrifices it
+    check(s)
+
+
+def test_the_toymakers_trap_with_several_opponents_alice_names_the_one_who_guesses(cards):
+    s = table(cards, [TOY_TRAP])
+    put(s, TOY_TRAP)
+    to_trap_choice(s)
+    answer(s, "p1", "5")
+    d = s.state.rules.decision
+    assert d.player == "p1" and {o.label for o in d.options} == {"Bob", "Carol"}  # an opponent, chosen as the ability resolves
+    answer(s, "p1", "Carol")
+    d = s.state.rules.decision
+    assert d.player == "p3"
+    answer(s, "p3", "1")
+    assert s.state.rules.grouped  # (the Celestial Toymaker counts it: an ability that made a player guess)
+    check(s)

@@ -28,6 +28,10 @@ State (``ctx["gc"][name]``, in the resolution context of the pending decision: s
 * "For each player who chose X, …" (``gc_each``): the next ``skip`` instructions once for each such player in APNAP order, "that player" being
   ``@P`` in the instructions (becomes ``player:<id>``). "the highest / lowest number" (``gc_extremes``): binds the players who chose the
   highest (``<name>:hi``), the lowest (``lo``) and not the lowest (``nlo``) number and their amounts (``<name>_hi``, ``<name>_lo``).
+* A guessed secret number (``gc_guess``: The Toymaker's Trap): the controller secretly chooses a number from a list minus the numbers this object has
+  chosen before (``RulesState.chosen_numbers``, by rules object: a new object, or a second copy, has no memory: ruling 2023-10-13), "an opponent" (chosen as
+  the ability resolves, 608.2d) guesses in public, then the number is revealed and recorded. The guess is right or wrong; the wrong and right instructions are
+  put in place as it resolves. The ability counts for The Celestial Toymaker (``pile_groups.note_grouping``).
 """
 
 from __future__ import annotations
@@ -80,7 +84,8 @@ def _options(plan: Plan, ctx: Context, e: dict[str, Any], pid: str = "", k: int 
     if e["what"] == "hand":  # a card in the chooser's hand: only they see it (101.4a)
         return [DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in plan.state.zones.get(zone_key(pid, "hand"), [])]
     if e["what"] == "word":
-        return [DecisionOption(id=w.lower(), label=w) for w in e["opts"]]
+        gone = {str(n) for n in plan.rules.chosen_numbers.get(_memory(ctx), [])} if e.get("memory") else set()  # (-- guessed numbers (wave 53D) --)
+        return [DecisionOption(id=w.lower(), label=w) for w in e["opts"] if w not in gone]
     if e["what"] == "number":
         return [DecisionOption(id=NUMBER, label=f"Type a number ≥ {int(e.get('min', 0))}", group="number")]
     from app.rules.effects import _choice_options
@@ -157,7 +162,7 @@ def _finish(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     g = ctx["gc"][e["as"]]
     g["ballots"] = [b for b in g["ballots"] if b[0] in plan.live()]
-    if g["secret"] and g["ballots"]:
+    if g["secret"] and g["ballots"] and not e.get("quiet"):  # (quiet: revealed by a later instruction, gc_guess)
         plan.note("The choices are revealed: " + "; ".join(f"{plan.name(p)} chose {_label(e, v, plan)}" for p, v in g["ballots"]),
                   [v for _, v in g["ballots"]] if e["what"] in ("object", "hand") else [])
     if e["what"] == "hand":  # "Then each player reveals their chosen card": all at once (701.20a: public until the instructions are done)
@@ -249,6 +254,8 @@ def holds(plan: Plan, ctx: Context, cond: dict[str, Any]) -> bool:
     c = cond["gc"]
     ballots = (ctx.get("gc") or {}).get(c["as"], {}).get("ballots") or []
     values = {v for _, v in ballots}
+    if c["is"] == "any":  # "If you do": somebody chose
+        return bool(ballots)
     if c["is"] == "match":  # "If they match"
         return len(ballots) >= 2 and len(values) == 1
     if c["is"] == "differ":  # (otherwise)
@@ -574,6 +581,32 @@ def lose_mana(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+# -- guessed secret numbers (wave 53D) --
+def _memory(ctx: Context) -> str:
+    """Whose numbers are remembered: the rules object of the ability's source (400.7: a permanent that left and came back is another object)."""
+    return str(ctx.get("source_object") or ctx.get("source_card") or "")
+
+
+def guess(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"An opponent guesses which number you chose, then you reveal the number you chose. If they guessed wrong, … If they guessed right, …" (The Toymaker's Trap):
+    the chosen number is revealed (and remembered), the guess is compared with it, and the matching instructions follow. The guess is bound as ``<guess>_n``."""
+    from app.rules import context, pile_groups
+
+    secret, guessed = ctx["gc"][e["bind"]]["ballots"], ctx["gc"][e["as"]]["ballots"]  # (``bind``: the secret choice, ``as``: the guess; both names are renamed with a clause's)
+    if not secret:
+        return True
+    pid, number = secret[0]
+    pile_groups.note_grouping(plan, ctx)  # (the Celestial Toymaker counts spells and abilities that made players guess)
+    plan.rules.chosen_numbers.setdefault(_memory(ctx), []).append(int(number))
+    plan.note(f"{plan.name(pid)} reveals the number they chose: {number}", actor=pid)
+    if not guessed:  # (the guesser left the game, 800.4a: nobody guessed)
+        return True
+    context.bind_amount(ctx, f"{e['as']}_n", int(guessed[0][1]))
+    at = ctx["next"]
+    ctx["effects"][at:at] = e["right"] if guessed[0][1] == number else e["wrong"]
+    return True
+
+
 def exile_linked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Exile the top card of your library face down", linked to the object (607.2a): effects.exile_top, recorded as exiled with the source."""
     from app.rules.effects import exile_top
@@ -583,7 +616,7 @@ def exile_linked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 PRIMITIVES = {"gc_choose": choose, "gc_each": each, "gc_extremes": extremes, "gc_bid": bid, "gc_exile_linked": exile_linked, "gc_sweep": sweep,
               "gc_keep_hand": keep_hand, "gc_typed_return": typed_return, "gc_reveal_names": reveal_names, "gc_lowest_creature": lowest_creature,
-              "gc_succession": succession, "gc_lose_mana": lose_mana}
+              "gc_succession": succession, "gc_lose_mana": lose_mana, "gc_guess": guess}
 RESUME = {"gc_choose": resume, "gc_bid": resume_bid, "gc_keep": resume_keep, "gc_return": resume_return, "gc_succession": resume_succession}
 
 
@@ -609,7 +642,7 @@ def bind(body: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, An
     if _GATE.search(body) is None:
         return None
     text = body.strip()
-    for recipe in (_chosen_type, _words, _numbers, _chosen_objects, _bids, _hands):
+    for recipe in (_chosen_type, _words, _numbers, _chosen_objects, _bids, _hands, _guess):
         if (found := recipe(text, parse, split_sentences)) is not None:
             return found
     return None
@@ -910,3 +943,27 @@ def _hands(text: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, 
     if tuple(sentences) == _SUCCESSION:  # Order of Succession
         return [{"do": "gc_choose", "who": "you", "what": "word", "opts": ["left", "right"], "as": "gc", "say": "left or right"}, {"do": "gc_succession", "as": "gc"}], None, False
     return None
+
+
+_TRAP = ("Secretly choose a number between 1 and 5 that hasn't been chosen.",
+         "If you do, an opponent guesses which number you chose, then you reveal the number you chose.",
+         "If they guessed wrong, they lose life equal to the number they guessed and you draw a card.", "If they guessed right, sacrifice ~.")
+
+
+def _guess(text: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """The Toymaker's Trap: secretly choose a number (not one chosen before), an opponent guesses, the number is revealed, a wrong guess loses life and draws, a
+    right guess sacrifices the enchantment."""
+    sentences = split_sentences(text)
+    if sentences:
+        sentences[0] = sentences[0][:1].upper() + sentences[0][1:]  # (a trigger's body)
+    draw, sacrifice = parse("Draw a card."), parse("Sacrifice ~.")
+    if tuple(sentences) != _TRAP or draw is None or sacrifice is None or len(draw[0]) != 1 or len(sacrifice[0]) != 1:
+        return None
+    numbers = ["1", "2", "3", "4", "5"]
+    return [{"do": "gc_choose", "who": "you", "what": "word", "opts": numbers, "memory": True, "secret": True, "quiet": True, "as": "tn",
+             "say": "a number between 1 and 5 that hasn't been chosen"},
+            {"do": "only_if", "cond": {"gc": {"as": "tn", "is": "any"}}, "skip": 3},
+            {"do": "choose_opponent", "as": "copp"},
+            {"do": "gc_choose", "who": "ref:copp", "what": "word", "opts": numbers, "as": "tg", "say": "which number was chosen"},
+            {"do": "gc_guess", "bind": "tn", "as": "tg", "wrong": [{"do": "lose_life", "who": "ref:copp", "n": {"ref_amount": "tg_n"}}, draw[0][0]],
+             "right": [sacrifice[0][0]]}], None, False
