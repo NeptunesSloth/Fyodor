@@ -19,6 +19,10 @@ State (``ctx["gc"][name]``, in the resolution context of the pending decision: s
 * Secret choices ("secretly chooses … then the choices are revealed"): the decision goes to the chooser alone (rules/view.decision_view shows
   everyone else "is making a choice"), nothing is logged and no public state changes until every choice is in; then all are revealed at
   once in the log. A player who left the game (800.4a) chooses nothing and is not counted.
+* Bids (``bid``, "bid life": Mages' Contest, Illicit Auction, Pain's Reward): the controller starts with a bid (a number, or any number: typed), then in turn order
+  each other player may top the high bid (a whole number above it) or pass; a raise lets every other player top the new bid again, and the bidding ends when
+  every player but the high bidder has declined to top the bid that stands. Bids are public and may be more than a player's life (the rulings: it is life loss,
+  not a payment). The high bidder's players binding is ``<name>:winner`` and the bid ``<name>_high``.
 * "of a type / color chosen this way": the later instructions' ``chosen_type`` / ``chosen_color`` selectors are bound to every type or color
   chosen (any of them; "aren't of": none of them). Choosing a value already chosen is allowed and changes nothing (Patriarch's Bidding ruling).
 * "For each player who chose X, …" (``gc_each``): the next ``skip`` instructions once for each such player in APNAP order, "that player" being
@@ -53,6 +57,8 @@ def is_number(d: Decision) -> bool:
 def number_answer(d: Decision, typed: str | None) -> str:
     """The whole number the player typed (≥ the decision's minimum), or an ActionError saying what is wrong."""
     text = (typed or "").strip()
+    if text.lower() == "pass" and any(o.id == "pass" for o in d.options):  # a bid may be declined
+        return "pass"
     if not re.fullmatch(rf"\d{{1,{MAX_DIGITS}}}", text):
         raise ActionError(f"Type a whole number of 0 to {'9' * MAX_DIGITS}")
     least = int(d.options[0].label.rsplit("≥", 1)[-1]) if "≥" in d.options[0].label else 0
@@ -220,12 +226,88 @@ def holds(plan: Plan, ctx: Context, cond: dict[str, Any]) -> bool:
     return False
 
 
-PRIMITIVES = {"gc_choose": choose, "gc_each": each, "gc_extremes": extremes}
-RESUME = {"gc_choose": resume}
+# -- bids ---------------------------------------------------------------------------------------------------------
+def _target_controller(plan: Plan, ctx: Context) -> str | None:
+    """The controller of the spell the ability targets (it is on the stack: 109.4)."""
+    for t in (ctx.get("targets") or []):
+        card = plan.state.cards.get(t["id"])
+        if card is not None and plan.oid(card) == t.get("object_id"):
+            return str(card.controller)
+    return None
+
+
+def bid(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Start: who bids, the controller's opening bid (a number, or any number they type)."""
+    me = ctx["controller"]
+    who = [p for p in plan.live()] if e["who"] == "each_player" else [me, _target_controller(plan, ctx)]
+    turn = [me]
+    while (nxt := plan.after(turn[-1])) != me and len(turn) < 64:
+        turn.append(nxt)
+    order = [p for p in turn if p in who]
+    ctx.setdefault("bid", {})[e["as"]] = {"order": order, "high": 0, "bidder": me, "at": 1 % max(len(order), 1), "passes": 0}
+    if e["start"] == "any":
+        from app.rules.plan import decide
+
+        decide(plan, player=me, kind="choose_one", prompt=f"{ctx.get('name') or 'Bid'}: start the bidding with a bid of any number",
+               options=[DecisionOption(id=NUMBER, label="Type a number ≥ 0", group="number")],
+               resume={"step": "gc_bid", "ctx": ctx, "e": e, "open": True, "rest": [], "picked": []})
+        return False
+    b = ctx["bid"][e["as"]]
+    b["high"] = int(e["start"])
+    plan.note(f"{plan.name(me)} starts the bidding with a bid of {b['high']}", actor=me)
+    return _ask_bid(plan, ctx, e)
+
+
+def _ask_bid(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import context
+    from app.rules.plan import decide
+
+    b = ctx["bid"][e["as"]]
+    order = b["order"]
+    while b["passes"] < len(order) - 1:
+        pid = order[b["at"] % len(order)]
+        if pid not in plan.live():  # (a player who left the game, 800.4a, bids no more)
+            b["at"] = (b["at"] + 1) % len(order)
+            b["passes"] += 1
+            continue
+        decide(plan, player=pid, kind="choose_one",
+               prompt=f"{ctx.get('name') or 'Bid'}: the high bid is {b['high']} ({plan.name(b['bidder'])}). Bid more life, or pass",
+               options=[DecisionOption(id=NUMBER, label=f"Type a number ≥ {b['high'] + 1}", group="number"), DecisionOption(id="pass", label="Pass")],
+               resume={"step": "gc_bid", "ctx": ctx, "e": e, "rest": [], "picked": []})
+        return False
+    winner = b["bidder"] if b["bidder"] in plan.live() else None
+    context.bind_players(ctx, f"{e['as']}:winner", [winner] if winner else [])
+    context.bind_amount(ctx, f"{e['as']}_high", b["high"])
+    if winner:
+        plan.note(f"{plan.name(winner)} wins the bidding with a bid of {b['high']}", actor=winner)
+    return True
+
+
+def resume_bid(plan: Plan, d: Decision, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    ctx, e = d.resume["ctx"], d.resume["e"]  # type: ignore[index]
+    b = ctx["bid"][e["as"]]
+    if (d.resume or {}).get("open"):  # the opening bid
+        b["high"] = int(chosen[0]) if chosen else 0
+        plan.note(f"{plan.name(d.player)} starts the bidding with a bid of {b['high']}", actor=d.player)
+    elif chosen and chosen[0] != "pass":
+        b.update(high=int(chosen[0]), bidder=d.player, passes=0, at=(b["at"] + 1) % len(b["order"]))
+        plan.note(f"{plan.name(d.player)} bids {b['high']}", actor=d.player)
+    else:
+        b["passes"] += 1
+        b["at"] = (b["at"] + 1) % len(b["order"])
+        plan.note(f"{plan.name(d.player)} passes", actor=d.player)
+    if _ask_bid(plan, ctx, e):
+        continue_effects(plan, ctx)
+
+
+PRIMITIVES = {"gc_choose": choose, "gc_each": each, "gc_extremes": extremes, "gc_bid": bid}
+RESUME = {"gc_choose": resume, "gc_bid": resume_bid}
 
 
 # -- reading the wording ----------------------------------------------------------------------------------------
-_GATE = re.compile(r"\b(?:secretly|[Ee]ach (?:player|opponent) chooses)\b")
+_GATE = re.compile(r"\b(?:secretly|[Ee]ach (?:player|opponent) chooses|bid life)\b")
 _TYPE_HEAD = re.compile(r"^[Ee]ach player chooses an? (?P<what>creature type|color|basic land type)\. (?P<rest>.+)$", re.DOTALL)
 _THIS_WAY = re.compile(r"\bof an? (?P<w>type|color|basic land type) chosen this way\b")
 _EACH_RETURNS = re.compile(r"[Ee]ach player returns all (.+?) from their graveyard to the battlefield\.")
@@ -246,7 +328,7 @@ def bind(body: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, An
     if _GATE.search(body) is None:
         return None
     text = body.strip()
-    for recipe in (_chosen_type, _words, _numbers, _chosen_objects):
+    for recipe in (_chosen_type, _words, _numbers, _chosen_objects, _bids):
         if (found := recipe(text, parse, split_sentences)) is not None:
             return found
     return None
@@ -458,3 +540,39 @@ def _chosen_objects(text: str, parse: Any, split_sentences: Any) -> tuple[list[d
         return [look[0][0], {"do": "player_chooses", "who": "each_opponent", "sel": key, "n": 1, "label": "nonland card", "looked": True, "start": "next",
                              "distinct": True, "as": "gco"}, {"do": "return_card", "who": "ref:gco", "to": "hand"}, look[0][1]], None, False
     return None
+
+
+# -- bids (Mages' Contest, Illicit Auction, Pain's Reward) ----------------------------------------------------------
+_BID_HEADS = {"You and target spell's controller bid life.": ("you_and_spell_controller", "Counter target spell."),
+              "Each player may bid life for control of target creature.": ("each_player", "Gain control of target creature."),
+              "Each player may bid life.": ("each_player", None)}
+_BID_START = re.compile(r"^You start the bidding with a bid of (?P<n>\d+|any number)\.$")
+_BID_RULES = ("In turn order, each player may top the high bid.", "The bidding ends if the high bid stands.")
+_BID_RESULT = re.compile(r"^The high bidder loses life equal to the high bid(?P<tail> and gains control of the creature| and draws four cards)?\.$")
+_BID_COUNTER = "If you win the bidding, counter that spell."
+
+
+def _bids(text: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    sentences = split_sentences(text)
+    head = _BID_HEADS.get(sentences[0]) if sentences else None
+    if head is None or len(sentences) < 5 or (start := _BID_START.match(sentences[1])) is None or tuple(sentences[2:4]) != _BID_RULES \
+            or (result := _BID_RESULT.match(sentences[4])) is None:
+        return None
+    rest = sentences[5:]
+    tail = result["tail"]
+    if (head[0] == "you_and_spell_controller") != (rest == [_BID_COUNTER]) or (head[0] != "you_and_spell_controller" and rest) \
+            or (head[1] and head[1].startswith("Gain") != (tail == " and gains control of the creature")) \
+            or ((tail == " and draws four cards") != (head[1] is None)):
+        return None
+    target = parse(head[1]) if head[1] else None
+    if head[1] and (target is None or len(target[0]) != 1):
+        return None
+    out: list[dict[str, Any]] = [{"do": "gc_bid", "who": head[0], "start": "any" if start["n"] == "any number" else int(start["n"]), "as": "bd"},
+                                 {"do": "lose_life", "who": "ref:bd:winner", "n": {"ref_amount": "bd_high"}}]
+    if tail == " and gains control of the creature" and target is not None:
+        out.append({**target[0][0], "to": "ref:bd:winner"})
+    elif tail == " and draws four cards":
+        out.append({"do": "draw", "who": "ref:bd:winner", "n": 4})
+    elif target is not None:  # "If you win the bidding, counter that spell."
+        out += [{"do": "only_if", "cond": {"gc": {"as": "bd", "is": "you", "set": "winner"}}, "skip": 1}, target[0][0]]
+    return out, target[1] if target else None, False

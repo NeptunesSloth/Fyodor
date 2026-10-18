@@ -454,11 +454,14 @@ export const NUMBER_OPTION = "__number__";
 function NumberChoice({ d }: { d: DecisionView }) {
   const [n, setN] = useState("");
   const ok = /^\d{1,9}$/.test(n.trim());
+  const canPass = (d.options ?? []).some((o) => o.id === "pass"); // a bid (wave 53D): "pass" is typed like the number, the server reads it
   return (
     <div className="decision-options" data-testid="number-choice">
+      <div className="decision-seen">{d.options?.[0]?.label}</div>
       <input className="decision-name" data-testid="number-input" type="number" min={0} step={1} autoFocus value={n} placeholder="Number"
         onChange={(e) => setN(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && ok) void chooseName(d.id, n.trim()); }} />
       <button className="tt-btn brass" data-testid="number-done" disabled={!ok} onClick={() => void chooseName(d.id, n.trim())}>Choose</button>
+      {canPass && <button className="tt-btn" data-testid="number-pass" onClick={() => void chooseName(d.id, "pass")}>Pass</button>}
     </div>
   );
 }

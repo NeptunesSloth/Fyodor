@@ -16,7 +16,7 @@ from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_conditionals import creature, until
 from tests.wave9c_kit import card_named, mana, put
-from tests.wave53d_kit import answer, check, loyalty, names_on, open_repo, resolve, table, to_hand  # noqa: F401
+from tests.wave53d_kit import answer, check, log, loyalty, names_on, open_repo, resolve, table, to_hand  # noqa: F401
 
 TIDE, EYE, PLANAR, REJOIN, DREDGE = "Consuming Tide", "Eye of Doom", "Planar Overlay", "Rejoin the Fight", "Dredge the Mire"
 WATCHERS, GRENZO, SUNBURST, VALEFOR = "Watchers of the Dead", "Grenzo's Rebuttal", "Sculpted Sunburst", "Summon: Valefor"
@@ -36,6 +36,7 @@ def cast(s, name, pid="p1", **pool):
     to_hand(s, name, pid)
     mana(s, pid, **pool)
     act(s, pid, type="cast_spell", card_id=card_named(s, name, pid).id)
+    return len(s.state.zones[f"{pid}:hand"])  # (the cards left in hand once the spell is on the stack)
 
 
 def pick(s, pid, *labels):
@@ -398,4 +399,137 @@ def test_manifold_insights_each_opponent_takes_a_different_nonland_card_the_rest
     library = s.state.zones["p1:library"]
     rest = [c.id for c in lib if c.id not in (first, second)] + [forest.id]
     assert all(c in library[-8:] for c in rest) and len(library) >= 8
+    check(s)
+
+
+# -- bids ---------------------------------------------------------------------------------------------------------------
+CONTEST, AUCTION, REWARD = "Mages' Contest", "Illicit Auction", "Pain's Reward"
+
+
+@pytest.mark.parametrize("name", [CONTEST, AUCTION, REWARD])
+def test_the_bidding_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def bid(s, pid, number):
+    d = s.state.rules.decision
+    assert d is not None and d.player == pid, (d.player if d else None, pid)
+    act(s, pid, type="choose", decision_id=d.id, option_ids=[], name=str(number))
+
+
+def test_pain_s_reward_the_bidding_goes_round_until_the_high_bid_stands(cards):
+    s = table(cards, [REWARD])
+    hand = cast(s, REWARD, B=1, C=2)
+    life0 = {p: s.state.players[p].life for p in s.state.players}
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.options[0].id == "__number__"  # "a bid of any number": Alice types her opening bid
+    bid(s, "p1", 2)
+    assert s.state.rules.decision.player == "p2" and "high bid is 2 (Alice)" in s.state.rules.decision.prompt
+    bid(s, "p2", 5)  # Bob tops it
+    assert s.state.rules.decision.player == "p3"  # in turn order after the new high bidder
+    bid(s, "p3", "pass")
+    assert s.state.rules.decision.player == "p1" and "high bid is 5 (Bob)" in s.state.rules.decision.prompt  # Alice may top the new bid
+    bid(s, "p1", 9)
+    bid(s, "p2", "pass")
+    bid(s, "p3", "pass")  # everybody but Alice has declined to top 9: the bidding ends
+    resolve(s)
+    assert s.state.players["p1"].life == life0["p1"] - 9 and s.state.players["p2"].life == life0["p2"] and s.state.players["p3"].life == life0["p3"]
+    assert len(s.state.zones["p1:hand"]) == hand + 4
+    assert "Alice wins the bidding with a bid of 9" in log(s, "p2")
+    check(s)
+
+
+def test_a_bid_must_top_the_high_bid_and_may_exceed_your_life(cards):
+    s = table(cards, [REWARD], players=2)
+    cast(s, REWARD, B=1, C=2)
+    resolve(s)
+    bid(s, "p1", 3)
+    d = s.state.rules.decision
+    for bad in ("3", "2", "x", "-1"):
+        with pytest.raises(Exception, match="number|more"):
+            act(s, "p2", type="choose", decision_id=d.id, option_ids=[], name=bad)
+    bid(s, "p2", 50)  # more life than Bob has (40): allowed, the rulings say it is life loss and not a payment
+    bid(s, "p1", "pass")
+    resolve(s)
+    assert s.state.players["p2"].life == -10
+    check(s)
+
+
+def test_illicit_auction_the_high_bidder_loses_the_life_and_gains_control(cards):
+    s = table(cards, [AUCTION], players=2)
+    bear = creature(s, "p2", "Bob Bear")
+    to_hand(s, AUCTION)
+    mana(s, "p1", R=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, AUCTION).id, targets=[bear.id])
+    resolve(s)  # Alice starts with a bid of 0 (no choice to make); Bob may top it
+    assert s.state.rules.decision.player == "p2" and "high bid is 0 (Alice)" in s.state.rules.decision.prompt
+    bid(s, "p2", 4)
+    bid(s, "p1", 6)
+    bid(s, "p2", "pass")
+    resolve(s)
+    assert s.state.cards[bear.id].controller == "p1" and s.state.players["p1"].life == 34 and s.state.players["p2"].life == 40
+    check(s)
+
+
+def test_illicit_auction_with_no_other_bid_the_creature_costs_nothing(cards):
+    s = table(cards, [AUCTION], players=2)
+    bear = creature(s, "p2", "Bob Bear")
+    to_hand(s, AUCTION)
+    mana(s, "p1", R=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, AUCTION).id, targets=[bear.id])
+    resolve(s)
+    bid(s, "p2", "pass")
+    resolve(s)
+    assert s.state.cards[bear.id].controller == "p1" and s.state.players["p1"].life == 40
+    check(s)
+
+
+def test_mages_contest_counters_the_spell_if_you_win_the_bidding(cards):
+    s = table(cards, [CONTEST, "Grizzly Bears"], ["Lightning Bolt"], players=2)
+    for p in ("p1", "p2"):
+        act(s, p, type="set_prefs", response="on")
+    bears = card_named(s, "Grizzly Bears")
+    to_hand(s, "Grizzly Bears")
+    mana(s, "p1", G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=bears.id)
+    assert s.state.rules.priority == "p2"  # Bob answers with a Lightning Bolt (on the Bears)...
+    bolt = to_hand(s, "Lightning Bolt", "p2")
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=bolt.id, targets=["p1"])
+    to_hand(s, CONTEST)  # ...which Alice answers with Mages' Contest on the Bolt
+    mana(s, "p1", R=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, CONTEST).id, targets=[bolt.id])
+    while not (s.state.rules.decision and s.state.rules.decision.player == "p2"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    life0 = {p: s.state.players[p].life for p in s.state.players}
+    assert "high bid is 1 (Alice)" in s.state.rules.decision.prompt  # "You start the bidding with a bid of 1"
+    bid(s, "p2", "pass")
+    resolve(s)
+    assert s.state.players["p1"].life == life0["p1"] - 1  # Alice, the high bidder, loses 1 life (and the Bolt, countered, deals no damage)
+    assert s.state.cards[bolt.id].zone == "p2:graveyard"
+    check(s)
+
+
+def test_mages_contest_the_other_player_wins_the_bidding_and_the_spell_stays(cards):
+    s = table(cards, [CONTEST, "Grizzly Bears"], ["Lightning Bolt"], players=2)
+    for p in ("p1", "p2"):
+        act(s, p, type="set_prefs", response="on")
+    bears = card_named(s, "Grizzly Bears")
+    to_hand(s, "Grizzly Bears")
+    mana(s, "p1", G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=bears.id)
+    bolt = to_hand(s, "Lightning Bolt", "p2")
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=bolt.id, targets=["p1"])
+    to_hand(s, CONTEST)
+    mana(s, "p1", R=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, CONTEST).id, targets=[bolt.id])
+    while not (s.state.rules.decision and s.state.rules.decision.player == "p2"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    life0 = {p: s.state.players[p].life for p in s.state.players}
+    bid(s, "p2", 2)
+    bid(s, "p1", "pass")
+    resolve(s)
+    assert s.state.players["p2"].life == life0["p2"] - 2 and s.state.players["p1"].life == life0["p1"] - 3  # (Bob lost the 2 he bid; the Bolt was not countered)
     check(s)
