@@ -2559,6 +2559,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # -- resolution memory (wave 51C) -- "Each player mills four cards. Put a creature card … from among the milled cards onto the battlefield under your control." (Gyruda): the cards every
     # one of them milled, as "milled this way" names them
     body = re.sub(r"(?i)\b(each (?:player|opponent) mills [^.]+\. Put an? [^.]+?) from among the milled cards\b", r"\1 milled this way", body)
+    body = re.sub(r"(?i)\b(return that card) from your graveyard (to the battlefield|to your hand)( instead\b)", r"\1 \2\3", body)  # -- instead (wave 51C) -- Stitch Together: "from your graveyard" restates where the target card already is
     if it in ("event", "event_gone"):  # -- either with two actions (wave 51C) -- "you may put that card from a graveyard onto the battlefield under your control" (Tergrid): the trigger's card, which moves only while it is in a graveyard (400.7)
         body = re.sub(r"(?i)\bput (that card|it) from a graveyard onto the battlefield\b", r"put \1 onto the battlefield", body)
     body = _split_tails(body, event_player)  # -- activated other (wave 34B) --

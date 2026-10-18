@@ -302,3 +302,41 @@ def test_tergrid_ignores_its_own_controllers_discards(cards):
     settle(s)
     assert zone_of(s, "Diabolic Edict") == "p1:graveyard"
     check(s)
+
+
+# -- Stitch Together ---------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("fillers,where", [(6, "p1:battlefield"), (5, "p1:hand")])
+def test_stitch_together_threshold_returns_the_card_to_the_battlefield_instead(cards, fillers, where):
+    """Seven cards in the graveyard as it resolves (the target card counts, Stitch Together itself is on the stack): the card goes to the battlefield instead of the hand."""
+    s = build(cards, ["Stitch Together", "Grizzly Bears"])
+    lands = [c.id for c in s.state.cards.values() if c.zone == "p1:library" and c.name == "Forest"][:fillers]
+    bears = card_named(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[bears.id, *lands], to={"player": "p1", "zone": "graveyard"})
+    to_hand(s, "Stitch Together")
+    mana(s, B=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Stitch Together").id, targets=[bears.id])
+    settle(s)
+    assert s.state.cards[bears.id].zone == where
+    check(s)
+
+
+# -- Everybody Lives! --------------------------------------------------------------------------------------------------------------------------
+def test_everybody_lives_players_have_hexproof_and_lose_no_life(cards):
+    s = build(cards, ["Lightning Bolt", "Everybody Lives!"])
+    first = to_hand(s, "Lightning Bolt")
+    mana(s, "p1", R=2, W=2)
+    act(s, "p1", type="cast_spell", card_id=first.id, targets=["p2"])  # (before: Bob can be targeted)
+    settle(s)
+    assert life(s, "p2") == 37
+    lives = to_hand(s, "Everybody Lives!")
+    act(s, "p1", type="cast_spell", card_id=lives.id)
+    settle(s)
+    bolts = [c for c in s.state.cards.values() if c.name == "Lightning Bolt" and c.owner == "p1"]
+    second = to_hand(s, "Lightning Bolt")
+    mana(s, "p1", R=2)
+    with pytest.raises(ActionError):  # (Bob has hexproof against his opponent)
+        act(s, "p1", type="cast_spell", card_id=second.id, targets=["p2"])
+    act(s, "p1", type="cast_spell", card_id=second.id, targets=["p1"])
+    settle(s)
+    assert life(s, "p1") == 40 and len(bolts) == 1  # (3 damage to Alice was dealt, the life loss can't happen)
+    check(s)

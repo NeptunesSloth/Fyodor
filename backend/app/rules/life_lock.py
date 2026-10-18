@@ -60,7 +60,10 @@ def _template(m: re.Match[str]) -> Any:
         raise _NoMatch from exc
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_EFFECT, _template)]
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
+    (_EFFECT, _template),
+    # -- can't lose life (wave 51C) -- "Players can't lose life this turn." (Everybody Lives!): no player loses life until end of turn (119.8); gaining is unaffected
+    (re.compile(r"^players can't lose life this turn$"), lambda m: ([{"do": "life_lock", "who": "each", "lose_only": True, "until": "turn"}], None))]
 
 # "Until end of turn, your life total can't change, and permanents you control gain hexproof and indestructible." is two instructions with one
 # duration (608.2c); "… your life total can't change and you gain protection from everything." likewise (the shield's own wording ends with
@@ -72,17 +75,26 @@ _SHIELD = re.compile(r"Until your next turn, your life total can't change and yo
 
 def rewrite(body: str) -> str:
     body = _AND.sub(lambda m: f"{m['d']}, your life total can't change. {m['d']}, {m['rest']}.", body)
+    body = re.sub(r"\b(Players can't lose life this turn) and players (can't lose the game or win the game this turn)", r"\1. Players \2", body)  # (wave 51C: Everybody Lives!, two instructions of one sentence)
     body = _SHIELD.sub("Until your next turn, your life total can't change. You gain protection from everything until your next turn.", body)
     return body
 
 
 # -- effects ---------------------------------------------------------------------------------------
 def life_lock(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules.plan import live_players
+
     pid = ctx["controller"]
     r = plan.rules
     turn = plan.state.turn.number
     r.life_locks = [x for x in r.life_locks if not (x.get("until") == "turn" and x.get("turn") != turn)]
     label = ctx.get("name") or "An effect"
+    if e.get("who") == "each":  # -- can't lose life (wave 51C) -- "Players can't lose life this turn.": one lock for each player, losing only
+        for p in live_players(plan.state):
+            r.life_locks.append({"id": secrets.token_hex(4), "player": p, "controller": pid, "gain": False, "lose": True, "until": e["until"], "turn": turn,
+                                 "label": label})
+        plan.note(f"Players can't lose life until end of turn ({label})", actor=pid)
+        return True
     r.life_locks.append({"id": secrets.token_hex(4), "player": pid, "controller": pid, "gain": True, "lose": True, "until": e["until"], "turn": turn,
                          "label": label})
     plan.note(f"{plan.name(pid)}'s life total can't change {'until end of turn' if e['until'] == 'turn' else 'until their next turn'} ({label})",
