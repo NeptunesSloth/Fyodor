@@ -3514,16 +3514,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         text = _for_each_this_way(text)  # -- "this way" outcomes (wave 4A) --
         from app.rules import (
             chain_spells,  # -- chain spells (wave 52C) -- "that player may pay {R}{R}. If the player does, they may copy this spell …"
-            wishes,  # -- wishes (wave 52C) -- "You may reveal a sorcery card you own from outside the game and put it into your hand."
         )
         from app.rules import (
             pay_untap as _pay_untap,  # -- if you do (wave 25C) -- "that player may choose any number of tapped … and pay {2} for each …"
         )
 
-        if (wished := wishes.sentence(texts, i, text)) is not None:
-            effects += wished[0]
-            skip_to = i + wished[1]
-            continue
         if it is None and not event_player and (chained := chain_spells.sentence(texts, i, text, effects, groups)) is not None:
             effects += chained
             continue

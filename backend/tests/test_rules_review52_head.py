@@ -138,3 +138,14 @@ def test_paroxysm_stays_manual(cards):
     from app.rules import coverage
 
     assert coverage.of_card_data(cards.resolve("Paroxysm")).level != "FULL"
+
+
+@pytest.mark.parametrize("text", [
+    "You may reveal a sorcery card you own from outside the game and put it into your hand. Exile Burning Wish.",
+    "You may reveal a noncreature, nonland card you own from outside the game and put it into your hand.",
+])
+def test_a_card_from_outside_the_game_stays_manual(text):
+    # 903.5e: Commander games use no sideboard; "outside the game" is the owner's collection (400.11), which the engine can't know (wave 52C's sideboard reading reverted)
+    from app.rules import scripts
+
+    assert scripts.parse_effects(text) is None
