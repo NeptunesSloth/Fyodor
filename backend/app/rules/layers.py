@@ -356,7 +356,7 @@ def _hits(view: Plan, table: list[Static], card: CardInstance, ch: Characteristi
         source = view.state.cards[st.source]
         if d["static"] == "attached_rule":
             if not only_keyword_subjects and _attached_rule_applies(source, d, card, ch):
-                imposed.update(_own(d["imposes"], st.controller))
+                imposed.update(_own(d["imposes"], st.controller, card.owner))
             continue
         if not _grants(d) or (only_keyword_subjects and not _keyword_subject(d)):
             continue  # (a rules-only static is applied by _with_rules, after layer 7)
@@ -1059,7 +1059,7 @@ def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info:
         try:
             for st in table:
                 d = st.definition
-                rules = [r.replace("@src", st.source) for r in _own(d["rules"], st.controller)]  # (wave 5C: per source)
+                rules = [r.replace("@src", st.source) for r in _own(d["rules"], st.controller, card.owner)]  # (wave 5C: per source)
                 if set(rules) <= imposed or not _gate_open(view, st, tkey):
                     continue
                 source = state.cards[st.source]
@@ -1090,10 +1090,10 @@ def rule_pt(card_id: str, stat: str) -> int | None:
     return None if pt is None else pt[0 if stat == "power" else 1]
 
 
-def _own(rules: list[str], controller: str) -> list[str]:
+def _own(rules: list[str], controller: str, owner: str = "") -> list[str]:
     """-- keyword actions & face-down (wave 3F) -- a rule naming "@you" ("goaded:@you": 701.15b) names the
-    static's controller."""
-    return [r.replace("@you", controller) for r in rules]
+    static's controller; (-- group choices (wave 53D) --) "@owner", the owner of the object the rule is on ("can't attack its owner")."""
+    return [r.replace("@you", controller).replace("@owner", owner) for r in rules]
 
 
 def _keyword_subject(d: dict[str, Any]) -> bool:

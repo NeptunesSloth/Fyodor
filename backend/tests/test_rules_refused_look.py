@@ -672,7 +672,7 @@ def test_sunbirds_invocation_x_is_the_spells_mana_value():
 
 
 
-# -- 700.3: piles of revealed cards ---------------------------------------------------------------------------
+# -- 700.3: piles of revealed cards (wave 53D: the decisions' steps are pile_groups.py's: pile_split / pile_pick / pile_opponent) ---------------------------------------------------------------------------
 def test_fact_or_fiction_the_opponent_separates_you_choose(cards):
     s = build(cards)
     top = stack_library(s, ["Divination", "Lightning Bolt", "Forest", "Grizzly Bears", "Sign in Blood"])
@@ -680,10 +680,10 @@ def test_fact_or_fiction_the_opponent_separates_you_choose(cards):
     mana(s, U=4)
     act(s, "p1", type="cast_spell", card_id=fof.id)
     pass_until_stack_empty(s)
-    d = decision(s, "piles_split")
+    d = decision(s, "pile_split")
     assert d.player == "p2" and {o.id for o in d.options} == set(top)  # revealed: the opponent sees them (701.20a)
     choose(s, [top[0], top[1]])  # pile 1: Divination, Bolt; pile 2: the rest
-    d = decision(s, "piles_pick")
+    d = decision(s, "pile_pick")
     assert d.player == "p1" and len(d.options) == 2
     choose(s, ["2"], resolve=True)
     assert {s.state.cards[c].zone for c in top[2:]} == {"p1:hand"}
@@ -698,10 +698,10 @@ def test_steam_augury_you_separate_the_opponent_chooses_an_empty_pile_allowed(ca
     mana(s, U=2, R=2)
     act(s, "p1", type="cast_spell", card_id=aug.id)
     pass_until_stack_empty(s)
-    d = decision(s, "piles_split")
+    d = decision(s, "pile_split")
     assert d.player == "p1"
     choose(s, list(top))  # every card in pile 1, pile 2 empty (700.3d)
-    d = decision(s, "piles_pick")
+    d = decision(s, "pile_pick")
     assert d.player == "p2"
     choose(s, ["2"], resolve=True)  # the empty pile: everything goes to the graveyard
     assert {s.state.cards[c].zone for c in top} == {"p1:graveyard"}
@@ -718,10 +718,10 @@ def test_fact_or_fiction_in_multiplayer_the_caster_chooses_the_opponent(cards):
     mana(s, U=4)
     act(s, "p1", type="cast_spell", card_id=fof.id)
     pass_until_stack_empty(s)
-    d = decision(s, "piles_opponent")
+    d = decision(s, "pile_opponent")
     assert d.player == "p1" and {o.id for o in d.options} == {"p2", "p3"}  # 608.2d
     choose(s, ["p3"])
-    assert decision(s, "piles_split").player == "p3"
+    assert decision(s, "pile_split").player == "p3"
     choose(s, [])
     choose(s, ["1"], resolve=True)  # pile 1 is empty: nothing to the hand
     assert len([c for c in s.state.cards.values() if c.zone == "p1:graveyard" and c.name == "Forest"]) == 5

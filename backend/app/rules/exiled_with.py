@@ -117,14 +117,33 @@ def _copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 # -- activated other (wave 42C) -- "Put a creature card exiled with ~ onto the battlefield under your control." (Sisters of Stone Death, Yggdrasil, Rebirth Engine): ONE of the linked
 # cards, chosen by the ability's controller as it resolves (608.2d; nothing is targeted). Only the battlefield (a card exiled face down would be named by the choice)
-_PICK = re.compile(r"^(?:return|put) an? (?:(?P<spec>[\w\-]+) )?card exiled with (?:it|~) (?:to|onto) the battlefield(?P<tapped> tapped)? under your control$")
+_PICK = re.compile(r"^(?:return|put) an? (?:(?P<spec>[\w\-]+) )?card exiled with (?:it|~) (?:to|onto) the battlefield(?P<tapped> tapped)? under your control"
+                   r"(?: with (?P<cn>\w+) additional (?P<ck>\+1/\+1) counters? on it)?$")  # (-- piles (wave 53D) -- Sothera, the Supervoid: "with two additional +1/+1 counters on it", 122.6)
+
+
+_COUNT = {"one": 1, "two": 2, "three": 3, "four": 4}
+
+
+# -- group choices (wave 53D) -- Foreboding Steamboat: "put a card exiled with it into its owner's graveyard" -- ONE of the linked cards, chosen by the controller as it resolves
+_PICK_GRAVEYARD = re.compile(r"^put an? (?:(?P<spec>[\w\-]+) )?card exiled with (?:it|~) into (?:its|their) owner(?:'s|s') graveyard$")
+
+
+def _pick_graveyard(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    if (own := _off(m)) is not None:
+        return own
+    return [{"do": "return_choice", "who": _who(m), "n": 1, "upto": False, "random": False, "label": f"{m['spec']} card" if m["spec"] else "card", "to": "graveyard"}], None
 
 
 def _pick(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if (own := _off(m)) is not None:
         return own
+    from app.rules.scripts import _NoMatch
+
+    counters = {} if not m["cn"] else {"counter": m["ck"], "counter_n": _COUNT.get(m["cn"], 0)}
+    if m["cn"] and not counters["counter_n"]:
+        raise _NoMatch
     return [{"do": "return_choice", "who": _who(m), "n": 1, "upto": False, "random": False, "label": f"{m['spec']} card" if m["spec"] else "card",
-             "to": "battlefield", "tapped": bool(m["tapped"]), "under": "you"}], None
+             "to": "battlefield", "tapped": bool(m["tapped"]), "under": "you", **counters}], None
 
 
 # -- cost reductions paid with objects (wave 47C) -- "choose a card at random exiled with Gorex and put that card into its owner's hand": the table picks one of the linked cards (recorded
@@ -138,7 +157,18 @@ def _pick_random(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "return_choice", "who": WHO, "n": 1, "upto": False, "random": True, "label": "card", "to": "hand"}], None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_HAND, _hand), (_GRAVEYARD, _graveyard), (_COPY, _copy), (_PICK, _pick), (_PICK_RANDOM, _pick_random)]
+# -- piles (wave 53D) -- 607.2a: "put the top card of the pile you exiled into your hand" (Parallel Thoughts), "put the top card of the exiled pile into its owner's hand" (Mangara's
+# Tome): the pile is what the linked search exiled face down and shuffled (pile_groups.pile_shuffle); its top card is the first of the cards still in it
+_TOP_OF_PILE = re.compile(r"^put the top card of (?:the pile you exiled|the exiled pile) into (?:your|its owner's) hand$")
+REFERS_PILE = re.compile(r"\bthe (?:pile you exiled|exiled pile)\b")
+
+
+def _top_of_pile(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "pile_top_hand"}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_HAND, _hand), (_GRAVEYARD, _graveyard), (_COPY, _copy), (_PICK, _pick), (_PICK_RANDOM, _pick_random),
+                                                (_TOP_OF_PILE, _top_of_pile), (_PICK_GRAVEYARD, _pick_graveyard)]
 
 # -- linked casting (wave 30H) -- 607.2a, 608.2g: in an ability that only refers to what another exiled, "cast a spell from among cards exiled with ~
 # [without paying its mana cost]" casts from the linked cards (the ones ``linked_cards`` binds, as "them"), as this ability resolves
@@ -212,7 +242,7 @@ def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
         return d
     if ability.kind not in ("triggered", "activated", "static") or not _exiles(d):
         return d
-    referring = [ab for ab in ch.abilities if ab.index != ability.index and _REFERS.search(scripts.self_text(ab.text, ch.name))]
+    referring = [ab for ab in ch.abilities if ab.index != ability.index and (_REFERS.search(scripts.self_text(ab.text, ch.name)) or REFERS_PILE.search(ab.text))]
     if not referring:
         return d
     if d.get("static") == "exile_instead":  # -- linked exile (wave 30H) -- 607.2b: the replacement effect is the exiling half; replacements.py records what it exiles

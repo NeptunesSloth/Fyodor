@@ -3040,7 +3040,14 @@ def edict_half(m: re.Match[str]) -> tuple[Effects, Any]:
 
 def player_chooses(m: re.Match[str]) -> tuple[Effects, Any]:
     who, group = _chooser(m["s"])
-    out: dict[str, Any] = {"do": "player_chooses", "who": who, "sel": _permanent_sel(m["sel"]), "n": _amount(m["n"]), "label": m["sel"]}
+    if " with the " in m["sel"] and " among " in m["sel"]:  # -- group choices (wave 53D) -- "chooses a creature with the greatest mana value among creatures they control" (Summon: Valefor)
+        greatest = _greatest_own(m["sel"] + " they control")
+        if greatest is None:
+            raise _Fail
+        key = greatest.key()
+    else:
+        key = _permanent_sel(m["sel"])
+    out: dict[str, Any] = {"do": "player_chooses", "who": who, "sel": key, "n": _amount(m["n"]), "label": m["sel"]}
     if m["upto"]:
         out["upto"] = True
     if m["sac"] or m["des"]:  # -- choose the rest (wave 11D) -- the choice is simultaneous (101.4); what wasn't chosen is sacrificed / destroyed
@@ -3085,7 +3092,7 @@ CHOOSE_EACH_TYPE = rf"(?P<s>{CHOOSER}) chooses a permanent they control of each 
 CHOOSE_EACH_LAND = rf"(?P<s>{CHOOSER}) chooses from the lands they control a land of each basic land type, then sacrifices the rest"
 
 
-def _kinds_effect(s: str | None, names: list[str], scope_phrase: str, spent: str | None = None) -> tuple[Effects, Any]:
+def _kinds_effect(s: str | None, names: list[str], scope_phrase: str, spent: str | None = None, rest: str | None = "sacrifice") -> tuple[Effects, Any]:
     """A choice per kind among ``scope_phrase`` ("permanents" …), made by the player whose permanents they are (``s``) or, with no ``s``, by
     the ability's controller for each player; what the kinds left out is sacrificed."""
     from app.rules import conditions
@@ -3104,7 +3111,7 @@ def _kinds_effect(s: str | None, names: list[str], scope_phrase: str, spent: str
     if len(set(keys)) != len(keys):
         raise _Fail
     return [{"do": "player_chooses", "who": who, "sel": scope.key(), "sels": keys, "labels": names, "n": 1, "label": "permanent",
-             "rest": "sacrifice", **({} if s else {"by": "you"}),
+             **({"rest": rest} if rest else {}), **({} if s else {"by": "you"}),  # (wave 53D: rest None, Planar Overlay: the chosen are returned)
              # "If {B}{R} was spent to cast this spell, you choose the permanents for each player instead." (Mythos of Snapdax)
              **({"by_if": conditions.parse(f"{spent} was spent to cast this spell", objects=True)} if spent else {})}], _one(group)
 

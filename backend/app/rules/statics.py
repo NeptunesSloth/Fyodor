@@ -1057,7 +1057,8 @@ RULES.update({"is goaded": ("goaded:@you",), "are goaded": ("goaded:@you",)})
 # -- attached events (wave 4L) -- "Enchanted creature … can't attack you or planeswalkers you control." (Vow of Duty;
 # 508.1c: a restriction on where it attacks — "you" is the Aura's controller, app/rules/combat.py ``attack_forbidden``)
 RULES.update({"can't attack you or planeswalkers you control": ("cant_attack_player_pw:@you",),
-              "can't attack you": ("cant_attack_player:@you",)})
+              "can't attack you": ("cant_attack_player:@you",),
+              "can't attack its owner": ("cant_attack_player:@owner",)})  # -- group choices (wave 53D) -- Elrond of the White Council's grant: "@owner" is the owner of the creature it restricts
 # -- conditional statics (wave 4B) -- 702.3b: a creature with defender can't attack; this lets it (app/rules/combat.py)
 RULES.update({"can attack as though it didn't have defender": ("attack_despite_defender",),
               "can attack as though they didn't have defender": ("attack_despite_defender",)})

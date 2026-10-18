@@ -115,8 +115,8 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     for what in {w for _, w in uses}:
         if what == "?":
             return False
-        inside = [i for i, e in enumerate(effects) if e.get("do") == "choose_value" and _kind(e.get("what")) == what
-                  and not e.get("remember")]
+        inside = [i for i, e in enumerate(effects) if e.get("do") in ("choose_value", "gc_choose") and _kind(e.get("what")) == what
+                  and not e.get("remember")]  # (wave 53D: gc_choose, every player's choice)
         if inside:  # a choice made as it resolves: only in the instructions after it
             if len(inside) != 1 or what in _enters_choices(ch):
                 return False

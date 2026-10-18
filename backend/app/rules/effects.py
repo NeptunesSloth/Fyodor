@@ -915,6 +915,10 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     who = _GROUPS.get(e["who"], e["who"])
     cards = _cards(plan, ctx, who)
     _remember(plan, ctx, e, cards)
+    if any("@owner" in r for r in e["rules"]):  # -- group choices (wave 53D) -- "can't attack its owner": one restriction for each creature, naming its own owner
+        for cid in cards:
+            restrict(plan, ctx, {**e, "who": f"object:{plan.oid(cid)}", "rules": [r.replace("@owner", plan.state.cards[cid].owner) for r in e["rules"]]})
+        return True
     if any("@that" in r for r in e["rules"]):  # -- random choices (wave 47B) -- "attacks that player": the player picked before (none left: nothing is required)
         that = _players(plan, ctx, e["player"])
         if not that:
@@ -2391,13 +2395,13 @@ def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if e.get("all"):  # -- "this way" outcomes (wave 4A) -- "discard your hand": every card, no choice (701.9a)
         picked = [c for pid in order for c in plan.state.zones.get(zone_key(pid, "hand"), [])]
         return _discard_next(plan, ctx, 0, [], picked, e.get("as"))
-    return _discard_next(plan, ctx, _amount(plan, ctx, e["n"]), order, [], e.get("as"), e.get("to", "graveyard"),
-                         e.get("zone", "hand"), bool(e.get("upto")), e.get("sel"), e.get("half"))
+    return _discard_next(plan, ctx, 0 if e.get("fewest") else _amount(plan, ctx, e["n"]), order, [], e.get("as"), e.get("to", "graveyard"),
+                         e.get("zone", "hand"), bool(e.get("upto")), e.get("sel"), e.get("half"), bool(e.get("fewest")))
 
 
 def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picked: list[str],
                   binding: str | None = None, dest: str = "graveyard", src: str = "hand", upto: bool = False,
-                  sel: str | None = None, half: str | None = None) -> bool:
+                  sel: str | None = None, half: str | None = None, fewest: bool = False) -> bool:
     from app.rules import (
         prohibitions,  # -- prohibitions (wave 22B) -- 614.17: "… can't cause you to discard cards" (exiling isn't discarding)
     )
@@ -2414,6 +2418,8 @@ def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picke
             hand = []
         if half:  # -- trigger other (wave 39A) -- "discards half the cards in their hand, rounded down" (Lord Xander): 107.1a, of the hand as it is as they discard
             want = (len(hand) + (half == "up")) // 2
+        if fewest:  # -- group choices (wave 53D) -- "each player discards cards the same way": down to as many as the player with the fewest cards in hand has (public: 402.3)
+            want = len(hand) - min((len(plan.state.zones.get(zone_key(p, src), [])) for p in plan.live()), default=0)
         n = min(want, len(hand)) if want or not upto else len(hand)  # (upto, 0: "any number of cards")
         if n == 0:
             continue
@@ -2427,7 +2433,7 @@ def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picke
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
                min_choices=0 if upto else n, max_choices=n,  # (-- trigger tail (wave 15B) -- "up to N" / "any number": 701.9a)
                resume={"step": "discard", "ctx": ctx, "want": want, "rest": players[i + 1:], "picked": picked,
-                       "as": binding, "to": dest, "zone": src, "upto": upto, "sel": sel, "half": half})
+                       "as": binding, "to": dest, "zone": src, "upto": upto, "sel": sel, "half": half, "fewest": fewest})
         return False
     cards = [c for c in picked if c in plan.state.cards and plan.state.cards[c].zone.endswith(f":{src}")]
     if dest != "exile":  # (-- prohibitions (wave 22B) -- "discard your hand" / at random: the cards were picked without asking)
@@ -2445,7 +2451,7 @@ def resume_discard(plan: Plan, d: Any, chosen: list[str]) -> None:
     picked = [*(d.resume.get("picked") or []), *chosen]
     if _discard_next(plan, ctx, d.resume.get("want", 0), d.resume.get("rest") or [], picked, d.resume.get("as"),
                      d.resume.get("to", "graveyard"), d.resume.get("zone", "hand"), bool(d.resume.get("upto")),
-                     d.resume.get("sel"), d.resume.get("half")):
+                     d.resume.get("sel"), d.resume.get("half"), bool(d.resume.get("fewest"))):
         continue_effects(plan, ctx)
 
 
@@ -2550,6 +2556,8 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
     from app.rules import attachments  # attachments → effects (resume)
 
     before = _remember(plan, ctx, e, cards)
+    if e.get("did"):  # -- group choices (wave 53D) -- "Put a card exiled with it into its owner's graveyard. If you do, investigate." (Foreboding Steamboat): a card was put
+        context.bind_payment(ctx, e["did"], bool(cards))
     if e["to"] == "library_top":  # -- refused zones/sized (wave 3R4) -- "put a land card from your graveyard on top of
         for cid in cards[:1]:  # your library": one card, to its owner's library (400.3)
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
@@ -3214,7 +3222,6 @@ PRIMITIVES.update({"look_top": look_top, "pick_looked": pick_looked, "rest_looke
                    "rest_exiled": permissions.rest_exiled, "found_to": permissions.found_to})
 from app.rules import looking as _looking  # noqa: E402, I001  -- refused look/cast-free (wave 3R5) -- (a leaf module)
 
-PRIMITIVES["piles"] = _looking.piles
 PRIMITIVES["piles_down"] = _looking.piles_down  # -- hidden exile (wave 18A) -- a face-down pile and a face-up pile
 PRIMITIVES["win_if_library"] = _looking.win_if_library  # -- refused look/cast-free (wave 3R5) --
 from app.rules import reveal_hand as _reveal_hand  # noqa: E402, I001  -- if you do (wave 10C) -- (a leaf module)
@@ -3253,6 +3260,12 @@ PRIMITIVES.update(_tempting.PRIMITIVES)
 from app.rules import friend_foe as _friend_foe  # noqa: E402, I001  -- friend or foe (wave 18C) --
 
 PRIMITIVES.update(_friend_foe.PRIMITIVES)
+from app.rules import group_choice as _group_choice  # noqa: E402, I001  -- group choices (wave 53D) --
+
+PRIMITIVES.update(_group_choice.PRIMITIVES)
+from app.rules import pile_groups as _pile_groups  # noqa: E402, I001  -- piles (wave 53D) --
+
+PRIMITIVES.update(_pile_groups.PRIMITIVES)
 from app.rules import reanimate_auras as _reanimate_auras  # noqa: E402, I001  -- reanimation Auras (wave 51F) --
 
 PRIMITIVES.update(_reanimate_auras.PRIMITIVES)
@@ -3741,6 +3754,8 @@ def _controlled(plan: Plan, key: str, pid: str, source: str | None, you: str | N
     """The permanents ``pid`` controls that match a selector, evaluated for that player (``you``: -- trigger other (wave 39A) -- or for the ability's
     controller, whose "you" a qualifier like "that dealt combat damage to you this turn" is)."""
     sel = selectors.from_key(key)
+    if sel.zones == ("graveyard",):  # -- group choices (wave 53D) -- "a creature card in their graveyard": the cards in the graveyard of ``pid`` (404.1)
+        return [c for c in selectors.candidates(plan, sel, you or pid, source) if plan.state.cards[c].zone == f"{pid}:graveyard"]
     return [c for c in selectors.candidates(plan, sel, you or pid, source)
             if plan.state.cards[c].controller == pid and plan.state.cards[c].zone.endswith(":battlefield")]
 
@@ -3753,26 +3768,49 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
     from app.rules import conditions
 
     half = e["n"].get("half_own") if isinstance(e["n"], dict) else None  # -- trigger other (wave 39A) -- "sacrifices half the creatures they control, rounded down": each player's own count
-    want = 0 if half else _amount(plan, ctx, e["n"])
+    fewest = e["n"].get("fewest") if isinstance(e["n"], dict) else None  # -- group choices (wave 53D) -- "a number of lands they control equal to the number of lands controlled by the player who controls the fewest"
+    want = min((len(_controlled(plan, fewest, p, ctx.get("source_card"))) for p in plan.live()), default=0) if fewest else 0 if half else _amount(plan, ctx, e["n"])
     exiling = e.get("action") == "exile"  # -- modal spells (wave 24D) -- "Target opponent exiles a creature they control."
     verb = ("exiles" if exiling else "sacrifices") if step == "edict" else "chooses"
     for i, turn in enumerate(players):
         # -- per-player choices (wave 30K) -- a turn is a player and the kind of permanent chosen (an old save: just the player); "you choose …
         # for each player" (Tragic Arrogance): the ability's controller decides what each player's permanents are
         pid, key = (turn, e["sel"]) if isinstance(turn, str) else turn
-        mine = _controlled(plan, key, pid, ctx.get("source_card"), ctx["controller"] if "dealt_combat_damage_you" in key else None)
+        mine = _controlled(plan, key, plan.after(pid) if e.get("left") else pid, ctx.get("source_card"),  # (wave 53D: "the player to their left", Grenzo's Rebuttal)
+                           ctx["controller"] if "dealt_combat_damage_you" in key else None)
         if e.get("any"):  # -- per-player choices (wave 31B) -- any permanent the ability's words allow ("a creature you don't control"), whoever controls it
             mine = [c for c in selectors.candidates(plan, selectors.from_key(key), ctx["controller"], ctx.get("source_card"))
-                    if plan.state.cards[c].zone.endswith(":battlefield")]
+                    if plan.state.cards[c].zone.endswith(":battlefield") or selectors.from_key(key).zones != ("battlefield",)]  # (wave 53D: or cards of another zone)
+        if e.get("looked"):  # -- group choices (wave 53D) -- from the cards just revealed (Manifold Insights)
+            from app.rules import characteristics as chars
+
+            kind = selectors.from_key(key)
+            mine = [c for c in _looked(plan, ctx)[1] if selectors.matches(plan, kind, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), ctx["controller"],
+                                                                         ctx.get("source_card"))]
+        if e.get("party"):  # -- group choices (wave 53D) -- 700.8: a party is up to one each of Cleric, Rogue, Warrior and Wizard (Stick Together)
+            from app.rules import looking
+
+            mine = [c for c in mine if looking.kinds_of(plan, pid, c, e["party"])]
+        if e.get("shares_type_with") == "cost":  # -- group choices (wave 53D) -- "shares a card type with the sacrificed permanent" (Fatal Grudge): as it last existed (608.2h)
+            from app.rules import this_way
+
+            context.refs(ctx)["gcost"] = {"kind": "objects", **this_way.cost_objects(plan, ctx, this_way.COST, "sacrificed")}
+            shared = {t for _, ch in context.infos(plan, ctx, "gcost") for t in ch.types}
+            mine = [c for c in mine if plan.ch(plan.state.cards[c]).types & shared]
+        if e.get("distinct"):  # -- group choices (wave 53D) -- "a creature card in your graveyard that hasn't been chosen" (Rejoin the Fight): no object twice
+            mine = [c for c in mine if c not in picked]
+        if e.get("cap_power"):  # -- group choices (wave 53D) -- "with equal or lesser power" than the creature chosen first (Sculpted Sunburst)
+            capped = context.objects(plan, ctx, e["cap_power"][len(context.PREFIX):])
+            mine = [c for c in mine if capped and _power_of(plan, c) <= _power_of(plan, capped[0])]
         if step == "edict" and not exiling and mine and _sacrifice_barred(plan, ctx, pid):
             mine = []  # -- prohibitions (wave 22B) -- nothing for them to sacrifice
         cap = e.get("power_cap")  # "any number of creatures they control with total power 4 or less" (Slaughter the Strong): always a choice
-        n = len(mine) if cap is not None else (len(mine) + (half == "up")) // 2 if half else min(want, len(mine))  # (107.1a: half rounded as written)
+        n = len(mine) if cap is not None else (len(mine) + (half == "up")) // 2 if half else min(len(e["party"]), len(mine)) if e.get("party") else min(want, len(mine))  # (107.1a: half rounded as written)
         if n == 0:
             continue
         by = ctx["controller"] if e.get("by") == "you" or (e.get("by_if") and conditions.holds(plan, ctx, e["by_if"])) else pid
         label = dict(zip(e.get("sels") or [], e.get("labels") or [], strict=False)).get(key, e.get("label", "permanent"))
-        if n == len(mine) and cap is None and not (e.get("upto") and (e.get("any") or e.get("optional"))):  # (an "up to one" / "may choose" always asks; wave 32A: "optional")
+        if n == len(mine) and cap is None and not e.get("party") and not (e.get("upto") and (e.get("any") or e.get("optional"))):  # (an "up to one" / "may choose" always asks; wave 32A: "optional")
             picked = [*picked, *mine]
             plan.note(f"{plan.name(by)} {verb} {_labels(plan, mine)} (no choice: all of them)", mine, actor=by)
             continue
@@ -3781,12 +3819,14 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
             prompt = f"{ctx.get('name', '') or 'Choose'}: choose any number of {label} with total power {cap} or less"
         if by != pid:
             prompt += f" for {plan.name(pid)}"
+        if e.get("left"):
+            prompt += f" among {plan.name(plan.after(pid))}'s permanents"  # (wave 53D: the player to their left)
         if picked:
             prompt += f" — already chosen: {_labels(plan, picked)}"  # 101.4b: the earlier choices are known
         decide(plan, player=by, kind="choose_cards", prompt=prompt,
                options=[DecisionOption(id=c, label=(plan.state.cards[c].name or "Permanent") + (f" ({_power_of(plan, c)})" if cap is not None else "")
                         + (f" — {plan.name(plan.state.cards[c].controller)}" if e.get("any") else ""), card_id=c) for c in mine],
-               min_choices=0 if e.get("upto") or cap is not None else n, max_choices=n,  # (wave 11D: "chooses up to two creatures they control")
+               min_choices=0 if e.get("upto") or cap is not None or e.get("party") else n, max_choices=n,  # (wave 11D: "chooses up to two creatures they control")
                resume={"step": step, "ctx": ctx, "e": e, "rest": players[i + 1:], "picked": picked})
         return False
     if step == "edict" and exiling:  # (-- modal spells (wave 24D) --) all exiled at once
@@ -3799,9 +3839,13 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
                 if c not in picked]
         if e["rest"] == "sacrifice":
             _sacrifice_cards(plan, rest, ctx["controller"], ctx, e.get("as"))
+        elif e["rest"] == "exile":  # -- group choices (wave 53D) -- "chooses two cards in their graveyard and exiles the rest" (Watchers of the Dead)
+            exile_cards(plan, ctx, {}, rest)
         else:  # "Destroy the rest" (701.8): indestructible ones stay, regeneration may save the others
             _destroy_cards(plan, ctx, e, rest)
     else:
+        if e.get("add") and e.get("as"):  # -- group choices (wave 53D) -- the objects of this choice join those an earlier choice of the same name bound
+            picked = [*context.objects(plan, ctx, e["as"]), *picked]
         _remember(plan, ctx, e, list(dict.fromkeys(picked)))  # "that creature", "it": the chosen objects (they stay where they are; one chosen twice is one object)
         if e.get("did"):  # -- choose own (wave 32A) -- "You may choose a token you control. If you do, …": something was chosen (608.2c)
             context.bind_payment(ctx, e["did"], bool(picked))
@@ -3824,6 +3868,11 @@ def check_total_power(plan: Plan, d: Any, chosen: list[str]) -> None:
     cap = e.get("power_cap") if isinstance(e, dict) else None
     if cap is not None and sum(_power_of(plan, c) for c in chosen) > cap:
         raise ActionError(f"Those creatures have more than {cap} total power")
+    if isinstance(e, dict) and e.get("party"):  # -- group choices (wave 53D) -- 700.8, 700.8b: each creature of a party is the member for one type, no two for the same
+        from app.rules import looking
+
+        if not looking.distinct_kinds(plan, d.player, chosen, e["party"]):
+            raise ActionError("A party has at most one Cleric, one Rogue, one Warrior and one Wizard, each a different creature (700.8)")
 
 
 def edict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -4113,6 +4162,8 @@ RESUME["pick_counter"] = _counter_pick.resume
 RESUME.update(_voting.RESUME)  # -- voting (wave 18C) --
 RESUME.update(_tempting.RESUME)
 RESUME.update(_friend_foe.RESUME)
+RESUME.update(_group_choice.RESUME)  # -- group choices (wave 53D) --
+RESUME.update(_pile_groups.RESUME)  # -- piles (wave 53D) --
 # -- name search (wave 11D) -- "Search its controller's graveyard, hand, and library for all cards with the same name …"
 from app.rules import name_search as _name_search  # noqa: E402, I001
 

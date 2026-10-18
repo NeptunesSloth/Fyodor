@@ -211,6 +211,8 @@ def _new_part_problem(plan: Plan, comp: CostComponent, card: CardInstance, playe
         if counters_on(card, comp.counter) < need:
             what = "counters" if comp.counter == C.ANY_COUNTER else f"{comp.counter} counters"
             return f"{name} doesn't have {need} {what}"
+    elif comp.kind == C.REVEAL_SECRET and (plan.rules.secret_choices.get(plan.oid(card)) or [""])[0] != player:  # -- group choices (wave 53D) -- the choice its controller made as it entered
+        return f"You didn't choose anything as {name} entered"
     elif comp.kind in (C.PUT_COUNTER, C.EXERT) and comp.selector is None and not card.zone.endswith(":battlefield"):
         return f"{name} isn't on the battlefield"  # (122.6; 701.43c)
     elif comp.kind in (C.MILL, C.EXILE_LIBRARY) and len(plan.state.zones.get(zone_key(player, "library"), [])) < comp.amount:
@@ -715,6 +717,11 @@ def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list
     if comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE):  # 701.59a / 701.61a: exiled from the graveyard (a Food: pay())
         plan.do({"type": "move", "card_ids": ids, "to": {"zone": "exile"}})
         record.exiled += ids
+        return True
+    if comp.kind == C.REVEAL_SECRET:  # -- group choices (wave 53D) -- 701.20a: shown to all players as the cost is paid; the choice itself stays (it is read by the ability's effect)
+        value = plan.rules.secret_choices[plan.oid(card)][1]
+        plan.note(f"{plan.name(player)} reveals the {'player' if value in plan.state.players else 'creature type'} they chose for {card.name or 'it'}: "
+                  f"{plan.name(value) if value in plan.state.players else value}", actor=player)
         return True
     if comp.kind == C.EXERT:  # 701.43a-b: it won't untap during your next untap step (exerted again: the same one)
         plan.rules.exerted[plan.oid(card)] = player

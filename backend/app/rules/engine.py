@@ -1529,9 +1529,6 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "suspend_cast": effects.resume_suspend_cast,
     "free_cast_pick": permissions.resume_free_cast,  # (wave 3C)
     # -- refused look/cast-free (wave 3R5) -- piles (700.3)
-    "piles_opponent": looking.resume_opponent,
-    "piles_split": looking.resume_split,
-    "piles_pick": looking.resume_pick,
     "piles_down_opponent": looking.resume_down_opponent,  # -- hidden exile (wave 18A) --
     "piles_down_split": looking.resume_down_split,
     "piles_down_pick": looking.resume_down_pick,

@@ -42,6 +42,8 @@ def attack_problem(state: GameState, card: CardInstance, ch: Characteristics) ->
         return f"{ch.name} has defender"
     if {"cant_attack", "cant_attack_or_block"} & rules:
         return f"{ch.name} can't attack"
+    if state.rules is not None and any(e[0] == state.turn.number and e[1] == card.controller and state.rules.object_id(card.id) not in e[2] for e in state.rules.attack_piles):
+        return f"{ch.name} is not in the pile chosen (700.3)"  # -- piles (wave 53D) -- Fight or Flight
     if "haste" not in ch.keywords and summoning_sick(state, card):
         return f"{ch.name} has summoning sickness"
     return None
