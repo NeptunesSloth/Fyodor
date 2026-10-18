@@ -91,6 +91,11 @@ def _attached(s: selectors.Selector, m: re.Match[str]) -> selectors.Selector:
     return _add(s, f"rel:att@{_ref(m['r'])}")
 
 
+def _was_attached(s: selectors.Selector, m: re.Match[str]) -> selectors.Selector:
+    """"Aura cards that were attached to it" (Cass): attached to the creature as it last existed (608.2h), wherever the card is now."""
+    return _add(s, f"rel:wasatt@{_ref(m['r'])}")
+
+
 def register() -> None:
     from app.rules import selectors
 
@@ -100,6 +105,7 @@ def register() -> None:
         (re.compile(r"(?:,)? (?P<k>blocking) (?P<r>that creature|target creature|those creatures|one of those creatures|equipped creature|enchanted creature)$"), _blocks),
         (re.compile(rf"(?:,)? that (?P<v>blocked or (?:was|were) blocked by|blocked|was blocked by|were blocked by) (?:(?P<r>{_REF})|(?P<sel>an? .+?)) "
                     r"this (?P<t>turn|combat)$"), _history),
+        (re.compile(r"(?:,)? that (?:was|were) attached to (?P<r>that creature|it)$"), _was_attached),
         (re.compile(rf"(?:,)? (?:that(?:'s| is| are) )?attached to (?P<r>that creature|it|{_TARGET})$"), _attached),
     ]
     for pair in reversed(suffixes):
@@ -138,6 +144,8 @@ def rel_matches(plan: Plan, card: CardInstance, extra: str, source: str | None) 
         here = rcard is not None and rcard.zone.endswith(":battlefield") and plan.oid(rcard) == oid
         if kind == "att":
             ok = here and card.attached_to == rid
+        elif kind == "wasatt":  # (the creature as it last existed, a card id in its attachments then)
+            ok = snap is not None and card.id in snap.attached
         elif kind in ("blocking", "blockedby", "pair"):
             ok = card.zone.endswith(":battlefield") and kind != "blockedby" and (
                 card.blocks(rid) if here else snap is not None and card.id in snap.blocked_by_ids)
@@ -286,6 +294,27 @@ def both_creatures(cond: dict[str, Any], body: str) -> tuple[list[dict[str, Any]
             {"do": "only_if", "cond": {"succeeded": "mdid0"}, "skip": 1},
             {"do": "create_token", "who": "ref:e0.controller", "n": 1, "token": wall}], delayed.END_OF_COMBAT), None, False
     return None
+
+
+def lki_attachments(cond: dict[str, Any], body: str, ante: str | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """"Whenever Cass or another creature you control dies, if it was enchanted or equipped, return any number of Aura cards that were attached to it from your graveyard to the
+    battlefield attached to target creature, then attach any number of Equipment that were attached to it to that creature." (Cass, Hand of Vengeance): what was attached to the
+    creature as it last existed (608.2h, 603.10a), each Aura entering attached to the target only if it could enchant it (303.4i), then the Equipment chosen as it resolves (701.3a)."""
+    head = "if it was enchanted or equipped, "
+    if cond.get("event") != "die" or body != head + ("return any number of Aura cards that were attached to it from your graveyard to the battlefield attached to target creature, "
+                                                      "then attach any number of Equipment that were attached to it to that creature."):
+        return None
+    from app.rules import scripts, selectors
+
+    lead = scripts.parse_effects(head + "draw a card.", it=ante)  # (the intervening "if", read as the grammar reads it: 603.4, checked as it triggers and as it resolves)
+
+    auras = selectors.parse("Aura card that was attached to that creature from your graveyard")
+    target = selectors.parse("creature")
+    if auras is None or target is None or lead is None or lead[0][0].get("do") != "only_if":
+        return None
+    back = {"do": "return_choice", "to": "battlefield", "tapped": False, "under": "you", "host": "target", "sel": auras.key(), "n": 999, "upto": True, "random": False, "label": "Aura card"}
+    attach = {"do": "attach_choose", "n": 0, "kinds": ["Equipment"], "who": "target", "anyone": True, "was_attached": True}
+    return [{**lead[0][0], "skip": 2}, back, attach], target.key(), False
 
 
 def settle_it(d: dict[str, Any] | None, ante: str | None) -> dict[str, Any] | None:

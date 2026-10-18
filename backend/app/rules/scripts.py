@@ -5407,7 +5407,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                                   {"do": "counter", "who": "event_source"}]
                 parsed = _own_choice(parse_effects(body, it=ante, event_player=has_player)) if (tm is None and not plain_counter and um is None) \
                     or not _targeted(cond) else (counter_it, None, False)  # (_own_choice for a trigger: wave 25C)
-                if cond is not None and (both_ := block_events.both_creatures(cond, body)) is not None:
+                if cond is not None and (both_ := block_events.both_creatures(cond, body) or block_events.lki_attachments(cond, body, ante)) is not None:
                     parsed = both_  # -- block events (wave 53C) -- "destroy both creatures" / "~ and that creature phase out": the pair, whatever "that creature" would bind to
                 if from_gy and parsed is not None:  # (review 42: the card only while it is in the graveyard, effects._cards "event_gy")
                     parsed = ([{**x, "who": "event_gy"} if x.get("who") == "event" and x.get("do", "").removeprefix("deferred:") in ("bounce", "return_card")

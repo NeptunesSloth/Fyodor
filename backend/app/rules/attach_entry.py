@@ -79,6 +79,10 @@ def choose(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pool = [c.id for c in plan.state.cards.values()
             if c.zone.endswith(":battlefield") and (e.get("anyone") or c.controller == me) and kinds & set(plan.ch(c).subtypes)
             and host not in (c.attached_to, c.attached_player) and attachments.host_problem(plan, c, host) is None]
+    if e.get("was_attached"):  # -- block events (wave 53C) -- Cass: only what was attached to the creature that died, as it last existed (608.2h)
+        ev = (ctx.get("event") or {}).get("objects") or []
+        snap = plan.rules.lki.get(ev[0]["object_id"]) if ev else None
+        pool = [c for c in pool if snap is not None and c in snap.attached]
     if not pool:
         return True
     if e.get("n") == "all":

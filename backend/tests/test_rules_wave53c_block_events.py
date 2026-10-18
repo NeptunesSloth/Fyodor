@@ -1436,3 +1436,38 @@ def test_sworn_defender_trades_its_power_and_toughness_for_the_ones_of_the_creat
     until(s, lambda s: s.state.turn.number == 3, limit=200)
     assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[defender.id]).pt == (1, 3)  # until end of turn
     check(s)
+
+
+def test_cass_returns_the_auras_and_moves_the_equipment_that_were_attached_to_the_creature_that_died(cards):
+    s = sandbox(cards, "Cass, Hand of Vengeance", "Holy Strength", "Test Own Aura", "Pacifism", "Bonesplitter", "Behemoth Sledge")
+    on_field(s, "Cass, Hand of Vengeance")
+    bear = creature(s, "p1", "Bear", "2/2")
+    guard = creature(s, "p2", "Guard", "2/2")
+    holy, own, pacifism = (on_field(s, n) for n in ("Holy Strength", "Test Own Aura", "Pacifism"))
+    bone, sledge = on_field(s, "Bonesplitter"), on_field(s, "Behemoth Sledge")
+    for aura in (holy, own):
+        attach(s, aura, bear)
+    attach(s, bone, bear)
+    attach(s, sledge, bear)
+    main_step(s)
+    kill(s, bear, answer=False)
+    drive(s, prefer=[guard.id, holy.id, own.id, bone.id])  # target Guard; bring back Holy Strength and Test Own Aura; move Bonesplitter only
+    assert s.state.cards[holy.id].zone == "p1:battlefield" and s.state.cards[holy.id].attached_to == guard.id  # attached to the target (303.4f)
+    assert zone_of(s, own) == "p1:graveyard"  # "Enchant creature you control": it can't enchant Bob's creature, so it stays (303.4i)
+    assert zone_of(s, pacifism) == "p1:graveyard"  # (an Aura loose in the graveyard that was never attached to the creature that died: not brought back)
+    assert s.state.cards[bone.id].attached_to == guard.id  # the Equipment chosen
+    assert s.state.cards[sledge.id].zone == "p1:battlefield" and s.state.cards[sledge.id].attached_to is None  # unattached by the death, not chosen (301.5)
+    check(s)
+
+
+def test_cass_does_nothing_for_a_creature_that_was_neither_enchanted_nor_equipped(cards):
+    s = sandbox(cards, "Cass, Hand of Vengeance", "Pacifism")
+    on_field(s, "Cass, Hand of Vengeance")
+    bear = creature(s, "p1", "Bear", "2/2")
+    pacifism = on_field(s, "Pacifism")
+    main_step(s)
+    kill(s, bear, answer=False)
+    d = s.state.rules.decision
+    assert not s.state.zones.get("stack") and (d is None or d.kind == "declare_attackers")  # the intervening "if" (603.4): it never triggered
+    assert zone_of(s, pacifism) == "p1:graveyard"  # (a loose Aura in the graveyard that was never attached to it: not brought back)
+    check(s)

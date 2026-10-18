@@ -150,27 +150,6 @@
   "keywords": []
  },
  {
-  "name": "Cass, Hand of Vengeance",
-  "layout": "normal",
-  "mana_cost": "{2}{R}{W}",
-  "cmc": 4.0,
-  "type_line": "Legendary Creature — Human Ranger",
-  "oracle_text": "Vigilance\nWhenever Cass or another creature you control dies, if it was enchanted or equipped, return any number of Aura cards that were attached to it from your graveyard to the battlefield attached to target creature, then attach any number of Equipment that were attached to it to that creature.",
-  "colors": [
-   "R",
-   "W"
-  ],
-  "color_identity": [
-   "R",
-   "W"
-  ],
-  "keywords": [
-   "Vigilance"
-  ],
-  "power": "4",
-  "toughness": "3"
- },
- {
   "name": "Trailblazer's Torch",
   "layout": "normal",
   "mana_cost": "{4}",
@@ -1361,5 +1340,26 @@
     ]
    }
   ]
+ },
+ {
+  "name": "Cass, Hand of Vengeance",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Ranger",
+  "oracle_text": "Vigilance\nWhenever Cass or another creature you control dies, if it was enchanted or equipped, return any number of Aura cards that were attached to it from your graveyard to the battlefield attached to target creature, then attach any number of Equipment that were attached to it to that creature.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Vigilance"
+  ],
+  "power": "4",
+  "toughness": "3"
  }
 ]
