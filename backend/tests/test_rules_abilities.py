@@ -74,7 +74,7 @@ def test_costs_and_timing_the_engine_cannot_handle_are_refused(cards):
     odd = token(s, "p1", "Oddity", "Token Artifact",
                 "Sacrifice another creature or token: Scry 1.\n{T}: Draw a card. Activate only as a sorcery.")  # (wave 4H)
     to_main(s)
-    with pytest.raises(ActionError, match="by hand"):
+    with pytest.raises(ActionError):  # (read since wave 50G: "another" covers the token too, so the Oddity can't pay with itself)
         act(s, "p1", type="activate_ability", card_id=odd.id, ability=0)
     act(s, "p1", type="phase", to="end")  # manual jump out of the main phase
     with pytest.raises(ActionError, match="main phase"):
