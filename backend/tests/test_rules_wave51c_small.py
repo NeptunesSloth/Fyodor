@@ -42,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge"])
+@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge", "Silkguard"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -445,4 +445,27 @@ def test_urabrasks_forge_makes_a_token_as_big_as_its_oil_and_sacrifices_it_at_th
     settle(s)
     assert token.id not in s.state.cards  # (sacrificed at the beginning of the next end step: a token ceases to exist)
     assert s.state.cards[forge.id].counters["oil"] == 2
+    check(s)
+
+
+# -- Silkguard ---------------------------------------------------------------------------------------------------------------------------------
+def test_silkguard_gives_hexproof_to_the_creature_it_made_modified_only(cards):
+    """"Put a +1/+1 counter on each of up to X target creatures you control. Auras, Equipment, and modified creatures you control gain hexproof": the counters come first, so the target is modified."""
+    s = build(cards, ["Silkguard", "Grizzly Bears", "Llanowar Elves"], ["Lightning Bolt"])
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    guard = to_hand(s, "Silkguard")
+    mana(s, G=2)
+    act(s, "p1", type="cast_spell", card_id=guard.id, targets=[bears.id], x_value=1, target_counts=[1])
+    settle(s)
+    assert s.state.cards[bears.id].counters.get("+1/+1", 0) == 1
+    bolt = to_hand(s, "Lightning Bolt", "p2")
+    mana(s, "p2", R=2)
+    stops(s)
+    act(s, "p1", type="pass_priority")
+    assert s.state.rules.priority == "p2"
+    with pytest.raises(ActionError):  # (modified: hexproof)
+        act(s, "p2", type="cast_spell", card_id=bolt.id, targets=[bears.id])
+    act(s, "p2", type="cast_spell", card_id=bolt.id, targets=[elves.id])  # (no counter, no Aura, no Equipment: targetable)
+    settle(s)
+    assert zone_of(s, "Llanowar Elves") == "p1:graveyard"
     check(s)

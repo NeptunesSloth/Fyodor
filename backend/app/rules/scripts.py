@@ -2563,6 +2563,9 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # -- resolution memory (wave 51C) -- "put an oil counter on this artifact, then create an X/1 … token. Sacrifice that token at the beginning of the next end step." (Urabrask's Forge): two sentences,
     # so the "that token" names the token made, not the permanent that got the counter
     body = re.sub(r"(?i)\b(put an? [a-z+/-]+ counter on (?:this [a-z]+|~)), then create ", r"\1. Create ", body)
+    # ponytail: Silkguard's one list "Auras, Equipment, and modified creatures you control gain hexproof until end of turn" read as its two groups (the same set, judged together: grants change no counters)
+    body = re.sub(r"\bAuras, Equipment, and modified creatures you control gain (hexproof|indestructible) until end of turn\b",
+                  r"Auras and Equipment you control gain \1 until end of turn. Modified creatures you control gain \1 until end of turn", body)
     if it in ("event", "event_gone"):  # -- either with two actions (wave 51C) -- "you may put that card from a graveyard onto the battlefield under your control" (Tergrid): the trigger's card, which moves only while it is in a graveyard (400.7)
         body = re.sub(r"(?i)\bput (that card|it) from a graveyard onto the battlefield\b", r"put \1 onto the battlefield", body)
     body = _split_tails(body, event_player)  # -- activated other (wave 34B) --
