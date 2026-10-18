@@ -68,6 +68,7 @@ from app.rules import (
     optional_payment,
     permissions,
     phasing,  # -- phasing (wave 13D) --
+    piles_legacy,
     player_control,  # -- controlling another player (wave 18H) --
     reconcile,
     recursion,  # -- static_other sweep (wave 17C) --
@@ -1531,6 +1532,9 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "suspend_cast": effects.resume_suspend_cast,
     "free_cast_pick": permissions.resume_free_cast,  # (wave 3C)
     # -- refused look/cast-free (wave 3R5) -- piles (700.3)
+    "piles_opponent": piles_legacy.resume_opponent,  # -- review 53 -- games saved before wave 53D
+    "piles_split": piles_legacy.resume_split,
+    "piles_pick": piles_legacy.resume_pick,
     "piles_down_opponent": looking.resume_down_opponent,  # -- hidden exile (wave 18A) --
     "piles_down_split": looking.resume_down_split,
     "piles_down_pick": looking.resume_down_pick,

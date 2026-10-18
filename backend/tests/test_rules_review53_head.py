@@ -52,3 +52,14 @@ def test_an_amount_with_two_different_targets_is_not_read():
     with pytest.raises(language._Fail):
         language._value_target([{"target_sel": "sel:a"}, {"target_sel": "sel:b"}], None)
     assert language._value_target([{"target_sel": "sel:a"}, {"target_sel": "sel:a"}], None) == "sel:a"
+
+
+def test_a_game_saved_inside_an_old_pile_split_still_resumes():
+    """Wave 53D moved face-up piles (700.3: Fact or Fiction) to pile_groups; a game saved with a pending "piles" effect or a
+    "piles_opponent" / "piles_split" / "piles_pick" question answers through the old routines (piles_legacy)."""
+    from app.rules import effects, engine, piles_legacy
+
+    assert effects.PRIMITIVES["piles"] is piles_legacy.piles
+    assert engine.RESUME["piles_opponent"] is piles_legacy.resume_opponent
+    assert engine.RESUME["piles_split"] is piles_legacy.resume_split
+    assert engine.RESUME["piles_pick"] is piles_legacy.resume_pick
