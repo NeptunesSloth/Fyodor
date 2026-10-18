@@ -113,6 +113,7 @@ class CostComponent:
     among: bool = False  # -- activated sweep (wave 26C) -- "Remove two +1/+1 counters from among creatures you control": any permanents, one pick per counter
     reduces: int = 0  # -- cost reductions paid with objects (wave 47C) -- "you may sacrifice any number of creatures. This spell costs {2} less for each": any number, none too; each takes this much generic off the total cost
     anyn: bool = False  # (wave 48B: any number, none too, with or without a reduction: "sacrifice any number of creatures", "for each creature sacrificed this way")
+    offering: bool = False  # -- offering (wave 51H) -- 702.48a: the sacrifice whose mana cost (colors included) takes that much off the spell's total cost (offering.reduce)
 
     @property
     def chosen(self) -> bool:

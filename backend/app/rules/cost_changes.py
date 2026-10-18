@@ -717,6 +717,10 @@ def keyword_component(o: Optional) -> Any:
         return C.CostComponent(C.SACRIFICE, amount=1, selector=Selector(either=either).key(), text="Sacrifice an artifact, enchantment, or token")
     if o.kind in ("evidence", "behold", "blight"):  # -- casting costs (wave 22F) --
         return own_cost(o.text)
+    if o.kind == "offering":  # -- offering (wave 51H) -- 702.48a: "you may sacrifice a [quality] permanent"
+        from app.rules import offering
+
+        return offering.component(o.text)
     if o.kind == "reduce":  # -- cost reductions paid with objects (wave 47C) --
         return C.any_number_part(o.text, o.n)
     if o.kind == "casualty":  # -- casting extras (wave 18E) -- 702.153a: "you may sacrifice a creature with power N or greater"
@@ -767,6 +771,8 @@ def optional_offers(state: GameState, player: str, card: CardInstance, ch: Chara
     if gift.offered(ch):  # -- gift (wave 23D) -- 702.174a: "As an additional cost to cast this spell, you may choose an opponent."
         out.append(Optional(f"{card.id}:gift", "Gift: promise an opponent a gift", 0, "", "gift"))
     for d in permissions._definitions(ch).values():  # -- casting costs (wave 22F) -- collect evidence / behold on the spell itself
+        if d.get("static") == "permission" and (quality := (d.get("flash_if") or {}).get("offering")):  # -- offering (wave 51H) -- 702.48a
+            out.append(Optional(f"{card.id}:offering", f"{quality} offering: sacrifice {'an' if quality[0] in 'AEIOU' else 'a'} {quality}", 0, "", "offering", 0, quality))
         if d.get("static") == "own_optional":
             label = f"This spell costs {{{d['n']}}} less for each: {d['cost'][0].lower() + d['cost'][1:]}" if d["optional"] == "reduce" else f"{d['cost']} (additional cost)"
             out.append(Optional(f"{card.id}:{d['optional']}", label, 0, "", d["optional"], d.get("n", 0), d["cost"]))
