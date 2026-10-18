@@ -3416,9 +3416,15 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             continue
         text = _for_each_this_way(text)  # -- "this way" outcomes (wave 4A) --
         from app.rules import (
+            chain_spells,  # -- chain spells (wave 52C) -- "that player may pay {R}{R}. If the player does, they may copy this spell …"
+        )
+        from app.rules import (
             pay_untap as _pay_untap,  # -- if you do (wave 25C) -- "that player may choose any number of tapped … and pay {2} for each …"
         )
 
+        if it is None and not event_player and (chained := chain_spells.sentence(texts, i, text, effects, groups)) is not None:
+            effects += chained
+            continue
         if (untapped := _pay_untap.sentences(texts, i)) is not None:
             effects += untapped[0]
             skip_to = i + untapped[1]
@@ -4043,7 +4049,11 @@ def _may_first_only(texts: list[str], effects: list[dict[str, Any]], sentences: 
     first = effects[: sentences[1]]
     if not first or not texts[0].lower().startswith("you may ") or any(e.get("optional") or e.get("do") == "may_rest" or e.get("may") for e in first):
         return 0
-    return 0 if any(_DEPENDENT.search(t) for t in texts[1:]) else len(first)
+    from app.rules import (
+        chain_spells,  # -- chain spells (wave 52C) -- "You may tap or untap target creature. Then that creature's controller may pay {2}{U}. …" (Chain Stasis)
+    )
+
+    return 0 if any(_DEPENDENT.search(t) for t in texts[1:] if not chain_spells.is_tail(t)) else len(first)
 
 
 _KICKED = re.compile(r"^if (?P<neg>this spell wasn't|(?:this spell|it|~) was) kicked(?: with its (?P<cost>(?:\{[^}]+\})+) kicker)?, (?P<instead1>instead )?(?P<rest>.+?)(?P<instead2> instead)?$", re.IGNORECASE)  # (wave 45A: "this spell wasn't": Parting Gust's gift)

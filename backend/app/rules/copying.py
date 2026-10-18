@@ -762,6 +762,10 @@ def _stack_objects(plan: Plan, ctx: Context, who: str) -> list[str]:
 
         return [c for c in context.objects(plan, ctx, context.EVENT) if plan.state.cards[c].zone == "stack"]
 
+    if who == "this_spell":  # -- chain spells (wave 52C) -- "copy this spell": the spell that is resolving, still on the stack (608.2)
+        src = ctx.get("source_card")
+        return [src] if src in plan.state.cards and plan.state.cards[src].zone == "stack" and plan.oid(src) == ctx.get("source_object") else []
+
     if who == "event_ability":  # -- copied abilities (wave 18F) -- the ability an activation trigger is about (603.2), while it's still on the stack
         src = (ctx.get("event") or {}).get("source") or {}
         return [src["card"]] if src.get("card") in plan.state.cards and plan.state.cards[src["card"]].zone == "stack" \
@@ -780,7 +784,12 @@ def copy_stack_object(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     excepts = [CopyExcept.model_validate(x) for x in e.get("excepts") or []]
     who = e.get("who") or "target"
     objects = [(sid, oid, n) for sid, oid in _copy_sources(plan, ctx, who)]
-    job = new_job(ctx, controller=ctx["controller"], objects=objects, retarget=_retarget_follows(ctx),
+    controller = ctx["controller"]
+    if e.get("by"):  # -- chain spells (wave 52C) -- 707.10: "they may copy this spell": the copy is controlled by the player who copies it
+        from app.rules.optional_payment import payer_of
+
+        controller = payer_of(plan, ctx, e["by"]) or controller
+    job = new_job(ctx, controller=controller, objects=objects, retarget=_retarget_follows(ctx),
                   label=ctx.get("name") or "Copy", excepts=excepts)
     if not objects and who in ("event_spell", "event_ability") and _event_object_left(ctx, who):
         # -- spell copies (wave 31D) -- the spell or ability a trigger is about has left the stack and nothing is kept of it: never silently
