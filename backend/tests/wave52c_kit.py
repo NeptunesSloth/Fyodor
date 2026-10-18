@@ -65,3 +65,23 @@ def castable(s, c, pid="p1"):
 def zones(s, pid="p1"):
     return lambda z: [s.state.cards[i].name for i in s.state.zones[f"{pid}:{z}"]]
 
+
+
+def to_phase(s, phase, turn=None, limit=200):
+    """Pass priority (no attackers, no blockers) until ``phase`` (of turn ``turn``) is reached."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if s.state.turn.phase == phase and turn in (None, s.state.turn.number):
+            return
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError(f"never reached {phase}")
+
+
+def next_turn(s):
+    """To the main phase of Alice's next turn: what was put onto the table before has been there since the turn began (no summoning sickness)."""
+    to_phase(s, "main1", turn=s.state.turn.number + 2)
