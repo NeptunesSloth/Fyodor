@@ -127,8 +127,7 @@ def _ask(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         label = e["kinds"][k]["say"] if e["what"] == "object" else e.get("say") or e["what"]
         decide(plan, player=pid, kind="choose_one" if e["what"] != "object" else "choose_cards",
                prompt=f"{ctx.get('name') or 'Choose'}: choose {label}{' (secret)' if g['secret'] else ''}{known}",
-               options=options, resume={"step": "gc_choose", "ctx": ctx, "e": e, "rest": [], "picked": []},  # (rest, picked: engine._settle_decision)
-               **({"min_choices": 1, "max_choices": 1} if e["what"] == "object" else {}))
+               options=options, resume={"step": "gc_choose", "ctx": ctx, "e": e, "rest": [], "picked": []})  # (rest, picked: engine._settle_decision)
         return False
     return _finish(plan, ctx, e)
 
