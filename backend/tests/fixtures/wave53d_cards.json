@@ -860,5 +860,24 @@
   "colors": [],
   "color_identity": [],
   "keywords": []
+ },
+ {
+  "name": "Brilliant Ultimatum",
+  "layout": "normal",
+  "mana_cost": "{W}{W}{U}{U}{U}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Exile the top five cards of your library. An opponent separates those cards into two piles. You may play lands and cast spells from one of those piles. If you cast a spell this way, you cast it without paying its mana cost.",
+  "colors": [
+   "B",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "U",
+   "W"
+  ],
+  "keywords": []
  }
 ]

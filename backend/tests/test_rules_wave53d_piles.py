@@ -603,3 +603,35 @@ def test_mangaras_tome_the_next_draw_this_turn_takes_the_top_card_of_the_pile(ca
     assert [s.state.cards[c].name in five for c in s.state.zones["p1:hand"]] == [True]
     assert_unseen(s, [n for n in five if n != s.state.cards[s.state.zones["p1:hand"][0]].name])
     check(s)
+
+
+# -- the opponent separates the exiled cards, you play from one pile for free (wave 53D; 700.3, 608.2) -------------------------------
+ULTIMATUM = "Brilliant Ultimatum"
+
+
+def test_brilliant_ultimatum_is_full(cards):
+    assert coverage.of_card_data(cards.resolve(ULTIMATUM)).level == "FULL"
+
+
+def test_brilliant_ultimatum_an_opponent_separates_the_exiled_cards_and_you_play_from_the_pile_you_choose(cards):
+    names = ["Forest", "Forest", "Grizzly Bears", "Lightning Bolt", "Mulldrifter"]
+    s = table(cards, [ULTIMATUM, "Grizzly Bears", "Lightning Bolt", "Mulldrifter"], players=2)
+    top = stack_top(s, names)
+    cast(s, ULTIMATUM, W=2, U=3, B=2)
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p2" and sorted(o.label for o in d.options) == sorted(names)  # Bob separates the five cards, which are exiled face up
+    split(s, "p2", ["Forest", "Grizzly Bears"])  # pile 1: the two Forests and the Bears (the prefix matches every Forest)
+    d = s.state.rules.decision
+    assert d.player == "p1" and [sorted(o.label.split(": ")[1].split(", ")) for o in d.options] == [["Forest", "Forest", "Grizzly Bears"], ["Lightning Bolt", "Mulldrifter"]]
+    pile(s, "p1", 1)
+    d = s.state.rules.decision  # she may play lands and cast spells from the pile, free
+    assert d.player == "p1" and "Forest (play as a land)" in [o.label for o in d.options] and "Grizzly Bears" in [o.label for o in d.options]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label.startswith("Forest"))])
+    d = s.state.rules.decision
+    assert [o.label for o in d.options] == ["Grizzly Bears"]  # (one land only: the second Forest cannot be played this turn)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    resolve(s)
+    assert names_on(s, "p1") == ["Forest", "Grizzly Bears"]
+    assert sorted(s.state.cards[c].name for c in s.state.zones["p1:exile"]) == ["Forest", "Lightning Bolt", "Mulldrifter"]  # the rest stays exiled
+    check(s)

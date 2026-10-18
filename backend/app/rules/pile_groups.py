@@ -94,6 +94,8 @@ def bind(body: str, parse: Any, split_sentences: Any) -> Found | None:
     first = sentences[0]
     if first in (_TOYMAKER[0], _TOYMAKER_END):
         return _toymaker(sentences, parse)
+    if tuple(sentences) == _ULTIMATUM:
+        return _ultimatum(parse)
     if (sp := _SEARCH_PILE.match(first)) is not None and sentences[1:] == ["Then shuffle your library."]:
         return _search_pile(sp["n"], parse)
     if tuple(sentences) == _TRIUMPH and (it := parse("Exile it.")) is not None and len(it[0]) == 1:  # (Triumph of Saint Katherine; "it": the dying card, now in the graveyard)
@@ -130,6 +132,20 @@ def _down_piles(sentences: list[str], parse: Any) -> Found | None:
                 {"do": "pile_deal", "src": "made", **made, "split": "you", "pick": "opponent", "n": 2, "chosen": "graveyard", "other": "look", "say": "cards", "as": "po"},
                 free, rest], None, False
     return None
+
+
+_ULTIMATUM = ("Exile the top five cards of your library.", "An opponent separates those cards into two piles.", "You may play lands and cast spells from one of those piles.",
+              "If you cast a spell this way, you cast it without paying its mana cost.")
+
+
+def _ultimatum(parse: Any) -> Found | None:
+    """Brilliant Ultimatum: the top five cards exiled (face up), an opponent separates them, you choose a pile and may play lands and cast spells from it free, as this resolves."""
+    exile = parse(_ULTIMATUM[0])
+    free = parse("Exile the top five cards of your library. You may play lands and cast spells from among them without paying their mana costs.")
+    if exile is None or len(exile[0]) != 1 or free is None or len(free[0]) != 2 or free[0][1].get("do") != "free_cast":
+        return None
+    return [{**exile[0][0], "as": "px"}, {"do": "pile_deal", "src": "ref:px", "split": "opponent", "pick": "you", "n": 2, "chosen": "bind", "other": None, "say": "cards", "as": "pc"},
+            {**free[0][1], "who": "ref:pc"}], None, False
 
 
 _SEARCH_PILE = re.compile(r"^Search your library for (?P<n>\w+) cards, exile them in a face-down pile, and shuffle that pile\.$")
@@ -509,6 +525,8 @@ def _do(plan: Plan, ctx: Context, e: dict[str, Any], op: str, cards: list[str], 
         effects.exile_cards(plan, ctx, {}, cards)
     elif op == "tap":
         plan.do({"type": "tap", "card_ids": cards, "tapped": True}, actor=ctx["controller"])
+    elif op == "bind":  # the chosen pile, for the instructions after ("You may play lands and cast spells from one of those piles")
+        context.bind_objects(plan, ctx, e["as"], cards)
     elif op == "look":  # "Look at the cards in the other pile": the face-down ones are shown to the controller alone (701.20e); they stay where they are
         from app.game.visibility import can_see
 
