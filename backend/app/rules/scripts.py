@@ -42,6 +42,7 @@ from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wa
 from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
 from app.rules import (  # (this_way: wave 4A)
     restrictions,
+    reveal_until_gy,
     selectors,
     this_way,
     top_trade,
@@ -1818,6 +1819,14 @@ def _mill(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "mill", "who": "you", "n": num(m["n"])}], None
 
 
+@effect(r"put one of them onto the battlefield")
+def _put_one_of_the_batch(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """-- trigger other (wave 52B) -- "Whenever one or more creature cards are put into your graveyard from your library, put one of them onto the battlefield." (Colossal
+    Grave-Reaver): its controller chooses one of the batch's cards, still in the graveyard (608.2d, 603.2c); read only in a trigger of that batch (_event_refs_ok)."""
+    return [{"do": "return_choice", "who": "event", "n": 1, "upto": False, "random": False, "label": "card", "to": "battlefield", "tapped": False, "under": "you",
+             "batch": "to_graveyard"}], None
+
+
 @effect(r"(?P<t>target player|up to one target player) puts all the cards from their graveyard on the bottom of their library in a random order")
 def _graveyard_bottom(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
@@ -2459,6 +2468,8 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
         trade_groups: list[dict[str, Any]] = []
         trade_effects = _add_groups(trade_groups, traded[0], traded[1])
         return (*_finish_targets(trade_effects, trade_groups), False)
+    if (revealed := reveal_until_gy.parse(body)) is not None:  # -- trigger other (wave 52B) -- Consuming Aberration (app/rules/reveal_until_gy.py)
+        return revealed
     if _CHOOSE_COMPARE.match(body) is not None:  # -- trigger other (wave 52B) -- Sandstone Oracle, Slithermuse: 608.2d, the controller chooses the opponent as this resolves (no target); a hand's size is public (402.3)
         return [{"do": "choose_opponent", "as": "copp"}, {"do": "draw", "who": "you", "n": {"minus": [{"hand": "ref:copp"}, {"hand": "you"}]}}], None, False  # (107.1b: "more … than you" is a positive difference, else nothing is drawn)
     # -- damage wordings (wave 51B) -- "Then each player creates X Treasure tokens and this enchantment deals X damage to each player, where X is the number of descent counters on this
@@ -5617,6 +5628,12 @@ def _event_refs_ok(d: Definition) -> bool:
         return False  # -- spell copies (wave 31D) -- "cast before it this turn": the spell a cast trigger is about
     if "tgt:" in raw and not (d.get("kind") == "spell" and isinstance(d.get("target"), dict)):
         return False  # -- most-played cards II (wave 45A) -- "power less than that creature's power": the spell's one chosen target; no target of that spell, nothing to compare with
+    if '"batch": "to_graveyard"' in raw and not (ev is not None and ev["event"] == "to_graveyard" and ev.get("aggregate")):
+        return False  # -- trigger other (wave 52B) -- "put one of them onto the battlefield": the cards a "one or more … are put into your graveyard" trigger counted
+    if '"types_among"' in raw and not (ev is not None and ev["event"] == "to_graveyard" and ev.get("aggregate")):
+        return False  # -- trigger other (wave 52B) -- "each card type among those cards": the cards a batch trigger counted
+    if '"event_players"' in raw and not (ev is not None and ev["event"] == "deal_damage" and ev.get("aggregate") and ev.get("to") in ("opponents", "players")):
+        return False  # -- trigger other (wave 52B) -- "each opponent dealt damage": the recipients of a "one or more … deal damage to … opponents" batch
     if '"of": "roll"' in raw and not (ev is not None and ev["event"] == "roll_die"):
         return False  # -- dice (wave 24B) -- "if the roll was 4 or higher": the one die a roll trigger is about
     if '"of": "event"' in raw and not (ev is not None and (ev["event"] == "you_attack" and ev.get("min_attackers") or ev["event"] == "attack" and ev.get("aggregate"))):

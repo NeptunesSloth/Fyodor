@@ -511,6 +511,15 @@ def _parse(c: str) -> Condition | None:
         if a is None or b is None or a.get("aggregate") or b.get("aggregate") or a["event"] == b["event"]:
             return None
         return {"event": "either", "subject": "player", "player": a["player"], "conds": [a, b]}
+    # -- trigger other (wave 52B) -- "Whenever an opponent attacks you with two or more creatures, draws their second card each turn, or casts their second spell each turn"
+    # (Trouble in Pairs): a list of one player's actions, each its own event (603.2c); every part must read on its own with that player
+    m = re.fullmatch(r"(?P<p>you|an opponent|a player) (?P<rest>[^,]+(?:, [^,]+)+), or (?P<last>(?!and ).+)", c)
+    if m:
+        listed = [_parse(f"{m['p']} {part}") for part in (*m["rest"].split(", "), m["last"])]
+        if any(x is None or x.get("aggregate") or x["event"] in ("either", "multi") or x.get("subject") != "player" or x.get("player") != _PLAYERS[m["p"]] for x in listed) \
+                or len({x["event"] for x in listed if x}) != len(listed):
+            return None
+        return {"event": "either", "subject": "player", "player": _PLAYERS[m["p"]], "conds": [x for x in listed if x]}
     # -- history (wave 22E) -- "Whenever this creature attacks, blocks, or becomes the target of a spell": a list of verbs for one
     # subject, each its own event (603.2c); every part must read on its own with that subject
     m = re.fullmatch(r"(?P<s>~|this creature|this permanent) (?P<rest>[^,]+(?:, [^,]+)+), or (?P<last>.+)", c)
@@ -635,7 +644,7 @@ def _parse(c: str) -> Condition | None:
     if c in ("~ is put into your graveyard from your library", "this card is put into your graveyard from your library"):
         return {"event": "to_graveyard", "subject": "self", "from": "library"}  # -- triggers (wave 19B) -- (Narcomoeba)
     m = re.fullmatch(r"(?P<o>one or more (?:.+? )?cards|an? .+? card|a card) (?:is|are) put into (?:(?P<g>your|an opponent's|a) "
-                     r"graveyard|graveyards) from (?P<f>anywhere other than the battlefield|anywhere|your library|a library)", c)  # (wave 43B: Syr Konrad; wave 50G: "graveyards", Dennick)
+                     r"graveyard|graveyards) from (?P<f>anywhere other than the battlefield|anywhere|your library|their library|a library)", c)  # (wave 43B: Syr Konrad; wave 50G: "graveyards", Dennick)
     if m:
         gsel = selectors.from_key(_object_sel(m["o"], card=True))
         owner = {"your": "you", "an opponent's": "opponent"}.get(m["g"])
@@ -647,6 +656,10 @@ def _parse(c: str) -> Condition | None:
             out["not_from"] = "battlefield"
         if m["f"] == "your library":
             if owner != "you":
+                return None
+            out["from"] = "library"
+        elif m["f"] == "their library":  # -- trigger other (wave 52B) -- "a creature card is put into an opponent's graveyard from their library" (Undead Alchemist): a card goes to its owner's graveyard, so their own library
+            if owner != "opponent":
                 return None
             out["from"] = "library"
         elif m["f"] == "a library":  # (wave 16C: Dreadhound — any player's library)

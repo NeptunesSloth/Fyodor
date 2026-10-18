@@ -592,7 +592,7 @@ def _to_graveyard(plan: Plan, e: Event, frm: str) -> list[Fact]:
     if _zone(e.to_zone) != "graveyard" or frm == "graveyard" or not e.card or not e.new_object_id:
         return []
     got = _card_in(plan, e.card, e.to_zone)
-    if got is None or got[0].is_token or plan.oid(got[0]) != e.new_object_id:
+    if got is None or got[0].is_token:  # (-- trigger other (wave 52B) -- 603.2c: a card that has since left the graveyard was put there all the same: "mill three cards, then return a creature card from your graveyard" (Dim Oubliette) with Polluted Cistern's "each card type among those cards")
         return []
     return [("to_graveyard", got[0], got[1], got[0].owner,
              {"oid": e.new_object_id, "from": frm, "amount": 1, "to": e.to_zone})]
@@ -1200,7 +1200,7 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             if not _cond_matches(plan, whole, watcher, fact):
                 continue
             # -- either with a batch half (wave 49D) -- 603.2c: "discards a card or mills one or more cards": the half this event is batches (or not) on its own
-            cond = next((x for x in whole["conds"] if _cond_matches(plan, x, watcher, fact)), whole) if whole["event"] == "either" and any(x.get("aggregate") for x in whole["conds"]) else whole
+            cond = next((x for x in whole["conds"] if _cond_matches(plan, x, watcher, fact)), whole) if whole["event"] == "either" and any(x.get("aggregate") or (x["event"] == "draw" and x.get("nth")) for x in whole["conds"]) else whole  # (-- trigger other (wave 52B) -- or a half that is "your second card each turn": Trouble in Pairs)
             nth = cond.get("nth") if cond["event"] == "draw" else None
             if nth and plan.rules.draws_this_turn.get(fact[3] or "", 0) != nth:
                 continue
@@ -1261,6 +1261,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                         pending.event.new_objects += event.new_objects
                     pending.event.amount += event.amount
                     pending.event.count += 1
+                    if cond.get("to") in ("opponents", "players"):  # -- trigger other (wave 52B) -- the players the batch dealt damage to (603.2c): "for each opponent dealt damage"
+                        pending.event.players += [p for p in event.players if p not in pending.event.players]
                     from app.rules import trigger_multipliers  # -- trigger multipliers (wave 5D) --
 
                     trigger_multipliers.joined(plan, pending)

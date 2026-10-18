@@ -43,11 +43,11 @@ def on_field(s, name, pid="p1"):
     return [c for c in s.state.cards.values() if c.name == name and c.zone == f"{pid}:battlefield"]
 
 
-def table(cards, spells=(), land="Mountain", lands=12):
-    """Alice with ``spells`` (one each) and ``lands`` of one basic land type, Bob with islands, in her precombat main phase."""
+def table(cards, spells=(), land="Mountain", lands=12, players=2):
+    """Alice with ``spells`` (one each) and ``lands`` of one basic land type, Bob (and Carol) with islands, in her precombat main phase."""
     alice = deck(cards, "Krenko, Mob Boss", [*((1, n) for n in spells), (lands, land)])
-    bob = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
-    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
+    others = [PlayerSetup(n, cards=deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])) for n in ("Bob", "Carol")[: players - 1]]
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), *others], shuffle=False)), cards=cards)
     act(s, "p1", type="pass_priority")
     return s
 
@@ -410,4 +410,236 @@ def test_a_player_with_an_empty_library_reveals_nothing_and_costs_the_other_noth
     to_phase(s, "upkeep", turn=3)
     answer(s, ["p2"])
     assert (life(s, "p1"), life(s, "p2")) == (40, 39)  # Alice lost nothing (Bob revealed no card); Bob lost Alice's card's 1
+    check(s)
+
+
+# -- Trouble in Pairs ---------------------------------------------------------------------------------------------------------------------------
+TROUBLE = "Trouble in Pairs"
+
+
+def test_trouble_in_pairs_is_full(cards):
+    assert coverage.of_card_data(cards.resolve(TROUBLE)).level == "FULL"
+
+
+def bobs_turn(s, step):
+    """Pass priority to this step of Bob's turn 2, answering nothing."""
+    stops(s, step)
+    to_phase(s, step, turn=2)
+
+
+def alice_cards(s):
+    return len(s.state.zones["p1:hand"])
+
+
+def test_trouble_in_pairs_when_an_opponent_attacks_with_two_creatures(cards):
+    s = build(cards, [TROUBLE], [])
+    put(s, TROUBLE)
+    a = token_of(s, "p2", "Raider A", "Creature — Goblin", "1/1")
+    b = token_of(s, "p2", "Raider B", "Creature — Goblin", "1/1")
+    stops(s, "main1")
+    to_phase(s, "main1", turn=2)
+    to_phase(s, "declare_attackers", turn=2) if False else None
+    for _ in range(10):  # on to Bob's declare attackers
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    mine = alice_cards(s)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": a.id, "target": "p1"}, {"card_id": b.id, "target": "p1"}])
+    answer(s)
+    assert alice_cards(s) == mine + 1
+    check(s)
+
+
+def test_trouble_in_pairs_one_attacker_is_not_enough(cards):
+    s = build(cards, [TROUBLE], [])
+    put(s, TROUBLE)
+    a = token_of(s, "p2", "Raider A", "Creature — Goblin", "1/1")
+    stops(s, "main1")
+    to_phase(s, "main1", turn=2)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    mine = alice_cards(s)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": a.id, "target": "p1"}])
+    answer(s)
+    assert alice_cards(s) == mine
+    check(s)
+
+
+def test_trouble_in_pairs_on_the_opponents_second_draw_of_a_turn(cards):
+    s = build(cards, [TROUBLE], [])
+    put(s, TROUBLE)
+    sage = token_of(s, "p2", "Sage", "Creature — Test", "1/1", text="{1}: Draw a card.")
+    stops(s, "main1")
+    to_phase(s, "main1", turn=2)  # Bob drew for the turn (his first card)
+    mine = alice_cards(s)
+    for expected in (mine + 1, mine + 1):  # the second draw triggers it, the third doesn't
+        mana(s, "p2", C=1)
+        act(s, "p2", type="activate_ability", card_id=sage.id, ability=0)
+        answer(s)
+        assert alice_cards(s) == expected
+    check(s)
+
+
+def test_trouble_in_pairs_on_the_opponents_second_spell_of_a_turn(cards):
+    s = build(cards, [TROUBLE], ["Sol Ring", "Llanowar Elves"])
+    put(s, TROUBLE)
+    stops(s, "main1")
+    to_phase(s, "main1", turn=2)
+    mine = alice_cards(s)
+    for name, cost, expected in (("Sol Ring", {"C": 1}, mine), ("Llanowar Elves", {"G": 1}, mine + 1)):
+        card = to_hand(s, name, "p2")
+        mana(s, "p2", **cost)
+        act(s, "p2", type="cast_spell", card_id=card.id)
+        answer(s)
+        assert alice_cards(s) == expected
+    check(s)
+
+
+# -- Malcolm, Keen-Eyed Navigator / Hordewing Skaab -------------------------------------------------------------------------------------------
+MALCOLM, SKAAB = "Malcolm, Keen-Eyed Navigator", "Hordewing Skaab"
+
+
+@pytest.mark.parametrize("name", [MALCOLM, SKAAB])
+def test_the_opponents_dealt_damage_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def treasures(s):
+    return len([c for c in s.state.cards.values() if c.name == "Treasure" and c.zone == "p1:battlefield"])
+
+
+def unblocked_attack(s, *pairs):
+    """Alice's turn 4 (three players): these creatures attack these players, nobody blocks, combat damage is dealt and the triggers settle."""
+    to_phase(s, "declare_attackers", turn=4)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": t} for c, t in pairs])
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack") or s.state.turn.phase in ("declare_attackers", "declare_blockers", "combat_damage", "first_strike_damage"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("combat never ended")
+
+
+@pytest.mark.parametrize(("targets", "made"), [(("p2", "p3"), 2), (("p2", "p2"), 1)])
+def test_malcolm_makes_a_treasure_for_each_opponent_dealt_damage(cards, targets, made):
+    s = table(cards, [MALCOLM], players=3)
+    put(s, MALCOLM)
+    pirates = [token_of(s, "p1", f"Pirate {i}", "Token Creature — Pirate", "1/1") for i in range(2)]
+    to_phase(s, "main1", turn=4)
+    unblocked_attack(s, *zip(pirates, targets, strict=True))
+    assert treasures(s) == made
+    check(s)
+
+
+@pytest.mark.parametrize(("targets", "drawn"), [(("p2", "p3"), 2), (("p3", "p3"), 1)])
+def test_hordewing_skaab_draws_then_discards_the_number_of_opponents_dealt_damage(cards, targets, drawn):
+    s = table(cards, [SKAAB], players=3)
+    put(s, SKAAB)
+    zombies = [token_of(s, "p1", f"Zombie {i}", "Token Creature — Zombie", "1/1") for i in range(2)]
+    to_phase(s, "main1", turn=4)
+    library, graveyard = len(s.state.zones["p1:library"]), len(s.state.zones["p1:graveyard"])
+    unblocked_attack(s, *zip(zombies, targets, strict=True))
+    assert len(s.state.zones["p1:library"]) == library - drawn and len(s.state.zones["p1:graveyard"]) == graveyard + drawn
+    check(s)
+
+
+# -- Colossal Grave-Reaver / Undead Alchemist / Polluted Cistern ------------------------------------------------------------------------------
+REAVER, ALCHEMIST, CISTERN = "Colossal Grave-Reaver", "Undead Alchemist", "Polluted Cistern // Dim Oubliette"
+
+
+@pytest.mark.parametrize("name", [REAVER, ALCHEMIST, CISTERN])
+def test_the_library_to_graveyard_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def to_top(s, names, pid="p1"):
+    """These cards on top of the library, first name on top."""
+    for name in reversed(names):
+        act(s, pid, type="move", card_ids=[card_named(s, name, pid).id], to={"player": pid, "zone": "library"}, position="top")
+
+
+def test_colossal_grave_reaver_puts_one_of_the_milled_creature_cards_onto_the_battlefield(cards):
+    s = build(cards, [REAVER, "Llanowar Elves", "Grizzly Bears", "Lightning Bolt"], [])
+    reaver = to_hand(s, REAVER)
+    to_top(s, ["Llanowar Elves", "Grizzly Bears", "Lightning Bolt"])
+    mana(s, B=1, G=1, C=6)
+    act(s, "p1", type="cast_spell", card_id=reaver.id)
+    d = until_asked(s)  # "mill three cards" is its own ability; then the other triggers on the batch
+    assert d is not None and {s.state.cards[o.id].name for o in d.options} == {"Llanowar Elves", "Grizzly Bears"}  # (the creature cards among the three)
+    pick(s, card_named(s, "Grizzly Bears").id)
+    settle(s)
+    assert zone_of(s, "Grizzly Bears") == "p1:battlefield" and zone_of(s, "Llanowar Elves") == "p1:graveyard" and zone_of(s, "Lightning Bolt") == "p1:graveyard"
+    check(s)
+
+
+def test_undead_alchemist_exiles_a_creature_card_milled_from_an_opponents_library_and_makes_a_zombie(cards):
+    # its own replacement (a Zombie's combat damage to a player is that many cards milled instead) mills Bob's top four
+    s = build(cards, [ALCHEMIST], ["Grizzly Bears", "Lightning Bolt"])
+    alchemist = put(s, ALCHEMIST)
+    for at, name in enumerate(["Grizzly Bears", "Lightning Bolt"], 2):  # (Bob draws a card or two first, before turn 3)
+        act(s, "p2", type="move", card_ids=[card_named(s, name, "p2").id], to={"player": "p2", "zone": "library"}, index=at)
+    next_turn(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": alchemist.id, "target": "p2"}])
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack") or s.state.turn.phase in ("declare_attackers", "declare_blockers", "combat_damage", "first_strike_damage"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:exile" and zone_of(s, "Lightning Bolt", "p2") == "p2:graveyard"  # (a creature card only)
+    assert len([c for c in s.state.cards.values() if c.name == "Zombie" and c.is_token and c.zone == "p1:battlefield"]) == 1
+    assert life(s, "p2") == 40  # (milled instead of damage)
+    check(s)
+
+
+def test_polluted_cistern_costs_each_opponent_a_life_for_each_card_type_milled(cards):
+    # the other door ("When you unlock this door, mill three cards, then return a creature card …") mills three: creature, instant, land
+    s = build(cards, [CISTERN, "Grizzly Bears", "Lightning Bolt"], [])
+    room = to_hand(s, CISTERN)
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=room.id, face=0)
+    settle(s)
+    to_top(s, ["Grizzly Bears", "Lightning Bolt", "Forest"])
+    mana(s, B=1, C=4)
+    act(s, "p1", type="unlock_door", card_id=room.id, door=2)
+    settle(s)
+    assert life(s, "p2") == 37  # three card types among the three cards
+    assert zone_of(s, "Grizzly Bears") == "p1:battlefield"
+    check(s)
+
+
+# -- Consuming Aberration -----------------------------------------------------------------------------------------------------------------
+ABERRATION = "Consuming Aberration"
+
+
+def test_consuming_aberration_is_full(cards):
+    assert coverage.of_card_data(cards.resolve(ABERRATION)).level == "FULL"
+
+
+def test_consuming_aberration_reveals_down_to_a_land_and_mills_those_cards(cards):
+    s = build(cards, [ABERRATION, "Lightning Bolt"], ["Counterspell", "Arcane Signet"])
+    act(s, "p2", type="move", card_ids=s.state.zones["p2:library"][-2:], to={"zone": "graveyard"})  # (its power and toughness are the cards in your opponents' graveyards: a 0/0 dies)
+    put(s, ABERRATION)
+    to_top(s, ["Counterspell", "Arcane Signet"], "p2")  # then Islands: the third card is a land
+    bolt = to_hand(s, "Lightning Bolt")
+    library = len(s.state.zones["p2:library"])
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    answer(s)
+    assert {zone_of(s, "Counterspell", "p2"), zone_of(s, "Arcane Signet", "p2")} == {"p2:graveyard"}
+    assert len(s.state.zones["p2:library"]) == library - 3 and len(s.state.zones["p2:graveyard"]) == 5  # (two before, three revealed: the first land stops it)
     check(s)
