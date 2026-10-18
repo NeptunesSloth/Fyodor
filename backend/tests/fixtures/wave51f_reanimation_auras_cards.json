@@ -95,18 +95,33 @@
   "keywords": []
  },
  {
-  "name": "Aura Graft",
+  "name": "Metallic Mimic",
   "layout": "normal",
-  "mana_cost": "{1}{U}",
+  "mana_cost": "{2}",
   "cmc": 2.0,
-  "type_line": "Instant",
-  "oracle_text": "Gain control of target Aura that's attached to a permanent. Attach it to another permanent it can enchant.",
+  "type_line": "Artifact Creature — Shapeshifter",
+  "oracle_text": "As this creature enters, choose a creature type.\nThis creature is the chosen type in addition to its other types.\nEach other creature you control of the chosen type enters with an additional +1/+1 counter on it.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Clone",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Shapeshifter",
+  "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield.",
   "colors": [
    "U"
   ],
   "color_identity": [
    "U"
   ],
-  "keywords": []
+  "keywords": [],
+  "power": "0",
+  "toughness": "0"
  }
 ]

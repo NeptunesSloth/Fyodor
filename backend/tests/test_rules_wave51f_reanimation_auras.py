@@ -233,6 +233,36 @@ def test_it_cannot_be_attached_to_any_other_creature(cards):
     check(s)
 
 
+def test_a_creature_that_asks_a_question_as_it_enters_is_still_enchanted(cards):
+    s, ad = game(cards, "Animate Dead", theirs=["Metallic Mimic"])
+    mimic = bury(s, "Metallic Mimic", "p2")
+    cast_on(s, ad, mimic)
+    settle(s, answer="Goblin")  # "As this creature enters, choose a creature type" (614.12a): before it enters
+    assert s.state.cards[mimic.id].zone == "p1:battlefield" and s.state.cards[ad.id].attached_to == mimic.id
+    check(s)
+
+
+def test_a_clone_returned_as_a_copy_is_still_enchanted(cards):
+    s, ad = game(cards, "Animate Dead", theirs=["Clone", "Grizzly Bears"])
+    clone, bears = bury(s, "Clone", "p2"), put(s, "Grizzly Bears", "p2")
+    cast_on(s, ad, clone)
+    settle(s)  # "You may have Clone enter as a copy of any creature on the battlefield" (614.12a): answered with its first option
+    assert s.state.cards[clone.id].zone == "p1:battlefield" and s.state.cards[ad.id].attached_to == clone.id and zone_of(s, "Animate Dead") == "p1:battlefield"
+    check(s)
+
+
+def test_wrath_of_god_destroys_the_creature_and_the_aura_in_one_go(cards):
+    s, ad = game(cards, "Animate Dead", mine=["Wrath of God"], theirs=["Grizzly Bears"])
+    bears, wrath = bury(s, "Grizzly Bears", "p2"), to_hand(s, "Wrath of God")
+    cast_on(s, ad, bears)
+    settle(s)
+    mana(s, W=4)
+    act(s, "p1", type="cast_spell", card_id=wrath.id)
+    settle(s)
+    assert zone_of(s, "Animate Dead") == "p1:graveyard" and s.state.cards[bears.id].zone == "p2:graveyard" and not s.state.rules.delayed
+    check(s)
+
+
 def test_dance_of_the_dead_returns_the_creature_tapped_with_plus_one(cards):
     s, dance = game(cards, "Dance of the Dead", theirs=["Grizzly Bears"])
     bears = bury(s, "Grizzly Bears", "p2")
@@ -241,6 +271,21 @@ def test_dance_of_the_dead_returns_the_creature_tapped_with_plus_one(cards):
     now = s.state.cards[bears.id]
     assert (now.zone, now.controller, now.tapped) == ("p1:battlefield", "p1", True)
     assert s.state.cards[dance.id].attached_to == bears.id and pt(s, "Grizzly Bears", "p2") == (3, 3)
+    check(s)
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_dance_of_the_dead_stays_tapped_unless_its_controller_pays_in_the_upkeep(cards, pay):
+    s, dance = game(cards, "Dance of the Dead", theirs=["Grizzly Bears"])
+    bears = bury(s, "Grizzly Bears", "p2")
+    cast_on(s, dance, bears)
+    settle(s)
+    to_phase(s, "upkeep", turn=s.state.turn.number + 2)  # Alice's next turn: it didn't untap in the untap step ("doesn't untap during its controller's untap step")
+    assert s.state.cards[bears.id].tapped and s.state.zones["stack"]  # "At the beginning of the upkeep of enchanted creature's controller"
+    if pay:
+        mana(s, B=1, G=1)
+    settle(s, answer="yes" if pay else "no")
+    assert s.state.cards[bears.id].tapped is not pay and s.state.cards[dance.id].attached_to == bears.id
     check(s)
 
 
