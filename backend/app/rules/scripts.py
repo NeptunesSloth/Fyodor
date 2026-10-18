@@ -42,8 +42,10 @@ from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wa
 from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
 from app.rules import (  # (this_way: wave 4A)
     restrictions,
+    reveal_until_gy,
     selectors,
     this_way,
+    top_trade,
     where_bound,  # -- bounds defined by text (wave 28D) --
 )
 from app.rules.characteristics import Characteristics
@@ -114,7 +116,7 @@ TRIGGERS = [
     # 503.1a / 504 / 505 / 507 / 513: "At the beginning of [whose] [step]" (generic: see step_trigger)
     (re.compile(r"^At the beginning of (?:(?:each of )?(?P<whose>your|each|each player's|each opponent's|each other player's|the|enchanted player's|the chosen player's) "
                 r"(?P<step>upkeep|draw step|end step|first main phase|precombat main phase|second main phase|"
-                r"postcombat main phases?)|the (?P<hstep>upkeep|draw step|end step) of enchanted (?:creature|permanent|land|artifact|"
+                r"postcombat main phases?|main phases)|the (?P<hstep>upkeep|draw step|end step) of enchanted (?:creature|permanent|land|artifact|"
                 r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's|each player's) turn|(?P<each_combat>each combat)), "
                 r"(?P<body>.+)$"), "step"),
     # -- combat history (wave 31D) -- 511.2: "At end of combat, …" triggers as the end of combat step begins (a permanent's step trigger)
@@ -136,7 +138,8 @@ TRIGGERS = [
 
 STEPS = {"upkeep": "upkeep", "draw step": "draw", "end step": "end", "first main phase": "main1",
          "precombat main phase": "main1", "second main phase": "main2", "postcombat main phase": "main2",
-         "postcombat main phases": "main2"}  # (-- triggers (wave 30J) -- "each of your postcombat main phases": 505.1a, every main phase but the first, additional ones included)
+         "postcombat main phases": "main2",
+         "main phases": "main"}  # (-- trigger other (wave 52B) -- "each of your main phases" (Frontier Siege): the precombat and every postcombat main phase, 505.1; triggers.at_step_generic)  # (-- triggers (wave 30J) -- "each of your postcombat main phases": 505.1a, every main phase but the first, additional ones included)
 WHOSE = {"your": "you", "each": "each", "each player's": "each", "the": "each", "each opponent's": "opponent", "each other player's": "opponent",  # (wave 51G: every other player is an opponent in Commander, 102.2: Well of Ideas)
          "enchanted player's": "enchanted_player",
          "the chosen player's": "chosen_player"}  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
@@ -194,6 +197,8 @@ _HAVE_VERBS = {"fight": "fights", "deal": "deals", "lose": "loses", "become": "b
 def _may_have(body: str, ante: str | None) -> str:
     """"you may have it fight target creature" / "you may have target creature lose flying" is the same optional instruction
     in the third person; "it" is the source itself only when the trigger is about it (``ante``), else it stays unread."""
+    if (lead := re.match(r"^(if [^,]+, )(you may have .+)$", body)) is not None and (tail := _may_have(lead[2], ante)) != lead[2]:  # -- trigger other (wave 52B) -- "…, if you control five other Mountains, you may have ~ deal 3 damage to any target." (Valakut)
+        return lead[1] + tail
     # -- tapped and attacking (wave 38B) -- "you may have its controller create a 1/1 … token that's tapped and attacking" (Najeela): you decide, the
     # controller of the creature the event is about creates it (a player who isn't the attacking player gets one that never attacks, 506.3b)
     if ante == "event" and (made := re.match(r"^you may have its controller create( .+)$", body)) is not None:
@@ -311,7 +316,8 @@ def self_text(text: str, name: str) -> str:
             # (wave 20C: the short name before "the/of Capital" starts another name: "create Tuktuk the Returned, a legendary …")
             # (-- static_other (wave 36B) -- a shortened name that is also a creature type is that type before "creature(s)": "becomes a green Lizard creature" on
             # Lizard, Connors's Curse is no self-reference ("a green ~ creature" is nothing a card says)
-            part = re.sub(r"(?<![\w-])" + (r"(?<!create )" if n != name else "") + (r"(?<!other )(?<!another )" if n in _CREATURE_TYPES else "")  # (wave 41B: a Rat token's "each other Rat you control" is the type, not itself)
+            # (-- trigger other (wave 52B) -- "this Case" on "Case of …" is the type word after "this", not the short name)
+            part = re.sub(r"(?<![\w-])" + (r"(?<!create )(?<!this )(?<!This )" if n != name else "") + (r"(?<!other )(?<!another )" if n in _CREATURE_TYPES else "")  # (wave 41B: a Rat token's "each other Rat you control" is the type, not itself)
                           + rf"{re.escape(n)}(?!\w)(?! target\b)" + (r"(?! (?:the|of) [A-Z])" if n == short else "")  # (-- most-played cards (wave 49A) -- "Exile target …" on Exile is the verb)
                           + (r"(?! (?:creature|token)s?\b)" if n != name else ""),  # (-- attached events (wave 40B) -- "create Icingdeath, Frost Tongue, a legendary … token": the token's own name, on Icingdeath, Frost Tyrant)
                           "~", part)  # (wave 16D: a name ending in "!" has no \b after it; wave 26C: not "non-Spirit" on a Spirit token)
@@ -333,7 +339,9 @@ def self_text(text: str, name: str) -> str:
     out = '"'.join(own(p) if i % 2 == 0 else _own(p) if self_grant.search(parts[i - 1]) or parts[i - 1].endswith(" counters on it, it has ") else granter(p) for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
     out = re.sub(r"\b(?:a|an) ((?:[a-z]+ )*?card) other than this card\b", r"another \1", out)  # (wave 19C: Ichorid; the source is that card)
     out = re.sub(r"(\bto the battlefield) and (attach this (?:Equipment|Aura) to it\b)", lambda m: f"{m[1]}. {m[2][0].upper()}{m[2][1:]}", out)  # (wave 19C: Nim Deathmantle: two instructions in order)
-    out = re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room|Spacecraft|Planet)\b", "~", out)
+    out = re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Case|Equipment|Vehicle|Aura|emblem|Room|Spacecraft|Planet)\b", "~", out)
+    out = re.sub(r"(\bcreate an? [^.,]+? token), then create (an? [^.,]+? token) and attach ~ to it\b", r"\1. Create \2. Attach ~ to it", out)  # (Field-Tested Frying Pan: the Food, then the Halfling it is attached to)
+    out = re.sub(r"(\btokens?) and attach ~ to it\b", r"\1. Attach ~ to it", out)  # -- trigger other (wave 52B) -- "create a 2/2 Robot artifact creature token and attach this Equipment to it" (Auxiliary Boosters): two instructions in order, "it" the token (608.2c)
     out = re.sub(r"^(When) ~ enters or the creature (?:it|this card) haunts dies, ", r"\1 ~ enters and whenever the creature it haunts dies, ", out)  # -- keywords (wave 50H) -- 702.55: two halves
     out = re.sub(r"\b([Cc])onvert(s|ed)?\b", lambda m: f"{m[1].replace('c', 't').replace('C', 'T')}ransform{m[2] or ''}", out)  # (-- commanders (wave 50C) -- 701.28a: to convert a permanent is to turn it over as transforming does; "Convert Starscream." is "Transform ~.")
     # -- gift (wave 23D) -- 702.174k: a promised gift is read as the spell having been kicked (app/rules/gift.py): "If the gift was promised, …"
@@ -444,6 +452,22 @@ def _condition_says_other(cond: dict[str, Any]) -> bool:
         return True
     key = (cond.get("value") or {}).get("count")
     return isinstance(key, str) and selectors.from_key(key).other
+
+
+def _other_than_entered(c: Any) -> Any:
+    """-- trigger other (wave 52B) -- "Whenever a Mountain you control enters, if you control at least five other Mountains, …" (Valakut): "other" leaves out the
+    permanent that entered (the object the trigger is about), not the ability's source; values.py counts it from the event (extra "other_event")."""
+    from app.rules import selectors
+
+    if isinstance(c, list):
+        return [_other_than_entered(x) for x in c]
+    if not isinstance(c, dict):
+        return c
+    out = {k: _other_than_entered(v) for k, v in c.items()}
+    key = c["value"].get("count") if isinstance(c.get("value"), dict) else None
+    if isinstance(key, str) and (sel := selectors.from_key(key)).other:
+        out["value"] = {**c["value"], "count": replace(sel, other=False, extras=(*sel.extras, "other_event")).key()}
+    return out
 
 
 def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
@@ -949,6 +973,13 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     if intro is not None and pronoun == "it" and not verb and in_alt_branch(index) and closed_gate(intro.index, index) \
                             and antecedent in ("event", "self") and out[intro.index].get("who") == antecedent:
                         intro = None  # (the "instead" branch's "it" is the base branch's own: the trigger's object, not something the base recorded)
+                    elif intro is not None and pronoun == "it" and not verb and in_alt_branch(index) and closed_gate(intro.index, index) and intro.do in _MOVERS \
+                            and (judged := next((g for g in out[:index] if g.get("do") == "only_if" and g.get("bind") and any(
+                                a.get("do") == "only_if" and (a.get("cond") or {}).get("flag") == g["bind"] for a in out[:index])), None)) is not None \
+                            and (base_ref := re.fullmatch(r"ref:e(\d+)", str((judged.get("cond") or {}).get("object", "")))) is not None:
+                        # -- trigger other (wave 52B) -- "Choose a card at random in your graveyard. If it's a creature card, return it to the battlefield. Otherwise, return it to your
+                        # hand." (Deadbridge Chant): the "Otherwise" branch's "it" is the card the condition judged (608.2c: only one branch happens), not what the other branch moved
+                        intro = next((x for x in intros if x.index == int(base_ref[1])), intro)
                 if e.get("do") in ("grant_play", "free_cast", "look_exiled", "plotted") and (
                         intro is None or (intro.do not in _MOVERS and not _exiles_countered(out[intro.index]))):
                     # "You may play that card this turn": only what an earlier instruction of this
@@ -1085,6 +1116,12 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     return None
             if e.get("src") == "it" and e.get("do") == "attach_to" and (made := objects(index, 1, None)) is not None and made.do == "create_token":
                 e["src"] = "ref:" + bound(made)  # -- attached events (wave 25D) -- "Create a … Equipment token … Attach it to ~.": the token just made (400.7j)
+            elif e.get("src") == "it" and e.get("do") == "explore" and (found := objects(index, 1, None)) is not None:
+                # -- trigger other (wave 52B) -- "Target attacking Rogue gains protection from creatures until end of turn. It explores." (Seasoned Dungeoneer): the object an
+                # earlier instruction chose or moved explores (701.44a: its controller reveals), as "It connives" does
+                g = _group_of(out[found.index])
+                del e["src"]
+                e["who"] = "ref:" + bound(found) if found.do in _MOVERS or g is None else "target" if groups is None else f"target:{g}"
             elif e.get("src") == "it":
                 if any(i.index < index and out[i.index].get("who") == "host" for i in intros):
                     return None  # ("tap enchanted creature. It deals …": the host, not the source)
@@ -1785,6 +1822,21 @@ def _mill(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "mill", "who": "you", "n": num(m["n"])}], None
 
 
+@effect(r"put one of them onto the battlefield")
+def _put_one_of_the_batch(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """-- trigger other (wave 52B) -- "Whenever one or more creature cards are put into your graveyard from your library, put one of them onto the battlefield." (Colossal
+    Grave-Reaver): its controller chooses one of the batch's cards, still in the graveyard (608.2d, 603.2c); read only in a trigger of that batch (_event_refs_ok)."""
+    return [{"do": "return_choice", "who": "event", "n": 1, "upto": False, "random": False, "label": "card", "to": "battlefield", "tapped": False, "under": "you",
+             "batch": "to_graveyard"}], None
+
+
+@effect(r"(?P<t>target player|up to one target player) puts all the cards from their graveyard on the bottom of their library in a random order")
+def _graveyard_bottom(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language
+
+    return [{"do": "graveyard_bottom", "who": "target"}], language._one(language.target_group(m["t"]))  # -- trigger other (wave 52B) -- Endurance (graveyard_bottom.py)
+
+
 @effect(r"exile (?P<sel>{SEL}) until ~ leaves the battlefield")
 def _exile_until(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     from app.rules.language import on_battlefield_only
@@ -2393,6 +2445,9 @@ def _clause(text: str, may_ok: bool = False) -> tuple[list[dict[str, Any]], Any]
     return None
 
 
+_CHOOSE_COMPARE = re.compile(r"^choose an opponent\. If that player has more cards in hand than you, draw cards equal to the difference\.$")
+
+
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
     found = _parse_effects_plain(body, it, event_player=event_player)
     if found is None and re.search(r"\bbecomes?\b", body):  # -- activated sweep (wave 26C) -- "gets +3/+3 and becomes a Bear Berserker" (predicates.py)
@@ -2425,6 +2480,16 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
 
     if (cw := _counters_removed.either_way(body, lambda t: _parse_effects_plain(t, it, event_player=event_player))) is not None:
         return cw
+    body = re.sub(r"\bcreate an? ((?:[a-z]+ )*[A-Z][\w ]*? creature token) with base power and toughness each equal to (the total power of those creatures)\b",
+                  r"create an X/X \1, where X is \2", body)  # -- trigger other (wave 52B) -- The Skullspore Nexus: the token is an X/X (208.2), X the batch's total power as they last existed (608.2h)
+    if (traded := top_trade.parse(body)) is not None:  # -- trigger other (wave 52B) -- Keen Duelist, Parker Luck, Duskmantle Seer (app/rules/top_trade.py)
+        trade_groups: list[dict[str, Any]] = []
+        trade_effects = _add_groups(trade_groups, traded[0], traded[1])
+        return (*_finish_targets(trade_effects, trade_groups), False)
+    if (revealed := reveal_until_gy.parse(body)) is not None:  # -- trigger other (wave 52B) -- Consuming Aberration (app/rules/reveal_until_gy.py)
+        return revealed
+    if _CHOOSE_COMPARE.match(body) is not None:  # -- trigger other (wave 52B) -- Sandstone Oracle, Slithermuse: 608.2d, the controller chooses the opponent as this resolves (no target); a hand's size is public (402.3)
+        return [{"do": "choose_opponent", "as": "copp"}, {"do": "draw", "who": "you", "n": {"minus": [{"hand": "ref:copp"}, {"hand": "you"}]}}], None, False  # (107.1b: "more … than you" is a positive difference, else nothing is drawn)
     # -- damage wordings (wave 51B) -- "Then each player creates X Treasure tokens and this enchantment deals X damage to each player, where X is the number of descent counters on this
     # enchantment." (Descent into Avernus): two instructions in order (608.2c), the same X for both (nothing between them changes the counters)
     body = re.sub(r"\b(each player creates X [A-Z][a-z]+ tokens?) and ((?:this \w+|~) deals) X damage to (each player), where X is ([^.]+)\.",
@@ -4726,8 +4791,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         # -- most-played cards (wave 43B) -- "…for each other attacking creature that shares a creature type with it" (Shared Animosity): "it" is the creature the trigger
         # is about when the effect acts on that creature; with the source itself as "it" (a self trigger, an activated ability) the source's types are compared
         cond_ = d.get("cond") or {}
-        if d.get("kind") == "triggered" and d.get("trigger") == "event" and cond_.get("subject") == "sel" and not cond_.get("aggregate"):
-            d = {**d, "effects": [json.loads(json.dumps(e, default=str).replace("shares_type_source", "shares_type_event")) if e.get("who") == "event" else e
+        if d.get("kind") == "triggered" and (d.get("trigger") == "event" and cond_.get("subject") == "sel" and not cond_.get("aggregate")
+                                              or d.get("trigger") == "enters_other"):
+            d = {**d, "effects": [json.loads(json.dumps(e, default=str).replace("shares_type_source", "shares_type_event")) if e.get("who") == "event" or (
+                "shares_type_source" in json.dumps(e.get("n"), default=str)) else e  # (-- trigger other (wave 52B) -- a count "for each creature you control that shares a creature type with it" (Mana Echoes): "it" is the entering creature too)
                                   for e in d.get("effects") or []]}
         # (-- counters (wave 44C -- "Whenever you cast a spell that shares a creature type with this creature" (Folk Hero's grant): the spell is matched with the watcher as its source)
         if "shares_type_source" in json.dumps(d, default=str) and not (
@@ -5103,6 +5170,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         # as true when the ability resolves as when it triggers (603.4)
         text = re.sub(r"^Whenever (an? [^,]+?) dies, if ~ dealt damage to it this turn, ", r"Whenever \1 dealt damage by ~ this turn dies, ", text)
         text = _first_time_gate(text)  # (-- this-turn state (wave 42B) --)
+        text = re.sub(r"^When you cast or cycle ~, ", "When you cast this spell and when you cycle ~, ", text)  # -- trigger other (wave 52B) -- 702.29d, 601.2i: a cast trigger and a cycle trigger, each its own (603.2)
         # -- counters sweep (wave 19D) -- "At the beginning of your upkeep and whenever you cast a white spell, …" (the Shrines): the same
         # two conditions as "Whenever you cast a white spell and at the beginning of your upkeep, …" (603.2: it triggers on each)
         text = re.sub(r"^At the beginning of your (upkeep|end step) and (?:when|whenever) ([^,]+), (.+)$",
@@ -5346,6 +5414,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if parsed is None:
                     return None
                 effects, target, optional = parsed
+                if cond is not None and cond.get("event") == "enter" and cond.get("subject") == "sel" and not cond.get("aggregate"):
+                    effects = [{**e, "cond": _other_than_entered(e["cond"])} if e.get("do") == "only_if" and "cond" in e else e for e in effects]  # (-- trigger other (wave 52B) --)
                 if cond is not None and cond.get("event") == "you_attack" and cond.get("player") == "you" and cond.get("defender") \
                         and ("event_player" in json.dumps(effects) or '"for_player": "event"' in json.dumps(effects)):  # (wave 30N: its count too)
                     return None  # (review 27B) "Whenever you attack enchanted player, that player loses 2 life": the player attacked, not the event's (you)
@@ -5614,9 +5684,16 @@ def _event_refs_ok(d: Definition) -> bool:
         return False  # -- spell copies (wave 31D) -- "cast before it this turn": the spell a cast trigger is about
     if "tgt:" in raw and not (d.get("kind") == "spell" and isinstance(d.get("target"), dict)):
         return False  # -- most-played cards II (wave 45A) -- "power less than that creature's power": the spell's one chosen target; no target of that spell, nothing to compare with
+    if '"batch": "to_graveyard"' in raw and not (ev is not None and ev["event"] == "to_graveyard" and ev.get("aggregate")):
+        return False  # -- trigger other (wave 52B) -- "put one of them onto the battlefield": the cards a "one or more … are put into your graveyard" trigger counted
+    if '"types_among"' in raw and not (ev is not None and ev["event"] == "to_graveyard" and ev.get("aggregate")):
+        return False  # -- trigger other (wave 52B) -- "each card type among those cards": the cards a batch trigger counted
+    if '"event_players"' in raw and not (ev is not None and ev["event"] == "deal_damage" and ev.get("aggregate") and ev.get("to") in ("opponents", "players")):
+        return False  # -- trigger other (wave 52B) -- "each opponent dealt damage": the recipients of a "one or more … deal damage to … opponents" batch
     if '"of": "roll"' in raw and not (ev is not None and ev["event"] == "roll_die"):
         return False  # -- dice (wave 24B) -- "if the roll was 4 or higher": the one die a roll trigger is about
-    if '"of": "event"' in raw and not (ev is not None and (ev["event"] == "you_attack" and ev.get("min_attackers") or ev["event"] == "attack" and ev.get("aggregate"))):
+    if '"of": "event"' in raw and not (ev is not None and (ev["event"] == "you_attack" and ev.get("min_attackers") or ev["event"] == "attack" and ev.get("aggregate")
+                                                          or ev["event"] == "die" and ev.get("aggregate"))):  # (-- trigger other (wave 52B) -- or the creatures a "one or more … die" batch counted, as they last existed: The Skullspore Nexus)
         return False  # -- event batches (wave 34C) -- "the greatest power among them": the attackers a "one or more" attack trigger counted
     if '"died": 1' in raw and not (ev is not None and ev["event"] == "die" and not ev.get("aggregate")):
         return False  # -- value grammar (wave 23C) -- "the power of the creature that died": the one creature a "dies" trigger is about

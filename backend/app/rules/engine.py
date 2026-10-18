@@ -821,7 +821,7 @@ def needs_manual_resolution(ch: Characteristics) -> bool:
         return any(not coverage.ability_supported(ch, a.index) for a in ch.abilities if a.kind != "keywords")
     # A permanent spell just enters; only "as/when it enters" text needs someone to act.
     return any(
-        "enters" in a.text and a.kind in ("triggered", "static") and not coverage.ability_supported(ch, a.index)
+        "enters" in a.text and a.kind in ("triggered", "static") and not coverage.ability_supported(ch, a.index) and not a.linked  # (-- trigger other (wave 52B) -- 607.2f: a linked word's ability isn't there until the word is chosen as it enters: Frontier Siege's Dragons line)
         for a in ch.abilities
     )
 

@@ -704,6 +704,13 @@ def _compare_event_spell(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, ("mv", "==", EVENT_STAT + "mv")))
 
 
+@_suffix(r"with mana value (?P<op>less than or equal to|less than|greater than or equal to|greater than) that spell's mana value")
+def _compare_event_spell_ops(s: Selector, m: re.Match[str]) -> Selector:
+    # -- trigger other (wave 52B) -- "return up to one target nonland permanent an opponent controls with mana value less than or equal to that spell's mana value to its
+    # owner's hand" (Hammerhead Tyrant): the same binding as "equal to that spell's mana value" above, another comparison
+    return replace(s, compare=(*s.compare, ("mv", _REF_OPS[m["op"]], EVENT_STAT + "mv")))
+
+
 # -- static_other sweep (wave 17C) -- "Exile each creature and planeswalker with mana value less than the revealed card's mana value."
 # (Calamity of the Titans): a comparison with the card the source spell's additional cost revealed (its payment record)
 REVEALED_STAT = "rev:"
@@ -942,7 +949,7 @@ def _same_name_now(plan: Plan, extra: str, card: CardInstance, ch: Characteristi
 # of one of the matcher's commanders (903.3: the cards its owner's deck names, wherever they are), read as the cards are
 # -- most-played cards (wave 43B) -- "for each other attacking creature that shares a creature type with it" (Shared Animosity): one of the creature types of the
 # object "it" names (205.3m) — the source, or (scripts: ``shares_type_event``) the creature the trigger is about; "other" leaves that object out (the ``source``)
-@_suffix(r"that shares a creature type with (?:it|this creature|~)")
+@_suffix(r"that shares? a creature type with (?:it|this creature|~)")  # (-- trigger other (wave 52B) -- "the number of creatures you control that share a creature type with it", Mana Echoes)
 def _shares_type_source(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "shares_type_source"))
 

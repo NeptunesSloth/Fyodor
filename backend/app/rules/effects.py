@@ -4726,6 +4726,15 @@ from app.rules import random_choice  # noqa: E402, I001
 PRIMITIVES.update(random_choice.PRIMITIVES)
 RESUME.update(random_choice.RESUME)
 # -- end counters & designations (wave 3E) --
+from app.rules import graveyard_bottom as _graveyard_bottom  # noqa: E402, I001  -- trigger other (wave 52B) --
+
+from app.rules import reveal_until_gy as _reveal_until_gy  # noqa: E402, I001
+from app.rules import top_trade as _top_trade  # noqa: E402, I001
+
+PRIMITIVES.update(_reveal_until_gy.PRIMITIVES)  # Consuming Aberration (app/rules/reveal_until_gy.py)
+
+PRIMITIVES.update(_top_trade.PRIMITIVES)  # Keen Duelist, Parker Luck, Duskmantle Seer (app/rules/top_trade.py)
+PRIMITIVES.update(_graveyard_bottom.PRIMITIVES)  # "puts all the cards from their graveyard on the bottom of their library in a random order" (app/rules/graveyard_bottom.py)
 
 # -- refused grants/replacements (wave 3R2) -- source-of-your-choice shields (609.7a, 615.8) and "Damage can't be
 # prevented this turn." (615.12): app/rules/source_shields.py (a leaf module over this one)

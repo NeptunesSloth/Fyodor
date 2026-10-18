@@ -99,6 +99,8 @@ def strip_pw(body: str) -> tuple[str, str]:
     sentence read as "… to that player." and the pick marked (``post(pw=True)``) to be followed by the controller's choice."""
     body = _DAMAGE_AT_RANDOM.sub(lambda m: f"Choose a {m['w']} at random. ~ deals {m['n']} damage to that creature", body)  # (Cinderheart Giant: not a target, 115.1; "it" is the creature that died)
     body = re.sub(r"(?i)\b(choose a creature at random), then destroy the rest\b", r"\1. Destroy all other creatures", body)  # (Last One Standing)
+    if re.search(r"\bchoose an? [\w -]*?card at random in your graveyard\.", body):  # -- trigger other (wave 52B) -- Deadbridge Chant: from a graveyard "put it onto the battlefield / into your hand" is "return it to …"
+        body = re.sub(r"\b([Pp])ut it (onto the battlefield|into your hand)\b", lambda m: f"{'R' if m[1] == 'P' else 'r'}eturn it to {m[2].replace('onto ', '').replace('into ', '')}", body)
     body = re.sub(r"\bIf you discard (an? [\w ]+? card) this way\b", r"If you discarded \1 this way", body)  # (the same condition as the past tense: Cragganwick Cremator, Aether Rift)
     if "at random" in body:  # (the sentence as the grammar has it: Skull Rend's "Those players" are the opponents it dealt damage to; Reckless Handling's "shuffle, then discard")
         body = re.sub(r"(deals \d+ damage to each opponent)\. Those players each (discard )", r"\1. Each opponent \2", body)

@@ -296,6 +296,10 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"hand": "opponent_max"}  # -- static_other (wave 42A) -- Adamaro: the largest hand among your opponents (a count of cards, public: 402.3)
     if what in ("opponents you have", "opponent you have", "your opponents", "opponent", "opponents"):
         return {"opponents": 1}
+    if what in ("card type among those cards", "card types among those cards"):
+        return {"types_among": "event"}  # -- trigger other (wave 52B) -- 205.2a, 603.2c: the card types among the cards a "one or more cards are put into your graveyard" batch counted (Polluted Cistern)
+    if what in ("opponent dealt damage", "opponents dealt damage", "opponent dealt damage this way", "opponents dealt damage this way"):
+        return {"event_players": 1}  # -- trigger other (wave 52B) -- 603.2c: the opponents a "one or more … deal damage to your opponents" batch dealt damage (Malcolm, Hordewing Skaab)
     if what in ("player who has lost the game", "players who have lost the game"):  # -- most-played cards IV (wave 51G) -- Rampant Frogantua: the seats no longer in the game (800.4)
         return {"players_lost": 1}
     if what in ("cards exiled with ~", "cards exiled with it", "card exiled with ~", "card exiled with it"):
@@ -627,6 +631,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import this_way
 
         return this_way.count(plan, ctx, v)
+    if "revealed_mv" in v:  # -- trigger other (wave 52B) -- the mana value of the card(s) a trade revealed (app/rules/top_trade.py)
+        from app.rules import top_trade
+
+        return top_trade.revealed_mv(plan, ctx, v)
     if "per_player" in v:  # -- damage sized by a count (wave 4E) -- read for the recipient player (app/rules/sized_damage.py)
         from app.rules import sized_damage
 
@@ -722,6 +730,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
             event_creatures = context.objects(plan, ctx, context.EVENT)
             sel = selectors.replace(sel, extras=tuple("blocking_source" if x == "blocking_event" else x for x in sel.extras))
             return sum(1 for c in selectors.candidates(plan, sel, you, event_creatures[0] if event_creatures else "") if c not in away)
+        if "other_event" in sel.extras:  # -- trigger other (wave 52B) -- "five other Mountains" of "Whenever a Mountain you control enters, if …" (Valakut): other than the object that entered
+            from app.rules import context
+
+            event_objects = context._object_refs(ctx, context.EVENT)
+            sel = selectors.replace(sel, other=True, extras=tuple(x for x in sel.extras if x != "other_event"))
+            return sum(1 for c in selectors.candidates(plan, sel, you, event_objects[0].card if event_objects else None) if c not in away)
         if "shares_type_event" in sel.extras:  # -- most-played cards (wave 43B) -- "for each other attacking creature that shares a creature type with it" (Shared Animosity): "it"
             from app.rules import (
                 context,  # is the creature the trigger is about, as this resolves; the others than IT are counted
@@ -767,6 +781,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import context
 
         return context.amount(ctx, v["ref_amount"])
+    if "types_among" in v:  # -- trigger other (wave 52B) -- the different card types of the batch's cards, as they are now (a card's types in the graveyard are its printed ones)
+        from app.rules import context
+
+        return len({"Kindred" if t == "Tribal" else t for _, ch in context.infos(plan, ctx, context.EVENT) for t in ch.types if t in CARD_TYPES})
+    if "event_players" in v:  # -- trigger other (wave 52B) -- how many different players the "one or more" batch was about (triggers._event: the recipients of the batch)
+        return len({p for p in (ctx.get("event") or {}).get("players") or [] if p in plan.live()})
     if "event_count" in v:  # how many objects the "one or more" batch had
         return max(0, int((ctx.get("event") or {}).get("count") or 0))
     if "greater" in v:  # (wave 51G)
@@ -787,6 +807,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         if who is None and ctx.get("unknown_choice_raises"):
             raise NoChosenPlayer
         return len(plan.state.zones.get(f"{who}:hand", [])) if who in plan.live() else 0
+    if "hand" in v and str(v["hand"]).startswith("ref:"):  # -- trigger other (wave 52B) -- "that player" an earlier "choose an opponent" bound (a hand's size is public, 402.3)
+        from app.rules import context
+
+        return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in context.players(plan, ctx, v["hand"][4:]))
     if "hand" in v and v["hand"] == "all":  # (wave 19F) every player's hand, a public count
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in plan.live())
     if "hand" in v and v["hand"] == "opponent_max":  # (wave 42A) the opponent with the most cards in hand: that many (0 with no opponent)
