@@ -30,7 +30,7 @@ def open_repo(settings: Any) -> Iterator[CardRepository]:
 from app.game.errors import ActionError  # noqa: E402,F401
 from tests.game_helpers import act  # noqa: E402
 from tests.test_rules_conditionals import combat_step as _combat_step  # noqa: E402
-from tests.test_rules_conditionals import creature, on_field, sandbox, settle, until  # noqa: E402,F401
+from tests.test_rules_conditionals import creature, on_field, sandbox, settle, token_of, until  # noqa: E402,F401
 from tests.wave9c_kit import card_named, check  # noqa: E402,F401
 
 
@@ -92,3 +92,32 @@ def bob_swings(s, attackers, blocks=(), target="p1"):
             return
         act(s, s.state.rules.priority, type="pass_priority")
     raise AssertionError("no blockers were asked for")
+
+
+def cast_now(s, name, targets=(), pid="p1", counts=None, **m):
+    """Move ``name`` from the library to the hand, add ``m`` to the pool, cast it at ``targets`` and let the stack resolve."""
+    c = in_play(s, name, pid)
+    act(s, pid, type="move", card_ids=[c.id], to={"zone": "hand"})
+    pool(s, pid, **m)
+    priority_to(s, pid)
+    extra = {} if counts is None else {"target_counts": counts}
+    act(s, pid, type="cast_spell", card_id=c.id, targets=[t if isinstance(t, str) else t.id for t in targets], **extra)
+    settle(s)
+    return c
+
+
+def main_step(s):
+    """Rules on, Alice's first main phase."""
+    from tests.game_helpers import turn_on
+
+    turn_on(s)
+    act(s, "p1", type="pass_priority")  # → main 1
+    return s
+
+
+def priority_to(s, pid):
+    """The active player has priority first in a step: they pass until ``pid`` has it."""
+    for _ in range(3):
+        if s.state.rules.priority == pid:
+            return
+        act(s, s.state.rules.priority, type="pass_priority")

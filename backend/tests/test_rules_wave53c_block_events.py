@@ -13,22 +13,27 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from app.rules.plan import Plan
 from tests.game_helpers import act
+from tests.test_rules_conditionals import token_of
 from tests.test_rules_wave34b_activated import activate, ask
 from tests.wave53c_kit import (
     alive,
     attach,
     bob_swings,
+    cast_now,
     check,
     combat_step,
     creature,
     in_play,
+    main_step,
     on_field,
     open_repo,
     pool,
+    priority_to,
     sandbox,
     settle,
     swing,
     to_postcombat,
+    until,
     zone_of,
 )
 
@@ -227,4 +232,256 @@ def test_trial_on_the_blocker_returns_the_attacker_it_blocks(cards):
     act(s, "p1", type="cast_spell", card_id=trial.id, targets=[guard.id])
     settle(s)
     assert zone_of(s, bears) == "p1:hand" and zone_of(s, guard) == "p2:battlefield"  # the creature it was blocking
+    check(s)
+
+
+# -- "blocked or was blocked by X this turn" (509.1g) --
+def legend_vs_guards(s):
+    legend = token_of(s, "p1", "Legend", "Legendary Token Creature — Human", "3/3")
+    plain = creature(s, "p1", "Plain", "3/3")
+    g1 = creature(s, "p2", "Guard One", "0/9")
+    g2 = creature(s, "p2", "Guard Two", "0/9")
+    idle = creature(s, "p2", "Idle", "0/9")
+    combat_step(s)
+    swing(s, [legend, plain], [(g1, legend), (g2, plain)])
+    return g1, g2, idle
+
+
+def test_you_cannot_pass_destroys_a_creature_that_blocked_a_legendary_creature(cards):
+    s = sandbox(cards, "You Cannot Pass!")
+    g1, g2, idle = legend_vs_guards(s)
+    with pytest.raises(ActionError):
+        cast_now(s, "You Cannot Pass!", [g2], W=1)  # blocked a creature that is not legendary
+    with pytest.raises(ActionError):
+        cast_now(s, "You Cannot Pass!", [idle], W=1)  # never in a block
+    cast_now(s, "You Cannot Pass!", [g1], W=1)
+    assert not alive(s, g1) and alive(s, g2) and alive(s, idle)
+    check(s)
+
+
+def test_time_to_reflect_exiles_a_creature_that_blocked_a_zombie(cards):
+    s = sandbox(cards, "Time to Reflect")
+    zombie = token_of(s, "p1", "Shambler", "Token Creature — Zombie", "3/3")
+    plain = creature(s, "p1", "Plain", "3/3")
+    g1 = creature(s, "p2", "Guard One", "0/9")
+    g2 = creature(s, "p2", "Guard Two", "0/9")
+    combat_step(s)
+    swing(s, [zombie, plain], [(g1, zombie), (g2, plain)])
+    with pytest.raises(ActionError):
+        cast_now(s, "Time to Reflect", [g2], W=1)
+    cast_now(s, "Time to Reflect", [g1], W=1)
+    assert zone_of(s, g1) is None or zone_of(s, g1) != "p2:battlefield"
+    assert alive(s, g2)
+    check(s)
+
+
+def test_ride_down_destroys_a_blocker_and_the_creatures_it_blocked_gain_trample(cards):
+    s = sandbox(cards, "Ride Down")
+    a1 = creature(s, "p1", "Raider One", "5/5")
+    a2 = creature(s, "p1", "Raider Two", "2/2")
+    g1 = creature(s, "p2", "Guard One", "1/9")
+    g2 = creature(s, "p2", "Guard Two", "1/9")
+    combat_step(s)
+    swing(s, [a1, a2], [(g1, a1), (g2, a2)])
+    cast_now(s, "Ride Down", [g1], R=1, W=1)
+    ch = lambda c: Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id])  # noqa: E731
+    assert not alive(s, g1) and "trample" in ch(a1).keywords and "trample" not in ch(a2).keywords
+    to_postcombat(s)
+    assert s.state.players["p2"].life == 40 - 5  # trample: a blocked creature whose blocker is gone assigns all its damage to the player (702.19e)
+    check(s)
+
+
+# -- "attached to that creature" (301.5, 303.4) --
+def test_treefolk_mystic_destroys_the_auras_on_the_creature_it_blocks_or_is_blocked_by(cards):
+    s = sandbox(cards, "Treefolk Mystic", "Laccolith Rig", "Kjeldoran Pride")
+    mystic = on_field(s, "Treefolk Mystic")
+    rig = on_field(s, "Laccolith Rig")
+    pride = on_field(s, "Kjeldoran Pride")
+    guard = creature(s, "p2", "Guard", "0/9")
+    bystander = creature(s, "p2", "Bystander", "0/9")
+    attach(s, rig, guard, "p1")
+    attach(s, pride, bystander, "p1")
+    combat_step(s)
+    swing(s, [mystic], [(guard, mystic)])
+    settle(s)
+    assert zone_of(s, rig) == "p1:graveyard" and zone_of(s, pride) == "p1:battlefield"  # only the Aura on the creature that blocked it
+    check(s)
+
+
+def test_corrosive_ooze_destroys_the_equipment_of_the_equipped_creature_it_blocks_at_end_of_combat(cards):
+    s = sandbox(cards, "Corrosive Ooze", "Trailblazer's Torch", "Mirror Shield", p2=("Corrosive Ooze",))
+    torch = on_field(s, "Trailblazer's Torch")
+    shield = on_field(s, "Mirror Shield")
+    brute = creature(s, "p1", "Brute", "1/1")
+    ooze = on_field(s, "Corrosive Ooze", "p2")
+    attach(s, torch, brute)
+    attach(s, shield, brute)
+    combat_step(s)
+    swing(s, [brute], [(ooze, brute)])
+    settle(s)
+    assert zone_of(s, torch) == "p1:battlefield" and zone_of(s, shield) == "p1:battlefield"  # not yet: at end of combat
+    to_postcombat(s)
+    assert zone_of(s, torch) == "p1:graveyard" and zone_of(s, shield) == "p1:graveyard"
+    check(s)
+
+
+def test_corrosive_ooze_ignores_an_unequipped_creature(cards):
+    s = sandbox(cards, "Trailblazer's Torch", p2=("Corrosive Ooze",))
+    torch = on_field(s, "Trailblazer's Torch")
+    plain = creature(s, "p1", "Plain", "1/1")
+    other = creature(s, "p1", "Other", "1/1")
+    ooze = on_field(s, "Corrosive Ooze", "p2")
+    attach(s, torch, other)
+    combat_step(s)
+    swing(s, [plain], [(ooze, plain)])
+    to_postcombat(s)
+    assert zone_of(s, torch) == "p1:battlefield"
+    check(s)
+
+
+def test_strip_bare_destroys_the_auras_and_equipment_attached_to_the_target(cards):
+    s = sandbox(cards, "Strip Bare", "Laccolith Rig", "Trailblazer's Torch", "Mirror Shield")
+    rig = on_field(s, "Laccolith Rig")
+    torch = on_field(s, "Trailblazer's Torch")
+    shield = on_field(s, "Mirror Shield")
+    target = creature(s, "p1", "Target", "2/2")
+    other = creature(s, "p1", "Other", "2/2")
+    attach(s, rig, target)
+    attach(s, torch, target)
+    attach(s, shield, other)
+    main_step(s)
+    cast_now(s, "Strip Bare", [target], W=1)
+    assert zone_of(s, rig) == "p1:graveyard" and zone_of(s, torch) == "p1:graveyard" and zone_of(s, shield) == "p1:battlefield"
+    assert alive(s, target)
+    check(s)
+
+
+# -- the end of combat step: "destroy all creatures that blocked or were blocked by it this turn" --
+def test_gaze_of_the_gorgon_regenerates_and_destroys_what_blocked_or_was_blocked_by_it_at_end_of_combat(cards):
+    s = sandbox(cards, "Gaze of the Gorgon")
+    brute = creature(s, "p1", "Brute", "0/5")
+    g1 = creature(s, "p2", "Guard One", "3/9")
+    g2 = creature(s, "p2", "Guard Two", "2/9")
+    idle = creature(s, "p2", "Idle", "3/9")
+    combat_step(s)
+    swing(s, [brute], [(g1, brute), (g2, brute)])
+    cast_now(s, "Gaze of the Gorgon", [brute], B=1, C=3)
+    assert alive(s, g1) and alive(s, g2)  # not before the end of combat
+    to_postcombat(s)
+    assert alive(s, brute) and not alive(s, g1) and not alive(s, g2) and alive(s, idle)  # Brute regenerated; both blockers destroyed
+    check(s)
+
+
+def test_venomous_breath_destroys_what_blocked_or_was_blocked_by_the_chosen_creature(cards):
+    s = sandbox(cards, "Venomous Breath")
+    brute = creature(s, "p1", "Brute", "1/1")
+    other = creature(s, "p1", "Other", "1/1")
+    guard = creature(s, "p2", "Guard", "0/9")
+    guard2 = creature(s, "p2", "Guard Two", "0/9")
+    combat_step(s)
+    swing(s, [brute, other], [(guard, brute), (guard2, other)])
+    cast_now(s, "Venomous Breath", [guard], G=1, C=3)
+    to_postcombat(s)
+    assert alive(s, guard) and not alive(s, brute) and alive(s, other) and alive(s, guard2)
+    check(s)
+
+
+def test_glyph_of_doom_targets_only_a_wall_and_destroys_what_it_blocked(cards):
+    s = sandbox(cards, "Glyph of Doom")
+    brute = creature(s, "p1", "Brute", "1/1")
+    wall = token_of(s, "p2", "Barrier", "Token Creature — Wall", "0/9")
+    other = creature(s, "p2", "Other", "0/9")
+    combat_step(s)
+    swing(s, [brute], [(wall, brute)])
+    with pytest.raises(ActionError):
+        cast_now(s, "Glyph of Doom", [other], B=1)
+    cast_now(s, "Glyph of Doom", [wall], B=1)
+    to_postcombat(s)
+    assert alive(s, wall) and not alive(s, brute)
+    check(s)
+
+
+def test_triton_tactics_taps_what_the_targets_blocked_and_it_stays_tapped(cards):
+    s = sandbox(cards, "Triton Tactics")
+    b1 = creature(s, "p1", "Blocker One", "0/2")
+    b2 = creature(s, "p1", "Blocker Two", "0/2")
+    r1 = creature(s, "p2", "Raider One", "1/1", text="Vigilance")
+    r2 = creature(s, "p2", "Raider Two", "1/1", text="Vigilance")
+    r3 = creature(s, "p2", "Raider Three", "1/1", text="Vigilance")
+    combat_step(s)
+    bob_swings(s, [r1, r2, r3], [(b1, r1), (b2, r2)])
+    cast_now(s, "Triton Tactics", [b1], counts=[1], U=1)  # one target: Blocker One only
+    st = s.state.cards
+    assert not st[r1.id].tapped
+    to_postcombat(s)
+    assert st[r1.id].tapped and not st[r2.id].tapped and not st[r3.id].tapped  # r1 was blocked by a target: tapped at end of combat
+    until(s, lambda s: s.state.turn.number == 4 and s.state.turn.phase == "main1", limit=300)
+    assert st[r1.id].tapped and not st[r2.id].tapped  # and it did not untap in its controller's next untap step
+    check(s)
+
+
+def test_sea_troll_regenerates_only_after_blocking_or_being_blocked_by_a_blue_creature(cards):
+    s = sandbox(cards, "Sea Troll")
+    troll = on_field(s, "Sea Troll")
+    blue = token_of(s, "p2", "Merman", "Token Creature — Merfolk", "1/1", colors=["U"])
+    red = token_of(s, "p2", "Imp", "Token Creature — Imp", "1/1", colors=["R"])
+    combat_step(s)
+    bob_swings(s, [blue, red], [(troll, red)])
+    pool(s, U=1)
+    priority_to(s, "p1")
+    with pytest.raises(ActionError):
+        activate(s, "p1", troll, "Regenerate")  # it blocked a red creature, not a blue one
+    check(s)
+
+
+def test_sea_troll_that_blocked_a_blue_creature_may_regenerate(cards):
+    s = sandbox(cards, "Sea Troll")
+    troll = on_field(s, "Sea Troll")
+    blue = token_of(s, "p2", "Merman", "Token Creature — Merfolk", "1/1", colors=["U"])
+    combat_step(s)
+    bob_swings(s, [blue], [(troll, blue)])
+    pool(s, U=1)
+    priority_to(s, "p1")
+    activate(s, "p1", troll, "Regenerate")
+    settle(s)
+    to_postcombat(s)
+    assert alive(s, troll) and not alive(s, blue)  # regenerated from Merman's lethal damage; Merman took 2
+    check(s)
+
+
+def test_street_sweeper_destroys_the_auras_on_a_target_land_when_it_attacks(cards):
+    s = sandbox(cards, "Street Sweeper", "Wild Growth", "Forest")
+    sweeper = on_field(s, "Street Sweeper")
+    growth = on_field(s, "Wild Growth")
+    forest = on_field(s, "Forest")
+    attach(s, growth, forest)
+    assert s.state.cards[growth.id].attached_to == forest.id
+    combat_step(s)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": sweeper.id, "target": "p2"}])
+    for _ in range(6):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert zone_of(s, growth) == "p1:graveyard"
+    check(s)
+
+
+def test_scarab_of_the_unseen_returns_the_auras_to_their_owners_hands_and_draws_next_upkeep(cards):
+    s = sandbox(cards, "Scarab of the Unseen", p2=("Kjeldoran Pride",))
+    scarab = on_field(s, "Scarab of the Unseen")
+    pride = on_field(s, "Kjeldoran Pride", "p2")
+    mine = creature(s, "p1", "Mine", "2/2")
+    attach(s, pride, mine, "p2")
+    hand = len([c for c in s.state.cards.values() if c.zone == "p1:hand"])
+    main_step(s)
+    activate(s, "p1", scarab, "Return", targets=[mine.id])
+    settle(s)
+    assert zone_of(s, pride) == "p2:hand" and zone_of(s, scarab) == "p1:graveyard"
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1", limit=100)
+    settle(s)
+    assert len([c for c in s.state.cards.values() if c.zone == "p1:hand"]) == hand + 1  # drawn at the next turn's upkeep (Bob's)
     check(s)

@@ -1157,6 +1157,18 @@ def _object_blocked(m: re.Match[str]) -> Condition:
     return _obj(m, "blocked", **({"negate": True} if m["neg"] != "was" else {}))  # 509.1g: declared as blocked by a blocker
 
 
+# -- block events (wave 53C) -- 509.1g: "Activate only if this creature blocked or was blocked by a blue creature this turn." (Sea Troll): the turn's block record, by object
+# (400.7), the other creature as it is, or as it last existed (608.2h; block_events.paired_with)
+@_history_pattern(rf"{_HO} (?P<v>blocked or was blocked by|was blocked by|blocked) an? (?P<sel>.+?) this turn")
+def _object_blocked_with(m: re.Match[str]) -> Condition | None:
+    from app.rules import selectors
+
+    sel = selectors.parse(m["sel"])
+    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card:
+        return None
+    return _obj(m, "blocked_with", mode={"blocked or was blocked by": "hpair", "was blocked by": "hblockedby", "blocked": "hblocked"}[m["v"]], sel=sel.key())
+
+
 @_history_pattern(rf"{_HO} attacked or blocked this turn")
 def _object_attacked_or_blocked(m: re.Match[str]) -> Condition:
     return _obj(m, "attacked_or_blocked")  # 508.1 / 509.1g

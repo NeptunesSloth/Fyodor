@@ -33,15 +33,8 @@ from dataclasses import replace
 from functools import lru_cache
 from typing import Any, Literal
 
-from app.rules import block_events  # -- block events (wave 53C) -- combat and attachment relations to a named creature (a leaf module)
-from app.rules import characteristics as _chars  # (-- hidden exile (wave 18A) --)
-from app.rules import chosen as _chosen  # -- chosen player (wave 4J) --
-from app.rules import (
-    fight_pair as _fight_pair,  # -- counters (wave 26D) -- two chosen creatures fight (a leaf module)
-)
-from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wave 6E) --
-from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
 from app.rules import (  # (this_way: wave 4A)
+    block_events,  # -- block events (wave 53C) -- combat and attachment relations to a named creature (a leaf module)
     restrictions,
     reveal_until_gy,
     selectors,
@@ -49,6 +42,13 @@ from app.rules import (  # (this_way: wave 4A)
     top_trade,
     where_bound,  # -- bounds defined by text (wave 28D) --
 )
+from app.rules import characteristics as _chars  # (-- hidden exile (wave 18A) --)
+from app.rules import chosen as _chosen  # -- chosen player (wave 4J) --
+from app.rules import (
+    fight_pair as _fight_pair,  # -- counters (wave 26D) -- two chosen creatures fight (a leaf module)
+)
+from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wave 6E) --
+from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
 from app.rules.characteristics import Characteristics
 from app.rules.costs import (
     DISCARD,
@@ -7073,6 +7073,33 @@ def _delayed_trailing(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 @effect(r"at end of combat, (?P<clause>.+)")
 def _delayed_end_combat_leading(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return _deferred(m["clause"], _delayed.END_OF_COMBAT)
+
+
+# -- block events (wave 53C) -- "At this turn's next end of combat, destroy all creatures that blocked or were blocked by it this turn." (Gaze of the Gorgon): the same delayed
+# trigger for the next end of combat step to begin this turn (511.2); with no combat left it never triggers (514.2: it stops watching at cleanup)
+@effect(r"at this turn's next end of combat, (?P<clause>.+)")
+def _delayed_this_turns_end_combat(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    # "…, tap each creature that was blocked by one of those creatures this turn and it doesn't untap during its controller's next untap step" (Triton Tactics): each creature tapped
+    if (frozen := re.fullmatch(r"tap each (?P<sel>[^,]+?) and it doesn't untap during its controller's next untap step", m["clause"])) is not None:
+        sel = selectors.parse(frozen["sel"])
+        if sel is None or sel.player is not None:
+            raise _NoMatch
+        return _delayed.wrap_when([{"do": "tap", "who": sel.key(), "as": "e0"}, {"do": "stay_tapped", "who": "ref:e0", "during": "controller"}],
+                                  _delayed.END_OF_COMBAT, this_turn=True), None
+    effects, target = _deferred(m["clause"], _delayed.END_OF_COMBAT)
+    return [{**effects[0], "this_turn": True}, *effects[1:]], target
+
+
+# -- block events (wave 53C) -- "Choose target creature. At this turn's next end of combat, destroy all creatures that blocked or were blocked by it this turn." (Venomous Breath):
+# the sentence only names the target (115.1) the following sentence's "it" / "that creature" is
+@effect(r"choose (?P<t>target [^.,]+?)")
+def _choose_target_only(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language
+
+    group = language.target_group(m["t"])
+    if group is None or group["min"] != 1 or group["max"] != 1:
+        raise _NoMatch
+    return [], group["what"]
 
 
 @effect(r"(?P<clause>.+?) at end of combat")

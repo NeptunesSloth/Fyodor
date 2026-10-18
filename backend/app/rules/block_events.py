@@ -34,9 +34,22 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 PLACEHOLDER = re.compile(r"rel:(\w+)@(that|target|targets)\b")
-_REFS = {"it": "pron", "that creature": "that", "that permanent": "that", "target creature": "target", "target permanent": "target",
-         "~": "src", "this creature": "src", "those creatures": "targets", "one of those creatures": "targets"}
-_REF = "|".join(sorted(map(re.escape, _REFS), key=len, reverse=True))
+_REFS = {"it": "pron", "that creature": "that", "that permanent": "that", "~": "src", "this creature": "src", "those creatures": "targets",
+         "one of those creatures": "targets"}
+_TARGET = r"target (?:creature|land|permanent(?: you (?:own|control))?|artifact|enchantment)"
+_REF = "|".join([*sorted(map(re.escape, _REFS), key=len, reverse=True), _TARGET])
+
+
+def _ref(phrase: str) -> str:
+    """The reference of a phrase: a pronoun's, or ``target=<selector>`` (the target the instruction has, whose kind the selector says: ``targeted``)."""
+    if phrase in _REFS:
+        return _REFS[phrase]
+    from app.rules import selectors
+
+    sel = selectors.parse(phrase[len("target "):])
+    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card:
+        raise ValueError("not a permanent")
+    return f"target={sel.key()}"
 
 
 def _add(s: selectors.Selector, extra: str) -> selectors.Selector:
@@ -49,7 +62,7 @@ _KINDS = {"blocking or blocked by": "pair", "blocking": "blocking", "blocked by"
 
 def _blocks(s: selectors.Selector, m: re.Match[str]) -> selectors.Selector:
     """"creatures blocking or blocked by it / that creature / target creature" (509.1a)."""
-    return _add(s, f"rel:{_KINDS[m['k']]}@{_REFS[m['r']]}")
+    return _add(s, f"rel:{_KINDS[m['k']]}@{_ref(m['r'])}")
 
 
 _HIST = {"blocked or was blocked by": "hpair", "blocked or were blocked by": "hpair", "was blocked by": "hblockedby", "were blocked by": "hblockedby",
@@ -62,7 +75,7 @@ def _history(s: selectors.Selector, m: re.Match[str]) -> selectors.Selector:
     if m["r"] is not None:
         if m["t"] == "combat":  # (the turn log keeps no combat apart: this combat's blocks are read off the creatures still blocking)
             kind = {"hblockedby": "blockedby", "hblocked": "blocking", "hpair": "pair"}[kind]
-        return _add(s, f"rel:{kind}@{_REFS[m['r']]}")
+        return _add(s, f"rel:{kind}@{_ref(m['r'])}")
     if m["t"] == "combat":
         raise ValueError("this combat with a kind of creature")
     from app.rules import selectors
@@ -75,7 +88,7 @@ def _history(s: selectors.Selector, m: re.Match[str]) -> selectors.Selector:
 
 def _attached(s: selectors.Selector, m: re.Match[str]) -> selectors.Selector:
     """"Auras attached to that creature" (303.4, 301.5)."""
-    return _add(s, f"rel:att@{_REFS[m['r']]}")
+    return _add(s, f"rel:att@{_ref(m['r'])}")
 
 
 def register() -> None:
@@ -87,7 +100,7 @@ def register() -> None:
         (re.compile(r"(?:,)? (?P<k>blocking) (?P<r>that creature|target creature|those creatures|one of those creatures)$"), _blocks),
         (re.compile(rf"(?:,)? that (?P<v>blocked or (?:was|were) blocked by|blocked|was blocked by|were blocked by) (?:(?P<r>{_REF})|(?P<sel>an? .+?)) "
                     r"this (?P<t>turn|combat)$"), _history),
-        (re.compile(r"(?:,)? (?:that(?:'s| is| are) )?attached to (?P<r>that creature|target creature|it)$"), _attached),
+        (re.compile(rf"(?:,)? (?:that(?:'s| is| are) )?attached to (?P<r>that creature|it|{_TARGET})$"), _attached),
     ]
     for pair in reversed(suffixes):
         selectors._SUFFIXES.insert(0, pair)
@@ -137,14 +150,18 @@ def rel_matches(plan: Plan, card: CardInstance, extra: str, source: str | None) 
 
 
 def _hist_sel(plan: Plan, card: CardInstance, mode: str, key: str) -> bool:
-    """"blocked or was blocked by a [kind of creature] this turn": the other creature as it is, else as it last existed (608.2h)."""
+    return paired_with(plan, plan.oid(card), mode, key, card.controller)
+
+
+def paired_with(plan: Plan, me: str, mode: str, key: str, you: str) -> bool:
+    """Did this object (400.7) block / get blocked by a creature of the selector's kind this turn (509.1g)? The other creature is read as it is while
+    it is still that object, else as it last existed (608.2h)."""
     from app.rules import selectors
     from app.rules.triggers import _snapshot_card
 
     log = plan.rules.turn_log
     if log.turn != plan.state.turn.number:
         return False
-    me = plan.oid(card)
     others: list[str] = []
     if mode in ("hblocked", "hpair"):
         others += log.blocks.get(me, [])
@@ -159,7 +176,7 @@ def _hist_sel(plan: Plan, card: CardInstance, mode: str, key: str) -> bool:
             pair = _snapshot_card(plan, snap)
         else:
             continue
-        if selectors.matches(plan, sel, pair[0], pair[1], card.controller, None):
+        if selectors.matches(plan, sel, pair[0], pair[1], you, None):
             return True
     return False
 
@@ -183,13 +200,36 @@ def bind(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> dict[str, Any]:
 
 # -- definitions (scripts.define) ------------------------------------------------------------------------------------------------
 def targeted(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
-    """"Return all creatures blocking or blocked by target creature to their owner's hand": the "target creature" of the relation is the
-    instruction's one target (115.1), chosen as the spell is cast."""
-    if found is None or found[1] is not None or "@target" not in json.dumps(found[0], default=str):
+    """"Return all creatures blocking or blocked by target creature to their owner's hand", "destroy all Auras attached to target land": the "target
+    [kind of permanent]" of the relation is the instruction's one target (115.1), chosen as it goes on the stack; its kind is in the extra
+    (``@target=<selector>``), taken out here. Two different kinds of target in one ability are not read."""
+    if found is None or "@target=" not in json.dumps(found[0], default=str):
         return found
+    from dataclasses import replace
+
     from app.rules import selectors
 
-    return found[0], selectors.Selector(types=("Creature",)).key(), found[2]
+    kinds: set[str] = set()
+
+    def fix(v: Any) -> Any:
+        if isinstance(v, list):
+            return [fix(x) for x in v]
+        if isinstance(v, dict):
+            return {k: fix(x) for k, x in v.items()}
+        if isinstance(v, str) and v.startswith(selectors.PREFIX) and "@target=" in v:
+            sel = selectors.from_key(v)
+            extras = []
+            for x in sel.extras:
+                base, _, kind = x.partition("@target=")
+                kinds.add(kind) if kind else None
+                extras.append(f"{base}@target" if kind else x)
+            return replace(sel, extras=tuple(extras)).key()
+        return v
+
+    effects = fix(found[0])
+    if found[1] is not None or len(kinds) != 1:  # (an instruction with a target of its own: the relation's target would be a second one)
+        return None
+    return effects, kinds.pop(), found[2]
 
 
 def settle_it(d: dict[str, Any] | None, ante: str | None) -> dict[str, Any] | None:
