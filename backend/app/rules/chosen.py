@@ -100,7 +100,8 @@ def _enters_choices(ch: Characteristics) -> list[str]:
     named = [e["what"] for t in texts if (d := card_names.enters_choice(t)) is not None for e in d["effects"] if card_names.is_choice(e["what"])]
     named += [m["what"] for t in texts if (m := NAME_TRIGGER.match(t)) is not None]  # (wave 53B: "When ~ enters, choose a land card name." — recorded on the permanent as the trigger resolves, Petrified Hamlet)
     pairs = [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and re.fullmatch(PAIRS, m["what"]) for k in ("color", "creature type")]  # (wave 53B: Sarpadian Empires)
-    singles = ["card type" if m["what"].startswith("card type") or type_choice(m["what"]) is not None else "number" if m["what"].startswith("number") else "abilities" if m["what"].startswith("two abilities") else "basic land type" if re.fullmatch(r"\w+ or \w+", m["what"]) and m["what"][:1].isupper() else "creature type" if m["what"][:1].isupper() else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] != "color and a creature type" and not re.fullmatch(PAIRS, m["what"])]
+    pairs += [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "two basic land types" for k in ("basic land type", "second basic land type")]  # (Illusionary Terrain)
+    singles = ["card type" if m["what"].startswith("card type") or type_choice(m["what"]) is not None else "number" if m["what"].startswith("number") else "abilities" if m["what"].startswith("two abilities") else "basic land type" if re.fullmatch(r"\w+ or \w+", m["what"]) and m["what"][:1].isupper() else "creature type" if m["what"][:1].isupper() else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] not in ("color and a creature type", "two basic land types") and not re.fullmatch(PAIRS, m["what"])]
     both = [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "color and a creature type" for k in ("color", "creature type")]  # (wave 53B: "choose a color and a creature type")
     typed = ["card type" for ab in ch.abilities if self_text(ab.text, ch.name) == "As ~ enters, look at an opponent's hand, then choose a card type other than creature."]  # (wave 53B: Arachne)
     return singles + both + pairs + typed + ["card name" for _ in named]  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
@@ -132,7 +133,8 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     if d.get("chosen_color") and _enters_choices(ch).count("color") != 1:
         return False  # (wave 53B: "All nonland permanents are the chosen color." needs that one choice, Shifting Sky)
     marked = json.dumps(d)
-    if (MARK_LAND in marked and _enters_choices(ch).count("basic land type") != 1) or (MARK_COLOR in marked and _enters_choices(ch).count("color") != 1):
+    if (MARK_LAND in marked and _enters_choices(ch).count("basic land type") != 1) or (MARK_COLOR in marked and _enters_choices(ch).count("color") != 1) \
+            or (MARK_LAND2 in marked and _enters_choices(ch).count("second basic land type") != 1):
         return False  # (wave 53B: "Enchanted land is the chosen type / color.", "This creature is the chosen color." need that one choice)
 
     if d.get("chosen_keywords") and _enters_choices(ch).count("abilities") != 1:
@@ -452,26 +454,27 @@ def chosen_token(plan: Plan, source: str | None, token: dict[str, Any]) -> dict[
 # A static that sets a type or a color to "the chosen type / color" carries a mark where the answer goes (the table is built from the printed lines): ``@land`` in
 # ``layer4.set_land_types`` (the basic land type), ``@color`` in ``set_colors``. The answer is the source's own entering choice (614.12a, public); with none recorded the
 # static does nothing (``resolve_marks`` returns None).
-MARK_LAND, MARK_COLOR = "@land", "@color"
+MARK_LAND, MARK_COLOR, MARK_LAND2 = "@land", "@color", "@land2"  # (@land2: the second of "two basic land types", Illusionary Terrain)
 
 
 def resolve_marks(d: dict[str, Any], source: CardInstance) -> dict[str, Any] | None:
     text = json.dumps(d)
-    if MARK_LAND not in text and MARK_COLOR not in text:
+    if MARK_LAND not in text and MARK_COLOR not in text and MARK_LAND2 not in text:
         return d
     from app.rules import protection
 
     land = (source.choices.get("Chosen basic land type") or "").strip()
+    land2 = (source.choices.get("Chosen second basic land type") or "").strip()
     color = protection.COLORS.get((source.choices.get("Chosen color") or "").strip().lower())
 
     def fill(node: Any) -> Any:
         if isinstance(node, dict):
             return {k: fill(v) for k, v in node.items()}
         if isinstance(node, list):
-            return [x for v in node for x in ([land] if v == MARK_LAND else [color] if v == MARK_COLOR else [fill(v)])]
+            return [x for v in node for x in ([land] if v == MARK_LAND else [land2] if v == MARK_LAND2 else [color] if v == MARK_COLOR else [fill(v)])]
         return node
 
-    if (MARK_LAND in text and not land) or (MARK_COLOR in text and not color):
+    if (MARK_LAND in text and not land) or (MARK_COLOR in text and not color) or (MARK_LAND2 in text and not land2):
         return None
     return fill(d)
 # -- end chosen filters (wave 53B) -----------------------------------------------------------------------------------------

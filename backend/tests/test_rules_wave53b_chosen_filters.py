@@ -1538,3 +1538,23 @@ def test_yusri_deals_two_damage_to_you_for_each_flip_lost_and_four_wins_is_not_e
     with pytest.raises(ActionError):  # (no free casts)
         act(s, "p1", type="cast_spell", card_id=card_named(s, "Probe Gain").id, free=True)
     check(s)
+
+
+# ---- two basic land types chosen as it enters: the basic lands of the first are the second (step 27): 305.7, 613.1d ----------------------------------
+def test_illusionary_terrain_turns_the_basic_lands_of_the_first_type_into_the_second(cards):
+    s = build(cards, ["Illusionary Terrain"], forests=3)
+    assert coverage.of_card_data(cards.resolve("Illusionary Terrain")).level == "FULL"
+    on_field(s, "Forest", n=2)
+    on_field(s, "Island", "p2", n=2)
+    mana(s, "p1", U=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Illusionary Terrain").id)
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert option_ids(s) == ["Plains", "Island", "Swamp", "Mountain", "Forest"]
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["Island"])
+    assert option_ids(s) == ["Plains", "Swamp", "Mountain", "Forest"]  # two different basic land types: the first is not offered again
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["Swamp"])
+    assert card_named(s, "Illusionary Terrain").choices == {"Chosen basic land type": "Island", "Chosen second basic land type": "Swamp"}
+    assert kinds(s, "Island", "p2") == frozenset({"Swamp"})  # 305.7: the old land type is gone
+    assert kinds(s, "Forest") == frozenset({"Forest"})  # (another type is left alone)
+    check(s)

@@ -229,6 +229,8 @@ def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answe
             elif "choice" not in out:
                 out["choice"] = {"what": what, **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}), **({"reveal": True} if e.get("reveal") else {}),
                                  **({"options": e["options"]} if e.get("options") else {})}  # (wave 51C: "choose Elemental, Elf, …": only the creature types listed)
+                if what == "second basic land type":  # (wave 53B: "choose two basic land types" are two different ones)
+                    out["choice"]["options"] = [o for o in ("Plains", "Island", "Swamp", "Mountain", "Forest") if o != answers.get("basic land type")]
 
 
 # -- replacement effects stage 2 (wave 2E) -----------------------------------------------------------

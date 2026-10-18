@@ -2965,7 +2965,7 @@ CHOOSE_VALUE = rf"choose (?:(?:a|an) )?(?P<what>color|creature type|basic land t
 CARD_TYPE_FIVE = "artifact, creature, enchantment, instant, or sorcery"  # -- commanders (wave 47A) -- Cloud Key: the five card types it offers
 TYPE_LIST = r"[A-Z][a-z]+(?:, [A-Z][a-z]+)+, or [A-Z][a-z]+"  # -- chosen type (wave 51C) -- "choose Elemental, Elf, Faerie, Giant, Goblin, Kithkin, Merfolk, or Treefolk" (Eclipsed Realms, Dawn-Blessed Pennant)
 _BASIC_PAIR = "(?:Plains|Island|Swamp|Mountain|Forest) or (?:Plains|Island|Swamp|Mountain|Forest)"  # -- chosen filters (wave 53B) -- "choose Island or Swamp" (Roots of Life): a basic land type, only those two
-ENTERS_CHOICE = re.compile(rf"^As ~ enters, choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|odd or even|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink|{TYPE_LIST}|{_chosen.TYPE_CHOICE}|{_chosen.NUMBER_CHOICE}|color and a creature type|{_BASIC_PAIR}|{_chosen.PAIRS})\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key; wave 51C: a short list of creature types)
+ENTERS_CHOICE = re.compile(rf"^As ~ enters, choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|odd or even|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink|{TYPE_LIST}|{_chosen.TYPE_CHOICE}|{_chosen.NUMBER_CHOICE}|color and a creature type|two basic land types|{_BASIC_PAIR}|{_chosen.PAIRS})\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key; wave 51C: a short list of creature types)
 
 
 # -- choose own (wave 32A) -- "Then you may choose a token you control." (Brudiclad), "Choose a Giant creature you control. It deals damage equal to its
@@ -3240,6 +3240,9 @@ def enters_choice(text: str) -> dict[str, Any] | None:
             return None
         return {"kind": "replacement", "replacement": "enters_choice",
                 "effects": [{"do": "choose_value", "who": "you", "what": _chosen.PAIR_WHAT, "options": [f"{c.capitalize()} {k}" for c, k in pairs], "remember": True}]}
+    if m["what"] == "two basic land types":  # -- chosen filters (wave 53B) -- Illusionary Terrain: the first, then the second (each its own public record, 614.12a)
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": "basic land type", "remember": True}, {"do": "choose_value", "who": "you", "what": "second basic land type", "remember": True}]}
     if m["what"] == "color and a creature type":  # -- chosen filters (wave 53B) -- two answers, each its own public record ("Chosen color", "Chosen creature type"), 614.12a
         return {"kind": "replacement", "replacement": "enters_choice",
                 "effects": [{"do": "choose_value", "who": "you", "what": "color", "remember": True}, {"do": "choose_value", "who": "you", "what": "creature type", "remember": True}]}

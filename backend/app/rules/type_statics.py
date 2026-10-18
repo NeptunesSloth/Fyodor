@@ -165,6 +165,9 @@ def _layered(text: str) -> dict[str, Any] | None:
             return None
         return {**found, "conditions": [cond]}
 
+    if text == "Basic lands of the first chosen type are the second chosen type.":  # -- chosen filters (wave 53B) -- Illusionary Terrain: 305.7, the two basic land types its source chose as it entered
+        found = _definition("basic lands of the chosen type", {"set_land_types": ["@land2"]})
+        return found if found is not None and _lands(found) else None
     if (m := _LAND_SET.fullmatch(text)) is not None:  # 305.7: the land types are set (never the card types)
         found = _definition(m["s"], {"set_land_types": [_LAND_PLURALS.get(m["t"], m["t"].rstrip("s") if m["t"] != "Plains" else m["t"])]})
         return found if found is not None and _lands(found) else None
