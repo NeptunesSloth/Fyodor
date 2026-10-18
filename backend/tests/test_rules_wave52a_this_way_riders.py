@@ -16,7 +16,7 @@ from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_
 from tests.wave52a_kit import build_n, open_repo
 
 ARCHWAY = "Arid Archway"
-WITCH_KING, BREW, STARFALL = "Rise of the Witch-king", "Deadly Brew", "Starfall Invocation"
+WITCH_KING, BREW, STARFALL, MANUAL = "Rise of the Witch-king", "Deadly Brew", "Starfall Invocation", "Monster Manual // Zoological Study"
 
 
 @pytest.fixture()
@@ -24,7 +24,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ARCHWAY, WITCH_KING, BREW, STARFALL])
+@pytest.mark.parametrize("name", [ARCHWAY, WITCH_KING, BREW, STARFALL, MANUAL])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -171,4 +171,21 @@ def test_starfall_invocation_without_the_gift_returns_nothing(cards):
     s = starfall(cards, gift=False)
     settle(s)
     assert zone_of(s, "Soul Warden") == "p1:graveyard" and zone_of(s, "Grizzly Bears") == "p1:graveyard"
+    check(s)
+
+
+# -- Monster Manual // Zoological Study --------------------------------------------------------------------------------------------------
+def test_zoological_study_returns_a_creature_card_milled_this_way_to_the_hand(cards):
+    s = build(cards, [MANUAL, "Grizzly Bears", "Hill Giant", "Soul Warden"])
+    for name in ("Hill Giant", "Soul Warden", "Grizzly Bears"):  # the top of her library: Bears, Warden, Giant, then Forests
+        act(s, "p1", type="move", card_ids=[card_named(s, name).id], to={"player": "p1", "zone": "library"}, position="top")
+    c = to_hand(s, MANUAL)
+    mana(s, "p1", G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=c.id, face=1)
+    d = s.state.rules.decision
+    assert d is not None and {s.state.cards[o.id].name for o in d.options} == {"Grizzly Bears", "Hill Giant", "Soul Warden"}  # the creature cards among the five milled (not the Forests)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if s.state.cards[o.id].name == "Hill Giant")])
+    settle(s)
+    assert zone_of(s, "Hill Giant") == "p1:hand" and zone_of(s, "Soul Warden") == "p1:graveyard" and zone_of(s, "Grizzly Bears") == "p1:graveyard"
+    assert zone_of(s, MANUAL) == "p1:exile"  # on an adventure (715.4)
     check(s)

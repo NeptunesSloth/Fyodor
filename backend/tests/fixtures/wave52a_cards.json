@@ -330,5 +330,36 @@
   "keywords": [
    "Gift"
   ]
+ },
+ {
+  "name": "Monster Manual // Zoological Study",
+  "layout": "adventure",
+  "mana_cost": "{3}{G} // {2}{G}",
+  "cmc": 4.0,
+  "type_line": "Artifact — Book // Sorcery — Adventure",
+  "oracle_text": "{1}{G}, {T}: You may put a creature card from your hand onto the battlefield.\n//\nMill five cards, then return a creature card milled this way to your hand. (Then exile this card. You may cast the artifact later from exile.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Mill"
+  ],
+  "card_faces": [
+   {
+    "name": "Monster Manual",
+    "mana_cost": "{3}{G}",
+    "type_line": "Artifact — Book",
+    "oracle_text": "{1}{G}, {T}: You may put a creature card from your hand onto the battlefield."
+   },
+   {
+    "name": "Zoological Study",
+    "mana_cost": "{2}{G}",
+    "type_line": "Sorcery — Adventure",
+    "oracle_text": "Mill five cards, then return a creature card milled this way to your hand. (Then exile this card. You may cast the artifact later from exile.)"
+   }
+  ]
  }
 ]

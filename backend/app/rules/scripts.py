@@ -2411,9 +2411,9 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
 
     body = body.replace(" your team controls", " you control")  # -- static_other (wave 49C) -- 102.4: outside a team game "your team" is "you" (Combo Attack, Dwarven Lightsmith)
     body = _licids.rewrite(body)  # -- licids (wave 50A) --
-    from app.rules import controller_each, counter_riders  # -- if you do (wave 52A) --
+    from app.rules import controller_each, counter_riders, this_way_words  # -- if you do (wave 52A) --
 
-    body = counter_riders.rewrite(controller_each.rewrite(body))
+    body = this_way_words.rewrite(counter_riders.rewrite(controller_each.rewrite(body)))
     if (cb := counter_riders.counterbalance(body, it)) is not None:
         return cb
     from app.rules import sacrifice_return  # -- if you do (wave 52A) --
