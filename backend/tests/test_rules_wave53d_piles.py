@@ -25,6 +25,7 @@ from tests.wave53d_kit import (
     open_repo,
     pin_random,
     resolve,
+    seen_by_others,
     table,
     to_hand,
 )
@@ -416,4 +417,68 @@ def test_celestial_toymaker_attack_piles_the_defender_chooses_and_the_end_step_d
     until(s, lambda s: s.state.turn.phase == "end" or s.state.players["p2"].life < life0, limit=100)
     resolve(s)
     assert s.state.players["p2"].life == life0 - 2  # one ability made piles this turn: 2 life at the end step
+    check(s)
+
+
+# -- a face-down pile shuffled back on top of the library (wave 53D; 406.3a, 701.24) --------------------------------------------
+TRIUMPH = "Triumph of Saint Katherine"
+
+
+def kill(s, card):
+    """Alice destroys her own creature with Murder (already in her hand); the creature's death trigger waits on the stack."""
+    murder = card_named(s, "Murder")
+    mana(s, "p1", B=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=murder.id, targets=[card.id])
+    for _ in range(4):
+        if s.state.cards[card.id].zone != "p1:battlefield":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+
+
+def test_triumph_of_saint_katherine_is_full(cards):
+    assert coverage.of_card_data(cards.resolve(TRIUMPH)).level == "FULL"
+
+
+def test_triumph_of_saint_katherine_exiles_itself_and_the_top_six_face_down_and_the_shuffled_pile_goes_back_on_top(cards):
+    s = table(cards, [TRIUMPH, "Murder", *SIX], players=2, forests=9)
+    tri = put(s, TRIUMPH)
+    to_hand(s, "Murder")
+    stack_top(s, SIX)
+    below = list(s.state.zones["p1:library"][6:])
+    kill(s, tri)
+    resolve(s)
+    top7 = s.state.zones["p1:library"][:7]
+    assert sorted(s.state.cards[c].name for c in top7) == sorted([TRIUMPH, *SIX])  # the pile is on top of the library again...
+    assert s.state.zones["p1:library"][7:] == below  # ...and nothing under it moved
+    assert not s.state.zones.get("p1:exile") and names_on(s, "p1", "graveyard") == ["Murder"]
+    assert all(not s.state.cards[c].face_down for c in top7)
+    for viewer, seen in seen_by_others(s, "p1"):
+        assert not any(n in seen for n in SIX), viewer  # the six cards were never looked at, by anybody
+    assert not any(n in json.dumps(s.view("p1")) for n in SIX)
+    check(s)
+
+
+def test_triumph_of_saint_katherine_does_nothing_with_fewer_than_six_cards_in_the_library(cards):
+    s = table(cards, [TRIUMPH, "Murder"], players=2, forests=5)
+    tri = put(s, TRIUMPH)
+    to_hand(s, "Murder")
+    assert len(s.state.zones["p1:library"]) == 5
+    kill(s, tri)
+    resolve(s)
+    assert s.state.cards[tri.id].zone == "p1:graveyard" and len(s.state.zones["p1:library"]) == 5  # (ruling 2024-01-12)
+    check(s)
+
+
+def test_triumph_of_saint_katherine_does_nothing_when_it_is_no_longer_in_the_graveyard(cards):
+    s = table(cards, [TRIUMPH, "Murder", *SIX], players=2, forests=9)
+    tri = put(s, TRIUMPH)
+    to_hand(s, "Murder")
+    stack_top(s, SIX)
+    for p in ("p1", "p2"):
+        act(s, p, type="set_prefs", response="on")  # (both players hold priority: the ability waits on the stack)
+    kill(s, tri)
+    assert s.state.rules.stack
+    act(s, "p1", type="move", card_ids=[tri.id], to={"player": "p1", "zone": "exile"})
+    resolve(s)
+    assert [s.state.cards[c].name for c in s.state.zones["p1:library"][:6]] == SIX  # the top six stay where they were
     check(s)

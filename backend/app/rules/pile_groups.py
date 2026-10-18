@@ -91,6 +91,8 @@ def bind(body: str, parse: Any, split_sentences: Any) -> Found | None:
     first = sentences[0]
     if first in (_TOYMAKER[0], _TOYMAKER_END):
         return _toymaker(sentences, parse)
+    if tuple(sentences) == _TRIUMPH and (it := parse("Exile it.")) is not None and len(it[0]) == 1:  # (Triumph of Saint Katherine; "it": the dying card, now in the graveyard)
+        return [{"do": "pile_shuffle_back", "n": 6, "who": it[0][0]["who"]}], None, False
     if first.startswith(("Exile the top three cards of your library in a face-down", "Exile the top four cards of your library in a face-down")):
         return _down_piles(sentences, parse)
     if _SEPARATE.match(first):
@@ -125,6 +127,7 @@ def _down_piles(sentences: list[str], parse: Any) -> Found | None:
     return None
 
 
+_TRIUMPH = ("Exile it and the top six cards of your library in a face-down pile.", "If you do, shuffle that pile and put it back on top of your library.")
 _TOYMAKER = ("Look at the top three cards of your library.", "Exile any number of them in a face-down pile and the rest in a face-up pile.",
              "Defending player chooses one of those piles.", "Put that pile into your hand.")
 _TOYMAKER_END = "Each opponent loses 2 life for each spell or ability that caused one or more players to guess or to group cards or permanents into a pile this turn."
@@ -522,6 +525,30 @@ def _made(ctx: Context, e: dict[str, Any]) -> list[dict[str, Any]]:
     return [ctx["pile_set"][e[k][len(context.PREFIX):]] for k in ("a", "b") if e.get(k)]
 
 
+def pile_shuffle_back(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Exile it and the top six cards of your library in a face-down pile. If you do, shuffle that pile and put it back on top of your library." (Triumph of Saint
+    Katherine): the card must still be in your graveyard and the library hold six cards, else nothing is exiled (ruling 2024-01-12). The pile is exiled face down, shuffled
+    as a face-down pile (406.3: the cards get new ids, nobody can follow one) and goes back on top of the library in that random order, nobody having looked at it."""
+    from app.game.state import zone_key
+    from app.rules.effects import _cards, _library
+
+    me = ctx["controller"]
+    top = _library(plan, me)[: int(e["n"])]
+    itself = [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].zone == zone_key(me, "graveyard")]
+    if not itself or len(top) < int(e["n"]):
+        return True
+    note_grouping(plan, ctx)
+    key = zone_key(me, "exile")
+    before = set(plan.state.zones.get(key, []))
+    plan.do({"type": "move", "card_ids": itself, "to": {"player": me, "zone": "exile"}, "face_down": True, "face_down_kind": "exile"}, actor=me)
+    plan.do({"type": "mill", "player": me, "count": len(top), "to": "exile", "face_down": True, "blind": True}, actor=me)  # (blind: nobody, its owner neither, has seen them)
+    pile = [c for c in plan.state.zones[key] if c not in before]
+    slots = [i for i, c in enumerate(plan.state.zones[key]) if c in pile]
+    plan.do({"type": "shuffle", "player": me, "zone": "exile", "card_ids": pile}, actor=me)
+    plan.do({"type": "move", "card_ids": [plan.state.zones[key][i] for i in slots], "to": {"player": me, "zone": "library"}, "position": "top"}, actor=me)
+    return True
+
+
 def pile_look(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Look at the cards in each pile": the face-down cards are shown to the controller alone (701.20e)."""
     from app.game.visibility import can_see
@@ -559,5 +586,5 @@ def resume_turn_up(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
-PRIMITIVES = {"pile_deal": pile_deal, "pile_exile": pile_exile, "pile_grouped_drain": grouped_drain, "pile_look": pile_look, "pile_turn_up": pile_turn_up}
+PRIMITIVES = {"pile_deal": pile_deal, "pile_exile": pile_exile, "pile_grouped_drain": grouped_drain, "pile_look": pile_look, "pile_shuffle_back": pile_shuffle_back, "pile_turn_up": pile_turn_up}
 RESUME = {"pile_split": resume_split, "pile_pick": resume_pick, "pile_opponent": resume_opponent, "pile_card": resume_card, "pile_turn_up": resume_turn_up}

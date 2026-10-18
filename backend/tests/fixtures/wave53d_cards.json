@@ -768,5 +768,41 @@
   "keywords": [],
   "power": "2",
   "toughness": "4"
+ },
+ {
+  "name": "Triumph of Saint Katherine",
+  "layout": "normal",
+  "mana_cost": "{4}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature — Human Warrior",
+  "oracle_text": "Lifelink\nPraesidium Protectiva — When this creature is put into your graveyard from the battlefield, exile it and the top six cards of your library in a face-down pile. If you do, shuffle that pile and put it back on top of your library.\nMiracle {1}{W} (You may cast this card for its miracle cost when you draw it if it's the first card you drew this turn.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Lifelink",
+   "Miracle",
+   "Praesidium Protectiva"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "The Toymaker's Trap",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of your upkeep, secretly choose a number between 1 and 5 that hasn't been chosen. If you do, an opponent guesses which number you chose, then you reveal the number you chose. If they guessed wrong, they lose life equal to the number they guessed and you draw a card. If they guessed right, sacrifice this enchantment.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
  }
 ]
