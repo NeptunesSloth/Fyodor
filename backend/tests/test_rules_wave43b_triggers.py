@@ -50,7 +50,7 @@ def test_selvala_lets_the_controller_of_a_creature_with_the_greatest_power_draw(
     cast(s, "Hill Giant")
     d = ask(s)
     assert d.player == "p1"  # its controller (here also Selvala's): 3 power is more than Selvala's 2
-    act(s, "p1", type="choose", decision_id=d.id, option_ids=["yes"])
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])  # since wave 51G an each-may pay/decline prompt (each_may._THAT_PLAYER_MAY)
     settle(s)
     assert hand(s) == h - 1 + 1  # Hill Giant left the hand, one card drawn
     mana(s, G=1, C=1)
@@ -71,7 +71,7 @@ def test_selvala_gives_the_card_to_the_opponent_whose_creature_is_bigger(cards):
     cast(s, "Shivan Dragon", "p2")
     d = ask(s)
     assert d.player == "p2"  # its controller decides (608.2d), not Selvala's: Bob
-    act(s, "p2", type="choose", decision_id=d.id, option_ids=["yes"])
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=["pay"])
     settle(s)
     assert hand(s, "p2") == bob - 1 + 1 and hand(s) == hand(s)  # 5 power beats the Giant's 3
     check(s)

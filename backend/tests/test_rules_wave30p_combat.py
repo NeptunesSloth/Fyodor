@@ -429,10 +429,15 @@ def test_the_wordings_this_wave_reads_are_full(cards, name):
     "create a 1/1 white Soldier creature token. Bob enters tapped and attacking.",  # (not the token that was made)
     "create two 1/1 white Soldier creature tokens. They enter tapped and attacking.",
     "put a creature card from your hand onto the battlefield tapped and attacking that player or a planeswalker they control.",  # (Zara, Hans Eriksson)
-    "put a creature card with mana value X or less from your hand onto the battlefield.",  # (an X nothing defines)
 ])
 def test_wordings_this_wave_does_not_read_stay_manual(text):
     assert scripts.parse_effects(text) is None
+
+
+def test_a_bare_x_or_less_is_the_spells_x():
+    # wave 51G (put_from_hand): with no "where X is", X is the spell's X (107.3; Mind into Matter); this wave had refused it
+    effects = scripts.parse_effects("put a creature card with mana value X or less from your hand onto the battlefield.")
+    assert effects is not None and effects[0][0]["mv"] == ["<=", {"x": 1}]
 
 
 def test_a_saved_question_from_before_the_attack_choice_was_shared_still_resumes():
