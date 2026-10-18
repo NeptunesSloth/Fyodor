@@ -2956,7 +2956,7 @@ def _value_targets(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tupl
         if (any(isinstance(g, dict) and g.get("what") in ("player", "opponent") for g in groups) or first_value is None
                 or (first_other is not None and first_other < first_value)):
             raise _NoMatch
-        renumbered = _renumber(json.loads(text.replace(f'"for_player": "target_{who}"', '"for_player": "target:0"')), list(range(1, len(groups) + 1)))
+        renumbered = json.loads(json.dumps(_renumber(json.loads(text), list(range(1, len(groups) + 1)))).replace(f'"for_player": "target_{who}"', '"for_player": "target:0"'))  # (the value's own group after the shift: for_player is renumbered too since wave 50I)
         return renumbered, [{"what": who, "min": 1, "max": 1}, *groups], found[2]
     return json.loads(text.replace(f'"for_player": "target_{who}"', '"for_player": "target"')), who, found[2]
 

@@ -668,11 +668,11 @@ def test_jace_does_not_win_with_cards_left(cards):
     check(s)
 
 
-@pytest.mark.parametrize("name", ["Soraya the Falconer", "Asmodeus the Archfiend", "Tinder Wall", "Ice Cream Kitty", "Diaochan, Artful Beauty"])
+@pytest.mark.parametrize("name", ["Soraya the Falconer", "Asmodeus the Archfiend", "Tinder Wall", "Diaochan, Artful Beauty"])
 def test_still_manual(cards, name):
     """Banding isn't modelled (Soraya); Asmodeus' "exiled with" link needs the draw replacement to be the exiling ability; Tinder Wall's target is the creature the
-    sacrificed source blocks (its block is gone when the ability resolves); "another creature or token" doesn't say whether the Kitty's token copy could pay with
-    itself; Diaochan's second target is chosen by an opponent."""
+    sacrificed source blocks (its block is gone when the ability resolves) (Ice Cream Kitty is FULL since wave 50G: "another" covers the token too);
+    Diaochan's second target is chosen by an opponent."""
     assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL", name
 
 
