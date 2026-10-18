@@ -22,7 +22,7 @@ from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import ask, settle, stops, to_phase
-from tests.wave9c_kit import build, card_named, check, mana, pt, put, to_hand
+from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, to_hand
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave51e_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
@@ -56,7 +56,7 @@ def cast(s, name, **kw):
 
 def choose(s, *ids):
     d = s.state.rules.decision
-    assert d is not None and d.kind == "choose_cards", d
+    assert d is not None and d.kind in ("choose_cards", "choose_one"), d
     act(s, d.player, type="choose", decision_id=d.id, option_ids=list(ids))
 
 
@@ -226,4 +226,61 @@ def test_another_creature_keeps_nothing_when_it_dies(cards):
     cast(s, "Lightning Bolt", targets=[bears.id])
     settle(s)
     assert s.state.cards[bears.id].zone == "p1:graveyard" and counters(s, bears) == {}
+    check(s)
+
+
+# --- "target opponent puts a deathtouch counter on a creature they control" / Chaos Spewer's "If you don't, blight 2" ---------------------------
+
+
+def test_hunted_nightmare_target_opponent_puts_a_deathtouch_counter_on_a_creature_of_theirs(cards):
+    s = build(cards, ["Hunted Nightmare"], ["Grizzly Bears", "Young Wolf"])
+    bears, wolf = put(s, "Grizzly Bears", "p2"), put(s, "Young Wolf", "p2")
+    to_hand(s, "Hunted Nightmare")
+    mana(s, B=2, C=1)
+    cast(s, "Hunted Nightmare")
+    d = ask(s)
+    while d.player == "p1":  # (the target: the one opponent)
+        choose(s, d.options[0].id)
+        d = ask(s)
+    assert d.player == "p2" and {o.id for o in d.options} == {bears.id, wolf.id}  # Bob chooses among the creatures he controls (101.4)
+    choose(s, wolf.id)
+    settle(s)
+    assert counters(s, wolf) == {"deathtouch": 1} and counters(s, bears) == {}
+    check(s)
+
+
+def test_chaos_spewer_blights_two_when_the_two_is_not_paid(cards):
+    s = build(cards, ["Chaos Spewer", "Albino Troll"], [])
+    troll = put(s, "Albino Troll")
+    to_hand(s, "Chaos Spewer")
+    mana(s, B=1, C=2)
+    cast(s, "Chaos Spewer")
+    d = ask(s)
+    while d.kind == "choose_cards" and troll.id not in {o.id for o in d.options}:  # (the "may pay {2}" first: no)
+        choose(s, "no")
+        d = ask(s)
+    assert d.player == "p1" and {o.id for o in d.options} >= {troll.id}  # blight 2: both counters on one creature of hers
+    choose(s, troll.id)
+    settle(s)
+    assert counters(s, troll) == {"-1/-1": 2}
+    check(s)
+
+
+def test_requiting_hex_gains_two_life_only_when_the_blight_was_paid(cards):
+    s = build(cards, ["Requiting Hex", "Phantasmal Forces"], ["Grizzly Bears", "Grizzly Bears"])
+    put(s, "Phantasmal Forces")
+    bears2 = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2"]
+    for w in bears2:
+        act(s, "p2", type="move", card_ids=[w.id], to={"player": "p2", "zone": "battlefield"})
+    to_hand(s, "Requiting Hex")
+    mana(s, B=1)
+    hex_ = card_named(s, "Requiting Hex")
+    cast(s, "Requiting Hex", targets=[bears2[0].id])  # not paid: no life
+    settle(s)
+    assert life(s) == 40 and s.state.cards[bears2[0].id].zone == "p2:graveyard"
+    to_hand(s, "Requiting Hex")
+    mana(s, B=1)
+    cast(s, "Requiting Hex", targets=[bears2[1].id], optional_costs=[f"{hex_.id}:blight"])
+    settle(s)
+    assert life(s) == 42 and s.state.cards[bears2[1].id].zone == "p2:graveyard"  # paid: +2
     check(s)

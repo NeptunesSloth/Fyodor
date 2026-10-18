@@ -77,14 +77,14 @@ def test_satoru_does_not_draw_when_the_creature_was_cast_with_mana(cards):
 # 611.2a / 508.1: the exiled card stays playable (the usual timing rules apply) in the turns the condition is met; a card that left exile is spent (400.7h).
 
 
-def attack_ready(s, name, top=None):
+def attack_ready(s, name, top=None, *more):
     """Alice's next turn (what is on her table has been there since the turn began; ``top``: a card put on her library after the draw), the creature declared as an
     attacker; stops after the declaration."""
     stops(s)
     next_turn(s)
     if top:
         on_top(s, top)
-    attack(s, card_named(s, name))
+    attack(s, *(card_named(s, n) for n in (name, *more)))
     return s.state.turn.number
 
 
@@ -163,4 +163,36 @@ def test_neyali_exiled_card_waits_for_the_next_turn_a_token_attacks(cards):
     to_phase(s, "main1", turn=turn + 2)  # the next turn, before any attack
     with pytest.raises(ActionError):
         try_cast(s, "Grizzly Bears")
+    check(s)
+
+
+def test_boros_strike_captain_card_is_playable_in_a_turn_three_creatures_attacked(cards):
+    s = build(cards, ["Boros Strike-Captain", "Grizzly Bears", "Young Wolf", "Albino Troll"], [])
+    for n in ("Boros Strike-Captain", "Grizzly Bears", "Young Wolf"):
+        put(s, n)
+    turn = attack_ready(s, "Boros Strike-Captain", "Albino Troll", "Grizzly Bears", "Young Wolf")  # battalion: three attackers
+    settle(s)
+    troll = card_named(s, "Albino Troll")
+    assert s.state.cards[troll.id].zone == "p1:exile"
+    to_phase(s, "main2", turn=turn)
+    try_cast(s, "Albino Troll")
+    assert s.state.cards[troll.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_neriv_cards_are_playable_in_a_turn_a_commander_attacked(cards):
+    s = build(cards, ["Neriv, Crackling Vanguard", "Raise the Alarm", "Grizzly Bears"], [])
+    put(s, "Neriv, Crackling Vanguard")
+    put(s, "Krenko, Mob Boss")  # Alice's commander
+    to_hand(s, "Raise the Alarm")
+    mana(s, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Raise the Alarm").id)
+    settle(s)
+    turn = attack_ready(s, "Neriv, Crackling Vanguard", "Grizzly Bears", "Krenko, Mob Boss")  # one differently named token: one card
+    settle(s)
+    bears = card_named(s, "Grizzly Bears")
+    assert s.state.cards[bears.id].zone == "p1:exile"
+    to_phase(s, "main2", turn=turn)
+    try_cast(s, "Grizzly Bears")
+    assert s.state.cards[bears.id].zone == "p1:battlefield"
     check(s)
