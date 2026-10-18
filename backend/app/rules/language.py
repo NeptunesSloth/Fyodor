@@ -492,13 +492,15 @@ def _wants_target_player(v: Any) -> bool:
 
 def _pop_target_sel(v: Any) -> str | None:
     """The selector of the "target …" a value names (``_stat``), taken out of it."""
-    if isinstance(v, list):
-        return next((k for k in [_pop_target_sel(x) for x in v] if k is not None), None)  # (every one is taken out: -- block events (wave 53C) -- two values of one sentence name the same target)
-    if not isinstance(v, dict):
+    if not isinstance(v, (list, dict)):
         return None
-    if "target_sel" in v:
+    if isinstance(v, dict) and "target_sel" in v:
         return str(v.pop("target_sel"))
-    return next((k for k in [_pop_target_sel(x) for x in v.values()] if k is not None), None)
+    # (every one is taken out: -- block events (wave 53C) -- two values of one sentence name the same target)
+    found = {k for k in [_pop_target_sel(x) for x in (v if isinstance(v, list) else v.values())] if k is not None}
+    if len(found) > 1:  # -- review 53 -- two different "target …" in one amount: not one target (115.1), not read
+        raise _Fail
+    return next(iter(found), None)
 
 
 def _value_target(n: Any, target: str | None) -> str | None:
