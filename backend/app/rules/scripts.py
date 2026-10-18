@@ -3334,6 +3334,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = re.sub(r"Choose a creature type( other than [A-Z][a-z]+)?\. ([^.]+?) becomes? that type until end of turn\.",
                   r"\2 becomes the creature type\1 of your choice until end of turn.", body)
     body = re.sub(r"(chooses [^.]*? they control)\. Destroy the rest\.", r"\1, then the rest are destroyed.", body)  # (wave 11D)
+    body = re.sub(r"(reveals [^.]*?cards from their hand(?: equal to [^.]+?)?)(?:\. | and )[Yy]ou choose (one|two|three) of them\.",  # -- hand disruption (wave 52C) -- the revealed cards are "it" for the choice (language.CHOOSE_FROM_HAND)
+                  lambda m: f"{m[1]}. You choose {'a card' if m[2] == 'one' else m[2] + ' cards'} from it.", body)
+    body = re.sub(r"( sacrifices (?:a|an|one) [A-Za-z -]+?) of their choice (with [a-z ]+)(?=[.,])", r"\1 \2 of their choice", body)  # -- static_other (wave 52C) -- "sacrifices a creature of their choice with flying" (Clip Wings): the same edict, the tail where it is read
     # -- per-player choices (wave 30K) -- "For each player, you choose … an artifact, a creature, … Then each player sacrifices all other nonland
     # permanents they control." (Tragic Arrogance): one instruction (language.CHOOSE_FOR_EACH)
     body = re.sub(r"(For each player, you choose from among the permanents that player controls [^.]+)\. Then (each player sacrifices all other)",
@@ -3416,9 +3419,20 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             continue
         text = _for_each_this_way(text)  # -- "this way" outcomes (wave 4A) --
         from app.rules import (
+            chain_spells,  # -- chain spells (wave 52C) -- "that player may pay {R}{R}. If the player does, they may copy this spell …"
+            wishes,  # -- wishes (wave 52C) -- "You may reveal a sorcery card you own from outside the game and put it into your hand."
+        )
+        from app.rules import (
             pay_untap as _pay_untap,  # -- if you do (wave 25C) -- "that player may choose any number of tapped … and pay {2} for each …"
         )
 
+        if (wished := wishes.sentence(texts, i, text)) is not None:
+            effects += wished[0]
+            skip_to = i + wished[1]
+            continue
+        if it is None and not event_player and (chained := chain_spells.sentence(texts, i, text, effects, groups)) is not None:
+            effects += chained
+            continue
         if (untapped := _pay_untap.sentences(texts, i)) is not None:
             effects += untapped[0]
             skip_to = i + untapped[1]
@@ -3880,6 +3894,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     resolved = resolve_it(effects, it, groups, sentences=sentences, event_player=event_player)
     if resolved is not None:  # -- refused modal/conditional (wave 3R1) -- an "instead" pronoun naming the target
         resolved = _gated_other_rewrite(_branch_refs_retarget(resolved))
+        if it is None and not event_player and len(groups) == 1 and _is_player_group(groups[0]) and (groups[0].get("min"), groups[0].get("max")) == (1, 1):
+            # -- hand disruption (wave 52C) -- "Then if that player has more cards in hand than you, …" in a spell: "that player" is the one target player, there is no event
+            resolved = [{**e, "cond": json.loads(json.dumps(e["cond"]).replace('"who": "event"', '"who": "target"'))} if e.get("do") == "only_if" and "versus" in e["cond"] else e
+                        for e in resolved]
     if resolved is None or not _branch_refs_ok(resolved) or not _gated_other_ok(resolved):  # (conditional clauses, wave 1B)
         return None
     if late_from is not None and not _late_ok(resolved, late_from):  # -- if you do (wave 31A) --
@@ -4043,7 +4061,11 @@ def _may_first_only(texts: list[str], effects: list[dict[str, Any]], sentences: 
     first = effects[: sentences[1]]
     if not first or not texts[0].lower().startswith("you may ") or any(e.get("optional") or e.get("do") == "may_rest" or e.get("may") for e in first):
         return 0
-    return 0 if any(_DEPENDENT.search(t) for t in texts[1:]) else len(first)
+    from app.rules import (
+        chain_spells,  # -- chain spells (wave 52C) -- "You may tap or untap target creature. Then that creature's controller may pay {2}{U}. …" (Chain Stasis)
+    )
+
+    return 0 if any(_DEPENDENT.search(t) for t in texts[1:] if not chain_spells.is_tail(t)) else len(first)
 
 
 _KICKED = re.compile(r"^if (?P<neg>this spell wasn't|(?:this spell|it|~) was) kicked(?: with its (?P<cost>(?:\{[^}]+\})+) kicker)?, (?P<instead1>instead )?(?P<rest>.+?)(?P<instead2> instead)?$", re.IGNORECASE)  # (wave 45A: "this spell wasn't": Parting Gust's gift)
@@ -5014,6 +5036,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return {"kind": "static", "static": "power_up_again", "effects": []}  # -- power-up (wave 50J) -- read by restrictions ``per_game`` (Wonder Man)
     if ability.kind == "static" and text == "Counters remain on ~ as it moves to any zone other than a player's hand or library.":
         return {"kind": "static", "static": "keep_counters", "effects": []}  # -- counters (wave 51E) -- Skullbriar, Me the Immortal: read by replacements.kept_counters as it moves
+    if ability.kind in ("static", "spell"):  # -- draft-matters cards (wave 52C) -- 905.2: abilities that function during the draft, which a game never has (app/rules/draft_only.py)
+        from app.rules import draft_only
+
+        if (drafted := draft_only.definition(text)) is not None:
+            return drafted
     if ability.kind == "static" and text == "~ can be your commander.":
         return {"kind": "static", "static": "deckbuilding", "effects": []}  # 903.3a: deck construction only
     # -- static_other sweep (wave 19A) -- 510.1c: "You may have this creature assign its combat damage as though it weren't blocked."
@@ -5992,7 +6019,7 @@ def spell_definition(ch: Characteristics) -> Definition | None:
              and not own_card_event_ability(defs.get(ab.index))  # (wave 36A: cycling / discard triggers of the card itself)
              and defs.get(ab.index, {}).get("trigger") != "cast_self"  # -- spell copies (wave 31D) -- 601.2i: "When you cast this spell, …" triggers
              and defs.get(ab.index, {}).get("replacement") != "shuffle_instead"  # -- zone replacements (wave 51C) -- Nexus of Fate: where the spell card goes (614.1), not what it does
-             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional", "x_cap")  # (x_cap: wave 51C; own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
+             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional", "x_cap", "escape", "draft_only")  # (escape: wave 52C, 702.138a; draft_only: wave 52C; x_cap: wave 51C; own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
                       and (defs[ab.index].get("free") or defs[ab.index].get("zone") in ("graveyard", "exile")
                            or defs[ab.index].get("flash")))]  # (wave 17C: retrace, 702.81a; wave 22F: "cast this spell as though it had flash if …", 601.3d)
@@ -7098,7 +7125,7 @@ for _pattern, _build in ((_language.EDICT, _language.edict), (_language.EDICT_OT
                          (_language.CHOOSE_POWER_CAP, _language.choose_power_cap),  # PLAYER_CHOOSES)
                          (_language.PLAYER_CHOOSES, _language.player_chooses), (_language.CHOOSE_ANY, _language.choose_any),  # (wave 31B)
                          (_language.CHOOSE_OWN, _language.choose_own),  # (wave 32A)
-                         (_language.REVEAL_HAND, _language.reveal_hand), (_language.CHOOSE_FROM_HAND, _language.choose_from_hand), (_language.DISCARD_NAMED, _language.discard_named),
+                         (_language.REVEAL_HAND, _language.reveal_hand), (_language.REVEAL_SOME, _language.reveal_some), (_language.CHOOSE_FROM_HAND, _language.choose_from_hand), (_language.DISCARD_NAMED, _language.discard_named),
                          (_language.CHOOSE_VALUE, _language.choose_value), (_language.CHOOSE_NAME_TARGET, _language.choose_name_target),  # (wave 49C)
                          (_language.CHOOSE_FROM_HAND_GY, _language.choose_from_hand_gy), (_language.LOOK_HAND, _language.look_hand),  # (wave 11D)
                          (_language.DISCARD_ALL_REVEALED, _language.discard_all_revealed),

@@ -1595,6 +1595,8 @@ def _as_players(plan: Plan, ctx: dict[str, Any], who: str) -> list[str]:
         return list(plan.live())
     if who == "opponent":  # -- cost alt (wave 16F) -- "an opponent has no cards in hand": some one opponent
         return [p for p in plan.live() if p != ctx["controller"]]
+    if who == "target":  # -- hand disruption (wave 52C) -- a spell's one target player ("if that player has more cards in hand than you")
+        return [t["id"] for t in ctx.get("targets") or [] if t and t["id"] in plan.live()]
     if who == "defended":
         d = (ctx.get("event") or {}).get("defended")
         return [d] if d in plan.live() else []

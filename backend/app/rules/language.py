@@ -2942,6 +2942,7 @@ PLAYER_CHOOSES = (rf"(?P<s>{CHOOSER}) chooses (?:(?P<upto>up to )?(?P<n>{AMT})) 
 CHOOSE_ANY = (rf"(?:starting with (?P<start>you|the next opponent in turn order), )?each player (?:(?P<may>may) choose|chooses) (?P<upto>up to )?"
               rf"(?P<n>{AMT}) (?P<sel>(?!.*\bthey control)[^,]+?)(?: from among (?P<among>permanents your opponents control))?")
 REVEAL_HAND = rf"(?P<s>{CHOOSER}) reveals their hand"
+REVEAL_SOME = rf"(?P<s>target player|target opponent) reveals (?:(?P<n>{AMT})|a number of) cards from their hand(?: equal to (?P<eq>.+))?"  # -- hand disruption (wave 52C) -- Blackmail, Noggin Whack, Mire's Toll
 CHOOSE_FROM_HAND = (rf"you (?P<may>may )?choose (?:(?P<upto>up to )?(?P<n>{AMT})|(?P<any>any number of)) (?P<sel>.+?) "
                     r"from (?:it|among them|that hand)(?P<tail> with mana value \d+ or (?:less|greater))?")
 # -- hand disruption (wave 11D) -- "You choose a nonland card from it or a card from their graveyard." (Agonizing Remorse), "You
@@ -3129,6 +3130,16 @@ def reveal_hand(m: re.Match[str]) -> tuple[Effects, Any]:
     if who in ("each_player", "each_opponent"):
         raise _Fail  # ("each opponent reveals their hand. You choose a card from it": from whose? not read)
     return [{"do": "reveal_hand", "who": who}], _one(group)
+
+
+def reveal_some(m: re.Match[str]) -> tuple[Effects, Any]:
+    who, group = _chooser(m["s"])
+    if (m["n"] is None) == (m["eq"] is None):
+        raise _Fail
+    n: Any = _amount(m["n"]) if m["n"] else values.parse_count(m["eq"])
+    if n is None or (m["n"] is not None and not isinstance(n, int)):
+        raise _Fail
+    return [{"do": "reveal_some", "who": who, "n": n}], _one(group)
 
 
 def choose_from_hand_gy(m: re.Match[str]) -> tuple[Effects, Any]:
