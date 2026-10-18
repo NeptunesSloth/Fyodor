@@ -259,7 +259,8 @@ def test_parse_manifest_cloak_and_dread():
     assert effects[1] == {"do": "manifest", "kind": "manifest", "who": "ref:e0.controller", "n": 1} and target == "creature"
     effects, _, _ = scripts.parse_effects("Manifest dread, then put three +1/+1 counters on that creature.")
     assert effects[1] == {"do": "add_counters", "who": "ref:e0", "kind": "+1/+1", "n": 3} and effects[0]["as"] == "e0"
-    assert scripts.parse_effects("You manifest the top card of that player's library.") is None  # (not read)
+    assert scripts.parse_effects("You manifest the top card of that player's library.") == (  # (wave 53A, CR 701.40a: read since Thieving Amalgam / Orochi Soul-Reaver - the library is the player's, the face-down card enters under your control)
+        [{"do": "manifest", "kind": "manifest", "who": "you", "n": 1, "library": "event_player"}], None, False)
 
 
 def test_soul_summons_manifests_a_hidden_two_two_that_turns_up_for_its_mana_cost(cards):
