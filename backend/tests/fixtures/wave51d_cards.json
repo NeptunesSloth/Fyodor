@@ -188,5 +188,127 @@
    "B"
   ],
   "keywords": []
+ },
+ {
+  "name": "Mister Negative",
+  "layout": "normal",
+  "mana_cost": "{5}{W}{B}",
+  "cmc": 7.0,
+  "type_line": "Legendary Creature — Human Villain",
+  "oracle_text": "Vigilance, lifelink\nDarkforce Inversion — When Mister Negative enters, you may exchange life totals with target opponent. If you lost life this way, draw that many cards.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [
+   "Lifelink",
+   "Vigilance",
+   "Darkforce Inversion"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Thundermane Dragon",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Dragon",
+  "oracle_text": "Flying\nYou may look at the top card of your library any time.\nYou may cast creature spells with power 4 or greater from the top of your library. If you cast a creature spell this way, it gains haste until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Craw Wurm",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Creature — Wurm",
+  "oracle_text": "",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "6",
+  "toughness": "4"
+ },
+ {
+  "name": "Mikey & Don, Party Planners",
+  "layout": "normal",
+  "mana_cost": "{2}{G/U}{G/U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Mutant Ninja Turtle",
+  "oracle_text": "Ward {2}\nYou may look at the top card of your library any time.\nYou may play lands and cast Mutant, Ninja, or Turtle spells from the top of your library. If you cast a creature spell this way, that creature enters with an additional +1/+1 counter on it.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Ward"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Ninja of the Deep Hours",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Human Ninja",
+  "oracle_text": "Ninjutsu {1}{U} ({1}{U}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever this creature deals combat damage to a player, you may draw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Ninjutsu"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Elsha of the Infinite",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{R}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Djinn Monk",
+  "oracle_text": "Prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\nYou may look at the top card of your library any time.\nYou may cast noncreature spells from the top of your library. If you cast a spell this way, you may cast it as though it had flash.",
+  "colors": [
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Prowess"
+  ],
+  "power": "3",
+  "toughness": "3"
  }
 ]

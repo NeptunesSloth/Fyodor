@@ -2555,6 +2555,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     body = _COUNTED_IF_YOU_DO.sub(_counted_if_you_do, body)  # -- reflexive this way (wave 30G) -- Neheb: "… draw that many cards and add that much {R}."
     body = re.sub(r"\b([Cc]reate an? (?:white|blue|black|red|green) [A-Z][a-z]+ creature token)\. Its power is equal to (that (?:creature|card)'s) power and its toughness is equal to \2 toughness\b",
                   r"\1 with power equal to \2 power and toughness equal to \2 toughness", body)  # (-- if you do (wave 51D) -- Kalitas, Bloodchief of Ghet; see _create_lki_token)
+    body = re.sub(r"(?<=\. )If you lost life this way, draw that many cards\b", "Draw cards equal to the life lost this way", body)  # (-- if you do (wave 51D) -- Mister Negative: drawing none when no life was lost is the same as not drawing; see _life_lost)
     body = re.sub(r"^(\s*target (?:opponent|player) gains control of [^.]+)\. If they do, ", r"\1. If you do, ", body, flags=re.I)  # (-- commanders (wave 50C) -- Bill Ferny; wave 51D: an activated ability's body starts with a space, Stiltzkin: "If they do" asks whether the control changed, as "If you do" after the instruction)
     body = re.sub(r"(?i)\b(discard (?:up to \w+|any number of|\w+) cards?)(?:, then |\. (?:then )?)draw that many cards\b(?! plus| and )",
                   r"\1, then draw a card for each card discarded this way", body)
@@ -3053,7 +3054,7 @@ def _life_lost(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[li
         if '"life_lost"' not in json.dumps(e):
             continue
         prev = effects[i - 1] if i else None
-        if prev is None or prev.get("do") != "lose_life" or e.get("do") != "gain_life" or prev.get("bind"):
+        if prev is None or prev.get("bind") or (prev.get("do"), e.get("do")) not in (("lose_life", "gain_life"), ("exchange_life", "draw")):  # (wave 51D: exchange_life, Mister Negative)
             return None
         effects = [*effects[:i - 1], {**prev, "bind": "life_lost"}, *effects[i:]]
     return effects, found[1], found[2]

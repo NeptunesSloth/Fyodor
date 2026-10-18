@@ -109,7 +109,11 @@ PERMISSION = re.compile(
     r"(?:\. If (?:(?P<exile>a|an instant or sorcery) spell cast this way would be put into your graveyard, exile it instead"
     r"|(?:you cast a spell this way|you do), (?:that [a-z]+ enters (?:(?P<tapped>tapped)|(?P<fin>with a finality counter on it))|it gains \"(?P<gain>[^\"]+)\"))"
     # -- most-played cards (wave 43B) -- "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost." (Bolas's Citadel)
-    r"|\. If you cast a spell this way, (?P<lmv>pay life equal to its mana value rather than pay its mana cost))?$",
+    r"|\. If you cast a spell this way, (?P<lmv>pay life equal to its mana value rather than pay its mana cost)"
+    # -- if you do (wave 51D) -- 601.3b / 614.1c / 611.2a: the riders of a cast from the top of the library: "If you cast a creature spell this way, it gains haste until end of
+    # turn." (Thundermane Dragon), "…, that creature enters with an additional +1/+1 counter on it." (Mikey & Don), "If you cast a spell this way, you may cast it as though it had flash." (Elsha)
+    r"|\. If you cast (?P<rtype>a creature spell|a spell) this way, (?:(?P<rhaste>it gains haste until end of turn)|(?P<rcounter>that creature enters with an additional \+1/\+1 counter on it)"
+    r"|(?P<rflash>you may cast it as though it had flash)))?$",
     re.IGNORECASE)
 _GY_POOL = re.compile(r" from among cards in your graveyard that (?:were put there from (?P<from>anywhere other than the battlefield|your library)|"
                       r"(?P<milled>were milled)) this turn$")  # (-- free cast (wave 40D) --)
@@ -779,7 +783,8 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                 return None
             extras["if"] = cond
         if m["by"] or m["tapped"] or m["fin"] or m["gain"] or m["during"] or m["slots"] or m["lsel"] or m["psel"] or m["csel"]:
-            if zone != "graveyard" or what.get("self"):
+            if (zone != "graveyard" or what.get("self")) and not (  # (-- if you do (wave 51D) -- "play lands and cast Mutant, Ninja, or Turtle spells from the top of your library", Mikey & Don: the same wording as Zask's)
+                    zone == "library_top" and m["psel"] and not what.get("self") and not (m["by"] or m["tapped"] or m["fin"] or m["gain"] or m["during"] or m["slots"] or m["lsel"] or m["csel"])):
                 return None  # (-- cast permissions (wave 30Q) -- the new wordings are the graveyard's)
             if m["by"]:  # 601.2b: "by paying 3 life / sacrificing a creature in addition to paying its other costs" is an additional cost, paid with the rest
                 extra = re.sub(r"\b(discarding|paying|sacrificing|exiling)\b", lambda g: _GERUND[g[1].lower()], m["by"])
@@ -795,6 +800,13 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                 extras["slots"] = True
             if what.get("land_filter"):
                 extras["land_filter"] = what["land_filter"]
+        if m["rhaste"] or m["rcounter"] or m["rflash"]:  # -- if you do (wave 51D) -- the top of the library alone, a spell cast with the permission (never the land it plays)
+            if zone != "library_top" or not what["cast"] or what.get("self") or what.get("slots") or (m["rflash"] is None) != (m["rtype"] == "a creature spell"):
+                return None  # ("a creature spell" for haste and the counter, "a spell" for flash)
+            if m["rflash"]:
+                extras["flash"] = True  # 601.3b: every spell cast with this permission may be cast any time its caster has priority
+            else:  # (the rider is for creature spells only: a spell of another kind cast with the same permission gets none, casting.py)
+                extras["enters"] = {"only": "Creature", **({"keywords": ["haste"]} if m["rhaste"] else {"counters": {"+1/+1": 1}})}
         if m["lmv"]:  # -- most-played cards (wave 43B) -- 118.9, 119.4: the alternative cost of a spell cast from the top of the library, always paid (X is 0: 107.3b)
             if zone != "library_top" or not what["cast"] or what.get("self"):
                 return None
@@ -1366,6 +1378,11 @@ def gain_on_entry(plan: Plan, card_id: str, controller: str, rider: dict[str, An
     """-- cast permissions (wave 30Q) -- "If you do, it gains "When this permanent is put into a graveyard from the battlefield, exile it and you gain 2
     life."" (Serra Paragon): the permanent the card became has the ability for as long as it is that object (613.1f layer 6; a new object has none, 400.7)."""
     card = plan.state.cards.get(card_id)
+    if rider and rider.get("keywords") and card is not None and card.zone.endswith(":battlefield"):  # -- if you do (wave 51D) -- 611.2a: "it gains haste until end of turn", from the moment it is on the battlefield (613.1f)
+        from app.rules import layers
+
+        layers.add_effect(plan, affected=[plan.oid(card_id)], layer="6", source=None, controller=controller, add_keywords=tuple(rider["keywords"]),
+                          label="Gained from the cast permission")
     if rider and rider.get("abilities") and card is not None and card.zone.endswith(":battlefield"):
         from app.rules import layers
 
