@@ -145,8 +145,10 @@ def objects_who(phrase: str) -> str | None:
     sel = selectors.from_key(found["of"]) if found.get("of") else selectors.Selector()
     if sel.player is not None or sel.controller is not None or sel.owner is not None or sel.zone_owner is not None:
         return None
-    mine = {"zone_owner": "you"} if found["this_way"] == "your_graveyard" else {}  # (-- if you do (wave 52A) -- "put into YOUR graveyard this way": the cards of that graveyard's owner, Starfall Invocation)
-    return f"them:{found['this_way']}|{selectors.replace(sel, zones=(_OBJECT_ZONE[found['this_way']],), card=True, **mine).key()}"
+    sel = selectors.replace(sel, zones=(_OBJECT_ZONE[found["this_way"]],), card=True)
+    if found["this_way"] == "your_graveyard":  # (-- if you do (wave 52A) -- "put into YOUR graveyard this way": the cards of that graveyard's owner, Starfall Invocation)
+        sel = selectors.replace(sel, zone_owner="you")
+    return f"them:{found['this_way']}|{sel.key()}"
 
 
 def filtered(plan: Plan, ctx: dict[str, Any], cards: list[str], key: str) -> list[str]:
