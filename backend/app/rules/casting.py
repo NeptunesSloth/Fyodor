@@ -142,6 +142,17 @@ def _with_chosen_type(spend: str, creature_type: str) -> str:
                 if alt.pop("chosen", False):
                     alt["subtypes"] = sorted({*alt.get("subtypes", []), creature_type})
     return "q:" + json.dumps(spec, sort_keys=True)
+
+
+def _with_chosen_color(spend: str, color: str) -> str:
+    """-- most-played cards (wave 51F) -- "monocolored spells of that color" (Throne of Eldraine): the color chosen as the permanent entered, as the letter spells must be."""
+    import json
+
+    spec = json.loads(spend[2:])
+    for alt in spec["cast"] if isinstance(spec.get("cast"), list) else []:
+        if alt.pop("chosen_color", False):
+            alt["mono_color"] = color
+    return "q:" + json.dumps(spec, sort_keys=True)
 # -- end refused copy/mana (wave 3R3) --
 
 
@@ -392,6 +403,11 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
             if chosen is None:
                 continue
             parsed = replace(parsed, spend_only=_with_chosen_type(parsed.spend_only, chosen))
+        if parsed.spend_only is not None and parsed.spend_only.startswith("q:") and '"chosen_color": true' in parsed.spend_only:
+            color = _chosen_color(card)  # -- most-played cards (wave 51F) -- "monocolored spells of that color": nothing chosen, nothing to spend it on
+            if color is None:
+                continue
+            parsed = replace(parsed, spend_only=_with_chosen_color(parsed.spend_only, color))
         cond = parsed.condition or ""
         if cond.startswith(("control:", "count:")) and \
                 not _controls(state, card.controller, cond[len("control:"):] if cond.startswith("control:") else cond, info):
@@ -488,7 +504,7 @@ def spend_allowed(kind: str | None, purpose: Purpose | None) -> bool:
             return True
         side, ch = ("cast", spell) if spell is not None else ("ability", source)
         allowed = spec.get(side)
-        if ch is None or allowed is None or any(a.get("chosen") for a in allowed if isinstance(allowed, list)):
+        if ch is None or allowed is None or any(a.get("chosen") or a.get("chosen_color") for a in allowed if isinstance(allowed, list)):
             return False
         return allowed == "any" or any(M.spend_alt_matches(a, ch) and (side == "ability" or _cast_origin_ok(a, purpose))
                                        for a in allowed)
@@ -4069,6 +4085,9 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
 
 
 # -- other activated abilities (they use the stack) -----------------------------------------
+SPEND_CHOSEN = "Spend only mana of the chosen color to activate this ability."
+
+
 def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState | None = None,
                  card: CardInstance | None = None, info: CardInfo | None = None, target: str | None = None) -> AbilityCost:
     cost = parse_ability_cost(ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
@@ -4093,6 +4112,14 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
 
         if cost.mana and (mode := cast_limits.ability_spend_mode(state, card.controller, card, ch, info)):
             cost = replace(cost, mana=M.spend_as(M.parse_cost(cost.mana), mode).text())
+        if SPEND_CHOSEN in ability.text and cost.mana:  # -- most-played cards (wave 51F) -- "Spend only mana of the chosen color to activate this ability" (Throne of Eldraine, 106.6)
+            # is every generic mana of the cost as colored mana of that color: only mana of it pays (after the any-color mode above, which cannot undo it)
+            # ponytail: K'rrik's "{B} … pay 2 life" would read these as {B} symbols when black is chosen
+            m, color = M.parse_cost(cost.mana), _chosen_color(card)
+            if color is None or m.hybrid or m.phyrexian or m.x or any(c != color for c in m.colored):
+                cost = replace(cost, unsupported=(*cost.unsupported, "mana of the chosen color"))
+            else:
+                cost = replace(cost, mana=M.ManaCost(0, (*m.colored, *(color,) * m.generic)).text())
     # -- reanimation (wave 3R) -- 113.6m: "{1}{B}: Return this card from your graveyard to the battlefield" moves the
     # card out of the graveyard, so the ability works only there
     # (review 40: anywhere in the effect, "Exile five target cards from an opponent's graveyard. Return this card from your graveyard to your hand." on

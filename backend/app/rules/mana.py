@@ -683,6 +683,9 @@ def _alt(words: str, *, source: bool) -> dict[str, object] | None:
     if text.endswith(" of the chosen type"):
         out["chosen"] = True
         text = text[: -len(" of the chosen type")]
+    elif text.endswith(" of that color") and not source:  # -- most-played cards (wave 51F) -- "monocolored spells of that color" (Throne of Eldraine): the color chosen as it entered
+        out["chosen_color"] = True
+        text = text[: -len(" of that color")]
     tokens = text.split()
     types: list[str] = []
     subs: list[str] = []
@@ -719,6 +722,8 @@ def _alt(words: str, *, source: bool) -> dict[str, object] | None:
         return None
     if out.get("chosen") and types != ["Creature"]:
         return None
+    if out.get("chosen_color") and (out.get("color") != "monocolored" or types or subs or supers):
+        return None
     if types:
         out["types"] = types
     if subs:
@@ -754,7 +759,7 @@ def _alts(phrase: str, *, source: bool) -> list[dict[str, object]] | None:
                     extra, part = make(w), w["pre"]
                     break
         if not source:  # ("instant and sorcery spells": the noun may come once, at the end)
-            part = re.sub(r" spells?(?= of the chosen type$)| spells?$", "", part)
+            part = re.sub(r" spells?(?= of the chosen type$| of that color$)| spells?$", "", part)
         alt = _alt(part, source=source) if part or not extra else {}
         if alt is None:
             return None
@@ -873,6 +878,8 @@ def spend_alt_matches(alt: dict[str, Any], ch: Any) -> bool:
     if alt.get("has_x") and "{X}" not in ch.mana_cost:
         return False
     if alt.get("no_abilities") and ch.abilities:
+        return False
+    if alt.get("mono_color") and colors != {alt["mono_color"]}:  # -- most-played cards (wave 51F) -- "monocolored spells of that color": exactly the chosen color
         return False
     color = alt.get("color")
     if color == "colorless" and colors:

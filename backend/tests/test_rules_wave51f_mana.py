@@ -4,6 +4,9 @@ save and a load.
 * "{T}: Add one mana of any type that a land you control could produce. If this creature has a +1/+1 counter on it, add three mana of that type instead." - 605.3a: a mana
   ability resolves as it is activated, so the counter is looked at then; 106.1b: the types are colors and colorless; 106.7: only the mana lands you control could produce.
 * "{3}{G}{G}: Adapt 3." (701.46a): the counters come from its own ability, and with them the Druid taps for three.
+
+Throne of Eldraine (106.6): "{T}: Add four mana of the chosen color. Spend this mana only to cast monocolored spells of that color." (105.2a: exactly one color) and "{3}, {T}:
+Draw two cards. Spend only mana of the chosen color to activate this ability." - every mana spent on the activation is of that color.
 """
 
 from __future__ import annotations
@@ -18,6 +21,7 @@ from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.errors import ActionError
 from app.rules import casting, coverage
+from app.rules.casting import castable
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import ability, next_turn, settle
@@ -93,4 +97,86 @@ def test_adapt_gives_the_counters_and_then_the_druid_pays_for_a_three_mana_spell
     act(s, "p1", type="cast_spell", card_id=finks.id)  # the Druid taps for {G}{G}{G}
     settle(s)
     assert zone_of(s, "Kitchen Finks") == "p1:battlefield" and s.state.cards[druid.id].tapped
+    check(s)
+
+
+def throne(cards, color="Green", *, forests=0, islands=0, hand=("Grizzly Bears", "Lightning Bolt", "Kitchen Finks", "Holy Strength", "Giant Growth", "Sol Ring")):
+    """Alice has Throne of Eldraine (the color chosen) and some lands on the battlefield, the named spells in hand."""
+    s = build(cards, ["Throne of Eldraine", "Grizzly Bears", "Lightning Bolt", "Kitchen Finks", "Holy Strength", "Giant Growth", "Sol Ring", "Island", "Island", "Island"])
+    t = put(s, "Throne of Eldraine")
+    d = s.state.rules.decision
+    if d is not None:
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[color])
+    else:
+        act(s, "p1", type="set_choice", card_id=t.id, key="Chosen color", value=color)
+    for name, n in (("Forest", forests), ("Island", islands)):
+        for c in [c for c in s.state.cards.values() if c.name == name and c.owner == "p1" and c.zone == "p1:library"][:n]:
+            act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+    for name in hand:
+        to_hand(s, name)
+    return s, t
+
+
+def can_cast(s, name):
+    return castable(s.state, "p1", card_named(s, name), s.cards)
+
+
+def test_throne_of_eldraine_is_full(cards):
+    assert coverage.of_card_data(cards.resolve("Throne of Eldraine")).level == "FULL"
+
+
+@pytest.mark.parametrize("color, spells", [("Green", {"Grizzly Bears", "Giant Growth"}), ("White", {"Holy Strength"}), ("Red", {"Lightning Bolt"})])
+def test_its_mana_pays_only_for_monocolored_spells_of_the_chosen_color(cards, color, spells):
+    s, t = throne(cards, color)
+    everything = {"Grizzly Bears", "Lightning Bolt", "Kitchen Finks", "Holy Strength", "Giant Growth", "Sol Ring"}
+    assert {n for n in everything if can_cast(s, n)} == spells  # not Kitchen Finks (green and white), not Sol Ring (colorless)
+    check(s)
+
+
+def test_a_spell_is_cast_with_it_and_the_rest_stays_restricted(cards):
+    s, t = throne(cards)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Grizzly Bears").id)  # {1}{G} from {G}{G}{G}{G}
+    settle(s)
+    assert zone_of(s, "Grizzly Bears") == "p1:battlefield" and s.state.cards[t.id].tapped
+    assert can_cast(s, "Giant Growth") and not can_cast(s, "Sol Ring")  # the two left over are still only for monocolored green spells
+    check(s)
+
+
+def test_with_no_color_chosen_it_adds_nothing(cards):
+    s, t = throne(cards)
+    act(s, "p1", type="set_choice", card_id=t.id, key="Chosen color", value="")
+    assert not any(can_cast(s, n) for n in ("Grizzly Bears", "Lightning Bolt", "Holy Strength", "Giant Growth"))
+    check(s)
+
+
+def test_draw_two_is_paid_with_mana_of_the_chosen_color_only(cards):
+    s, t = throne(cards, forests=3, islands=3, hand=())
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="activate_ability", card_id=t.id, ability=ability(s, "Throne of Eldraine", contains="Draw"))
+    settle(s)
+    assert len(s.state.zones["p1:hand"]) == hand + 2
+    lands = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name in ("Forest", "Island")]
+    assert all(c.tapped for c in lands if c.name == "Forest") and not any(c.tapped for c in lands if c.name == "Island")  # {3} was {G}{G}{G}
+    check(s)
+
+
+@pytest.mark.parametrize("pool", [{"U": 3}, {"G": 2, "U": 1}])
+def test_other_mana_cannot_pay_for_the_draw(cards, pool):
+    s, t = throne(cards, islands=3, hand=())
+    mana(s, **pool)
+    with pytest.raises(ActionError):  # 106.6: Islands and blue mana are not green
+        act(s, "p1", type="activate_ability", card_id=t.id, ability=ability(s, "Throne of Eldraine", contains="Draw"))
+    check(s)
+
+
+def test_mana_tapped_by_hand_keeps_the_restriction(cards):
+    s, t = throne(cards)
+    act(s, "p1", type="activate_ability", card_id=t.id, ability=ability(s, "Throne of Eldraine", contains="Add four"))
+    with pytest.raises(ActionError):  # {1}: a colorless artifact is not a monocolored spell of that color (106.6)
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Sol Ring").id)
+    with pytest.raises(ActionError):  # {1}{G}{G}: green and white
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Kitchen Finks").id)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Grizzly Bears").id)
+    settle(s)
+    assert zone_of(s, "Grizzly Bears") == "p1:battlefield"
     check(s)
