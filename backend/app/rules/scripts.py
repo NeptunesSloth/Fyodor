@@ -2830,7 +2830,7 @@ def _bind_x_conditions(effects: list[dict[str, Any]], value: Any) -> list[dict[s
             for e in effects]
 
 
-_X_TARGET_VALUES = where_bound.ALLOWED | {"this_way"}  # (wave 28D: known as a trigger is put on the stack, 603.3d)
+_X_TARGET_VALUES = where_bound.ALLOWED | {"this_way", "opponents"}  # (wave 28D: known as a trigger is put on the stack, 603.3d)
 
 
 def _x_target_counts(found: tuple[list[dict[str, Any]], Any, bool], value: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
@@ -3181,6 +3181,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
     body = re.sub(r"\b([Rr]eturn|[Dd]estroy|[Ee]xile) all creatures( to their owners' hands)? except for ([A-Z][a-z]+(?:(?:, and |, | and )[A-Z][a-z]+)*)\b",
                   lambda m: f"{m[1]} all {' '.join('non-' + _singular(w) for w in re.split(r', and |, | and ', m[3]))} creatures{m[2] or ''}", body)
+    # -- most-played cards IV (wave 51G) -- "Destroy all creatures and planeswalkers except for commanders." (Slash the Ranks), "Destroy all other permanents except for lands and
+    # tokens." (Elspeth Tirel): the objects that are none of those, "all noncommander creatures and planeswalkers" / "all other nonland nontoken permanents"; "Return to their owners'
+    # hands all creatures with …" (Engulf the Shore) is "Return all creatures with … to their owners' hands"
+    body = re.sub(r"\b(Destroy all) (creatures and planeswalkers) except for commanders\b", r"\1 noncommander \2", body)
+    body = re.sub(r"\b(Destroy all other) permanents except for lands and tokens\b", r"\1 nonland nontoken permanents", body)
+    body = re.sub(r"\bReturn to their owners' hands (all creatures with [^.]+)\.", r"Return \1 to their owners' hands.", body)
     # -- activated other (wave 44D) -- "Destroy all creatures except for ~. Those creatures can't be regenerated." (Mageta the Lion): all the others, the source being the only one
     # left out, as "Destroy all other creatures. They can't be regenerated." says
     body = re.sub(r"\b([Dd]estroy all) (creatures|artifacts|enchantments|lands) except for ~\. Those \2 can't be regenerated\.", r"\1 other \2. They can't be regenerated.", body)
@@ -4130,7 +4136,7 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
     return {"do": "optional_payment", "who": payer, "cost": cost, "bind": bind, **sized, **({"needs": needs} if needs else {})}
 
 
-_THAT_PLAYER_MAY = re.compile(r"^(?:that|that attacking) player may (?P<v>create|draw|put|discard|sacrifice|exile|return|add|gain|lose|mill) (?P<rest>.+)$")
+_THAT_PLAYER_MAY = re.compile(r"^(?:(?:that|that attacking) player|(?P<c>its controller)) may (?P<v>create|draw|put|discard|sacrifice|exile|return|add|gain|lose|mill) (?P<rest>.+)$")  # (wave 51G: "its controller may create …", Brood Sliver)
 
 
 def _that_player_may(text: str, effects: list[dict[str, Any]], groups: list[dict[str, Any]], parse_clause: Any) -> list[dict[str, Any]] | None:
@@ -4141,11 +4147,12 @@ def _that_player_may(text: str, effects: list[dict[str, Any]], groups: list[dict
     if m is None:
         return None
     verb = _THEY_VERBS.get(m["v"], m["v"] + "s")
-    found = parse_clause(f"that player {verb} {m['rest']}.")  # (the effects of a clause with no target and no "may" of its own)
+    who = "its controller" if m["c"] else "that player"
+    found = parse_clause(f"{who} {verb} {m['rest']}.")  # (the effects of a clause with no target and no "may" of its own)
     if not found:
         return None
     bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
-    return [{"do": "optional_payment", "who": "that_player", "ask": f"{m['v']} {m['rest']}", "cost": "", "bind": bind},
+    return [{"do": "optional_payment", "who": "it.controller" if m["c"] else "that_player", "ask": f"{m['v']} {m['rest']}", "cost": "", "bind": bind},
             {"do": "only_if", "cond": {"succeeded": bind}, "skip": len(found)}, *found]
 
 
@@ -5539,7 +5546,7 @@ def _event_refs_ok(d: Definition) -> bool:
 
     skip = watches.deferred_event_effects(effects)
     effects = [e for i, e in enumerate(effects) if i not in skip]
-    wants_player = any(e.get("who") in ("event_player", "each_other_opponent")
+    wants_player = any(e.get("who") in ("event_player", "each_other_opponent", "event_opponents")
                        or str(e.get("who")).startswith("controlled:event_player|") for e in effects) or '"for_player": "event"' in raw \
         or any(e.get("player") == "event_player" or e.get("by") == "event_player" for e in effects)  # (wave 4E; "player": wave 6E; 25D: "by")
     wants_amount = any(_wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t", "mv", "max"))  # ("mv": a free cast's limit, wave 3R5; wave 26A "max": "search … for that many cards")

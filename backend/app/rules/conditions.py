@@ -456,6 +456,8 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         if n is None:
             return None
         return {"value": {"x": 1}, "op": "==" if not m["cmp"] else ("<=" if m["cmp"] in ("less", "fewer") else ">="), "n": n}
+    if t in ("you have the most life or are tied for most life", "you have the most life or you're tied for most life"):  # -- most-played cards IV (wave 51G) -- Preacher of the Schism: no opponent has more life than you (every other player is an opponent in Commander, 102.2)
+        return {"versus": {"value": {"life": "you"}, "op": "<=", "every": True}}
     m = _NO_MORE_LIFE.fullmatch(t)  # -- if you do (wave 21C) -- "no opponent has more life than that player" (Alliance commanders)
     if m:  # 603.4: every opponent of the controller has at most that player's life (that player may be one of them)
         return {"versus": {"value": {"life": "you"}, "op": "<=", "every": True, "ref": _AS[m["who"]]}}

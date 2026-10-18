@@ -72,6 +72,7 @@ PLAYER_GROUPS.update({f"{the} {kind}'s controller": "it.controller" for the in (
 # "~ deals 3 damage to target player or planeswalker. That player or that planeswalker's controller discards two cards."
 # (Blightning): the target player, or the target planeswalker's controller (app/rules/effects._players)
 PLAYER_GROUPS["that player or that planeswalker's controller"] = "target_player_or_controller"
+PLAYER_GROUPS["each of that player's opponents"] = "event_opponents"  # -- player groups (wave 51G) -- every player but the one the trigger event names (Heartwood Storyteller, Standstill)
 PLAYER_GROUPS["an opponent chosen at random"] = "random_opponent"  # -- random choices (wave 47B) -- app/rules/random_choice.py (scripts: the pick is made right before it)
 PLAYER_GROUPS["the exiled card's owner"] = "it.owner"  # -- resolution memory (wave 22D) -- 607.2a (exiled_with.linked_cards binds the card)
 # "Whenever ~ blocks or becomes blocked by a creature, ~ deals 3 damage to that creature and 3 damage to that creature's
@@ -1634,12 +1635,12 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # -- trigger tail (wave 16C) -- 119.5: "Target player's life total becomes 10." (Magister Sphinx), "Your life total becomes half your
     # starting life total, rounded up." (The Endstone): the player gains or loses the difference (effects.set_life)
     # (-- cost reductions paid with objects (wave 47C) -- "Up to one target player's life total becomes half their starting life total, rounded down." (Torgaar): 107.1a, 103.4)
-    m = re.fullmatch(r"(?P<s>(?:up to one )?target player's|your) life total becomes (?P<n>\d+|half (?:your|their) starting life total, rounded (?:up|down))", text)
+    m = re.fullmatch(r"(?P<s>(?:up to one )?target (?:player|opponent)'s|your) life total becomes (?P<n>\d+|half (?:your|their) starting life total, rounded (?:up|down))", text)  # (wave 51G: "target opponent's", Sorin Markov)
     if m and rider is None:
         n = ("half_start_down" if m["n"].endswith("down") else "half_start") if m["n"][0] == "h" else int(m["n"])
         if m["s"] == "your":
             return [{"do": "set_life", "who": "you", "n": n}], None
-        return [{"do": "set_life", "who": "target", "n": n}], _one(target_group("up to one target player")) if m["s"].startswith("up") else _LEGACY_TARGETS["target player"]
+        return [{"do": "set_life", "who": "target", "n": n}], _one(target_group("up to one target player")) if m["s"].startswith("up") else _LEGACY_TARGETS[m["s"][:-2]]
     # -- most-played cards II (wave 45A) -- 701.10d: "Double target player's life total." (Beacon of Immortality), "Double your life total." (Revenge): the player
     # gains or loses what it takes to reach twice the total (119.5, effects.set_life: gain and loss events, so their triggers and replacements apply)
     m = re.fullmatch(r"double (?P<s>target player's|your) life total", text)
