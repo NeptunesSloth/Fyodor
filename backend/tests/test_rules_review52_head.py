@@ -124,3 +124,41 @@ def test_tainted_sigil_leaves_out_a_player_who_left_the_game(cards):
     settle(s)
     assert s.state.players["p1"].life == 43  # Bob's 3; Carol has left
     check(s)
+
+
+# -- 702.104b, 701.14: Nessian Wilds Ravager: "if tribute wasn't paid, you may have this creature fight another target creature" (wave 52B pinned only its coverage)
+@pytest.mark.parametrize(("tribute", "bears"), [("no", "p2:graveyard"), ("pay", "p2:battlefield")])
+def test_nessian_wilds_ravager_fights_only_when_tribute_was_not_paid(cards, tribute, bears):
+    s = build(cards, ["Nessian Wilds Ravager"], ["Grizzly Bears"])
+    put(s, "Grizzly Bears", "p2")
+    mana(s, "p1", G=2, C=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Nessian Wilds Ravager").id)
+    asked = []
+
+    def answer(d):
+        asked.append(d.player)
+        ids = [o.id for o in d.options]
+        if d.player == "p2":
+            return [tribute]
+        return [card_named(s, "Grizzly Bears", "p2").id] if card_named(s, "Grizzly Bears", "p2").id in ids else ["yes"] if "yes" in ids else None
+    settle(s, answer)
+    assert zone_of(s, "Grizzly Bears", "p2") == bears and zone_of(s, "Nessian Wilds Ravager") == "p1:battlefield"
+    check(s)
+
+
+# -- 708.8, 701.14: Temur War Shaman: a manifested creature card turned face up may fight target creature you don't control (the turned-up permanent fights)
+def test_temur_war_shaman_a_creature_turned_face_up_fights(cards):
+    s = build(cards, ["Temur War Shaman", "Hill Giant"], ["Grizzly Bears"])
+    put(s, "Grizzly Bears", "p2")
+    giant = card_named(s, "Hill Giant")
+    act(s, "p1", type="move", card_ids=[giant.id], to={"player": "p1", "zone": "library"}, position="top")
+    mana(s, "p1", G=2, C=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Temur War Shaman").id)
+    settle(s)
+    assert s.state.cards[giant.id].zone == "p1:battlefield" and s.state.cards[giant.id].face_down  # manifested
+    mana(s, "p1", R=1, C=3)
+    act(s, "p1", type="turn_face_up", card_id=giant.id, method="mana_cost")
+    bears = card_named(s, "Grizzly Bears", "p2")
+    settle(s, lambda d: [bears.id] if bears.id in [o.id for o in d.options] else ["yes"] if "yes" in [o.id for o in d.options] else None)
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard" and s.state.cards[giant.id].damage == 2  # the 3/3 Giant and the 2/2 Bears
+    check(s)
