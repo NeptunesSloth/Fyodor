@@ -1327,5 +1327,39 @@
   "keywords": [
    "Flashback"
   ]
+ },
+ {
+  "name": "Curse of the Pierced Heart",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Aura Curse",
+  "oracle_text": "Enchant player\nAt the beginning of enchanted player's upkeep, this Aura deals 1 damage to that player or a planeswalker that player controls.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Arachnus Web",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nEnchanted creature can't attack or block, and its activated abilities can't be activated.\nAt the beginning of the end step, if enchanted creature's power is 4 or greater, destroy this Aura.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
  }
 ]

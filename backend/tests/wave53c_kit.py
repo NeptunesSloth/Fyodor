@@ -97,7 +97,7 @@ def bob_swings(s, attackers, blocks=(), target="p1"):
     raise AssertionError("no blockers were asked for")
 
 
-def cast_now(s, name, targets=(), pid="p1", counts=None, **m):
+def cast_now(s, name, targets=(), pid="p1", counts=None, prefer=None, **m):
     """Move ``name`` from the library to the hand, add ``m`` to the pool, cast it at ``targets`` and let the stack resolve."""
     c = in_play(s, name, pid)
     act(s, pid, type="move", card_ids=[c.id], to={"zone": "hand"})
@@ -105,7 +105,7 @@ def cast_now(s, name, targets=(), pid="p1", counts=None, **m):
     priority_to(s, pid)
     extra = {} if counts is None else {"target_counts": counts}
     act(s, pid, type="cast_spell", card_id=c.id, targets=[t if isinstance(t, str) else t.id for t in targets], **extra)
-    settle(s)
+    settle(s) if prefer is None else drive(s, prefer)  # (``prefer``: the choices to make, in drive's way, instead of settle's first options)
     return c
 
 
@@ -132,8 +132,12 @@ def drive(s, prefer=(), limit=40):
         d = s.state.rules.decision
         if d is not None:
             ids = [o.id for o in d.options]
-            pick = next((p for p in prefer if p in ids), "yes" if "yes" in ids else ids[0])
-            act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+            picks = [p for p in prefer if p in ids]
+            if d.max_choices and d.max_choices > 1:  # (a group of targets: every preferred one offered)
+                chosen = picks[: d.max_choices] or ids[: max(1, d.min_choices)]
+            else:
+                chosen = picks[:1] or (["yes"] if "yes" in ids else ids[:1])
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=chosen)
         elif s.state.zones.get("stack"):
             act(s, s.state.rules.priority, type="pass_priority")
         else:

@@ -2618,6 +2618,8 @@ def _attached_entries(plan: Plan, ctx: Context, host_ref: str, entries: list[dic
     from app.rules import attachments
 
     hosts = [c for c in _cards(plan, ctx, host_ref) if plan.state.cards[c].zone.endswith(":battlefield")]
+    if not hosts and host_ref == "target":  # -- block events (wave 53C) -- a Curse is put onto the battlefield attached to a player (303.4c)
+        hosts = [t["id"] for t in target_refs(ctx, "target") if t["id"] in plan.live()]
     host = hosts[0] if len(hosts) == 1 else None
     out = []
     for entry in entries:
@@ -3476,6 +3478,8 @@ def _reflexive_event(plan: Plan, ctx: Context, name: str) -> Any:
     before = [ObjectRef.model_validate(r) for r in b.get("objects") or []] if b.get("kind") in ("payment", "objects") else []
     if b.get("kind") == "probe" and b.get("to") == "exile":  # -- reflexive exile (wave 41B) -- the object an exile was about to take (_did): its last known information
         before = [ObjectRef(card=c, object_id=o) for c, o in (b.get("cards") or {}).items()]
+    elif b.get("kind") == "probe" and b.get("attached"):  # -- block events (wave 53C) -- what an Aura / Equipment / Role was attached to (attach_entry.attach_to, roles.create_role)
+        before = [ObjectRef(card=h, object_id=plan.oid(h)) for h in dict.fromkeys(b["attached"].values()) if h in plan.state.cards]
     elif b.get("kind") == "probe" and b.get("left"):  # (… or the permanents that were there when "exile … until" chose and are not any more: a token ceased to exist, 111.7)
         before = [ObjectRef(card=c, object_id=o) for c, o in b["left"].items()
                   if (card := plan.state.cards.get(c)) is None or (card.zone.endswith(":exile") and plan.oid(card) != o)]
@@ -4898,6 +4902,7 @@ RESUME.update(_stack_interaction.RESUME)
 from app.rules import roles as _roles  # noqa: E402, I001
 
 PRIMITIVES.update(_roles.PRIMITIVES)
+PRIMITIVES.update(block_events.PRIMITIVES)  # -- block events (wave 53C) -- an effect making an attacker become blocked
 from app.rules import decayed as _decayed  # noqa: E402, I001  (702.147: decayed's sacrifice at end of combat)
 
 PRIMITIVES.update(_decayed.PRIMITIVES)

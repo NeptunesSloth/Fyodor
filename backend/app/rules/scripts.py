@@ -1272,7 +1272,7 @@ def rename_bindings(value: Any, prefix: str) -> Any:
             out[k] = v
             continue
         if k in ("as", "bind", "succeeded", "flag", "did", "ref_amount", "ref_count",
-                 "bind_dealt", "bind_excess", "bind_hit", "paid_x", "perm_as", "bind_amount", "exclude") and isinstance(v, str) and v not in (this_way.COST, this_way.DEVOURED):  # (wave 48B: the spell's own cost, a devourer's own sacrifices: one name for every line)  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
+                 "bind_dealt", "bind_excess", "bind_hit", "paid_x", "perm_as", "bind_amount", "exclude", "lki") and isinstance(v, str) and v not in (this_way.COST, this_way.DEVOURED, "cond_ref"):  # (wave 53C: "lki", a reflexive ability's event binding)  # (wave 48B: the spell's own cost, a devourer's own sacrifices: one name for every line)  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
             v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on;
             # "flag": the verdict an "instead" / "Otherwise" clause reads)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
@@ -3452,7 +3452,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         body = re.sub(r"(?:, then| and) shuffle (?:the rest|all other cards revealed this way) into your library", ", then shuffle", body)
     from app.rules import watches  # -- turn watches (wave 7D) --
 
-    body = watches.join_choose(watches.join_retarget(body))  # (-- turn-long triggers (wave 33A) --)
+    body = block_events.rewrite(watches.join_choose(watches.join_retarget(body)))  # (-- turn-long triggers (wave 33A) --; wave 53C: "When one or more Equipment become attached …")
     if it is None and not event_player:  # -- if you do (wave 5G) -- a spell's or an activated ability's "each other
         # player": every other player than its controller is an opponent in a free-for-all (102.2, 806.2); in a trigger
         # "other" may be relative to the event's player — not read there
@@ -5304,6 +5304,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     body = body.replace("the other creature", "that creature")  # (wave 11E: Venom, Mammoth Harness)
                 if cond is not None and cond.get("event") == "blocked" and cond.get("other"):  # -- trigger other (wave 39A) -- 509.3d: "the blocking creature"
                     body = re.sub(r"\bthe blocking creature\b", "that creature", body)  # (Order of the Mirror) is the creature that blocked this one: "that creature"
+                if cond is not None and cond.get("event") == "block" and cond.get("other"):  # -- block events (wave 53C) -- 509.3b: "destroy the attacking creature" (No Quarter) is the creature it blocks
+                    body = re.sub(r"\bthe attacking creature\b", "that creature", body)
                 if cond is not None and other_side.wanted(cond) and cond.get("subject", "self") == "self":
                     # -- trigger tail (wave 15B) -- "When this creature blocks a creature, destroy both creatures / that creature and
                     # this creature.": the creature on the other side, then this one (509.3b)
@@ -7107,6 +7109,16 @@ def _delayed_this_turns_end_combat(m: re.Match[str]) -> tuple[list[dict[str, Any
 
 # -- block events (wave 53C) -- "Choose target creature. At this turn's next end of combat, destroy all creatures that blocked or were blocked by it this turn." (Venomous Breath):
 # the sentence only names the target (115.1) the following sentence's "it" / "that creature" is
+@effect(r"(?P<t>target unblocked attacking creature) becomes blocked")
+def _becomes_blocked(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language
+
+    group = language.target_group(m["t"])
+    if group is None:
+        raise _NoMatch
+    return [{"do": "become_blocked", "who": "target"}], group["what"]  # -- block events (wave 53C) -- 509.1h, 509.3c (block_events.become_blocked)
+
+
 @effect(r"choose (?P<t>target [^.,]+?)")
 def _choose_target_only(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
@@ -7967,7 +7979,7 @@ def _gated_other_rewrite(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # you do, …"): whether the player started that one instruction (118.12; an object gone is "can't", a count other than one is read
 # only if the whole of it could be paid, 118.3), probed as it runs (effects._did_r1, effects._did). The sentence before must be that one instruction (an intervening "if" of a trigger may gate it).
 _DID_MANDATORY = frozenset({"sacrifice", "sacrifice_choice", "edict", "remove_counters", "discard", "exile", "bounce", "add_counters", "tap", "search",
-                            "choose_random", "gain_control", "transform", "attach_to"})  # (gain_control: wave 50C, Bill Ferny; transform: Ratchet)  # (choose_random: wave 47B, "Choose a player at random. When you do, …")
+                            "choose_random", "gain_control", "transform", "attach_to", "create_role"})  # (gain_control: wave 50C, Bill Ferny; transform: Ratchet)  # (choose_random: wave 47B, "Choose a player at random. When you do, …")
 
 
 def _if_you_do_after_mandatory(if_do: re.Match[str], effects: list[dict[str, Any]],
@@ -8181,6 +8193,8 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     lki = _reflexive_lki(base, cond["succeeded"], body)
     if lki is not None:
         body = lki
+    elif len(base) == 1 and base[0]["do"] in ("attach_to", "create_role") and base[0].get("did") == cond["succeeded"] and re.search(r"\bthat creature\b", body):
+        lki = body  # -- block events (wave 53C) -- 603.12: "Create a Monster Role token attached to target creature you control. When you do, that creature fights …": the creature it was attached to is the event's object
     # -- end reflexive LKI (wave 4J) --
     # (-- trigger tail (wave 15B) -- "it" is the ability's source when the trigger is about it: "you may pay {2}{R}. When you do, it
     # deals 3 damage to any target"; the reflexive ability has that same source, 603.12)

@@ -741,7 +741,7 @@ _SEARCH = re.compile(
     rf"(?:(?P<who>{'|'.join(sorted(_SEARCHERS, key=len, reverse=True))}) (?:may |(?=searches ))?)?"  # (wave 19E: "searches")
     rf"searche?s? (?P<lib>your|their) library for (?:(?P<upto>up to) )?(?P<n>any number of|{AMT}) (?P<sel>.+?)(?:,? and |, )"
     rf"(?:(?P<reveal>reveal {_PRON})(?:,? and |, ))?"
-    rf"(?:puts? (?:(?P<one>one)(?: of them)? (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE})(?: attached to (?P<host>~|this creature|this equipment))?"
+    rf"(?:puts? (?:(?P<one>one)(?: of them)? (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE})(?: attached to (?P<host>~|this creature|this equipment|target player|target opponent|target creature(?: you control)?))?"  # (wave 53C: a target host, Bitterheart Witch)
     rf"(?P<cond> if it's (?P<cq>an? [a-z ]+? card) and (?P<els>{_PLACE}) otherwise)?)(?P<shuf>, then shuffles?)?"  # (cond: wave 50I)
     rf"|(?P<exile>exile {_PRON}(?P<fd> face down)?)(?P<shuf2>, then shuffle)?"
     rf"|then shuffles? and puts? {_PRON} (?:on top(?: in any order)?|(?P<third>third from the top)))")  # (wave 42C: "searches …, then shuffles and puts that card on top")  # ("in any order": wave 3R4; third: wave 20D)
@@ -994,6 +994,10 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
         if not to.startswith("battlefield") or n != 1 or m["one"]:
             raise _Fail
         extra["host"] = "self"
+        if m["host"].startswith("target "):  # -- block events (wave 53C) -- "…attached to target player": a target of the ability, chosen with it (115.1); a Curse is attached to a player (303.4c)
+            if target_found is not None or (group := target_group(m["host"])) is None:
+                raise _Fail
+            extra["host"], target_found = "target", _one(group)
     if m["cond"]:  # -- most-played modal spells (wave 50I) -- "Put it onto the battlefield tapped if it's a land card. Otherwise, put it into your hand." (Archdruid's Charm): the card found
         # goes where its kind says (701.23, 608.2c); it is revealed, so where it goes is public
         kind = _card_selector(re.sub(r"^an? ", "", m["cq"]))
@@ -1019,7 +1023,7 @@ _GY_ZONES = (r"(?P<zones>library and/or graveyard|graveyard and/or library|(?:gr
              r"|hand and/or library|library and/or hand)")
 _SEARCH_GY = re.compile(rf"search your {_GY_ZONES} for (?P<q>(?:up to )?(?:{AMT})) (?P<sel>.+?)(?:,? and |, )"
                         rf"(?:(?P<reveal>reveal {_PRON})(?:,? and |, )(?:then )?)?put (?P<pron>{_PRON}) "
-                        rf"(?P<dest>into your hand|onto the battlefield)(?P<host> attached to (?:~|this creature|this equipment))?(?P<then>, then shuffle)?")
+                        rf"(?P<dest>into your hand|onto the battlefield)(?P<host> attached to (?:~|this creature|this equipment|target creature(?: you control)?|target player|target opponent))?(?P<then>, then shuffle)?")  # (wave 53C: a target host, Arachnus Spinner)
 
 
 _GAMBLE = re.compile(r"search your library for a card, put (?:that card|it) into your hand, (?P<first>shuffle, then )?"
@@ -1049,11 +1053,11 @@ def _search_gy(text: str) -> tuple[Effects, str | None] | None:
     if " and/or " not in m["zones"] and len(zones) == 3:  # -- if you do (wave 15C) -- "your graveyard, hand, and library": all three
         if may or not m["then"]:
             raise _Fail  # (the library is searched, so it is shuffled: 701.24, only when told; a "may" is not read)
-        return [{**e, "zones": zones, "shuffle": True}], None
+        return [{**e, "zones": zones, "shuffle": True}], found[1]
     if m["then"]:
         raise _Fail  # (a "may" search, "then shuffle": only the forced three zones, above)
     extra = {"search_zones": zones} if "hand" in zones else {}
-    return [{**e, "graveyard": True, "shuffle": False, **extra, **({"may": True, "optional": True} if may else {})}], None
+    return [{**e, "graveyard": True, "shuffle": False, **extra, **({"may": True, "optional": True} if may else {})}], found[1]
 
 
 # -- the top of a library (401, 701.20 reveal, 701.20e look, 701.24 shuffle) ----------------------

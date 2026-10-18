@@ -235,6 +235,12 @@ def _enchanted_or_equipped(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, m["w"].replace(" ", "_")))
 
 
+# -- block events (wave 53C) -- "Attach this Aura to target creature other than enchanted creature." (Kjeldoran Pride): not the creature the source is attached to
+@_suffix(r"other than (?:enchanted|equipped) creature")
+def _other_than_host(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "not_host_of_source"))
+
+
 @_suffix(r"other than ~")
 def _other_than_self(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, other=True)
@@ -2095,6 +2101,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "attached_source" and (source is None or card.attached_to != source):  # -- activated other (wave 34B) -- attached to the source itself
             return False
+        if extra == "not_host_of_source" and (src_ := plan.state.cards.get(source or "")) is not None and src_.attached_to == card.id:  # (wave 53C)
+            return False
         if extra == "host_of_source" and ((src := plan.state.cards.get(source or "")) is None or src.attached_to != card.id):
             return False  # -- attached events (wave 40B) -- 303.4b, 301.5: the permanent the source (an Aura / Equipment) is attached to ("Tap enchanted creature")
         if extra.startswith("attached_creature"):  # -- attached events (wave 30S) -- attached to a creature (of yours)
@@ -2161,7 +2169,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "blocked" and card.id not in plan.rules.blocked:  # (wave 49A)
             return False
-        if extra == "unblocked" and card.id in plan.rules.blocked:  # (wave 15E) a blocked attacker stays blocked
+        if extra == "unblocked" and (card.id in plan.rules.blocked or not _blockers_declared(plan)):  # (wave 15E) a blocked attacker stays blocked; (wave 53C) 509.1h: it is unblocked once blockers are declared
             return False
         if extra == "attacked_this_turn" and not _attacked_this_turn_now(plan, card):  # -- combat (wave 5C) --
             return False
@@ -2273,6 +2281,12 @@ def _attacked_this_turn_now(plan: Plan, card: CardInstance) -> bool:
     if r is None or r.turn_log.turn != plan.state.turn.number:
         return False
     return r.object_id(card.id) in {a for ids in r.turn_log.attackers.values() for a in ids}
+
+
+def _blockers_declared(plan: Plan) -> bool:
+    from app.rules import block_events
+
+    return block_events.blockers_declared(plan)
 
 
 def _blocked_this_turn_now(plan: Plan, card: CardInstance) -> bool:

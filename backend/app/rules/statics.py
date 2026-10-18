@@ -1082,6 +1082,10 @@ def _rule(piece: str) -> list[str] | None:
     plain = RULES.get(piece)
     if plain is not None:
         return list(plain)
+    m = re.fullmatch(r"must be blocked by an? (?P<sel>.+?) if able", piece)  # -- block events (wave 53C) -- 509.1c: one creature of that kind (combat.block_requirements)
+    if m and not m["sel"].startswith(("creature", "two ")):
+        key = _sel_key(m["sel"], plural=False)
+        return [f"must_be_blocked_by:{key}"] if key else None
     m = re.fullmatch(r"must be blocked by all (?P<sel>.+) able", piece)  # (-- lure (wave 12B) -- only those creatures must)
     if m:
         sels = _sels(m["sel"])

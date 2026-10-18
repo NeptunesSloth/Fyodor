@@ -17,7 +17,7 @@ from typing import Any
 _SELF = r"(?:~|this (?:Equipment|equipment|permanent|Aura|aura))"
 _ONE = re.compile(rf"^attach {_SELF} to (?P<tgt>(?:up to one )?(?:another )?target [^,.]+)$")  # (wave 16D: "up to one"; 18E: "another")
 _UNATTACH = re.compile(rf"^unattach {_SELF}$")  # -- casting extras (wave 18E) -- 702.151a (reconfigure)
-_PAIR = re.compile(r"^attach (?P<src>(?:up to one )?target [^,.]+?) to (?P<dst>(?:up to one )?target [^,.]+)$")  # (wave 19B: "up to one"; 30S: the Equipment too)
+_PAIR = re.compile(r"^attach (?P<src>(?:up to one |any number of )?target [^,.]+?) to (?P<dst>(?:up to one )?target [^,.]+)$")  # (wave 53C: "any number of target Equipment you control", Thorin)  # (wave 19B: "up to one"; 30S: the Equipment too)
 _TO_SELF = re.compile(rf"^attach (?P<src>(?:up to one )?target [^,.]+?) to {_SELF}$")
 _TO_THIS_CREATURE = re.compile(r"^attach (?P<src>target [^,.]+?) to this creature$")
 _TO_IT = re.compile(r"^attach (?P<src>(?:up to one |any number of )?target [^,.]+?) to (?:it|that creature)$")  # (wave 19B: the trigger's creature, or ~)

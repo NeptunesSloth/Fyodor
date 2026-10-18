@@ -766,13 +766,19 @@ def _damaged_by(plan: Plan, watcher: CardInstance, victim: str | None) -> bool:
     return any(f.kind == "damaged" and f.object_id == victim and f.source in mine for f in log.facts)
 
 
-def _other_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, info: dict[str, Any]) -> bool:
+def _other_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, info: dict[str, Any], obj: CardInstance | None = None) -> bool:
     """"blocks a creature with flying" / "becomes blocked by a Wall": the creature on the other side."""
     from app.rules import selectors
 
     if not cond.get("other"):
         return True
     other = plan.state.cards.get(info.get("other") or "")
+    if other is not None and cond.get("other_cmp") and obj is not None:  # -- block events (wave 53C) -- "blocked by a creature with lesser power" (No Quarter): than the creature it is blocked by / blocks, 509.3f
+        from app.rules.sba import power
+
+        theirs, mine = power(other, plan.ch(other)), power(obj, plan.ch(obj))
+        if theirs is None or mine is None or not theirs < mine:
+            return False
     return other is not None and selectors.matches(plan, selectors.from_key(cond["other"]), other, plan.ch(other),
                                                    watcher.controller, watcher.id)
 
@@ -783,7 +789,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
 
     event, obj, och, player, info = fact
     you = watcher.controller
-    if not _other_ok(plan, cond, watcher, info):
+    if not _other_ok(plan, cond, watcher, info, obj):
         return False
     if cond.get("to") == "self" and info.get("other") != watcher.id:  # -- attachment events (wave 30S) -- "an Aura becomes attached to this creature"
         return False

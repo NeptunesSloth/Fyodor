@@ -830,3 +830,291 @@ def test_magitek_scythe_attach_gives_first_strike_and_must_be_blocked(cards):
         act(s, "p2", type="declare_blockers", blocks=[])  # Guard could block it
     act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": guard.id, "attacker_id": brute.id}])
     check(s)
+
+
+def test_curse_of_the_werefox_makes_a_role_and_the_creature_fights(cards):
+    s = sandbox(cards, "Curse of the Werefox")
+    brute = creature(s, "p1", "Brute", "2/2")
+    victim = creature(s, "p2", "Victim", "2/2")
+    other = creature(s, "p2", "Other", "1/1")
+    main_step(s)
+    cast_now(s, "Curse of the Werefox", [brute], G=1, C=3)
+    drive(s, [victim.id])
+    pl = Plan(s.state, "p1", s.cards, None)
+    roles = [c for c in s.state.cards.values() if c.name == "Monster" and c.attached_to == brute.id]
+    assert len(roles) == 1 and pl.ch(s.state.cards[brute.id]).pt == (3, 3)  # the Monster Role: +1/+1
+    assert not alive(s, victim) and alive(s, other) and s.state.cards[brute.id].damage == 2  # it fought: 3 damage to the Victim, 2 back (the Role's +1/+1 counted)
+    check(s)
+
+
+# -- "must be blocked by a [kind] if able" (509.1c) --
+def declare_to_blockers(s, attackers):
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"} for c in attackers])
+    for _ in range(8):
+        if s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers":
+            return
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no blockers were asked for")
+
+
+@pytest.mark.parametrize(("name", "kind"), [("Slayer's Cleaver", "Eldrazi"), ("Ace's Baseball Bat", "Dalek")])
+def test_must_be_blocked_by_a_kind_of_creature_if_able(cards, name, kind):
+    s = sandbox(cards, name)
+    gear = on_field(s, name)
+    brute = creature(s, "p1", "Brute", "2/2")
+    wanted = creature(s, "p2", kind + " One", "1/1", type_line=f"Token Creature — {kind}")
+    other = creature(s, "p2", "Other", "1/1")
+    attach(s, gear, brute)
+    combat_step(s)
+    declare_to_blockers(s, [brute])
+    with pytest.raises(ActionError, match="must be blocked by"):
+        act(s, "p2", type="declare_blockers", blocks=[])  # a creature of that kind could block it
+    with pytest.raises(ActionError, match="must be blocked by"):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": other.id, "attacker_id": brute.id}])  # a block by another kind doesn't meet it
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": wanted.id, "attacker_id": brute.id}, {"blocker_id": other.id, "attacker_id": brute.id}])
+    check(s)
+
+
+def test_must_be_blocked_by_a_kind_needs_no_block_when_none_of_that_kind_can(cards):
+    s = sandbox(cards, "Slayer's Cleaver")
+    gear = on_field(s, "Slayer's Cleaver")
+    brute = creature(s, "p1", "Brute", "2/2")
+    creature(s, "p2", "Other", "1/1")
+    attach(s, gear, brute)
+    combat_step(s)
+    declare_to_blockers(s, [brute])
+    act(s, "p2", type="declare_blockers", blocks=[])  # there is no Eldrazi
+    check(s)
+
+
+# -- an effect makes an unblocked attacker become blocked (509.1h, 509.3c) --
+def test_curtain_of_light_makes_an_unblocked_attacker_blocked_so_it_deals_no_damage(cards):
+    s = sandbox(cards, "Curtain of Light")
+    brute = creature(s, "p1", "Brute", "5/5", text="Whenever this creature becomes blocked, you gain 1 life.")
+    plain = creature(s, "p1", "Plain", "3/3")
+    guard = creature(s, "p2", "Guard", "0/9")
+    combat_step(s)
+    swing(s, [brute, plain], [(guard, plain)], before=None)
+    cast_now(s, "Curtain of Light", [brute], W=1, C=1)  # the unblocked Brute becomes blocked
+    assert s.state.players["p1"].life == 41  # "becomes blocked" triggered (509.3c)
+    to_postcombat(s)
+    assert s.state.players["p2"].life == 40  # blocked, with no blocker and no trample: no combat damage (510.1c)
+    check(s)
+
+
+def test_curtain_of_light_cannot_target_before_blockers_or_a_blocked_attacker(cards):
+    s = sandbox(cards, "Curtain of Light")
+    brute = creature(s, "p1", "Brute", "5/5")
+    guard = creature(s, "p2", "Guard", "0/9")
+    combat_step(s)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": brute.id, "target": "p2"}])
+    priority_to(s, "p1")
+    with pytest.raises(ActionError):
+        cast_now(s, "Curtain of Light", [brute], W=1, C=1)  # blockers aren't declared yet: it is neither blocked nor unblocked (509.1h)
+    for _ in range(8):
+        if s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": guard.id, "attacker_id": brute.id}])
+    with pytest.raises(ActionError):
+        cast_now(s, "Curtain of Light", [brute], W=1, C=1)  # it is blocked
+    check(s)
+
+
+def test_trample_still_deals_damage_to_the_player_when_made_blocked(cards):
+    s = sandbox(cards, "Dazzling Beauty")
+    brute = creature(s, "p1", "Brute", "5/5", text="Trample")
+    guard = creature(s, "p2", "Guard", "0/9")
+    other = creature(s, "p1", "Other", "1/1")
+    combat_step(s)
+    swing(s, [brute, other], [(guard, other)])
+    cast_now(s, "Dazzling Beauty", [brute], W=1, C=2)
+    to_postcombat(s)
+    assert s.state.players["p2"].life == 40 - 5  # 702.19e: all of it to the player (a blocked creature with trample and no blocker)
+    check(s)
+
+
+def test_trap_runner_taps_to_make_an_unblocked_attacker_blocked(cards):
+    s = sandbox(cards, "Trap Runner")
+    runner = on_field(s, "Trap Runner")
+    brute = creature(s, "p1", "Brute", "5/5")
+    guard = creature(s, "p2", "Guard", "0/9")
+    other = creature(s, "p1", "Other", "1/1")
+    combat_step(s)
+    swing(s, [brute, other], [(guard, other)])
+    activate(s, "p1", runner, "unblocked", targets=[brute.id])
+    settle(s)
+    to_postcombat(s)
+    assert s.state.players["p2"].life == 40
+    check(s)
+
+
+def test_thorin_attaches_the_equipment_and_the_creature_deals_damage_equal_to_its_power(cards):
+    s = sandbox(cards, "Thorin, Mountain-king", "Trailblazer's Torch", "Mirror Shield")
+    torch = on_field(s, "Trailblazer's Torch")
+    shield = on_field(s, "Mirror Shield")
+    brute = creature(s, "p1", "Brute", "3/3")
+    victim = creature(s, "p2", "Victim", "2/2")
+    bystander = creature(s, "p2", "Bystander", "2/5")
+    main_step(s)
+    cast_now(s, "Thorin, Mountain-king", [], R=2, W=2, C=4, prefer=[torch.id, shield.id, victim.id, brute.id])
+    assert s.state.cards[torch.id].attached_to == brute.id and s.state.cards[shield.id].attached_to == brute.id
+    assert not alive(s, victim) and alive(s, bystander)  # Brute (3 power) dealt 3 to the creature chosen
+    check(s)
+
+
+def test_kjeldoran_pride_moves_to_another_creature_only(cards):
+    s = sandbox(cards, "Kjeldoran Pride")
+    pride = on_field(s, "Kjeldoran Pride")
+    a = creature(s, "p1", "Enchanted", "1/1")
+    b = creature(s, "p1", "Other", "1/1")
+    attach(s, pride, a)
+    main_step(s)
+    pool(s, U=1, C=2)
+    with pytest.raises(ActionError):
+        activate(s, "p1", pride, "Attach", targets=[a.id])  # not the creature it enchants
+    activate(s, "p1", pride, "Attach", targets=[b.id])
+    settle(s)
+    assert s.state.cards[pride.id].attached_to == b.id
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[b.id]).pt == (2, 3) and Plan(s.state, "p1", s.cards, None).ch(s.state.cards[a.id]).pt == (1, 1)
+    check(s)
+
+
+def test_bitterheart_witch_finds_a_curse_and_puts_it_onto_the_battlefield_attached_to_a_player(cards):
+    s = sandbox(cards, "Bitterheart Witch", "Curse of the Pierced Heart", "Lightning Bolt")
+    witch = on_field(s, "Bitterheart Witch")
+    main_step(s)
+    cast_now(s, "Lightning Bolt", [witch], R=1, prefer=["p2", "yes"])
+    for _ in range(6):  # (the search: any card the library shows, the Curse; answered with the first)
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            ids = [o.id for o in d.options]
+            curse = [i for i in ids if i in s.state.cards and s.state.cards[i].name == "Curse of the Pierced Heart"]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=curse[:1] or (["p2"] if "p2" in ids else ["yes"] if "yes" in ids else ids[:1]))
+    curse = in_play(s, "Curse of the Pierced Heart")
+    assert s.state.cards[curse.id].zone == "p1:battlefield" and s.state.cards[curse.id].attached_player == "p2"
+    check(s)
+
+
+def test_arachnus_spinner_fetches_the_web_attached_to_a_target_creature(cards):
+    s = sandbox(cards, "Arachnus Spinner", "Arachnus Web")
+    spinner = on_field(s, "Arachnus Spinner")
+    victim = creature(s, "p2", "Victim", "2/2")
+    main_step(s)
+    activate(s, "p1", spinner, "Search", targets=[victim.id])
+    for _ in range(8):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            ids = [o.id for o in d.options]
+            web = [i for i in ids if i in s.state.cards and s.state.cards[i].name == "Arachnus Web"]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=web[:1] or (["yes"] if "yes" in ids else ids[:1]))
+    web = in_play(s, "Arachnus Web")
+    assert s.state.cards[web.id].zone == "p1:battlefield" and s.state.cards[web.id].attached_to == victim.id
+    check(s)
+
+
+def test_no_quarter_destroys_the_blocker_with_lesser_power_and_the_attacker_it_outpowers(cards):
+    s = sandbox(cards, "No Quarter")
+    on_field(s, "No Quarter")
+    brute = creature(s, "p1", "Brute", "3/3")
+    raider = creature(s, "p1", "Raider", "2/2")
+    twin = creature(s, "p1", "Twin", "2/2")
+    weak = creature(s, "p2", "Weak", "1/9")
+    wall = creature(s, "p2", "Wall", "4/9")
+    even = creature(s, "p2", "Even", "2/9")
+    combat_step(s)
+    swing(s, [brute, raider, twin], [(weak, brute), (wall, raider), (even, twin)])
+    settle(s)
+    assert not alive(s, weak) and alive(s, brute)  # the blocker had less power than the creature it blocks: destroyed
+    assert not alive(s, raider) and alive(s, wall)  # the blocker has more: the attacker is destroyed
+    assert alive(s, twin) and alive(s, even)  # equal power: neither
+    check(s)
+
+
+def test_catacomb_dragon_shrinks_a_nonartifact_non_dragon_blocker_by_half_its_power(cards):
+    s = sandbox(cards, "Catacomb Dragon")
+    dragon = on_field(s, "Catacomb Dragon")
+    big = creature(s, "p2", "Big", "5/9", text="Reach")
+    mid = creature(s, "p2", "Mid", "3/9", text="Reach")
+    robot = token_of(s, "p2", "Robot", "Token Artifact Creature — Robot", "6/9", text="Reach")
+    drake = token_of(s, "p2", "Drake", "Token Creature — Dragon", "6/9", text="Reach")
+    combat_step(s)
+    swing(s, [dragon], [(big, dragon), (mid, dragon), (robot, dragon), (drake, dragon)])
+    settle(s)
+    pl = Plan(s.state, "p1", s.cards, None)
+    assert [pl.ch(s.state.cards[c.id]).pt[0] for c in (big, mid, robot, drake)] == [5 - 2, 3 - 1, 6, 6]  # half, rounded down; an artifact or a Dragon is spared
+    check(s)
+
+
+def test_basalt_golem_makes_the_blocker_be_sacrificed_for_a_wall(cards):
+    s = sandbox(cards, "Basalt Golem")
+    golem = on_field(s, "Basalt Golem")
+    guard = creature(s, "p2", "Guard", "1/9")
+    combat_step(s)
+    swing(s, [golem], [(guard, golem)])
+    settle(s)
+    assert alive(s, guard)  # not before the end of combat
+    to_postcombat(s)
+    assert not alive(s, guard)
+    walls = [c for c in s.state.cards.values() if c.name == "Wall" and c.owner == "p2" and c.zone == "p2:battlefield"]
+    assert len(walls) == 1  # its controller made the Wall
+    check(s)
+
+
+def test_basalt_golem_makes_no_wall_if_the_blocker_died_first(cards):
+    s = sandbox(cards, "Basalt Golem")
+    golem = on_field(s, "Basalt Golem")
+    guard = creature(s, "p2", "Guard", "1/1")
+    combat_step(s)
+    swing(s, [golem], [(guard, golem)])
+    to_postcombat(s)
+    assert not alive(s, guard)  # died in combat damage
+    assert not [c for c in s.state.cards.values() if c.name == "Wall" and c.owner == "p2"]
+    check(s)
+
+
+def test_sungold_sentinel_chooses_a_color_for_hexproof_and_evasion(cards):
+    s = sandbox(cards, "Sungold Sentinel")
+    sentinel = on_field(s, "Sungold Sentinel")
+    creature(s, "p1", "One", "1/1")
+    creature(s, "p1", "Two", "2/2")
+    red = token_of(s, "p2", "Imp", "Token Creature — Imp", "1/9", colors=["R"])
+    green = token_of(s, "p2", "Elf", "Token Creature — Elf", "1/9", colors=["G"])
+    main_step(s)
+    pool(s, W=1, C=1)
+    activate(s, "p1", sentinel, "Choose a color")
+    d = ask(s)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Red"])
+    settle(s)
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[sentinel.id])
+    assert "hexproof from" in ch.keywords and any(a.text == "Hexproof from red." for a in ch.abilities)  # 702.11d: from red only
+    until(s, lambda s: s.state.turn.phase == "declare_attackers", limit=30)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": sentinel.id, "target": "p2"}])
+    for _ in range(8):
+        if s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    with pytest.raises(ActionError, match="can't be blocked"):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": red.id, "attacker_id": sentinel.id}])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": green.id, "attacker_id": sentinel.id}])
+    check(s)
+
+
+def test_sungold_sentinel_needs_three_creatures_with_different_powers(cards):
+    s = sandbox(cards, "Sungold Sentinel")
+    sentinel = on_field(s, "Sungold Sentinel")
+    creature(s, "p1", "One", "3/1")
+    creature(s, "p1", "Two", "2/2")  # (powers 3, 3, 2: two different)
+    main_step(s)
+    pool(s, W=1, C=1)
+    with pytest.raises(ActionError):
+        activate(s, "p1", sentinel, "Choose a color")
+    check(s)

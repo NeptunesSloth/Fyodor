@@ -265,8 +265,8 @@ def probe_ok(plan: Any, ctx: Context, name: str) -> bool:
         return any((card := plan.state.cards.get(cid)) is not None and plan.oid(card) == oid
                    and card.counters.get(b["counter"], 0) > n for cid, (oid, n) in b["counters_up"].items())
     if "attached" in b:  # -- block events (wave 53C) -- 701.3a: "attach it to … If you do": what was to be attached is attached to the object it was to go to (attach_entry.attach_to)
-        return bool(b["attached"]) and all((card := plan.state.cards.get(cid)) is not None and host in (card.attached_to, card.attached_player)
-                                           for cid, host in b["attached"].items())
+        return any((card := plan.state.cards.get(cid)) is not None and host in (card.attached_to, card.attached_player)  # (one or more: "When one or more Equipment become attached")
+                   for cid, host in b["attached"].items())
     if "hands_down" in b:
         return any(len(plan.state.zones.get(f"{p}:hand", [])) < n for p, n in b["hands_down"].items())
     return bool(b["cards"])  # (the objects taken before the move, effects._did / _picked: "to", the zone asked for, is not read)

@@ -95,12 +95,15 @@ def _host_ok(plan: Plan, card: CardInstance, role_ch: Any) -> bool:
 
 def create_role(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Create the Role attached to the object (see the module docstring)."""
-    from app.rules import attachments, effects, replace
+    from app.rules import attachments, context, effects, replace
 
     role_ch = _characteristics(e["role"])
     hosts = [c for c in effects._cards(plan, ctx, e["who"]) if _host_ok(plan, plan.state.cards[c], role_ch)]
+    name = e.get("did")  # -- block events (wave 53C) -- "Create a Monster Role token attached to target creature you control. When you do, …" (603.12): done if a Role is attached to it
     if len(hosts) != 1:
         plan.note(f"No {e['role']} Role token is created: nothing it could enchant (303.4i)", actor=ctx["controller"])
+        if name:
+            context.refs(ctx)[name] = {"kind": "probe", "attached": {}}
         return True
     host = hosts[0]
     source = ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None
@@ -110,6 +113,8 @@ def create_role(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         return False  # (the creating player orders replacement effects first: this runs again, 616.1)
     for tid in made:  # (all of them, if a replacement effect made more: each enters attached to it, 303.4f)
         attachments.attach(plan, tid, host, ctx["controller"])
+    if name:
+        context.refs(ctx)[name] = {"kind": "probe", "attached": {tid: host for tid in made}}
     return True
 
 

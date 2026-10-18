@@ -232,6 +232,13 @@ def targeted(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list
     return effects, kinds.pop(), found[2]
 
 
+def rewrite(body: str) -> str:
+    """Wordings that say "When you do" another way: "attach any number of target Equipment you control to target creature you control. When one or more Equipment become attached
+    to that creature this way, that creature deals damage equal to its power to up to one target creature." (Thorin, Mountain-king): a reflexive ability (603.12) that triggers
+    if any Equipment was attached to it."""
+    return re.sub(r"\bWhen one or more Equipment become attached to that creature this way, ", "When you do, ", body)
+
+
 def host_wording(body: str) -> str:
     """A trigger of the creature an Aura / Equipment is attached to, about the creature on the other side of a block: "it gains deathtouch" (Hedron Blade) and
     "the first creature assigns no combat damage" (Laccolith Rig) name the host, which "that creature" (the other side) would hide."""
@@ -249,6 +256,19 @@ def both_creatures(cond: dict[str, Any], body: str) -> tuple[list[dict[str, Any]
         return [{"do": "destroy", "who": "union:ref:event_other+host"}], None, False
     if cond.get("subject", "self") == "self" and body == "~ and that creature phase out.":  # (Dream Fighter: both phase out, 702.26a)
         return [{"do": "phase_out", "who": "union:self+ref:event_other"}], None, False
+    if cond.get("subject", "self") == "self" and cond["event"] == "blocked" and body == "that creature gets -X/-0 until end of turn, where X is half the creature's power, rounded down.":
+        # (Catacomb Dragon: X is half the blocker's power as this resolves, rounded down; it gets -X/-0 for the turn, 107.1a, 611.2a)
+        return [{"do": "pump", "who": "ref:event_other", "p": {"neg": {"half": {"power": "ref:event_other"}, "round": "down"}}, "t": 0}], None, False
+    if cond.get("subject", "self") == "self" and cond["event"] == "blocked" and body == (
+            "that creature's controller sacrifices it at end of combat. If the player does, they create a 0/2 colorless Wall artifact creature token with defender."):
+        # (Basalt Golem: at end of combat its controller sacrifices it; they create the Wall only if they did, 701.21a, 118.12 — a creature that is gone by then is not sacrificed)
+        from app.rules import delayed
+
+        wall = {"name": "Wall", "power": "0", "toughness": "2", "colors": [], "type_line": "Token Artifact Creature — Wall", "text": "Defender"}
+        return delayed.wrap_when([
+            {"do": "sacrifice", "who": "ref:event_other", "by": "controller", "did": "mdid0", "as": "e0"},
+            {"do": "only_if", "cond": {"succeeded": "mdid0"}, "skip": 1},
+            {"do": "create_token", "who": "ref:e0.controller", "n": 1, "token": wall}], delayed.END_OF_COMBAT), None, False
     return None
 
 
@@ -280,3 +300,30 @@ def refs_ok(d: dict[str, Any]) -> bool:
         if ref == "src" and d.get("kind") not in ("activated", "triggered", "static", "spell"):
             return False
     return True
+
+
+# -- becoming blocked by an effect (509.1h, 509.3c) ----------------------------------------------------------------------------------
+def become_blocked(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"Target unblocked attacking creature becomes blocked." (Curtain of Light, Dazzling Beauty, Trap Runner): 509.1h — it is a blocked creature from now on, though no
+    creature blocks it (it deals no combat damage unless it has trample, 702.19e). 509.3c: its "becomes blocked" abilities trigger (not "becomes blocked by a creature",
+    509.3d — nothing blocks it), only if it was unblocked at that time. A target that is no longer an unblocked attacking creature as this resolves does nothing (608.2b)."""
+    from app.rules import effects, triggers
+
+    for cid in effects._cards(plan, ctx, e["who"]):
+        card = plan.state.cards[cid]
+        if card.attacking is None or not card.zone.endswith(":battlefield") or cid in plan.rules.blocked or not blockers_declared(plan):
+            continue
+        plan.rules.blocked = [*plan.rules.blocked, cid]
+        plan.note(f"{card.name} becomes blocked", [cid])
+        triggers.blocked(plan, [], [card])
+    return True
+
+
+def blockers_declared(plan: Plan) -> bool:
+    """509.1h: a creature is blocked or unblocked once blockers have been declared (the declare blockers step, its decisions made, or later in combat)."""
+    d = plan.rules.decision
+    return plan.state.turn.phase in ("declare_blockers", "combat_damage", "end_combat") and not (d is not None and d.kind == "declare_blockers") \
+        and not plan.rules.blockers_pending
+
+
+PRIMITIVES = {"become_blocked": become_blocked}

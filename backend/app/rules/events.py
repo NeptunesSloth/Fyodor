@@ -413,6 +413,14 @@ def _parse(c: str) -> Condition | None:
     m = re.fullmatch(r"(?P<o>an? .+?|another .+?) blocks or becomes blocked by (?P<s>~|enchanted creature|equipped creature)", c)
     if m:
         return _parse(f"{m['s']} blocks or becomes blocked by {m['o']}")
+    # -- block events (wave 53C) -- 509.3d, 509.3b: "Whenever a creature becomes blocked by a creature with lesser power" / "a creature blocks a creature with lesser power" (No Quarter):
+    # once for each pair, the other creature's power less than this one's (509.3f: as the block is made)
+    m = re.fullmatch(r"(?P<s>an? .+?|another .+?) (?P<v>becomes blocked by|blocks) (?P<o>an? .+?) with lesser power", c)
+    if m:
+        head = _parse(f"{m['s']} {'becomes blocked' if m['v'] != 'blocks' else 'blocks'}")
+        if head is None or head.get("subject") != "sel" or head.get("aggregate"):
+            return None
+        return {**head, "other": _object_sel(m["o"]), "other_cmp": "less_power"}
     # -- block events (wave 53C) -- 509.3c: "Whenever a creature attacking one of your opponents becomes blocked by two or more creatures" (Seifer): the number of creatures
     # declared as blockers for it
     m = re.fullmatch(r"(?P<s>.+?) becomes blocked by (?P<n>two|three|four|five) or more creatures", c)
