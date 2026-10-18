@@ -1496,7 +1496,7 @@ def parse_sentence(text: str) -> tuple[Effects, Any] | None:
         return None
     # -- damage sized by a count (wave 4E) -- an amount read per recipient player is a damage instruction's only
     # ("each player creates X tokens, where X is the number of lands they control": not read)
-    if any(e.get("do") not in ("damage", "lose_life") and sized_damage.has_per_player(e) for e in found[0]):
+    if any(e.get("do") not in ("damage", "lose_life", "mill") and sized_damage.has_per_player(e) for e in found[0]):  # (wave 52D: mill)
         # -- value grammar (wave 30N) -- ... unless the recipient is one player ("You gain 1 life for each artifact that player controls",
         # "that player discards a card for each artifact they control"): the count is that player's, bound by scripts._that_players_hand
         if any(sized_damage.has_per_player(e) and not _one_recipient(e) for e in found[0]):
@@ -1713,6 +1713,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["stat"]:
             if rider is not None:
                 raise _Fail
+            # -- activated other (wave 52D) -- "Each opponent mills cards equal to the number of cards in their hand." (Folio of Fancies): each one's own count (608.2h)
+            if verb == "mill" and who in ("each_opponent", "each_player") and (pp := sized_damage.per_player(m["stat"])) is not None:
+                return [{"do": verb, "who": who, "n": pp}], target
             n = _stat(m["stat"])
             return [{"do": verb, "who": who, "n": n}], _value_target(n, target)
         return [{"do": verb, "who": who, "n": _apply(_amount(m["n"]), rider)}], target

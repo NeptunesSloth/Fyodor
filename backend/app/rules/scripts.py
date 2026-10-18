@@ -2508,7 +2508,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # -- static_other sweep (wave 16B) -- 701.48a: "Learn." means "You may reveal a Lesson card you own from outside the game and put it
     # into your hand. If you don't, you may discard a card. If you do, draw a card." A game here has no cards outside it (no sideboard is
     # modelled: the decks are the games'), so the reveal never has a Lesson to show and the rest is the rummage
-    body = re.sub(r"(^|\. )[Ll]earn\.", r"\1You may discard a card. If you do, draw a card.", body)
+    body = re.sub(r"(^\s*|\. )[Ll]earn\.", r"\1You may discard a card. If you do, draw a card.", body)  # (wave 52D: a leading space, an activated ability's body)
     body = _extra_turns.one_sentence(body)  # -- static_other sweep (wave 19A) -- Final Fortune
     # -- tutor (wave 20D) -- the same search spelled as sentences: "Search your library for two cards[ and reveal them]. Put one into your hand
     # and the other into your graveyard. Then shuffle." (Final Parting, Fork in the Road), "… for a white card, …, and a green card. Reveal
@@ -2610,6 +2610,9 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     if it in ("event", "event_gone"):  # -- either with two actions (wave 51C) -- "you may put that card from a graveyard onto the battlefield under your control" (Tergrid): the trigger's card, which moves only while it is in a graveyard (400.7)
         body = re.sub(r"(?i)\bput (that card|it) from a graveyard onto the battlefield\b", r"put \1 onto the battlefield", body)
     body = _split_tails(body, event_player)  # -- activated other (wave 34B) --
+    from app.rules import rewrites52d  # -- activated other (wave 52D) --
+
+    body = rewrites52d.rewrite(body)
     body = _dice.plain(trigger_words.plain_amounts(body))  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
     if re.match(r"(?i)choose a creature type\.", body):  # -- value grammar (wave 23C) -- "Choose a creature type. Draw a card for each creature you control of that type."
         body = body.replace(" of that type", " of the chosen type")  # (the type this very instruction chose)
@@ -9059,3 +9062,10 @@ EFFECTS[:0] = _discover.TEMPLATES
 from app.rules import x_actions as _x_actions  # noqa: E402, I001
 
 EFFECTS[:0] = _x_actions.templates(_SEL)
+# -- activated other (wave 52D) -- the edge of a graveyard or library, and more (app/rules/activated52d.py)
+from app.rules import activated52d as _activated52d  # noqa: E402, I001
+
+EFFECTS[:0] = _activated52d.TEMPLATES
+_MOVERS.update(_activated52d.RECORDING)
+_RECORDING.update(_activated52d.RECORDING)
+_CHOSEN.update(_activated52d.CHOSEN)

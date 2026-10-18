@@ -1863,10 +1863,14 @@ def prevent(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    want = _amount(plan, ctx, e["n"])
+    # -- activated other (wave 52D) -- "Each opponent mills cards equal to the number of cards in their hand.": each one's own amount, worked out before any mills (608.2h)
+    each = {p: _amount(plan, {**ctx, "recipient": p}, e["n"]) for p in _players(plan, ctx, e["who"])} if sized_damage.has_per_player(e["n"]) else None
+    want = 0 if each is not None else _amount(plan, ctx, e["n"])
     before: list[ObjectRef] = []
     wants: list[tuple[str, int]] = []
     for pid in _players(plan, ctx, e["who"]):
+        if each is not None:
+            want = each[pid]
         if e.get("half"):  # -- if you do (wave 15C) -- 107.1a: half the library as it is now, rounded as the text says
             size = len(plan.state.zones.get(zone_key(pid, "library"), []))
             want = (size + 1) // 2 if e["half"] == "up" else size // 2
@@ -4984,3 +4988,7 @@ RESUME[_pay_untap.STEP] = _pay_untap.resume
 from app.rules import spell_grants as _spell_grants  # noqa: E402, I001
 
 PRIMITIVES.update(_spell_grants.PRIMITIVES)
+# -- activated other (wave 52D) -- the edge of a graveyard or library, and more (app/rules/activated52d.py)
+from app.rules import activated52d as _activated52d  # noqa: E402, I001
+
+PRIMITIVES.update(_activated52d.PRIMITIVES)
