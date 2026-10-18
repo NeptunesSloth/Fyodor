@@ -28,6 +28,9 @@ State (``ctx["gc"][name]``, in the resolution context of the pending decision: s
 * "For each player who chose X, …" (``gc_each``): the next ``skip`` instructions once for each such player in APNAP order, "that player" being
   ``@P`` in the instructions (becomes ``player:<id>``). "the highest / lowest number" (``gc_extremes``): binds the players who chose the
   highest (``<name>:hi``), the lowest (``lo``) and not the lowest (``nlo``) number and their amounts (``<name>_hi``, ``<name>_lo``).
+* An auction (``gc_auction``: Thieves' Auction): starting with the controller, in turn order, each player chooses one of the cards exiled by the earlier
+  instruction and puts it onto the battlefield tapped under their control, round after round until all are chosen. The choices are public; a card that can't legally
+  enter (an Aura with nothing to enchant) can't be picked, stays exiled and may be picked by a later player; the process ends when a whole round picks nothing.
 * A guessed secret number (``gc_guess``: The Toymaker's Trap): the controller secretly chooses a number from a list minus the numbers this object has
   chosen before (``RulesState.chosen_numbers``, by rules object: a new object, or a second copy, has no memory: ruling 2023-10-13), "an opponent" (chosen as
   the ability resolves, 608.2d) guesses in public, then the number is revealed and recorded. The guess is right or wrong; the wrong and right instructions are
@@ -581,6 +584,59 @@ def lose_mana(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+# -- auctions (wave 53D) --
+def auction(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Starting with you, each player chooses one of the exiled cards and puts it onto the battlefield tapped under their control. Repeat this process until all cards
+    exiled this way have been chosen." (Thieves' Auction): ``from`` is the binding of the cards exiled."""
+    me = ctx["controller"]
+    turn = [me]
+    while (nxt := plan.after(turn[-1])) != me and len(turn) < 64:
+        turn.append(nxt)
+    ctx.setdefault("auction", {}).setdefault(e["as"], {"order": [p for p in turn if p in plan.live()], "at": 0, "idle": 0})  # (re-entered after an Aura's host is chosen)
+    return _auction_turn(plan, ctx, e)
+
+
+def _auction_turn(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import attachments, context
+    from app.rules.plan import decide
+
+    st = ctx["auction"][e["as"]]
+    while st["order"] and st["idle"] < len(st["order"]):
+        pid = st["order"][st["at"] % len(st["order"])]
+        left = context.objects(plan, ctx, e["from"][len(context.PREFIX):])
+        if not left:
+            break
+        options = [DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in left
+                   if pid in plan.live() and (attachments.attach_kind(plan.ch(plan.state.cards[c])) != "aura" or attachments.legal_hosts(plan, plan.state.cards[c], pid))]
+        if not options:  # (nothing this player could legally put onto the battlefield, or they left the game, 800.4a)
+            st["idle"] += 1
+            st["at"] += 1
+            continue
+        decide(plan, player=pid, kind="choose_cards", prompt=f"{ctx.get('name') or 'Auction'}: choose one of the exiled cards to put onto the battlefield tapped under your control",
+               options=options, min_choices=1, max_choices=1, resume={"step": "gc_auction", "ctx": ctx, "e": e, "rest": [], "picked": []})
+        return False
+    del ctx["auction"][e["as"]]
+    return True
+
+
+def resume_auction(plan: Plan, d: Decision, chosen: list[str]) -> None:
+    from app.rules import attachments
+    from app.rules.effects import continue_effects
+
+    ctx, e = d.resume["ctx"], d.resume["e"]  # type: ignore[index]
+    st = ctx["auction"][e["as"]]
+    st["at"] += 1
+    st["idle"] = 0
+    card = plan.state.cards.get(chosen[0]) if chosen else None
+    if card is not None:
+        plan.note(f"{plan.name(d.player)} chooses {card.name}", [card.id], actor=d.player)
+        if not attachments.enter(plan, [{"card": card.id, "player": d.player, "actor": d.player, "tapped": True}], ctx):
+            ctx["next"] -= 1  # (an Aura asks what it enchants: the auction goes on when it has entered)
+            return
+    if _auction_turn(plan, ctx, e):
+        continue_effects(plan, ctx)
+
+
 # -- guessed secret numbers (wave 53D) --
 def _memory(ctx: Context) -> str:
     """Whose numbers are remembered: the rules object of the ability's source (400.7: a permanent that left and came back is another object)."""
@@ -616,8 +672,8 @@ def exile_linked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 PRIMITIVES = {"gc_choose": choose, "gc_each": each, "gc_extremes": extremes, "gc_bid": bid, "gc_exile_linked": exile_linked, "gc_sweep": sweep,
               "gc_keep_hand": keep_hand, "gc_typed_return": typed_return, "gc_reveal_names": reveal_names, "gc_lowest_creature": lowest_creature,
-              "gc_succession": succession, "gc_lose_mana": lose_mana, "gc_guess": guess}
-RESUME = {"gc_choose": resume, "gc_bid": resume_bid, "gc_keep": resume_keep, "gc_return": resume_return, "gc_succession": resume_succession}
+              "gc_succession": succession, "gc_lose_mana": lose_mana, "gc_guess": guess, "gc_auction": auction}
+RESUME = {"gc_choose": resume, "gc_bid": resume_bid, "gc_keep": resume_keep, "gc_return": resume_return, "gc_succession": resume_succession, "gc_auction": resume_auction}
 
 
 # -- reading the wording ----------------------------------------------------------------------------------------
@@ -642,7 +698,7 @@ def bind(body: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, An
     if _GATE.search(body) is None:
         return None
     text = body.strip()
-    for recipe in (_chosen_type, _words, _numbers, _chosen_objects, _bids, _hands, _guess):
+    for recipe in (_chosen_type, _words, _numbers, _chosen_objects, _bids, _hands, _guess, _auction):
         if (found := recipe(text, parse, split_sentences)) is not None:
             return found
     return None
@@ -967,3 +1023,14 @@ def _guess(text: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, 
             {"do": "gc_choose", "who": "ref:copp", "what": "word", "opts": numbers, "as": "tg", "say": "which number was chosen"},
             {"do": "gc_guess", "bind": "tn", "as": "tg", "wrong": [{"do": "lose_life", "who": "ref:copp", "n": {"ref_amount": "tg_n"}}, draw[0][0]],
              "right": [sacrifice[0][0]]}], None, False
+
+
+_AUCTION = ("Exile all nontoken permanents.", "Starting with you, each player chooses one of the exiled cards and puts it onto the battlefield tapped under their control.",
+            "Repeat this process until all cards exiled this way have been chosen.")
+
+
+def _auction(text: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """Thieves' Auction: all nontoken permanents exiled, then the players take turns choosing one each until all are chosen."""
+    if tuple(split_sentences(text)) != _AUCTION or (exile := parse(_AUCTION[0])) is None or len(exile[0]) != 1:
+        return None
+    return [{**exile[0][0], "as": "ex"}, {"do": "gc_auction", "from": "ref:ex", "as": "ac"}], None, False

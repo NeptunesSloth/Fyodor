@@ -901,3 +901,57 @@ def test_the_toymakers_trap_with_several_opponents_alice_names_the_one_who_guess
     answer(s, "p3", "1")
     assert s.state.rules.grouped  # (the Celestial Toymaker counts it: an ability that made a player guess)
     check(s)
+
+
+# -- an auction of the exiled cards (wave 53D) ---------------------------------------------------------------------------------
+THIEVES = "Thieves' Auction"
+
+
+def test_thieves_auction_is_full(cards):
+    assert coverage.of_card_data(cards.resolve(THIEVES)).level == "FULL"
+
+
+def test_thieves_auction_the_players_take_turns_choosing_exiled_cards_until_all_are_chosen(cards):
+    s = table(cards, [THIEVES, "Grizzly Bears"], ["Llanowar Elves"], ["Mulldrifter"])
+    put(s, "Grizzly Bears")
+    put(s, "Llanowar Elves", "p2")
+    put(s, "Island", "p2")
+    mull = put(s, "Mulldrifter", "p3")
+    token = creature(s, "p1", "Alice Token")  # (a token is not exiled)
+    cast(s, THIEVES, R=3, C=4)
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p1" and sorted(o.label for o in d.options) == ["Grizzly Bears", "Island", "Llanowar Elves", "Mulldrifter"]  # starting with Alice; everything is public
+    pick(s, "p1", "Mulldrifter")
+    pick(s, "p2", "Llanowar Elves")
+    d = s.state.rules.decision
+    assert d.player == "p3" and sorted(o.label for o in d.options) == ["Grizzly Bears", "Island"]
+    assert "Alice chooses Mulldrifter" in log(s, "p3") and "Bob chooses Llanowar Elves" in log(s, "p3")
+    pick(s, "p3", "Grizzly Bears")
+    pick(s, "p1", "Island")  # a second round: only one card is left, Alice (starting again with the first player) takes it
+    resolve(s)
+    assert s.state.rules.decision is None
+    assert names_on(s, "p1") == ["Alice Token", "Island", "Mulldrifter"] and names_on(s, "p2") == ["Llanowar Elves"] and names_on(s, "p3") == ["Grizzly Bears"]
+    assert all(s.state.cards[c].tapped for p in ("p1", "p2", "p3") for c in s.state.zones[f"{p}:battlefield"] if s.state.cards[c].name != "Alice Token")  # tapped, under their control
+    assert s.state.cards[mull.id].controller == "p1" and s.state.cards[token.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_thieves_auction_an_aura_with_nothing_to_enchant_cannot_be_chosen_until_a_creature_is_back(cards):
+    s = table(cards, [THIEVES, "Pacifism", "Grizzly Bears"], players=2)
+    bears = put(s, "Grizzly Bears")
+    pac = put(s, "Pacifism")
+    act(s, "p1", type="attach", card_ids=[pac.id], to=bears.id)
+    cast(s, THIEVES, R=3, C=4)
+    resolve(s)
+    d = s.state.rules.decision  # the Aura isn't offered: nothing it could enchant is on the battlefield (303.4g)
+    assert d is not None and d.player == "p1" and [o.label for o in d.options] == ["Grizzly Bears"]
+    pick(s, "p1", "Grizzly Bears")
+    d = s.state.rules.decision  # Bob may now choose the Pacifism: the Bears are a creature it could enchant (it does not target, 303.4f)
+    assert d is not None and d.player == "p2" and [o.label for o in d.options] == ["Pacifism"]
+    pick(s, "p2", "Pacifism")
+    resolve(s)
+    assert s.state.rules.decision is None
+    new = next(c for c in s.state.cards.values() if c.name == "Pacifism")
+    assert new.zone == "p2:battlefield" and new.controller == "p2" and new.attached_to == next(c.id for c in s.state.cards.values() if c.name == "Grizzly Bears")
+    check(s)
