@@ -115,9 +115,9 @@ def test_its_controller_may_draw_on_combat_damage(cards, name, kind):
             d = s.state.rules.decision
             if d is not None and d.kind == "declare_blockers":
                 act(s, d.player, type="declare_blockers", blocks=[])
-            elif d is not None:
-                assert d.player == "p1" and d.kind == "confirm"
-                act(s, d.player, type="choose", decision_id=d.id, option_ids=[take])
+            elif d is not None:  # since wave 51G "its controller may draw" is an each-may pay/decline prompt (each_may._THAT_PLAYER_MAY)
+                assert d.player == "p1" and d.kind == "choose_one"
+                act(s, d.player, type="choose", decision_id=d.id, option_ids=["pay" if take == "yes" else "decline"])
             elif s.state.zones.get("stack"):
                 act(s, s.state.rules.priority, type="pass_priority")
             elif s.state.turn.phase == "main2":
