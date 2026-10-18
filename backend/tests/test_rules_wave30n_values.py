@@ -363,9 +363,8 @@ def test_tomb_blade_costs_the_damaged_player_a_life_for_each_creature_they_contr
 
 @pytest.mark.parametrize(("text", "type_line"), [
     ("Each player draws a card for each creature card in their graveyard.", "Sorcery"),  # an amount per recipient: damage and life loss only
-    ("Each opponent mills cards equal to the number of cards in their hand.", "Sorcery"),
-    ("When this creature enters, choose an opponent. If that player has more cards in hand than you, draw cards equal to the difference.",
-     "Creature — Human"),  # the other player's hand: not read
+    # (review 52: "Each opponent mills cards equal to the number of cards in their hand." is each one's own count, Folio of Fancies; "choose an opponent. If that
+    # player has more cards in hand than you, draw cards equal to the difference." is chosen as it resolves, Sandstone Oracle's ruling: both played in wave 52's tests)
     ("Whenever this creature attacks, defending player loses life equal to the number of artifacts they control.", "Creature — Human"),
     ("Whenever you attack a player, you gain 1 life for each creature that player controls.", "Creature — Human"),  # (the event's player is the attacker, not "that player")
 ])

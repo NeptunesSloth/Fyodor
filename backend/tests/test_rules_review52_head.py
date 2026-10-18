@@ -162,3 +162,11 @@ def test_temur_war_shaman_a_creature_turned_face_up_fights(cards):
     settle(s, lambda d: [bears.id] if bears.id in [o.id for o in d.options] else ["yes"] if "yes" in [o.id for o in d.options] else None)
     assert zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard" and s.state.cards[giant.id].damage == 2  # the 3/3 Giant and the 2/2 Bears
     check(s)
+
+
+# -- Paroxysm: "If that card is a land card, destroy that creature. Otherwise, it gets +3/+3": "that creature" and "it" are the enchanted creature, which the grammar bound to
+# the revealed card (a card in a library is destroyed or pumped by nothing): the "Otherwise, it" of a judged card is read for a move of it only (Deadbridge Chant), so it stays manual
+def test_paroxysm_stays_manual(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve("Paroxysm")).level != "FULL"

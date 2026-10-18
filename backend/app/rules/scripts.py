@@ -974,11 +974,13 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                             and antecedent in ("event", "self") and out[intro.index].get("who") == antecedent:
                         intro = None  # (the "instead" branch's "it" is the base branch's own: the trigger's object, not something the base recorded)
                     elif intro is not None and pronoun == "it" and not verb and in_alt_branch(index) and closed_gate(intro.index, index) and intro.do in _MOVERS \
+                            and e.get("do") in _MOVERS \
                             and (judged := next((g for g in out[:index] if g.get("do") == "only_if" and g.get("bind") and any(
                                 a.get("do") == "only_if" and (a.get("cond") or {}).get("flag") == g["bind"] for a in out[:index])), None)) is not None \
                             and (base_ref := re.fullmatch(r"ref:e(\d+)", str((judged.get("cond") or {}).get("object", "")))) is not None:
                         # -- trigger other (wave 52B) -- "Choose a card at random in your graveyard. If it's a creature card, return it to the battlefield. Otherwise, return it to your
                         # hand." (Deadbridge Chant): the "Otherwise" branch's "it" is the card the condition judged (608.2c: only one branch happens), not what the other branch moved
+                        # (-- review 52 -- a move of it only: "If that card is a land card, destroy that creature. Otherwise, it gets +3/+3" (Paroxysm) pumps the creature, no card)
                         intro = next((x for x in intros if x.index == int(base_ref[1])), intro)
                 if e.get("do") in ("grant_play", "free_cast", "look_exiled", "plotted") and (
                         intro is None or (intro.do not in _MOVERS and not _exiles_countered(out[intro.index]))):
