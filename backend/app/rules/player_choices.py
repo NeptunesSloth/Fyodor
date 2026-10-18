@@ -122,6 +122,8 @@ def rewrite(body: str) -> str:
     # "For any number of opponents, destroy target nonland permanent that player controls." (Windgrace's Judgment): you choose the opponents as you cast it (601.2c) and a target for each - the
     # same as "for each opponent, destroy up to one target ... that player controls" (per_opponent): an opponent left out is one you chose no target for
     body = re.sub(r"\bFor any number of opponents, (destroy|exile) target ([a-z ]+?) that player controls\b", r"For each opponent, \1 up to one target \2 that player controls", body)
+    body = re.sub(r"(\b[Ee]ach player may put \w+ [+-]\d+/[+-]\d+ counters? on a creature they control)\. If a player does, creatures that player controls (can't attack you or planeswalkers you control until your next turn)",
+                  r"\1 and creatures a player who did controls \2", body)
     # "Target player creates X 2/2 black Zombie creature tokens, then up to one target creature gets -1/-1 until end of turn for each Zombie that player controls." (Dark Salvation): two
     # instructions of two targets (608.2c): the second is its own sentence
     body = re.sub(r"\b((?:[Tt]arget (?:player|opponent)|[Tt]hat player) creates [^.,]+? tokens?), then ((?:up to one )?target creature (?:gets|gains|deals))",
@@ -284,3 +286,22 @@ def resume_choose_each(plan: Any, d: Any, chosen: list[str]) -> None:
 
 PRIMITIVES["choose_each"] = choose_each
 RESUME: dict[str, Any] = {"choose_each": resume_choose_each}
+
+
+# -- "Each player may put two +1/+1 counters on a creature they control. If a player does, creatures that player controls can't attack you or planeswalkers you control until your next turn."
+# (Orzhov Advokist): every player, in turn order (101.4), may choose a creature they control and gets the counters; the players who did are the controllers of the creatures chosen
+# (``ref:chosen_each.controller``), and the restriction is on every creature each of them controls (611.2c: a continuous effect of a resolving ability that changes no characteristic
+# applies to the creatures there are, now and later). The two sentences are read as one (``rewrite``: "If a player does, creatures that player controls" is "creatures a player who did controls").
+_EACH_MAY_COUNTERS = re.compile(r"^each player may put (?P<n>a|an|one|two|three) (?P<kind>[+-]\d+/[+-]\d+) counters? on a creature they control and creatures a player who did controls "
+                                r"can't attack you or planeswalkers you control until your next turn$")
+CHOSEN_EACH = "chosen_each"
+
+
+def _each_may_counters(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "player_chooses", "who": "each_player", "sel": _permanents("creature"), "n": 1, "label": "creature", "upto": True, "optional": True, "as": CHOSEN_EACH},
+            {"do": "add_counters", "who": f"ref:{CHOSEN_EACH}", "kind": m["kind"], "n": _NUM.get(m["n"], 1) if m["n"] != "two" else 2},
+            {"do": "until", "duration": "next_turn", "n": 1},
+            {"do": "restrict", "who": f"controlled:ref:{CHOSEN_EACH}.controller|{_permanents('creature')}", "rules": ["cant_attack_player_pw:@you"]}], None
+
+
+TEMPLATES.append((_EACH_MAY_COUNTERS, _each_may_counters))

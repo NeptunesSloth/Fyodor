@@ -16,13 +16,15 @@ from app.rules import coverage
 from app.rules.plan import Plan
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle
+from tests.test_rules_wave32b_attack_restrictions import attack as declare
+from tests.test_rules_wave32b_attack_restrictions import goes, refused
 from tests.test_rules_wave34b_activated import activate
 from tests.wave9c_kit import card_named, check, mana, put, to_hand
 from tests.wave53a_kit import open_repo, table, until_asked
 
 BEARS, GIANT, ANGEL, GRAIL = "Grizzly Bears", "Hill Giant", "Serra Angel", "Sol Grail"
 NAMES = ["Breach the Multiverse", "Exhume", "Crypt Champion", "Fall of the Thran", "Dredge the Mire", "Scrounge", "Enslaved Horror", "The Eternal Wanderer", "Chaos Defiler",
-         "Underworld Cerberus", "Pyrrhic Revival", "Ill-Gotten Gains", "Skullwinder", "Patriarch's Bidding"]
+         "Underworld Cerberus", "Pyrrhic Revival", "Ill-Gotten Gains", "Skullwinder", "Patriarch's Bidding", "Orzhov Advokist"]
 
 
 @pytest.fixture()
@@ -318,4 +320,43 @@ def test_patriarchs_bidding_every_card_of_any_type_chosen_returns_for_its_owner(
     settle(s)
     assert [where(s, c) for c in (abears, agiant, bgiant, bbears)] == [("p1:battlefield", "p1"), ("p1:battlefield", "p1"), ("p2:battlefield", "p2"), ("p2:battlefield", "p2")]
     assert s.state.cards[bangel.id].zone == "p2:graveyard" and s.state.cards[cangel.id].zone == "p3:graveyard"  # Angels: nobody chose Angel
+    check(s)
+
+
+# -- Orzhov Advokist --------------------------------------------------------------------------------------------------------------------
+def test_orzhov_advokist_the_players_who_put_counters_cannot_attack_you_until_your_next_turn(cards):
+    """101.4: each player in turn order may put two +1/+1 counters on a creature they control; 608.2c: "if a player does" is read per player, so only the creatures of the
+    players who did can't attack Alice (508.1c) until her next turn (500.4): Carol, who declined, is free."""
+    s = table(cards, [BEARS, "Orzhov Advokist"], [GIANT, ANGEL], [GIANT])
+    bears, advokist = put(s, BEARS), put(s, "Orzhov Advokist")
+    bgiant, bangel = put(s, GIANT, "p2"), put(s, ANGEL, "p2")
+    cgiant = put(s, GIANT, "p3")
+    d = None
+    for _ in range(12):
+        d = until_asked(s, 100)
+        if d.kind not in ("declare_attackers", "declare_blockers"):
+            break
+        act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+    assert d is not None and d.player == "p1" and s.state.turn.number == 4 and {o.id for o in d.options} == {bears.id, advokist.id}
+    assert d.min_choices == 0  # "may"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id])
+    d = until_asked(s)
+    assert d.player == "p2" and {o.id for o in d.options} == {bgiant.id, bangel.id}  # her own creatures, not Alice's
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[bgiant.id])
+    d = until_asked(s)
+    assert d.player == "p3"
+    act(s, "p3", type="choose", decision_id=d.id, option_ids=[])  # Carol does not
+    settle(s)
+    counters = lambda c: s.state.cards[c.id].counters.get("+1/+1", 0)  # noqa: E731
+    assert [counters(c) for c in (bears, advokist, bgiant, bangel, cgiant)] == [2, 0, 2, 0, 0]
+    check(s)
+    goes(s, 5, "p2")  # Bob's turn: all his creatures are held back from Alice, none from Carol
+    refused(s, "p2", bgiant, "p1")
+    refused(s, "p2", bangel, "p1")
+    check(s)
+    declare(s, "p2", (bgiant, "p3"))
+    assert s.state.cards[bgiant.id].attacking is not None
+    goes(s, 6, "p3")  # Carol's turn: she put no counters
+    declare(s, "p3", (cgiant, "p1"))
+    assert s.state.cards[cgiant.id].attacking is not None
     check(s)
