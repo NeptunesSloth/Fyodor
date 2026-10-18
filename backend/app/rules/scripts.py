@@ -2041,6 +2041,23 @@ def _create_named(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
                        "mana_cost": cost}}], None
 
 
+# -- if you do (wave 51D) -- "Destroy target creature. If that creature dies this way, create a black Vampire creature token. Its power is equal to that creature's power and its
+# toughness is equal to that creature's toughness." (Kalitas, Bloodchief of Ghet; Ritual of the Returned): the token's power and toughness are worked out as it is created from
+# the creature as it last existed (608.2h; ruling 2009-10-01), a printed P/T from then on (111.3), not a characteristic-defining ability
+@_first
+@effect(r"create (?:a|an) (?P<color>white|blue|black|red|green) (?P<sub>[A-Z][a-z]+) creature token with power equal to that (?:creature|card)'s power and toughness equal to that (?:creature|card)'s toughness")
+def _create_lki_token(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules.creature_types import CREATURE_TYPES
+
+    if m["sub"] not in CREATURE_TYPES:
+        raise _NoMatch
+    return [{"do": "create_token", "who": "you", "n": 1, "token": {"name": m["sub"], "power": {"power": "it"}, "toughness": {"toughness": "it"}, "colors": [_COLOR_LETTER[m["color"]]],
+                                                                   "type_line": f"Token Creature — {m['sub']}", "text": ""}}], None
+
+
+_COLOR_LETTER = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
+
+
 # -- token & pump wordings (wave 6C) -- the token grammar's newer forms (app/rules/token_grammar.py): "For each …, create
 # …", "Create Voja, a legendary 2/2 …", "… named Kobolds of Kher Keep", "… with flying named Wasp", "… that's all
 # colors", "Create thirteen …" (never a copy, nor an instruction joined to another one)
@@ -2536,6 +2553,8 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # -- reflexive this way (wave 30G) -- "you may discard one or more land cards" is "any number" to a player who may choose none (Loamcrafter Faun)
     body = re.sub(r"(?i)(?<!spell, )\byou may (discard|sacrifice) one or more ", r"you may \1 any number of ", body)
     body = _COUNTED_IF_YOU_DO.sub(_counted_if_you_do, body)  # -- reflexive this way (wave 30G) -- Neheb: "… draw that many cards and add that much {R}."
+    body = re.sub(r"\b([Cc]reate an? (?:white|blue|black|red|green) [A-Z][a-z]+ creature token)\. Its power is equal to (that (?:creature|card)'s) power and its toughness is equal to \2 toughness\b",
+                  r"\1 with power equal to \2 power and toughness equal to \2 toughness", body)  # (-- if you do (wave 51D) -- Kalitas, Bloodchief of Ghet; see _create_lki_token)
     body = re.sub(r"^(\s*target (?:opponent|player) gains control of [^.]+)\. If they do, ", r"\1. If you do, ", body, flags=re.I)  # (-- commanders (wave 50C) -- Bill Ferny; wave 51D: an activated ability's body starts with a space, Stiltzkin: "If they do" asks whether the control changed, as "If you do" after the instruction)
     body = re.sub(r"(?i)\b(discard (?:up to \w+|any number of|\w+) cards?)(?:, then |\. (?:then )?)draw that many cards\b(?! plus| and )",
                   r"\1, then draw a card for each card discarded this way", body)

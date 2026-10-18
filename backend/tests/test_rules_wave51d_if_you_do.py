@@ -5,6 +5,9 @@ Every scenario checks the replay and a save and a load.
   player, so "another" is than the source itself (as reconfigure's "another target creature you control"), never Stiltzkin.
 * 118.12 / 701.13: Liliana, Heretical Healer - "exile Liliana, then return her to the battlefield transformed under her owner's control. If you do, create a 2/2 black
   Zombie creature token." (ruling 2015-06-22: with several triggers only the first one does anything, Liliana is no longer the object that was exiled).
+* 608.2c / 608.2h / 111.3: Kalitas, Ritual of the Returned, Broken Visage - "Create a black Vampire creature token. Its power is equal to that creature's power and its
+  toughness is equal to that creature's toughness." (rulings 2009-10-01: from the creature's last existence on the battlefield; 2013-07-01: no token when the
+  destroyed creature did not die).
 * 608.2c / 205.2: Szarekh - "You may put an artifact creature card or Vehicle card from among the cards milled this way into your hand." (an artifact creature, or a
   Vehicle, which is an artifact that is not necessarily a creature).
 """
@@ -23,7 +26,7 @@ from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, attack, next_turn, settle, stops, to_phase
-from tests.wave9c_kit import build, card_named, cast, check, life, mana, put, reloaded, to_hand, zone_of
+from tests.wave9c_kit import build, card_named, cast, check, life, mana, pt, put, reloaded, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave51d_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
@@ -31,6 +34,7 @@ EXTRA = [card(c["name"], set_code="w51d", number=f"X{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 STILTZKIN, SZAREKH = "Stiltzkin, Moogle Merchant", "Szarekh, the Silent King"
 LILIANA = "Liliana, Heretical Healer // Liliana, Defiant Necromancer"
+KALITAS, RITUAL, VISAGE = "Kalitas, Bloodchief of Ghet", "Ritual of the Returned", "Broken Visage"
 
 
 @pytest.fixture()
@@ -42,7 +46,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", [STILTZKIN, SZAREKH, LILIANA])
+@pytest.mark.parametrize("name", [STILTZKIN, SZAREKH, LILIANA, KALITAS, RITUAL, VISAGE])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
