@@ -478,6 +478,8 @@ def _targeting_definition_of(who: str | None, what: str) -> dict[str, Any] | Non
         what = what[len("you or "):]
     if what == "~":
         target = "self"
+    elif what == "enchanted player":  # -- block events (wave 53C) -- "Spells you cast that target enchanted player cost {1} less to cast." (Infectious Curse): the player this Aura enchants
+        target = "enchanted_player"
     else:
         phrase = re.sub(r"^(?:a|an|one or more) ", "", what)
         sel = selectors.parse(phrase)
@@ -512,6 +514,10 @@ def _targets_match(state: GameState, info: CardInfo, src: CardInstance, target: 
     for tid in targets:
         if you and tid == src.controller:
             return True
+        if target == "enchanted_player":  # (a player: no card to read)
+            if src.attached_player is not None and tid == src.attached_player:
+                return True
+            continue
         card = state.cards.get(tid)
         if card is None or not card.zone.endswith(":battlefield"):
             continue

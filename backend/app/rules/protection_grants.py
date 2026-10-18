@@ -45,6 +45,11 @@ CHOICES: dict[str, list[str]] = {
 }
 
 
+# -- block events (wave 53C) -- "Choose a color. ~ gains hexproof from that color until end of turn and can't be blocked by creatures of that color this turn." (Sungold Sentinel): the chosen
+# color for both halves (702.11d, 509.1b), bound as protection's is (chosen.bind_effects)
+_HEXPROOF_UNBLOCKABLE = re.compile(r"^(?P<o>.+?) gains? hexproof from that color until end of turn and can't be blocked by creatures of (?:that|the chosen) color this turn$")
+
+
 def fixed_line(quality: str) -> str | None:
     """"red" / "black and from green" / "creatures" → the keyword line "Protection from …" if protection.py enforces it."""
     from app.rules import protection
@@ -64,6 +69,16 @@ def clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         if kind == "players":
             raise L._Fail
         return [{"do": "grant", "who": L._who(kind, key), "keywords": [], "abilities": [f"Toxic {th['n']}", CHOSEN_HEXPROOF]}], L._one(group)
+    if m is None and (hu := _HEXPROOF_UNBLOCKABLE.fullmatch(text)) is not None:
+        from app.rules import language as L
+        from app.rules import statics
+
+        kind, key, group = L.ref(hu["o"])
+        rules = statics._rule("can't be blocked by creatures of the chosen color")
+        if kind in ("players", "each") or not rules:
+            raise L._Fail
+        return [{"do": "grant", "who": L._who(kind, key), "keywords": [], "abilities": [CHOSEN_HEXPROOF]},
+                {"do": "restrict", "who": L._who(kind, key), "rules": rules}], L._one(group)
     if m is None:
         return None
     from app.rules import language as L

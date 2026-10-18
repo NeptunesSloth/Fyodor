@@ -44,6 +44,8 @@ def cond_ok(cond: dict[str, Any] | None, bound: str | None = None) -> bool:
     """Is this condition one a turn watch can read: an event about players or objects matching a selector, one fact at a
     time (a "one or more" / several-recipients damage event joins facts: not modelled). ``bound``: the watch is on one
     object (its source or a target, wave 33A), whose events are the damage, attack and block ones only."""
+    if cond is not None and cond.get("event") == "multi" and bound == "self":
+        return set(cond["events"]) <= {"block", "blocked"} and not cond.get("aggregate")  # -- block events (wave 53C) -- "~ blocks or becomes blocked by a creature" (Goblin Flotilla): a watch on its source, each block (509.3b-d)
     if cond is None or cond.get("subject") not in _OBJECT_SUBJECTS | ({"self"} if bound == "self" else set()) \
             or (cond.get("aggregate") and (bound or cond["event"] not in _ONE_OR_MORE)) or cond.get("while") \
             or (bound and cond["event"] not in _BOUND_EVENTS):
@@ -77,7 +79,7 @@ def refs_ok(cond: dict[str, Any], effects: list[dict[str, Any]]) -> bool:
 
 
 def build(cond: dict[str, Any] | None, clause: str, *, once: bool, text: str, bound: str | None = None, next_turn: bool = False,
-          ) -> tuple[list[dict[str, Any]], Any] | None:
+          this_combat: bool = False) -> tuple[list[dict[str, Any]], Any] | None:
     """The ``delayed`` effect and its deferred effects for "[whenever / when you next …] this turn, <clause>"."""
     from app.rules import scripts
 
@@ -90,6 +92,10 @@ def build(cond: dict[str, Any] | None, clause: str, *, once: bool, text: str, bo
     inner = cast_riders.parse(cond, clause) or scripts._clause(clause)
     if inner is None:
         return None
+    if bound == "self" and cond.get("other") and ({cond["event"]} if cond["event"] != "multi" else set(cond["events"])) <= {"block", "blocked"}:
+        # -- block events (wave 53C) -- "Whenever ~ becomes blocked by a creature of the chosen color this turn, destroy that creature." (Zombie Boa): the source is "~", so the pronoun is
+        # the creature on the other side of the block (509.3c), as it triggered
+        inner = ([{**e, "who": "ref:event_other"} if e.get("who") == "it" else e for e in inner[0]], inner[1])
     own_target = None
     if inner[1] is not None:  # -- if you do (wave 25C) -- the deferred ability's own target: chosen each time it triggers (603.3d)
         own_target = scripts.target_fields(inner[1]).get("target")
@@ -103,7 +109,7 @@ def build(cond: dict[str, Any] | None, clause: str, *, once: bool, text: str, bo
     if own_target is not None:
         effects = delayed.mark_target(effects)  # ("target" is the deferred ability's own, not one of the creating ability's groups)
     head = {"kind": "watch", "cond": cond, "text": text, **({"bound": True} if bound else {})}
-    wrapped = delayed.wrap_when(effects, head, who=bound, this_turn=not next_turn, next_turn=next_turn)  # (wave 50G: "Until your next turn, whenever …", 500.4)
+    wrapped = delayed.wrap_when(effects, head, who=bound, this_turn=not next_turn and not this_combat, next_turn=next_turn, this_combat=this_combat)  # (wave 50G: "Until your next turn, whenever …", 500.4)
     wrapped[0]["once"] = once
     if own_target is not None:
         wrapped[0]["target"] = own_target
@@ -136,14 +142,15 @@ def bound_cond(text: str) -> tuple[dict[str, Any], str, Any] | None:
     return None
 
 
-def parse(cond_text: str, clause: str, *, next_turn: bool = False) -> tuple[list[dict[str, Any]], Any] | None:
-    """"Whenever <cond> this turn, <clause>": a watch on players or objects, or on the one object the condition names."""
+def parse(cond_text: str, clause: str, *, next_turn: bool = False, once: bool = False, this_combat: bool = False) -> tuple[list[dict[str, Any]], Any] | None:
+    """"Whenever <cond> this turn, <clause>": a watch on players or objects, or on the one object the condition names. ``once``: "When <cond> this turn" -
+    a delayed triggered ability with "when" triggers once (603.7b)."""
     from app.rules import events
 
     if (bound := bound_cond(cond_text)) is not None:
-        found = build(bound[0], clause, once=False, text=cond_text, bound=bound[1], next_turn=next_turn)
+        found = build(bound[0], clause, once=once, text=cond_text, bound=bound[1], next_turn=next_turn, this_combat=this_combat)
         return (found[0], bound[2]) if found is not None else None
-    return build(events.parse_condition(cond_text), clause, once=False, text=cond_text, next_turn=next_turn)
+    return build(events.parse_condition(cond_text), clause, once=once, text=cond_text, next_turn=next_turn, this_combat=this_combat)
 
 
 def parse_leading(rest: str, *, next_turn: bool = False) -> tuple[list[dict[str, Any]], Any] | None:

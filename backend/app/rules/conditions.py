@@ -192,6 +192,7 @@ _LESS_SELF = re.compile(r"(?:its|that creature's) power is less than ~'s(?: powe
 _CONTROLLED = re.compile(r"you (?:(?P<neg>didn't|did not|don't|do not) control|control(?:led)?) (?:it|that (?:creature|permanent|card|land|token|artifact|enchantment|planeswalker))")
 _STATES = {"tapped": "tapped", "untapped": "untapped", "attacking": "attacking", "blocking": "blocking",
            "attached to a creature": "attached_to",  # (-- casting extras (wave 18E) -- reconfigure 702.151a: the source's own state)
+           "attacking one of your opponents": "attacking_opponent",  # -- block events (wave 53C) -- 506.3, 506.6: attacking a player (not a planeswalker or battle) who is an opponent of the ability's controller
            "suspected": "suspected", "prepared": "prepared"}  # (prepared: wave 13C, 722.3; suspected: wave 12A, 701.60 — a designation of the source, like its other states)
 # -- counters (wave 5H) -- "if it had counters on it", "if it had a +1/+1 counter on it", "if ~ has counters on it",
 # "if it doesn't have an indestructible counter on it": the object's counters as it is, or as it last existed
@@ -1162,6 +1163,18 @@ def _object_blocked(m: re.Match[str]) -> Condition:
     return _obj(m, "blocked", **({"negate": True} if m["neg"] != "was" else {}))  # 509.1g: declared as blocked by a blocker
 
 
+# -- block events (wave 53C) -- 509.1g: "Activate only if this creature blocked or was blocked by a blue creature this turn." (Sea Troll): the turn's block record, by object
+# (400.7), the other creature as it is, or as it last existed (608.2h; block_events.paired_with)
+@_history_pattern(rf"{_HO} (?P<v>blocked or was blocked by|was blocked by|blocked) an? (?P<sel>.+?) this turn")
+def _object_blocked_with(m: re.Match[str]) -> Condition | None:
+    from app.rules import selectors
+
+    sel = selectors.parse(m["sel"])
+    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card:
+        return None
+    return _obj(m, "blocked_with", mode={"blocked or was blocked by": "hpair", "was blocked by": "hblockedby", "blocked": "hblocked"}[m["v"]], sel=sel.key())
+
+
 @_history_pattern(rf"{_HO} attacked or blocked this turn")
 def _object_attacked_or_blocked(m: re.Match[str]) -> Condition:
     return _obj(m, "attacked_or_blocked")  # 508.1 / 509.1g
@@ -1349,7 +1362,7 @@ def _object(t: str) -> Condition | None:
         return {"not": test} if negate else test
     if what in _STATES:
         past = m["verb"] in ("was", "wasn't", "was not") and what in ("tapped", "untapped", "attacking", "blocking")
-        if who not in ("self", "it", "host") or (who == "it" and not past and what not in ("tapped", "untapped", "suspected")) or (
+        if who not in ("self", "it", "host") or (who == "it" and not past and what not in ("tapped", "untapped", "suspected", "attacking one of your opponents")) or (
                 who == "host" and (past or what not in ("tapped", "untapped", "attacking", "blocking"))):
             return None  # (an object other than the source: "it was attacking" as it last existed; -- trailing & intervening ifs (wave 38A) -- "it's tapped" / "it's suspected" as it is now, 608.2c; -- attached events (wave 40B) -- what the source is attached to, as it is now, 301.5, 303.4)
         out: Condition = {"object": who, "test": _STATES[what]}
@@ -1651,7 +1664,9 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         live = plan.state.cards.get(card.id)
         if live is not None and live.zone.endswith(":battlefield"):
             state = {"tapped": live.tapped, "untapped": not live.tapped, "attacking": live.attacking is not None,
-                     "blocking": bool(live.blocking), "suspected": plan.oid(live) in plan.rules.suspected}  # (suspected: wave 38A, 701.60)
+                     "blocking": bool(live.blocking), "suspected": plan.oid(live) in plan.rules.suspected,  # (suspected: wave 38A, 701.60)
+                     "attacking_opponent": live.attacking is not None and live.attacking.kind == "player" and live.attacking.id != ctx["controller"]
+                     and live.attacking.id in plan.live()}  # (-- block events (wave 53C) -- the player attacked, an opponent of the ability's controller)
         else:
             snap = next((x for x in reversed(plan.rules.lki.values()) if x.card == card.id and x.zone.endswith(":battlefield")), None)
             if snap is None:
@@ -1865,7 +1880,9 @@ def _cast_how(t: str) -> Condition | None:
         how: dict[str, Any] = {"by_you": bool(m["you"])}
         if m["from"]:
             if m["from"] == "your graveyard" and not m["you"]:
-                return None
+                if not m["who2"]:
+                    return None
+                how["own_graveyard"] = True  # -- block events (wave 53C) -- "if it was cast from your graveyard" (Rocket-Powered Goblin Glider): its controller cast it from their graveyard
             how["from"] = _FROM[m["from"]]
         if m["main"]:
             if not m["you"]:
@@ -1959,6 +1976,10 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return False
     if how.get("by_you") and record.controller != ctx["controller"]:
         return False
+    if how.get("own_graveyard"):  # 400.3: a card goes to its owner's graveyard, so "your graveyard" is the controller's when the controller owns it and cast it
+        card = plan.state.cards.get(ctx.get("source_card") or "") if cond.get("object") == "self" else None
+        if record.controller != ctx["controller"] or card is None or card.owner != ctx["controller"]:
+            return False
     if how.get("kicked") and not record.kicked:  # 702.33d (a modal header's "If it was kicked, choose both instead")
         return False
     if how.get("escaped") and record.alternative != "escape":  # -- escape (wave 5I) -- 702.138b

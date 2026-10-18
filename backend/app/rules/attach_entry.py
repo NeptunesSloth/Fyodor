@@ -47,10 +47,12 @@ def parse(target: str) -> tuple[list[dict[str, Any]], Any] | None:
 def attach_to(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.3a-b: attach the object "it" names to the target, if it still is that object on the
     battlefield and could be attached there; otherwise nothing moves."""
-    from app.rules import attachments, effects
+    from app.rules import attachments, context, effects
 
     src = effects._cards(plan, ctx, str(e.get("src") or "self"))
     hosts = effects._cards(plan, ctx, str(e.get("who") or "target"))
+    if (name := e.get("did")) and name not in context.refs(ctx):  # -- block events (wave 53C) -- "attach it to target creature you control. When you do / If you do, …": it was done if it is attached there
+        context.refs(ctx)[name] = {"kind": "probe", "attached": {c: hosts[0] for c in src} if hosts else {}}
     if hosts:
         for cid in src:  # (-- attach all (wave 30S) -- "any number of target Equipment": each one, 701.3a)
             attachments.attach(plan, cid, hosts[0], ctx["controller"])
@@ -77,6 +79,10 @@ def choose(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pool = [c.id for c in plan.state.cards.values()
             if c.zone.endswith(":battlefield") and (e.get("anyone") or c.controller == me) and kinds & set(plan.ch(c).subtypes)
             and host not in (c.attached_to, c.attached_player) and attachments.host_problem(plan, c, host) is None]
+    if e.get("was_attached"):  # -- block events (wave 53C) -- Cass: only what was attached to the creature that died, as it last existed (608.2h)
+        ev = (ctx.get("event") or {}).get("objects") or []
+        snap = plan.rules.lki.get(ev[0]["object_id"]) if ev else None
+        pool = [c for c in pool if snap is not None and c in snap.attached]
     if not pool:
         return True
     if e.get("n") == "all":

@@ -298,6 +298,7 @@ class ObjectSnapshot(BaseModel):
     attack_on: str | None = None
     blocking: bool = False
     blocking_ids: list[str] = Field(default_factory=list)  # -- activated other (wave 52D) -- the attackers (card ids) it was blocking as it last existed (608.2h: "target creature it's blocking")
+    blocked_by_ids: list[str] = Field(default_factory=list)  # -- block events (wave 53C) -- the creatures (card ids) blocking it as it last existed (608.2h: "each creature that was blocking it")
     attached_to: str | None = None
     attached_player: str | None = None  # -- attached events (wave 4L) -- the player an Aura enchanted (a Curse)
     # -- sagas & attached-object triggers (wave 3S) -- the permanents (card ids) attached to it as it
@@ -733,6 +734,7 @@ class DelayedTrigger(BaseModel):
     step: str = ""
     once: bool = True  # 603.7b: it triggers only once (an "each" duration would say otherwise)
     until_turn: int | None = None  # "this turn": it stops watching at that turn's cleanup (514.2)
+    until_combat: bool = False  # -- block events (wave 53C) -- "this combat": it stops watching as the combat phase ends (combat.end_combat)
     until_player: str | None = None  # -- turn-long triggers (wave 50G) -- "until your next turn": it stops watching as that player's next turn begins (500.4)
     # -- if you do (wave 25C) -- a turn watch's deferred ability that has a target of its own ("Whenever you cast a spell this turn, put a +1/+1
     # counter on target creature you control"): the selector its controller chooses a target for each time it triggers (603.3d)
@@ -1362,6 +1364,7 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
         effects=[e.value or e.name for e in c.effects], attacking=c.attacking is not None,
         attack_on=f"{c.attacking.kind}:{c.attacking.id}" if c.attacking is not None else None,  # (wave 38A)
         blocking=c.blocking is not None, blocking_ids=[x for x in (c.blocking, *c.blocking_more) if x], attached_to=c.attached_to, text=token.text if token else "",
+        blocked_by_ids=[o.id for o in state.cards.values() if o.id != card_id and o.blocks(card_id)],  # (wave 53C)
         attached_player=c.attached_player,  # -- attached events (wave 4L) --
         merged=[p.model_dump() for p in c.merged], melded=c.melded,  # (wave 18D)
         x=c.stack_info.x if c.zone == "stack" and c.stack_info is not None else None,  # (wave 5B)

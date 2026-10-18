@@ -582,6 +582,10 @@ def _object_history(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: 
         got = any(e.object_id in ids for e in log.entered)
     elif what == "blocked":
         got = any(a in ids for attacked in log.blocks.values() for a in attacked)
+    elif what == "blocked_with":  # -- block events (wave 53C) -- 509.1g: it blocked / was blocked by a creature of that kind this turn (block_events.paired_with)
+        from app.rules import block_events
+
+        got = any(block_events.paired_with(plan, i, cond["mode"], cond["sel"], ctx["controller"]) for i in ids)
     elif what == "died":  # -- counters (wave 41A) -- 700.4: it was put into a graveyard from the battlefield (Departure.to)
         got = any(d.object_id in ids and d.to == "graveyard" for d in log.left)
     elif what == "enlisted":  # -- trailing & intervening ifs (wave 38A) -- 702.154a: in this combat phase (500.8), fixed once it was (603.4: still so as it resolves)

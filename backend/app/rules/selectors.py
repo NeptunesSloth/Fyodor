@@ -235,9 +235,21 @@ def _enchanted_or_equipped(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, m["w"].replace(" ", "_")))
 
 
+# -- block events (wave 53C) -- "Attach this Aura to target creature other than enchanted creature." (Kjeldoran Pride): not the creature the source is attached to
+@_suffix(r"other than (?:enchanted|equipped) creature")
+def _other_than_host(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "not_host_of_source"))
+
+
 @_suffix(r"other than ~")
 def _other_than_self(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, other=True)
+
+
+# -- block events (wave 53C) -- 708.2: "can't be blocked by creatures that don't have a name" (Pompous Gadabout): a face-down permanent has no name
+@_suffix(r"that (?:don['’]t|doesn['’]t) have a name")
+def _nameless(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "nameless"))
 
 
 @_suffix(r"that['’]s (?P<w>attacking or blocking|attacking|blocking|tapped|untapped)")
@@ -374,7 +386,7 @@ def _dealt_damage_by_source(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "dealt_damage_by_source"))
 
 
-@_suffix(r"(?:that (?:was|were) )?dealt damage this turn")
+@_suffix(r"(?:that (?:was|were|has been|have been) )?dealt damage this turn")  # (wave 53C: "has been dealt damage", Giant Shark)
 def _was_dealt_damage_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "was_dealt_damage"))
 
@@ -391,7 +403,7 @@ def _blocking_source(s: Selector, m: re.Match[str]) -> Selector:  # blocks (509.
 
 # -- combat history (wave 31D) -- "each creature blocking or blocked by this creature" (Kjeldoran Frostbeast, Greater Werewolf), "all creatures
 # blocked by this creature" (Wall of Nets): the source's blocks as they stand (509.1; they still stand as the end of combat step begins)
-@_suffix(r"(?P<b>blocking or blocked by|blocked by) (?:this creature|~)")  # (named: "it" would need an antecedent, scripts._event_refs_ok)
+@_suffix(r"(?P<b>blocking or (?:being )?blocked by|blocked by) (?:this creature|~)")  # (wave 53C: "blocking or being blocked by this creature", Sworn Defender)  # (named: "it" would need an antecedent, scripts._event_refs_ok)
 def _block_pair_source(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "block_pair_this" if m["b"].startswith("blocking") else "blocked_by_this"))
 
@@ -2008,6 +2020,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     for extra in sel.extras:
         if extra == "not_event" and card.id == attacker:  # (wave 23B) the event's own object (``attacker``: attacker_of)
             return False
+        if extra == "nameless" and ch.name:  # (wave 53C)
+            return False
         if extra == "two_colors" and len(ch.colors) != 2:  # (wave 44C)
             return False
         if extra == "enchanted" and not _has_attached(plan, card, "Aura"):
@@ -2087,6 +2101,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "attached_source" and (source is None or card.attached_to != source):  # -- activated other (wave 34B) -- attached to the source itself
             return False
+        if extra == "not_host_of_source" and (src_ := plan.state.cards.get(source or "")) is not None and src_.attached_to == card.id:  # (wave 53C)
+            return False
         if extra == "host_of_source" and ((src := plan.state.cards.get(source or "")) is None or src.attached_to != card.id):
             return False  # -- attached events (wave 40B) -- 303.4b, 301.5: the permanent the source (an Aura / Equipment) is attached to ("Tap enchanted creature")
         if extra.startswith("attached_creature"):  # -- attached events (wave 30S) -- attached to a creature (of yours)
@@ -2153,7 +2169,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "blocked" and card.id not in plan.rules.blocked:  # (wave 49A)
             return False
-        if extra == "unblocked" and card.id in plan.rules.blocked:  # (wave 15E) a blocked attacker stays blocked
+        if extra == "unblocked" and (card.id in plan.rules.blocked or not _blockers_declared(plan)):  # (wave 15E) a blocked attacker stays blocked; (wave 53C) 509.1h: it is unblocked once blockers are declared
             return False
         if extra == "attacked_this_turn" and not _attacked_this_turn_now(plan, card):  # -- combat (wave 5C) --
             return False
@@ -2182,6 +2198,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                     return False
             elif src is None or not src.zone.endswith(":battlefield") or not card.zone.endswith(":battlefield") or ((not card.blocks(src.id)) if extra == "blocking_source" else (not src.blocks(card.id)) if extra in ("blocked_by_source", "blocked_by_this") \
                     else not (card.blocks(src.id) or src.blocks(card.id))):
+                return False
+        if extra.startswith("rel:"):  # -- block events (wave 53C) -- combat and attachment relations to a named creature (app/rules/block_events.py)
+            from app.rules import block_events
+
+            if not block_events.rel_matches(plan, card, extra, source):
                 return False
         if extra in ("shares_type_source", "shares_type_event"):  # -- most-played cards (wave 43B) -- a creature type in common with the object ``source`` names (205.3m)
             from app.rules.creature_types import CREATURE_TYPES
@@ -2262,6 +2283,12 @@ def _attacked_this_turn_now(plan: Plan, card: CardInstance) -> bool:
     return r.object_id(card.id) in {a for ids in r.turn_log.attackers.values() for a in ids}
 
 
+def _blockers_declared(plan: Plan) -> bool:
+    from app.rules import block_events
+
+    return block_events.blockers_declared(plan)
+
+
 def _blocked_this_turn_now(plan: Plan, card: CardInstance) -> bool:
     """-- combat state (wave 27A) -- the object (400.7) was declared as a blocker this turn (TurnLog.blockers)."""
     r = plan.state.rules
@@ -2325,3 +2352,9 @@ def candidates(plan: Plan, sel: Selector, you: str, source: str | None = None, a
             if matches(plan, sel, card, plan.ch(card), you, source, attacker):
                 out.append(cid)
     return out
+
+
+# -- block events (wave 53C) -- the suffixes "blocking that creature", "that blocked or was blocked by it this turn", "attached to target creature"
+from app.rules import block_events as _block_events  # noqa: E402  (a leaf module over this one)
+
+_block_events.register()

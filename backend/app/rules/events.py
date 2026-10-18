@@ -408,6 +408,25 @@ def _parse(c: str) -> Condition | None:
     m = re.fullmatch(rf"(?:enchanted|equipped) creature (?P<a>{_MULTI_RE}) or (?P<b>{_MULTI_RE})", c)
     if m and {_MULTI[m["a"]], _MULTI[m["b"]]} <= {"attack", "block", "blocked", "tapped", "untapped", "dealt_damage"}:
         return {"event": "multi", "events": [_MULTI[m["a"]], _MULTI[m["b"]]], "subject": "host"}
+    # -- block events (wave 53C) -- 509.3b, 509.3d: "Whenever a creature with deathtouch blocks or becomes blocked by this creature" (Mirror Shield): this creature blocks
+    # or becomes blocked by that creature, once for each — the creature on the other side is the one the description names
+    m = re.fullmatch(r"(?P<o>an? .+?|another .+?) blocks or becomes blocked by (?P<s>~|enchanted creature|equipped creature)", c)
+    if m:
+        return _parse(f"{m['s']} blocks or becomes blocked by {m['o']}")
+    # -- block events (wave 53C) -- 509.3d, 509.3b: "Whenever a creature becomes blocked by a creature with lesser power" / "a creature blocks a creature with lesser power" (No Quarter):
+    # once for each pair, the other creature's power less than this one's (509.3f: as the block is made)
+    m = re.fullmatch(r"(?P<s>an? .+?|another .+?) (?P<v>becomes blocked by|blocks) (?P<o>an? .+?) with lesser power", c)
+    if m:
+        head = _parse(f"{m['s']} {'becomes blocked' if m['v'] != 'blocks' else 'blocks'}")
+        if head is None or head.get("subject") != "sel" or head.get("aggregate"):
+            return None
+        return {**head, "other": _object_sel(m["o"]), "other_cmp": "less_power"}
+    # -- block events (wave 53C) -- 509.3c: "Whenever a creature attacking one of your opponents becomes blocked by two or more creatures" (Seifer): the number of creatures
+    # declared as blockers for it
+    m = re.fullmatch(r"(?P<s>.+?) becomes blocked by (?P<n>two|three|four|five) or more creatures", c)
+    if m:
+        inner = _parse(f"{m['s']} becomes blocked")
+        return None if inner is None or inner.get("event") != "blocked" or inner.get("aggregate") else {**inner, "min_blockers": _count(m["n"])}
     # 509.3b / 509.3d: "~ blocks or becomes blocked by a creature" — once per creature on the other side
     # (wave 11E: also "enchanted / equipped creature …", the permanent the source is attached to)
     m = re.fullmatch(r"(?P<s>~|enchanted creature|equipped creature) (?P<v>blocks or becomes blocked by|blocks|becomes blocked by)"

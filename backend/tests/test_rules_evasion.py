@@ -135,7 +135,7 @@ def test_parse_rules(text, who, rules, extra):
     "No more than one creature can attack each combat.",
     "Creature spells you control can't be countered.",  # spells: not a battlefield selector
     "Players can't gain life.",  # a rule about players, not objects
-    "~ can't be blocked by creatures that don't have a name.",
+    # ("~ can't be blocked by creatures that don't have a name." is read since wave 53C: Pompous Gadabout, tests/test_rules_wave53c_block_events.py)
     "~ enters tapped and doesn't untap during your untap step.",
     "Blue creatures can't block creatures you control.",  # "you" would be lost once the rule sits on a blue creature
     "Enchanted creature can't block creatures you control.",
