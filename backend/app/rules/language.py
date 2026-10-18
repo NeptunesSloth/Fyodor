@@ -1128,6 +1128,9 @@ _SUBJ_UNTIL = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) cards from the 
 _REST_THEY = re.compile(rf"(?:that player|the player) puts {_REST}")
 _OWNERS = r"(?:its owner's|their owner's|their owners'|your)"
 _TO_LIBRARY = re.compile(rf"put (?P<o>.+?) (?P<place>on top|on the bottom) of {_OWNERS} library")
+# -- block events (wave 53C) -- "Put ~ and each creature blocking or blocked by it on top of their owners' libraries, then those players shuffle." (Vortex Elemental):
+# put into their owners' libraries and shuffled (701.24a): the cards go in, then each owner's library is shuffled, which is shuffling them into it
+_TOP_SHUFFLE = re.compile(r"put (?:(?P<self>~) and )?(?P<o>each .+?) on top of their owners' libraries, then those players shuffle")
 _NTH_FROM_TOP = re.compile(rf"put (?P<o>.+?) into {_OWNERS} library (?P<nth>second|third|fourth|fifth|sixth|seventh) from the top")
 _SHUFFLE_INTO = re.compile(rf"shuffle (?P<o>.+?) into {_OWNERS} library")
 # (the player whose card was chosen from the revealed hand: the card goes to its owner's library, 401.3 / 701.24)
@@ -1446,6 +1449,12 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
             raise _Fail
         nth = ("second", "third", "fourth", "fifth", "sixth", "seventh").index(m["nth"]) + 2
         return [{"do": "to_library", "who": _who(kind, key), "place": nth}], _one(group)
+    m = _TOP_SHUFFLE.fullmatch(text)
+    if m:
+        kind, key, group = ref(m["o"])
+        if kind != "each":
+            raise _Fail
+        return [{"do": "to_library", "who": key, "place": "shuffle"}, *([{"do": "to_library", "who": "self", "place": "shuffle"}] if m["self"] else [])], None
     m = _TO_LIBRARY.fullmatch(text) or _SHUFFLE_INTO.fullmatch(text)
     if m:
         kind, key, group = ref(m["o"])

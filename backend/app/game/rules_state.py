@@ -298,6 +298,7 @@ class ObjectSnapshot(BaseModel):
     attack_on: str | None = None
     blocking: bool = False
     blocking_ids: list[str] = Field(default_factory=list)  # -- activated other (wave 52D) -- the attackers (card ids) it was blocking as it last existed (608.2h: "target creature it's blocking")
+    blocked_by_ids: list[str] = Field(default_factory=list)  # -- block events (wave 53C) -- the creatures (card ids) blocking it as it last existed (608.2h: "each creature that was blocking it")
     attached_to: str | None = None
     attached_player: str | None = None  # -- attached events (wave 4L) -- the player an Aura enchanted (a Curse)
     # -- sagas & attached-object triggers (wave 3S) -- the permanents (card ids) attached to it as it
@@ -1352,6 +1353,7 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
         effects=[e.value or e.name for e in c.effects], attacking=c.attacking is not None,
         attack_on=f"{c.attacking.kind}:{c.attacking.id}" if c.attacking is not None else None,  # (wave 38A)
         blocking=c.blocking is not None, blocking_ids=[x for x in (c.blocking, *c.blocking_more) if x], attached_to=c.attached_to, text=token.text if token else "",
+        blocked_by_ids=[o.id for o in state.cards.values() if o.id != card_id and o.blocks(card_id)],  # (wave 53C)
         attached_player=c.attached_player,  # -- attached events (wave 4L) --
         merged=[p.model_dump() for p in c.merged], melded=c.melded,  # (wave 18D)
         x=c.stack_info.x if c.zone == "stack" and c.stack_info is not None else None,  # (wave 5B)

@@ -170,12 +170,12 @@ def _bind_now(plan: Plan, ctx: Context, effects: list[dict[str, Any]], refs: dic
     """The deferred effects with every reference to a particular object turned into a binding of
     the object as it is now: the target as chosen, the source, what the source is attached to.
     Selectors ("each creature you control") stay: they're read when the ability resolves."""
-    from app.rules import context
+    from app.rules import block_events, context
     from app.rules.effects import _cards
 
     out = []
     for k, e in enumerate(effects):
-        e = dict(e)
+        e = dict(block_events.bind(plan, ctx, e))  # -- block events (wave 53C) -- "destroy all creatures that blocked or were blocked by it this turn": the creature, as now
         who = e.get("who")
         if isinstance(who, str) and (who in _BIND_NOW or who.startswith("target:")):
             name = f"d{len(refs)}_{k}"

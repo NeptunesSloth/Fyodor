@@ -26,6 +26,7 @@ from app.game.rules_state import DecisionOption, ObjectRef, StackEntry, remember
 from app.game.state import ALL, STACK, zone_key
 from app.rules import (
     block_effects,  # -- block effects (wave 30P) -- the object arguments of a block rule (a leaf module)
+    block_events,  # -- block events (wave 53C) -- combat and attachment relations to a named creature (a leaf module)
     card_names,  # -- card names (wave 22B) -- 201.4
     context,
     delayed,
@@ -3641,6 +3642,7 @@ def _continue_effects(plan: Plan, ctx: Context) -> None:
         ctx["next"] += 1
         if e.get("note_group"):  # -- counters (wave 5H) -- the permanents a count reads, for a later "those creatures"
             context.bind_objects(plan, ctx, e["note_group"]["as"], _cards(plan, ctx, e["note_group"]["who"]))
+        e = block_events.bind(plan, ctx, e)  # -- block events (wave 53C) -- "creatures blocking it", "Auras attached to that creature": the object bound now
         if not PRIMITIVES[e["do"]](plan, ctx, e):
             return  # waiting for a choice; the decision's resume continues from ctx["next"]
     if ctx.get("body_done") is not None:  # -- draw bodies (wave 28B) -- a replacement effect's own resolution: no stack object (draw_bodies.py)

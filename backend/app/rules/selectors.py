@@ -2183,6 +2183,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             elif src is None or not src.zone.endswith(":battlefield") or not card.zone.endswith(":battlefield") or ((not card.blocks(src.id)) if extra == "blocking_source" else (not src.blocks(card.id)) if extra in ("blocked_by_source", "blocked_by_this") \
                     else not (card.blocks(src.id) or src.blocks(card.id))):
                 return False
+        if extra.startswith("rel:"):  # -- block events (wave 53C) -- combat and attachment relations to a named creature (app/rules/block_events.py)
+            from app.rules import block_events
+
+            if not block_events.rel_matches(plan, card, extra, source):
+                return False
         if extra in ("shares_type_source", "shares_type_event"):  # -- most-played cards (wave 43B) -- a creature type in common with the object ``source`` names (205.3m)
             from app.rules.creature_types import CREATURE_TYPES
 
@@ -2325,3 +2330,9 @@ def candidates(plan: Plan, sel: Selector, you: str, source: str | None = None, a
             if matches(plan, sel, card, plan.ch(card), you, source, attacker):
                 out.append(cid)
     return out
+
+
+# -- block events (wave 53C) -- the suffixes "blocking that creature", "that blocked or was blocked by it this turn", "attached to target creature"
+from app.rules import block_events as _block_events  # noqa: E402  (a leaf module over this one)
+
+_block_events.register()

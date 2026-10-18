@@ -33,6 +33,7 @@ from dataclasses import replace
 from functools import lru_cache
 from typing import Any, Literal
 
+from app.rules import block_events  # -- block events (wave 53C) -- combat and attachment relations to a named creature (a leaf module)
 from app.rules import characteristics as _chars  # (-- hidden exile (wave 18A) --)
 from app.rules import chosen as _chosen  # -- chosen player (wave 4J) --
 from app.rules import (
@@ -2457,7 +2458,7 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
         if (split := predicates.split(body)) is not None:
             found = _parse_effects_plain(split, it, event_player=event_player)
-    return found
+    return block_events.targeted(found)  # -- block events (wave 53C) -- "blocking or blocked by target creature": the instruction's target
 
 
 def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
@@ -3422,7 +3423,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = re.sub(r"(chooses [^.]*? they control)\. Destroy the rest\.", r"\1, then the rest are destroyed.", body)  # (wave 11D)
     body = re.sub(r"(reveals [^.]*?cards from their hand(?: equal to [^.]+?)?)(?:\. | and )[Yy]ou choose (one|two|three) of them\.",  # -- hand disruption (wave 52C) -- the revealed cards are "it" for the choice (language.CHOOSE_FROM_HAND)
                   lambda m: f"{m[1]}. You choose {'a card' if m[2] == 'one' else m[2] + ' cards'} from it.", body)
-    body = re.sub(r"( sacrifices (?:a|an|one) [A-Za-z -]+?) of their choice (with [a-z ]+)(?=[.,])", r"\1 \2 of their choice", body)  # -- static_other (wave 52C) -- "sacrifices a creature of their choice with flying" (Clip Wings): the same edict, the tail where it is read
+    body = re.sub(r"( sacrifices (?:a|an|one) [A-Za-z -]+?) of their choice (with [a-z ]+)(?=[.,])", r"\1 \2 of their choice", body)
+    body = re.sub(r"( sacrifices (?:a|an|one) [A-Za-z -]+?) of their choice that's (blocking [a-z ]+)(?=[.,])", r"\1 \2 of their choice", body)  # -- block events (wave 53C) -- "sacrifices a creature of their choice that's blocking it" (Labyrinth Raptor)  # -- static_other (wave 52C) -- "sacrifices a creature of their choice with flying" (Clip Wings): the same edict, the tail where it is read
     # -- per-player choices (wave 30K) -- "For each player, you choose … an artifact, a creature, … Then each player sacrifices all other nonland
     # permanents they control." (Tragic Arrogance): one instruction (language.CHOOSE_FOR_EACH)
     body = re.sub(r"(For each player, you choose from among the permanents that player controls [^.]+)\. Then (each player sacrifices all other)",
@@ -4780,13 +4782,15 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # -- combat history (wave 31D) -- "creatures blocking or blocked by this creature" names the source explicitly, but a static ability's group
     # (layers) has no source to read the blocks of: only an activated or triggered ability
     if d is not None and ("block_pair_this" in json.dumps(d, default=str) or "blocked_by_this" in json.dumps(d, default=str)) \
-            and d.get("kind") not in ("activated", "triggered"):
+            and d.get("kind") not in ("activated", "triggered") and not (d.get("kind") == "static" and d.get("static") == "grant"):  # (-- block events (wave 53C) -- Alms Beast: a static grant is matched with its source, statics.applies)
         return None
     if d is not None and d.get("kind") == "triggered" and d.get("trigger") == "event" and (d.get("cond") or {}).get("event") == "blocked" \
             and not (d.get("cond") or {}).get("other"):  # -- trigger other (wave 39A) -- 509.3c: "Whenever a creature you control becomes blocked, it gets +3/+3 until end of
         # turn for each creature blocking it" (General Marhault Elsdragon): the "it" of the event (not ~) is the creature whose blockers are counted, as this resolves
         d = {**d, "effects": [json.loads(json.dumps(e, default=str).replace("blocking_source", "blocking_event")) if e.get("who") == "event" else e
                               for e in d.get("effects") or []]}
+    if d is not None and "@pron" in json.dumps(d, default=str):  # -- block events (wave 53C) -- "creatures blocking or blocked by it": who "it" is, by what the ability is
+        d = block_events.settle_it(d, _trigger_antecedent(str(d.get("trigger")), d.get("cond")) if d.get("kind") == "triggered" else None)
     if d is not None and "shares_type_source" in json.dumps(d, default=str):
         # -- most-played cards (wave 43B) -- "…for each other attacking creature that shares a creature type with it" (Shared Animosity): "it" is the creature the trigger
         # is about when the effect acts on that creature; with the source itself as "it" (a self trigger, an activated ability) the source's types are compared
@@ -5357,6 +5361,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if ante == "self" and (it_ := re.search(r"damage that would be dealt (?:to|by) it\b", body)) is not None and ". " not in body[:it_.start()] \
                         and "target" not in body[:it_.start()]:  # -- damage wordings (wave 50E) -- "Whenever this creature becomes blocked, prevent all combat damage that would be dealt by it this turn." (Ignoble Soldier), "… all damage that would be dealt to it this turn is dealt to target creature instead." (Karona's Zealot):
                     body = body[:it_.end() - 2] + "~" + body[it_.end():]  # "it" of the first sentence is the source itself (written ~), when no earlier target or object could be meant
+                if ante == "event" and cond is not None and cond.get("event") == "blocked" and not cond.get("other"):
+                    # -- block events (wave 53C) -- 509.3c: "each creature blocking it": "it" is the creature that became blocked (the trigger's object, not ~)
+                    body = re.sub(r"\b(blocking(?: or blocked by)?|blocked by) it\b", r"\1 that creature", body)
                 body = _may_have(body, ante)  # -- trigger tail (wave 15B) --
                 to_gy = cond is not None and cond.get("event") == "to_graveyard" and cond.get("subject") == "self"
                 if to_gy:  # -- trigger tail (wave 15B) -- 603.6c: the card is in its owner's graveyard, whose owner controls the ability
@@ -5673,6 +5680,8 @@ def _event_refs_ok(d: Definition) -> bool:
     # and as it resolves): only a trigger whose event names that player — the one the event is about, or the one attacked
     raw = json.dumps(d)
     ev = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
+    if "rel:" in raw and not block_events.refs_ok(d):  # -- block events (wave 53C) -- "creatures blocking that creature": a reference that can be bound where it runs
+        return False
     if '"same_name": "event"' in raw and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
         return False  # -- value grammar (wave 23C) -- "that spell": the spell a cast trigger is about
     if any(e.get("do") == "free_cast" and (e.get("shares_type") or {"mana_value": "event"} in (e.get("mv"), e.get("mv_lt"))) for e in effects) \
