@@ -67,6 +67,7 @@ import json
 import re
 from typing import TYPE_CHECKING, Any
 
+from app.rules import chosen as _chosen  # -- chosen filters (wave 53B) --
 from app.rules import conditions, selectors, values
 
 if TYPE_CHECKING:
@@ -145,10 +146,10 @@ def parse(text: str) -> Definition | None:
     # "… gets +2/+2 and has protection from each color. This effect doesn't remove Auras." (Spectra Ward): the grant, and the Auras the
     # protection doesn't make fall off (attachments.host_problem); only on an Aura's own grant
     m = re.fullmatch(r"(?P<grant>Enchanted creature (?:gets [^.\"]+? and )?has protection from [^.\"]+)\. This effect doesn't remove "
-                     r"(?P<k>this Aura|~|Auras)\.", t)
+                     r"(?P<k>this Aura|~|Auras|Auras and Equipment you control that are already attached to it)\.", t)  # (wave 53B: Benevolent Blessing)
     if m:
         inner = parse(m["grant"] + ".")
-        return None if inner is None or inner["who"] != "attached" else {**inner, "keeps": "auras" if m["k"] == "Auras" else "self"}
+        return None if inner is None or inner["who"] != "attached" else {**inner, "keeps": "auras" if m["k"] == "Auras" else "yours" if m["k"].startswith("Auras and") else "self"}
     if not t.endswith(".") and not t.endswith('."'):
         return None
     if re.sub(r'"[^"]*"', "", t).count(". ") or "\n" in t:  # (wave 16F: sentences inside a quoted granted ability are its own)
@@ -161,6 +162,8 @@ def parse(text: str) -> Definition | None:
         return cda
     # -- small wordings (wave 11E) -- "This creature is the chosen type in addition to its other types." (Metallic Mimic):
     # layer 4 (613.1d, 205.1b), the creature type chosen as it entered (layers._own_layer4 reads it, chosen.chosen_value_ok)
+    if body == "~ is the chosen color":  # -- chosen filters (wave 53B) -- Alloy Golem: layer 5 (613.1e), the color it chose as it entered (layers: chosen.resolve_marks)
+        return {**_definition("self", None, []), "set_colors": ["@color"]}
     if body == "~ is the chosen type in addition to its other types":
         return {**_definition("self", None, []), "remove_types": [], "add_subtypes": [], "chosen_type": True}
     # -- untap choice (wave 7F) -- 502.3: asked in the untap step (app/rules/untap_choice.py)
@@ -428,8 +431,8 @@ def parse(text: str) -> Definition | None:
         return None
     if x_value is not None and parts["each"] is None:
         return None  # ("where X is …" with no X in the sentence)
-    if who == "self" and not conds and not parts["rules"] and parts["each"] is None and parts["abilities_of"] is None:
-        return None  # "~ has flying." unconditionally is a keyword line, not a static: not a template
+    if who == "self" and not conds and not parts["rules"] and parts["each"] is None and parts["abilities_of"] is None and not any(g in _chosen.PROTECTION for g in parts["grants"]):
+        return None  # "~ has flying." unconditionally is a keyword line, not a static: not a template (wave 53B: but not "~ has protection from the chosen color", a choice made as it entered)
     if any(_mentions(c, ("self_stat",)) for c in conds) and (who != "self" or not parts["rules"] or extra or parts["p"] or parts["t"] or parts["base"]
                                                               or parts["keywords"] or parts["grants"] or parts["each"] or parts["abilities_of"]):
         return None  # -- static_other (wave 42A) -- the source's own power is known to the rules pass (layers._with_rules) only: a rule of the source, nothing else
@@ -975,8 +978,10 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
         if rest == "protection from each color that's not in your commander's color identity":  # -- most-played cards (wave 43B) -- Commander's Plate
             grants.append("Protection from each color not in your commander's color identity")  # (layers writes the colors in: 903.4, the rulings 2020-11-10)
             continue
-        if rest == "protection from the chosen color":  # -- attached events (wave 25D) -- the color the Aura's "As ~ enters, choose a color" recorded
-            grants.append("Protection from the chosen color")  # (layers writes the answer in; chosen.chosen_value_ok: the one choice)
+        if (chosen_line := {"protection from the chosen color": "Protection from the chosen color", "protection from the chosen card type": "Protection from the chosen card type",
+                            "protection from creatures of the chosen type": "Protection from creatures of the chosen type"}.get(rest)) is not None:
+            # -- attached events (wave 25D) -- the color the Aura's "As ~ enters, choose a color" recorded (wave 53B: or a card type, or a creature type, of the permanent's own choice)
+            grants.append(chosen_line)  # (layers writes the answer in; chosen.chosen_value_ok: the one choice)
             continue
         line = keyword_line(rest.replace(_FROM_JOIN, " and from "))  # -- attached events (wave 4L) --
         if line is not None:
@@ -1057,7 +1062,8 @@ RULES.update({"is goaded": ("goaded:@you",), "are goaded": ("goaded:@you",)})
 # -- attached events (wave 4L) -- "Enchanted creature … can't attack you or planeswalkers you control." (Vow of Duty;
 # 508.1c: a restriction on where it attacks — "you" is the Aura's controller, app/rules/combat.py ``attack_forbidden``)
 RULES.update({"can't attack you or planeswalkers you control": ("cant_attack_player_pw:@you",),
-              "can't attack you": ("cant_attack_player:@you",)})
+              "can't attack you": ("cant_attack_player:@you",),
+              "can't attack its owner": ("cant_attack_player:@owner",)})  # -- group choices (wave 53D) -- Elrond of the White Council's grant: "@owner" is the owner of the creature it restricts
 # -- conditional statics (wave 4B) -- 702.3b: a creature with defender can't attack; this lets it (app/rules/combat.py)
 RULES.update({"can attack as though it didn't have defender": ("attack_despite_defender",),
               "can attack as though they didn't have defender": ("attack_despite_defender",)})
@@ -1082,6 +1088,10 @@ def _rule(piece: str) -> list[str] | None:
     plain = RULES.get(piece)
     if plain is not None:
         return list(plain)
+    m = re.fullmatch(r"must be blocked by an? (?P<sel>.+?) if able", piece)  # -- block events (wave 53C) -- 509.1c: one creature of that kind (combat.block_requirements)
+    if m and not m["sel"].startswith(("creature", "two ")):
+        key = _sel_key(m["sel"], plural=False)
+        return [f"must_be_blocked_by:{key}"] if key else None
     m = re.fullmatch(r"must be blocked by all (?P<sel>.+) able", piece)  # (-- lure (wave 12B) -- only those creatures must)
     if m:
         sels = _sels(m["sel"])
@@ -1128,6 +1138,8 @@ def _rule(piece: str) -> list[str] | None:
     if m:
         colors = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}[m["c"]]
         return [f"untargetable:{1 if m['o1'] or m['o2'] else 0}:{1 if m['n'] else 0}:{colors}"]
+    if piece == "can't be blocked by creatures the monarch controls":  # -- block events (wave 53C) -- 509.1b, 725: by a blocker whose controller is the monarch (Azure Fleet Admiral)
+        return ["cant_be_blocked_if_defender:monarch"]
     m = re.fullmatch(r"can't be blocked (?P<except>except )?by (?P<sel>.+)", piece)
     if m:
         sels = _sels(m["sel"])

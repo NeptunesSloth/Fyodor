@@ -1,0 +1,550 @@
+[
+ {
+  "name": "Case of the Crimson Pulse",
+  "layout": "case",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Case",
+  "oracle_text": "When this Case enters, discard a card, then draw two cards.\nTo solve — You have no cards in hand. (If unsolved, solve at the beginning of your end step.)\nSolved — At the beginning of your upkeep, discard your hand, then draw two cards.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Solved"
+  ]
+ },
+ {
+  "name": "Case of the Trampled Garden",
+  "layout": "case",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Case",
+  "oracle_text": "When this Case enters, distribute two +1/+1 counters among one or two target creatures you control.\nTo solve — Creatures you control have total power 8 or greater. (If unsolved, solve at the beginning of your end step.)\nSolved — Whenever you attack, put a +1/+1 counter on target attacking creature. It gains trample until end of turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Solved"
+  ]
+ },
+ {
+  "name": "Drownyard Lurker",
+  "layout": "normal",
+  "mana_cost": "{7}",
+  "cmc": 7.0,
+  "type_line": "Creature — Eldrazi Trilobite",
+  "oracle_text": "Vigilance\nWhen you cast or cycle Drownyard Lurker, create a 0/1 colorless Eldrazi Spawn creature token with \"Sacrifice this token: Add {C}.\"\nCycling {2}{U} ({2}{U}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Vigilance",
+   "Cycling"
+  ],
+  "power": "7",
+  "toughness": "7"
+ },
+ {
+  "name": "Warped Tusker",
+  "layout": "normal",
+  "mana_cost": "{7}",
+  "cmc": 7.0,
+  "type_line": "Creature — Eldrazi Boar Beast",
+  "oracle_text": "Reach\nWhen you cast or cycle Warped Tusker, create a 0/1 colorless Eldrazi Spawn creature token with \"Sacrifice this token: Add {C}.\"\nCycling {2}{G} ({2}{G}, Discard this card: Draw a card.)",
+  "colors": [],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Reach",
+   "Cycling"
+  ],
+  "power": "6",
+  "toughness": "8"
+ },
+ {
+  "name": "Valakut, the Molten Pinnacle",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhenever a Mountain you control enters, if you control at least five other Mountains, you may have this land deal 3 damage to any target.\n{T}: Add {R}.",
+  "colors": [],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Roiling Canopy",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land",
+  "oracle_text": "This land enters tapped.\nWhenever a Forest you control enters, if you control at least five other Forests, target creature you control gets +3/+3 until end of turn.\n{T}: Add {G}.",
+  "colors": [],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Field-Tested Frying Pan",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "When this Equipment enters, create a Food token, then create a 1/1 white Halfling creature token and attach this Equipment to it.\nEquipped creature has \"Whenever you gain life, this creature gets +X/+X until end of turn, where X is the amount of life you gained.\"\nEquip {2}",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Food",
+   "Equip"
+  ]
+ },
+ {
+  "name": "Auxiliary Boosters",
+  "layout": "normal",
+  "mana_cost": "{4}{W}",
+  "cmc": 5.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "When this Equipment enters, create a 2/2 colorless Robot artifact creature token and attach this Equipment to it.\nEquipped creature gets +1/+2 and has flying.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Swarming Goblins",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Creature — Goblin",
+  "oracle_text": "When this creature enters, roll a d20.\n1—9 | Create a 1/1 red Goblin creature token.\n10—19 | Create two of those tokens.\n20 | Create three of those tokens.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "3"
+ },
+ {
+  "name": "Frontier Siege",
+  "layout": "normal",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "As this enchantment enters, choose Khans or Dragons.\n• Khans — At the beginning of each of your main phases, add {G}{G}.\n• Dragons — Whenever a creature you control with flying enters, you may have it fight target creature you don't control.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Fight"
+  ]
+ },
+ {
+  "name": "Hammerhead Tyrant",
+  "layout": "normal",
+  "mana_cost": "{4}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Creature — Dragon",
+  "oracle_text": "Flying\nWhenever you cast a spell, return up to one target nonland permanent an opponent controls with mana value less than or equal to that spell's mana value to its owner's hand.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Mana Echoes",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever a creature enters, you may add an amount of {C} equal to the number of creatures you control that share a creature type with it.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Seasoned Dungeoneer",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Creature — Human Warrior",
+  "oracle_text": "When this creature enters, you take the initiative.\nWhenever you attack, target attacking Cleric, Rogue, Warrior, or Wizard gains protection from creatures until end of turn. It explores. (Reveal the top card of your library. Put that card into your hand if it's a land. Otherwise, put a +1/+1 counter on the creature, then put the card back or put it into your graveyard.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Explore"
+  ],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Sandstone Oracle",
+  "layout": "normal",
+  "mana_cost": "{7}",
+  "cmc": 7.0,
+  "type_line": "Artifact Creature — Sphinx",
+  "oracle_text": "Flying\nWhen this creature enters, choose an opponent. If that player has more cards in hand than you, draw cards equal to the difference.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Slithermuse",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Elemental",
+  "oracle_text": "When this creature leaves the battlefield, choose an opponent. If that player has more cards in hand than you, draw cards equal to the difference.\nEvoke {3}{U} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Evoke"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Endurance",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Elemental Incarnation",
+  "oracle_text": "Flash\nReach\nWhen this creature enters, up to one target player puts all the cards from their graveyard on the bottom of their library in a random order.\nEvoke—Exile a green card from your hand.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Reach",
+   "Evoke",
+   "Flash"
+  ],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Deadbridge Chant",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{G}",
+  "cmc": 6.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, mill ten cards.\nAt the beginning of your upkeep, choose a card at random in your graveyard. If it's a creature card, put it onto the battlefield. Otherwise, put it into your hand.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Mill"
+  ]
+ },
+ {
+  "name": "Keen Duelist",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Wizard",
+  "oracle_text": "At the beginning of your upkeep, you and target opponent each reveal the top card of your library. You each lose life equal to the mana value of the card revealed by the other player. You each put the card you revealed into your hand.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Parker Luck",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of your end step, two target players each reveal the top card of their library. They each lose life equal to the mana value of the card revealed by the other player. Then they each put the card they revealed into their hand.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Duskmantle Seer",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Vampire Wizard",
+  "oracle_text": "Flying\nAt the beginning of your upkeep, each player reveals the top card of their library, loses life equal to that card's mana value, then puts it into their hand.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Trouble in Pairs",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{W}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "If an opponent would begin an extra turn, that player skips that turn instead.\nWhenever an opponent attacks you with two or more creatures, draws their second card each turn, or casts their second spell each turn, you draw a card.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Malcolm, Keen-Eyed Navigator",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Siren Pirate",
+  "oracle_text": "Flying\nWhenever one or more Pirates you control deal damage to your opponents, you create a Treasure token for each opponent dealt damage. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nPartner (You can have two commanders if both have partner.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Treasure",
+   "Partner"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Hordewing Skaab",
+  "layout": "normal",
+  "mana_cost": "{4}{U}",
+  "cmc": 5.0,
+  "type_line": "Creature — Zombie Horror",
+  "oracle_text": "Flying\nOther Zombies you control have flying.\nWhenever one or more Zombies you control deal combat damage to one or more of your opponents, you may draw cards equal to the number of opponents dealt damage this way. If you do, discard that many cards.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Colossal Grave-Reaver",
+  "layout": "normal",
+  "mana_cost": "{6}{B}{G}",
+  "cmc": 8.0,
+  "type_line": "Creature — Dragon",
+  "oracle_text": "Flying\nWhenever this creature enters or attacks, mill three cards.\nWhenever one or more creature cards are put into your graveyard from your library, put one of them onto the battlefield.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Flying",
+   "Mill"
+  ],
+  "power": "7",
+  "toughness": "6"
+ },
+ {
+  "name": "Undead Alchemist",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Zombie",
+  "oracle_text": "If a Zombie you control would deal combat damage to a player, instead that player mills that many cards.\nWhenever a creature card is put into an opponent's graveyard from their library, exile that card and create a 2/2 black Zombie creature token.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Mill"
+  ],
+  "power": "4",
+  "toughness": "2"
+ },
+ {
+  "name": "Polluted Cistern // Dim Oubliette",
+  "layout": "split",
+  "mana_cost": "{1}{B} // {4}{B}",
+  "cmc": 7.0,
+  "type_line": "Enchantment — Room // Enchantment — Room",
+  "oracle_text": "Whenever one or more cards are put into your graveyard from your library, each opponent loses 1 life for each card type among those cards.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)\n//\nWhen you unlock this door, mill three cards, then return a creature card from your graveyard to the battlefield.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Mill"
+  ],
+  "card_faces": [
+   {
+    "name": "Polluted Cistern",
+    "mana_cost": "{1}{B}",
+    "type_line": "Enchantment — Room",
+    "oracle_text": "Whenever one or more cards are put into your graveyard from your library, each opponent loses 1 life for each card type among those cards.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)"
+   },
+   {
+    "name": "Dim Oubliette",
+    "mana_cost": "{4}{B}",
+    "type_line": "Enchantment — Room",
+    "oracle_text": "When you unlock this door, mill three cards, then return a creature card from your graveyard to the battlefield.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)"
+   }
+  ]
+ },
+ {
+  "name": "Consuming Aberration",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{B}",
+  "cmc": 5.0,
+  "type_line": "Creature — Horror",
+  "oracle_text": "Consuming Aberration's power and toughness are each equal to the number of cards in your opponents' graveyards.\nWhenever you cast a spell, each opponent reveals cards from the top of their library until they reveal a land card, then puts those cards into their graveyard.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [],
+  "power": "*",
+  "toughness": "*"
+ },
+ {
+  "name": "The Skullspore Nexus",
+  "layout": "normal",
+  "mana_cost": "{6}{G}{G}",
+  "cmc": 8.0,
+  "type_line": "Legendary Artifact",
+  "oracle_text": "This spell costs {X} less to cast, where X is the greatest power among creatures you control.\nWhenever one or more nontoken creatures you control die, create a green Fungus Dinosaur creature token with base power and toughness each equal to the total power of those creatures.\n{2}, {T}: Double target creature's power until end of turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Double"
+  ]
+ },
+ {
+  "name": "Temur War Shaman",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Creature — Human Shaman",
+  "oracle_text": "When this creature enters, manifest the top card of your library. (Put that card onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)\nWhenever a permanent you control is turned face up, if it's a creature, you may have it fight target creature you don't control.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Manifest",
+   "Fight"
+  ],
+  "power": "4",
+  "toughness": "5"
+ },
+ {
+  "name": "Nessian Wilds Ravager",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Creature — Hydra",
+  "oracle_text": "Tribute 6 (As this creature enters, an opponent of your choice may put six +1/+1 counters on it.)\nWhen this creature enters, if tribute wasn't paid, you may have this creature fight another target creature. (Each deals damage equal to its power to the other.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Fight",
+   "Tribute"
+  ],
+  "power": "6",
+  "toughness": "6"
+ }
+]

@@ -58,3 +58,45 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     if e.get("as"):
         context.bind_objects(plan, ctx, e["as"], picked)
     continue_effects(plan, ctx)
+
+
+# -- hand disruption (wave 52C) -- "Target player reveals three cards from their hand and you choose one of them." (Blackmail, Noggin Whack, Mire's Toll)
+def reveal_some(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.20a, 608.2d: that player chooses the cards (their hand is theirs to pick from, privately); they are then shown to everyone and are the
+    revealed cards the next instructions work on ("you choose one of them" is a choice among them, "that player discards that card"). With no more
+    cards than the number, they are all revealed and nothing is asked (the hand size is public, 402.3)."""
+    from app.rules import values
+    from app.rules.effects import _players, decide
+
+    pids = _players(plan, ctx, e["who"])
+    ctx["revealed"] = []
+    if not ctx.get("hide_queued"):  # (the end of this resolution hides what is still revealed: effects.hide_revealed)
+        ctx["hide_queued"] = True
+        ctx["effects"].append({"do": "hide_revealed"})
+    n = max(0, int(values.evaluate(plan, ctx, e["n"])))
+    for pid in pids:
+        hand = list(plan.state.zones.get(f"{pid}:hand", []))
+        if len(hand) > n:
+            decide(plan, player=pid, kind="choose_cards", prompt=f"{ctx.get('name') or 'It'}: reveal {n} card{'s' if n != 1 else ''} from your hand",
+                   options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
+                   min_choices=n, max_choices=n, resume={"step": "reveal_some", "ctx": ctx, "e": e})
+            return False
+        _show(plan, ctx, pid, hand)
+    return True
+
+
+def _show(plan: Plan, ctx: Context, pid: str, cards: list[str]) -> None:
+    if cards:
+        plan.do({"type": "reveal", "card_ids": cards}, actor=pid)
+    else:
+        plan.note(f"{plan.name(pid)} reveals no cards", actor=pid)
+    ctx["revealed"] = [*ctx.get("revealed", []), *cards]
+
+
+def resume_some(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    ctx = d.resume["ctx"]
+    hand = set(plan.state.zones.get(f"{d.player}:hand", []))
+    _show(plan, ctx, d.player, [c for c in chosen if c in hand])
+    continue_effects(plan, ctx)

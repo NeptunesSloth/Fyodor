@@ -408,6 +408,25 @@ def _parse(c: str) -> Condition | None:
     m = re.fullmatch(rf"(?:enchanted|equipped) creature (?P<a>{_MULTI_RE}) or (?P<b>{_MULTI_RE})", c)
     if m and {_MULTI[m["a"]], _MULTI[m["b"]]} <= {"attack", "block", "blocked", "tapped", "untapped", "dealt_damage"}:
         return {"event": "multi", "events": [_MULTI[m["a"]], _MULTI[m["b"]]], "subject": "host"}
+    # -- block events (wave 53C) -- 509.3b, 509.3d: "Whenever a creature with deathtouch blocks or becomes blocked by this creature" (Mirror Shield): this creature blocks
+    # or becomes blocked by that creature, once for each — the creature on the other side is the one the description names
+    m = re.fullmatch(r"(?P<o>an? .+?|another .+?) blocks or becomes blocked by (?P<s>~|enchanted creature|equipped creature)", c)
+    if m:
+        return _parse(f"{m['s']} blocks or becomes blocked by {m['o']}")
+    # -- block events (wave 53C) -- 509.3d, 509.3b: "Whenever a creature becomes blocked by a creature with lesser power" / "a creature blocks a creature with lesser power" (No Quarter):
+    # once for each pair, the other creature's power less than this one's (509.3f: as the block is made)
+    m = re.fullmatch(r"(?P<s>an? .+?|another .+?) (?P<v>becomes blocked by|blocks) (?P<o>an? .+?) with lesser power", c)
+    if m:
+        head = _parse(f"{m['s']} {'becomes blocked' if m['v'] != 'blocks' else 'blocks'}")
+        if head is None or head.get("subject") != "sel" or head.get("aggregate"):
+            return None
+        return {**head, "other": _object_sel(m["o"]), "other_cmp": "less_power"}
+    # -- block events (wave 53C) -- 509.3c: "Whenever a creature attacking one of your opponents becomes blocked by two or more creatures" (Seifer): the number of creatures
+    # declared as blockers for it
+    m = re.fullmatch(r"(?P<s>.+?) becomes blocked by (?P<n>two|three|four|five) or more creatures", c)
+    if m:
+        inner = _parse(f"{m['s']} becomes blocked")
+        return None if inner is None or inner.get("event") != "blocked" or inner.get("aggregate") else {**inner, "min_blockers": _count(m["n"])}
     # 509.3b / 509.3d: "~ blocks or becomes blocked by a creature" — once per creature on the other side
     # (wave 11E: also "enchanted / equipped creature …", the permanent the source is attached to)
     m = re.fullmatch(r"(?P<s>~|enchanted creature|equipped creature) (?P<v>blocks or becomes blocked by|blocks|becomes blocked by)"
@@ -511,6 +530,15 @@ def _parse(c: str) -> Condition | None:
         if a is None or b is None or a.get("aggregate") or b.get("aggregate") or a["event"] == b["event"]:
             return None
         return {"event": "either", "subject": "player", "player": a["player"], "conds": [a, b]}
+    # -- trigger other (wave 52B) -- "Whenever an opponent attacks you with two or more creatures, draws their second card each turn, or casts their second spell each turn"
+    # (Trouble in Pairs): a list of one player's actions, each its own event (603.2c); every part must read on its own with that player
+    m = re.fullmatch(r"(?P<p>you|an opponent|a player) (?P<rest>[^,]+(?:, [^,]+)+), or (?P<last>(?!and ).+)", c)
+    if m:
+        listed = [_parse(f"{m['p']} {part}") for part in (*m["rest"].split(", "), m["last"])]
+        # (-- review 52 -- no list of actions: fall through, "put counters on a Goblin, Orc, or Army you control", The Great Goblin)
+        if not any(x is None or x.get("aggregate") or x["event"] in ("either", "multi") or x.get("subject") != "player" or x.get("player") != _PLAYERS[m["p"]] for x in listed) \
+                and len({x["event"] for x in listed if x}) == len(listed):
+            return {"event": "either", "subject": "player", "player": _PLAYERS[m["p"]], "conds": [x for x in listed if x]}
     # -- history (wave 22E) -- "Whenever this creature attacks, blocks, or becomes the target of a spell": a list of verbs for one
     # subject, each its own event (603.2c); every part must read on its own with that subject
     m = re.fullmatch(r"(?P<s>~|this creature|this permanent) (?P<rest>[^,]+(?:, [^,]+)+), or (?P<last>.+)", c)
@@ -612,6 +640,12 @@ def _parse(c: str) -> Condition | None:
     # -- merged permanents (wave 18D) -- 702.140d: "Whenever this creature mutates" (it merged with a mutating creature spell)
     if c in ("~ mutates", "this creature mutates", "this permanent mutates"):
         return {"subject": "self", "event": "mutate"}
+    m = re.fullmatch(r"(?P<s>(?:a|another) [^,]+? you control) mutates", c)  # -- counters (wave 52D) -- Essence Symbiote: 702.140d, any creature of yours that a mutating creature spell merged with
+    if m:
+        base = _subject(m["s"])
+        if base is None or base.get("aggregate"):
+            return None
+        return {**base, "event": "mutate"}
     m = re.fullmatch(r"(?P<s>.+?) becomes (?P<d>monstrous|renowned)", c)
     if m:
         base = _subject(m["s"])
@@ -635,7 +669,7 @@ def _parse(c: str) -> Condition | None:
     if c in ("~ is put into your graveyard from your library", "this card is put into your graveyard from your library"):
         return {"event": "to_graveyard", "subject": "self", "from": "library"}  # -- triggers (wave 19B) -- (Narcomoeba)
     m = re.fullmatch(r"(?P<o>one or more (?:.+? )?cards|an? .+? card|a card) (?:is|are) put into (?:(?P<g>your|an opponent's|a) "
-                     r"graveyard|graveyards) from (?P<f>anywhere other than the battlefield|anywhere|your library|a library)", c)  # (wave 43B: Syr Konrad; wave 50G: "graveyards", Dennick)
+                     r"graveyard|graveyards) from (?P<f>anywhere other than the battlefield|anywhere|your library|their library|a library)", c)  # (wave 43B: Syr Konrad; wave 50G: "graveyards", Dennick)
     if m:
         gsel = selectors.from_key(_object_sel(m["o"], card=True))
         owner = {"your": "you", "an opponent's": "opponent"}.get(m["g"])
@@ -647,6 +681,10 @@ def _parse(c: str) -> Condition | None:
             out["not_from"] = "battlefield"
         if m["f"] == "your library":
             if owner != "you":
+                return None
+            out["from"] = "library"
+        elif m["f"] == "their library":  # -- trigger other (wave 52B) -- "a creature card is put into an opponent's graveyard from their library" (Undead Alchemist): a card goes to its owner's graveyard, so their own library
+            if owner != "opponent":
                 return None
             out["from"] = "library"
         elif m["f"] == "a library":  # (wave 16C: Dreadhound — any player's library)
@@ -874,7 +912,7 @@ def _combat(c: str) -> Condition | None:
         if holds is None or base is None:
             raise _Refuse
         return {**base, "while": holds}
-    m = re.fullmatch(r"(?P<s>.+?) attacks while (?P<w>you control .+|there (?:is|are) .+|you have .+|saddled)", c)  # (wave 23D: 702.171b "while saddled", ~ itself)
+    m = re.fullmatch(r"(?P<s>.+?) attacks while (?P<w>you (?:don't )?control .+|there (?:is|are) .+|you have .+|saddled)", c)  # (wave 52D: "you don't control another Dinosaur", Pugnacious Hammerskull)  # (wave 23D: 702.171b "while saddled", ~ itself)
     if m:
         from app.rules import conditions  # (selectors and values only)
 
@@ -1329,14 +1367,14 @@ def _object_event(c: str) -> Condition | None:
     # (-- counters (wave 41A) -- "a red source you control deals damage to one or more permanents and/or players" (The Red Terror): the source's color as it
     # dealt the damage (105.2), and a recipient that is any permanent or player — every recipient there is, so it is "deals damage" (120.1), once per source for
     # the batch (603.2c))
-    m = re.fullmatch(rf"a(?P<col> white| blue| black| red| green| colorless)? source(?P<ctl> you control| an opponent controls)? deals? (?:(?P<min>\w+) or more )?(?P<c>combat |noncombat )?"
+    m = re.fullmatch(rf"a(?P<col> white| blue| black| red| green| colorless)? source(?P<chosen> of the chosen color)?(?P<ctl> you control| an opponent controls)? deals? (?:(?P<min>\w+) or more )?(?P<c>combat |noncombat )?"
                      rf"damage(?P<to>{_DAMAGE_TO_RE}|(?P<all> to one or more permanents and/or players))", c)
     # (-- trigger damage (wave 39B) -- "a source you control deals noncombat damage to one or more of your opponents" (Molten Lavamancer): once per source
     # for the batch (603.2c; triggers._fire_generic keys it by the source); a threshold over "one or more" recipients isn't read)
     if m and m["to"] != " to one or more creatures" and (m["to"] or not m["min"]) and not (
             m["min"] and m["to"] in (" to one or more players", " to your opponents", " to one or more of your opponents")) and not (m["all"] and m["min"]):
         return {"event": "deal_damage", "subject": "source", "to": "any" if m["all"] else _DAMAGE_TO[m["to"]],
-                **({"color": m["col"].strip()} if m["col"] else {}),
+                **({"color": m["col"].strip()} if m["col"] else {}), **({"chosen_color": True} if m["chosen"] else {}),  # (wave 53B: Circle of Affliction, the color its source chose as it entered)
                 **({"min": _count(m["min"])} if m["min"] else {}), **({"aggregate": True} if m["to"] in _ONE_OR_MORE_TO else {}),
                 "ctl": {" you control": "you", " an opponent controls": "opponent"}.get(m["ctl"] or "", "any"),
                 "combat": {"combat ": True, "noncombat ": False}.get(m["c"] or "")}

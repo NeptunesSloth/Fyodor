@@ -35,7 +35,7 @@ def parse(body: str, read: Callable[[str], Parsed | None]) -> Parsed | None:
     if m is None:
         return None
     rest = _THOSE.sub("it", _THAT_YARD.sub("an opponent's graveyard", _THAT_PLAYER.sub("an opponent controls", m["rest"])).replace(". They gain ", ". It gains "))
-    if re.search(r"\b(?:that (?:player|opponent)|they|them|their)\b", rest):
+    if re.search(r"\b(?:that (?:player|opponent)|they|them|their)\b", rest.replace("its controller cloaks the top card of their library", "")):  # (-- if you do (wave 52A) -- Unexplained Absence: "their" is that controller's, not the opponent of the group)
         return None  # (another reference to the opponent: not read)
     found = read(rest + ".")
     if found is None:

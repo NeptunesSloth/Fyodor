@@ -1,0 +1,687 @@
+"""Wave 53D: piles (CR 700.3), real Oracle text (tests/fixtures/wave53d_cards.json, from data/cards.sqlite). Every scenario checks the replay and a save and a load.
+
+* 700.3a-d: each object goes into exactly one pile, a pile may be empty, a pile is no object and nothing moves while objects are grouped.
+* Liliana of the Veil -6 / Do or Die: the caster separates the target player's permanents (creatures), that player chooses a pile (the empty one if they like).
+* Make an Example: each opponent separates their creatures, the caster chooses a pile for each, all sacrificed at once.
+* Death or Glory: the caster separates their graveyard's creature cards; an opponent (named by the caster) chooses: exile that pile, the other returns.
+* Whims of the Fates: every player separates into three piles (starting with the caster) and one pile of each, at random, is sacrificed.
+"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from app.rules import coverage
+from tests.game_helpers import act
+from tests.test_rules_conditionals import creature, until
+from tests.wave9c_kit import card_named, mana, put
+from tests.wave53d_kit import (
+    check,
+    log,
+    loyalty,
+    names_on,
+    open_repo,
+    pin_random,
+    resolve,
+    seen_by_others,
+    table,
+    to_hand,
+)
+
+LILIANA, DIE, EXAMPLE, GLORY, WHIMS = "Liliana of the Veil", "Do or Die", "Make an Example", "Death or Glory", "Whims of the Fates"
+
+
+@pytest.fixture()
+def cards(settings):
+    yield from open_repo(settings)
+
+
+@pytest.mark.parametrize("name", [LILIANA, DIE, EXAMPLE, GLORY, WHIMS])
+def test_the_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def cast(s, name, pid="p1", targets=None, **pool):
+    to_hand(s, name, pid)
+    mana(s, pid, **pool)
+    act(s, pid, type="cast_spell", card_id=card_named(s, name, pid).id, **({"targets": targets} if targets else {}))
+
+
+def split(s, pid, first):
+    """The separator picks the cards (by name prefix) of the first pile; the rest form the other."""
+    d = s.state.rules.decision
+    assert d is not None and d.player == pid, (d.player if d else None, pid)
+    act(s, pid, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if any(o.label.startswith(f) for f in first)])
+
+
+def pile(s, pid, number):
+    d = s.state.rules.decision
+    assert d is not None and d.player == pid and d.kind == "choose_one", (d.player if d else None, pid)
+    act(s, pid, type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label.startswith(f"Pile {number}"))])
+
+
+def test_liliana_separates_the_permanents_and_the_player_sacrifices_the_pile_of_their_choice(cards):
+    s = table(cards, [LILIANA], players=2)
+    walker = loyalty(s, LILIANA, 6)
+    bears = [creature(s, "p2", n) for n in ("Bear One", "Bear Two", "Bear Three")]
+    land = card_named(s, "Island", "p2")
+    act(s, "p2", type="move", card_ids=[land.id], to={"player": "p2", "zone": "battlefield"})
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=2, targets=["p2"])
+    resolve(s)
+    d = s.state.rules.decision  # Alice separates (700.3): the player's four permanents, one pile chosen by her
+    assert d.player == "p1" and d.max_choices == 4
+    split(s, "p1", ["Bear One", "Bear Two"])
+    assert "Alice separates Bob's permanents into piles: Bear One, Bear Two / Bear Three, Island" in log(s, "p2")
+    assert all(c in s.state.zones["p2:battlefield"] for c in [b.id for b in bears] + [land.id])  # (nothing moved: 700.3c)
+    pile(s, "p2", 2)  # Bob chooses
+    resolve(s)
+    assert names_on(s, "p2") == ["Bear One", "Bear Two"] and land.id not in s.state.zones["p2:battlefield"]  # (Bear Three, Island: sacrificed)
+    check(s)
+
+
+def test_an_empty_pile_may_be_chosen_and_nothing_is_sacrificed(cards):
+    s = table(cards, [LILIANA], players=2)
+    walker = loyalty(s, LILIANA, 6)
+    bear = creature(s, "p2", "Bear One")
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=2, targets=["p2"])
+    resolve(s)
+    split(s, "p1", ["Bear One"])  # all in one pile
+    d = s.state.rules.decision
+    assert [o.label for o in d.options] == ["Pile 1: Bear One", "Pile 2: no cards"]
+    pile(s, "p2", 2)
+    resolve(s)
+    assert bear.id in s.state.zones["p2:battlefield"]
+    check(s)
+
+
+def test_a_player_with_no_permanents_has_nothing_to_separate(cards):
+    s = table(cards, [LILIANA], players=2)
+    walker = loyalty(s, LILIANA, 6)
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=2, targets=["p2"])
+    resolve(s)
+    assert s.state.rules.decision is None
+    check(s)
+
+
+def test_do_or_die_destroys_the_creatures_of_the_chosen_pile(cards):
+    s = table(cards, [DIE], players=2)
+    ogre, wolf, bear = creature(s, "p2", "Ogre"), creature(s, "p2", "Wolf"), creature(s, "p2", "Bear")
+    mine = creature(s, "p1", "Mine")
+    cast(s, DIE, targets=["p2"], B=1, C=1)
+    resolve(s)
+    split(s, "p1", ["Ogre", "Wolf"])
+    pile(s, "p2", 1)
+    resolve(s)
+    assert ogre.id not in s.state.cards and wolf.id not in s.state.cards and bear.id in s.state.zones["p2:battlefield"]
+    assert mine.id in s.state.zones["p1:battlefield"]
+    check(s)
+
+
+def test_make_an_example_each_opponent_separates_and_the_caster_chooses(cards):
+    s = table(cards, [EXAMPLE])
+    b1, b2, b3 = (creature(s, "p2", n) for n in ("B1", "B2", "B3"))
+    c1, c2 = creature(s, "p3", "C1"), creature(s, "p3", "C2")
+    mine = creature(s, "p1", "Mine")
+    cast(s, EXAMPLE, B=1, C=3)
+    resolve(s)
+    split(s, "p2", ["B1"])  # each opponent separates their own creatures, in APNAP order
+    split(s, "p3", ["C1", "C2"])
+    assert s.state.rules.decision.player == "p1" and "Bob's" in s.state.rules.decision.prompt  # then Alice chooses for each opponent
+    pile(s, "p1", 2)
+    assert "Carol's" in s.state.rules.decision.prompt
+    pile(s, "p1", 1)
+    resolve(s)
+    assert [s.state.cards[c].name for c in s.state.zones["p2:battlefield"]].count("B1") == 1 and b2.id not in s.state.cards and b3.id not in s.state.cards
+    assert c1.id not in s.state.cards and c2.id not in s.state.cards and mine.id in s.state.zones["p1:battlefield"]
+    check(s)
+
+
+def test_death_or_glory_an_opponent_chooses_a_pile_to_exile_and_the_other_returns(cards):
+    s = table(cards, [GLORY, "Llanowar Elves", "Grizzly Bears", "Young Wolf"])
+    dead = [card_named(s, n) for n in ("Llanowar Elves", "Grizzly Bears", "Young Wolf")]
+    for c in dead:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+    cast(s, GLORY, W=1, C=4)
+    resolve(s)
+    split(s, "p1", ["Llanowar Elves"])
+    d = s.state.rules.decision  # which opponent chooses is Alice's call (608.2d)
+    assert d.player == "p1" and {o.label for o in d.options} == {"Bob", "Carol"}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p3"])
+    assert s.state.rules.decision.player == "p3"
+    pile(s, "p3", 1)  # Carol: exile Llanowar Elves; the other pile returns to the battlefield under its owner's control
+    resolve(s)
+    assert s.state.cards[dead[0].id].zone == "p1:exile"
+    assert s.state.cards[dead[1].id].zone == "p1:battlefield" and s.state.cards[dead[2].id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_whims_of_the_fates_sacrifices_one_random_pile_of_each_player(cards, monkeypatch):
+    s = table(cards, [WHIMS])
+    a1, a2 = creature(s, "p1", "A1"), creature(s, "p1", "A2")
+    b1, b2 = creature(s, "p2", "B1"), creature(s, "p2", "B2")
+    pin_random(monkeypatch, 1)  # the second pile of each
+    cast(s, WHIMS, R=1, C=5)
+    resolve(s)
+    split(s, "p1", ["A1"])  # three piles: the first, then the second among the rest, then what is left
+    split(s, "p1", ["A2"])
+    assert s.state.rules.decision.player == "p2"  # starting with Alice, then turn order
+    split(s, "p2", [])
+    split(s, "p2", ["B1", "B2"])
+    resolve(s)
+    assert a2.id not in s.state.cards and a1.id in s.state.zones["p1:battlefield"]
+    assert b1.id not in s.state.cards and b2.id not in s.state.cards
+    check(s)
+
+
+def test_do_or_die_the_creatures_cant_be_regenerated(cards):
+    s = table(cards, [DIE], ["Twisted Abomination"], players=2)
+    abom = put(s, "Twisted Abomination", "p2")
+    act(s, "p2", type="set_prefs", response="on")  # (Bob stops at each object on the stack)
+    cast(s, DIE, targets=["p2"], B=1, C=1)
+    if s.state.rules.priority == "p1":
+        act(s, "p1", type="pass_priority")
+    mana(s, "p2", B=1)  # Bob answers with a regeneration shield ("{B}: Regenerate Twisted Abomination.")
+    act(s, "p2", type="activate_ability", card_id=abom.id, ability=0)
+    resolve(s)  # the shield, then Do or Die resolves
+    split(s, "p1", ["Twisted"])
+    pile(s, "p2", 1)
+    resolve(s)
+    assert s.state.cards[abom.id].zone == "p2:graveyard"  # destroyed in spite of the shield (701.19c)
+    check(s)
+
+
+# -- piles of cards revealed or exiled ----------------------------------------------------------------------------------
+INTRUDE, TRUTH, SPOILS, PARLEY = "Intrude on the Mind", "Truth or Tale", "Split the Spoils", "Boneyard Parley"
+FIVE = ["Llanowar Elves", "Grizzly Bears", "Young Wolf", "Dregscape Zombie", "Mulldrifter"]
+
+
+def stack_top(s, names, pid="p1"):
+    """The library of ``pid`` with these cards on top, in this order (first = top)."""
+    for n in reversed(names):
+        c = card_named(s, n, pid)
+        act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "library"}, position="top")
+    return [card_named(s, n, pid) for n in names]
+
+
+def test_intrude_on_the_mind_hand_and_graveyard_and_a_thopter_with_a_counter_for_each_card_in_the_graveyard(cards):
+    s = table(cards, [INTRUDE, *FIVE], players=2)
+    top = stack_top(s, FIVE)
+    to_hand(s, INTRUDE)
+    mana(s, "p1", U=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, INTRUDE).id)
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p1" and {o.label for o in d.options} == set(FIVE)  # the five revealed cards (701.20a: public), Alice separates
+    split(s, "p1", ["Llanowar Elves", "Grizzly Bears"])
+    assert "Alice separates cards into piles: Llanowar Elves, Grizzly Bears / Young Wolf, Dregscape Zombie, Mulldrifter" in log(s, "p2")
+    pile(s, "p2", 1)  # Bob: the first pile goes to Alice's hand, the other to her graveyard
+    resolve(s)
+    assert names_on(s, "p1", "hand")[:0] == [] and {s.state.cards[c.id].zone for c in top[:2]} == {"p1:hand"}
+    assert {s.state.cards[c.id].zone for c in top[2:]} == {"p1:graveyard"}
+    thopter = next(c for c in s.state.cards.values() if c.name == "Thopter")
+    assert s.state.cards[thopter.id].counters == {"+1/+1": 3}  # one counter for each of the three cards put into the graveyard
+    check(s)
+
+
+@pytest.mark.parametrize(("take", "counters"), [(1, 0), (2, 5)])
+def test_intrude_on_the_mind_everything_in_one_pile(cards, take, counters):
+    s = table(cards, [INTRUDE, *FIVE], players=2)
+    stack_top(s, FIVE)
+    to_hand(s, INTRUDE)
+    mana(s, "p1", U=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, INTRUDE).id)
+    resolve(s)
+    split(s, "p1", FIVE)  # everything in one pile, the other empty (ruling 2024-02-02)
+    assert "Pile 2: no cards" in [o.label for o in s.state.rules.decision.options]
+    pile(s, "p2", take)  # the full pile to the hand (no card in the graveyard: a 0/0 Thopter dies), or the empty one (all five in the graveyard)
+    resolve(s)
+    zone = "p1:hand" if take == 1 else "p1:graveyard"
+    assert all(s.state.cards[card_named(s, n).id].zone == zone for n in FIVE)
+    thopters = [c for c in s.state.cards.values() if c.name == "Thopter" and c.zone == "p1:battlefield"]
+    assert (len(thopters) == 1 and thopters[0].counters == {"+1/+1": counters}) if counters else not thopters
+    check(s)
+
+
+def test_truth_or_tale_one_card_of_the_chosen_pile_and_the_rest_on_the_bottom(cards):
+    s = table(cards, [TRUTH, *FIVE], players=2)
+    top = stack_top(s, FIVE)
+    to_hand(s, TRUTH)
+    mana(s, "p1", U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, TRUTH).id)
+    resolve(s)
+    split(s, "p1", ["Llanowar Elves", "Grizzly Bears"])
+    pile(s, "p2", 1)  # Bob: the first pile
+    d = s.state.rules.decision
+    assert d.player == "p1" and {o.label for o in d.options} == {"Llanowar Elves", "Grizzly Bears"}  # Alice picks a card from the chosen pile
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "Grizzly Bears")])
+    d = s.state.rules.decision  # the other four go on the bottom in the order Alice picks (401.4)
+    assert d.kind == "order" and d.player == "p1" and len(d.options) == 4
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+    resolve(s)
+    assert s.state.cards[top[1].id].zone == "p1:hand"
+    library = s.state.zones["p1:library"]
+    assert [library.index(c.id) for c in top if c is not top[1]] and all(library.index(c.id) >= len(library) - 4 for c in top if c is not top[1])
+    check(s)
+
+
+def test_split_the_spoils_exiles_the_targets_and_the_piles_go_to_hand_and_graveyard(cards):
+    s = table(cards, [SPOILS, "Llanowar Elves", "Grizzly Bears", "Young Wolf"], players=2)
+    dead = [card_named(s, n) for n in ("Llanowar Elves", "Grizzly Bears", "Young Wolf")]
+    for c in dead:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+    to_hand(s, SPOILS)
+    mana(s, "p1", G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, SPOILS).id, targets=[c.id for c in dead], target_counts=[3])
+    resolve(s)
+    split(s, "p1", ["Young Wolf"])
+    pile(s, "p2", 2)  # Bob: the pile of Elves and Bears to Alice's hand
+    resolve(s)
+    assert s.state.cards[dead[0].id].zone == "p1:hand" and s.state.cards[dead[1].id].zone == "p1:hand"
+    assert s.state.cards[dead[2].id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_boneyard_parley_an_opponent_separates_and_you_choose_the_pile_you_take(cards):
+    s = table(cards, [PARLEY, "Llanowar Elves", "Grizzly Bears"], ["Young Wolf", "Dregscape Zombie"], players=2)
+    mine = [card_named(s, n) for n in ("Llanowar Elves", "Grizzly Bears")]
+    theirs = [card_named(s, n, "p2") for n in ("Young Wolf", "Dregscape Zombie")]
+    for c in mine + theirs:
+        act(s, c.owner, type="move", card_ids=[c.id], to={"player": c.owner, "zone": "graveyard"})
+    to_hand(s, PARLEY)
+    mana(s, "p1", B=2, C=5)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, PARLEY).id, targets=[c.id for c in mine + theirs], target_counts=[4])
+    resolve(s)
+    assert s.state.rules.decision.player == "p2"  # the opponent separates the cards (they may come from different graveyards)
+    split(s, "p2", ["Llanowar Elves", "Young Wolf"])
+    pile(s, "p1", 1)  # Alice takes the first pile: onto the battlefield under her control; the rest to their owners' graveyards
+    resolve(s)
+    assert s.state.cards[mine[0].id].zone == "p1:battlefield" and s.state.cards[theirs[0].id].zone == "p1:battlefield"
+    assert s.state.cards[theirs[0].id].controller == "p1" and s.state.cards[theirs[0].id].owner == "p2"
+    assert s.state.cards[mine[1].id].zone == "p1:graveyard" and s.state.cards[theirs[1].id].zone == "p2:graveyard"
+    check(s)
+
+
+def test_jace_architect_of_thought_an_opponent_separates_you_choose_one_pile_for_the_hand(cards):
+    """The -2 (the card is only PARTIAL: its -8 is manual): reveal three, an opponent separates, one pile to the hand, the other on the bottom in any order."""
+    s = table(cards, ["Jace, Architect of Thought", *FIVE[:3]], players=2)
+    top = stack_top(s, FIVE[:3])
+    jace = loyalty(s, "Jace, Architect of Thought", 4)
+    act(s, "p1", type="activate_ability", card_id=jace.id, ability=1)
+    resolve(s)
+    assert s.state.rules.decision.player == "p2"  # the opponent separates (the cards are revealed)
+    split(s, "p2", ["Llanowar Elves"])
+    pile(s, "p1", 2)  # Alice takes Bears and Wolf; Llanowar Elves goes to the bottom
+    resolve(s)
+    assert s.state.cards[top[1].id].zone == "p1:hand" and s.state.cards[top[2].id].zone == "p1:hand"
+    assert s.state.zones["p1:library"][-1] == top[0].id
+    check(s)
+
+
+# -- piles of exiled cards, face down and face up -----------------------------------------------------------------------------
+NEGOTIATIONS, PERFORMANCE = "Hostile Negotiations", "Abstract Performance"
+SIX = ["Llanowar Elves", "Grizzly Bears", "Young Wolf", "Dregscape Zombie", "Mulldrifter", "Elvish Visionary"]
+
+
+def test_the_face_down_pile_cards_are_full(cards):
+    for name in (NEGOTIATIONS, PERFORMANCE):
+        assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def test_hostile_negotiations_the_opponent_chooses_between_a_face_up_pile_and_a_pile_he_cannot_see(cards):
+    s = table(cards, [NEGOTIATIONS, *SIX], players=2)
+    top = stack_top(s, SIX)
+    to_hand(s, NEGOTIATIONS)
+    mana(s, "p1", B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, NEGOTIATIONS).id)
+    life0 = s.state.players["p1"].life
+    resolve(s)
+    bob = json.dumps(s.view("p2"))
+    assert not any(n in bob for n in SIX)  # two face-down piles of three: Bob cannot see a single card
+    assert all(s.state.cards[c.id].zone == "p1:exile" and s.state.cards[c.id].face_down for c in top)
+    alice = json.dumps(s.view("p1"))
+    assert all(n in alice for n in SIX)  # Alice looked at the cards of both piles (701.20e)
+    d = s.state.rules.decision
+    assert d.player == "p1" and {o.label.split(":")[0] for o in d.options} == {"Pile 1", "Pile 2"}  # turn a pile of her choice face up
+    pile(s, "p1", 1)
+    bob = json.dumps(s.view("p2"))
+    assert all(n in bob for n in SIX[:3]) and not any(n in bob for n in SIX[3:])  # the first pile is public now, the second is not
+    d = s.state.rules.decision
+    assert d.player == "p2" and [o.label for o in d.options] == ["Pile 1: Llanowar Elves, Grizzly Bears, Young Wolf", "Pile 2: 3 cards, face down"]
+    assert not any(n in d.prompt + "".join(o.label for o in d.options) for n in SIX[3:])
+    pile(s, "p2", 2)  # Bob picks the pile he cannot see: it goes to Alice's hand, the face-up pile to her graveyard
+    resolve(s)
+    assert {s.state.cards[c.id].zone for c in top[3:]} == {"p1:hand"} and {s.state.cards[c.id].zone for c in top[:3]} == {"p1:graveyard"}
+    assert s.state.players["p1"].life == life0 - 3
+    assert not any(n in log(s, "p2") for n in SIX[3:])  # the cards that went to her hand were never named
+    check(s)
+
+
+def test_abstract_performance_the_other_pile_is_looked_at_cast_free_and_the_rest_taken(cards):
+    down = ["Lightning Bolt", "Grizzly Bears", "Young Wolf", "Dregscape Zombie"]
+    up = ["Llanowar Elves", "Mulldrifter", "Elvish Visionary", "Soul Warden"]
+    s = table(cards, [PERFORMANCE, *down, *up], players=2)
+    top = stack_top(s, [*down, *up])
+    to_hand(s, PERFORMANCE)
+    mana(s, "p1", U=1, C=5)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, PERFORMANCE).id)
+    life_bob = s.state.players["p2"].life
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p2" and d.options[0].label == "Pile 1: 4 cards, face down" and "Llanowar Elves" in d.options[1].label  # the face-up pile is named
+    assert not any(n in json.dumps(s.view("p2")) for n in down) and not any(n in json.dumps(s.view("p1")) for n in down)  # nobody has looked at the face-down pile
+    pile(s, "p2", 2)  # the face-up pile to Alice's graveyard
+    assert all(s.state.cards[c.id].zone == "p1:graveyard" for c in top[4:])
+    d = s.state.rules.decision  # she looked at the other pile; she may cast a spell from among its cards without paying its mana cost
+    assert d.player == "p1" and any(n in json.dumps(s.view("p1")) for n in down)
+    assert not any(n in json.dumps(s.view("p2")) for n in down)  # (still unseen by Bob)
+    bolt = top[0]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.id == bolt.id or o.label.startswith("Lightning")][:1])
+    while s.state.rules.decision is not None:
+        d = s.state.rules.decision
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.id in ("p2", "yes")][:1] or [d.options[0].id])
+    resolve(s)
+    assert s.state.players["p2"].life == life_bob - 3  # the Bolt, cast free from exile
+    assert {s.state.cards[c.id].zone for c in top[1:4]} == {"p1:hand"}  # the rest into her hand
+    check(s)
+
+
+TOYMAKER = "The Celestial Toymaker"
+
+
+def test_celestial_toymaker_attack_piles_the_defender_chooses_and_the_end_step_drains(cards):
+    s = table(cards, [TOYMAKER, "Llanowar Elves", "Grizzly Bears", "Young Wolf"], players=2)
+    assert coverage.of_card_data(cards.resolve(TOYMAKER)).level == "FULL"
+    toy = put(s, TOYMAKER)
+    top = stack_top(s, ["Llanowar Elves", "Grizzly Bears", "Young Wolf"])
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None, limit=300)
+    top = stack_top(s, ["Llanowar Elves", "Grizzly Bears", "Young Wolf"])
+    life0 = s.state.players["p2"].life
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": toy.id, "target": "p2"}])
+    resolve(s)
+    d = s.state.rules.decision  # Alice looked at the top three; she exiles any number of them face down, the rest face up
+    assert d.player == "p1" and {o.label for o in d.options} == {"Llanowar Elves", "Grizzly Bears", "Young Wolf"}
+    split(s, "p1", ["Young Wolf", "Grizzly Bears"])  # the face-down pile
+    d = s.state.rules.decision  # the defending player chooses between a pile he cannot see and a face-up one
+    assert d.player == "p2" and [o.label for o in d.options] == ["Pile 1: 2 cards, face down", "Pile 2: Llanowar Elves"]
+    assert not any(n in json.dumps(s.view("p2")) for n in ("Grizzly Bears", "Young Wolf"))  # (neither in the log nor anywhere else: Alice only looked at them)
+    pile(s, "p2", 1)
+    resolve(s)
+    assert {s.state.cards[c.id].zone for c in top[1:]} == {"p1:hand"} and s.state.cards[top[0].id].zone == "p1:exile"  # the other pile stays exiled
+    until(s, lambda s: s.state.turn.phase == "end" or s.state.players["p2"].life < life0, limit=100)
+    resolve(s)
+    assert s.state.players["p2"].life == life0 - 2  # one ability made piles this turn: 2 life at the end step
+    check(s)
+
+
+# -- a face-down pile shuffled back on top of the library (wave 53D; 406.3a, 701.24) --------------------------------------------
+TRIUMPH = "Triumph of Saint Katherine"
+
+
+def kill(s, card):
+    """Alice destroys her own creature with Murder (already in her hand); the creature's death trigger waits on the stack."""
+    murder = card_named(s, "Murder")
+    mana(s, "p1", B=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=murder.id, targets=[card.id])
+    for _ in range(4):
+        if s.state.cards[card.id].zone != "p1:battlefield":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+
+
+def test_triumph_of_saint_katherine_is_full(cards):
+    assert coverage.of_card_data(cards.resolve(TRIUMPH)).level == "FULL"
+
+
+def test_triumph_of_saint_katherine_exiles_itself_and_the_top_six_face_down_and_the_shuffled_pile_goes_back_on_top(cards):
+    s = table(cards, [TRIUMPH, "Murder", *SIX], players=2, forests=9)
+    tri = put(s, TRIUMPH)
+    to_hand(s, "Murder")
+    stack_top(s, SIX)
+    below = list(s.state.zones["p1:library"][6:])
+    kill(s, tri)
+    resolve(s)
+    assert s.state.rules.grouped
+    top7 = s.state.zones["p1:library"][:7]
+    assert sorted(s.state.cards[c].name for c in top7) == sorted([TRIUMPH, *SIX])  # the pile is on top of the library again...
+    assert s.state.zones["p1:library"][7:] == below  # ...and nothing under it moved
+    assert not s.state.zones.get("p1:exile") and names_on(s, "p1", "graveyard") == ["Murder"]
+    assert all(not s.state.cards[c].face_down for c in top7)
+    for viewer, seen in seen_by_others(s, "p1"):
+        assert not any(n in seen for n in SIX), viewer  # the six cards were never looked at, by anybody
+    assert not any(n in json.dumps(s.view("p1")) for n in SIX)
+    check(s)
+
+
+def test_triumph_of_saint_katherine_does_nothing_with_fewer_than_six_cards_in_the_library(cards):
+    s = table(cards, [TRIUMPH, "Murder"], players=2, forests=5)
+    tri = put(s, TRIUMPH)
+    to_hand(s, "Murder")
+    assert len(s.state.zones["p1:library"]) == 5
+    kill(s, tri)
+    resolve(s)
+    assert s.state.cards[tri.id].zone == "p1:graveyard" and len(s.state.zones["p1:library"]) == 5  # (ruling 2024-01-12)
+    check(s)
+
+
+def test_triumph_of_saint_katherine_does_nothing_when_it_is_no_longer_in_the_graveyard(cards):
+    s = table(cards, [TRIUMPH, "Murder", *SIX], players=2, forests=9)
+    tri = put(s, TRIUMPH)
+    to_hand(s, "Murder")
+    stack_top(s, SIX)
+    for p in ("p1", "p2"):
+        act(s, p, type="set_prefs", response="on")  # (both players hold priority: the ability waits on the stack)
+    kill(s, tri)
+    assert s.state.rules.stack
+    act(s, "p1", type="move", card_ids=[tri.id], to={"player": "p1", "zone": "exile"})
+    resolve(s)
+    assert [s.state.cards[c].name for c in s.state.zones["p1:library"][:6]] == SIX  # the top six stay where they were
+    check(s)
+
+
+# -- only the creatures of a chosen pile may attack (wave 53D; 700.3, 508.1) ------------------------------------------------------
+FLIGHT = "Fight or Flight"
+
+
+def test_fight_or_flight_is_full(cards):
+    assert coverage.of_card_data(cards.resolve(FLIGHT)).level == "FULL"
+
+
+def test_fight_or_flight_only_the_creatures_of_the_pile_the_opponent_chooses_can_attack(cards):
+    s = table(cards, [FLIGHT], players=2)
+    put(s, FLIGHT)
+    one, two = creature(s, "p2", "Bob One"), creature(s, "p2", "Bob Two")
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "choose_cards", limit=300)
+    d = s.state.rules.decision
+    assert d.player == "p1" and s.state.turn.active_player == "p2" and {o.label for o in d.options} == {"Bob One", "Bob Two"}  # Alice separates Bob's creatures
+    split(s, "p1", ["Bob One"])
+    d = s.state.rules.decision
+    assert d.player == "p2" and [o.label for o in d.options] == ["Pile 1: Bob One", "Pile 2: Bob Two"]  # Bob chooses
+    pile(s, "p2", 2)
+    late = creature(s, "p2", "Bob Late", text="Haste")  # (entered after the ability resolved: in no pile, so it can't attack either)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert [e[1:] for e in s.state.rules.attack_piles] == [["p2", [s.state.rules.object_id(two.id)]]]  # the chosen pile's creatures only
+    for c in (one, late):  # the creature of the other pile and the one that entered later: not in the chosen pile
+        with pytest.raises(Exception, match="can't attack"):
+            act(s, "p2", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p1"}])
+    life = s.state.players["p1"].life
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": two.id, "target": "p1"}])
+    until(s, lambda s: s.state.turn.phase == "main2", limit=30)
+    assert s.state.players["p1"].life == life - 2  # the creature of the chosen pile attacked
+    check(s)
+
+
+# -- a searched face-down pile, shuffled, whose top card replaces a draw (wave 53D; 406.3a, 607.2a, 614.11) --------------------------
+THOUGHTS, TOME = "Parallel Thoughts", "Mangara's Tome"
+SEVEN = ["Llanowar Elves", "Grizzly Bears", "Young Wolf", "Dregscape Zombie", "Mulldrifter", "Elvish Visionary", "Soul Warden"]
+
+
+@pytest.mark.parametrize("name", [THOUGHTS, TOME])
+def test_the_searched_pile_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def search_pile(s, name, names, **pool):
+    """Alice casts ``name``; its enters trigger searches her library for ``names`` and exiles them in a face-down pile."""
+    to_hand(s, name)
+    mana(s, "p1", **pool)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, name).id)
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.kind == "choose_cards"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.label in names])
+    resolve(s)
+
+
+def assert_unseen(s, names, zone="p1:exile"):
+    pile = s.state.zones[zone]
+    assert sorted(s.state.cards[c].name for c in pile) == sorted(names) and all(s.state.cards[c].face_down and s.state.cards[c].unseen for c in pile)
+    for viewer in ("p1", "p2", "__spectator__"):  # (nobody, the owner neither, can look at the face-down pile)
+        assert not any(c.get("name") for c in s.view(viewer)["cards"].values() if c["zone"] == zone), viewer
+    assert not any(n in json.dumps(s.view("p2")) for n in names)
+
+
+def test_parallel_thoughts_exiles_the_searched_cards_in_a_pile_nobody_can_see_and_its_top_card_replaces_a_draw(cards):
+    s = table(cards, [THOUGHTS, *SEVEN], players=2)
+    search_pile(s, THOUGHTS, SEVEN, U=2, C=3)
+    assert s.state.rules.decision is None and s.state.rules.grouped  # (an ability that grouped cards into a pile: the Celestial Toymaker counts it)
+    assert_unseen(s, SEVEN)
+    lib, hand = len(s.state.zones["p1:library"]), len(s.state.zones["p1:hand"])
+    until(s, lambda s: s.state.rules.decision is not None, limit=300)
+    d = s.state.rules.decision  # Alice's draw step: she may instead put the top card of the pile into her hand
+    assert d.player == "p1" and s.state.turn.phase == "draw" and [o.label for o in d.options] == ["Parallel Thoughts: apply it instead", "Draw normally"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    assert len(s.state.zones["p1:library"]) == lib and len(s.state.zones["p1:hand"]) == hand + 1  # no card was drawn; one of the pile went to her hand
+    assert [s.state.cards[c].name in SEVEN for c in s.state.zones["p1:hand"]] == [True]
+    assert_unseen(s, [n for n in SEVEN if n != s.state.cards[s.state.zones["p1:hand"][0]].name])
+    assert "Alice" in log(s, "p2") and s.state.cards[s.state.zones["p1:hand"][0]].name not in log(s, "p2")  # (the card that went to her hand is not named to Bob)
+    check(s)
+
+
+def test_parallel_thoughts_the_draw_may_be_kept(cards):
+    s = table(cards, [THOUGHTS, *SEVEN], players=2)
+    search_pile(s, THOUGHTS, SEVEN, U=2, C=3)
+    lib = len(s.state.zones["p1:library"])
+    until(s, lambda s: s.state.rules.decision is not None, limit=300)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["decline"])
+    assert len(s.state.zones["p1:library"]) == lib - 1 and len(s.state.zones["p1:exile"]) == 7  # drew normally
+    check(s)
+
+
+def test_parallel_thoughts_with_fewer_than_seven_cards_in_the_library_exiles_them_all(cards):
+    three = SEVEN[:3]
+    s = table(cards, [THOUGHTS, *three], players=2, forests=0)
+    search_pile(s, THOUGHTS, three, U=2, C=3)
+    assert_unseen(s, three)  # (ruling 2004-10-04)
+    assert not s.state.zones["p1:library"]
+    check(s)
+
+
+def test_mangaras_tome_the_next_draw_this_turn_takes_the_top_card_of_the_pile(cards):
+    five = SEVEN[:5]
+    s = table(cards, [TOME, *five], players=2)
+    search_pile(s, TOME, five, C=5)
+    assert_unseen(s, five)
+    tome = card_named(s, TOME)
+    act(s, "p1", type="set_prefs", response="on")  # (Alice stops at every priority, her upkeep too)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "upkeep" and s.state.rules.decision is None, limit=300)
+    lib, hand = len(s.state.zones["p1:library"]), len(s.state.zones["p1:hand"])
+    mana(s, "p1", C=2)
+    act(s, "p1", type="activate_ability", card_id=tome.id, ability=1)  # {2}: the next time you would draw a card this turn, instead …
+    until(s, lambda s: s.state.turn.phase == "main1", limit=30)
+    assert len(s.state.zones["p1:library"]) == lib and len(s.state.zones["p1:hand"]) == hand + 1  # the draw step's draw was replaced
+    assert [s.state.cards[c].name in five for c in s.state.zones["p1:hand"]] == [True]
+    assert_unseen(s, [n for n in five if n != s.state.cards[s.state.zones["p1:hand"][0]].name])
+    check(s)
+
+
+# -- the opponent separates the exiled cards, you play from one pile for free (wave 53D; 700.3, 608.2) -------------------------------
+ULTIMATUM = "Brilliant Ultimatum"
+
+
+def test_brilliant_ultimatum_is_full(cards):
+    assert coverage.of_card_data(cards.resolve(ULTIMATUM)).level == "FULL"
+
+
+def test_brilliant_ultimatum_an_opponent_separates_the_exiled_cards_and_you_play_from_the_pile_you_choose(cards):
+    names = ["Forest", "Forest", "Grizzly Bears", "Lightning Bolt", "Mulldrifter"]
+    s = table(cards, [ULTIMATUM, "Grizzly Bears", "Lightning Bolt", "Mulldrifter"], players=2)
+    stack_top(s, names)
+    cast(s, ULTIMATUM, W=2, U=3, B=2)
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p2" and sorted(o.label for o in d.options) == sorted(names)  # Bob separates the five cards, which are exiled face up
+    split(s, "p2", ["Forest", "Grizzly Bears"])  # pile 1: the two Forests and the Bears (the prefix matches every Forest)
+    d = s.state.rules.decision
+    assert d.player == "p1" and [sorted(o.label.split(": ")[1].split(", ")) for o in d.options] == [["Forest", "Forest", "Grizzly Bears"], ["Lightning Bolt", "Mulldrifter"]]
+    pile(s, "p1", 1)
+    d = s.state.rules.decision  # she may play lands and cast spells from the pile, free
+    assert d.player == "p1" and "Forest (play as a land)" in [o.label for o in d.options] and "Grizzly Bears" in [o.label for o in d.options]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label.startswith("Forest"))])
+    d = s.state.rules.decision
+    assert [o.label for o in d.options] == ["Grizzly Bears"]  # (one land only: the second Forest cannot be played this turn)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    resolve(s)
+    assert names_on(s, "p1") == ["Forest", "Grizzly Bears"]
+    assert sorted(s.state.cards[c].name for c in s.state.zones["p1:exile"]) == ["Forest", "Lightning Bolt", "Mulldrifter"]  # the rest stays exiled
+    check(s)
+
+
+# -- the opponent separates the top ten cards of your library, nobody else looks (wave 53D; 701.20e, 700.3) ------------------------
+PORTAL = "Phyrexian Portal"
+TEN = ["Llanowar Elves", "Grizzly Bears", "Young Wolf", "Dregscape Zombie", "Mulldrifter", "Elvish Visionary", "Soul Warden", "Lightning Bolt", "Perilous Myr", "Gravel Slinger"]
+
+
+def test_phyrexian_portal_is_full(cards):
+    assert coverage.of_card_data(cards.resolve(PORTAL)).level == "FULL"
+
+
+def test_phyrexian_portal_the_opponent_looks_and_separates_you_exile_a_pile_unseen_and_search_the_other(cards):
+    s = table(cards, [PORTAL, *TEN], players=2)
+    portal = put(s, PORTAL)
+    stack_top(s, TEN)
+    lib = len(s.state.zones["p1:library"])
+    mana(s, "p1", C=3)
+    act(s, "p1", type="activate_ability", card_id=portal.id, ability=0, targets=["p2"])
+    resolve(s)
+    d = s.state.rules.decision  # Bob looks at the top ten cards of Alice's library and separates them
+    assert d.player == "p2" and sorted(o.label for o in d.options) == sorted(TEN)
+    assert not any(n in json.dumps(s.view("p1")) for n in TEN)  # Alice looks at nothing
+    split(s, "p2", ["Llanowar Elves", "Grizzly Bears", "Young Wolf", "Dregscape Zombie"])
+    d = s.state.rules.decision  # she chooses a pile to exile, unseen: a number of face-down cards each
+    assert d.player == "p1" and [o.label for o in d.options] == ["Pile 1: 4 cards, face down", "Pile 2: 6 cards, face down"]
+    assert not any(n in json.dumps(s.view("p1")) for n in TEN) and not any(n in log(s, "p1") for n in TEN)
+    pile(s, "p1", 1)  # exile the four; search the six
+    assert sorted(s.state.cards[c].name for c in s.state.zones["p1:exile"]) == sorted(TEN[:4])  # (face up in exile: public)
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.kind == "choose_cards" and sorted(o.label for o in d.options) == sorted(TEN[4:])  # she looks at the other pile now
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "Mulldrifter")])
+    resolve(s)
+    assert [s.state.cards[c].name for c in s.state.zones["p1:hand"]] == ["Mulldrifter"]
+    assert len(s.state.zones["p1:library"]) == lib - 5  # four exiled, one in her hand; the other five were shuffled into the library
+    spectator = json.dumps(s.view("__spectator__"))
+    assert all(n in spectator for n in TEN[:4]) and not any(n in spectator for n in TEN[4:])  # the exiled pile is public now; the searched pile and the card taken are not
+    assert "shuffled their library" in log(s, "p2")
+    check(s)
+
+
+def test_phyrexian_portal_does_nothing_with_fewer_than_ten_cards_in_the_library(cards):
+    s = table(cards, [PORTAL, *TEN[:3]], players=2, forests=3)
+    portal = put(s, PORTAL)
+    assert len(s.state.zones["p1:library"]) == 6
+    mana(s, "p1", C=3)
+    act(s, "p1", type="activate_ability", card_id=portal.id, ability=0, targets=["p2"])
+    resolve(s)
+    assert s.state.rules.decision is None and len(s.state.zones["p1:library"]) == 6 and not s.state.zones["p1:exile"]
+    check(s)

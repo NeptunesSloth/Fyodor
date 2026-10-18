@@ -55,7 +55,7 @@ def parse_for_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
         return None
     sel = selectors.parse(what.removesuffix(" on the battlefield") if what.endswith(" on the battlefield") else what)
     # (-- most-played cards II (wave 45A) -- "for each token you control that entered this turn" (Ocelot Pride): read of this turn's log, selectors.candidates)
-    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.ability is not None or set(sel.extras) - {"entered_this_turn"}:
+    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.ability is not None or set(sel.extras) - {"entered_this_turn", *selectors.CHOSEN_EXTRAS}:  # (wave 53B: "of the chosen type", Kindred Charge, Renewed Solidarity: chosen.chosen_value_ok judges where the choice comes from)
         return None  # (wave 31C: "for each other nonland permanent you control" — other than the source, ``selectors.candidates``: Oko, the Ringleader)
     need = _NOUNS[m["noun"]] if m["noun"] else None
     if need is not None and sel.types != (need,):
@@ -150,6 +150,12 @@ def left_battlefield(plan: Plan, ctx: Context, who: str, their: bool) -> list[tu
         # target creature. … create a token that's a copy of it", Kaya, Intangible Slayer; Identity Thief): as it last existed there (608.2h)
         for ref in gone_refs(plan, ctx, who):
             snaps.append(context.snapshot(plan, ref))
+    elif who == "cost:sacrificed":  # -- activated other (wave 52D) -- "Create two tokens that are copies of the sacrificed creature." (Cleaver Skaab): what the cost sacrificed, as it last existed (608.2h)
+        sid = ctx.get("stack_id")
+        record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+        oids = record.sacrificed_objects if record is not None else []
+        if len(oids) == 1 and (snap := plan.rules.lki.get(oids[0])) is not None and snap.zone.endswith("battlefield"):
+            snaps.append(snap)
     elif who == "self":
         oid = ctx.get("source_object")
         src = plan.state.cards.get(ctx.get("source_card") or "")

@@ -52,7 +52,7 @@ NUMBERS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5
            "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "twenty": 20,
            "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
            "thirty": 30, "forty": 40, "fifty": 50}  # (static_other, wave 36B: "if you control thirty or more artifacts" (Knuckles the Echidna), "mills fourteen cards")
-AMOUNT = r"(?:twice [xX]|half [xX] rounded (?:up|down)|(?:two|three|four|five|six|seven|eight|nine|ten) times [xX]|[xX] (?:plus|minus) (?:\d+|one|two|three|four|five)|twice that (?:much|many)|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|x|X|that much|that many)"  # (wave 36B: the number words up to nineteen; wave 34C: "five times X", "X plus 3", "X minus one")
+AMOUNT = r"(?:twice [xX]|half [xX] rounded (?:up|down)|(?:two|three|four|five|six|seven|eight|nine|ten) times [xX]|[xX] (?:plus|minus) (?:\d+|one|two|three|four|five)|twice that (?:much|many)|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|x|X|that much|that many|the chosen number)"  # (wave 36B: the number words up to nineteen; wave 34C: "five times X", "X plus 3", "X minus one")
 
 # Counters that carry rules the engine doesn't model yet (122.1b keyword counters, 122.1c shield,
 # 122.1d stun, 122.1h finality, 122.1i rad, 714 lore): an effect putting one of these
@@ -86,6 +86,8 @@ def parse_amount(word: str) -> Value | None:
         return {m[1]: [{"x": 1}, int(m[2]) if m[2].isdigit() else NUMBERS[m[2]]]}
     if w in ("that much", "that many"):
         return {"event_amount": 1}  # the trigger event's amount (TriggerEvent.amount)
+    if w == "the chosen number":  # -- chosen filters (wave 53B) -- "Choose a number. … that many creatures": chosen.bind_effects writes the answer in
+        return {"chosen_n": 1}
     if w in ("twice that much", "twice that many"):  # -- reflexive this way (wave 30G) -- "deals twice that much damage"
         return {"times": [2, {"event_amount": 1}]}
     return None
@@ -118,7 +120,8 @@ _DISTINCT = {"card types": "types", "different card types": "types", "card type"
              "creature type": "creature_types",
              "different power": "powers", "different powers": "powers",  # (wave 17B: Selvala, Eager Trailblazer)
              "mana values": "mana_values", "different mana values": "mana_values", "mana value": "mana_values",
-             "different mana value": "mana_values", "planeswalker types": "planeswalker_types"}  # (wave 21F: Eris, Roar of the Storm)  # (wave 20B)
+             "different mana value": "mana_values", "planeswalker types": "planeswalker_types",
+             "different mana cost": "mana_costs", "different mana costs": "mana_costs", "mana costs": "mana_costs"}  # (-- counters (wave 52D) -- Embodiment of Agonies, 202.1)  # (wave 21F: Eris, Roar of the Storm)  # (wave 20B)
 _AMONG = re.compile(r"^(?P<kind>" + "|".join(sorted(map(re.escape, _DISTINCT), key=len, reverse=True)) + r") among (?P<sel>.+)$")
 _DEVOTION = re.compile(r"^your devotion to (?P<c1>white|blue|black|red|green)(?: and (?P<c2>white|blue|black|red|green))?$")
 _AGGREGATE = re.compile(r"^the (?:(?P<max>greatest|highest)|(?P<sum>total)) (?P<stat>power and/or toughness|power|toughness|mana value) "
@@ -296,6 +299,10 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"hand": "opponent_max"}  # -- static_other (wave 42A) -- Adamaro: the largest hand among your opponents (a count of cards, public: 402.3)
     if what in ("opponents you have", "opponent you have", "your opponents", "opponent", "opponents"):
         return {"opponents": 1}
+    if what in ("card type among those cards", "card types among those cards"):
+        return {"types_among": "event"}  # -- trigger other (wave 52B) -- 205.2a, 603.2c: the card types among the cards a "one or more cards are put into your graveyard" batch counted (Polluted Cistern)
+    if what in ("opponent dealt damage", "opponents dealt damage", "opponent dealt damage this way", "opponents dealt damage this way"):
+        return {"event_players": 1}  # -- trigger other (wave 52B) -- 603.2c: the opponents a "one or more … deal damage to your opponents" batch dealt damage (Malcolm, Hordewing Skaab)
     if what in ("player who has lost the game", "players who have lost the game"):  # -- most-played cards IV (wave 51G) -- Rampant Frogantua: the seats no longer in the game (800.4)
         return {"players_lost": 1}
     if what in ("cards exiled with ~", "cards exiled with it", "card exiled with ~", "card exiled with it"):
@@ -571,6 +578,8 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "opp_lost"}
     if re.fullmatch(r"(?:the )?(?:total )?damage dealt to your opponents this turn", what):
         return {"turn_history": "opp_damage"}
+    if re.fullmatch(r"(?:the )?total (?:amount of )?life lost by all players this turn", what):  # -- activated other (wave 52D) -- Tainted Sigil: every player's loss together (119.3)
+        return {"turn_history": "all_lost"}
     if re.fullmatch(r"(?:the )?(?:total )?(?:amount of )?(?:1 )?damage dealt to you this turn", what):  # -- this-turn history (wave 50E) -- 120.3: "gain life equal to the damage dealt to you this turn" (Simulacrum), "for each 1 damage dealt to you this turn" (Discordant Spirit)
         return {"turn_history": "damage_to_you"}
     if re.fullmatch(r"opponents? you(?:'ve| have)? attacked(?: this turn)?", what):  # -- this-turn state (wave 33D) -- Rose: 508.6, players you declared attackers against
@@ -627,12 +636,22 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import this_way
 
         return this_way.count(plan, ctx, v)
+    if "revealed_mv" in v:  # -- trigger other (wave 52B) -- the mana value of the card(s) a trade revealed (app/rules/top_trade.py)
+        from app.rules import top_trade
+
+        return top_trade.revealed_mv(plan, ctx, v)
     if "per_player" in v:  # -- damage sized by a count (wave 4E) -- read for the recipient player (app/rules/sized_damage.py)
         from app.rules import sized_damage
 
         return sized_damage.evaluate(plan, ctx, v)
     if "x" in v:
         return max(0, int(ctx.get("x") or 0))
+    if "chosen_n" in v:  # (wave 53B: never left unbound by a definition chosen.chosen_value_ok accepts)
+        return 0
+    if "coin_flips" in v:  # -- chosen filters (wave 53B) -- the flips this resolution made, won or lost (app/rules/coin_flips.py)
+        from app.rules import coin_flips
+
+        return coin_flips.count(ctx, v["coin_flips"])
     if "die" in v:  # -- rolling dice (wave 12A) -- this resolution's own roll (app/rules/dice.py)
         from app.rules import dice
 
@@ -722,6 +741,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
             event_creatures = context.objects(plan, ctx, context.EVENT)
             sel = selectors.replace(sel, extras=tuple("blocking_source" if x == "blocking_event" else x for x in sel.extras))
             return sum(1 for c in selectors.candidates(plan, sel, you, event_creatures[0] if event_creatures else "") if c not in away)
+        if "other_event" in sel.extras:  # -- trigger other (wave 52B) -- "five other Mountains" of "Whenever a Mountain you control enters, if …" (Valakut): other than the object that entered
+            from app.rules import context
+
+            event_objects = context._object_refs(ctx, context.EVENT)
+            sel = selectors.replace(sel, other=True, extras=tuple(x for x in sel.extras if x != "other_event"))
+            return sum(1 for c in selectors.candidates(plan, sel, you, event_objects[0].card if event_objects else None) if c not in away)
         if "shares_type_event" in sel.extras:  # -- most-played cards (wave 43B) -- "for each other attacking creature that shares a creature type with it" (Shared Animosity): "it"
             from app.rules import (
                 context,  # is the creature the trigger is about, as this resolves; the others than IT are counted
@@ -767,6 +792,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import context
 
         return context.amount(ctx, v["ref_amount"])
+    if "types_among" in v:  # -- trigger other (wave 52B) -- the different card types of the batch's cards, as they are now (a card's types in the graveyard are its printed ones)
+        from app.rules import context
+
+        return len({"Kindred" if t == "Tribal" else t for _, ch in context.infos(plan, ctx, context.EVENT) for t in ch.types if t in CARD_TYPES})
+    if "event_players" in v:  # -- trigger other (wave 52B) -- how many different players the "one or more" batch was about (triggers._event: the recipients of the batch)
+        return len({p for p in (ctx.get("event") or {}).get("players") or [] if p in plan.live()})
     if "event_count" in v:  # how many objects the "one or more" batch had
         return max(0, int((ctx.get("event") or {}).get("count") or 0))
     if "greater" in v:  # (wave 51G)
@@ -787,6 +818,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         if who is None and ctx.get("unknown_choice_raises"):
             raise NoChosenPlayer
         return len(plan.state.zones.get(f"{who}:hand", [])) if who in plan.live() else 0
+    if "hand" in v and str(v["hand"]).startswith("ref:"):  # -- trigger other (wave 52B) -- "that player" an earlier "choose an opponent" bound (a hand's size is public, 402.3)
+        from app.rules import context
+
+        return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in context.players(plan, ctx, v["hand"][4:]))
     if "hand" in v and v["hand"] == "all":  # (wave 19F) every player's hand, a public count
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in plan.live())
     if "hand" in v and v["hand"] == "opponent_max":  # (wave 42A) the opponent with the most cards in hand: that many (0 with no opponent)
@@ -993,6 +1028,10 @@ def _distinct(plan: Plan, ctx: dict[str, Any], kind: str, key: str) -> int:
         elif kind == "planeswalker_types":  # -- value grammar (wave 23C) -- 205.3j: the planeswalker subtypes of the planeswalkers
             if "Planeswalker" in ch.types:
                 found |= ch.subtypes & selectors.PLANESWALKER_TYPES
+        elif kind == "mana_costs":  # -- counters (wave 52D) -- 202.1b: no mana cost is no cost to pay, not a cost of its own (a nonland card with none, a suspend-only card: not counted)
+            if ch.mana_cost:  # (-- review 52 -- 709.4b: a split card's cost is its halves combined, "{1}{R} // {1}{U}" is "{2}{U}{R}"; the symbols, not their order)
+                syms = re.findall(r"\{([^}]+)\}", ch.mana_cost)
+                found.add(f"{sum(int(x) for x in syms if x.isdigit())}|{sorted(x for x in syms if not x.isdigit())}")
         elif kind == "mana_values":  # -- as long as (wave 20B) -- "five or more mana values among cards in your graveyard" (202.3)
             found.add(str(int(ch.mana_value)))
         elif kind == "powers":  # "creatures with different powers" (conditions.py): how many distinct values

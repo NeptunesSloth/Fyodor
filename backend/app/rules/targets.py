@@ -17,7 +17,7 @@ from app.game.actions import MAX_TARGETS
 from app.game.errors import ActionError
 from app.game.rules_state import TargetRef
 from app.game.state import CardInstance
-from app.rules import protection, selectors
+from app.rules import player_relative, protection, selectors
 from app.rules.characteristics import Characteristics
 from app.rules.plan import Plan
 
@@ -318,8 +318,8 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
     pos = 0
     for g, spec in enumerate(specs):
         banned = {t for d in spec.get("distinct_from") or [] if d < len(out.groups) for t in out.groups[d]}
-        options = [t for t in legal_targets(plan, spec["what"], chooser, source, source_card, attacker)
-                   if t not in exclude and t not in banned]
+        options = [t for t in legal_targets(plan, player_relative.bind_what(plan, spec, out.groups), chooser, source, source_card, attacker)
+                   if t not in exclude and t not in banned]  # (-- player-relative selectors (wave 53A) -- "target creature that player controls": that player from the earlier group)
         if (owner := spec.get("graveyard_of")) is not None and owner < len(out.groups):  # -- shuffle target cards (wave 46B) -- "target cards from their graveyard":
             options = [t for t in options if plan.state.cards[t].owner in out.groups[owner]]  # the graveyard of the player chosen for that group
         shaped = {**spec, "x_count": "upto"} if "x_value" in spec else spec

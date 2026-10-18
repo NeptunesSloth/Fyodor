@@ -68,6 +68,7 @@ from app.rules import (
     optional_payment,
     permissions,
     phasing,  # -- phasing (wave 13D) --
+    piles_legacy,
     player_control,  # -- controlling another player (wave 18H) --
     reconcile,
     recursion,  # -- static_other sweep (wave 17C) --
@@ -821,7 +822,7 @@ def needs_manual_resolution(ch: Characteristics) -> bool:
         return any(not coverage.ability_supported(ch, a.index) for a in ch.abilities if a.kind != "keywords")
     # A permanent spell just enters; only "as/when it enters" text needs someone to act.
     return any(
-        "enters" in a.text and a.kind in ("triggered", "static") and not coverage.ability_supported(ch, a.index)
+        "enters" in a.text and a.kind in ("triggered", "static") and not coverage.ability_supported(ch, a.index) and not a.linked  # (-- trigger other (wave 52B) -- 607.2f: a linked word's ability isn't there until the word is chosen as it enters: Frontier Siege's Dragons line)
         for a in ch.abilities
     )
 
@@ -1120,6 +1121,8 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
     if info is not None and card.zone.endswith(":graveyard") and (barred := next(
             (src for src, _ in cast_limits._statics(state, info, "cant_play_gy_lands") if src.controller != player), None)) is not None:
         return f"{barred.name or 'A permanent'}: you can't play land cards from graveyards"  # -- cant restrictions (wave 50G) -- Tomik, Distinguished Advokist
+    if (why := cast_limits.land_problem(state, player, ch)) is not None:
+        return why  # -- chosen filters (wave 53B) -- Conjurer's Ban: a land with the chosen name can't be played until a turn
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
     from app.rules import land_plays  # -- additional land plays (wave 4J) -- 305.2a
@@ -1225,7 +1228,7 @@ def choose(plan: Plan, a: A.Choose) -> None:
     if d.player != plan.actor:
         raise ActionError(f"It's {plan.name(d.player)}'s decision")
     chosen = list(a.option_ids)
-    valid = {o.id for o in d.options}
+    valid = {o.id for o in d.options if o.group != "seen"}  # (wave 53B: the cards a player looked at, shown beside the options, are not answers)
     if cancelable(d):
         valid.add("cancel")  # (-- cancelling a cast (wave 24D) --)
     from app.rules import card_names  # -- card names (wave 22B) -- 201.4: a typed name answers it
@@ -1509,6 +1512,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "kinship_look": kinship.resume_look,  # -- kinship (wave 9C) --
     "kinship_reveal": kinship.resume_reveal,
     "reveal_hand_cards": effects._reveal_hand.resume,  # -- if you do (wave 10C) --
+    "reveal_some": effects._reveal_hand.resume_some,  # -- hand disruption (wave 52C) --
     "library_place": effects.resume_library_place,
     "shuffle_library": effects.resume_shuffle_library,
     "cast_modes": casting.resume_cast_modes,
@@ -1528,9 +1532,9 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "suspend_cast": effects.resume_suspend_cast,
     "free_cast_pick": permissions.resume_free_cast,  # (wave 3C)
     # -- refused look/cast-free (wave 3R5) -- piles (700.3)
-    "piles_opponent": looking.resume_opponent,
-    "piles_split": looking.resume_split,
-    "piles_pick": looking.resume_pick,
+    "piles_opponent": piles_legacy.resume_opponent,  # -- review 53 -- games saved before wave 53D
+    "piles_split": piles_legacy.resume_split,
+    "piles_pick": piles_legacy.resume_pick,
     "piles_down_opponent": looking.resume_down_opponent,  # -- hidden exile (wave 18A) --
     "piles_down_split": looking.resume_down_split,
     "piles_down_pick": looking.resume_down_pick,

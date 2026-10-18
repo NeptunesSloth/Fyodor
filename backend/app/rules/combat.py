@@ -42,6 +42,8 @@ def attack_problem(state: GameState, card: CardInstance, ch: Characteristics) ->
         return f"{ch.name} has defender"
     if {"cant_attack", "cant_attack_or_block"} & rules:
         return f"{ch.name} can't attack"
+    if state.rules is not None and any(e[0] == state.turn.number and e[1] == card.controller and state.rules.object_id(card.id) not in e[2] for e in state.rules.attack_piles):
+        return f"{ch.name} is not in the pile chosen (700.3)"  # -- piles (wave 53D) -- Fight or Flight
     if "haste" not in ch.keywords and summoning_sick(state, card):
         return f"{ch.name} has summoning sickness"
     return None
@@ -73,7 +75,7 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
         if name == "cant_be_blocked_if_defender_controls" and _defender_controls(state, info, arg, blocker.controller):
             return f"{ach.name} can't be blocked while {state.players[blocker.controller].name} controls {_phrase(arg)}"
         if name == "cant_be_blocked_if_defender" and _defender_condition(state, info, arg, blocker.controller):  # -- as long as (wave 25A) --
-            return f"{ach.name} can't be blocked while {state.players[blocker.controller].name} {arg.split(':')[0].replace('count', 'controls').replace('most', 'controls the most')}"
+            return f"{ach.name} can't be blocked while {state.players[blocker.controller].name} {arg.split(':')[0].replace('count', 'controls').replace('most', 'controls the most').replace('monarch', 'is the monarch')}"
         if name == "cant_be_blocked_by_if_defender":
             fact, _, sels = arg.partition("@@")
             if _defender_condition(state, info, fact, blocker.controller) and _any_selector(state, info, sels, blocker, bch, attacker):
@@ -194,6 +196,8 @@ def _defender_condition(state: GameState, info: CardInfo | None, fact: str, defe
         return _defender_controls(state, info, rest, defender)
     if kind == "counters":
         return state.players[defender].resources.get(rest, 0) > 0
+    if kind == "monarch":  # -- block events (wave 53C) -- 725.1: the defender is the monarch (a blocker is the monarch's: "creatures the monarch controls")
+        return state.table.monarch == defender
     from app.rules.layers import _view
 
     view = _view(state, info)
@@ -794,6 +798,22 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
         able = [b for b in free if x.id not in used.get(b.id, []) and could(b, x, joined=len(free))]  # (wave 44C: not one already blocking it)
         if len(able) >= (1 if have else min_blockers(plan.ch(x))):
             return f"{x.name} must be blocked {'by two or more creatures ' if have else ''}if able"
+    # -- block events (wave 53C) -- 509.1c: "~ must be blocked by a Dalek if able" (Ace's Baseball Bat), "must be blocked by an Eldrazi if able" (Slayer's Cleaver): at least one creature
+    # of that kind must block it when one can; a block by another creature doesn't meet it (a creature blocking something else is free to block it instead unless that block
+    # meets a requirement of its own)
+    for x in att:
+        for name, arg in map(rule_arg, scripts.statics(plan.ch(x))):
+            if name != "must_be_blocked_by":
+                continue
+            if any(_any_selector(state, plan.info, arg, state.cards[d.blocker_id], plan.ch(state.cards[d.blocker_id]), x) for d in a.blocks if d.attacker_id == x.id):
+                continue
+            swappable = [state.cards[d.blocker_id] for d in a.blocks if d.attacker_id != x.id and len(used.get(d.blocker_id, [])) == 1
+                         and "must_be_blocked" not in scripts.statics(plan.ch(state.cards[d.attacker_id])) and not any(
+                             n == "must_be_blocked_by" for n, _ in map(rule_arg, scripts.statics(plan.ch(state.cards[d.attacker_id]))))]
+            spare = [state.cards[b] for b, ids in used.items() if 0 < len(ids) < block_limit(plan.ch(state.cards[b]))]
+            if any(x.id not in used.get(b.id, []) and _any_selector(state, plan.info, arg, b, plan.ch(b), x) and could(b, x, joined=1)
+                   for b in {c.id: c for c in [*idle, *spare, *swappable]}.values()):
+                return f"{x.name} must be blocked by {_phrase(arg)} if able"
     return None
 
 
@@ -1116,6 +1136,7 @@ def end_combat(plan: Plan) -> None:
             for marker in [m for m in card.effects if m.text == "this combat"]:
                 plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=plan.active)
     r.replacements = [x for x in r.replacements if x.get("until") != "end_of_combat"]  # -- one-shot shields (wave 35A) -- "this combat"
+    r.delayed = [t for t in r.delayed if not t.until_combat]  # -- block events (wave 53C) -- "whenever … this combat" stops watching (500.5)
     r.blocked = []
     r.block_split = {}
     r.assign_unblocked = {}

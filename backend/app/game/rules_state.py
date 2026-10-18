@@ -297,6 +297,8 @@ class ObjectSnapshot(BaseModel):
     # -- trailing & intervening ifs (wave 38A) -- whom it was attacking as it last existed (508.1, 608.2h): "player:<id>" | "card:<id>"
     attack_on: str | None = None
     blocking: bool = False
+    blocking_ids: list[str] = Field(default_factory=list)  # -- activated other (wave 52D) -- the attackers (card ids) it was blocking as it last existed (608.2h: "target creature it's blocking")
+    blocked_by_ids: list[str] = Field(default_factory=list)  # -- block events (wave 53C) -- the creatures (card ids) blocking it as it last existed (608.2h: "each creature that was blocking it")
     attached_to: str | None = None
     attached_player: str | None = None  # -- attached events (wave 4L) -- the player an Aura enchanted (a Curse)
     # -- sagas & attached-object triggers (wave 3S) -- the permanents (card ids) attached to it as it
@@ -732,6 +734,7 @@ class DelayedTrigger(BaseModel):
     step: str = ""
     once: bool = True  # 603.7b: it triggers only once (an "each" duration would say otherwise)
     until_turn: int | None = None  # "this turn": it stops watching at that turn's cleanup (514.2)
+    until_combat: bool = False  # -- block events (wave 53C) -- "this combat": it stops watching as the combat phase ends (combat.end_combat)
     until_player: str | None = None  # -- turn-long triggers (wave 50G) -- "until your next turn": it stops watching as that player's next turn begins (500.4)
     # -- if you do (wave 25C) -- a turn watch's deferred ability that has a target of its own ("Whenever you cast a spell this turn, put a +1/+1
     # counter on target creature you control"): the selector its controller chooses a target for each time it triggers (603.3d)
@@ -908,6 +911,9 @@ class Permission(BaseModel):
     # -- trigger other (wave 51E) -- "During any turn you attacked with a token, you may play that card.": a condition (conditions grammar) the turn must meet, read
     # whenever the card is played or cast; ``source`` is the object whose ability granted it
     when: dict[str, Any] | None = None
+    # -- chosen filters (wave 53B) -- "The next spell of the chosen type you cast this turn can be cast as though it had flash.": the spells of ``filter`` cast this turn when it was granted;
+    # it applies only while no more have been cast (the next one uses it up, 601.2i)
+    nth: int | None = None
 
 
 class CostModifier(BaseModel):
@@ -1069,6 +1075,16 @@ class RulesState(BaseModel):
     # exiled object id -> "hand" (absent: the battlefield)
     linked_exile_from: dict[str, str] = Field(default_factory=dict)
     vote_control: list[list[Any]] = Field(default_factory=list)  # -- voting (wave 18C) -- [turn, chooser]: "You choose how each player votes this turn"
+    # -- group choices (wave 53D) -- the spells and abilities that had players guess or group cards or permanents into a pile this turn: [turn, object id] (The Celestial
+    # Toymaker counts them); and the numbers an object has chosen so far, by object id (The Toymaker's Trap: "a number … that hasn't been chosen"; a new object has none, 400.7)
+    grouped: list[list[Any]] = Field(default_factory=list)
+    chosen_numbers: dict[str, list[int]] = Field(default_factory=dict)
+    # -- group choices (wave 53D) -- "secretly choose an opponent" / "a creature type" (Stalking Leonin, A Killer Among Us): [the chooser, the value] by rules object id, kept
+    # server-side only (the views never carry it) until "Reveal the player you chose" shows it as a cost is paid; a new object has none (400.7)
+    secret_choices: dict[str, list[str]] = Field(default_factory=dict)
+    # -- piles (wave 53D) -- "Only creatures in the pile of their choice can attack this turn" (Fight or Flight): [turn, the attacking player, [object ids that may]]; every entry of
+    # the turn binds (ruling 2008-08-01: with two, a creature must be in both chosen piles), and a creature that entered later is no object in any pile
+    attack_piles: list[list[Any]] = Field(default_factory=list)
     opening_revealed: list[str] = Field(default_factory=list)  # -- opening hand (wave 18C) -- cards revealed until the first turn (103.6b)
     delayed: list[DelayedTrigger] = Field(default_factory=list)  # delayed triggered abilities (603.7; app/rules/delayed.py)
     exile_if_leaves: list[str] = Field(default_factory=list)  # objects exiled instead of leaving (unearth)
@@ -1296,6 +1312,11 @@ class RulesState(BaseModel):
     def prefs_for(self, player: str) -> PlayerPrefs:
         return self.prefs.get(player) or PlayerPrefs()
 
+    def last_known(self, card_id: str) -> ObjectSnapshot | None:
+        """The newest last known information of a card (608.2h). ``lki`` gains an entry as each object leaves, so the last one is its latest
+        incarnation, even when it left the battlefield twice this turn (blinked, then sacrificed)."""
+        return next((x for x in reversed(self.lki.values()) if x.card == card_id), None)
+
     def object_id(self, card_id: str) -> str:
         return f"{card_id}.{self.objects.get(card_id, 0)}"
 
@@ -1350,7 +1371,8 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
         commander_key=c.commander_key, counters=dict(c.counters), damage=c.damage,
         effects=[e.value or e.name for e in c.effects], attacking=c.attacking is not None,
         attack_on=f"{c.attacking.kind}:{c.attacking.id}" if c.attacking is not None else None,  # (wave 38A)
-        blocking=c.blocking is not None, attached_to=c.attached_to, text=token.text if token else "",
+        blocking=c.blocking is not None, blocking_ids=[x for x in (c.blocking, *c.blocking_more) if x], attached_to=c.attached_to, text=token.text if token else "",
+        blocked_by_ids=[o.id for o in state.cards.values() if o.id != card_id and o.blocks(card_id)],  # (wave 53C)
         attached_player=c.attached_player,  # -- attached events (wave 4L) --
         merged=[p.model_dump() for p in c.merged], melded=c.melded,  # (wave 18D)
         x=c.stack_info.x if c.zone == "stack" and c.stack_info is not None else None,  # (wave 5B)

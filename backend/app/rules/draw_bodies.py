@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 BODY_OK = frozenset({"look_top", "pick_looked", "rest_looked", "exile_top", "grant_play", "return_choice", "only_if", "draw",
-                     "lose_life", "gain_life", "mill", "scry", "surveil", "add_counters", "create_token", "discard"})
+                     "lose_life", "gain_life", "mill", "scry", "surveil", "add_counters", "create_token", "discard", "pile_top_hand"})
 _WHO_OK = ("you", "ref:", "self", "each_opponent")
 
 

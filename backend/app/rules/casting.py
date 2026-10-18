@@ -40,6 +40,7 @@ from app.rules import (
     offering,  # -- offering (wave 51H) --
     per_opponent,  # -- per-opponent targets (wave 23A) --
     permissions,
+    player_relative,  # -- player-relative selectors (wave 53A) --
     read_pass,
     restrictions,
     scripts,
@@ -464,7 +465,7 @@ def ability_taxes(state: GameState, info: CardInfo) -> bool:
 def mana_ability_taxed(state: GameState, card: CardInstance, ch: Characteristics, ab: M.ManaAbility, info: CardInfo) -> bool:
     """Does a cost modifier change this mana ability's cost (``ability_taxes`` checked first by the caller)?"""
     mana = parse_ability_cost(ab.extra_cost, card_name=ch.name).mana if ab.extra_cost else ""
-    return permissions.ability_mana(state, card.controller, card, ch, mana, info) != mana
+    return permissions.ability_mana(state, card.controller, card, ch, mana, info, mana_ability=True) != mana
 # -- end review (wave 4R) --
 
 
@@ -812,7 +813,8 @@ def modal_groups(definition: dict[str, Any], picked: list[int]) -> list[dict[str
     out: list[dict[str, Any]] = []
     for m in modes:
         base = len(out)  # (-- shuffle target cards (wave 46B) -- a mode's "graveyard_of" names a group of its own, numbered from its first)
-        out += [{**g, "graveyard_of": g["graveyard_of"] + base} if g.get("graveyard_of") is not None else g
+        out += [{**g, "graveyard_of": g["graveyard_of"] + base} if g.get("graveyard_of") is not None else
+                {**g, "of": g["of"] + base} if g.get("of") is not None else g  # (-- player-relative selectors (wave 53A) --)
                 for g in m.get("groups") or ([{"what": m["target"]["what"]}] if m["target"] else [])]
     return out
 
@@ -1887,6 +1889,11 @@ def turned_up(plan: Plan, card: CardInstance) -> None:
     turned face up" and the table's "Whenever a permanent you control is turned face up" abilities trigger (702.37e: not
     "enters" abilities, 708.8)."""
     emit(plan.state, "turned_face_up", object_id=plan.oid(card), card=card.id, player=card.controller)
+    from app.rules import (
+        counters52d,  # -- counters (wave 52D) -- 708.11: "As ~ is turned face up, put five +1/+1 counters on it."
+    )
+
+    counters52d.turned_up(plan, card)
     from app.rules import triggers  # (triggers imports this module)
 
     face_up = plan.ch(plan.state.cards[card.id])
@@ -2411,10 +2418,11 @@ def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Character
             from app.rules import kicked_instead
             from app.rules.targets import group_limits
 
-            for spec in kicked_instead.applicable(scripts.target_groups(definition if aura is None else {"target": {"what": aura}}), 0):
+            specs_all = kicked_instead.applicable(scripts.target_groups(definition if aura is None else {"target": {"what": aura}}), 0)
+            for spec in specs_all:
                 lo, hi = (0, 0) if "x_value" in spec or (spec.get("divide") or {}).get("value") is not None \
                     else group_limits(spec, None)  # (X is 0: 107.3b; "up to X" may be none; wave 34D: nor a total counted as it's cast, that may be 0)
-                if hi < lo or len(legal_targets(plan, spec["what"], player, src, card.id)) < lo:
+                if hi < lo or player_relative.room(plan, spec, specs_all, lambda w: legal_targets(plan, w, player, src, card.id)) < lo:  # (-- player-relative selectors (wave 53A) --)
                     return f"{ch.name or 'It'} has no legal target"
         extra = None if manual else costs.spell_additional_cost(ch.abilities)
         if extra is None or any(c.kind in _HAND_PARTS for side in (extra, *extra.either) for c in side.components):

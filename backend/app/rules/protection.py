@@ -48,11 +48,11 @@ def _one(word: str) -> Quality | None:
     if word == "colorless":
         return lambda ch: not ch.colors
     # -- keywords (wave 15E) -- "God creatures", "non-Spirit creatures", "legendary creatures", "mana value 3 or greater" (702.16a)
-    m = re.fullmatch(r"(non-)?([a-z]+) creatures", word)
+    m = re.fullmatch(r"(non-)?([a-z]+(?:[ -][a-z]+)*) creatures", word)  # (wave 53B: a type of two words, "Time Lord creatures": the type a permanent chose, chosen.protection_line)
     if m and m[2] == "legendary" and not m[1]:
         return lambda ch: "Legendary" in ch.supertypes and "Creature" in ch.types
-    if m and m[2] not in CARD_TYPES and (m[2].capitalize() in CREATURE_TYPES):
-        sub, neg = m[2].capitalize(), bool(m[1])
+    if m and m[2] not in CARD_TYPES and (m[2].title() in CREATURE_TYPES):
+        sub, neg = m[2].title(), bool(m[1])
         return lambda ch: "Creature" in ch.types and ((sub in ch.subtypes) != neg)
     m = re.fullmatch(r"mana value (\d+) or (greater|less)", word)
     if m:

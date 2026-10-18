@@ -180,7 +180,17 @@ def supported_keyword(kw: str, line: str) -> bool:
 
 
 # -- the legality predicate ------------------------------------------------------------
-def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | None = None, sba: bool = False) -> str | None:
+def entering_face(plan: Plan, card: CardInstance, entry: dict[str, Any]) -> Characteristics | None:
+    """-- block events (wave 53C) -- 712.14a: the back face a double-faced card put onto the battlefield transformed enters with (None: not entering
+    transformed, or no printed back face)."""
+    from app.rules import characteristics as chars
+
+    data = plan.info.get(card.card_id) if entry.get("transformed") and card.card_id and card.token is None else None
+    return chars.printed_from_data(data, 0 if card.face else 1) if data is not None else None
+
+
+def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | None = None, sba: bool = False,
+                 face: Characteristics | None = None) -> str | None:
     """Why ``source`` can't be attached to ``host`` (a card id or a player id) right now, or None
     if it can. For an Aura with an enchant wording the engine doesn't map, "unknown" (never
     remove an Aura on a guess). Targeting rules (hexproof, shroud) don't apply here: being
@@ -188,7 +198,7 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
     from app.rules.targets import SELECTORS
 
     you = controller or source.controller  # (an Aura about to enter under someone: judged as theirs)
-    sch = plan.ch(source)
+    sch = face or plan.ch(source)  # (face: -- block events (wave 53C) -- the back face an entering double-faced card will have)
     kind = attach_kind(sch)
     if kind is None:
         return "not an Aura, Equipment or Fortification"
@@ -223,7 +233,7 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
     hch = plan.ch(card)
     # -- attached events (wave 25D) -- 702.16n: a protection that "doesn't remove" this Aura / Auras isn't why an Aura falls off as a
     # state-based action (``sba``); it still keeps an Aura from becoming attached (702.16c: review 25D)
-    if protection.protected_from(hch, sch, (lambda k: k == f"self:{source.id}" or (k == "auras" and kind == "aura")) if sba else None):
+    if protection.protected_from(hch, sch, (lambda k: k == f"self:{source.id}" or (k == "auras" and kind == "aura") or (k == f"yours:{source.controller}" and kind in ("aura", "equipment"))) if sba else None):  # (wave 53B: Benevolent Blessing, 702.16n)
         return f"{hch.name} has protection from it"
     if kind == "aura":
         if sch.is_creature:
@@ -326,8 +336,7 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
         # -- enter as copy (wave 5F) -- as it will enter: a permanent entering as a copy of an Aura is one (707.5, 303.4f)
         # (-- attached events (wave 40B) -- 712.14a: a double-faced card put onto the battlefield transformed enters with its back face up, so it is an Aura
         # only if that face is: "return this card to the battlefield transformed" for Skin Invasion (a creature on the back) is no Aura entering)
-        data = plan.info.get(card.card_id) if entry.get("transformed") and card.card_id and card.token is None else None
-        as_face = chars.printed_from_data(data, 0 if card.face else 1) if data is not None else None
+        as_face = entering_face(plan, card, entry)
         if attach_kind(as_face or (plan.ch(card) if copying.entering_as_copy(plan, card) else chars.of(card, plan.info))) != "aura" \
                 or entry.get("host"):
             continue

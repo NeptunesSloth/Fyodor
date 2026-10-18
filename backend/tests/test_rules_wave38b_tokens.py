@@ -460,9 +460,8 @@ def test_davros_makes_a_dalek_when_an_opponent_lost_three_life_then_that_opponen
     # X with no definition
     "When this creature enters, create an X/X colorless Vehicle artifact token with crew 2.",
     # (Tomik's and Katilda's quoted grants are read since wave 44C: tests/test_rules_wave44c_*.py)
-    # "each opponent dealt damage" (the event's players): Malcolm. ("for each player being attacked" is read since wave 40A: Commander Liara Portyr's ruling of
+    # ("each opponent dealt damage" is read since wave 52B: Malcolm, tests/test_rules_wave52b_small.py. "for each player being attacked" is read since wave 40A: Commander Liara Portyr's ruling of
     # 2022-06-10 — a player whose planeswalker is attacked, and who isn't attacked too, doesn't count; tests/test_rules_wave40a_if_you_do.py)
-    "Whenever one or more Pirates you control deal damage to your opponents, you create a Treasure token for each opponent dealt damage.",
 ])
 def test_refused(text):
     from tests.test_rules_scripts import ch as characteristics

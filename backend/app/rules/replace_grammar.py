@@ -196,7 +196,9 @@ _DRAW = re.compile(r"^(?P<ms>As long as you have max speed, if|If) (?P<who>you|a
 def _draw_body(rest: str) -> tuple[str, bool] | None:
     """-- draw bodies (wave 28B) -- "instead <effects>", "<effects> instead[. <more>]" or "you may <effects> instead": the effects text
     and whether the affected player may decline (616.1: a replacement the player isn't made to apply)."""
-    if rest.startswith("instead "):
+    if rest.startswith("you may instead "):  # -- piles (wave 53D) -- Parallel Thoughts: "you may instead put the top card of the pile you exiled into your hand"
+        body, optional = rest[len("you may instead "):], True
+    elif rest.startswith("instead "):
         body, optional = rest[len("instead "):], False
     else:
         first, dot, tail = rest.partition(". ")

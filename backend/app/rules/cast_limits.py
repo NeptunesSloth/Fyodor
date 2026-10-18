@@ -57,7 +57,7 @@ Context = dict[str, Any]
 Definition = dict[str, Any]
 
 # -- grammar ---------------------------------------------------------------------------------------
-_SPELLS = r"(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells(?P<tail> with the chosen name| with (?:even|odd) mana values| with mana value \d+ or (?:greater|less)| with mana value greater than the number of lands you control)?"  # (wave 22B: card_names.py; wave 44D: Brisela's mana value bound, as STATIC_NOBODY reads it; wave 50J: Lavinia's, counted for the caster)
+_SPELLS = r"(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells(?P<tail> with the chosen name| of the chosen type| with mana value equal to the chosen number| with (?:even|odd) mana values| with mana value \d+ or (?:greater|less)| with mana value greater than the number of lands you control)?"  # (wave 22B: card_names.py; wave 44D: Brisela's mana value bound, as STATIC_NOBODY reads it; wave 50J: Lavinia's, counted for the caster)
 _FROM = r"(?: from (?P<frm>anywhere other than their hands|graveyards or libraries|graveyards or exile|graveyards))?"
 _ACT = (r"(?: or (?P<act>activate abilities of artifacts, creatures, or enchantments|activate abilities that aren't mana abilities"
         r"|activate abilities of cards in graveyards|activate planeswalkers' loyalty abilities))?")
@@ -78,7 +78,7 @@ STATIC_CAST = re.compile(rf"^(?:(?P<lead>during your turn|during combat), )?(?P<
 # "Each player can't cast more than one spell each turn." / "Each player can't cast more than one noncreature spell each turn."
 # -- prohibitions (wave 22B) -- 601.3: "Spells with the chosen name can't be cast." (Meddling Mage, Nevermore), "Creature spells can't be cast."
 # (Aether Storm), "Noncreature spells with mana value 4 or greater can't be cast." (Gaddock Teeg): nobody may cast them
-STATIC_NOBODY = re.compile(r"^(?P<sel>[A-Za-z][A-Za-z' ,-]*?)? ?spells(?P<tail> with (?:the chosen name|mana value \d+ or (?:greater|less)"
+STATIC_NOBODY = re.compile(r"^(?P<sel>[A-Za-z][A-Za-z' ,-]*?)? ?spells(?P<tail> of the chosen type| with mana value equal to the chosen number| with (?:the chosen name|mana value \d+ or (?:greater|less)"
                            r"|\{X\} in their mana costs))? can't be cast$")
 # 602.5: "Activated abilities of sources with the chosen name can't be activated [unless they're mana abilities]." (Pithing Needle, Phyrexian
 # Revoker, Sorcerous Spyglass, Voidstone Gargoyle)
@@ -104,7 +104,7 @@ STATIC_OWN_FLASH = re.compile(r"^(?P<sel>[a-z]+) cards you own that aren't on th
 SELF_FLASH_IF = re.compile(r"^you may cast (?:this spell|~) as though it had flash if (?P<cond>.+)$")
 # Effects: "Your opponents can't cast spells this turn." / "Target player can't cast spells this turn." / "Players can't cast
 # noncreature spells this turn." / "Until your next turn, your opponents can't cast spells from anywhere other than their hands."
-EFFECT_CAST = re.compile(rf"^(?:(?P<lead>until your next turn|until the end of your next turn|this turn), )?(?P<who>your opponents|players|each player|each opponent|"
+EFFECT_CAST = re.compile(rf"^(?:(?P<lead>until your next turn|until the end of your next turn|this turn), )?(?P<who>your opponents|opponents|players|each player|each opponent|"
                          rf"target player|target opponent|its controller) can't cast {_SPELLS}{_FROM}{_ACT}(?: (?P<when>this turn|until your next turn|until the end of your next turn))?$")  # (wave 32C: Single Combat)
 # Flash permissions (601.3b): "You may cast Spirit spells as though they had flash." / "You may cast Dragon spells and artifact
 # spells as though they had flash." / "Any player may cast spells as though they had flash." / "During each opponent's end
@@ -435,7 +435,7 @@ def _effect_cast(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     act = _ACTS.get(m["act"] or "")
     if act not in (None, "loyalty"):
         raise ValueError("only loyalty abilities")  # (an effect's other activation limits aren't read)
-    who = {"your opponents": "each_opponent", "each opponent": "each_opponent", "players": "each_player", "each player": "each_player",
+    who = {"your opponents": "each_opponent", "opponents": "each_opponent", "each opponent": "each_opponent", "players": "each_player", "each player": "each_player",
            "target player": "target", "target opponent": "target", "its controller": "it.controller"}[m["who"]]  # (wave 51C: Render Silent)
     sel = {"target player": "player", "target opponent": "opponent"}.get(m["who"])
     until = "end_of_next_turn" if "end of your next turn" in (lead or when or "") else "next_turn" if "next turn" in (lead or when or "") else "turn"
@@ -451,6 +451,48 @@ def _effect_flash(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
         raise ValueError("selector")
     # (-- durations (wave 30M) -- Teferi, Time Raveler: "Until your next turn, you may cast sorcery spells as though they had flash.")
     return [{"do": "flash_permission", "filter": key, **({"until": "next_turn"} if m["lead"] == "until your next turn" else {})}], None
+
+
+# -- chosen filters (wave 53B) -- "The next spell of the chosen type you cast this turn can be cast as though it had flash." (Progenitor's Icon): 601.3b, a flash permission for
+# the next spell of the creature type its source chose as it entered, bound now (the choice is public and stays the source's, 614.12a); cast_limits.flash_permission
+EFFECT_NEXT_FLASH = re.compile(r"^the next spell of the chosen type you cast this turn can be cast as though it had flash$")
+
+
+def _effect_next_flash(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import selectors
+
+    sel = selectors.parse("spells of the chosen type")
+    if sel is None:
+        raise ValueError("selector")
+    return [{"do": "flash_permission", "spell": sel.key(), "next": True}], None
+
+
+# -- chosen filters (wave 53B) -- "Until your next turn, spells with the chosen name can't be cast and lands with the chosen name can't be played." (Conjurer's Ban): 601.3, 305.1;
+# the name is bound into the spell selector (chosen.bind_effects) and the lands are judged by that same name (``land_problem``)
+EFFECT_BAN_NAMED = re.compile(r"^until your next turn, spells with the chosen name can't be cast(?P<lands> and lands with the chosen name can't be played)?$")
+
+
+def _effect_ban_named(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import selectors
+
+    sel = selectors.parse("spells with the chosen name")
+    if sel is None:
+        raise ValueError("selector")
+    return [{"do": "cast_limit", "who": "each_player", "until": "next_turn", "filter": sel.key(), "from": None, "act": None,
+             **({"lands": True} if m["lands"] else {})}], None
+
+
+def land_problem(state: GameState, player: str, ch: Characteristics) -> str | None:
+    """Why a stored limit forbids ``player`` playing this land now (305.1), or None: "lands with the chosen name can't be played" until a turn (the name is the bound ``name:`` of its spell selector)."""
+    r = state.rules
+    for x in r.cast_limits if r is not None else ():
+        if x.get("lands") and x.get("player") == player and _record_live(state, x):
+            names = [e[5:] for e in selectors.from_key(x["filter"]).extras if e.startswith("name:")]
+            from app.rules import card_names
+
+            if names and card_names.has_name(ch, names[0]):
+                return f"{x.get('label') or 'An effect'}: you can't play {ch.name} now"
+    return None
 
 
 def _template(rx: re.Pattern[str], fn: Any) -> tuple[re.Pattern[str], Any]:
@@ -471,7 +513,27 @@ def _player_templates() -> list[tuple[re.Pattern[str], Any]]:
     return [*player_shields.TEMPLATES, *life_lock.TEMPLATES]  # (-- can't lose life (wave 29D) --)
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [_template(EFFECT_CAST, _effect_cast), *_player_templates()]
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [_template(EFFECT_CAST, _effect_cast), _template(EFFECT_NEXT_FLASH, _effect_next_flash), _template(EFFECT_BAN_NAMED, _effect_ban_named), *_player_templates()]
+
+
+# -- chosen filters (wave 53B) -- "If you won five flips this way, you may cast spells from your hand this turn without paying their mana costs." (Yusri): 118.9, a stored
+# permission for the spells in the controller's hand until end of turn (611.2a), each cast free (the other costs are still paid, 118.9d)
+EFFECT_FREE = re.compile(r"^(?:until end of turn, )?you may cast spells from your hand(?: this turn)? without paying their mana costs$")
+
+
+def free_sentence(text: str) -> list[dict[str, Any]] | None:
+    return [{"do": "free_permission"}] if EFFECT_FREE.fullmatch(text) else None
+
+
+def free_permission(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import Permission
+
+    pid = ctx["controller"]
+    label = ctx.get("name") or "An effect"
+    plan.rules.permissions.append(Permission(id=secrets.token_hex(4), player=pid, cast=True, zone="hand", free=True, until="end_of_turn", turn=plan.state.turn.number,
+                                             source=ctx.get("source_object"), label=f"{label}: without paying their mana costs"))
+    plan.note(f"{plan.name(pid)} may cast spells from their hand this turn without paying their mana costs ({label})", actor=pid)
+    return True
 
 
 def flash_sentence(text: str) -> list[dict[str, Any]] | None:
@@ -497,7 +559,7 @@ def cast_limit(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     label = ctx.get("name") or "An effect"
     for pid in _players(plan, ctx, e["who"]):
         r.cast_limits.append({"id": secrets.token_hex(4), "player": pid, "controller": ctx["controller"], "until": e["until"],
-                              "turn": turn, "filter": e.get("filter"), "from": e.get("from"), "act": e.get("act"),
+                              "turn": turn, "filter": e.get("filter"), "from": e.get("from"), "act": e.get("act"), "lands": e.get("lands"),
                               "label": label})
         what = _spells_words(e.get("filter"), e.get("from"))
         if e.get("act") == "loyalty":
@@ -513,10 +575,20 @@ def flash_permission(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     pid = ctx["controller"]
     label = ctx.get("name") or "An effect"
-    plan.rules.permissions.append(Permission(id=secrets.token_hex(4), player=pid, cast=True, zone="any", filter=e.get("filter"),
+    key, nth = e.get("filter"), None
+    if e.get("spell"):  # -- chosen filters (wave 53B) -- "the next spell of the chosen type": the type read from the source now, the spells cast so far counted (cast_limits.EFFECT_NEXT_FLASH)
+        from app.rules import selectors
+        from app.rules.cost_changes import casts_so_far
+
+        value = selectors.source_choice(plan, ctx.get("source_card"), "creature type")
+        bound = selectors.bind_chosen(selectors.from_key(e["spell"]), value) if value else None
+        if bound is None:
+            return True  # (no type chosen: nothing is granted)
+        key, nth = bound.key(), casts_so_far(plan.state, plan.info, pid, bound.key())
+    plan.rules.permissions.append(Permission(id=secrets.token_hex(4), player=pid, cast=True, zone="any", filter=key, nth=nth,
                                              flash=True, until=e.get("until", "end_of_turn"), turn=plan.state.turn.number,
                                              source=ctx.get("source_object"), label=f"{label}: as though it had flash"))
-    plan.note(f"{plan.name(pid)} may cast {_spells_words(e.get('filter'), None)} {'until their next turn' if e.get('until') else 'this turn'} "
+    plan.note(f"{plan.name(pid)} may cast {_spells_words(key, None)} {'until their next turn' if e.get('until') else 'this turn'} "
               f"as though they had flash ({label})",
               actor=pid)
     return True
@@ -534,7 +606,7 @@ def _life_primitives() -> dict[str, Any]:
     return life_lock.PRIMITIVES  # -- can't lose life (wave 29D) --
 
 
-PRIMITIVES = {"cast_limit": cast_limit, "flash_permission": flash_permission, **_player_primitives()[0], **_life_primitives()}
+PRIMITIVES = {"cast_limit": cast_limit, "flash_permission": flash_permission, "free_permission": free_permission, **_player_primitives()[0], **_life_primitives()}
 RESUME = dict(_player_primitives()[1])
 
 

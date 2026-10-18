@@ -1,0 +1,1282 @@
+[
+ {
+  "name": "Mutiny",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target creature an opponent controls deals damage equal to its power to another target creature that player controls.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Yosei, the Morning Star",
+  "layout": "normal",
+  "mana_cost": "{4}{W}{W}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Dragon Spirit",
+  "oracle_text": "Flying\nWhen Yosei dies, target player skips their next untap step. Tap up to five target permanents that player controls.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Public Execution",
+  "layout": "normal",
+  "mana_cost": "{5}{B}",
+  "cmc": 6.0,
+  "type_line": "Instant",
+  "oracle_text": "Destroy target creature an opponent controls. Each other creature that player controls gets -2/-0 until end of turn.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Flames of the Raze-Boar",
+  "layout": "normal",
+  "mana_cost": "{5}{R}",
+  "cmc": 6.0,
+  "type_line": "Instant",
+  "oracle_text": "Flames of the Raze-Boar deals 4 damage to target creature an opponent controls. Then Flames of the Raze-Boar deals 2 damage to each other creature that player controls if you control a creature with power 4 or greater.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Mark for Death",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target creature an opponent controls blocks this turn if able. Untap that creature. Other creatures that player controls can't block this turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Breaking of the Fellowship",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target creature an opponent controls deals damage equal to its power to another target creature that player controls. The Ring tempts you.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Alpha Brawl",
+  "layout": "normal",
+  "mana_cost": "{6}{R}{R}",
+  "cmc": 8.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target creature an opponent controls deals damage equal to its power to each other creature that player controls, then each of those creatures deals damage equal to its power to that creature.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Hill Giant",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Giant",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Goblin Piker",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Goblin Warrior",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Runeclaw Bear",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Bear",
+  "oracle_text": "",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Twincast",
+  "layout": "normal",
+  "mana_cost": "{U}{U}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Identity Crisis",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{W}{B}{B}",
+  "cmc": 6.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Exile all cards from target player's hand and graveyard.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Mudhole",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Target player exiles all land cards from their graveyard.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Jace, the Mind Sculptor",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Jace",
+  "oracle_text": "+2: Look at the top card of target player's library. You may put that card on the bottom of that player's library.\n0: Draw three cards, then put two cards from your hand on top of your library in any order.\n−1: Return target creature to its owner's hand.\n−12: Exile all cards from target player's library, then that player shuffles their hand into their library.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "loyalty": "3"
+ },
+ {
+  "name": "Nicol Bolas, the Ravager // Nicol Bolas, the Arisen",
+  "layout": "transform",
+  "mana_cost": "{1}{U}{B}{R} // ",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Elder Dragon // Legendary Planeswalker — Bolas",
+  "oracle_text": "Flying\nWhen Nicol Bolas enters, each opponent discards a card.\n{4}{U}{B}{R}: Exile Nicol Bolas, then return him to the battlefield transformed under his owner's control. Activate only as a sorcery.\n//\n+2: Draw two cards.\n−3: Nicol Bolas deals 10 damage to target creature or planeswalker.\n−4: Put target creature or planeswalker card from a graveyard onto the battlefield under your control.\n−12: Exile all but the bottom card of target player's library.",
+  "colors": [
+   "B",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Transform"
+  ],
+  "power": "4",
+  "toughness": "4",
+  "card_faces": [
+   {
+    "name": "Nicol Bolas, the Ravager",
+    "mana_cost": "{1}{U}{B}{R}",
+    "type_line": "Legendary Creature — Elder Dragon",
+    "oracle_text": "Flying\nWhen Nicol Bolas enters, each opponent discards a card.\n{4}{U}{B}{R}: Exile Nicol Bolas, then return him to the battlefield transformed under his owner's control. Activate only as a sorcery.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+     "B",
+     "R",
+     "U"
+    ]
+   },
+   {
+    "name": "Nicol Bolas, the Arisen",
+    "mana_cost": "",
+    "type_line": "Legendary Planeswalker — Bolas",
+    "oracle_text": "+2: Draw two cards.\n−3: Nicol Bolas deals 10 damage to target creature or planeswalker.\n−4: Put target creature or planeswalker card from a graveyard onto the battlefield under your control.\n−12: Exile all but the bottom card of target player's library.",
+    "loyalty": "7",
+    "colors": [
+     "B",
+     "R",
+     "U"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Go Blank",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target player discards two cards. Then exile that player's graveyard.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Repopulate",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Shuffle all creature cards from target player's graveyard into that player's library.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Cycling"
+  ]
+ },
+ {
+  "name": "Portent",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Look at the top three cards of target player's library, then put them back in any order. You may have that player shuffle.\nDraw a card at the beginning of the next turn's upkeep.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Natural Selection",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Look at the top three cards of target player's library, then put them back in any order. You may have that player shuffle.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Visions",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Look at the top five cards of target player's library. You may then have that player shuffle that library.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Prophecy",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Reveal the top card of target opponent's library. If it's a land, you gain 1 life. Then that player shuffles.\nDraw a card at the beginning of the next turn's upkeep.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Hypnox",
+  "layout": "normal",
+  "mana_cost": "{8}{B}{B}{B}",
+  "cmc": 11.0,
+  "type_line": "Creature — Nightmare Horror",
+  "oracle_text": "Flying\nWhen this creature enters, if you cast it from your hand, exile all cards from target opponent's hand.\nWhen this creature leaves the battlefield, return the exiled cards to their owner's hand.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "8",
+  "toughness": "8"
+ },
+ {
+  "name": "Praetor's Grasp",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Search target opponent's library for a card and exile it face down. Then that player shuffles. You may play that card for as long as it remains exiled.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Thada Adel, Acquisitor",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Merfolk Rogue",
+  "oracle_text": "Islandwalk (This creature can't be blocked as long as defending player controls an Island.)\nWhenever Thada Adel deals combat damage to a player, search that player's library for an artifact card and exile it. Then that player shuffles. Until end of turn, you may play that card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Landwalk",
+   "Islandwalk"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Rootwater Thief",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Merfolk Rogue",
+  "oracle_text": "{U}: This creature gains flying until end of turn.\nWhenever this creature deals combat damage to a player, you may pay {2}. If you do, search that player's library for a card and exile it, then the player shuffles.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "2"
+ },
+ {
+  "name": "Sadistic Sacrament",
+  "layout": "normal",
+  "mana_cost": "{B}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Kicker {7} (You may pay an additional {7} as you cast this spell.)\nSearch target player's library for up to three cards, exile them, then that player shuffles. If this spell was kicked, instead search that player's library for up to fifteen cards, exile them, then that player shuffles.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Kicker"
+  ]
+ },
+ {
+  "name": "Down for Repairs",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target opponent reveals their hand. You choose a nonland card from it. That player discards that card. Destroy up to one target Attraction that player controls. (It's put into their junkyard.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Breach the Multiverse",
+  "layout": "normal",
+  "mana_cost": "{5}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player mills ten cards. For each player, choose a creature or planeswalker card in that player's graveyard. Put those cards onto the battlefield under your control. Then each creature you control becomes a Phyrexian in addition to its other types.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Mill"
+  ]
+ },
+ {
+  "name": "Exhume",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player puts a creature card from their graveyard onto the battlefield.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Crypt Champion",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Zombie",
+  "oracle_text": "Double strike\nWhen this creature enters, each player puts a creature card with mana value 3 or less from their graveyard onto the battlefield.\nWhen this creature enters, sacrifice it unless {R} was spent to cast it.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Double strike"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Fall of the Thran",
+  "layout": "saga",
+  "mana_cost": "{5}{W}",
+  "cmc": 6.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Destroy all lands.\nII, III — Each player returns two land cards from their graveyard to the battlefield.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Dredge the Mire",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each opponent chooses a creature card in their graveyard. Put those cards onto the battlefield under your control.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Scrounge",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target opponent chooses an artifact card in their graveyard. Put that card onto the battlefield under your control.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Enslaved Horror",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Horror",
+  "oracle_text": "When this creature enters, each other player may return a creature card from their graveyard to the battlefield.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Serra Angel",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature — Angel",
+  "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Vigilance"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Murder",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Destroy target creature.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "The Eternal Wanderer",
+  "layout": "normal",
+  "mana_cost": "{4}{W}{W}",
+  "cmc": 6.0,
+  "type_line": "Legendary Planeswalker",
+  "oracle_text": "No more than one creature can attack The Eternal Wanderer each combat.\n+1: Exile up to one target artifact or creature. Return that card to the battlefield under its owner's control at the beginning of that player's next end step.\n0: Create a 2/2 white Samurai creature token with double strike.\n−4: For each player, choose a creature that player controls. Each player sacrifices all creatures they control not chosen this way.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "loyalty": "5"
+ },
+ {
+  "name": "Chaos Defiler",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{R}",
+  "cmc": 5.0,
+  "type_line": "Artifact Creature — Demon Construct",
+  "oracle_text": "Trample\nBattle Cannon — When this creature enters or dies, for each opponent, choose a nonland permanent that player controls. Destroy one of them chosen at random.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Battle Cannon",
+   "Trample"
+  ],
+  "power": "5",
+  "toughness": "4"
+ },
+ {
+  "name": "Underworld Cerberus",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{R}",
+  "cmc": 5.0,
+  "type_line": "Creature — Dog",
+  "oracle_text": "This creature can't be blocked except by three or more creatures.\nCards in graveyards can't be the targets of spells or abilities.\nWhen this creature dies, exile it and each player returns all creature cards from their graveyard to their hand.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Pyrrhic Revival",
+  "layout": "normal",
+  "mana_cost": "{3}{W/B}{W/B}{W/B}",
+  "cmc": 6.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player returns each creature card from their graveyard to the battlefield with an additional -1/-1 counter on it.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Ill-Gotten Gains",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Exile Ill-Gotten Gains. Each player discards their hand, then returns up to three cards from their graveyard to their hand.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Skullwinder",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Snake",
+  "oracle_text": "Deathtouch\nWhen this creature enters, return target card from your graveyard to your hand, then choose an opponent. That player returns a card from their graveyard to their hand.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Deathtouch"
+  ],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Grasping Tentacles",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target opponent mills eight cards. You may put an artifact card from that player's graveyard onto the battlefield under your control.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Mill"
+  ]
+ },
+ {
+  "name": "Realmbreaker, the Invasion Tree",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Legendary Artifact",
+  "oracle_text": "{2}, {T}: Target opponent mills three cards. Put a land card from their graveyard onto the battlefield tapped under your control. It gains \"If this land would leave the battlefield, exile it instead of putting it anywhere else.\"\n{10}, {T}, Sacrifice Realmbreaker: Search your library for any number of Praetor cards, put them onto the battlefield, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Mill"
+  ]
+ },
+ {
+  "name": "Oblivion Sower",
+  "layout": "normal",
+  "mana_cost": "{6}",
+  "cmc": 6.0,
+  "type_line": "Creature — Eldrazi",
+  "oracle_text": "When you cast this spell, target opponent exiles the top four cards of their library, then you may put any number of land cards that player owns from exile onto the battlefield under your control.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "5",
+  "toughness": "8"
+ },
+ {
+  "name": "Silent-Blade Oni",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{U}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Creature — Demon Ninja",
+  "oracle_text": "Ninjutsu {4}{U}{B} ({4}{U}{B}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever this creature deals combat damage to a player, look at that player's hand. You may cast a spell from among those cards without paying its mana cost.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Ninjutsu"
+  ],
+  "power": "6",
+  "toughness": "5"
+ },
+ {
+  "name": "Lord of the Void",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Creature — Demon",
+  "oracle_text": "Flying\nWhenever this creature deals combat damage to a player, exile the top seven cards of that player's library, then put a creature card from among them onto the battlefield under your control.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "7",
+  "toughness": "7"
+ },
+ {
+  "name": "Ashling, the Extinguisher",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Elemental Shaman",
+  "oracle_text": "Whenever Ashling deals combat damage to a player, choose target creature that player controls. The player sacrifices that creature.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Myrkul's Edict",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Roll a d20.\n1—9 | Choose an opponent. That player sacrifices a creature of their choice.\n10—19 | Each opponent sacrifices a creature of their choice.\n20 | Each opponent sacrifices a creature with the greatest power among creatures that player controls.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Sail into the West",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{U}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "Will of the council — Starting with you, each player votes for return or embark. If return gets more votes, each player returns up to two cards from their graveyard to their hand, then you exile Sail into the West. If embark gets more votes or the vote is tied, each player may discard their hand and draw seven cards.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Will of the council"
+  ]
+ },
+ {
+  "name": "Intellectual Offering",
+  "layout": "normal",
+  "mana_cost": "{4}{U}",
+  "cmc": 5.0,
+  "type_line": "Instant",
+  "oracle_text": "Choose an opponent. You and that player each draw three cards.\nChoose an opponent. Untap all nonland permanents you control and all nonland permanents that player controls.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Lightning Bolt",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Stone Rain",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Destroy target land.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Disciple of Perdition",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Warlock",
+  "oracle_text": "When this creature dies, choose one. If you have exactly 13 life, you may choose both instead.\n• You draw a card and you lose 1 life.\n• Exile target opponent's graveyard. That player loses 1 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Windgrace's Judgment",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{G}",
+  "cmc": 5.0,
+  "type_line": "Instant",
+  "oracle_text": "For any number of opponents, destroy target nonland permanent that player controls.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Dark Salvation",
+  "layout": "normal",
+  "mana_cost": "{X}{X}{B}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target player creates X 2/2 black Zombie creature tokens, then up to one target creature gets -1/-1 until end of turn for each Zombie that player controls.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "The Black Gate",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Legendary Land — Gate",
+  "oracle_text": "As The Black Gate enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {B}.\n{1}{B}, {T}: Choose a player with the most life or tied for most life. Target creature can't be blocked by creatures that player controls this turn.",
+  "colors": [],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Patriarch's Bidding",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{B}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player chooses a creature type. Each player returns all creature cards of a type chosen this way from their graveyard to the battlefield.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Orzhov Advokist",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Advisor",
+  "oracle_text": "At the beginning of your upkeep, each player may put two +1/+1 counters on a creature they control. If a player does, creatures that player controls can't attack you or planeswalkers you control until your next turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "4"
+ },
+ {
+  "name": "Afterlife from the Loam",
+  "layout": "normal",
+  "mana_cost": "{5}{B}{B}{B}",
+  "cmc": 8.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Delve (Each card you exile from your graveyard while casting this spell pays for {1}.)\nFor each player, choose up to one target creature card in that player's graveyard. Put those cards onto the battlefield under your control. They're Zombies in addition to their other types.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Delve"
+  ]
+ },
+ {
+  "name": "Strategic Betrayal",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target opponent exiles a creature they control and their graveyard.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Siege Dragon",
+  "layout": "normal",
+  "mana_cost": "{5}{R}{R}",
+  "cmc": 7.0,
+  "type_line": "Creature — Dragon",
+  "oracle_text": "Flying\nWhen this creature enters, destroy all Walls your opponents control.\nWhenever this creature attacks, if defending player controls no Walls, it deals 2 damage to each creature without flying that player controls.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Wall of Stone",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Wall",
+  "oracle_text": "Defender (This creature can't attack.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Defender"
+  ],
+  "power": "0",
+  "toughness": "8"
+ },
+ {
+  "name": "The Fall of Kroog",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Choose target opponent. Destroy target land that player controls. The Fall of Kroog deals 3 damage to that player and 1 damage to each creature they control.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Tibalt, the Fiend-Blooded",
+  "layout": "normal",
+  "mana_cost": "{R}{R}",
+  "cmc": 2.0,
+  "type_line": "Legendary Planeswalker — Tibalt",
+  "oracle_text": "+1: Draw a card, then discard a card at random.\n−4: Tibalt deals damage equal to the number of cards in target player's hand to that player.\n−6: Gain control of all creatures until end of turn. Untap them. They gain haste until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "loyalty": "2"
+ },
+ {
+  "name": "Precognition",
+  "layout": "normal",
+  "mana_cost": "{4}{U}",
+  "cmc": 5.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of your upkeep, you may look at the top card of target opponent's library. If you do, you may put that card on the bottom of that player's library.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Coral Fighters",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Merfolk Soldier",
+  "oracle_text": "Whenever this creature attacks and isn't blocked, look at the top card of defending player's library. You may put that card on the bottom of that player's library.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Second Sunrise",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{W}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Each player returns to the battlefield all artifact, creature, enchantment, and land cards in their graveyard that were put there from the battlefield this turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Elder Brain",
+  "layout": "normal",
+  "mana_cost": "{5}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Creature — Horror",
+  "oracle_text": "Menace\nWhenever this creature attacks a player, exile all cards from that player's hand, then they draw that many cards. You may play lands and cast spells from among the exiled cards for as long as they remain exiled. If you cast a spell this way, you may spend mana as though it were mana of any color to cast it.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Menace"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Thieving Amalgam",
+  "layout": "normal",
+  "mana_cost": "{5}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Creature — Ape Snake",
+  "oracle_text": "At the beginning of each opponent's upkeep, you manifest the top card of that player's library. (Put it onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)\nWhenever a creature you control but don't own dies, its owner loses 2 life and you gain 2 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Manifest"
+  ],
+  "power": "6",
+  "toughness": "7"
+ },
+ {
+  "name": "Orochi Soul-Reaver",
+  "layout": "normal",
+  "mana_cost": "{5}{B}",
+  "cmc": 6.0,
+  "type_line": "Creature — Snake Ninja Rogue",
+  "oracle_text": "Ninjutsu {3}{B} ({3}{B}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever one or more creatures you control deal combat damage to a player, create a Treasure token and manifest the top card of that player's library. (Put it onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Manifest",
+   "Treasure",
+   "Ninjutsu"
+  ],
+  "power": "5",
+  "toughness": "4"
+ },
+ {
+  "name": "Mindleech Mass",
+  "layout": "normal",
+  "mana_cost": "{5}{U}{B}{B}",
+  "cmc": 8.0,
+  "type_line": "Creature — Horror",
+  "oracle_text": "Trample\nWhenever this creature deals combat damage to a player, you may look at that player's hand. If you do, you may cast a spell from among those cards without paying its mana cost.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Doomsday Specter",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Specter",
+  "oracle_text": "Flying\nWhen this creature enters, return a blue or black creature you control to its owner's hand.\nWhenever this creature deals combat damage to a player, look at that player's hand and choose a card from it. The player discards that card.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Leshrac's Sigil",
+  "layout": "normal",
+  "mana_cost": "{B}{B}",
+  "cmc": 2.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever an opponent casts a green spell, you may pay {B}{B}. If you do, look at that player's hand and choose a card from it. The player discards that card.\n{B}{B}: Return this enchantment to its owner's hand.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Painful Memories",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Look at target opponent's hand and choose a card from it. Put that card on top of that player's library.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ }
+]

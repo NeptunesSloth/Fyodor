@@ -1,0 +1,32 @@
+"""-- draft-matters cards (wave 52C) -- "Draft this card face up." (Canal Dredger), "Reveal this card as you draft it." (Cogwork Spy), "As you draft a card, you may …"
+(Cogwork Librarian), "During the draft, you may turn this card face down." (Whispergear Sneak).
+
+CR 905.2: "Some cards have abilities that function during the draft" (905.2b-c: revealing and drafting face up; the draft's passing and picking are 905.1). A game here is not
+preceded by a draft, so these lines are never part of it: they do nothing. Only the lines that are about the draft itself are read this way; a line that uses what a draft would
+have left ("the highest number you noted", "a color chosen as you drafted") is not, and keeps its card partial.
+"""
+
+from __future__ import annotations
+
+import re
+from typing import Any
+
+_DRAFT = re.compile(
+    r"Draft (?:this card|~) face up\."
+    r"|Reveal this card as you draft it\b.*"
+    r"|Each player passes the last card from each booster pack to a player who drafted a card named ~\."
+    r"|Immediately after the draft, .*"
+    r"|As you draft (?:a|an) .*"
+    r"|During the draft, .*"
+    r"|Instead of drafting a card from a booster pack, .*"
+    r"|As long as this card is face up during the draft, .*"
+    r"|If you removed a creature card with flying from the draft with cards named ~, ~ has flying\. The same is true for .*"
+    # what the draft noted: nothing was noted, so the ability has nothing to refer to (a player, a name, a type): it never applies
+    r"|~ attacks a player you noted for cards named ~ each combat if able\."
+    r"|As long as you control one or more creatures with a name you noted for cards named ~, ~ and those creatures get \+1/\+1 and have lifelink\."
+    r"|Other creatures you control of a type you noted for cards named ~ get \+1/\+1\.")
+
+
+def definition(text: str) -> dict[str, Any] | None:
+    """A static that does nothing (the draft isn't part of the game) for a line about the draft itself, else None."""
+    return {"kind": "static", "static": "draft_only", "effects": []} if _DRAFT.fullmatch(text.strip()) else None

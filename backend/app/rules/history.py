@@ -582,6 +582,10 @@ def _object_history(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: 
         got = any(e.object_id in ids for e in log.entered)
     elif what == "blocked":
         got = any(a in ids for attacked in log.blocks.values() for a in attacked)
+    elif what == "blocked_with":  # -- block events (wave 53C) -- 509.1g: it blocked / was blocked by a creature of that kind this turn (block_events.paired_with)
+        from app.rules import block_events
+
+        got = any(block_events.paired_with(plan, i, cond["mode"], cond["sel"], ctx["controller"]) for i in ids)
     elif what == "died":  # -- counters (wave 41A) -- 700.4: it was put into a graveyard from the battlefield (Departure.to)
         got = any(d.object_id in ids and d.to == "graveyard" for d in log.left)
     elif what == "enlisted":  # -- trailing & intervening ifs (wave 38A) -- 702.154a: in this combat phase (500.8), fixed once it was (603.4: still so as it resolves)
@@ -795,6 +799,8 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         return len({p for a in log.attackers.get(me, []) for p in log.attacked_who.get(a, []) if p != me and p in plan.live()})
     if kind == "damage_to_you":  # -- this-turn history (wave 50E) -- all the damage dealt to you this turn, however many sources (120.3)
         return sum(f.amount for f in log.facts if f.kind == "damage" and f.player == me)
+    if kind == "all_lost":  # -- activated other (wave 52D) -- the life every player lost this turn (119.3)
+        return sum(n for p, n in log.lost.items() if p in plan.live())  # (-- review 52 -- 102.1: a player is one in the game; one who has left is none, as opp_lost reads it)
     if kind in ("opp_lost", "opp_damage"):  # (the opponents still in the game: 800.4a)
         opps = {p for p in plan.live() if p != me}
         if kind == "opp_lost":

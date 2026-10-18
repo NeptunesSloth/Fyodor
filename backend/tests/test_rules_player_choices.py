@@ -75,6 +75,7 @@ def key(phrase):
       {"do": "exile", "who": "ref:e1"}], "opponent"),
     ("Choose a color.", [{"do": "choose_value", "who": "you", "what": "color"}], None),
     ("Choose a creature type.", [{"do": "choose_value", "who": "you", "what": "creature type"}], None),
+    ("Choose a number between 0 and 3.", [{"do": "choose_value", "who": "you", "what": "number", "options": ["0", "1", "2", "3"]}], None),  # (wave 53B: 107.1b-c)
     # "creature or Vehicle": a type or a subtype (selectors.Selector.union)
     ("Each opponent sacrifices a creature or Vehicle of their choice.",
      [{"do": "edict", "who": "each_opponent", "sel": key("creature or Vehicle"), "n": 1, "label": "creature or Vehicle"}], None),
@@ -89,8 +90,7 @@ def test_parse_player_choice_wordings(text, effects_, target):
     "Target opponent chooses a creature.",  # any creature, not one they control: not read
     "Target opponent sacrifices a creature they control of their choice.",
     "Choose a card name that hasn't been chosen from among Disenchant, Braingeyser, Terror, Shivan Dragon, Regrowth, and Black Lotus.",  # (wave 22B reads card names, not this restriction)
-    "Choose a number.",
-])
+])  # ("Choose a number.": read since wave 53B, 107.1b-c: app/rules/chosen.py number_choice)
 def test_unread_choice_wordings_stay_manual(text):
     assert parse_effects(text) is None
 

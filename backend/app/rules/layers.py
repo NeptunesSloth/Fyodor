@@ -42,6 +42,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from app.game.rules_state import ContinuousEffect
 from app.game.state import CardInstance, GameState
+from app.rules import chosen as _chosen  # -- chosen filters (wave 53B) --
 from app.rules import read_pass
 from app.rules.characteristics import CardInfo, Characteristics
 
@@ -132,7 +133,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     # (the face and flip state are part of the key: a transformed permanent has only its back
     # face's characteristics, 712.8e — its front face's statics are gone, 611.3a)
     key = tuple(sorted((cid, c.controller, c.face_down, c.face, c.flipped, c.card_id or c.name, c.token.text if c.token else "",
-                        r.card_mode(cid) if r else "", timestamp(state, cid), c.choices.get("Chosen word", ""),  # (wave 33B: linked words, 607.2f)
+                        r.card_mode(cid) if r else "", timestamp(state, cid), tuple(sorted(c.choices.items())),  # (wave 33B: linked words, 607.2f; wave 53B: and what else it chose as it entered, 614.12a: a type or a color written into its statics)
                         copies.get(r.object_id(cid), (0, "")) if r else (0, ""))
                        for cid, c in state.cards.items() if c.zone.endswith(":battlefield")))
     # -- conditional statics (wave 4B) -- statics that function from a graveyard (113.6b): which cards are there
@@ -174,6 +175,8 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     for cid, c in field:
         for d in scripts.definitions(copiable(state, c, info)).values():
             if d["kind"] == "static" and d.get("static") in ("grant", "attached_rule") and not grammar.zone_static(d):
+                if (d := _chosen.resolve_marks(d, c)) is None:  # type: ignore[assignment]  # (wave 53B: the type or color it chose; none recorded: nothing to apply)
+                    continue
                 out.append(Static(cid, c.controller, d, timestamp(state, cid)))
                 # -- as long as (wave 9B) -- the other sentences of one ability (static_pairs.py): statics of the same permanent
                 out += [Static(cid, c.controller, extra, timestamp(state, cid)) for extra in d.get("also", ())]
@@ -286,7 +289,8 @@ def _table_key(state: GameState) -> tuple:
                      tuple(state.zones.get(f"{pid}:graveyard", ())), tuple(state.zones.get(f"{pid}:exile", ())),
                      tuple(sorted(state.players[pid].resources.items()))) for pid in state.seat_order)
     field = tuple((cid, c.controller, c.tapped, c.attacking is not None, bool(c.blocking), c.attached_to, c.face_down,
-                   tuple(sorted(c.counters.items())), c.face, c.blocking, tuple(c.blocking_more))  # (wave 35D: face, whom it blocks)
+                   tuple(sorted(c.counters.items())), c.face, c.blocking, tuple(c.blocking_more),  # (wave 35D: face, whom it blocks)
+                   tuple(sorted(c.choices.items())))  # (wave 53B: what it chose as it entered, 614.12a: recorded after it is on the battlefield, a count reading it must not be served from before)
                   for cid, c in state.cards.items() if c.zone.endswith(":battlefield"))
     log = r.turn_log if r else None  # (conditions read this turn's history: "a creature died this turn")
     history = (log.turn, tuple(log.attacked), tuple(sorted(log.gained.items())), tuple(sorted(log.lost.items())),
@@ -356,7 +360,7 @@ def _hits(view: Plan, table: list[Static], card: CardInstance, ch: Characteristi
         source = view.state.cards[st.source]
         if d["static"] == "attached_rule":
             if not only_keyword_subjects and _attached_rule_applies(source, d, card, ch):
-                imposed.update(_own(d["imposes"], st.controller))
+                imposed.update(_own(d["imposes"], st.controller, card.owner))
             continue
         if not _grants(d) or (only_keyword_subjects and not _keyword_subject(d)):
             continue  # (a rules-only static is applied by _with_rules, after layer 7)
@@ -759,16 +763,18 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         for k, (st, text) in enumerate(grants):
             if "‹granter›" in text and state.rules is not None:  # -- granted from object (wave 18F) -- 607.1a: the granting object
                 text = text.replace("‹granter›", f"‹granter#{state.rules.object_id(st.source)}›")
-            if text == "Protection from the chosen color":  # -- attached events (wave 25D) -- the granting Aura's own recorded color
+            if text in _chosen.PROTECTION:  # -- attached events (wave 25D) -- the granting Aura's own recorded color (wave 53B: or card type, or creature type)
                 src = state.cards.get(st.source)
-                color = (src.choices.get("Chosen color") or "").strip().lower() if src is not None else ""
-                if color not in ("white", "blue", "black", "red", "green"):
+                line = _chosen.protection_line(text, src.choices) if src is not None else None
+                if line is None:
                     continue
-                text = f"Protection from {color}"
+                text = line
             ab = granted_ability(text)
             if ab is not None:
                 keeps = st.definition.get("keeps")  # (702.16n: attachments.host_problem)
-                extra.append(replace(ab, index=100 + k, keeps=None if keeps is None else f"self:{st.source}" if keeps == "self" else keeps))
+                owner = state.cards.get(st.source)
+                extra.append(replace(ab, index=100 + k, keeps=None if keeps is None else f"self:{st.source}" if keeps == "self"
+                                     else f"yours:{owner.controller}" if keeps == "yours" and owner is not None else keeps))  # (wave 53B: "Auras and Equipment you control", the granting Aura's controller)
         ch = replace(ch, abilities=ch.abilities + tuple(extra))
     lent = tuple({ab.index: ab for seq, ab in borrowed if wipe is None or (seq, 0, 0) > wipe}.values())
     if lent:
@@ -1059,7 +1065,7 @@ def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info:
         try:
             for st in table:
                 d = st.definition
-                rules = [r.replace("@src", st.source) for r in _own(d["rules"], st.controller)]  # (wave 5C: per source)
+                rules = [r.replace("@src", st.source) for r in _own(d["rules"], st.controller, card.owner)]  # (wave 5C: per source)
                 if set(rules) <= imposed or not _gate_open(view, st, tkey):
                     continue
                 source = state.cards[st.source]
@@ -1090,10 +1096,10 @@ def rule_pt(card_id: str, stat: str) -> int | None:
     return None if pt is None else pt[0 if stat == "power" else 1]
 
 
-def _own(rules: list[str], controller: str) -> list[str]:
+def _own(rules: list[str], controller: str, owner: str = "") -> list[str]:
     """-- keyword actions & face-down (wave 3F) -- a rule naming "@you" ("goaded:@you": 701.15b) names the
-    static's controller."""
-    return [r.replace("@you", controller) for r in rules]
+    static's controller; (-- group choices (wave 53D) --) "@owner", the owner of the object the rule is on ("can't attack its owner")."""
+    return [r.replace("@you", controller).replace("@owner", owner) for r in rules]
 
 
 def _keyword_subject(d: dict[str, Any]) -> bool:

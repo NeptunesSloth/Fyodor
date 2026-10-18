@@ -35,7 +35,7 @@ _GAIN = re.compile(r"^(?P<o>.+?) gains? (?:(?P<kw>[a-z]+(?: strike)?(?:(?:, and 
 COLORS = ["White", "Blue", "Black", "Red", "Green"]
 CHOSEN_LINE = "Protection from the chosen color"
 CHOSEN_HEXPROOF = "Hexproof from the chosen color"  # (wave 50J)
-_TOXIC_HEXPROOF = re.compile(r"^(?P<o>.+?) gains? toxic (?P<n>\d+) and hexproof from that color until end of turn$")  # Skrelv, Defector Mite (702.164 toxic, 702.11d)
+_TOXIC_HEXPROOF = re.compile(r"^(?P<o>.+?) gains? toxic (?P<n>\d+) and hexproof from (?:that|the chosen) color until end of turn$")  # Skrelv, Defector Mite (702.164 toxic, 702.11d)
 CHOICES: dict[str, list[str]] = {
     "the color of your choice": COLORS,
     "colorless or from the color of your choice": ["Colorless", *COLORS],
@@ -43,6 +43,11 @@ CHOICES: dict[str, list[str]] = {
     # -- activated other (wave 42C) -- 205.2a: the card types a Commander deck can hold (language._COMMANDER_CARD_TYPES), as protection names them (702.16a)
     "the card type of your choice": ["Artifacts", "Battles", "Creatures", "Enchantments", "Instants", "Kindreds", "Lands", "Planeswalkers", "Sorceries"],
 }
+
+
+# -- block events (wave 53C) -- "Choose a color. ~ gains hexproof from that color until end of turn and can't be blocked by creatures of that color this turn." (Sungold Sentinel): the chosen
+# color for both halves (702.11d, 509.1b), bound as protection's is (chosen.bind_effects)
+_HEXPROOF_UNBLOCKABLE = re.compile(r"^(?P<o>.+?) gains? hexproof from that color until end of turn and can't be blocked by creatures of (?:that|the chosen) color this turn$")
 
 
 def fixed_line(quality: str) -> str | None:
@@ -57,6 +62,13 @@ def clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     """The effect sentence "<object> gains protection from <quality> until end of turn", or None when it isn't one
     (``language._Fail`` when it is one this grammar refuses)."""
     m = _GAIN.fullmatch(text)
+    if m is None and (hp := re.fullmatch(r"(?P<o>.+?) gains? hexproof from the chosen color until end of turn", text)) is not None:  # -- chosen filters (wave 53B) -- Sungold Sentinel: 702.11d, the color just chosen
+        from app.rules import language as L
+
+        kind, key, group = L.ref(hp["o"])
+        if kind == "players":
+            raise L._Fail
+        return [{"do": "grant", "who": L._who(kind, key), "keywords": [], "abilities": [CHOSEN_HEXPROOF]}], L._one(group)
     if m is None and (th := _TOXIC_HEXPROOF.fullmatch(text)) is not None:  # -- chosen type (wave 50J) -- "Choose a color. … gains toxic 1 and hexproof from that color until end of turn." (Skrelv): the color is bound as protection's is
         from app.rules import language as L
 
@@ -64,6 +76,16 @@ def clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         if kind == "players":
             raise L._Fail
         return [{"do": "grant", "who": L._who(kind, key), "keywords": [], "abilities": [f"Toxic {th['n']}", CHOSEN_HEXPROOF]}], L._one(group)
+    if m is None and (hu := _HEXPROOF_UNBLOCKABLE.fullmatch(text)) is not None:
+        from app.rules import language as L
+        from app.rules import statics
+
+        kind, key, group = L.ref(hu["o"])
+        rules = statics._rule("can't be blocked by creatures of the chosen color")
+        if kind in ("players", "each") or not rules:
+            raise L._Fail
+        return [{"do": "grant", "who": L._who(kind, key), "keywords": [], "abilities": [CHOSEN_HEXPROOF]},
+                {"do": "restrict", "who": L._who(kind, key), "rules": rules}], L._one(group)
     if m is None:
         return None
     from app.rules import language as L

@@ -25,6 +25,7 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from app.rules import card_names as _card_names  # -- chosen filters (wave 53B) --
 from app.rules import conditions, values
 from app.rules import mana as M
 
@@ -335,8 +336,8 @@ _FROM = {"from your graveyard": ("your_graveyard",), "from graveyards": ("gravey
          "from anywhere other than your hand": ("not_hand",)}
 STATIC = re.compile(
     r"^(?P<during>during your turn, |during turns other than yours, )?(?:each )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? "
-    r"(?:(?P<chosen1>of the chosen type) )?"  # (wave 46A: "Spells of the chosen type you cast cost …", Morophon)
-    r"(?:(?P<with>with (?:flying|flash|mana value \d+ or (?:greater|less))) )?(?P<who>you cast |your opponents cast )?(?:(?P<with2>with (?:mana value \d+ or (?:greater|less)|toughness greater than its power)|that (?:has|have) an Adventure) )?(?P<own>but don't own )?(?P<chosen>of the chosen type )?"
+    r"(?:(?P<chosen1>of the chosen type) )?(?P<named1>with the chosen name )?"  # (wave 46A: "Spells of the chosen type you cast cost …", Morophon; wave 53B: "Spells with the chosen name cost {3} more", Disruptor Flute)
+    r"(?:(?P<with>with (?:flying|flash|mana value \d+ or (?:greater|less))) )?(?P<who>you cast |your opponents cast |enchanted player casts )?(?P<named2>with the chosen name )?(?:(?P<with2>with (?:mana value \d+ or (?:greater|less)|toughness greater than its power)|that (?:has|have) an Adventure) )?(?P<own>but don't own )?(?P<chosen>of the chosen type )?"
     r"(?:(?P<from>from (?:your graveyard or from exile|graveyards or from exile|your graveyard|graveyards|exile"
     r"|anywhere other than your hand)) )?"
     rf"costs? {_SYMBOLS} (?P<dir>less|more) to cast(?P<rest>.*)$")
@@ -364,7 +365,7 @@ def special(t: str) -> bool:
     if ORDINAL.fullmatch(t) or TARGETING.fullmatch(t) or TARGETING_LIFE.fullmatch(t) or PER_CASTER.fullmatch(t):
         return True
     m = STATIC.fullmatch(t)
-    return m is not None and bool(m["during"] or m["with"] or m["with2"] or m["chosen"] or m["chosen1"] or m["from"] or m["rest"] or m["own"] or not m["n"].isdigit())
+    return m is not None and bool(m["during"] or m["with"] or m["with2"] or m["chosen"] or m["chosen1"] or m["named1"] or m["named2"] or m["from"] or m["rest"] or m["own"] or not m["n"].isdigit())
 
 
 def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
@@ -399,7 +400,11 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
     # ("… as long as there are three or more Lesson cards in your graveyard": the static's condition, read with its
     # source's controller as "you" each time a total cost is determined: amount())
     # the chosen type is the permanent's "As ~ enters, choose a creature type." answer (614.12a): only with that line
-    card_type = (m["chosen"] or m["chosen1"]) and any(re.fullmatch(r"As .+ enters, choose (?:a card type(?: other than creature or land)?|artifact, creature, enchantment, instant, or sorcery)\.?", x.strip()) for x in lines)  # (wave 47A: Umori, Stenn)
+    named = bool(m["named1"] or m["named2"])  # -- chosen filters (wave 53B) -- "with the chosen name": the permanent's own "As ~ enters, choose a … card name" (614.12a), exactly one
+    if named and (m["chosen"] or m["chosen1"] or m["with"] or m["with2"] or sum(bool(re.fullmatch(rf"As .+ enters, choose (?:a|an) {_card_names.WHAT_RX}\.?", x.strip())
+                                                                                    or x.strip().endswith("then choose any card name.")) for x in lines) != 1):
+        return None
+    card_type = (m["chosen"] or m["chosen1"]) and any(re.fullmatch(r"As .+ enters, (?:choose (?:a card type(?: other than creature or land)?|artifact, creature, enchantment, instant, or sorcery)|look at an opponent's hand, then choose a card type other than creature)\.?", x.strip()) for x in lines)  # (wave 47A: Umori, Stenn; wave 53B: Arachne)
     if (m["chosen"] or m["chosen1"]) and not card_type and not any(re.fullmatch(r"As .+ enters, choose a creature type\.?", x.strip()) for x in lines):
         return None
     sel = m["sel"]
@@ -409,7 +414,9 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
     key = spell_filter(sel, with_) if sel or with_ else None
     if (sel or with_) and key is None:
         return None
-    caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[m["who"]]
+    caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent", "enchanted player casts ": "enchanted"}[m["who"]]  # (wave 53B: Curse of Silence, read by permissions.modifiers)
+    if caster == "enchanted" and not re.search(r"^Enchant player$", "\n".join(x.strip() for x in lines), re.M):
+        return None
     out: dict[str, Any] = {"kind": "static", "static": "cost_modifier", "delta": change["dir"] * int(change.get("n", 0)),
                            "caster": caster, "filter": key, "change": change, "effects": []}
     if m["own"]:  # -- cost changers (wave 20E) -- "Spells you cast but don't own" (Gonti): the spell's owner is another player (108.3)
@@ -423,6 +430,16 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
         if base is None:
             return None
         out["filter"] = _replace(base, owner="opponent").key()
+    if named:
+        from dataclasses import replace as _replace
+
+        from app.rules import selectors as _selectors
+
+        base = _selectors.from_key(key) if key is not None else _selectors.parse("spell")
+        if base is None:
+            return None
+        out["spell"] = _replace(base, extras=(*base.extras, "chosen_name")).key()
+        out["filter"] = None
     if m["chosen"] or m["chosen1"]:
         # "of the chosen type": wave 4J's selector extra, read from the source permanent's own enters choice (614.12a;
         # scripts checks the card has exactly that one choice: chosen.chosen_value_ok). Kept as "spell", not "filter",
@@ -478,6 +495,8 @@ def _targeting_definition_of(who: str | None, what: str) -> dict[str, Any] | Non
         what = what[len("you or "):]
     if what == "~":
         target = "self"
+    elif what == "enchanted player":  # -- block events (wave 53C) -- "Spells you cast that target enchanted player cost {1} less to cast." (Infectious Curse): the player this Aura enchants
+        target = "enchanted_player"
     else:
         phrase = re.sub(r"^(?:a|an|one or more) ", "", what)
         sel = selectors.parse(phrase)
@@ -512,6 +531,10 @@ def _targets_match(state: GameState, info: CardInfo, src: CardInstance, target: 
     for tid in targets:
         if you and tid == src.controller:
             return True
+        if target == "enchanted_player":  # (a player: no card to read)
+            if src.attached_player is not None and tid == src.attached_player:
+                return True
+            continue
         card = state.cards.get(tid)
         if card is None or not card.zone.endswith(":battlefield"):
             continue
@@ -550,16 +573,20 @@ def _ordinal_definition(o: re.Match[str]) -> dict[str, Any] | None:
             **({"flash_perm": cast_limits.flash_def(key, first=True)} if o["flash"] else {})}  # (read by permissions.grants: 601.3b)
 
 
-def _ordinal_ok(state: GameState, info: CardInfo, player: str, d: dict[str, Any]) -> bool:
-    """Is this the first such spell (none of its kind cast yet this turn) / the second spell (one cast so far)?"""
+def casts_so_far(state: GameState, info: CardInfo, player: str, key: str | None) -> int:
+    """How many spells of the kind ``key`` (None: any) ``player`` has cast this turn (601.2i)."""
     from app.rules import history, selectors
 
     log = history.log_for(view_of(state, player, info))
-    sel = selectors.from_key(d["filter"]) if d.get("filter") else None
-    before = sum(1 for note in log.casts if note.player == player
-                 and (sel is None or history.note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv, x_cost=note.x_cost,
-                                                              keywords=note.keywords, face_down=note.face_down)))
-    return before == d["ordinal"] - 1
+    sel = selectors.from_key(key) if key else None
+    return sum(1 for note in log.casts if note.player == player
+               and (sel is None or history.note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv, x_cost=note.x_cost,
+                                                        keywords=note.keywords, face_down=note.face_down)))
+
+
+def _ordinal_ok(state: GameState, info: CardInfo, player: str, d: dict[str, Any]) -> bool:
+    """Is this the first such spell (none of its kind cast yet this turn) / the second spell (one cast so far)?"""
+    return casts_so_far(state, info, player, d.get("filter")) == d["ordinal"] - 1
 
 
 def first_ok(state: GameState, info: CardInfo, player: str, key: str | None) -> bool:

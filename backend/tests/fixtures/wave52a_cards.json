@@ -1,0 +1,531 @@
+[
+ {
+  "name": "Martyr's Cry",
+  "layout": "normal",
+  "mana_cost": "{W}{W}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Exile all white creatures. For each creature exiled this way, its controller draws a card.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "King Solomon's Frogs",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Artifact",
+  "oracle_text": "Flash\nWhen King Solomon's Frogs enters, if you cast it, for each opponent, exile up to one target permanent that player controls with mana value 3 or greater. For each permanent exiled this way, its controller draws a card.\n{3}, {T}, Exile King Solomon's Frogs: You become the monarch.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flash"
+  ]
+ },
+ {
+  "name": "Unexplained Absence",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "For each player, exile up to one target nonland permanent that player controls. For each permanent exiled this way, its controller cloaks the top card of their library. (To cloak a card, put it onto the battlefield face down as a 2/2 creature with ward {2}. Turn it face up any time for its mana cost if it's a creature card.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Cloak"
+  ]
+ },
+ {
+  "name": "Declaration in Stone",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Exile target creature and all other creatures its controller controls with the same name as that creature. That player investigates for each nontoken creature exiled this way.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Investigate"
+  ]
+ },
+ {
+  "name": "Mogg Infestation",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{R}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Destroy all creatures target player controls. For each creature that died this way, that player creates two 1/1 red Goblin creature tokens.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Warren Weirding",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Kindred Sorcery — Goblin",
+  "oracle_text": "Target player sacrifices a creature of their choice. If a Goblin is sacrificed this way, that player creates two 1/1 black Goblin Rogue creature tokens, and those tokens gain haste until end of turn.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Goblin Piker",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Creature — Goblin Warrior",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Hill Giant",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Giant",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Soul Warden",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Creature — Human Cleric",
+  "oracle_text": "Whenever another creature enters, you gain 1 life.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Coalition Relic",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Add one mana of any color.\n{T}: Put a charge counter on this artifact.\nAt the beginning of your first main phase, remove all charge counters from this artifact. Add one mana of any color for each charge counter removed this way.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Ventifact Bottle",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "{X}{1}, {T}: Put X charge counters on this artifact. Activate only as a sorcery.\nAt the beginning of your first main phase, if this artifact has a charge counter on it, tap it and remove all charge counters from it. Add {C} for each charge counter removed this way.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Delay",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Counter target spell. If the spell is countered this way, exile it with three time counters on it instead of putting it into its owner's graveyard. If it doesn't have suspend, it gains suspend. (At the beginning of its owner's upkeep, they remove a time counter. When the last is removed, they may play it without paying its mana cost. If it's a creature, it has haste.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Transcendent Dragon",
+  "layout": "normal",
+  "mana_cost": "{4}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Creature — Dragon",
+  "oracle_text": "Flash\nFlying\nWhen this creature enters, if you cast it, counter target spell. If that spell is countered this way, exile it instead of putting it into its owner's graveyard, then you may cast it without paying its mana cost.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Flash"
+  ],
+  "power": "4",
+  "toughness": "3"
+ },
+ {
+  "name": "Lightning Bolt",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Prowling Serpopard",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Cat Snake",
+  "oracle_text": "This spell can't be countered.\nCreature spells you control can't be countered.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "3"
+ },
+ {
+  "name": "Grizzly Bears",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Bear",
+  "oracle_text": "",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Counterbalance",
+  "layout": "normal",
+  "mana_cost": "{U}{U}",
+  "cmc": 2.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever an opponent casts a spell, you may reveal the top card of your library. If you do, counter that spell if it has the same mana value as the revealed card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Arid Archway",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land — Desert",
+  "oracle_text": "This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand. If another Desert was returned this way, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)\n{T}: Add {C}{C}.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Surveil"
+  ]
+ },
+ {
+  "name": "Rise of the Witch-king",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{G}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player sacrifices a creature of their choice. If you sacrificed a creature this way, you may return another permanent card from your graveyard to the battlefield.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Deadly Brew",
+  "layout": "normal",
+  "mana_cost": "{B}{G}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player sacrifices a creature or planeswalker of their choice. If you sacrificed a permanent this way, you may return another permanent card from your graveyard to your hand.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Starfall Invocation",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Gift a card (You may promise an opponent a gift as you cast this spell. If you do, they draw a card before its other effects.)\nDestroy all creatures. If the gift was promised, return a creature card put into your graveyard this way to the battlefield under your control.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Gift"
+  ]
+ },
+ {
+  "name": "Monster Manual // Zoological Study",
+  "layout": "adventure",
+  "mana_cost": "{3}{G} // {2}{G}",
+  "cmc": 4.0,
+  "type_line": "Artifact — Book // Sorcery — Adventure",
+  "oracle_text": "{1}{G}, {T}: You may put a creature card from your hand onto the battlefield.\n//\nMill five cards, then return a creature card milled this way to your hand. (Then exile this card. You may cast the artifact later from exile.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Mill"
+  ],
+  "card_faces": [
+   {
+    "name": "Monster Manual",
+    "mana_cost": "{3}{G}",
+    "type_line": "Artifact — Book",
+    "oracle_text": "{1}{G}, {T}: You may put a creature card from your hand onto the battlefield."
+   },
+   {
+    "name": "Zoological Study",
+    "mana_cost": "{2}{G}",
+    "type_line": "Sorcery — Adventure",
+    "oracle_text": "Mill five cards, then return a creature card milled this way to your hand. (Then exile this card. You may cast the artifact later from exile.)"
+   }
+  ]
+ },
+ {
+  "name": "Cut a Deal",
+  "layout": "normal",
+  "mana_cost": "{2}{W}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each opponent draws a card, then you draw a card for each opponent who drew a card this way.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Struggle for Project Purity",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "As this enchantment enters, choose Brotherhood or Enclave.\n• Brotherhood — At the beginning of your upkeep, each opponent draws a card. You draw a card for each card drawn this way.\n• Enclave — Whenever a player attacks you with one or more creatures, that player gets twice that many rad counters.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Communal Brewing",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, any number of target opponents each draw a card. Put an ingredient counter on this enchantment, then put an ingredient counter on it for each card drawn this way.\nWhenever you cast a creature spell, that creature enters with X additional +1/+1 counters on it, where X is the number of ingredient counters on this enchantment.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Ancient Excavation",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{B}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "Draw cards equal to the number of cards in your hand, then discard a card for each card drawn this way.\nBasic landcycling {2} ({2}, Discard this card: Search your library for a basic land card, reveal it, put it into your hand, then shuffle.)",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Landcycling",
+   "Basic landcycling",
+   "Typecycling",
+   "Cycling"
+  ]
+ },
+ {
+  "name": "Narset, Parter of Veils",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Planeswalker — Narset",
+  "oracle_text": "Each opponent can't draw more than one card each turn.\n−2: Look at the top four cards of your library. You may reveal a noncreature, nonland card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "loyalty": "5"
+ },
+ {
+  "name": "Read the Runes",
+  "layout": "normal",
+  "mana_cost": "{X}{U}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Draw X cards. For each card drawn this way, discard a card unless you sacrifice a permanent.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Bloodchief Ascension",
+  "layout": "normal",
+  "mana_cost": "{B}",
+  "cmc": 1.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of each end step, if an opponent lost 2 or more life this turn, you may put a quest counter on this enchantment. (Damage causes loss of life.)\nWhenever a card is put into an opponent's graveyard from anywhere, if this enchantment has three or more quest counters on it, you may have that player lose 2 life. If you do, you gain 2 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Bottle-Cap Blast",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Instant",
+  "oracle_text": "Improvise (Your artifacts can help cast this spell. Each artifact you tap after you're done activating mana abilities pays for {1}.)\nBottle-Cap Blast deals 5 damage to any target. If excess damage was dealt to a permanent this way, create that many tapped Treasure tokens. (They're artifacts with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Improvise",
+   "Treasure"
+  ]
+ },
+ {
+  "name": "Sorin, Lord of Innistrad",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Sorin",
+  "oracle_text": "+1: Create a 1/1 black Vampire creature token with lifelink.\n−2: You get an emblem with \"Creatures you control get +1/+0.\"\n−6: Destroy up to three target creatures and/or other planeswalkers. Return each card put into a graveyard this way to the battlefield under your control.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [],
+  "loyalty": "3"
+ },
+ {
+  "name": "Bounty of the Luxa",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{U}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of your first main phase, remove all flood counters from this enchantment. If no counters were removed this way, put a flood counter on this enchantment and draw a card. Otherwise, add {C}{G}{U}.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": []
+ }
+]

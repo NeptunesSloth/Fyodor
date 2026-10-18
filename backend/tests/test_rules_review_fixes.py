@@ -29,10 +29,11 @@ def test_multi_sentence_intervening_if_gates_the_whole_ability(cards):
     assert s.state.players["p1"].life == 40
 
 
-def test_other_in_an_event_condition_stays_manual():
-    # Roiling Canopy-style: "other" than the Forest that entered, not the source: not modeled
+def test_other_in_an_event_condition_is_other_than_the_entering_permanent():
+    # Roiling Canopy-style: "other" than the Forest that entered, not the source (review 52: Valakut's and Roiling Canopy's rulings, "five or more Forests other
+    # than that new one"; played in test_rules_wave52b_small.py)
     text = "Whenever a Forest you control enters, if you control at least five other Forests, you gain 1 life."
-    assert not scripts.definitions(ch("X", "Enchantment", text))
+    assert "other_event" in str(scripts.definitions(ch("X", "Enchantment", text)))
 
 
 def test_an_opponent_controls_counts_each_opponent_separately(cards):
