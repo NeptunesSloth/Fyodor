@@ -623,5 +623,99 @@
    "B"
   ],
   "keywords": []
+ },
+ {
+  "name": "Selective Obliteration",
+  "layout": "normal",
+  "mana_cost": "{3}{C}{C}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player chooses a color. Then exile each permanent unless it's colorless or it's only the color its controller chose.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Worldpurge",
+  "layout": "normal",
+  "mana_cost": "{4}{W/U}{W/U}{W/U}{W/U}",
+  "cmc": 8.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Return all permanents to their owners' hands. Each player chooses up to seven cards in their hand, then shuffles the rest into their library. Each player loses all unspent mana.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Stronghold Gambit",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player chooses a card in their hand. Then each player reveals their chosen card. The owner of each creature card revealed this way with the lowest mana value puts it onto the battlefield.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Grave Sifter",
+  "layout": "normal",
+  "mana_cost": "{5}{G}",
+  "cmc": 6.0,
+  "type_line": "Creature — Elemental Beast",
+  "oracle_text": "When this creature enters, each player chooses a creature type and returns any number of cards of that type from their graveyard to their hand.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "5",
+  "toughness": "7"
+ },
+ {
+  "name": "Conundrum Sphinx",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}",
+  "cmc": 4.0,
+  "type_line": "Creature — Sphinx",
+  "oracle_text": "Flying\nWhenever this creature attacks, each player chooses a card name. Then each player reveals the top card of their library. If the card a player revealed has the name they chose, that player puts it into their hand. If it doesn't, that player puts it on the bottom of their library.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Order of Succession",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Choose left or right. Starting with you and proceeding in the chosen direction, each player chooses a creature controlled by the next player in that direction. Each player gains control of the creature they chose.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
  }
 ]

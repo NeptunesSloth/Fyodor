@@ -18,7 +18,18 @@ from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_conditionals import creature, until
 from tests.wave9c_kit import card_named, mana, put
-from tests.wave53d_kit import answer, check, log, loyalty, names_on, open_repo, resolve, table, to_hand  # noqa: F401
+from tests.wave53d_kit import (  # noqa: F401
+    answer,
+    check,
+    log,
+    loyalty,
+    names_on,
+    open_repo,
+    resolve,
+    seen_by_others,
+    table,
+    to_hand,
+)
 
 TIDE, EYE, PLANAR, REJOIN, DREDGE = "Consuming Tide", "Eye of Doom", "Planar Overlay", "Rejoin the Fight", "Dredge the Mire"
 WATCHERS, GRENZO, SUNBURST, VALEFOR = "Watchers of the Dead", "Grenzo's Rebuttal", "Sculpted Sunburst", "Summon: Valefor"
@@ -571,12 +582,6 @@ def test_call_to_the_void_secret_choices_revealed_together_each_creature_destroy
     check(s)
 
 
-def seen_by_others(s, pid):
-    from tests.wave53d_kit import seen_by_others as seen
-
-    return seen(s, pid)
-
-
 def test_expert_level_safe_matching_numbers_open_it_and_a_mismatch_hides_another_card(cards):
     s = table(cards, [SAFE], players=2)
     safe = put(s, SAFE)  # (it did not enter by being cast: its enters trigger is not what is under test)
@@ -638,4 +643,199 @@ def test_trap_the_trespassers_secret_votes_stun_counters_for_each_vote_and_tap(c
     assert s.state.cards[b1.id].counters == {"stun": 2} and s.state.cards[b1.id].tapped
     assert s.state.cards[c1.id].counters == {"stun": 1} and s.state.cards[c1.id].tapped
     assert not s.state.cards[b2.id].counters and not s.state.cards[b2.id].tapped and not s.state.cards[mine.id].counters
+    check(s)
+
+
+def test_selective_obliteration_each_player_keeps_only_their_own_chosen_color_and_colorless(cards):
+    s = table(cards, ["Selective Obliteration", "Llanowar Elves", "Frogmite", "Kitchen Finks"], ["Dregscape Zombie", "Grizzly Bears"], players=2)
+    elves, frog, finks = (put(s, n) for n in ("Llanowar Elves", "Frogmite", "Kitchen Finks"))
+    zombie, bears = (put(s, n, "p2") for n in ("Dregscape Zombie", "Grizzly Bears"))
+    forest = put(s, "Forest")
+    cast(s, "Selective Obliteration", C=5)
+    resolve(s)
+    assert s.state.rules.decision.player == "p1"
+    answer(s, "p1", "Green")  # public: Bob knows (101.4b)
+    assert "Alice chooses Green" in log(s, "p2")
+    answer(s, "p2", "Black")
+    resolve(s)
+    # Alice: green Elves and the colorless Frogmite and Forest stay, the multicolored Kitchen Finks goes; Bob chose black: the Zombie stays, his green Bears go
+    assert elves.id in s.state.zones["p1:battlefield"] and frog.id in s.state.zones["p1:battlefield"] and forest.id in s.state.zones["p1:battlefield"]
+    assert s.state.cards[finks.id].zone == "p1:exile"
+    assert zombie.id in s.state.zones["p2:battlefield"] and s.state.cards[bears.id].zone == "p2:exile"
+    check(s)
+
+
+# -- hands, graveyards, names, directions ----------------------------------------------------------------------------------
+WORLDPURGE, GAMBIT, SIFTER, SPHINX, SUCCESSION = "Worldpurge", "Stronghold Gambit", "Grave Sifter", "Conundrum Sphinx", "Order of Succession"
+HAND = ["Llanowar Elves", "Grizzly Bears", "Young Wolf", "Dregscape Zombie", "Mulldrifter", "Elvish Visionary", "Soul Warden", "Merfolk Looter", "Albino Troll"]
+
+
+@pytest.mark.parametrize("name", [WORLDPURGE, GAMBIT, SIFTER, SPHINX, SUCCESSION])
+def test_the_hand_and_name_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def test_worldpurge_each_player_keeps_up_to_seven_cards_and_shuffles_the_rest_in_unseen(cards):
+    s = table(cards, [WORLDPURGE, *HAND], ["Mulldrifter", "Soul Warden", "Merfolk Looter"], players=2)
+    for n in HAND:
+        to_hand(s, n)
+    [to_hand(s, n, "p2") for n in ("Mulldrifter", "Soul Warden", "Merfolk Looter")]
+    creature(s, "p1", "Alice Token")
+    creature(s, "p2", "Bob Token")
+    mana(s, "p2", R=3)
+    to_hand(s, WORLDPURGE)
+    mana(s, "p1", W=4, C=4)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, WORLDPURGE).id)
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.min_choices == 0 and d.max_choices == 7 and len(d.options) >= 9  # up to seven of the hand (the Elves-to-Troll cards and the rest)
+    keep = [o.id for o in d.options][:7]
+    kept_names = {s.state.cards[c].name for c in keep}
+    lost_names = {s.state.cards[o.id].name for o in d.options} - kept_names
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=keep)
+    for viewer, seen in seen_by_others(s, "p1"):  # Bob sees neither which cards Alice kept nor which she shuffled away (101.4a: how many only)
+        assert not any(n in seen for n in lost_names - {"Mulldrifter", "Soul Warden", "Merfolk Looter"}), viewer
+    d = s.state.rules.decision
+    assert d.player == "p2" and d.max_choices == 3 and d.min_choices == 0
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:2])  # "up to seven": fewer is allowed
+    resolve(s)
+    assert len(s.state.zones["p1:hand"]) == 7 and len(s.state.zones["p2:hand"]) == 2
+    assert "Alice chooses 7 cards in their hand" in log(s, "p2") and "Bob shuffles 1 card from their hand into their library" in log(s, "p1")
+    assert not s.state.players["p2"].mana  # each player loses all unspent mana
+    check(s)
+
+
+def gambit(cards, picks):
+    """Alice casts Stronghold Gambit; each player chooses the card named in ``picks`` (a hand of Llanowar Elves, Sol Ring / Grizzly Bears / Young Wolf, Sol Ring)."""
+    s = table(cards, [GAMBIT, "Llanowar Elves", "Sol Ring"], ["Grizzly Bears", "Sol Ring"], ["Young Wolf", "Sol Ring"])
+    held = {"p1": [to_hand(s, n) for n in ("Llanowar Elves", "Sol Ring")], "p2": [to_hand(s, n, "p2") for n in ("Grizzly Bears", "Sol Ring")],
+            "p3": [to_hand(s, n, "p3") for n in ("Young Wolf", "Sol Ring")]}
+    to_hand(s, GAMBIT)
+    mana(s, "p1", R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, GAMBIT).id)
+    resolve(s)
+    for pid in ("p1", "p2", "p3"):
+        d = s.state.rules.decision
+        assert d.player == pid and "(secret)" in d.prompt
+        act(s, pid, type="choose", decision_id=d.id, option_ids=[next(c.id for c in held[pid] if c.name == picks[pid])])
+        if picks[pid] != "Sol Ring" and s.state.rules.decision is not None:  # the chosen card is not shown to the others while the others choose
+            for viewer, seen in seen_by_others(s, pid):
+                assert picks[pid] not in seen, (viewer, picks[pid])
+    resolve(s)
+    return s, held
+
+
+def test_stronghold_gambit_only_the_lowest_creature_card_enters(cards):
+    s, held = gambit(cards, {"p1": "Llanowar Elves", "p2": "Grizzly Bears", "p3": "Sol Ring"})
+    assert s.state.cards[held["p1"][0].id].zone == "p1:battlefield"  # the Elves (1) are the lowest creature card; the Sol Ring (also 1) is no creature
+    assert s.state.cards[held["p2"][0].id].zone == "p2:hand" and s.state.cards[held["p3"][1].id].zone == "p3:hand"
+    assert "The choices are revealed: Alice chose Llanowar Elves; Bob chose Grizzly Bears; Carol chose Sol Ring" in log(s, "p2")
+    check(s)
+
+
+def test_stronghold_gambit_tied_creature_cards_all_enter_and_the_rest_stop_being_revealed(cards):
+    s, held = gambit(cards, {"p1": "Llanowar Elves", "p2": "Grizzly Bears", "p3": "Young Wolf"})
+    assert s.state.cards[held["p1"][0].id].zone == "p1:battlefield" and s.state.cards[held["p3"][0].id].zone == "p3:battlefield"  # both of mana value 1
+    bears = held["p2"][0]
+    assert s.state.cards[bears.id].zone == "p2:hand" and not s.state.cards[bears.id].revealed_to  # no longer revealed
+    check(s)
+
+
+def test_stronghold_gambit_without_a_creature_card_nothing_enters(cards):
+    s, held = gambit(cards, {"p1": "Sol Ring", "p2": "Sol Ring", "p3": "Sol Ring"})
+    assert all(s.state.cards[c.id].zone.endswith(":hand") for cs in held.values() for c in cs)
+    check(s)
+
+
+def test_grave_sifter_each_player_returns_cards_of_their_own_chosen_type(cards):
+    s = table(cards, [SIFTER, "Llanowar Elves", "Elvish Visionary", "Grizzly Bears"], ["Elvish Visionary", "Dregscape Zombie", "Young Wolf"], players=2)
+    elves, vis, bears = (card_named(s, n) for n in ("Llanowar Elves", "Elvish Visionary", "Grizzly Bears"))
+    b_vis, zombie, wolf = (card_named(s, n, "p2") for n in ("Elvish Visionary", "Dregscape Zombie", "Young Wolf"))
+    for c in (elves, vis, bears, b_vis, zombie, wolf):
+        act(s, c.owner, type="move", card_ids=[c.id], to={"player": c.owner, "zone": "graveyard"})
+    cast(s, SIFTER, G=1, C=5)
+    resolve(s)
+    answer(s, "p1", "Elf")
+    answer(s, "p2", "Zombie")  # each player's type is their own
+    d = s.state.rules.decision
+    assert d.player == "p1" and {o.label for o in d.options} == {"Llanowar Elves", "Elvish Visionary"}  # the Elves in her graveyard: any number of them
+    pick(s, "p1", "Llanowar Elves")
+    d = s.state.rules.decision
+    assert d.player == "p2" and {o.label for o in d.options} == {"Dregscape Zombie"}
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+    resolve(s)
+    assert s.state.cards[elves.id].zone == "p1:hand" and s.state.cards[vis.id].zone == "p1:graveyard" and s.state.cards[zombie.id].zone == "p2:hand"
+    assert s.state.cards[b_vis.id].zone == "p2:graveyard"  # (Bob chose Zombie, not Elf)
+    check(s)
+
+
+def test_conundrum_sphinx_a_player_keeps_the_card_they_named(cards):
+    s = table(cards, [SPHINX, "Llanowar Elves", "Grizzly Bears"], ["Young Wolf", "Mulldrifter"], players=2)
+    sphinx = put(s, SPHINX)
+    top_a = card_named(s, "Llanowar Elves")
+    top_b = card_named(s, "Young Wolf", "p2")
+    act(s, "p1", type="move", card_ids=[top_a.id], to={"player": "p1", "zone": "library"}, position="top")
+    act(s, "p2", type="move", card_ids=[top_b.id], to={"player": "p2", "zone": "library"}, position="top")
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1", limit=300)
+    act(s, "p1", type="move", card_ids=[top_a.id], to={"player": "p1", "zone": "library"}, position="top")
+    act(s, "p2", type="move", card_ids=[top_b.id], to={"player": "p2", "zone": "library"}, position="top")
+    act(s, "p1", type="pass_priority")  # to combat
+    d = None
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": sphinx.id, "target": "p2"}])
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.options[0].id == "__name__"  # a card name is typed (201.4)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[], name="Llanowar Elves")  # right: the top card of her library
+    d = s.state.rules.decision
+    assert d.player == "p2" and "Llanowar Elves" in d.prompt  # Bob knows what she named (101.4b)
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[], name="Grizzly Bears")  # wrong: his top card is Young Wolf
+    resolve(s)
+    assert s.state.cards[top_a.id].zone == "p1:hand"  # named correctly: into the hand
+    assert s.state.zones["p2:library"][-1] == top_b.id  # not the name he chose: to the bottom of his library
+    assert "revealed Llanowar Elves" in log(s, "p2") and "revealed Young Wolf" in log(s, "p1")
+    check(s)
+
+
+def test_order_of_succession_each_player_takes_a_creature_from_the_next_player_in_the_chosen_direction(cards):
+    s = table(cards, [SUCCESSION])
+    a = [creature(s, "p1", n) for n in ("A1", "A2")]
+    b = [creature(s, "p2", n) for n in ("B1", "B2")]
+    c = [creature(s, "p3", n) for n in ("C1", "C2")]
+    cast(s, SUCCESSION, U=1, C=3)
+    resolve(s)
+    answer(s, "p1", "left")  # left: the next player in turn order
+    d = s.state.rules.decision
+    assert d.player == "p1" and {o.label for o in d.options} == {"B1", "B2"} and "Bob" in d.prompt
+    pick(s, "p1", "B2")
+    d = s.state.rules.decision
+    assert d.player == "p2" and {o.label for o in d.options} == {"C1", "C2"} and "Alice B2" in d.prompt
+    pick(s, "p2", "C1")
+    pick(s, "p3", "A2")
+    resolve(s)
+    assert [s.state.cards[x.id].controller for x in (b[1], c[0], a[1])] == ["p1", "p2", "p3"]
+    assert [s.state.cards[x.id].controller for x in (a[0], b[0], c[1])] == ["p1", "p2", "p3"]
+    check(s)
+
+
+def test_order_of_succession_right_goes_the_other_way_round(cards):
+    s = table(cards, [SUCCESSION])
+    a = [creature(s, "p1", n) for n in ("A1", "A2")]
+    c = [creature(s, "p3", n) for n in ("C1", "C2")]
+    b = [creature(s, "p2", n) for n in ("B1", "B2")]
+    cast(s, SUCCESSION, U=1, C=3)
+    resolve(s)
+    answer(s, "p1", "right")
+    d = s.state.rules.decision
+    assert d.player == "p1" and {o.label for o in d.options} == {"C1", "C2"}  # the player before her: Carol
+    pick(s, "p1", "C1")
+    d = s.state.rules.decision
+    assert d.player == "p3" and {o.label for o in d.options} == {"B1", "B2"}  # then Carol takes from Bob
+    pick(s, "p3", "B2")
+    pick(s, "p2", "A1")
+    resolve(s)
+    assert [s.state.cards[x.id].controller for x in (c[0], b[1], a[0])] == ["p1", "p3", "p2"]
     check(s)

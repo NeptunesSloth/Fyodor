@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption
+from app.game.state import zone_key
 
 if TYPE_CHECKING:
     from app.game.rules_state import Decision
@@ -76,6 +77,8 @@ def _options(plan: Plan, ctx: Context, e: dict[str, Any], pid: str = "", k: int 
         found = selectors.candidates(plan, selectors.from_key(kind["sel"]), pid, ctx.get("source_card"))
         return [DecisionOption(id=c, label=(plan.state.cards[c].name or "Permanent") + ("" if kind["mine"] else f" — {plan.name(plan.state.cards[c].controller)}"), card_id=c)
                 for c in found if plan.state.cards[c].zone.endswith(":battlefield") and (plan.state.cards[c].controller == pid) == kind["mine"]]
+    if e["what"] == "hand":  # a card in the chooser's hand: only they see it (101.4a)
+        return [DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in plan.state.zones.get(zone_key(pid, "hand"), [])]
     if e["what"] == "word":
         return [DecisionOption(id=w.lower(), label=w) for w in e["opts"]]
     if e["what"] == "number":
@@ -86,7 +89,7 @@ def _options(plan: Plan, ctx: Context, e: dict[str, Any], pid: str = "", k: int 
 
 
 def _label(e: dict[str, Any], value: str, plan: Plan | None = None) -> str:
-    if e["what"] == "object" and plan is not None:
+    if e["what"] in ("object", "hand") and plan is not None:
         return plan.state.cards[value].name or "a permanent" if value in plan.state.cards else "a permanent"
     return next((w for w in e.get("opts") or [] if w.lower() == value), value)
 
@@ -119,13 +122,13 @@ def _ask(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if not options:  # (800.4a: a player who left the game chooses nothing; nothing of that kind to choose)
             g["i"] += 1
             continue
-        if e["what"] == "object" and len(options) == 1:  # the only one there is: no choice to make (from the public table, so nothing is told by it)
+        if e["what"] in ("object", "hand") and len(options) == 1:  # the only one there is: no choice to make (nothing is told by it: the table, or the one card of a hand)
             g["ballots"].append([pid, options[0].id])
             g["i"] += 1
             continue
         known = "" if g["secret"] or not g["ballots"] else " — chosen: " + ", ".join(f"{plan.name(p)} {_label(e, v)}" for p, v in g["ballots"])
         label = e["kinds"][k]["say"] if e["what"] == "object" else e.get("say") or e["what"]
-        decide(plan, player=pid, kind="choose_one" if e["what"] != "object" else "choose_cards",
+        decide(plan, player=pid, kind="choose_cards" if e["what"] in ("object", "hand") else "choose_one",
                prompt=f"{ctx.get('name') or 'Choose'}: choose {label}{' (secret)' if g['secret'] else ''}{known}",
                options=options, resume={"step": "gc_choose", "ctx": ctx, "e": e, "rest": [], "picked": []})  # (rest, picked: engine._settle_decision)
         return False
@@ -142,7 +145,8 @@ def resume(plan: Plan, d: Decision, chosen: list[str]) -> None:
     if chosen:  # (none: the chooser left the game, 800.4)
         g["ballots"].append([pid, chosen[0]])
         if not g["secret"]:
-            plan.note(f"{plan.name(pid)} chooses {_label(e, chosen[0], plan)}", [chosen[0]] if e["what"] == "object" else [], actor=pid)  # 101.4b
+            plan.note(f"{plan.name(pid)} chooses {_label(e, chosen[0], plan)}" if e["what"] != "hand" else f"{plan.name(pid)} chooses a card in their hand",
+                      [chosen[0]] if e["what"] == "object" else [], actor=pid)  # 101.4b (101.4a: a card of a hand stays face down until it is revealed)
     if _ask(plan, ctx, e):
         continue_effects(plan, ctx)
 
@@ -155,7 +159,17 @@ def _finish(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     g["ballots"] = [b for b in g["ballots"] if b[0] in plan.live()]
     if g["secret"] and g["ballots"]:
         plan.note("The choices are revealed: " + "; ".join(f"{plan.name(p)} chose {_label(e, v, plan)}" for p, v in g["ballots"]),
-                  [v for _, v in g["ballots"]] if e["what"] == "object" else [])
+                  [v for _, v in g["ballots"]] if e["what"] in ("object", "hand") else [])
+    if e["what"] == "hand":  # "Then each player reveals their chosen card": all at once (701.20a: public until the instructions are done)
+        ids = [v for _, v in g["ballots"] if v in plan.state.cards and plan.state.cards[v].zone.endswith(":hand")]
+        for p, v in g["ballots"]:
+            if v in ids:
+                plan.do({"type": "reveal", "card_ids": [v]}, actor=p)
+        ctx["revealed"] = ids
+        if not ctx.get("hide_queued"):  # (appended in place: the resolver walks the same list)
+            ctx["hide_queued"] = True
+            ctx["effects"].append({"do": "hide_revealed"})
+        return True
     if e["what"] == "object":  # "Destroy each creature chosen this way": the objects chosen (one chosen twice is one object)
         context.bind_objects(plan, ctx, f"{e['as']}:chosen", list(dict.fromkeys(v for _, v in g["ballots"])))
         return True
@@ -326,6 +340,240 @@ def resume_bid(plan: Plan, d: Decision, chosen: list[str]) -> None:
         continue_effects(plan, ctx)
 
 
+def sweep(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Exile each permanent unless it's colorless or it's only the color its controller chose." (Selective Obliteration): a permanent stays if it has no color or
+    exactly one, the color its controller chose (105.2); a multicolored one always goes (ruling), and a controller's choice counts for their own permanents only."""
+    from app.rules import selectors
+    from app.rules.effects import exile_cards
+
+    chosen = {p: v for p, v in ctx["gc"][e["as"]]["ballots"]}
+    gone = []
+    for cid in [c for z, ids in plan.state.zones.items() if z.endswith(":battlefield") for c in ids]:
+        card = plan.state.cards[cid]
+        colors = plan.ch(card).colors
+        mine = chosen.get(card.controller)
+        if colors and not (len(colors) == 1 and mine is not None and selectors.COLORS[mine.lower()] in colors):
+            gone.append(cid)
+    exile_cards(plan, ctx, {}, gone)
+    return True
+
+
+# -- cards in a hand or a graveyard, chosen by each player -----------------------------------------------------------------
+# One question for each player in APNAP order (101.4), who sees only their own cards (a hand is hidden: 101.4a, the choices stay face down, only how many is
+# said); what they chose is acted on for everyone at once after the last.
+def keep_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Each player chooses up to seven cards in their hand, then shuffles the rest into their library." (Worldpurge): the rest of each hand is shuffled in."""
+    ctx["keep"] = {"order": [p for p in plan.apnap() if p in plan.live()], "i": 0, "kept": {}}
+    return _ask_keep(plan, ctx, e)
+
+
+def _ask_keep(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules.plan import decide
+
+    k = ctx["keep"]
+    while k["i"] < len(k["order"]):
+        pid = k["order"][k["i"]]
+        hand = plan.state.zones.get(zone_key(pid, "hand"), [])
+        if not hand or pid not in plan.live():
+            k["i"] += 1
+            continue
+        n = min(int(e["n"]), len(hand))
+        decide(plan, player=pid, kind="choose_cards", prompt=f"{ctx.get('name') or 'Choose'}: choose up to {e['n']} cards in your hand; the rest are shuffled into your library",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand], min_choices=0, max_choices=n,
+               resume={"step": "gc_keep", "ctx": ctx, "e": e, "rest": [], "picked": []})
+        return False
+    for pid in k["order"]:
+        rest = [c for c in plan.state.zones.get(zone_key(pid, "hand"), []) if c not in k["kept"].get(pid, [])]
+        if rest and pid in plan.live():
+            plan.do({"type": "move", "card_ids": rest, "to": {"player": pid, "zone": "library"}}, actor=pid)
+            plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
+            plan.note(f"{plan.name(pid)} shuffles {len(rest)} card{'s' if len(rest) != 1 else ''} from their hand into their library", actor=pid)
+    del ctx["keep"]
+    return True
+
+
+def resume_keep(plan: Plan, d: Decision, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    ctx, e = d.resume["ctx"], d.resume["e"]  # type: ignore[index]
+    k = ctx["keep"]
+    k["kept"][k["order"][k["i"]]] = list(chosen)
+    plan.note(f"{plan.name(d.player)} chooses {len(chosen)} card{'s' if len(chosen) != 1 else ''} in their hand", actor=d.player)  # 101.4a: how many, not which
+    k["i"] += 1
+    if _ask_keep(plan, ctx, e):
+        continue_effects(plan, ctx)
+
+
+def typed_return(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Each player chooses a creature type and returns any number of cards of that type from their graveyard to their hand." (Grave Sifter): the type each chose
+    (``gc_choose``) is theirs alone; each, in APNAP order, picks the cards of that type in their own graveyard (public, 404.2), then all go to hand at once."""
+    g = ctx["gc"][e["as"]]
+    ctx["ret"] = {"order": [p for p in plan.apnap() if any(b[0] == p for b in g["ballots"])], "i": 0, "picked": []}
+    return _ask_return(plan, ctx, e)
+
+
+def _ask_return(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import characteristics as chars
+    from app.rules.effects import _return_cards
+    from app.rules.plan import decide
+
+    r = ctx["ret"]
+    ballots = dict(ctx["gc"][e["as"]]["ballots"])
+    while r["i"] < len(r["order"]):
+        pid = r["order"][r["i"]]
+        mine = [c for c in plan.state.zones.get(zone_key(pid, "graveyard"), []) if ballots[pid] in chars.of(plan.state.cards[c], plan.info).subtypes]
+        if not mine or pid not in plan.live():
+            r["i"] += 1
+            continue
+        decide(plan, player=pid, kind="choose_cards", prompt=f"{ctx.get('name') or 'Choose'}: return any number of {ballots[pid]} cards from your graveyard to your hand",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in mine], min_choices=0, max_choices=len(mine),
+               resume={"step": "gc_return", "ctx": ctx, "e": e, "rest": [], "picked": []})
+        return False
+    picked = [c for c in r["picked"] if c in plan.state.cards]
+    del ctx["ret"]
+    if picked:
+        _return_cards(plan, ctx, {"to": "hand"}, picked)
+    return True
+
+
+def resume_return(plan: Plan, d: Decision, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    ctx, e = d.resume["ctx"], d.resume["e"]  # type: ignore[index]
+    r = ctx["ret"]
+    r["picked"] += list(chosen)
+    if chosen:
+        plan.note(f"{plan.name(d.player)} chooses {', '.join(plan.state.cards[c].name or 'a card' for c in chosen)}", list(chosen), actor=d.player)
+    r["i"] += 1
+    if _ask_return(plan, ctx, e):
+        continue_effects(plan, ctx)
+
+
+def reveal_names(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Each player reveals the top card of their library. If the card a player revealed has the name they chose, that player puts it into their hand. If it doesn't,
+    that player puts it on the bottom of their library." (Conundrum Sphinx): all reveal at once (public, 701.20a), then each puts theirs where it goes."""
+    from app.rules import card_names
+
+    chosen = dict(ctx["gc"][e["as"]]["ballots"])
+    tops = {p: plan.state.zones.get(zone_key(p, "library"), [])[:1] for p in plan.apnap() if p in chosen and p in plan.live()}
+    for p, top in tops.items():
+        if top:
+            plan.do({"type": "reveal_top", "player": p, "count": 1}, actor=p)
+    for p, top in tops.items():
+        if not top:
+            continue
+        hit = card_names.has_name(plan.ch(plan.state.cards[top[0]]), chosen[p])
+        plan.note(f"{plan.name(p)} revealed {plan.state.cards[top[0]].name}: " + ("the name they chose, into their hand" if hit else "not the name they chose, to the bottom of their library"),
+                  top, actor=p)
+        if hit:
+            plan.do({"type": "move", "card_ids": top, "to": {"player": p, "zone": "hand"}}, actor=p)
+        else:
+            plan.do({"type": "move", "card_ids": top, "to": {"player": p, "zone": "library"}, "position": "bottom"}, actor=p)
+    return True
+
+
+def lowest_creature(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"The owner of each creature card revealed this way with the lowest mana value puts it onto the battlefield." (Stronghold Gambit): among the creature cards
+    chosen, those with the lowest mana value (X is 0 in a hand, 202.3e) enter under their owners' control, all at once; the others stay in hand (ruling)."""
+    from app.rules.effects import _return_cards
+    from app.rules.stack_interaction import mana_value
+
+    cards = [v for _, v in ctx["gc"][e["as"]]["ballots"] if v in plan.state.cards and plan.state.cards[v].zone.endswith(":hand")]
+    creatures = [c for c in cards if "Creature" in plan.ch(plan.state.cards[c]).types]
+    values = {c: mana_value(plan.state.cards[c], plan.ch(plan.state.cards[c])) for c in creatures}
+    low = min(values.values(), default=0)
+    entering = [c for c in creatures if values[c] == low]
+    if entering:
+        _return_cards(plan, ctx, {"to": "battlefield", "under": "owner"}, entering)
+    return True
+
+
+def succession(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Starting with you and proceeding in the chosen direction, each player chooses a creature controlled by the next player in that direction. Each player gains
+    control of the creature they chose." (Order of Succession): left is the next player in turn order, right the previous (101.4, 808.4); the choices are public and
+    made one after the other, the control changes all together."""
+    me = ctx["controller"]
+    right = (ctx["gc"][e["as"]]["ballots"] or [[me, "left"]])[0][1] == "right"
+    live = plan.live()
+    order = [me]
+    while len(order) < len(live):
+        nxt = _neighbor(plan, order[-1], right)
+        if nxt in order:
+            break
+        order.append(nxt)
+    ctx["succ"] = {"order": order, "right": right, "i": 0, "pairs": []}
+    return _ask_succession(plan, ctx, e)
+
+
+def _neighbor(plan: Plan, pid: str, right: bool) -> str:
+    seats = [p for p in plan.state.seat_order if p in plan.live()]
+    return seats[(seats.index(pid) + (-1 if right else 1)) % len(seats)]
+
+
+def _ask_succession(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import selectors
+    from app.rules.effects import _control_effect, layers
+    from app.rules.plan import decide
+
+    s = ctx["succ"]
+    creature = selectors.parse("creature")
+    assert creature is not None
+    while s["i"] < len(s["order"]):
+        pid = s["order"][s["i"]]
+        target = _neighbor(plan, pid, s["right"])
+        mine = [c for c in selectors.candidates(plan, creature, pid, ctx.get("source_card")) if plan.state.cards[c].controller == target
+                and plan.state.cards[c].zone.endswith(":battlefield")]
+        if pid not in plan.live() or not mine or target == pid:
+            s["i"] += 1
+            continue
+        if len(mine) == 1:
+            s["pairs"].append([pid, mine[0]])
+            plan.note(f"{plan.name(pid)} chooses {plan.state.cards[mine[0]].name} (no choice: the only one)", mine, actor=pid)
+            s["i"] += 1
+            continue
+        known = " — chosen: " + ", ".join(f"{plan.name(p)} {plan.state.cards[c].name}" for p, c in s["pairs"]) if s["pairs"] else ""
+        decide(plan, player=pid, kind="choose_cards", prompt=f"{ctx.get('name') or 'Choose'}: choose a creature controlled by {plan.name(target)}{known}",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in mine],
+               resume={"step": "gc_succession", "ctx": ctx, "e": e, "rest": [], "picked": []})
+        return False
+    pairs = [(p, c) for p, c in s["pairs"] if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield") and p in plan.live()]
+    del ctx["succ"]
+    for p, c in pairs:
+        _control_effect(plan, ctx, [c], p, "permanent")
+    if pairs:
+        layers.control_sync(plan)
+    return True
+
+
+def resume_succession(plan: Plan, d: Decision, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    ctx, e = d.resume["ctx"], d.resume["e"]  # type: ignore[index]
+    s = ctx["succ"]
+    pid = s["order"][s["i"]]
+    if chosen:
+        s["pairs"].append([pid, chosen[0]])
+        plan.note(f"{plan.name(pid)} chooses {plan.state.cards[chosen[0]].name}", [chosen[0]], actor=pid)
+    s["i"] += 1
+    if _ask_succession(plan, ctx, e):
+        continue_effects(plan, ctx)
+
+
+def lose_mana(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Each player loses all unspent mana." (Worldpurge): every pool is emptied (106.4); a player with "If you would lose unspent mana, that mana becomes colorless
+    instead" keeps it as colorless mana (614.1a, kept_mana)."""
+    from app.rules import kept_mana
+
+    colorless = kept_mana._colorless(plan)
+    for pid, player in plan.state.players.items():
+        if pid in colorless:
+            kept_mana._to_colorless(plan, pid, {}, [])
+        elif any(player.mana.values()) or player.mana_units:
+            plan.do({"type": "rules_mana", "player": pid, "tap": [], "sacrifice": [], "delta": {s_: -n for s_, n in player.mana.items() if n}, "life": 0,
+                     "empty_units": True, "keep_units": [], "label": ""}, actor=plan.active)
+    return True
+
+
 def exile_linked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Exile the top card of your library face down", linked to the object (607.2a): effects.exile_top, recorded as exiled with the source."""
     from app.rules.effects import exile_top
@@ -333,12 +581,14 @@ def exile_linked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return exile_top(plan, ctx, {**e, "link": True})
 
 
-PRIMITIVES = {"gc_choose": choose, "gc_each": each, "gc_extremes": extremes, "gc_bid": bid, "gc_exile_linked": exile_linked}
-RESUME = {"gc_choose": resume, "gc_bid": resume_bid}
+PRIMITIVES = {"gc_choose": choose, "gc_each": each, "gc_extremes": extremes, "gc_bid": bid, "gc_exile_linked": exile_linked, "gc_sweep": sweep,
+              "gc_keep_hand": keep_hand, "gc_typed_return": typed_return, "gc_reveal_names": reveal_names, "gc_lowest_creature": lowest_creature,
+              "gc_succession": succession, "gc_lose_mana": lose_mana}
+RESUME = {"gc_choose": resume, "gc_bid": resume_bid, "gc_keep": resume_keep, "gc_return": resume_return, "gc_succession": resume_succession}
 
 
 # -- reading the wording ----------------------------------------------------------------------------------------
-_GATE = re.compile(r"\b(?:secretly|[Ee]ach (?:player|opponent) chooses|bid life)\b")
+_GATE = re.compile(r"\b(?:secretly|[Ee]ach (?:player|opponent) chooses|bid life|[Cc]hoose left or right)\b")
 _TYPE_HEAD = re.compile(r"^[Ee]ach player chooses an? (?P<what>creature type|color|basic land type)\. (?P<rest>.+)$", re.DOTALL)
 _THIS_WAY = re.compile(r"\bof an? (?P<w>type|color|basic land type) chosen this way\b")
 _EACH_RETURNS = re.compile(r"[Ee]ach player returns all (.+?) from their graveyard to the battlefield\.")
@@ -359,7 +609,7 @@ def bind(body: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, An
     if _GATE.search(body) is None:
         return None
     text = body.strip()
-    for recipe in (_chosen_type, _words, _numbers, _chosen_objects, _bids):
+    for recipe in (_chosen_type, _words, _numbers, _chosen_objects, _bids, _hands):
         if (found := recipe(text, parse, split_sentences)) is not None:
             return found
     return None
@@ -490,6 +740,7 @@ _GRENZO = ("Create a 4/4 red Ogre creature token.", "Starting with you, each pla
 _SUNBURST = ("Choose a creature you control, then each opponent chooses a creature they control with equal or lesser power.",
              "If you chose a creature this way, exile each creature not chosen by any player this way.")
 _VERBS = {"Return": "bounce", "Exile": "exile", "Destroy": "destroy"}
+_OBLITERATION = ("Each player chooses a color.", "Then exile each permanent unless it's colorless or it's only the color its controller chose.")
 _STICK = ("Each player chooses a party from among creatures they control, then sacrifices the rest.",)
 _BALANCE = re.compile(r"^Each player chooses a number of (?P<k>lands|permanents) they control equal to the number of (?P=k) controlled by the player who controls the "
                       r"fewest, then sacrifices the rest\. (?P<tail>Players sacrifice creatures and discard cards the same way|Players discard cards and sacrifice "
@@ -568,6 +819,8 @@ def _chosen_objects(text: str, parse: Any, split_sentences: Any) -> tuple[list[d
         return [{"do": "player_chooses", "who": "you", "sel": key, "n": 1, "label": "creature", "as": "gco", "did": "gcd"},
                 {"do": "player_chooses", "who": "each_opponent", "sel": key, "n": 1, "label": "creature", "cap_power": "ref:gco", "add": True, "as": "gco"},
                 {"do": "only_if", "cond": {"succeeded": "gcd"}, "skip": 1}, {"do": "exile", "who": f"except:gco|{key}"}], None, False
+    if tuple(sentences) == _OBLITERATION:  # Selective Obliteration: a public choice of a color by each player, then the sweep
+        return [{"do": "gc_choose", "who": "each_player", "what": "color", "as": "gc"}, {"do": "gc_sweep", "as": "gc"}], None, False
     if tuple(sentences) == _STICK:  # Stick Together: a party (700.8) from the creatures they control; the rest are sacrificed
         kinds = [_key(f"{t} creature") for t in ("Cleric", "Rogue", "Warrior", "Wizard")]
         if None in kinds or (key := _key("creature")) is None:
@@ -627,3 +880,33 @@ def _bids(text: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, A
     elif target is not None:  # "If you win the bidding, counter that spell."
         out += [{"do": "only_if", "cond": {"gc": {"as": "bd", "is": "you", "set": "winner"}}, "skip": 1}, target[0][0]]
     return out, target[1] if target else None, False
+
+
+# -- hands, graveyards, names, directions -------------------------------------------------------------------------------
+_WORLDPURGE = ("Return all permanents to their owners' hands.", "Each player chooses up to seven cards in their hand, then shuffles the rest into their library.",
+               "Each player loses all unspent mana.")
+_GAMBIT = ("Each player chooses a card in their hand.", "Then each player reveals their chosen card.",
+           "The owner of each creature card revealed this way with the lowest mana value puts it onto the battlefield.")
+_SIFTER = ("Each player chooses a creature type and returns any number of cards of that type from their graveyard to their hand.",)
+_SPHINX = ("Each player chooses a card name.", "Then each player reveals the top card of their library.",
+           "If the card a player revealed has the name they chose, that player puts it into their hand.",
+           "If it doesn't, that player puts it on the bottom of their library.")
+_SUCCESSION = ("Choose left or right.", "Starting with you and proceeding in the chosen direction, each player chooses a creature controlled by the next player in that direction.",
+               "Each player gains control of the creature they chose.")
+
+
+def _hands(text: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    sentences = split_sentences(text)
+    if sentences:
+        sentences[0] = sentences[0][:1].upper() + sentences[0][1:]  # (a trigger's body)
+    if tuple(sentences) == _WORLDPURGE and (back := parse(_WORLDPURGE[0])) is not None:
+        return [*back[0], {"do": "gc_keep_hand", "n": 7}, {"do": "gc_lose_mana"}], None, False
+    if tuple(sentences) == _GAMBIT:  # each chooses a card in hand (face down, 101.4a), all revealed together; the lowest creature card(s) enter
+        return [{"do": "gc_choose", "who": "each_player", "what": "hand", "secret": True, "as": "gc", "say": "a card in your hand"}, {"do": "gc_lowest_creature", "as": "gc"}], None, False
+    if tuple(sentences) == _SIFTER:  # Grave Sifter
+        return [{"do": "gc_choose", "who": "each_player", "what": "creature type", "as": "gc"}, {"do": "gc_typed_return", "as": "gc"}], None, False
+    if tuple(sentences) == _SPHINX:  # Conundrum Sphinx
+        return [{"do": "gc_choose", "who": "each_player", "what": "card name", "as": "gc"}, {"do": "gc_reveal_names", "as": "gc"}], None, False
+    if tuple(sentences) == _SUCCESSION:  # Order of Succession
+        return [{"do": "gc_choose", "who": "you", "what": "word", "opts": ["left", "right"], "as": "gc", "say": "left or right"}, {"do": "gc_succession", "as": "gc"}], None, False
+    return None
