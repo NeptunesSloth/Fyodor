@@ -94,6 +94,8 @@ def bind(body: str, parse: Any, split_sentences: Any) -> Found | None:
     first = sentences[0]
     if first in (_TOYMAKER[0], _TOYMAKER_END):
         return _toymaker(sentences, parse)
+    if (sp := _SEARCH_PILE.match(first)) is not None and sentences[1:] == ["Then shuffle your library."]:
+        return _search_pile(sp["n"], parse)
     if tuple(sentences) == _TRIUMPH and (it := parse("Exile it.")) is not None and len(it[0]) == 1:  # (Triumph of Saint Katherine; "it": the dying card, now in the graveyard)
         return [{"do": "pile_shuffle_back", "n": 6, "who": it[0][0]["who"]}], None, False
     if first.startswith(("Exile the top three cards of your library in a face-down", "Exile the top four cards of your library in a face-down")):
@@ -128,6 +130,18 @@ def _down_piles(sentences: list[str], parse: Any) -> Found | None:
                 {"do": "pile_deal", "src": "made", **made, "split": "you", "pick": "opponent", "n": 2, "chosen": "graveyard", "other": "look", "say": "cards", "as": "po"},
                 free, rest], None, False
     return None
+
+
+_SEARCH_PILE = re.compile(r"^Search your library for (?P<n>\w+) cards, exile them in a face-down pile, and shuffle that pile\.$")
+
+
+def _search_pile(n: str, parse: Any) -> Found | None:
+    """Parallel Thoughts (seven cards) and Mangara's Tome (five): search for the cards, exile them face down as a pile, shuffle that pile, then the library. The pile is
+    what the linked later abilities draw from (exiled_with), its top card the first of the cards still in it."""
+    search, shuffle = parse(f"Search your library for {n} cards and exile them face down."), parse("Shuffle your library.")
+    if search is None or shuffle is None or len(search[0]) != 1 or len(shuffle[0]) != 1 or search[0][0].get("do") != "search" or search[0][0].get("upto"):
+        return None
+    return [{**search[0][0], "as": "pf"}, {"do": "pile_shuffle", "who": "ref:pf"}, shuffle[0][0]], None, False
 
 
 _TRIUMPH = ("Exile it and the top six cards of your library in a face-down pile.", "If you do, shuffle that pile and put it back on top of your library.")
@@ -558,6 +572,34 @@ def pile_shuffle_back(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def pile_shuffle(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"… exile them in a face-down pile, and shuffle that pile" (Parallel Thoughts, Mangara's Tome): the cards just exiled face down are shuffled among themselves with a
+    table shuffle that re-keys them (406.3: nobody, the searcher included, can tell which is which or look at them), and the linked record keeps them in their new order."""
+    from app.rules import context, exiled_with
+
+    cards = [c for c in context.objects(plan, ctx, e["who"][len(context.PREFIX):]) if plan.state.cards[c].zone.endswith(":exile") and plan.state.cards[c].face_down]
+    shuffled: list[str] = []
+    for key in dict.fromkeys(plan.state.cards[c].zone for c in cards):
+        part = [c for c in cards if plan.state.cards[c].zone == key]
+        slots = [i for i, c in enumerate(plan.state.zones[key]) if c in part]
+        plan.do({"type": "shuffle", "player": key.split(":")[0], "zone": "exile", "card_ids": part}, actor=ctx["controller"])
+        shuffled += [plan.state.zones[key][i] for i in slots]
+    context.bind_objects(plan, ctx, e["who"][len(context.PREFIX):], shuffled)
+    exiled_with.record(plan, ctx, shuffled)
+    return True
+
+
+def pile_top_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Put the top card of the pile you exiled into your hand." (Parallel Thoughts' draw replacement, Mangara's Tome): the first of the cards still in the linked pile goes to its
+    owner's hand (the owner sees it only now); with none left nothing happens (the replaced draw is skipped: Parallel Thoughts and Mangara's Tome rulings)."""
+    from app.rules import effects, exiled_with
+
+    pile = exiled_with.cards(plan, ctx)
+    if pile:
+        effects._return_cards(plan, ctx, {"to": "hand"}, pile[:1])
+    return True
+
+
 def pile_look(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Look at the cards in each pile": the face-down cards are shown to the controller alone (701.20e)."""
     from app.game.visibility import can_see
@@ -595,5 +637,5 @@ def resume_turn_up(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
-PRIMITIVES = {"pile_deal": pile_deal, "pile_exile": pile_exile, "pile_grouped_drain": grouped_drain, "pile_look": pile_look, "pile_shuffle_back": pile_shuffle_back, "pile_turn_up": pile_turn_up}
+PRIMITIVES = {"pile_deal": pile_deal, "pile_exile": pile_exile, "pile_grouped_drain": grouped_drain, "pile_look": pile_look, "pile_shuffle": pile_shuffle, "pile_top_hand": pile_top_hand, "pile_shuffle_back": pile_shuffle_back, "pile_turn_up": pile_turn_up}
 RESUME = {"pile_split": resume_split, "pile_pick": resume_pick, "pile_opponent": resume_opponent, "pile_card": resume_card, "pile_turn_up": resume_turn_up}

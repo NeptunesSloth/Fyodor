@@ -138,7 +138,18 @@ def _pick_random(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "return_choice", "who": WHO, "n": 1, "upto": False, "random": True, "label": "card", "to": "hand"}], None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_HAND, _hand), (_GRAVEYARD, _graveyard), (_COPY, _copy), (_PICK, _pick), (_PICK_RANDOM, _pick_random)]
+# -- piles (wave 53D) -- 607.2a: "put the top card of the pile you exiled into your hand" (Parallel Thoughts), "put the top card of the exiled pile into its owner's hand" (Mangara's
+# Tome): the pile is what the linked search exiled face down and shuffled (pile_groups.pile_shuffle); its top card is the first of the cards still in it
+_TOP_OF_PILE = re.compile(r"^put the top card of (?:the pile you exiled|the exiled pile) into (?:your|its owner's) hand$")
+REFERS_PILE = re.compile(r"\bthe (?:pile you exiled|exiled pile)\b")
+
+
+def _top_of_pile(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "pile_top_hand"}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_HAND, _hand), (_GRAVEYARD, _graveyard), (_COPY, _copy), (_PICK, _pick), (_PICK_RANDOM, _pick_random),
+                                                (_TOP_OF_PILE, _top_of_pile)]
 
 # -- linked casting (wave 30H) -- 607.2a, 608.2g: in an ability that only refers to what another exiled, "cast a spell from among cards exiled with ~
 # [without paying its mana cost]" casts from the linked cards (the ones ``linked_cards`` binds, as "them"), as this ability resolves
@@ -212,7 +223,7 @@ def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
         return d
     if ability.kind not in ("triggered", "activated", "static") or not _exiles(d):
         return d
-    referring = [ab for ab in ch.abilities if ab.index != ability.index and _REFERS.search(scripts.self_text(ab.text, ch.name))]
+    referring = [ab for ab in ch.abilities if ab.index != ability.index and (_REFERS.search(scripts.self_text(ab.text, ch.name)) or REFERS_PILE.search(ab.text))]
     if not referring:
         return d
     if d.get("static") == "exile_instead":  # -- linked exile (wave 30H) -- 607.2b: the replacement effect is the exiling half; replacements.py records what it exiles

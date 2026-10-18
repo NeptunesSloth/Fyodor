@@ -518,3 +518,88 @@ def test_fight_or_flight_only_the_creatures_of_the_pile_the_opponent_chooses_can
     until(s, lambda s: s.state.turn.phase == "main2", limit=30)
     assert s.state.players["p1"].life == life - 2  # the creature of the chosen pile attacked
     check(s)
+
+
+# -- a searched face-down pile, shuffled, whose top card replaces a draw (wave 53D; 406.3a, 607.2a, 614.11) --------------------------
+THOUGHTS, TOME = "Parallel Thoughts", "Mangara's Tome"
+SEVEN = ["Llanowar Elves", "Grizzly Bears", "Young Wolf", "Dregscape Zombie", "Mulldrifter", "Elvish Visionary", "Soul Warden"]
+
+
+@pytest.mark.parametrize("name", [THOUGHTS, TOME])
+def test_the_searched_pile_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def search_pile(s, name, names, **pool):
+    """Alice casts ``name``; its enters trigger searches her library for ``names`` and exiles them in a face-down pile."""
+    to_hand(s, name)
+    mana(s, "p1", **pool)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, name).id)
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.kind == "choose_cards"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.label in names])
+    resolve(s)
+
+
+def assert_unseen(s, names, zone="p1:exile"):
+    pile = s.state.zones[zone]
+    assert sorted(s.state.cards[c].name for c in pile) == sorted(names) and all(s.state.cards[c].face_down and s.state.cards[c].unseen for c in pile)
+    for viewer in ("p1", "p2", "__spectator__"):  # (nobody, the owner neither, can look at the face-down pile)
+        assert not any(c.get("name") for c in s.view(viewer)["cards"].values() if c["zone"] == zone), viewer
+    assert not any(n in json.dumps(s.view("p2")) for n in names)
+
+
+def test_parallel_thoughts_exiles_the_searched_cards_in_a_pile_nobody_can_see_and_its_top_card_replaces_a_draw(cards):
+    s = table(cards, [THOUGHTS, *SEVEN], players=2)
+    search_pile(s, THOUGHTS, SEVEN, U=2, C=3)
+    assert s.state.rules.decision is None
+    assert_unseen(s, SEVEN)
+    lib, hand = len(s.state.zones["p1:library"]), len(s.state.zones["p1:hand"])
+    until(s, lambda s: s.state.rules.decision is not None, limit=300)
+    d = s.state.rules.decision  # Alice's draw step: she may instead put the top card of the pile into her hand
+    assert d.player == "p1" and s.state.turn.phase == "draw" and [o.label for o in d.options] == ["Parallel Thoughts: apply it instead", "Draw normally"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    assert len(s.state.zones["p1:library"]) == lib and len(s.state.zones["p1:hand"]) == hand + 1  # no card was drawn; one of the pile went to her hand
+    assert [s.state.cards[c].name in SEVEN for c in s.state.zones["p1:hand"]] == [True]
+    assert_unseen(s, [n for n in SEVEN if n != s.state.cards[s.state.zones["p1:hand"][0]].name])
+    assert "Alice" in log(s, "p2") and s.state.cards[s.state.zones["p1:hand"][0]].name not in log(s, "p2")  # (the card that went to her hand is not named to Bob)
+    check(s)
+
+
+def test_parallel_thoughts_the_draw_may_be_kept(cards):
+    s = table(cards, [THOUGHTS, *SEVEN], players=2)
+    search_pile(s, THOUGHTS, SEVEN, U=2, C=3)
+    lib = len(s.state.zones["p1:library"])
+    until(s, lambda s: s.state.rules.decision is not None, limit=300)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["decline"])
+    assert len(s.state.zones["p1:library"]) == lib - 1 and len(s.state.zones["p1:exile"]) == 7  # drew normally
+    check(s)
+
+
+def test_parallel_thoughts_with_fewer_than_seven_cards_in_the_library_exiles_them_all(cards):
+    three = SEVEN[:3]
+    s = table(cards, [THOUGHTS, *three], players=2, forests=0)
+    search_pile(s, THOUGHTS, three, U=2, C=3)
+    assert_unseen(s, three)  # (ruling 2004-10-04)
+    assert not s.state.zones["p1:library"]
+    check(s)
+
+
+def test_mangaras_tome_the_next_draw_this_turn_takes_the_top_card_of_the_pile(cards):
+    five = SEVEN[:5]
+    s = table(cards, [TOME, *five], players=2)
+    search_pile(s, TOME, five, C=5)
+    assert_unseen(s, five)
+    tome = card_named(s, TOME)
+    act(s, "p1", type="set_prefs", response="on")  # (Alice stops at every priority, her upkeep too)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "upkeep" and s.state.rules.decision is None, limit=300)
+    lib, hand = len(s.state.zones["p1:library"]), len(s.state.zones["p1:hand"])
+    mana(s, "p1", C=2)
+    act(s, "p1", type="activate_ability", card_id=tome.id, ability=1)  # {2}: the next time you would draw a card this turn, instead …
+    until(s, lambda s: s.state.turn.phase == "main1", limit=30)
+    assert len(s.state.zones["p1:library"]) == lib and len(s.state.zones["p1:hand"]) == hand + 1  # the draw step's draw was replaced
+    assert [s.state.cards[c].name in five for c in s.state.zones["p1:hand"]] == [True]
+    assert_unseen(s, [n for n in five if n != s.state.cards[s.state.zones["p1:hand"][0]].name])
+    check(s)
