@@ -834,6 +834,7 @@ _STICK = ("Each player chooses a party from among creatures they control, then s
 _BALANCE = re.compile(r"^Each player chooses a number of (?P<k>lands|permanents) they control equal to the number of (?P=k) controlled by the player who controls the "
                       r"fewest, then sacrifices the rest\. (?P<tail>Players sacrifice creatures and discard cards the same way|Players discard cards and sacrifice "
                       r"creatures the same way|Each player discards cards the same way)\.$")
+_SOTHERA = ("Each opponent chooses a creature they control and exiles it.",)
 _GRUDGE = "Each opponent chooses a permanent they control that shares a card type with the sacrificed permanent and sacrifices it."
 _MANIFOLD = ("Reveal the top ten cards of your library.", "Starting with the next opponent in turn order, each opponent chooses a different nonland card from "
              "among them.", "Put the chosen cards into your hand and the rest on the bottom of your library in a random order.")
@@ -868,6 +869,9 @@ def _chosen_objects(text: str, parse: Any, split_sentences: Any) -> tuple[list[d
                 {"do": "only_if", "cond": {"gc": {"as": "gc", "is": "match"}}, "skip": 2}, {"do": "return_card", "who": "exiled_with", "to": "hand"},
                 {"do": "sacrifice", "who": "self"}, {"do": "only_if", "cond": {"gc": {"as": "gc", "is": "differ"}}, "skip": 1},
                 {"do": "gc_exile_linked", "n": 1, "player": "you", "face_down": True}], "opponent", False
+    if sentences and [sentences[0][:1].upper() + sentences[0][1:]] == list(_SOTHERA) and len(sentences) == 1 and (key := _key("creature")) is not None:
+        # Sothera, the Supervoid: each opponent chooses a creature they control and exiles it (the exiles are linked to Sothera, 607.2a: exiled_with.link)
+        return [{"do": "player_chooses", "who": "each_opponent", "sel": key, "n": 1, "label": "creature", "as": "gco"}, {"do": "exile", "who": "ref:gco"}], None, False
     m = _ONE_CHOICE.match(sentences[0]) if sentences else None
     if m is not None and len(sentences) in (2, 3) and (n := _NOT_CHOSEN.match(sentences[1])) is not None:
         # Consuming Tide: "Each player chooses a nonland permanent they control. Return all nonland permanents not chosen this way to their owners' hands."

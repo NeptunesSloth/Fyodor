@@ -422,21 +422,6 @@
   "keywords": []
  },
  {
-  "name": "Sothera, the Supervoid",
-  "layout": "normal",
-  "mana_cost": "{2}{B}{B}",
-  "cmc": 4.0,
-  "type_line": "Legendary Enchantment",
-  "oracle_text": "Whenever a creature you control dies, each opponent chooses a creature they control and exiles it.\nAt the beginning of your end step, if a player controls no creatures, sacrifice Sothera, then put a creature card exiled with it onto the battlefield under your control with two additional +1/+1 counters on it.",
-  "colors": [
-   "B"
-  ],
-  "color_identity": [
-   "B"
-  ],
-  "keywords": []
- },
- {
   "name": "Stick Together",
   "layout": "normal",
   "mana_cost": "{3}{W}{W}",
@@ -889,6 +874,21 @@
   "oracle_text": "{3}: If your library has ten or more cards in it, target opponent looks at the top ten cards of your library and separates them into two face-down piles. Exile one of those piles. Search the other pile for a card, put it into your hand, then shuffle the rest of that pile into your library.",
   "colors": [],
   "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Sothera, the Supervoid",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Enchantment",
+  "oracle_text": "Whenever a creature you control dies, each opponent chooses a creature they control and exiles it.\nAt the beginning of your end step, if a player controls no creatures, sacrifice Sothera, then put a creature card exiled with it onto the battlefield under your control with two additional +1/+1 counters on it.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
   "keywords": []
  }
 ]

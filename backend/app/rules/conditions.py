@@ -562,6 +562,7 @@ _DEVOTION = re.compile(r"your devotion to (?P<a>white|blue|black|red|green)(?: a
 _COLORS_AMONG = re.compile(r"there are (?P<n>\w+) colors among permanents you control")
 _EXACT_LIFE = re.compile(r"you have exactly (?P<n>\w+) life")
 _OPPONENTS_NONE = re.compile(r"your opponents control no (?P<sel>.+)")
+_PLAYER_NONE = re.compile(r"a player controls no (?P<sel>.+)")  # -- piles (wave 53D) -- Sothera, the Supervoid: some player (you too) controls none
 _CTRL_EXACT = re.compile(r"you control exactly (?P<n>\w+) (?P<sel>.+)")
 _COLOR_SYMBOL = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
 
@@ -570,6 +571,10 @@ def _more_ifs(t: str) -> Condition | None:
     """Hand sizes ("you have exactly thirteen cards in your hand", "a card in hand"), "there are four or more creatures
     on the battlefield", "fewer than" for counters and cards, "you control exactly one creature", total toughness,
     devotion, five colors, an exact life total."""
+    m = _PLAYER_NONE.fullmatch(t)
+    if m:
+        sel = selectors.parse(f"{m['sel']} you control")  # (the permanents of any player: the controller dropped, "you control" only names the battlefield)
+        return {"value": {"count": replace(sel, controller=None).key()}, "op": "==", "n": 0, "per_player": True} if sel is not None and sel.player is None and sel.controller == "you" else None
     m = _OPPONENTS_NONE.fullmatch(t)
     if m:  # none of them together: no opponent controls one
         key = _count(m["sel"], "an opponent controls")
@@ -1523,6 +1528,9 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if cond.get("per_opponent") and "player_counters" in v:  # (wave 3E) "an opponent has three or more poison counters"
         per = [values.evaluate(plan, {**ctx, "controller": p}, v) for p in plan.live() if p != ctx["controller"]]
         return any(_OPS[cond["op"]](x, n) for x in per)
+    if cond.get("per_player"):  # "a player controls no creatures": some player in the game controls none of them
+        found = selectors.candidates(plan, selectors.from_key(v["count"]), ctx["controller"], ctx.get("source_card"))
+        return any(sum(1 for c in found if plan.state.cards[c].controller == p) == n for p in plan.live())
     if cond.get("per_opponent"):
         found = selectors.candidates(plan, selectors.from_key(v["count"]), ctx["controller"], ctx.get("source_card"))
         per = [sum(1 for c in found if plan.state.cards[c].controller == p) for p in plan.live() if p != ctx["controller"]]

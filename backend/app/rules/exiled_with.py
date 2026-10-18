@@ -117,14 +117,23 @@ def _copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 # -- activated other (wave 42C) -- "Put a creature card exiled with ~ onto the battlefield under your control." (Sisters of Stone Death, Yggdrasil, Rebirth Engine): ONE of the linked
 # cards, chosen by the ability's controller as it resolves (608.2d; nothing is targeted). Only the battlefield (a card exiled face down would be named by the choice)
-_PICK = re.compile(r"^(?:return|put) an? (?:(?P<spec>[\w\-]+) )?card exiled with (?:it|~) (?:to|onto) the battlefield(?P<tapped> tapped)? under your control$")
+_PICK = re.compile(r"^(?:return|put) an? (?:(?P<spec>[\w\-]+) )?card exiled with (?:it|~) (?:to|onto) the battlefield(?P<tapped> tapped)? under your control"
+                   r"(?: with (?P<cn>\w+) additional (?P<ck>\+1/\+1) counters? on it)?$")  # (-- piles (wave 53D) -- Sothera, the Supervoid: "with two additional +1/+1 counters on it", 122.6)
+
+
+_COUNT = {"one": 1, "two": 2, "three": 3, "four": 4}
 
 
 def _pick(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if (own := _off(m)) is not None:
         return own
+    from app.rules.scripts import _NoMatch
+
+    counters = {} if not m["cn"] else {"counter": m["ck"], "counter_n": _COUNT.get(m["cn"], 0)}
+    if m["cn"] and not counters["counter_n"]:
+        raise _NoMatch
     return [{"do": "return_choice", "who": _who(m), "n": 1, "upto": False, "random": False, "label": f"{m['spec']} card" if m["spec"] else "card",
-             "to": "battlefield", "tapped": bool(m["tapped"]), "under": "you"}], None
+             "to": "battlefield", "tapped": bool(m["tapped"]), "under": "you", **counters}], None
 
 
 # -- cost reductions paid with objects (wave 47C) -- "choose a card at random exiled with Gorex and put that card into its owner's hand": the table picks one of the linked cards (recorded

@@ -955,3 +955,51 @@ def test_thieves_auction_an_aura_with_nothing_to_enchant_cannot_be_chosen_until_
     new = next(c for c in s.state.cards.values() if c.name == "Pacifism")
     assert new.zone == "p2:battlefield" and new.controller == "p2" and new.attached_to == next(c.id for c in s.state.cards.values() if c.name == "Grizzly Bears")
     check(s)
+
+
+# -- each opponent chooses a creature and exiles it; the exiled creatures come back later (wave 53D; 101.4, 607.2a) -----------------
+SOTHERA = "Sothera, the Supervoid"
+
+
+def test_sothera_is_full(cards):
+    assert coverage.of_card_data(cards.resolve(SOTHERA)).level == "FULL"
+
+
+def kill_elves(s):
+    elves = put(s, "Llanowar Elves")
+    to_hand(s, "Lightning Bolt")
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Lightning Bolt").id, targets=[elves.id])
+    resolve(s)
+
+
+def test_sothera_each_opponent_exiles_a_creature_they_choose_and_when_a_player_has_none_it_is_sacrificed_for_one_of_them(cards):
+    s = table(cards, [SOTHERA, "Llanowar Elves", "Lightning Bolt"], ["Grizzly Bears"], players=2)
+    put(s, SOTHERA)
+    put(s, "Grizzly Bears", "p2")
+    kill_elves(s)  # a creature Alice controls dies: Bob chooses a creature he controls (the only one) and exiles it
+    assert names_on(s, "p2") == [] and names_on(s, "p2", "exile") == ["Grizzly Bears"]
+    check(s)
+    until(s, lambda s: s.state.turn.phase == "end" and s.state.turn.active_player == "p1" and s.state.turn.number == 1 or s.state.turn.number > 1, limit=100)
+    resolve(s)
+    assert names_on(s, "p1") == ["Grizzly Bears"] and names_on(s, "p1", "graveyard").count(SOTHERA) == 1  # Bob has no creatures at her end step: Sothera is sacrificed and a creature exiled with it returns
+    bears = next(c for c in s.state.cards.values() if c.name == "Grizzly Bears")
+    assert bears.zone == "p1:battlefield" and bears.counters.get("+1/+1") == 2 and bears.controller == "p1"  # under her control with two additional +1/+1 counters
+    check(s)
+
+
+def test_sothera_does_nothing_at_the_end_step_while_every_player_controls_a_creature(cards):
+    s = table(cards, [SOTHERA, "Llanowar Elves", "Lightning Bolt"], ["Grizzly Bears", "Young Wolf"], players=2)
+    put(s, SOTHERA)
+    put(s, "Grizzly Bears", "p2")
+    put(s, "Young Wolf", "p2")
+    creature(s, "p1", "Alice Guard")  # (Sothera is an enchantment: Alice needs a creature of her own to keep every player's board from being empty)
+    kill_elves(s)
+    d = s.state.rules.decision
+    assert d.player == "p2" and sorted(o.label for o in d.options) == ["Grizzly Bears", "Young Wolf"]  # Bob chooses
+    pick(s, "p2", "Young Wolf")
+    resolve(s)
+    assert names_on(s, "p2") == ["Grizzly Bears"] and names_on(s, "p2", "exile") == ["Young Wolf"]
+    until(s, lambda s: s.state.turn.number > 1, limit=100)
+    assert SOTHERA in names_on(s, "p1") and names_on(s, "p2", "exile") == ["Young Wolf"]  # every player controlled a creature as her end step began: nothing triggered
+    check(s)
