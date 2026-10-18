@@ -627,6 +627,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import this_way
 
         return this_way.count(plan, ctx, v)
+    if "revealed_mv" in v:  # -- trigger other (wave 52B) -- the mana value of the card(s) a trade revealed (app/rules/top_trade.py)
+        from app.rules import top_trade
+
+        return top_trade.revealed_mv(plan, ctx, v)
     if "per_player" in v:  # -- damage sized by a count (wave 4E) -- read for the recipient player (app/rules/sized_damage.py)
         from app.rules import sized_damage
 

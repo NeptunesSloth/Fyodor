@@ -44,6 +44,7 @@ from app.rules import (  # (this_way: wave 4A)
     restrictions,
     selectors,
     this_way,
+    top_trade,
     where_bound,  # -- bounds defined by text (wave 28D) --
 )
 from app.rules.characteristics import Characteristics
@@ -971,10 +972,10 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     elif intro is not None and pronoun == "it" and not verb and in_alt_branch(index) and closed_gate(intro.index, index) and intro.do in _MOVERS \
                             and (judged := next((g for g in out[:index] if g.get("do") == "only_if" and g.get("bind") and any(
                                 a.get("do") == "only_if" and (a.get("cond") or {}).get("flag") == g["bind"] for a in out[:index])), None)) is not None \
-                            and (named := re.fullmatch(r"ref:e(\d+)", str((judged.get("cond") or {}).get("object", "")))) is not None:
+                            and (base_ref := re.fullmatch(r"ref:e(\d+)", str((judged.get("cond") or {}).get("object", "")))) is not None:
                         # -- trigger other (wave 52B) -- "Choose a card at random in your graveyard. If it's a creature card, return it to the battlefield. Otherwise, return it to your
                         # hand." (Deadbridge Chant): the "Otherwise" branch's "it" is the card the condition judged (608.2c: only one branch happens), not what the other branch moved
-                        intro = next((x for x in intros if x.index == int(named[1])), intro)
+                        intro = next((x for x in intros if x.index == int(base_ref[1])), intro)
                 if e.get("do") in ("grant_play", "free_cast", "look_exiled", "plotted") and (
                         intro is None or (intro.do not in _MOVERS and not _exiles_countered(out[intro.index]))):
                     # "You may play that card this turn": only what an earlier instruction of this
@@ -2454,6 +2455,10 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
 
     body = body.replace(" your team controls", " you control")  # -- static_other (wave 49C) -- 102.4: outside a team game "your team" is "you" (Combo Attack, Dwarven Lightsmith)
     body = _licids.rewrite(body)  # -- licids (wave 50A) --
+    if (traded := top_trade.parse(body)) is not None:  # -- trigger other (wave 52B) -- Keen Duelist, Parker Luck, Duskmantle Seer (app/rules/top_trade.py)
+        trade_groups: list[dict[str, Any]] = []
+        trade_effects = _add_groups(trade_groups, traded[0], traded[1])
+        return (*_finish_targets(trade_effects, trade_groups), False)
     if _CHOOSE_COMPARE.match(body) is not None:  # -- trigger other (wave 52B) -- Sandstone Oracle, Slithermuse: 608.2d, the controller chooses the opponent as this resolves (no target); a hand's size is public (402.3)
         return [{"do": "choose_opponent", "as": "copp"}, {"do": "draw", "who": "you", "n": {"minus": [{"hand": "ref:copp"}, {"hand": "you"}]}}], None, False  # (107.1b: "more … than you" is a positive difference, else nothing is drawn)
     # -- damage wordings (wave 51B) -- "Then each player creates X Treasure tokens and this enchantment deals X damage to each player, where X is the number of descent counters on this

@@ -351,3 +351,63 @@ def test_deadbridge_chant_returns_a_creature_to_the_battlefield_else_to_hand(car
     settle(s)
     assert zone_of(s, card) == where
     check(s)
+
+
+# -- Keen Duelist / Parker Luck / Duskmantle Seer ----------------------------------------------------------------------------------------------
+DUELIST, LUCK, SEER = "Keen Duelist", "Parker Luck", "Duskmantle Seer"
+
+
+@pytest.mark.parametrize("name", [DUELIST, LUCK, SEER])
+def test_the_reveal_trade_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def tops(s, mine, theirs, below=1):
+    """Put these cards on top of Alice's library and ``below`` cards down in Bob's (he draws that many before turn 3's step)."""
+    act(s, "p1", type="move", card_ids=[card_named(s, mine).id], to={"player": "p1", "zone": "library"}, position="top")
+    act(s, "p2", type="move", card_ids=[card_named(s, theirs, "p2").id], to={"player": "p2", "zone": "library"}, index=below)
+
+
+def upkeep_trade(cards, name, step="upkeep"):
+    s = build(cards, [name, "Lightning Bolt"], ["Counterspell"])
+    put(s, name)
+    tops(s, "Lightning Bolt", "Counterspell", below=1 if step == "upkeep" else 2)  # mana values 1 and 2
+    stops(s, step)
+    to_phase(s, step, turn=3)
+    return s
+
+
+def test_keen_duelist_each_loses_life_equal_to_the_other_players_card_and_takes_their_own(cards):
+    s = upkeep_trade(cards, DUELIST)
+    answer(s, ["p2"])
+    assert (life(s, "p1"), life(s, "p2")) == (38, 39)
+    assert zone_of(s, "Lightning Bolt") == "p1:hand" and zone_of(s, "Counterspell", "p2") == "p2:hand"
+    check(s)
+
+
+def test_duskmantle_seer_each_player_loses_life_equal_to_their_own_card(cards):
+    s = upkeep_trade(cards, SEER)
+    answer(s)
+    assert (life(s, "p1"), life(s, "p2")) == (39, 38)
+    assert zone_of(s, "Lightning Bolt") == "p1:hand" and zone_of(s, "Counterspell", "p2") == "p2:hand"
+    check(s)
+
+
+def test_parker_luck_two_target_players(cards):
+    s = upkeep_trade(cards, LUCK, "end")  # (at the beginning of your end step)
+    answer(s, ["p1", "p2"])
+    assert (life(s, "p1"), life(s, "p2")) == (38, 39)
+    assert zone_of(s, "Lightning Bolt") == "p1:hand" and zone_of(s, "Counterspell", "p2") == "p2:hand"
+    check(s)
+
+
+def test_a_player_with_an_empty_library_reveals_nothing_and_costs_the_other_nothing(cards):
+    s = build(cards, [DUELIST, "Lightning Bolt"], [])
+    put(s, DUELIST)
+    act(s, "p2", type="move", card_ids=list(s.state.zones["p2:library"])[1:], to={"zone": "graveyard"})  # one card left: his draw on turn 2 empties the library
+    act(s, "p1", type="move", card_ids=[card_named(s, "Lightning Bolt").id], to={"player": "p1", "zone": "library"}, position="top")
+    stops(s, "upkeep")
+    to_phase(s, "upkeep", turn=3)
+    answer(s, ["p2"])
+    assert (life(s, "p1"), life(s, "p2")) == (40, 39)  # Alice lost nothing (Bob revealed no card); Bob lost Alice's card's 1
+    check(s)
