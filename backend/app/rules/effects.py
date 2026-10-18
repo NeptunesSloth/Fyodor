@@ -327,6 +327,12 @@ def draw(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if players:
             _drawing(ctx, e)
         return not players or replace.draw_cards(plan, players, each, then=_then(ctx, e), ctx=ctx)
+    if e.get("upto") and players and ctx.get("may_ok") != ctx["next"]:  # -- delayed draws (wave 51B) -- "may draw up to two cards": that player picks 0..N (608.2d)
+        n = _amount(plan, ctx, e["n"])
+        decide(plan, player=players[0], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: draw how many cards?",
+               options=[DecisionOption(id=str(i), label=f"Draw {i}") for i in range(n + 1)],
+               resume={"step": "draw_upto", "ctx": ctx, "e": e})
+        return False
     want = _amount(plan, ctx, e["n"])
     if e.get("also"):  # -- triggers (wave 5D) -- "You and target opponent each draw a card": one instruction (121.2c)
         players = list(dict.fromkeys([*_players(plan, ctx, e["also"]), *players]))
@@ -2854,6 +2860,13 @@ def resume_draw_may(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
+def resume_draw_upto(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx = d.resume["ctx"]
+    ctx["may_ok"] = ctx["next"]
+    if draw(plan, ctx, {**d.resume["e"], "n": int(chosen[0])}):
+        continue_effects(plan, ctx)
+
+
 def resume_look_may(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
     if chosen[0] == "yes":
@@ -4652,6 +4665,7 @@ RESUME["choose_opponent"] = resume_choose_opponent
 
 RESUME["search_may"] = resume_search_may
 RESUME["draw_may"] = resume_draw_may  # (wave 17B)
+RESUME["draw_upto"] = resume_draw_upto  # (wave 51B)
 RESUME["look_may"] = resume_look_may  # (wave 15C)
 RESUME["search_zones"] = resume_search_zones  # -- refused zones/sized (wave 3R4) --
 # -- counters & designations (wave 3E) --------------------------------------------------------------
@@ -4932,6 +4946,7 @@ RESUME[_resolution_choice.STEP] = _resolution_choice.resume
 from app.rules import hand_wheel as _hand_wheel  # noqa: E402, I001
 
 PRIMITIVES.update(_hand_wheel.PRIMITIVES)
+RESUME.update(_hand_wheel.RESUME)  # (wave 51B)
 # -- trigger other (wave 25B) -- join forces (app/rules/join_forces.py)
 from app.rules import join_forces as _join_forces  # noqa: E402, I001
 

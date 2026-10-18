@@ -1586,9 +1586,10 @@ def _parse(text: str) -> tuple[Effects, Any]:
                 raise _Fail  # ("… and draw a card, where X is …": which half X belongs to isn't read)
             return [_bind_x(e, rider[1]) for e in (*left[0], *right[0])], left[1] if left[1] is not None else right[1]
     # -- players ------------------------------------------------------------------------------
-    m = re.fullmatch(rf"(?P<s>its controller|that creature's controller|that player) may draw (?P<n>{AMT}) cards?", text)
+    m = re.fullmatch(rf"(?P<s>its controller|that creature's controller|that player) may draw (?:up to (?P<up>{AMT})|(?P<n>{AMT})) cards?", text)
     if m and rider is None:  # -- triggers (wave 19B) -- "its controller may draw a card": that player decides on resolution (608.2d)
-        return [{"do": "draw", "who": PLAYER_GROUPS[m["s"]], "n": _amount(m["n"]), "may": True}], None
+        # (-- delayed draws (wave 51B) -- "may draw up to two cards" (Arcane Denial): that player chooses how many, 0 to N, as it resolves)
+        return [{"do": "draw", "who": PLAYER_GROUPS[m["s"]], "n": _amount(m["up"] or m["n"]), **({"upto": True} if m["up"] else {"may": True})}], None
     m = re.fullmatch(_SUBJ + rf"draws? (?:(?P<n>{AMT}) (?:additional )?cards?|cards equal to (?P<stat>.+))", text)
     if m:
         who, target = _subject(m)
@@ -2006,7 +2007,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # cards in your graveyard that were put there from anywhere this turn." (Garna), "return to the battlefield target creature card in your
     # graveyard that …" (Moira) say what "Return all … to your hand" / "return target … to the battlefield" do
     text = re.sub(r"^(?P<may>you may )?return to (?P<d>your hand|the battlefield) (?P<o>(?:all|target|up to \w+ target|another target|each) "
-                  r"(?!.* (?:under|tapped|attacking|face down|with|attached)\b).+)$", lambda m: f"{m['may'] or ''}return {m['o']} to {m['d']}", text)
+                  r"(?!.* (?:under|tapped|attacking|face down|with(?! (?:equal or )?lesser\b)|attached)\b).+)$", lambda m: f"{m['may'] or ''}return {m['o']} to {m['d']}", text)
     found = reanimation_forms(text)  # -- reanimation (wave 3R) --
     if found is not None:
         return found
