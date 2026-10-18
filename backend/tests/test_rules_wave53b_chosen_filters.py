@@ -825,3 +825,156 @@ def test_cabal_therapist_names_a_card_when_a_creature_is_sacrificed(cards):
     assert sorted(c.zone for c in s.state.cards.values() if c.owner == "p2" and c.name == "Probe Bolt") == ["p2:graveyard"] * 2 and zone_of(s, "Probe Elf", "p2") == "p2:hand"  # every card with that name, no other
     assert zone_of(s, "Probe Elf") == "p1:graveyard"  # the sacrifice that made the reflexive ability
     check(s)
+
+
+# ---- a color chosen as it entered, counted by its own permanent (step 7): 614.12a, 604.3 (characteristic-defining), 603.8 (state trigger) --------------------------------
+STEP7 = ["Chameleon Spirit", "Psychic Allergy", "Lurebound Scarecrow"]
+
+
+@pytest.mark.parametrize("name", STEP7)
+def test_step7_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def test_chameleon_spirit_counts_the_opponents_permanents_of_the_chosen_color(cards):
+    s = build(cards, ["Chameleon Spirit", "Probe Elf Two"], ["Probe Elf", "Probe Elf", "Probe Goblin"])
+    on_field(s, "Probe Elf Two")  # (its own green creature is no opponent's)
+    on_field(s, "Probe Elf", "p2")
+    on_field(s, "Probe Goblin", "p2")
+    spirit = enter(s, "Chameleon Spirit", "Green", U=1, C=3)
+    plan = lambda: Plan(s.state, "p1", s.cards, None)  # noqa: E731
+    assert plan().ch(spirit).pt == (1, 1)  # only Bob's one green permanent
+    second = next(c for c in s.state.cards.values() if c.name == "Probe Elf" and c.owner == "p2" and c.zone == "p2:library")
+    act(s, "p2", type="move", card_ids=[second.id], to={"player": "p2", "zone": "battlefield"})
+    assert plan().ch(spirit).pt == (2, 2)
+    check(s)
+
+
+def test_psychic_allergy_hurts_each_opponent_for_their_own_permanents_of_the_chosen_color(cards):
+    s = build(cards, ["Psychic Allergy", "Probe Goblin"], ["Probe Goblin", "Probe Goblin", "Probe Elf"])
+    on_field(s, "Probe Goblin")  # (Alice's own red permanent isn't counted: "they control")
+    on_field(s, "Probe Goblin", "p2", 2)
+    on_field(s, "Probe Elf", "p2")
+    enter(s, "Psychic Allergy", "Red", U=2, C=3)
+    before = life(s, "p2")
+    for _ in range(80):
+        if life(s, "p2") < before:
+            break
+        d = s.state.rules.decision
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next((o.id for o in d.options if o.id == "decline"), d.options[0].id)])
+    assert before - life(s, "p2") == 2  # the two red permanents Bob controls
+    check(s)
+
+
+def test_lurebound_scarecrow_is_sacrificed_when_nothing_of_the_chosen_color_is_left(cards):
+    s = build(cards, ["Lurebound Scarecrow", "Probe Elf", "Murder"])
+    elf = on_field(s, "Probe Elf")[0]
+    scarecrow = enter(s, "Lurebound Scarecrow", "Green", C=3)
+    assert zone_of(s, "Lurebound Scarecrow") == "p1:battlefield"
+    cast(s, "Murder", targets=[elf.id], B=2, C=1)
+    answer(s)
+    assert zone_of(s, "Probe Elf") == "p1:graveyard" and s.state.cards[scarecrow.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_lurebound_scarecrow_with_no_permanent_of_the_color_at_all_goes_at_once(cards):
+    s = build(cards, ["Lurebound Scarecrow"])
+    scarecrow = enter(s, "Lurebound Scarecrow", "Red", C=3)
+    answer(s)
+    assert s.state.cards[scarecrow.id].zone == "p1:graveyard"
+    check(s)
+
+
+# ---- a color and a creature type chosen together as it enters, then a token of both (step 8): 614.12a, 111.4 --------------------------------------------------------------
+STEP8 = ["Riptide Replicator", "Volrath's Laboratory"]
+
+
+@pytest.mark.parametrize("name", STEP8)
+def test_step8_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def tokens(s, pid="p1"):
+    return [c for c in s.state.cards.values() if c.is_token and c.controller == pid and c.zone == f"{pid}:battlefield"]
+
+
+def test_volraths_laboratory_makes_a_token_of_the_color_and_type_it_chose(cards):
+    s = build(cards, ["Volrath's Laboratory"])
+    mana(s, "p1", C=5)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Volrath's Laboratory").id)
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert option_ids(s) == ["White", "Blue", "Black", "Red", "Green"]
+    answer(s, "Blue", "Elf")  # the color first, then the creature type
+    lab = card_named(s, "Volrath's Laboratory")
+    assert lab.choices == {"Chosen color": "Blue", "Chosen creature type": "Elf"}
+    mana(s, "p1", C=5)
+    act(s, "p1", type="activate_ability", card_id=lab.id, ability=1)
+    answer(s)
+    token = tokens(s)[0]
+    ch = Plan(s.state, "p1", s.cards, None).ch(token)
+    assert (token.name, ch.colors, ch.subtypes, ch.pt) == ("Elf", frozenset({"U"}), frozenset({"Elf"}), (2, 2))
+    check(s)
+
+
+def test_riptide_replicator_makes_a_token_as_big_as_its_charge_counters(cards):
+    s = build(cards, ["Riptide Replicator"])
+    mana(s, "p1", C=6)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Riptide Replicator").id, x_value=2)
+    answer(s, "Red", "Goblin")
+    rep = card_named(s, "Riptide Replicator")
+    assert counters_on(s, rep) == {"charge": 2}
+    mana(s, "p1", C=4)
+    act(s, "p1", type="activate_ability", card_id=rep.id, ability=2)
+    answer(s)
+    token = tokens(s)[0]
+    ch = Plan(s.state, "p1", s.cards, None).ch(token)
+    assert (token.name, ch.colors, ch.subtypes, ch.pt) == ("Goblin", frozenset({"R"}), frozenset({"Goblin"}), (2, 2))
+    check(s)
+
+
+# ---- the creature type chosen as it entered, written into the types of a group (step 9): 205.1a-b, 613.1d, 611.3 -----------------------------------------------------------
+STEP9 = ["Conspiracy", "Lifecraft Engine"]
+
+
+@pytest.mark.parametrize("name", STEP9)
+def test_step9_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def kinds(s, name, pid="p1"):
+    return Plan(s.state, "p1", s.cards, None).ch(card_named(s, name, pid)).subtypes
+
+
+def test_conspiracy_makes_your_creatures_and_creature_cards_only_the_chosen_type(cards):
+    s = build(cards, ["Conspiracy", "Probe Elf", "Probe Elf Two", "Probe Rock"], ["Probe Elf"])
+    on_field(s, "Probe Elf")
+    on_field(s, "Probe Rock")
+    on_field(s, "Probe Elf", "p2")
+    to_hand(s, "Probe Elf Two")  # a creature card you own that isn't on the battlefield
+    assert kinds(s, "Probe Elf") == frozenset({"Elf", "Druid"})
+    enter(s, "Conspiracy", "Goblin", B=2, C=3)
+    assert kinds(s, "Probe Elf") == frozenset({"Goblin"})  # 205.1a: its other creature types are gone
+    assert kinds(s, "Probe Rock") == frozenset({"Goblin"})  # (an artifact creature: Golem is a creature type, the Artifact card type stays)
+    assert kinds(s, "Probe Elf Two") == frozenset({"Goblin"})  # "The same is true for … creature cards you own that aren't on the battlefield"
+    assert kinds(s, "Probe Elf", "p2") == frozenset({"Elf", "Druid"})  # (only yours)
+    check(s)
+
+
+def test_lifecraft_engine_gives_the_chosen_type_to_vehicle_creatures_only(cards):
+    s = build(cards, ["Lifecraft Engine", "Probe Wagon", "Probe Elf"])
+    on_field(s, "Probe Wagon")
+    on_field(s, "Probe Elf")
+    enter(s, "Lifecraft Engine", "Elf", C=4)
+    assert kinds(s, "Probe Wagon") == frozenset({"Vehicle", "Elf"})  # in addition to its other types (205.1b)
+    assert kinds(s, "Probe Elf") == frozenset({"Elf", "Druid"})
+    plan = Plan(s.state, "p1", s.cards, None)
+    assert (plan.ch(card_named(s, "Probe Wagon")).pt, plan.ch(card_named(s, "Probe Elf")).pt) == ((3, 3), (2, 2))  # its second line: +1/+1 to each creature of the chosen type, the Wagon (an Elf now) too
+    check(s)

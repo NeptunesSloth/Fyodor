@@ -38,6 +38,7 @@ PROBES = [
     probe("Probe Gem", "Artifact", cost="{4}", cmc=4),
     probe("Probe Pinger", "Artifact", text="{T}: Probe Pinger deals 1 damage to any target.\n{T}: Add {C}.", cost="{1}"),
     probe("Probe Zapper", "Artifact", text="{T}: Probe Zapper deals 1 damage to any target.", cost="{1}"),
+    probe("Probe Wagon", "Artifact Creature — Vehicle", pt=("2", "2"), cost="{2}", cmc=2),
     probe("Probe Hex", "Enchantment — Aura", "R", text="Enchant creature", cost="{R}"),
     probe("Probe Swamp", "Basic Land — Swamp", text="({T}: Add {B}.)", cost="", cmc=0),
 ]

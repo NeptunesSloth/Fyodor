@@ -85,7 +85,9 @@ def _enters_choices(ch: Characteristics) -> list[str]:
 
     texts = [choice_head(self_text(ab.text, ch.name)) for ab in ch.abilities]  # (wave 53B: a line that also puts counters on it)
     named = [e["what"] for t in texts if (d := card_names.enters_choice(t)) is not None for e in d["effects"] if card_names.is_choice(e["what"])]
-    return ["card type" if m["what"].startswith(("card type", "artifact, ")) else "number" if m["what"].startswith("number") else "abilities" if m["what"].startswith("two abilities") else "creature type" if m["what"][:1].isupper() else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None] + ["card name" for _ in named]  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
+    singles = ["card type" if m["what"].startswith("card type") or type_choice(m["what"]) is not None else "number" if m["what"].startswith("number") else "abilities" if m["what"].startswith("two abilities") else "creature type" if m["what"][:1].isupper() else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] != "color and a creature type"]
+    both = [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "color and a creature type" for k in ("color", "creature type")]  # (wave 53B: "choose a color and a creature type")
+    return singles + both + ["card name" for _ in named]  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
 
 
 def _kind(what: str | None) -> str | None:
@@ -117,6 +119,8 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     if d.get("counters"):  # -- chosen filters (wave 53B) -- "enters with a counter for each creature you control of the chosen type": counted with the answer of the same line
         return all(w == d["counters_choice"] for _, w in _uses(d["counters"]))
     dumped = json.dumps(d)
+    if '"chosen": true' in dumped:  # -- chosen filters (wave 53B) -- "a token of the chosen color and type": the source's own entering choices of both
+        return d.get("kind") in ("activated", "triggered") and {"color", "creature type"} <= set(_enters_choices(ch)) and _enters_choices(ch).count("color") == 1 and _enters_choices(ch).count("creature type") == 1
     for line, (kind, _) in PROTECTION.items():  # -- attached events (wave 25D) -- an Aura's static: its own enters choice (wave 53B: a card type, a creature type)
         if line in dumped and d.get("static") == "grant":
             return _enters_choices(ch).count(kind) == 1
@@ -151,7 +155,8 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
             continue
         if d.get("kind") == "spell" or _enters_choices(ch).count(what) != 1:
             return False
-        if any(w == what and k not in _SOURCE_KEYS and not (k == "filter" and d.get("static") in ("cast_limit", "ability_cost_modifier")) for k, w in uses):  # (wave 22B)
+        counted = d.get("kind") in ("triggered", "activated") or d.get("static") == "cda"  # -- chosen filters (wave 53B) -- a count of an ability or a characteristic-defining ability is read for its own permanent (the source), not for each object a static modifies
+        if any(w == what and k not in _SOURCE_KEYS and not (k == "filter" and d.get("static") in ("cast_limit", "ability_cost_modifier")) and not (counted and k in ("count", "of")) for k, w in uses):  # (wave 22B)
             return False
     return True
 
@@ -394,4 +399,16 @@ def build_discard(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if sel is None:
         raise language._Fail
     return [{"do": "discard_named", "who": "revealed", "sel": sel.key(), "n": 1, **({"else_draw": True} if m["draw"] else {})}], None
+
+
+def chosen_token(plan: Plan, source: str | None, token: dict[str, Any]) -> dict[str, Any] | None:
+    """The token spec of "a creature token of the chosen color and type" with the source's own answers written in (614.12a; 111.4: its name is its creature type), or None."""
+    from app.rules import protection
+
+    card = plan.state.cards.get(source or "")
+    color = ((card.choices.get("Chosen color") if card is not None else "") or "").strip().lower()
+    kind = ((card.choices.get("Chosen creature type") if card is not None else "") or "").strip()
+    if color not in protection.COLORS or not kind:
+        return None
+    return {**token, "chosen": False, "name": kind, "colors": [protection.COLORS[color]], "type_line": f"Token Creature — {kind}"}
 # -- end chosen filters (wave 53B) -----------------------------------------------------------------------------------------

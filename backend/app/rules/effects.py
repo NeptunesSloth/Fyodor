@@ -1115,6 +1115,12 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
     for t, count, tapped_by_creator in kinds:
         if count <= 0:
             continue
+        if t.get("chosen"):  # -- chosen filters (wave 53B) -- "of the chosen color and type": what its source chose as it entered
+            from app.rules import chosen as _chosen
+
+            if (t := _chosen.chosen_token(plan, source, t)) is None:
+                plan.note(f"{ctx.get('name') or 'The source'} has no color and creature type chosen: no token is created")
+                continue
         # -- X sized by a count (wave 4K) -- "an X/X … token": X as the token is created, its printed P/T from then on (111.3)
         pt = {k: str(values.evaluate(plan, ctx, t[k])) if isinstance(t.get(k), dict) else t.get(k) for k in ("power", "toughness")}
         for pid in (list(each) if each is not None else _players(plan, ctx, e["who"])):

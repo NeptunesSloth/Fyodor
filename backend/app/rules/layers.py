@@ -287,7 +287,8 @@ def _table_key(state: GameState) -> tuple:
                      tuple(state.zones.get(f"{pid}:graveyard", ())), tuple(state.zones.get(f"{pid}:exile", ())),
                      tuple(sorted(state.players[pid].resources.items()))) for pid in state.seat_order)
     field = tuple((cid, c.controller, c.tapped, c.attacking is not None, bool(c.blocking), c.attached_to, c.face_down,
-                   tuple(sorted(c.counters.items())), c.face, c.blocking, tuple(c.blocking_more))  # (wave 35D: face, whom it blocks)
+                   tuple(sorted(c.counters.items())), c.face, c.blocking, tuple(c.blocking_more),  # (wave 35D: face, whom it blocks)
+                   tuple(sorted(c.choices.items())))  # (wave 53B: what it chose as it entered, 614.12a: recorded after it is on the battlefield, a count reading it must not be served from before)
                   for cid, c in state.cards.items() if c.zone.endswith(":battlefield"))
     log = r.turn_log if r else None  # (conditions read this turn's history: "a creature died this turn")
     history = (log.turn, tuple(log.attacked), tuple(sorted(log.gained.items())), tuple(sorted(log.lost.items())),

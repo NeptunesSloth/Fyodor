@@ -2145,6 +2145,17 @@ def _create_tokens_6c(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | Non
 
 
 @_first
+@effect(r"create (?:\d+|a|an|X|x) (?:\d+|X)/(?:\d+|X) creature tokens? of the chosen color and type(?:, where [xX] is [^\"]+)?")
+def _create_chosen_token(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:  # -- chosen filters (wave 53B) -- Riptide Replicator, Volrath's Laboratory: the color and creature type the source chose as it entered
+    from app.rules import token_grammar
+
+    found = token_grammar.parse(m.group(0))
+    if found is None:
+        raise _NoMatch
+    return found, None
+
+
+@_first
 @effect(r"(?:it has|they have) \"(?P<quoted>[^\"]+)\"")
 def _token_has_ability(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     """'It has "…"' after a create sentence: the quoted ability, if the engine carries it out."""

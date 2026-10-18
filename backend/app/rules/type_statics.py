@@ -195,13 +195,16 @@ def _layered(text: str) -> dict[str, Any] | None:
         from app.rules.layers import LAND_TYPES
 
         return _definition(m["s"], {"add_subtypes": sorted(LAND_TYPES)} if m["k"] == "land" else {"all_creature_types": True})
-    if (m := re.fullmatch(r"(?P<s>Creatures you control|Each creature you control|Lands you control) (?:is|are) the chosen type in addition to "  # (wave 26D)
-                          r"(?:its|their) other (?:creature )?types\.(?P<same> The same is true for [^.]+\.)?", text)) is not None:
-        # 205.1b: the creature type (Xenograft, Arcane Adaptation) or basic land type (Realmwright) its source chose as it entered (614.12a)
+    if (m := re.fullmatch(r"(?P<s>Creatures you control|Each creature you control|Lands you control|Vehicle creatures you control) (?:is|are) the chosen (?:creature )?type"  # (wave 26D; wave 53B: Lifecraft Engine, Conspiracy)
+                          r"(?P<add> in addition to (?:its|their) other (?:creature )?types)?\.(?P<same> The same is true for [^.]+\.)?", text)) is not None \
+            and (m["add"] or (m["s"] == "Creatures you control" and m["same"])):
+        # 205.1b: the creature type (Xenograft, Arcane Adaptation) or basic land type (Realmwright) its source chose as it entered (614.12a); -- chosen filters (wave 53B) -- without
+        # "in addition" (Conspiracy, 205.1a) it is the only creature type the creatures, creature spells and creature cards have (group_layers.with_chosen)
         everywhere = _everywhere(m["s"], m["same"].strip()) if m["same"] else None
         if m["same"] and everywhere is None:
             return None
-        found = _definition(m["s"], {"add_subtypes": [], "chosen_type": "land" if m["s"].startswith("Lands") else "creature"}, everywhere=everywhere)
+        kind = "land" if m["s"].startswith("Lands") else "creature" if m["add"] else "creature_set"
+        found = _definition(m["s"], {"add_subtypes": [], "chosen_type": kind}, everywhere=everywhere)
         return {**found, "chosen_type": found["layer4"]["chosen_type"]} if found is not None else None
     if (m := re.fullmatch(rf"{_SUBJ} (?:is|are) snow\.", text)) is not None:  # (wave 26D) 205.4: the supertype snow is added (Rimefeather Owl)
         return _definition(m["s"], {"add_supertypes": ["Snow"]})

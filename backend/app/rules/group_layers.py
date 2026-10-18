@@ -57,6 +57,8 @@ def with_chosen(state: GameState, st: Static) -> dict[str, Any]:
     if not l4 or not l4.get("chosen_type"):
         return d
     value = state.cards[st.source].choices.get("Chosen basic land type" if l4["chosen_type"] == "land" else "Chosen creature type", "").strip()
+    if l4["chosen_type"] == "creature_set":  # -- chosen filters (wave 53B) -- 205.1a: the chosen type replaces the creature types (Conspiracy); none chosen: they keep theirs
+        return {**d, "layer4": {**{k: v for k, v in l4.items() if k != "add_subtypes"}, **({"set_creature_types": [value]} if value else {})}}
     return {**d, "layer4": {**l4, "add_subtypes": [value] if value else []}}
 
 
