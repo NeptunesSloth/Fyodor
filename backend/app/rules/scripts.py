@@ -1226,7 +1226,7 @@ def rename_bindings(value: Any, prefix: str) -> Any:
             out[k] = v
             continue
         if k in ("as", "bind", "succeeded", "flag", "did", "ref_amount", "ref_count",
-                 "bind_dealt", "bind_excess", "bind_hit", "paid_x", "perm_as") and isinstance(v, str) and v not in (this_way.COST, this_way.DEVOURED):  # (wave 48B: the spell's own cost, a devourer's own sacrifices: one name for every line)  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
+                 "bind_dealt", "bind_excess", "bind_hit", "paid_x", "perm_as", "bind_amount") and isinstance(v, str) and v not in (this_way.COST, this_way.DEVOURED):  # (wave 48B: the spell's own cost, a devourer's own sacrifices: one name for every line)  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
             v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on;
             # "flag": the verdict an "instead" / "Otherwise" clause reads)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
@@ -1450,6 +1450,13 @@ def _join_forces(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 def _hand_wheel(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     who = "that_player" if m["who"] == "that player" else "you"
     return [{"do": "hand_to_bottom", "who": who, "bind_amount": "wheel"}, {"do": "draw", "who": who, "n": {"ref_amount": "wheel"}}], None
+
+
+# -- wheel (wave 51B) -- "Put any number of cards from your hand on the bottom of your library, then draw that many cards plus one." (Valakut Awakening, Into the Fire)
+@effect(r"put any number of cards from your hand on the bottom of your library, then draw that many cards plus one")
+def _hand_pick_wheel(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "hand_to_bottom", "who": "you", "bind_amount": "wheel", "any_number": True, "plus": 1},
+            {"do": "draw", "who": "you", "n": {"ref_amount": "wheel"}}], None
 
 
 @effect(r"you gain {N} life")
@@ -2382,6 +2389,10 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
 
     body = body.replace(" your team controls", " you control")  # -- static_other (wave 49C) -- 102.4: outside a team game "your team" is "you" (Combo Attack, Dwarven Lightsmith)
     body = _licids.rewrite(body)  # -- licids (wave 50A) --
+    # -- damage wordings (wave 51B) -- "Then each player creates X Treasure tokens and this enchantment deals X damage to each player, where X is the number of descent counters on this
+    # enchantment." (Descent into Avernus): two instructions in order (608.2c), the same X for both (nothing between them changes the counters)
+    body = re.sub(r"\b(each player creates X [A-Z][a-z]+ tokens?) and ((?:this \w+|~) deals) X damage to (each player), where X is ([^.]+)\.",
+                  r"\1, where X is \4. Then \2 damage to \3 equal to \4.", body)
     body = body.replace("can't be blocked by more than one creature each combat this turn", "can't be blocked by more than one creature this turn")  # (-- commanders (wave 50C) -- Glorfindel: the effect lasts the turn, so it covers each combat of it, 611.2a)
     body = re.sub(r"(\. |^)It's (an? [^.]+? for as long as it has an? [^.]+? counter on it)(?=\.|$)", r"\1It becomes \2", body)  # (-- commanders (wave 50C) -- Sauron, Dino Devotee: "It's a green Dinosaur with base power and toughness 5/5 for as long as it has a saurian counter on it" is a duration effect on the creature just given the counter, 611.2a)
     if (gifts := refused_zones.gifts_ability(body)) is not None:

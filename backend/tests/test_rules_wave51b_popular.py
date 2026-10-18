@@ -224,6 +224,44 @@ def test_scrap_trawler_returns_an_artifact_with_lesser_mana_value_than_the_one_t
     check(s)
 
 
+def test_descent_into_avernus_gives_each_player_treasures_and_damage_equal_to_the_counters(cards):
+    """608.2c: "each player creates X Treasure tokens and this enchantment deals X damage to each player" is two instructions with the same X."""
+    s = build(cards, ["Descent into Avernus"])
+    for pid in s.state.players:
+        act(s, pid, type="set_prefs", response="on")
+    put(s, "Descent into Avernus")
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "upkeep" and s.state.rules.stack, limit=300)
+    answer(s)
+    treasures = {pid: sum(1 for c in s.state.cards.values() if c.name == "Treasure" and c.zone == f"{pid}:battlefield") for pid in ("p1", "p2")}
+    assert card_named(s, "Descent into Avernus").counters.get("descent") == 2 and treasures == {"p1": 2, "p2": 2}
+    assert s.state.players["p1"].life == s.state.players["p2"].life == 38
+    check(s)
+
+
+@pytest.mark.parametrize("n", [0, 1, 3])
+def test_valakut_awakening_bottoms_any_number_of_cards_and_draws_that_many_plus_one(cards, n):
+    """The player chooses how many (608.2d, 101.4a: privately), 401.4 orders them; "that many cards plus one" is drawn even for none."""
+    name = "Valakut Awakening // Valakut Stoneforge"
+    s = build(cards, [name])
+    for c in [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"][:3]:
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "hand"})
+    spell = to_hand(s, name)
+    mana(s, "p1", R=1, G=2)
+    library = len(s.state.zones["p1:library"])
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    for _ in range(6):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.kind == "choose_cards" and d.min_choices == 0 and d.max_choices == 3
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:n])
+    answer(s)
+    assert len(s.state.zones["p1:hand"]) == 3 - n + n + 1  # the cards left, plus the n + 1 drawn
+    assert len(s.state.zones["p1:library"]) == library - 1  # n cards in, n + 1 out
+    check(s)
+
+
 def test_chrome_mox_with_nothing_imprinted_adds_no_mana(cards):
     s, c = mox(cards, ["Lightning Bolt"], None)
     assert zone_of(s, "Lightning Bolt").endswith(":hand")
