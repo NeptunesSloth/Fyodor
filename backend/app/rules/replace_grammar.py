@@ -403,10 +403,15 @@ def _source(phrase: str) -> dict[str, Any] | None:
         # -- counters (wave 44C) -- "a creature you control that entered this turn" (Neriv, Heart of the Storm): the source entered the battlefield this turn (608.2h: as it last existed)
         inner = _source(fresh["src"])
         return None if inner is None or "alts" in inner else {**inner, "entered": True}
-    if (counted := re.fullmatch(r"(?P<src>.+?) with (?:a|one or more) counters? on (?:it|them)", phrase)) is not None:
+    if (kind := re.fullmatch(r"(?P<src>.+?) of the chosen type", phrase)) is not None:
+        # -- instead (wave 51C) -- "sources you control of the chosen type" (Collective Inferno): the creature type its permanent chose as it entered (614.12a; replace._source_matches)
+        inner = _source(kind["src"])
+        return None if inner is None or "alts" in inner else {**inner, "chosen_type": True}
+    if (counted := re.fullmatch(r"(?P<src>.+?) with (?:a|one or more) (?:(?P<kind>\+1/\+1|-1/-1) )?counters? on (?:it|them)", phrase)) is not None:
         # -- counters (wave 41A) -- "a creature you control with a counter on it" (Raphael, the Muscle): the source has a counter of any kind on it as it would deal the damage
+        # (wave 51C: of that kind, "with a +1/+1 counter on it", Uncivil Unrest)
         inner = _source(counted["src"])
-        return None if inner is None or "alts" in inner else {**inner, "has_counters": True}
+        return None if inner is None or "alts" in inner else {**inner, **({"has_counter": counted["kind"]} if counted["kind"] else {"has_counters": True})}
     if (par := re.fullmatch(r"(?P<src>.+?) with an? (?P<par>odd|even) mana value", phrase)) is not None:
         # -- cant restrictions (wave 46A) -- "a source you control with an odd mana value" (Obosh, the Preypiercer): the source's mana value as it would deal the damage
         # (an X spell on the stack counts its X, any other object has X as 0: 202.3e)
@@ -613,9 +618,9 @@ def _damage(text: str) -> Definition | None:
 def _damage_plain(text: str) -> Definition | None:
     # -- counters (wave 41A) -- "Double all damage that creatures you control with counters on them would deal." (Raphael, the Muscle) is "If a creature you control with a
     # counter on it would deal damage to a permanent or player, it deals double that damage instead." (every recipient there is)
-    if (dbl := re.fullmatch(r"Double all damage that (?P<src>creatures|creature sources|sources) (?P<ctl>you control|an opponent controls)(?P<with> with counters on them)? would deal\.", text)) is not None:
+    if (dbl := re.fullmatch(r"Double all damage that (?P<src>creatures|creature sources|sources) (?P<ctl>you control|an opponent controls)(?P<with> with counters on them)?(?P<chosen> of the chosen type)? would deal\.", text)) is not None:
         noun = "source" if dbl["src"] == "sources" else "creature"  # (wave 44C: "creature sources", Absorbing Man and Titania)
-        text = (f"If a {noun} {dbl['ctl']}{' with a counter on it' if dbl['with'] else ''} would deal damage to a permanent or player, "
+        text = (f"If a {noun} {dbl['ctl']}{' with a counter on it' if dbl['with'] else ''}{dbl['chosen'] or ''} would deal damage to a permanent or player, "
                 "it deals double that damage instead.")
     if text == "Double all damage ~ would deal.":  # -- commanders (wave 47A) -- Wolverine, Best There Is: "If ~ would deal damage to a permanent or player, it deals double that damage instead." (every recipient there is)
         text = "If ~ would deal damage to a permanent or player, it deals double that damage instead."

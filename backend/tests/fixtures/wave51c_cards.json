@@ -308,5 +308,57 @@
   "keywords": [
    "Threshold"
   ]
+ },
+ {
+  "name": "Uncivil Unrest",
+  "layout": "normal",
+  "mana_cost": "{4}{R}",
+  "cmc": 5.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Nontoken creatures you control have riot. (They enter with your choice of a +1/+1 counter or haste.)\nIf a creature you control with a +1/+1 counter on it would deal damage to a permanent or player, it deals double that damage instead.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Double"
+  ]
+ },
+ {
+  "name": "Llanowar Elves",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Creature — Elf Druid",
+  "oracle_text": "{T}: Add {G}.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Collective Inferno",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{R}",
+  "cmc": 5.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nAs this enchantment enters, choose a creature type.\nDouble all damage that sources you control of the chosen type would deal.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Double",
+   "Convoke"
+  ]
  }
 ]

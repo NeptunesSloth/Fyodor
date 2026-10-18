@@ -24,7 +24,7 @@ from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import pick, until_asked
-from tests.test_rules_wave34b_activated import attack, next_turn, stops
+from tests.test_rules_wave34b_activated import attack, next_turn, stops, to_phase
 from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave51c_cards.json").read_text("utf-8"))
@@ -42,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths"])
+@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -339,4 +339,40 @@ def test_everybody_lives_players_have_hexproof_and_lose_no_life(cards):
     act(s, "p1", type="cast_spell", card_id=second.id, targets=["p1"])
     settle(s)
     assert life(s, "p1") == 40 and len(bolts) == 1  # (3 damage to Alice was dealt, the life loss can't happen)
+    check(s)
+
+
+# -- Uncivil Unrest ----------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("counter,dealt", [(True, 6 + 1), (False, 2 + 1)])  # (Bears 3 doubled + Elves 1; Bears 2 + Elves 1)
+def test_uncivil_unrest_doubles_only_damage_from_creatures_with_a_plus_counter(cards, counter, dealt):
+    s = build(cards, ["Uncivil Unrest", "Grizzly Bears", "Llanowar Elves"])
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    put(s, "Uncivil Unrest")
+    if counter:  # (the Bears become 3/3: 3 damage, doubled to 6; the Elves have no counter)
+        act(s, "p1", type="counter", card_ids=[bears.id], kind="+1/+1", delta=1)
+    next_turn(s)
+    stops(s)
+    attack(s, bears, elves)
+    to_phase(s, "main2")
+    assert life(s, "p2") == 40 - dealt
+    check(s)
+
+
+# -- Collective Inferno ------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("chosen,dealt", [("Bear", 4 + 1), ("Elf", 2 + 2)])  # (the chosen type's creature deals double: Bears 2, Elves 1)
+def test_collective_inferno_doubles_damage_of_the_chosen_type(cards, chosen, dealt):
+    s = build(cards, ["Collective Inferno", "Grizzly Bears", "Llanowar Elves"])
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    inferno = to_hand(s, "Collective Inferno")
+    mana(s, R=2, G=3)
+    act(s, "p1", type="cast_spell", card_id=inferno.id)
+    d = until_asked(s)
+    assert d is not None and d.player == "p1"
+    pick(s, next(o.id for o in d.options if o.label == chosen))
+    settle(s)
+    next_turn(s)
+    stops(s)
+    attack(s, bears, elves)
+    to_phase(s, "main2")
+    assert life(s, "p2") == 40 - dealt
     check(s)
