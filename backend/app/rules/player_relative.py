@@ -22,6 +22,8 @@ new targets), 109.4 / 108.3 (controller of a permanent, owner of a card).
 
 from __future__ import annotations
 
+import json
+import re
 from typing import TYPE_CHECKING, Any
 
 from app.rules import selectors
@@ -150,3 +152,26 @@ def other_than(ctx: dict[str, Any], players: str, sel: selectors.Selector) -> li
     if not sel.other or not players.startswith(TP):
         return []
     return target_refs(ctx, "target" if players == f"{TP}0" and not ctx.get("groups") else f"target:{players[len(TP):]}")
+
+
+# -- effects whose selector says "that player's graveyard / that player controls" (a ``sel``, a count): the player is tagged at parse time (``that``: a player reference,
+# scripts.resolve_it) and read when the instruction is carried out (effects._continue_effects), so it is the player as the earlier instruction left it
+_ANY = re.compile(r'\\"(?:controller|zone_owner)\\":\\"that_player\\"')
+
+
+def has_marker(e: dict[str, Any]) -> bool:
+    return _ANY.search(json.dumps(e)) is not None
+
+
+def bind_effect(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> dict[str, Any]:
+    """The effect with "that player" in its selectors replaced by the one player ``e["that"]`` names now (none, or several: left unbound - nothing matches)."""
+    from app.rules.effects import _players
+
+    who = _players(plan, ctx, e["that"])
+    if len(who) != 1:
+        return e
+    raw = json.dumps(e)
+    for key in ("controller", "zone_owner"):
+        raw = raw.replace(f'\\"{key}\\":\\"{THAT}\\"', f'\\"{key}\\":\\"player:{who[0]}\\"')
+    out: dict[str, Any] = json.loads(raw)
+    return out

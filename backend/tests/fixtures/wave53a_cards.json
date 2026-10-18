@@ -739,5 +739,235 @@
   ],
   "power": "1",
   "toughness": "3"
+ },
+ {
+  "name": "Grasping Tentacles",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target opponent mills eight cards. You may put an artifact card from that player's graveyard onto the battlefield under your control.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Mill"
+  ]
+ },
+ {
+  "name": "Realmbreaker, the Invasion Tree",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Legendary Artifact",
+  "oracle_text": "{2}, {T}: Target opponent mills three cards. Put a land card from their graveyard onto the battlefield tapped under your control. It gains \"If this land would leave the battlefield, exile it instead of putting it anywhere else.\"\n{10}, {T}, Sacrifice Realmbreaker: Search your library for any number of Praetor cards, put them onto the battlefield, then shuffle.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Mill"
+  ]
+ },
+ {
+  "name": "Oblivion Sower",
+  "layout": "normal",
+  "mana_cost": "{6}",
+  "cmc": 6.0,
+  "type_line": "Creature — Eldrazi",
+  "oracle_text": "When you cast this spell, target opponent exiles the top four cards of their library, then you may put any number of land cards that player owns from exile onto the battlefield under your control.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "5",
+  "toughness": "8"
+ },
+ {
+  "name": "Silent-Blade Oni",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{U}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Creature — Demon Ninja",
+  "oracle_text": "Ninjutsu {4}{U}{B} ({4}{U}{B}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever this creature deals combat damage to a player, look at that player's hand. You may cast a spell from among those cards without paying its mana cost.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Ninjutsu"
+  ],
+  "power": "6",
+  "toughness": "5"
+ },
+ {
+  "name": "Lord of the Void",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Creature — Demon",
+  "oracle_text": "Flying\nWhenever this creature deals combat damage to a player, exile the top seven cards of that player's library, then put a creature card from among them onto the battlefield under your control.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "7",
+  "toughness": "7"
+ },
+ {
+  "name": "Ashling, the Extinguisher",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Elemental Shaman",
+  "oracle_text": "Whenever Ashling deals combat damage to a player, choose target creature that player controls. The player sacrifices that creature.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Myrkul's Edict",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Roll a d20.\n1—9 | Choose an opponent. That player sacrifices a creature of their choice.\n10—19 | Each opponent sacrifices a creature of their choice.\n20 | Each opponent sacrifices a creature with the greatest power among creatures that player controls.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Sail into the West",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{U}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "Will of the council — Starting with you, each player votes for return or embark. If return gets more votes, each player returns up to two cards from their graveyard to their hand, then you exile Sail into the West. If embark gets more votes or the vote is tied, each player may discard their hand and draw seven cards.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Will of the council"
+  ]
+ },
+ {
+  "name": "Intellectual Offering",
+  "layout": "normal",
+  "mana_cost": "{4}{U}",
+  "cmc": 5.0,
+  "type_line": "Instant",
+  "oracle_text": "Choose an opponent. You and that player each draw three cards.\nChoose an opponent. Untap all nonland permanents you control and all nonland permanents that player controls.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Lightning Bolt",
+  "layout": "normal",
+  "mana_cost": "{R}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Stone Rain",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Destroy target land.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Disciple of Perdition",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Warlock",
+  "oracle_text": "When this creature dies, choose one. If you have exactly 13 life, you may choose both instead.\n• You draw a card and you lose 1 life.\n• Exile target opponent's graveyard. That player loses 1 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Windgrace's Judgment",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{G}",
+  "cmc": 5.0,
+  "type_line": "Instant",
+  "oracle_text": "For any number of opponents, destroy target nonland permanent that player controls.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Dark Salvation",
+  "layout": "normal",
+  "mana_cost": "{X}{X}{B}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target player creates X 2/2 black Zombie creature tokens, then up to one target creature gets -1/-1 until end of turn for each Zombie that player controls.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
  }
 ]

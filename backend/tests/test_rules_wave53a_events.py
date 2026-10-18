@@ -1,0 +1,389 @@
+"""Wave 53A: "that player" of a spell's target or of a trigger's event, and the cards of that player (CR 2026-09-25), real Oracle text (tests/fixtures/wave53a_cards.json, from
+data/cards.sqlite). Every scenario checks the replay and a save and a load.
+
+* 608.2c, 608.2d: "Target opponent mills eight cards. You may put an artifact card from that player's graveyard onto the battlefield under your control." (Grasping Tentacles),
+  "Put a land card from their graveyard onto the battlefield tapped under your control. It gains ..." (Realmbreaker, the Invasion Tree), "...then you may put any number of land cards
+  that player owns from exile onto the battlefield under your control." (Oblivion Sower): the cards of the player the target is; chosen by the controller as the spell resolves.
+* 603.2, 701.20e, 608.2g: "Whenever this creature deals combat damage to a player, look at that player's hand. You may cast a spell from among those cards without paying its mana
+  cost." (Silent-Blade Oni) - the look is the controller's alone, the cast is made as the trigger resolves.
+* 603.2, 406.3: "exile the top seven cards of that player's library, then put a creature card from among them onto the battlefield under your control." (Lord of the Void).
+* 701.21a: "Choose target creature that player controls. The player sacrifices that creature." (Ashling, the Extinguisher).
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from app.game.errors import ActionError
+from app.game.visibility import SPECTATOR
+from app.rules import coverage
+from tests.game_helpers import act
+from tests.test_rules_conditionals import settle
+from tests.test_rules_wave34b_activated import activate, attack, stops
+from tests.wave9c_kit import card_named, check, mana, put, to_hand
+from tests.wave53a_kit import alice_next, open_repo, table, unseen_by, until_asked
+
+BEARS, GIANT, ANGEL, GRAIL, BOLT = "Grizzly Bears", "Hill Giant", "Serra Angel", "Sol Grail", "Lightning Bolt"
+NAMES = ["Grasping Tentacles", "Realmbreaker, the Invasion Tree", "Oblivion Sower", "Silent-Blade Oni", "Lord of the Void", "Ashling, the Extinguisher", "Myrkul's Edict",
+         "Sail into the West", "Intellectual Offering", "Down for Repairs"]
+
+
+@pytest.fixture()
+def cards(settings):
+    yield from open_repo(settings)
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_the_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def to_gy(s, name, pid):
+    c = next(c for c in s.state.cards.values() if c.name == name and c.owner == pid and c.zone.endswith((":library", ":hand")))
+    act(s, pid, type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    return c
+
+
+# -- Grasping Tentacles / Realmbreaker --------------------------------------------------------------------------------------------------
+def test_grasping_tentacles_mills_the_opponent_then_you_may_take_an_artifact_of_theirs(cards):
+    s = table(cards, ["Grasping Tentacles"], [GRAIL], [GRAIL])
+    carols = to_gy(s, GRAIL, "p3")
+    bobs = next(c for c in s.state.cards.values() if c.name == GRAIL and c.owner == "p2")  # top of Bob's library: milled with the seven after it
+    to_hand(s, "Grasping Tentacles")
+    mana(s, "p1", U=1, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Grasping Tentacles").id, targets=["p2"])
+    d = until_asked(s)
+    assert d.player == "p1" and {o.id for o in d.options} == {bobs.id}  # Bob's graveyard, not Carol's
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bobs.id])
+    settle(s)
+    assert s.state.cards[bobs.id].zone == "p1:battlefield" and s.state.cards[bobs.id].controller == "p1" and s.state.cards[bobs.id].owner == "p2"
+    assert s.state.cards[carols.id].zone == "p3:graveyard" and len(s.state.zones["p2:graveyard"]) == 7
+    check(s)
+
+
+def test_realmbreaker_takes_a_land_card_tapped_and_exiles_it_if_it_would_leave(cards):
+    s = table(cards, ["Realmbreaker, the Invasion Tree", "Stone Rain"], [], [])
+    rb = put(s, "Realmbreaker, the Invasion Tree")
+    mana(s, "p1", C=2)
+    activate(s, "p1", rb, contains="Target opponent mills", targets=["p2"])
+    d = until_asked(s)
+    assert d.player == "p1" and {s.state.cards[o.id].name for o in d.options} == {"Island"} and {s.state.cards[o.id].owner for o in d.options} == {"p2"}
+    land = d.options[0].id
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[land])
+    settle(s)
+    assert s.state.cards[land].zone == "p1:battlefield" and s.state.cards[land].controller == "p1" and s.state.cards[land].tapped
+    to_hand(s, "Stone Rain")
+    mana(s, "p1", R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Stone Rain").id, targets=[land])
+    settle(s)
+    assert s.state.cards[land].zone == "p2:exile"  # "If this land would leave the battlefield, exile it instead of putting it anywhere else"
+    check(s)
+
+
+# -- Oblivion Sower ---------------------------------------------------------------------------------------------------------------------
+def test_oblivion_sower_puts_lands_the_opponent_owns_from_exile_onto_the_battlefield(cards):
+    s = table(cards, ["Oblivion Sower"], [BEARS], [])
+    to_hand(s, "Oblivion Sower")
+    old = next(c for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2")
+    act(s, "p2", type="move", card_ids=[old.id], to={"zone": "exile"})  # a land of Bob's already in exile: "land cards that player owns from exile" is all of them
+    mana(s, "p1", C=6)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Oblivion Sower").id)
+    d = until_asked(s)  # the cast trigger's target: Bob (or Carol)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])
+    d = until_asked(s)
+    assert d.player == "p1" and d.min_choices == 0 and old.id in {o.id for o in d.options} and len(d.options) == 4  # the three Islands exiled now and the old one (the Bears are no land)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:3])
+    settle(s)
+    assert sum(1 for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2" and c.zone == "p1:battlefield") == 3
+    assert sum(1 for c in s.state.cards.values() if c.owner == "p2" and c.zone == "p2:exile") == 2  # the Bears and the Island left
+    check(s)
+
+
+# -- Silent-Blade Oni --------------------------------------------------------------------------------------------------------------------
+def test_silent_blade_oni_look_at_the_hand_and_cast_a_spell_from_it_for_free(cards):
+    s = table(cards, ["Silent-Blade Oni"], [GIANT, BOLT], [BEARS])
+    stops(s)
+    oni = put(s, "Silent-Blade Oni")
+    giant, bolt = to_hand(s, GIANT, "p2"), to_hand(s, BOLT, "p2")
+    bears = to_hand(s, BEARS, "p3")
+    alice_next(s)
+    attack(s, oni)
+    d = None
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.player == "p1" and d.kind == "confirm":
+            break
+        if d is not None:
+            act(s, d.player, type="declare_blockers", blocks=[]) if d.kind == "declare_blockers" else act(
+                s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p1" and "look at the hand" in d.prompt
+    for viewer in ("p3", SPECTATOR):  # Alice sees Bob's hand: the others do not
+        assert unseen_by(s, giant, viewer) and unseen_by(s, bolt, viewer)
+    assert not unseen_by(s, giant, "p1") and not unseen_by(s, bolt, "p1")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["ok"])
+    d = until_asked(s)
+    assert d.player == "p1" and {o.id for o in d.options} == {giant.id, bolt.id}  # Bob's cards only (Carol's hand is not "that player's")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[giant.id])
+    settle(s)
+    assert s.state.cards[giant.id].zone == "p1:battlefield" and s.state.cards[giant.id].controller == "p1" and s.state.cards[bolt.id].zone == "p2:hand"
+    assert s.state.cards[bears.id].zone == "p3:hand"
+    check(s)
+
+
+# -- Lord of the Void ----------------------------------------------------------------------------------------------------------------------
+def test_lord_of_the_void_exiles_seven_and_puts_a_creature_among_them_onto_the_battlefield(cards):
+    s = table(cards, ["Lord of the Void"], [GRAIL, BEARS, GIANT, ANGEL], [BEARS])
+    stops(s)
+    lord = put(s, "Lord of the Void")
+    alice_next(s)
+    top = list(s.state.zones["p2:library"])[:7]
+    attack(s, lord)
+    d = None
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_cards" and all(o.id in top for o in d.options):
+            break
+        if d is not None:
+            act(s, d.player, type="declare_blockers", blocks=[]) if d.kind == "declare_blockers" else act(
+                s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p1"
+    names = sorted(s.state.cards[o.id].name for o in d.options)
+    assert names and all(n in (BEARS, GIANT, ANGEL) for n in names)  # creature cards among the seven (Bob drew the first card of his library on his turn: it is not among them)
+    pick = next(o.id for o in d.options if s.state.cards[o.id].name == ANGEL) if ANGEL in names else d.options[0].id
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[pick])
+    settle(s)
+    assert s.state.cards[pick].zone == "p1:battlefield" and s.state.cards[pick].controller == "p1"
+    assert all(s.state.cards[c].zone == "p2:exile" for c in top if c != pick)  # the rest stay exiled
+    check(s)
+
+
+# -- Ashling, the Extinguisher ---------------------------------------------------------------------------------------------------------------
+def test_ashling_the_target_creature_is_sacrificed_by_the_player_she_hit(cards):
+    s = table(cards, ["Ashling, the Extinguisher"], [BEARS, GIANT], [BEARS])
+    stops(s)
+    ashling = put(s, "Ashling, the Extinguisher")
+    bears, giant, carols = put(s, BEARS, "p2"), put(s, GIANT, "p2"), put(s, BEARS, "p3")
+    alice_next(s)
+    attack(s, ashling)
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind in ("choose_cards", "choose_one") and d.player == "p1":
+            break
+        if d is not None:
+            act(s, d.player, type="declare_blockers", blocks=[]) if d.kind == "declare_blockers" else act(
+                s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and {o.id for o in d.options} == {bears.id, giant.id}  # the damaged player's creatures only
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[giant.id])
+    settle(s)
+    assert s.state.cards[giant.id].zone == "p2:graveyard" and s.state.cards[bears.id].zone == "p2:battlefield" and s.state.cards[carols.id].zone == "p3:battlefield"
+    check(s)
+
+
+# -- cards that became FULL with the same wording (a chosen or targeted player, "that player") -----------------------------------------------
+def rolls(monkeypatch, *results):
+    queue = list(results)
+    monkeypatch.setattr("app.game.resolve._rng_int", lambda rng, lo, hi: queue.pop(0))
+
+
+def edict(cards, monkeypatch, roll):
+    s = table(cards, ["Myrkul's Edict"], [BEARS, ANGEL], [BEARS, GIANT])
+    bears, angel, cb, cg = put(s, BEARS, "p2"), put(s, ANGEL, "p2"), put(s, BEARS, "p3"), put(s, GIANT, "p3")
+    to_hand(s, "Myrkul's Edict")
+    mana(s, "p1", B=1, C=1)
+    rolls(monkeypatch, roll)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Myrkul's Edict").id)
+    return s, bears, angel, cb, cg
+
+
+def test_myrkuls_edict_low_roll_the_opponent_you_choose_sacrifices(cards, monkeypatch):
+    s, bears, angel, cb, cg = edict(cards, monkeypatch, 5)
+    d = until_asked(s)
+    assert d.player == "p1" and {o.id for o in d.options} == {"p2", "p3"}  # "Choose an opponent"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])
+    d = until_asked(s)
+    assert d.player == "p2" and {o.id for o in d.options} == {bears.id, angel.id}  # that player's choice, of their own creatures
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[bears.id])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p2:graveyard" and all(s.state.cards[c.id].zone.endswith(":battlefield") for c in (angel, cb, cg))
+    check(s)
+
+
+def test_myrkuls_edict_mid_roll_each_opponent_sacrifices(cards, monkeypatch):
+    s, bears, angel, cb, cg = edict(cards, monkeypatch, 15)
+    d = until_asked(s)
+    assert d.player == "p2"
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[angel.id])
+    d = until_asked(s)
+    assert d.player == "p3"
+    act(s, "p3", type="choose", decision_id=d.id, option_ids=[cb.id])
+    settle(s)
+    assert s.state.cards[angel.id].zone == "p2:graveyard" and s.state.cards[cb.id].zone == "p3:graveyard" and s.state.cards[bears.id].zone == "p2:battlefield"
+    check(s)
+
+
+def test_myrkuls_edict_a_twenty_each_opponent_sacrifices_a_creature_with_the_greatest_power(cards, monkeypatch):
+    s, bears, angel, cb, cg = edict(cards, monkeypatch, 20)
+    settle(s)  # Bob's greatest power is the Angel's 4, Carol's the Giant's 3: one each, nothing to choose
+    assert s.state.cards[angel.id].zone == "p2:graveyard" and s.state.cards[cg.id].zone == "p3:graveyard"
+    assert s.state.cards[bears.id].zone == "p2:battlefield" and s.state.cards[cb.id].zone == "p3:battlefield"
+    check(s)
+
+
+def vote(s, pid, option):
+    d = until_asked(s)
+    assert d.player == pid and d.kind == "choose_one", (d.player, pid, d.kind)
+    act(s, pid, type="choose", decision_id=d.id, option_ids=[option])
+
+
+def test_sail_into_the_west_return_wins_every_player_gets_up_to_two_cards_and_it_is_exiled(cards):
+    s = table(cards, ["Sail into the West", GIANT], [BEARS, ANGEL], [BEARS])
+    mine, bears, angel, carols = to_gy(s, GIANT, "p1"), to_gy(s, BEARS, "p2"), to_gy(s, ANGEL, "p2"), to_gy(s, BEARS, "p3")
+    to_hand(s, "Sail into the West")
+    mana(s, "p1", G=1, U=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Sail into the West").id)
+    vote(s, "p1", "return")
+    vote(s, "p2", "return")
+    vote(s, "p3", "embark")
+    for who, most in (("p1", 1), ("p2", 2), ("p3", 1)):  # each player returns up to two cards, in turn order: "up to" always asks (nothing to be learned from a graveyard)
+        d = until_asked(s)
+        assert d.player == who and d.min_choices == 0 and d.max_choices == most
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:2])
+    settle(s)
+    assert s.state.cards[mine.id].zone == "p1:hand" and s.state.cards[bears.id].zone == "p2:hand" and s.state.cards[angel.id].zone == "p2:hand" and s.state.cards[carols.id].zone == "p3:hand"
+    assert s.state.cards[card_named(s, "Sail into the West").id].zone == "p1:exile"
+    check(s)
+
+
+def test_sail_into_the_west_a_tie_goes_to_embark_each_player_may_discard_and_draw_seven(cards):
+    s = table(cards, ["Sail into the West"], [BEARS], [BEARS])
+    to_hand(s, "Sail into the West")
+    mana(s, "p1", G=1, U=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Sail into the West").id)
+    vote(s, "p1", "return")
+    vote(s, "p2", "embark")
+    vote(s, "p3", "embark")
+    settle(s)
+    assert card_named(s, "Sail into the West").zone == "p1:graveyard"  # not exiled: it resolved the other way
+    check(s)
+
+
+def test_intellectual_offering_the_chosen_opponent_draws_three_with_you_and_untaps(cards):
+    s = table(cards, ["Intellectual Offering", BEARS], [BEARS], [BEARS])
+    ob, oc = put(s, BEARS, "p2"), put(s, BEARS, "p3")
+    mine = put(s, BEARS)
+    for c in (ob, oc, mine):
+        act(s, c.controller, type="tap", card_ids=[c.id], tapped=True)
+    to_hand(s, "Intellectual Offering")
+    mana(s, "p1", U=1, C=4)
+    hands = {p: len(s.state.zones[f"{p}:hand"]) for p in ("p1", "p2", "p3")}
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Intellectual Offering").id)
+    d = until_asked(s)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])
+    d = until_asked(s)  # the second "Choose an opponent" is its own choice
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p3"])
+    settle(s)
+    assert len(s.state.zones["p2:hand"]) == hands["p2"] + 3 and len(s.state.zones["p3:hand"]) == hands["p3"] and len(s.state.zones["p1:hand"]) == hands["p1"] - 1 + 3
+    assert not s.state.cards[mine.id].tapped and not s.state.cards[oc.id].tapped and s.state.cards[ob.id].tapped  # the second opponent's permanents untap, the first's do not
+    check(s)
+
+
+def test_disciple_of_perdition_exile_target_opponents_graveyard_that_player_loses_1_life(cards):
+    s = table(cards, ["Disciple of Perdition", "Murder"], [BEARS], [BEARS])
+    disciple = put(s, "Disciple of Perdition")
+    bears = to_gy(s, BEARS, "p2")
+    carols = to_gy(s, BEARS, "p3")
+    to_hand(s, "Murder")
+    mana(s, "p1", B=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Murder").id, targets=[disciple.id])
+    for _ in range(12):  # the trigger: choose one (mode), then its target
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        if d.kind == "choose_cards" and "mode" in d.prompt.lower():
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[1].id])
+        elif {"p2", "p3"} <= {o.id for o in d.options}:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["p2"])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    assert s.state.cards[bears.id].zone == "p2:exile" and s.state.cards[carols.id].zone == "p3:graveyard"
+    assert s.state.players["p2"].life == 39 and s.state.players["p3"].life == 40
+    check(s)
+
+
+def test_down_for_repairs_the_attraction_group_is_that_players_and_may_have_no_target(cards):
+    """Commander decks have no Attractions (no Attraction deck, 717), so the second target group - "up to one target Attraction that player controls" - has no legal target and is
+    skipped; the spell is the hand disruption (an Attraction destroyed would go to its owner's junkyard, which is not modelled)."""
+    s = table(cards, ["Down for Repairs"], [BEARS, GIANT, GRAIL], [])
+    for name in (BEARS, GRAIL):
+        to_hand(s, name, "p2")
+    to_hand(s, "Down for Repairs")
+    mana(s, "p1", B=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Down for Repairs").id, targets=["p2"], target_counts=[1, 0])
+    d = until_asked(s)
+    assert d.player == "p1" and {s.state.cards[o.id].name for o in d.options} == {BEARS, GRAIL}  # you choose a nonland card from the revealed hand
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[card_named(s, GRAIL, "p2").id])
+    settle(s)
+    assert s.state.cards[card_named(s, GRAIL, "p2").id].zone == "p2:graveyard" and s.state.cards[card_named(s, BEARS, "p2").id].zone == "p2:hand"
+    check(s)
+
+
+def test_windgraces_judgment_a_target_for_each_opponent_you_choose(cards):
+    """601.2c: "For any number of opponents, destroy target nonland permanent that player controls" - a target for each opponent chosen, none for the others."""
+    s = table(cards, ["Windgrace's Judgment"], [BEARS], [GIANT])
+    bears, giant = put(s, BEARS, "p2"), put(s, GIANT, "p3")
+    to_hand(s, "Windgrace's Judgment")
+    mana(s, "p1", B=1, G=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Windgrace's Judgment").id, targets=[bears.id], target_counts=[1, 0])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p2:graveyard" and s.state.cards[giant.id].zone == "p3:battlefield"  # Carol was not chosen
+    check(s)
+
+
+def test_windgraces_judgment_each_opponents_target_is_their_own_permanent(cards):
+    s = table(cards, ["Windgrace's Judgment"], [BEARS], [GIANT])
+    bears, giant = put(s, BEARS, "p2"), put(s, GIANT, "p3")
+    to_hand(s, "Windgrace's Judgment")
+    mana(s, "p1", B=1, G=1, C=3)
+    with pytest.raises(ActionError):  # Carol's Giant isn't Bob's group's legal target
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Windgrace's Judgment").id, targets=[giant.id, bears.id], target_counts=[1, 1])
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Windgrace's Judgment").id, targets=[bears.id, giant.id], target_counts=[1, 1])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p2:graveyard" and s.state.cards[giant.id].zone == "p3:graveyard"
+    check(s)
+
+
+def test_dark_salvation_the_creature_gets_minus_one_for_each_zombie_that_target_player_controls(cards):
+    """608.2c, 608.2b: the Zombies are made first; the count is the target player's own (the player chosen for the first target), whoever controls the creature."""
+    from tests.wave9c_kit import pt
+
+    s = table(cards, ["Dark Salvation"], [ANGEL], [])
+    angel = put(s, ANGEL, "p2")
+    to_hand(s, "Dark Salvation")
+    mana(s, "p1", B=1, C=4)  # {X}{X}{B}
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Dark Salvation").id, targets=["p2", angel.id], target_counts=[1, 1], x_value=2)
+    settle(s)
+    zombies = [c for c in s.state.cards.values() if c.name == "Zombie" and c.zone == "p2:battlefield"]
+    assert len(zombies) == 2 and pt(s, ANGEL, "p2") == (2, 2)  # Bob made them; Bob's two Zombies: -2/-2 until end of turn
+    check(s)
+
+
+def test_dark_salvation_counts_the_zombies_of_the_player_not_of_the_creatures_controller(cards):
+    from tests.wave9c_kit import pt
+
+    s = table(cards, ["Dark Salvation"], [ANGEL], [])
+    angel = put(s, ANGEL, "p2")
+    to_hand(s, "Dark Salvation")
+    mana(s, "p1", B=1, C=6)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Dark Salvation").id, targets=["p1", angel.id], target_counts=[1, 1], x_value=3)
+    settle(s)
+    assert len([c for c in s.state.cards.values() if c.name == "Zombie" and c.zone == "p1:battlefield"]) == 3 and pt(s, ANGEL, "p2") == (1, 1)  # Alice's three Zombies, Bob's Angel
+    check(s)

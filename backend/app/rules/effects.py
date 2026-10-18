@@ -3650,6 +3650,8 @@ def _continue_effects(plan: Plan, ctx: Context) -> None:
         if replacements.ask_903_9b_first(plan, ctx, e):
             return  # 903.9b: a commander's owner chooses before it would be put into a hand or library
         ctx["next"] += 1
+        if e.get("that"):  # -- player-relative selectors (wave 53A) -- "cards that player owns in exile": that player, as the instruction before left it
+            e = player_relative.bind_effect(plan, ctx, e)
         if e.get("note_group"):  # -- counters (wave 5H) -- the permanents a count reads, for a later "those creatures"
             context.bind_objects(plan, ctx, e["note_group"]["as"], _cards(plan, ctx, e["note_group"]["who"]))
         if not PRIMITIVES[e["do"]](plan, ctx, e):
@@ -3895,6 +3897,8 @@ def reveal_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             plan.note(f"{plan.name(pid)} reveals an empty hand", actor=pid)
         revealed += hand
     ctx["revealed"] = revealed
+    if e.get("private"):
+        ctx["looked_hand"] = list(revealed)  # -- player-relative selectors (wave 53A) -- "look at that player's hand. You may cast a spell from among those cards": the cards seen (permissions._free_pool "revealed")
     if not ctx.get("hide_queued"):  # (appended in place: the resolver walks the same list)
         ctx["hide_queued"] = True
         ctx["effects"].append({"do": "hide_revealed"})

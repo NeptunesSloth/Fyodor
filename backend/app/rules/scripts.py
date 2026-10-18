@@ -583,8 +583,8 @@ def _group_of(e: dict[str, Any]) -> int | None:
         return 0
     if isinstance(who, str) and who.startswith("target:"):
         return int(who[7:])
-    m = re.match(r"controlled:target(?::(\d+))?\|", who) if isinstance(who, str) else None
-    if m:  # (wave 13E) "all creatures target player controls"; not 6B's "controlled:target_player_or_controller|…"
+    m = re.match(r"(?:controlled:|graveyard_of:|zones_of:[a-z,]+:)target(?::(\d+))?(?=\||$)", who) if isinstance(who, str) else None
+    if m:  # (wave 13E) "all creatures target player controls"; not 6B's "controlled:target_player_or_controller|…"; -- player-relative selectors (wave 53A) -- or the zones of the target player
         return int(m[1] or 0)
     return None
 
@@ -907,6 +907,16 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             return None
         return "target" if groups is None else f"target:{g}"
 
+    def that_ref(index: int) -> str | None:
+        """-- player-relative selectors (wave 53A) -- the player reference "that player" in an instruction's selector stands for (None: not one we can name)."""
+        intro = find(lambda i: i.player, index)
+        if intro is not None:
+            if intro.do in ("choose_random", "choose_value"):
+                return "ref:" + bound(intro)
+            g = _group_of(out[intro.index])
+            return "target" if groups is None else f"target:{g}"
+        return named_player(index) or target_player(index)
+
     def target_player(index: int) -> str | None:
         """-- player-relative selectors (wave 53A) -- "that player" when no player was named before: the controller of the one permanent the instruction before targeted
         ("Destroy target creature an opponent controls. Each other creature that player controls gets -2/-0"); a trigger's own player is the other reading (event_player)."""
@@ -985,6 +995,11 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                         e[pkey] = np  # (-- player-relative selectors (wave 53A) --)
                     else:
                         e[pkey] = "event_player"
+            if e.get("do") == "free_cast" and e.get("zone") == "among" and any(o.get("do") == "reveal_hand" and o.get("private") for o in out[:index]):
+                e["zone"] = "revealed"  # -- player-relative selectors (wave 53A) -- "Look at that player's hand. You may cast a spell from among those cards without paying its mana cost." (Silent-Blade Oni)
+                e.pop("who", None)
+            if not event_player and "that" not in e and player_relative.has_marker({k: v for k, v in e.items() if k != "who"}) and (that := that_ref(index)) is not None:
+                e["that"] = that  # -- player-relative selectors (wave 53A) -- "a land card that player owns from exile": which player, as the instruction before names it (read when it is carried out)
             who = e.get("who")
             if isinstance(who, str) and player_relative.marks(who) and '"controller":"that_player"' in who and not who.startswith(("controlled:", "graveyard_of:")):
                 who = e["who"] = player_relative.as_controlled(who)  # -- player-relative selectors (wave 53A) -- "each other creature that player controls": bound below like "each creature that player controls"
@@ -1089,8 +1104,11 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 if intro is not None:
                     if event_player or intro.do == "choose_random":  # (-- random choices (wave 47B) -- the pick's own group isn't read)
                         return None
-                    g = _group_of(out[intro.index])
-                    player = "target" if groups is None else f"target:{g}"
+                    if intro.do == "choose_value":  # -- player-relative selectors (wave 53A) -- "Choose an opponent. Untap … all nonland permanents that player controls."
+                        player = "ref:" + bound(intro)
+                    else:
+                        g = _group_of(out[intro.index])
+                        player = "target" if groups is None else f"target:{g}"
                 else:
                     player = target_player(index) or named_player(index) or "event_player"
                 e["who"] = re.sub(r"that_player(?=\||$)", player, who, count=1)
@@ -1287,7 +1305,7 @@ def _free_cast_source(e: dict[str, Any], pronoun: str, intro: _Introducer | None
     return True
 
 
-_TARGET_REFS = ("who", "library", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player", "cards", "for_player")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)  # (for_player: wave 50I, "Target player gains X life, where X is the greatest power among creatures they control" in a mode with other groups)
+_TARGET_REFS = ("who", "library", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player", "cards", "for_player", "that")  # (that: -- player-relative selectors (wave 53A) --) ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)  # (for_player: wave 50I, "Target player gains X life, where X is the greatest power among creatures they control" in a mode with other groups)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:
@@ -1313,6 +1331,8 @@ def rename_bindings(value: Any, prefix: str) -> Any:
             v = "graveyard_of:ref:" + prefix + v[len("graveyard_of:ref:"):]  # -- reanimation (wave 37B) -- "exile its owner's graveyard": the player a binding names (a spell's line kept it unrenamed)
         elif isinstance(v, str) and v.startswith("controlled:ref:") and not v.startswith("controlled:ref:event"):  # -- random choices (wave 47B) -- "each creature that player controls" (Mob Verdict)
             v = "controlled:ref:" + prefix + v[len("controlled:ref:"):]
+        elif isinstance(v, str) and (zr := re.match(r"zones_of:[a-z,]+:ref:(?!event)", v)):  # -- player-relative selectors (wave 53A) -- "exile all cards from that player's hand" after a choice
+            v = v[: zr.end()] + prefix + v[zr.end():]
         elif isinstance(v, str) and v.startswith("except:"):  # -- refused modal/conditional (wave 3R1) -- (Martial Coup)
             v = "except:" + prefix + v[len("except:"):]
         else:
@@ -3104,6 +3124,11 @@ def _that_players_hand(found: tuple[list[dict[str, Any]], Any, bool] | None) -> 
         return found
     if (found[1] in ("player", "opponent") or str(found[1]).startswith("opponent_as:")) and '"event_player"' not in text:
         bound = "target"
+    elif isinstance(found[1], list) and relative in text and not marked and '"event_player"' not in text \
+            and len(one := [i for i, g in enumerate(found[1]) if _is_player_group(g) and g.get("max") == 1]) == 1:
+        # -- player-relative selectors (wave 53A) -- "Target player creates X Zombie tokens, then up to one target creature gets -1/-1 until end of turn for each Zombie that player controls." (Dark
+        # Salvation): beside other targets, "that player" is the one target player's group (608.2b: as chosen), whose own count it is
+        return json.loads(text.replace(relative, f'"for_player": "target:{one[0]}"')), found[1], found[2]
     elif found[1] is None and (marked or relative in text) and (any(e.get("who") == "event_player" for e in found[0]) or all(
             e.get("who", "you") == "you" for e in found[0] if marker in json.dumps(e) or library in json.dumps(e) or relative in json.dumps(e))):
         bound = "event"  # -- value grammar (wave 30N) -- ... or you: "you gain 1 life for each artifact that player controls" (the trigger's player; _event_refs_ok checks it has one)
@@ -5777,7 +5802,7 @@ def _event_refs_ok(d: Definition) -> bool:
         if not (self_trigger or mine or shield):
             return False
     # (-- random choices (wave 47B) -- a reflexive ability that follows "Choose a player at random." binds its own: effects.reflexive ``players_from``)
-    unbound = json.dumps({**d, "effects": [e for e in d.get("effects") or [] if not e.get("players_from")],
+    unbound = json.dumps({**d, "effects": [e for e in d.get("effects") or [] if not e.get("players_from") and not e.get("that")],
                           **({"targets": [g for g in d["targets"] if g.get("of") is None]} if d.get("targets") else {})})  # (-- player-relative selectors (wave 53A) -- a group tied to an earlier group's player is bound as the targets are chosen)
     if '\\"controller\\":\\"that_player\\"' in unbound or '\\"zone_owner\\":\\"that_player\\"' in unbound:
         cond = d.get("cond") if d.get("trigger") == "event" else None
@@ -5791,7 +5816,8 @@ def _event_refs_ok(d: Definition) -> bool:
     skip = watches.deferred_event_effects(effects)
     effects = [e for i, e in enumerate(effects) if i not in skip]
     wants_player = any(e.get("who") in ("event_player", "each_other_opponent", "each_other_than_event", "event_opponents")
-                       or str(e.get("who")).startswith("controlled:event_player|") for e in effects) or '"for_player": "event"' in raw \
+                       or str(e.get("who")).startswith("controlled:event_player|") or re.match(r"(?:graveyard_of:|zones_of:[a-z,]+:)event_player(?=\||$)", str(e.get("who"))) is not None  # (wave 53A)
+                       for e in effects) or '"for_player": "event"' in raw \
         or any(e.get("player") == "event_player" or e.get("by") == "event_player" for e in effects)  # (wave 4E; "player": wave 6E; 25D: "by")
     wants_amount = any(_wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t", "mv", "max"))  # ("mv": a free cast's limit, wave 3R5; wave 26A "max": "search … for that many cards")
     if not wants_player and not wants_amount:

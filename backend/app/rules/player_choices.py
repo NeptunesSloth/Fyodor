@@ -113,6 +113,21 @@ def rewrite(body: str) -> str:
     body = re.sub(r"(^|[.,] )([Ee])xile it and (each player returns )", lambda m: f"{m[1]}{m[2]}xile it. {m[3].capitalize()}", body)
     # "Each player discards their hand, then returns up to three cards from their graveyard to their hand." (Ill-Gotten Gains): the discard first, then the choice (608.2c)
     body = re.sub(r"\b(Each player discards their hand), then (returns up to \w+ cards from their graveyard)", r"\1. Each player \2", body)
+    # "Exile all cards from that player's hand, then they draw that many cards." (Elder Brain): that many is the number of cards exiled this way (the this-way count, not an event's amount)
+    body = re.sub(r"\b(Exile all cards from (?:that|target) player's hand), then (?:they|that player) draws? that many cards\b", r"\1. That player draws cards equal to the number of cards exiled this way", body)
+    # "You may play lands and cast spells from among the exiled cards for as long as they remain exiled. If you cast a spell this way, you may spend mana as though it were mana of any color
+    # to cast it." (Elder Brain): the permission to play the cards, with the mana rider the grammar has for "You may play those cards for as long as they remain exiled, and …"
+    body = re.sub(r"\bYou may play lands and cast spells from among the exiled cards for as long as they remain exiled\. If you cast a spell this way, you may spend mana as though it were mana of "
+                  r"any (color|type) to cast it\.", r"You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any \1 to cast those spells.", body)
+    # "For any number of opponents, destroy target nonland permanent that player controls." (Windgrace's Judgment): you choose the opponents as you cast it (601.2c) and a target for each - the
+    # same as "for each opponent, destroy up to one target ... that player controls" (per_opponent): an opponent left out is one you chose no target for
+    body = re.sub(r"\bFor any number of opponents, (destroy|exile) target ([a-z ]+?) that player controls\b", r"For each opponent, \1 up to one target \2 that player controls", body)
+    # "Target player creates X 2/2 black Zombie creature tokens, then up to one target creature gets -1/-1 until end of turn for each Zombie that player controls." (Dark Salvation): two
+    # instructions of two targets (608.2c): the second is its own sentence
+    body = re.sub(r"\b((?:[Tt]arget (?:player|opponent)|[Tt]hat player) creates [^.,]+? tokens?), then ((?:up to one )?target creature (?:gets|gains|deals))",
+                  lambda m: f"{m[1]}. {m[2][0].upper()}{m[2][1:]}", body)
+    # "Choose target creature that player controls. The player sacrifices that creature." (Ashling, the Extinguisher): "the player" is that player
+    body = re.sub(r"(\b[Cc]hoose target [a-z ]+ that player controls\. )The player sacrifices that", r"\1That player sacrifices that", body)
     return _NOT_CHOSEN.sub(lambda m: m[1] + ", then each player sacrifices the rest.", body)
 
 
@@ -151,3 +166,45 @@ def destroy_random(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES: dict[str, Any] = {"destroy_random": destroy_random}
+
+
+# "… then you may put any number of land cards that player owns from exile onto the battlefield under your control." (Oblivion Sower): the cards that player owns in exile - the ones just
+# exiled and any other they own there (the card's ruling) - chosen as it resolves (608.2d); the player is tagged by scripts.resolve_it (``that``) and read when it is carried out
+_FROM_EXILE = re.compile(r"^(?:you may )?put (?P<q>any number of|up to (?:one|two|three|four)|an?) (?P<sel>[a-z ]+?) cards? that player owns from exile onto the battlefield(?P<tapped> tapped)? under your control$")
+
+
+def _from_exile(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from dataclasses import replace
+
+    from app.rules.scripts import _NoMatch
+
+    sel = selectors.parse(m["sel"] + " card from exile")
+    if sel is None or not sel.card or sel.zones != ("exile",) or sel.player is not None or sel.owner is not None or sel.zone_owner is not None or sel.controller is not None:
+        raise _NoMatch
+    q = m["q"]
+    n = 999 if q == "any number of" else _NUM[q.removeprefix("up to ")]
+    return [{"do": "return_choice", "to": "battlefield", "tapped": bool(m["tapped"]), "under": "you", "sel": replace(sel, zone_owner=selectors.THAT_PLAYER).key(), "n": n,
+             "upto": q != "a" and q != "an", "random": False, "label": m["sel"] + " card"}], None
+
+
+TEMPLATES.append((_FROM_EXILE, _from_exile))
+
+
+# "…, then put a creature card from among them onto the battlefield under your control." (Lord of the Void) after "exile the top seven cards of that player's library": the controller
+# chooses (608.2d) among the cards that instruction exiled (public, face up: 406.3), the one chosen entering under their control
+_FROM_AMONG = re.compile(r"^(?:then )?put (?P<q>an?|up to one) (?P<sel>[a-z ]+?) card from among them onto the battlefield(?P<tapped> tapped)?(?: under your control)?$")
+
+
+def _from_among(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from dataclasses import replace
+
+    from app.rules.scripts import _NoMatch
+
+    sel = selectors.parse(m["sel"] + " card from a graveyard")
+    if sel is None or not sel.card or sel.zones != ("graveyard",) or sel.player is not None or sel.owner is not None or sel.zone_owner is not None or sel.controller is not None:
+        raise _NoMatch
+    return [{"do": "return_choice", "who": "them:exiled|" + replace(sel, zones=("exile",)).key(), "to": "battlefield", "tapped": bool(m["tapped"]), "under": "you", "n": 1,
+             "upto": m["q"] != "a" and m["q"] != "an", "random": False, "label": m["sel"] + " card"}], None
+
+
+TEMPLATES.append((_FROM_AMONG, _from_among))

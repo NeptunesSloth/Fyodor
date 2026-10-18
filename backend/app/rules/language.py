@@ -3688,7 +3688,7 @@ _RA_TAPPED2 = rf"(?P<t2> tapped(?P<atk2> and attacking{token_grammar.at_re('2')}
 _RA_RETURN = re.compile(rf"return (?P<o>.+?) to (?:(?P<h>your hand|its owner's hand|their owner's hand|their owners' hands|their hand)|"
                         rf"the battlefield{_RA_TAPPED}(?P<xf> transformed)?(?P<fd> face down)?{_RA_UNDER}{_RA_TAPPED2}{_RA_WITH}{_RA_HOST})")  # (face down: wave 18A, 708.4; transformed: wave 37B, 712.14a)
 _RA_PUT = re.compile(rf"put (?P<o>.+?) onto the battlefield{_RA_TAPPED}{_RA_UNDER}{_RA_TAPPED2}{_RA_WITH}{_RA_HOST}")
-_RA_ZONE = r"(?:your graveyard|your hand or graveyard|a graveyard|an opponent's graveyard)"  # (-- reanimation (wave 37B) -- Danitha: "from your hand or graveyard")
+_RA_ZONE = r"(?:your graveyard|your hand or graveyard|a graveyard|an opponent's graveyard|that player's graveyard|their graveyard)"  # (-- reanimation (wave 37B) -- Danitha: "from your hand or graveyard"; -- player-relative selectors (wave 53A) -- "that player's / their graveyard": the player named before)
 _RA_CHOICE = re.compile(rf"(?:(?:an?|one) |up to (?P<upto>{AMT}) |(?P<any>any number of )|(?P<n>{AMT}) )(?P<what>(?:[^,]|,(?= [^,]+, or | or ))+?)(?P<rand> at random)?"  # (wave 50I: "an artifact, instant, or sorcery card")
                         rf" from (?P<z>{_RA_ZONE})")
 _RA_SELF = re.compile(r"(?:this card|~) from your graveyard")
@@ -3906,7 +3906,7 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
                 return None
             what = tm[1]
         words = re.sub(r"\bcards\b", "card", what)
-        sel = selectors.parse(f"{words} from {c['z']}")
+        sel = selectors.parse(f"{words} from {c['z'].replace('their graveyard', 'that player' + chr(39) + 's graveyard')}")  # (their = that player's, scripts.resolve_it tags the player)
         if sel is None:
             return None
         if c["z"] == "your hand or graveyard":  # -- reanimation (wave 37B) -- the hidden hand is asked about whether or not a card is there (effects.return_choice)
