@@ -650,7 +650,11 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
         payload["back_ids"] = back
     if any(e["player"] != first["player"] for e, _, _ in planned):
         payload["controllers"] = {c.id: e["player"] for e, c, _ in planned}
-    plan.do(payload, actor=first["actor"])
+    plan.put_via = first.get("via")  # (-- trigger other (wave 51E) -- Entry.via)
+    try:
+        plan.do(payload, actor=first["actor"])
+    finally:
+        plan.put_via = None
     together = [c.id for _, c, _ in planned]  # (wave 5H: 614.12)
     for entry, card, ep in planned:
         _after_move(plan, entry, card.id, ep, together)
@@ -1197,6 +1201,16 @@ def _commander_instead(plan: Plan, card: CardInstance, dest: str) -> bool | None
     if answer is None and plan.probe_903 is not None:
         plan.probe_903.append((card.id, dest))  # (a look ahead: ask_903_9b_first asks before the real move)
     return True if answer == "yes" else False if answer == "no" else None
+
+
+def kept_counters(plan: Plan, payload: dict[str, Any]) -> dict[str, Any]:
+    """-- counters (wave 51E) -- "Counters remain on ~ as it moves to any zone other than a player's hand or library." (Skullbriar, Me the Immortal): its ability
+    works in the zone it moves from (the rulings: not with it lost there, Yixlid Jailer), and the counters aren't put on it again (122.6: no doubling, no trigger)."""
+    if payload.get("type") != "move" or (payload.get("to") or {}).get("zone") in ("hand", "library"):
+        return payload
+    keep = [cid for cid in payload.get("card_ids") or [] if (c := plan.state.cards.get(cid)) is not None and c.counters
+            and any(d.get("static") == "keep_counters" for d in _definitions(plan, c).values())]
+    return {**payload, "keep_counters": keep} if keep else payload
 
 
 def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict[str, Any]:
