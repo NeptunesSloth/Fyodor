@@ -1226,7 +1226,7 @@ def rename_bindings(value: Any, prefix: str) -> Any:
             out[k] = v
             continue
         if k in ("as", "bind", "succeeded", "flag", "did", "ref_amount", "ref_count",
-                 "bind_dealt", "bind_excess", "bind_hit", "paid_x", "perm_as") and isinstance(v, str) and v not in (this_way.COST, this_way.DEVOURED):  # (wave 48B: the spell's own cost, a devourer's own sacrifices: one name for every line)  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
+                 "bind_dealt", "bind_excess", "bind_hit", "paid_x", "perm_as", "bind_amount") and isinstance(v, str) and v not in (this_way.COST, this_way.DEVOURED):  # (wave 48B: the spell's own cost, a devourer's own sacrifices: one name for every line)  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
             v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on;
             # "flag": the verdict an "instead" / "Otherwise" clause reads)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
@@ -1450,6 +1450,13 @@ def _join_forces(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 def _hand_wheel(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     who = "that_player" if m["who"] == "that player" else "you"
     return [{"do": "hand_to_bottom", "who": who, "bind_amount": "wheel"}, {"do": "draw", "who": who, "n": {"ref_amount": "wheel"}}], None
+
+
+# -- wheel (wave 51B) -- "Put any number of cards from your hand on the bottom of your library, then draw that many cards plus one." (Valakut Awakening, Into the Fire)
+@effect(r"put any number of cards from your hand on the bottom of your library, then draw that many cards plus one")
+def _hand_pick_wheel(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "hand_to_bottom", "who": "you", "bind_amount": "wheel", "any_number": True, "plus": 1},
+            {"do": "draw", "who": "you", "n": {"ref_amount": "wheel"}}], None
 
 
 @effect(r"you gain {N} life")
@@ -2399,6 +2406,10 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
 
     body = body.replace(" your team controls", " you control")  # -- static_other (wave 49C) -- 102.4: outside a team game "your team" is "you" (Combo Attack, Dwarven Lightsmith)
     body = _licids.rewrite(body)  # -- licids (wave 50A) --
+    # -- damage wordings (wave 51B) -- "Then each player creates X Treasure tokens and this enchantment deals X damage to each player, where X is the number of descent counters on this
+    # enchantment." (Descent into Avernus): two instructions in order (608.2c), the same X for both (nothing between them changes the counters)
+    body = re.sub(r"\b(each player creates X [A-Z][a-z]+ tokens?) and ((?:this \w+|~) deals) X damage to (each player), where X is ([^.]+)\.",
+                  r"\1, where X is \4. Then \2 damage to \3 equal to \4.", body)
     body = body.replace("can't be blocked by more than one creature each combat this turn", "can't be blocked by more than one creature this turn")  # (-- commanders (wave 50C) -- Glorfindel: the effect lasts the turn, so it covers each combat of it, 611.2a)
     body = re.sub(r"(\. |^)It's (an? [^.]+? for as long as it has an? [^.]+? counter on it)(?=\.|$)", r"\1It becomes \2", body)  # (-- commanders (wave 50C) -- Sauron, Dino Devotee: "It's a green Dinosaur with base power and toughness 5/5 for as long as it has a saurian counter on it" is a duration effect on the creature just given the counter, 611.2a)
     if (gifts := refused_zones.gifts_ability(body)) is not None:
@@ -2417,6 +2428,10 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     body = re.sub(r"(can't be blocked by creatures) of that color\b", r"\1 of the chosen color", body)  # -- chosen type (wave 50J) -- Skrelv: the color chosen before
     # -- exile with a counter (wave 50J) -- "Choose target creature card in a graveyard. Exile it with a brain counter on it." (Rex, Cyber-Hound): the counter goes on the card in exile
     body = re.sub(r"\b([Ee]xile (?:it|that card)(?: from their graveyard)?) with an? ([a-z]+) counter on it\.", r"\1. Put a \2 counter on it.", body)
+    if " times. When you " in body:  # -- pay N times (wave 51A) -- app/rules/paid_x.py
+        from app.rules import paid_x
+
+        body = paid_x.times_text(body)
     if "one or more {E}" in body:  # -- energy X (wave 50J) --
         from app.rules import paid_x
 
@@ -2978,7 +2993,7 @@ def _value_targets(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tupl
         if (any(isinstance(g, dict) and g.get("what") in ("player", "opponent") for g in groups) or first_value is None
                 or (first_other is not None and first_other < first_value)):
             raise _NoMatch
-        renumbered = _renumber(json.loads(text.replace(f'"for_player": "target_{who}"', '"for_player": "target:0"')), list(range(1, len(groups) + 1)))
+        renumbered = json.loads(json.dumps(_renumber(json.loads(text), list(range(1, len(groups) + 1)))).replace(f'"for_player": "target_{who}"', '"for_player": "target:0"'))  # (the value's own group after the shift: for_player is renumbered too since wave 50I)
         return renumbered, [{"what": who, "min": 1, "max": 1}, *groups], found[2]
     return json.loads(text.replace(f'"for_player": "target_{who}"', '"for_player": "target"')), who, found[2]
 
@@ -3119,7 +3134,7 @@ _KIND_LIST_IF = re.compile(r"^(if [^,.]*?\b(?:a|an|another) )([A-Z][a-z]+(?:, [A
 
 def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
     body = body.strip()
-    if not body.endswith(".") and not body.endswith('."'):
+    if not body.endswith((".", '."', ".'\"")):  # (wave 51B: Urza's Saga ends on a quote inside a quote, .'")
         return None
     if event_player:  # -- trigger sweep (wave 27B) -- "you and that player each draw a card and lose 1 life" (Karazikar): each part
         # is one instruction for both players ("you and that player each draw …": 121.2c, the active player draws first)
@@ -5480,11 +5495,17 @@ def _event_refs_ok(d: Definition) -> bool:
     if '"as": "event"' in raw and not (d.get("kind") == "triggered" and (step_names_player(d) or (
             ev is not None and ev["event"] != "multi" and _has_player(ev)))):
         return False
-    if '\\"evt:' in raw and d.get("trigger") != "attacks_self" and not (ev is not None and ev["event"] != "multi" and not ev.get("aggregate") and (
+    def one_object(x: dict[str, Any] | None) -> bool:
+        return x is not None and x["event"] != "multi" and not x.get("aggregate") and (
             # (-- if you do (wave 40A) -- "Whenever Gyrus attacks, you may exile target creature card with lesser power": the one object an attack trigger of
             # the source itself is about is the attacker, the source — its event carries it, triggers.attacks)
-            ev.get("subject") in ("sel", "self", "self_or", "self_or_host", "host") or (ev.get("subject") == "player" and ev.get("obj"))
-            or (ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")))) \
+            x.get("subject") in ("sel", "self", "self_or", "self_or_host", "host") or (x.get("subject") == "player" and x.get("obj"))
+            or (x["event"] == "cast" and x.get("subject") == "player" and not x.get("copy")))
+
+    # (-- reanimation (wave 51B) -- Scrap Trawler: "Whenever this creature dies or another artifact you control is put into a graveyard …, … with lesser mana value": each of the
+    # events of an "or" trigger is about one object (603.2c, the ruling: it triggers for each artifact), and so is the source's own death, its last-known snapshot)
+    if '\\"evt:' in raw and d.get("trigger") not in ("attacks_self", "dies_self") and not (
+            one_object(ev) or (ev is not None and ev["event"] == "either" and all(one_object(c) for c in ev["conds"]))) \
             and '\\"evt:' in json.dumps({**d, "effects": [e for i, e in enumerate(d.get("effects") or []) if i not in _delayed.object_deferred(d.get("effects") or [])]}):
         # (wave 28D: the spell a cast trigger is about; -- turn-long triggers (wave 35B) -- or the one object a "When that creature dies this turn" trigger is about)
         return False  # -- reanimation (wave 16F) -- "lesser mana value": than the one object the event is about

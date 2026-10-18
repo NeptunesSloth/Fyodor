@@ -43,7 +43,7 @@ from app.rules import (
 )
 from app.rules import this_way as _this_way  # -- "this way" outcomes (wave 4A) --
 from app.rules.plan import Plan, decide
-from app.rules.targets import source_of, still_legal
+from app.rules.targets import relation_ok, source_of, still_legal
 
 Context = dict[str, Any]  # {"controller", "source_card", "source_object", "name", "targets": [...], "stack_id", "kind"}
 
@@ -327,6 +327,12 @@ def draw(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if players:
             _drawing(ctx, e)
         return not players or replace.draw_cards(plan, players, each, then=_then(ctx, e), ctx=ctx)
+    if e.get("upto") and players and ctx.get("may_ok") != ctx["next"]:  # -- delayed draws (wave 51B) -- "may draw up to two cards": that player picks 0..N (608.2d)
+        n = _amount(plan, ctx, e["n"])
+        decide(plan, player=players[0], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: draw how many cards?",
+               options=[DecisionOption(id=str(i), label=f"Draw {i}") for i in range(n + 1)],
+               resume={"step": "draw_upto", "ctx": ctx, "e": e})
+        return False
     want = _amount(plan, ctx, e["n"])
     if e.get("also"):  # -- triggers (wave 5D) -- "You and target opponent each draw a card": one instruction (121.2c)
         players = list(dict.fromkeys([*_players(plan, ctx, e["also"]), *players]))
@@ -2858,6 +2864,13 @@ def resume_draw_may(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
+def resume_draw_upto(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx = d.resume["ctx"]
+    ctx["may_ok"] = ctx["next"]
+    if draw(plan, ctx, {**d.resume["e"], "n": int(chosen[0])}):
+        continue_effects(plan, ctx)
+
+
 def resume_look_may(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
     if chosen[0] == "yes":
@@ -2910,7 +2923,7 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True
     # (with a filter, ask even when nothing matched, as search does: whether a decision appears
     # mustn't tell the other players what the hidden cards were)
-    decide(plan, player=pid, kind="choose_cards", prompt=e.get("prompt") or "Choose from among them",
+    decide(plan, player=pid, kind="choose_cards", prompt=e.get("prompt") or "Choose from among them" + (f" (total mana value {e['total_mv']} or less)" if e.get("total_mv") is not None else ""),
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in options],
            min_choices=least, max_choices=most, resume={"step": "pick_looked", "ctx": ctx, "e": e})
     return False
@@ -2918,6 +2931,7 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def resume_pick_looked(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
+    _within_total(plan, e, list(chosen))  # (wave 51A)
     if e.get("sels"):  # -- refused look/cast-free (wave 3R5) -- one card of each kind, each a different card
         from app.rules import looking
 
@@ -3505,7 +3519,8 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
         groups: list[list[dict[str, Any] | None]] = []
         for refs, gspec in zip(entry.groups, entry.group_specs, strict=False):
             # an illegal target keeps its place (None), so the division stays as announced (115.7f)
-            groups.append([t.model_dump() if still_legal(plan, gspec["what"], entry.controller, t, src, entry.source_card, attacker)
+            together = relation_ok(plan, gspec, refs)  # (wave 51A) "that share a creature type": no longer so, all of the group's targets are illegal (608.2b; Shifting Loyalties ruling)
+            groups.append([t.model_dump() if together and still_legal(plan, gspec["what"], entry.controller, t, src, entry.source_card, attacker)
                            else None for t in refs])
         chosen = sum(len(refs) for refs in entry.groups)
         if chosen and not any(t for g in groups for t in g):
@@ -4492,10 +4507,20 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if not hidden and (most == 0 or (least == most == len(pool))):
         return _return_cards(plan, ctx, e, pool[:most])
     decide(plan, player=pid, kind="choose_cards",
-           prompt=f"Choose {'up to ' if e.get('upto') else ''}{max(most, 1) if hidden else most} ({e.get('label', 'card')})" + {"exile": " to exile", "choose": ""}.get(e["to"], " to return"),
+           prompt=f"Choose {'up to ' if e.get('upto') else ''}{max(most, 1) if hidden else most} ({e.get('label', 'card')})" + {"exile": " to exile", "choose": ""}.get(e["to"], " to return")
+           + (f" with total mana value {e['total_mv']} or less" if e.get("total_mv") is not None else ""),
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool],
            min_choices=least, max_choices=max(most, 1) if hidden else most, resume={"step": "return_choice", "ctx": ctx, "e": e})
     return False
+
+
+def _within_total(plan: Plan, e: dict[str, Any], cards: list[str]) -> None:
+    """-- total mana value (wave 51A) -- "up to two creature cards with total mana value 6 or less": checked as the cards are chosen (608.2d)."""
+    from app.game.errors import ActionError
+    from app.rules.targets import _total
+
+    if e.get("total_mv") is not None and _total(plan, cards, "mana_value") > e["total_mv"]:
+        raise ActionError(f"Those cards must have total mana value {e['total_mv']} or less")
 
 
 def resume_return_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -4503,6 +4528,7 @@ def resume_return_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     pool = set(_cards(plan, ctx, e["who"]) if e.get("who") else
                selectors.candidates(plan, selectors.from_key(e["sel"]), d.player if e.get("chooser") else ctx["controller"], ctx.get("source_card")))
     cards = [c for c in chosen if c in pool]  # (still there and still matching)
+    _within_total(plan, e, cards)
     if e.get("different"):  # -- refused zones/sized (wave 3R4) -- "… cards with different names / mana values"
         from app.rules.targets import _different
 
@@ -4643,6 +4669,7 @@ RESUME["choose_opponent"] = resume_choose_opponent
 
 RESUME["search_may"] = resume_search_may
 RESUME["draw_may"] = resume_draw_may  # (wave 17B)
+RESUME["draw_upto"] = resume_draw_upto  # (wave 51B)
 RESUME["look_may"] = resume_look_may  # (wave 15C)
 RESUME["search_zones"] = resume_search_zones  # -- refused zones/sized (wave 3R4) --
 # -- counters & designations (wave 3E) --------------------------------------------------------------
@@ -4923,6 +4950,7 @@ RESUME[_resolution_choice.STEP] = _resolution_choice.resume
 from app.rules import hand_wheel as _hand_wheel  # noqa: E402, I001
 
 PRIMITIVES.update(_hand_wheel.PRIMITIVES)
+RESUME.update(_hand_wheel.RESUME)  # (wave 51B)
 # -- trigger other (wave 25B) -- join forces (app/rules/join_forces.py)
 from app.rules import join_forces as _join_forces  # noqa: E402, I001
 
