@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 # The verbs, each with the recording effects' verbs (scripts._RECORDING) that it may name.
 _VERBS = {"destroyed": ("destroyed",), "exiled": ("exiled", "blinked"), "sacrificed": ("sacrificed",),  # (blinked, wave 46C: "Exile target creature you control, then return that card to the battlefield. If a Pirate was exiled this way, …", Siren's Ruse)
           "discarded": ("discarded",), "milled": ("milled",), "returned": ("returned", "blinked"), "your_hand": ("returned", "put_hand", "blinked"),
-          "graveyard": ("destroyed", "sacrificed", "milled", "discarded", "put_graveyard"), "your_graveyard": ("milled", "discarded", "put_graveyard"),
+          "graveyard": ("destroyed", "sacrificed", "milled", "discarded", "put_graveyard"), "your_graveyard": ("destroyed", "sacrificed", "milled", "discarded", "put_graveyard"),  # (wave 52A: "Destroy all creatures. … a creature card put into your graveyard this way" - only those that went to your graveyard, _matched)
           "died": ("destroyed", "sacrificed"), "tapped": ("tapped",), "goaded": ("goaded",),  # (goaded: wave 50J)
           "revealed": ("revealed",), "shuffled": ("shuffled",),  # (wave 10C: reveal_hand.py)
           "battlefield_put": ("put_battlefield",),  # -- most-played cards II (wave 45A) -- "If you put a Cave onto the battlefield this way" (put_from_hand)
@@ -142,7 +142,8 @@ def objects_who(phrase: str) -> str | None:
     sel = selectors.from_key(found["of"]) if found.get("of") else selectors.Selector()
     if sel.player is not None or sel.controller is not None or sel.owner is not None or sel.zone_owner is not None:
         return None
-    return f"them:{found['this_way']}|{selectors.replace(sel, zones=(_OBJECT_ZONE[found['this_way']],), card=True).key()}"
+    mine = {"zone_owner": "you"} if found["this_way"] == "your_graveyard" else {}  # (-- if you do (wave 52A) -- "put into YOUR graveyard this way": the cards of that graveyard's owner, Starfall Invocation)
+    return f"them:{found['this_way']}|{selectors.replace(sel, zones=(_OBJECT_ZONE[found['this_way']],), card=True, **mine).key()}"
 
 
 def filtered(plan: Plan, ctx: dict[str, Any], cards: list[str], key: str) -> list[str]:

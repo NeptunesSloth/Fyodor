@@ -16,7 +16,7 @@ from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_
 from tests.wave52a_kit import build_n, open_repo
 
 ARCHWAY = "Arid Archway"
-WITCH_KING, BREW = "Rise of the Witch-king", "Deadly Brew"
+WITCH_KING, BREW, STARFALL = "Rise of the Witch-king", "Deadly Brew", "Starfall Invocation"
 
 
 @pytest.fixture()
@@ -24,7 +24,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [ARCHWAY, WITCH_KING, BREW])
+@pytest.mark.parametrize("name", [ARCHWAY, WITCH_KING, BREW, STARFALL])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -142,4 +142,33 @@ def test_deadly_brew_returns_another_permanent_card_to_the_hand(cards):
         act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])
     settle(s)
     assert zone_of(s, "Soul Warden") == "p1:hand" and zone_of(s, "Grizzly Bears") == "p1:graveyard"
+    check(s)
+
+
+# -- Starfall Invocation -----------------------------------------------------------------------------------------------------------------
+def starfall(cards, gift):
+    s = build(cards, [STARFALL, "Grizzly Bears", "Soul Warden"], ["Hill Giant"])
+    put(s, "Grizzly Bears")
+    put(s, "Soul Warden")
+    put(s, "Hill Giant", "p2")
+    c = to_hand(s, STARFALL)
+    mana(s, "p1", W=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=c.id, optional_costs=[f"{c.id}:gift"] if gift else [])
+    return s
+
+
+def test_starfall_invocation_with_the_gift_returns_one_of_your_creature_cards(cards):
+    s = starfall(cards, gift=True)
+    d = s.state.rules.decision  # only the creature cards that went to YOUR graveyard (Bob's Hill Giant went to his)
+    assert d is not None and {s.state.cards[o.id].name for o in d.options} == {"Grizzly Bears", "Soul Warden"}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if s.state.cards[o.id].name == "Soul Warden")])
+    settle(s)
+    assert zone_of(s, "Soul Warden") == "p1:battlefield" and zone_of(s, "Grizzly Bears") == "p1:graveyard" and zone_of(s, "Hill Giant", "p2") == "p2:graveyard"
+    check(s)
+
+
+def test_starfall_invocation_without_the_gift_returns_nothing(cards):
+    s = starfall(cards, gift=False)
+    settle(s)
+    assert zone_of(s, "Soul Warden") == "p1:graveyard" and zone_of(s, "Grizzly Bears") == "p1:graveyard"
     check(s)
