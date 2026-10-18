@@ -5442,11 +5442,17 @@ def _event_refs_ok(d: Definition) -> bool:
     if '"as": "event"' in raw and not (d.get("kind") == "triggered" and (step_names_player(d) or (
             ev is not None and ev["event"] != "multi" and _has_player(ev)))):
         return False
-    if '\\"evt:' in raw and d.get("trigger") != "attacks_self" and not (ev is not None and ev["event"] != "multi" and not ev.get("aggregate") and (
+    def one_object(x: dict[str, Any] | None) -> bool:
+        return x is not None and x["event"] != "multi" and not x.get("aggregate") and (
             # (-- if you do (wave 40A) -- "Whenever Gyrus attacks, you may exile target creature card with lesser power": the one object an attack trigger of
             # the source itself is about is the attacker, the source — its event carries it, triggers.attacks)
-            ev.get("subject") in ("sel", "self", "self_or", "self_or_host", "host") or (ev.get("subject") == "player" and ev.get("obj"))
-            or (ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")))) \
+            x.get("subject") in ("sel", "self", "self_or", "self_or_host", "host") or (x.get("subject") == "player" and x.get("obj"))
+            or (x["event"] == "cast" and x.get("subject") == "player" and not x.get("copy")))
+
+    # (-- reanimation (wave 51B) -- Scrap Trawler: "Whenever this creature dies or another artifact you control is put into a graveyard …, … with lesser mana value": each of the
+    # events of an "or" trigger is about one object (603.2c, the ruling: it triggers for each artifact), and so is the source's own death, its last-known snapshot)
+    if '\\"evt:' in raw and d.get("trigger") not in ("attacks_self", "dies_self") and not (
+            one_object(ev) or (ev is not None and ev["event"] == "either" and all(one_object(c) for c in ev["conds"]))) \
             and '\\"evt:' in json.dumps({**d, "effects": [e for i, e in enumerate(d.get("effects") or []) if i not in _delayed.object_deferred(d.get("effects") or [])]}):
         # (wave 28D: the spell a cast trigger is about; -- turn-long triggers (wave 35B) -- or the one object a "When that creature dies this turn" trigger is about)
         return False  # -- reanimation (wave 16F) -- "lesser mana value": than the one object the event is about

@@ -1993,7 +1993,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # cards in your graveyard that were put there from anywhere this turn." (Garna), "return to the battlefield target creature card in your
     # graveyard that …" (Moira) say what "Return all … to your hand" / "return target … to the battlefield" do
     text = re.sub(r"^(?P<may>you may )?return to (?P<d>your hand|the battlefield) (?P<o>(?:all|target|up to \w+ target|another target|each) "
-                  r"(?!.* (?:under|tapped|attacking|face down|with|attached)\b).+)$", lambda m: f"{m['may'] or ''}return {m['o']} to {m['d']}", text)
+                  r"(?!.* (?:under|tapped|attacking|face down|with(?! (?:equal or )?lesser\b)|attached)\b).+)$", lambda m: f"{m['may'] or ''}return {m['o']} to {m['d']}", text)
     found = reanimation_forms(text)  # -- reanimation (wave 3R) --
     if found is not None:
         return found

@@ -22,7 +22,7 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import until
 from tests.test_rules_wave12a_counters_keywords import answer, on_top
-from tests.wave9c_kit import build, card_named, check, mana, reloaded, to_hand, zone_of
+from tests.wave9c_kit import build, card_named, check, mana, put, reloaded, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave51b_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
@@ -152,6 +152,75 @@ def test_chrome_mox_adds_one_mana_of_the_exiled_cards_colors(cards, card_name, c
         assert d is not None and sorted(o.label for o in d.options) == ["{B}", "{R}"]
         act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
     assert sum(s.state.players["p1"].mana.values()) == 1 and set(s.state.players["p1"].mana) <= colors
+    check(s)
+
+
+def veil(cards, bob_spell):
+    """Alice casts Sol Ring; Bob answers with ``bob_spell`` at her Grizzly Bears; Alice answers that with Veil of Summer."""
+    s = build(cards, ["Grizzly Bears", "Veil of Summer", "Sol Ring"], ["Terminate", "Lightning Bolt"])
+    bears = put(s, "Grizzly Bears")
+    spell, v, ring = to_hand(s, bob_spell, "p2"), to_hand(s, "Veil of Summer"), to_hand(s, "Sol Ring")
+    mana(s, "p1", G=1, C=1)
+    mana(s, "p2", B=1, R=1)
+    act(s, "p1", type="cast_spell", card_id=ring.id)
+    if s.state.rules.priority == "p1":
+        act(s, "p1", type="pass_priority")
+    act(s, "p2", type="cast_spell", card_id=spell.id, targets=[bears.id])
+    if s.state.rules.priority == "p2":
+        act(s, "p2", type="pass_priority")
+    act(s, "p1", type="cast_spell", card_id=v.id)
+    return s, bears
+
+
+def test_veil_of_summer_gives_you_and_your_permanents_hexproof_from_black_and_blue(cards):
+    """702.11d, 702.11f: Terminate (black and red) can no longer target Alice's Bears or Alice; Alice draws (Bob cast a black spell this turn)."""
+    s, bears = veil(cards, "Terminate")
+    answer(s)  # (Alice's hand is empty but for what Veil draws)
+    assert zone_of(s, "Grizzly Bears") == "p1:battlefield"  # its target became illegal: Terminate did nothing
+    assert len(s.state.zones["p1:hand"]) == 1  # Veil's own draw
+    from app.rules import player_shields
+
+    plan = Plan(s.state, "p1", s.cards, None)
+    black, red = plan.ch(card_named(s, "Terminate", "p2")), plan.ch(card_named(s, "Lightning Bolt", "p2"))
+    assert not player_shields.can_target(plan, "p2", "p1", black) and player_shields.can_target(plan, "p2", "p1", red)
+    assert player_shields.can_target(plan, "p1", "p1", black)  # only what your opponents control (702.11d)
+    check(s)
+
+
+def test_veil_of_summer_does_not_stop_a_red_spell_or_draw_without_a_blue_or_black_one(cards):
+    s, bears = veil(cards, "Lightning Bolt")
+    answer(s)
+    assert zone_of(s, "Grizzly Bears").endswith("graveyard") and not s.state.zones["p1:hand"]  # Bolt is red: no hexproof from red, no draw
+    check(s)
+
+
+def trawler(cards):
+    """Alice's graveyard holds Sol Ring (1), Arcane Signet (2) and a second Scrap Trawler (3); the Trawler on the battlefield (3) dies to Bolt."""
+    s = build(cards, ["Scrap Trawler", "Scrap Trawler", "Sol Ring", "Arcane Signet", "Lightning Bolt"])
+    for name in ("Sol Ring", "Arcane Signet"):
+        act(s, "p1", type="move", card_ids=[card_named(s, name).id], to={"player": "p1", "zone": "graveyard"})
+    first, second = [c for c in s.state.cards.values() if c.name == "Scrap Trawler" and c.owner == "p1"]
+    act(s, "p1", type="move", card_ids=[second.id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p1", type="move", card_ids=[first.id], to={"player": "p1", "zone": "battlefield"})
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[first.id])
+    return s, first
+
+
+def test_scrap_trawler_returns_an_artifact_with_lesser_mana_value_than_the_one_that_left(cards):
+    """Ruling 2017-02-09: the target has a lesser mana value than the artifact that caused the trigger, as it last existed on the battlefield (here the Trawler itself,
+    3): Sol Ring and Arcane Signet qualify, the other Scrap Trawler (3) does not."""
+    s, first = trawler(cards)
+    for _ in range(8):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and sorted(o.label for o in d.options) == ["Arcane Signet", "Sol Ring"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "Arcane Signet")])
+    answer(s)
+    assert zone_of(s, "Arcane Signet") == "p1:hand" and zone_of(s, "Sol Ring") == "p1:graveyard"
     check(s)
 
 
