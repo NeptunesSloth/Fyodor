@@ -9,6 +9,21 @@ exactly one player has that name. Anything else reads as no chosen player (the a
 
 Read by: step triggers "At the beginning of the chosen player's upkeep" (Black Vise, The Rack; triggers._whose_step),
 and the effect subject "the chosen player" (``who: "chosen_player"``, effects._players).
+
+-- chosen filters (wave 53B) -- a chosen value used as a filter, for every kind of value (creature type, color, card type, basic land type, number, card name):
+* State: none new beyond the permanent's public ``choices`` entries ("Chosen color / creature type / card type / basic land type / second basic land type / number / card name",
+  614.12a; a second one per extra answer) and, for an in-resolution choice, the instructions after it (bind_effects rewrites the selector extras ``chosen_*`` into the answer,
+  608.2c-d). ``RulesState.permissions`` gets a ``nth`` default (None) for "the next spell of the chosen type".
+* Who is asked: the controller, publicly (a choice of a value is never hidden: 614.12a, 201.4); a card name is typed (card_names.FREE_TEXT) or, where the text restricts it, picked
+  from the revealed nonland cards (Alhammarret). Looking at a hand (Arachne) shows the cards only in the chooser's own decision (701.20e), as ``group="seen"`` options that are
+  not answers.
+* Where it is used: ``chosen_value_ok`` accepts a definition only if every use has its choice (one entering choice of that kind for the source's own abilities and statics, or
+  exactly one earlier choice of the same resolution); anything else stays manual. ``rewrite`` turns "of that color / type", "that many", "the number" after a Choose sentence
+  into "the chosen …". ``retag`` reads the ambiguous "of the chosen type" as a card type or a basic land type where that is the one choice there is.
+* Hidden information: names, types, colors and numbers are public; a hand is revealed to everyone only when the text says "reveals" (Alhammarret, Darigaaz, Brain Pry); "looks at"
+  stays private.
+* Rules: 608.2c-d (instructions in order, choices on resolution), 614.12a (as it enters), 201.4 (names), 205.2a / 205.3m (types), 105.1 (colors), 107.1b-c (numbers), 305.7 and
+  613.1d-e (land types, colors), 601.2f (costs), 702.16 (protection), 702.11d (hexproof from), 705.2 (several flips), 709.4a (names).
 """
 
 from __future__ import annotations

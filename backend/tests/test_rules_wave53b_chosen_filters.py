@@ -1558,3 +1558,20 @@ def test_illusionary_terrain_turns_the_basic_lands_of_the_first_type_into_the_se
     assert kinds(s, "Island", "p2") == frozenset({"Swamp"})  # 305.7: the old land type is gone
     assert kinds(s, "Forest") == frozenset({"Forest"})  # (another type is left alone)
     check(s)
+
+
+def test_darigaaz_deals_damage_for_each_card_of_the_chosen_color_in_the_revealed_hand(cards):
+    s = build(cards, ["Darigaaz, the Igniter", "Probe Peak", "Probe Swamp", "Probe Swamp"], ["Probe Elf", "Probe Goblin", "Probe Bolt", "Probe Knight"])
+    darigaaz = put(s, "Darigaaz, the Igniter")
+    s.state.rules.controlled_since[darigaaz.id].turn = 0
+    for c in [c for c in s.state.cards.values() if c.owner == "p1" and c.name in ("Probe Peak", "Probe Swamp")]:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})  # {2}{R} for the trigger
+    for n in ("Probe Elf", "Probe Goblin", "Probe Bolt", "Probe Knight"):
+        to_hand(s, n, "p2")
+    act(s, "p1", type="pass_priority")  # → combat
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": darigaaz.id, "target": "p2"}])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "choose_one")
+    assert life(s, "p2") == 40 - 6  # (the combat damage first)
+    answer(s, "pay", "Red")
+    assert life(s, "p2") == 40 - 6 - 2  # the two red cards of Bob's revealed hand (the green and the white one are not)
+    check(s)
