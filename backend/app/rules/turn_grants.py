@@ -26,7 +26,7 @@ _UNBLOCKED = re.compile(r"^(?!.*\")(?P<o>(?:(?!\b(?:gains?|gets|has|have)\b| and
 _UNBLOCKED_EXCEPT = re.compile(r"^(?!.*\")(?P<o>.+?) can't be blocked this turn except by (?P<ex>.+)$")
 _UNBLOCKED_LEAD = re.compile(r"^(?!.*\")until end of turn, (?P<o>.+?) can't be blocked (?P<by>by .+)$")
 _SHARED = re.compile(r"^(?!.*\")(?P<lead>until end of turn, )?(?P<o>(?:target|another target|this|that|~|it\b|(?:other )?creatures you control|each (?:other )?creature you control)[^,]*?) "
-                     r"(?P<a>(?:gains?|gets|has|have) .+?) and (?P<b>(?:gains?|can't be blocked) .+)$")
+                     r"(?P<a>(?:gains?|gets|has|have) .+?) and (?P<b>(?:gains?|can't be blocked|must be blocked) .+)$")
 _EOT = " until end of turn"
 
 
@@ -72,7 +72,7 @@ def _shared(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
         if _EOT in a or _EOT in b or "this turn" in b:
             raise _fail()
         a, b = a + _EOT, (b + _EOT if not b.startswith("can't") else b)
-    if not (a.endswith(_EOT) and (b.endswith(_EOT) or b.endswith("this turn"))):
+    if not (a.endswith(_EOT) and (b.endswith(_EOT) or b.endswith(("this turn", "this turn if able")))):  # (wave 53C: "must be blocked this turn if able", 509.1c)
         raise _fail()  # (each half with its own duration: a permanent grant isn't read here)
     left, right = scripts._clause(f"{m['o']} {a}"), scripts._clause(f"{m['o']} {b}")
     if left is None or right is None:

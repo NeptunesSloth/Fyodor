@@ -23,6 +23,8 @@ from tests.wave53c_kit import (
     check,
     combat_step,
     creature,
+    discard_for_real,
+    drive,
     in_play,
     main_step,
     on_field,
@@ -768,4 +770,63 @@ def test_pompous_gadabout_cannot_be_blocked_by_a_face_down_creature(cards):
     with pytest.raises(ActionError, match="can't be blocked"):
         act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": slinger.id, "attacker_id": gadabout.id}])  # it has no name
     act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": bears.id, "attacker_id": gadabout.id}])
+    check(s)
+
+
+# -- attaching to a target (701.3, 301.5) --
+def test_glider_attaches_only_when_cast_from_the_graveyard(cards):
+    s = sandbox(cards, "Rocket-Powered Goblin Glider", "Faithless Looting")
+    brute = creature(s, "p1", "Brute", "2/2")
+    main_step(s)
+    discard_for_real(s, "Rocket-Powered Goblin Glider")
+    glider = in_play(s, "Rocket-Powered Goblin Glider")
+    assert glider.zone == "p1:graveyard" or s.state.cards[glider.id].zone == "p1:graveyard"
+    pool(s, R=3, C=3)
+    act(s, "p1", type="cast_spell", card_id=glider.id)  # mayhem {2}: from the graveyard
+    drive(s, [brute.id])
+    assert s.state.cards[glider.id].zone == "p1:battlefield" and s.state.cards[glider.id].attached_to == brute.id
+    check(s)
+
+
+def test_glider_cast_from_hand_attaches_nothing(cards):
+    s = sandbox(cards, "Rocket-Powered Goblin Glider")
+    brute = creature(s, "p1", "Brute", "2/2")
+    main_step(s)
+    glider = cast_now(s, "Rocket-Powered Goblin Glider", [], R=3, C=3)
+    drive(s, [brute.id])
+    assert s.state.cards[glider.id].zone == "p1:battlefield" and s.state.cards[glider.id].attached_to is None
+    check(s)
+
+
+def test_nunchaku_attaches_and_the_equipped_creature_fights(cards):
+    s = sandbox(cards, "Novel Nunchaku")
+    brute = creature(s, "p1", "Brute", "3/3")
+    victim = creature(s, "p2", "Victim", "1/1")
+    bystander = creature(s, "p2", "Bystander", "1/1")
+    main_step(s)
+    nunchaku = cast_now(s, "Novel Nunchaku", [], G=1, C=2)
+    drive(s, [brute.id, victim.id])
+    assert s.state.cards[nunchaku.id].attached_to == brute.id
+    assert not alive(s, victim) and alive(s, bystander) and s.state.cards[brute.id].damage == 1  # it fought the creature chosen (701.14a: they deal damage to each other)
+    check(s)
+
+
+def test_magitek_scythe_attach_gives_first_strike_and_must_be_blocked(cards):
+    s = sandbox(cards, "Magitek Scythe")
+    brute = creature(s, "p1", "Brute", "3/3")
+    guard = creature(s, "p2", "Guard", "0/9")
+    main_step(s)
+    scythe = cast_now(s, "Magitek Scythe", [], R=3, C=3)
+    drive(s, [brute.id, "yes"])
+    assert s.state.cards[scythe.id].attached_to == brute.id
+    assert "first strike" in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[brute.id]).keywords
+    until(s, lambda s: s.state.turn.phase == "declare_attackers", limit=30)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": brute.id, "target": "p2"}])
+    for _ in range(8):
+        if s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    with pytest.raises(ActionError, match="must be blocked"):
+        act(s, "p2", type="declare_blockers", blocks=[])  # Guard could block it
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": guard.id, "attacker_id": brute.id}])
     check(s)

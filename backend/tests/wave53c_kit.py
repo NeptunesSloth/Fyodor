@@ -124,3 +124,36 @@ def priority_to(s, pid):
         if s.state.rules.priority == pid:
             return
         act(s, s.state.rules.priority, type="pass_priority")
+
+
+def drive(s, prefer=(), limit=40):
+    """Resolve the stack, answering each decision with the first of ``prefer`` it offers (a confirmation: yes), else its first option."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options]
+            pick = next((p for p in prefer if p in ids), "yes" if "yes" in ids else ids[0])
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
+
+
+def discard_for_real(s, name):
+    """Discard ``name`` from Alice's hand with Faithless Looting (draw two, then discard two: the named card first)."""
+    for n in ("Faithless Looting", name):
+        c = in_play(s, n)
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "hand"})
+    pool(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=in_play(s, "Faithless Looting").id)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            want = [o.id for o in d.options if o.card_id == in_play(s, name).id]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=(want + [o.id for o in d.options if o.id not in want])[: d.max_choices])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return

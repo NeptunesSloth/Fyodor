@@ -1861,7 +1861,9 @@ def _cast_how(t: str) -> Condition | None:
         how: dict[str, Any] = {"by_you": bool(m["you"])}
         if m["from"]:
             if m["from"] == "your graveyard" and not m["you"]:
-                return None
+                if not m["who2"]:
+                    return None
+                how["own_graveyard"] = True  # -- block events (wave 53C) -- "if it was cast from your graveyard" (Rocket-Powered Goblin Glider): its controller cast it from their graveyard
             how["from"] = _FROM[m["from"]]
         if m["main"]:
             if not m["you"]:
@@ -1955,6 +1957,10 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return False
     if how.get("by_you") and record.controller != ctx["controller"]:
         return False
+    if how.get("own_graveyard"):  # 400.3: a card goes to its owner's graveyard, so "your graveyard" is the controller's when the controller owns it and cast it
+        card = plan.state.cards.get(ctx.get("source_card") or "") if cond.get("object") == "self" else None
+        if record.controller != ctx["controller"] or card is None or card.owner != ctx["controller"]:
+            return False
     if how.get("kicked") and not record.kicked:  # 702.33d (a modal header's "If it was kicked, choose both instead")
         return False
     if how.get("escaped") and record.alternative != "escape":  # -- escape (wave 5I) -- 702.138b
