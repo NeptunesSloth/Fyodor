@@ -447,6 +447,22 @@ export function XPrompt() {
   );
 }
 
+/** -- group choices (wave 53D) -- "secretly choose a number": one option with this id, whose label says the least ("Type a number ≥ 0"); the whole number is
+ * typed and sent like a card name (the server checks it). */
+export const NUMBER_OPTION = "__number__";
+
+function NumberChoice({ d }: { d: DecisionView }) {
+  const [n, setN] = useState("");
+  const ok = /^\d{1,9}$/.test(n.trim());
+  return (
+    <div className="decision-options" data-testid="number-choice">
+      <input className="decision-name" data-testid="number-input" type="number" min={0} step={1} autoFocus value={n} placeholder="Number"
+        onChange={(e) => setN(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && ok) void chooseName(d.id, n.trim()); }} />
+      <button className="tt-btn brass" data-testid="number-done" disabled={!ok} onClick={() => void chooseName(d.id, n.trim())}>Choose</button>
+    </div>
+  );
+}
+
 function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   const [picked, setPicked] = useState<string[]>([]);
   const [remember, setRemember] = useState<string>("");
@@ -459,6 +475,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   if (d.kind === "declare_attackers") return <DeclareAttackers d={d} />;
   if (d.kind === "declare_blockers") return <DeclareBlockers d={d} />;
   if (d.kind === "choose_one" && options[0]?.id === NAME_OPTION) return <CardNameChoice d={d} view={view} />;
+  if (d.kind === "choose_one" && options[0]?.id === NUMBER_OPTION) return <NumberChoice d={d} />;
   if (d.kind === "choose_one" || d.kind === "confirm" || d.kind === "manual_resolution") {
     return (
       <div className="decision-options">
