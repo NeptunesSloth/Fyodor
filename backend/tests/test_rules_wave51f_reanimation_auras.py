@@ -334,3 +334,18 @@ def test_necromancy_whose_target_is_exiled_in_response_does_nothing(cards):
     settle(s)
     assert "Aura" not in ch(s, nec).subtypes and zone_of(s, "Necromancy") == "p1:battlefield"  # 608.2b: the whole ability does nothing
     check(s)
+
+
+def test_necromancy_removed_in_response_to_its_trigger_returns_nothing(cards):
+    s, nec = game(cards, "Necromancy", theirs=["Grizzly Bears", "Disenchant"])
+    bears, dis = bury(s, "Grizzly Bears", "p2"), to_hand(s, "Disenchant", "p2")
+    act(s, "p1", type="cast_spell", card_id=nec.id)
+    act(s, "p2", type="pass_priority")
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id])
+    act(s, "p1", type="pass_priority")
+    mana(s, "p2", W=2)
+    act(s, "p2", type="cast_spell", card_id=dis.id, targets=[nec.id])
+    settle(s)
+    assert zone_of(s, "Necromancy") == "p1:graveyard" and s.state.cards[bears.id].zone == "p2:graveyard" and not s.state.rules.delayed  # 603.4
+    check(s)
