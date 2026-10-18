@@ -57,6 +57,7 @@ class Plan:
         self.probe_903: list[tuple[str, str]] | None = None  # a look ahead for 903.9b (replacements.ask_903_9b_first)
         # -- review (face-down ids) -- whether each card is face down in view (as the intent began, then after each of its moves)
         self.began: dict[str, bool] | None = {cid: down_public(c) for cid, c in self.state.cards.items()}
+        self.put_via: str | None = None  # -- trigger other (wave 51E) -- the object whose effect is putting cards onto the battlefield now (Entry.via)
         self.moved: dict[str, bool] = {}  # card -> did one of its moves this intent make it a card others have seen (ops.seen_move)
 
     began: dict[str, bool] | None = None
@@ -131,6 +132,7 @@ class Plan:
             log = self.rules.turn_log
             for entry in log.entered[entered_before[1] if log.turn == entered_before[0] else 0:]:
                 card = self.state.cards.get(entry.card)
+                entry.via = self.put_via
                 if entry.types is None and card is not None and self.oid(card) == entry.object_id:
                     now = self.ch(card)
                     entry.types, entry.subtypes = sorted(now.types), sorted(now.subtypes)

@@ -650,7 +650,11 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
         payload["back_ids"] = back
     if any(e["player"] != first["player"] for e, _, _ in planned):
         payload["controllers"] = {c.id: e["player"] for e, c, _ in planned}
-    plan.do(payload, actor=first["actor"])
+    plan.put_via = first.get("via")  # (-- trigger other (wave 51E) -- Entry.via)
+    try:
+        plan.do(payload, actor=first["actor"])
+    finally:
+        plan.put_via = None
     together = [c.id for _, c, _ in planned]  # (wave 5H: 614.12)
     for entry, card, ep in planned:
         _after_move(plan, entry, card.id, ep, together)

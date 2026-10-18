@@ -1819,6 +1819,8 @@ def _cast_how(t: str) -> Condition | None:
         # -- named permanents (wave 35C) -- Fblthp: put onto the battlefield from the library, or cast from it (it enters from the stack then: 400.7, 601.2a)
         who = _cast_who(m["w"])
         return {"any": [{"object": who, "cast": {"entered_from": "your library"}}, {"object": who, "cast": {"by_you": False, "from": "library"}}]}
+    if t == "it wasn't put onto the battlefield with this ability":  # -- trigger other (wave 51E) -- Kodama of the East Tree: Entry.via (the source's own effect)
+        return {"object": "it", "cast": {"put_by_this": False}}
     m = re.fullmatch(r"(?P<who>it|~|this creature|that creature) entered from (?P<z>your graveyard|a graveyard|exile|your hand)", t)
     if m:  # -- history (wave 22E) -- Archfiend's Vessel: "if it entered from your graveyard or you cast it from your graveyard"
         return {"object": "it" if m["who"] in ("it", "that creature") else "self", "cast": {"entered_from": m["z"].replace("a ", "")}}
@@ -1891,6 +1893,12 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         refs = context._object_refs(ctx, context.EVENT) if cond.get("object") == "event" else []
         oid = refs[0].object_id if refs else ctx.get("source_object") if cond.get("object") == "self" else None
         return history.entry_came_from(plan, oid, how["entered_from"], ctx["controller"])
+    if "put_by_this" in how:  # -- trigger other (wave 51E) -- the entry of the object the event is about, put there by this source's effect (Kodama)
+        from app.rules import context, history
+
+        refs = context._object_refs(ctx, context.EVENT)
+        return any(e.object_id == (refs[0].object_id if refs else None) and e.via == ctx.get("source_object")
+                   for e in history.log_for(plan).entered) == how["put_by_this"]
     if cond.get("object") == "event" and how.get("no_mana"):  # -- if you do (wave 5G) --
         return _no_mana_spent(plan, ctx)
     if cond.get("object") == "event" and how.get("event_spell"):  # -- ability words (wave 9C) -- opus
