@@ -2536,7 +2536,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # -- reflexive this way (wave 30G) -- "you may discard one or more land cards" is "any number" to a player who may choose none (Loamcrafter Faun)
     body = re.sub(r"(?i)(?<!spell, )\byou may (discard|sacrifice) one or more ", r"you may \1 any number of ", body)
     body = _COUNTED_IF_YOU_DO.sub(_counted_if_you_do, body)  # -- reflexive this way (wave 30G) -- Neheb: "… draw that many cards and add that much {R}."
-    body = re.sub(r"^(target (?:opponent|player) gains control of [^.]+)\. If they do, ", r"\1. If you do, ", body, flags=re.I)  # (-- commanders (wave 50C) -- Bill Ferny: "If they do" asks whether the control changed, as "If you do" after the instruction)
+    body = re.sub(r"^(\s*target (?:opponent|player) gains control of [^.]+)\. If they do, ", r"\1. If you do, ", body, flags=re.I)  # (-- commanders (wave 50C) -- Bill Ferny; wave 51D: an activated ability's body starts with a space, Stiltzkin: "If they do" asks whether the control changed, as "If you do" after the instruction)
     body = re.sub(r"(?i)\b(discard (?:up to \w+|any number of|\w+) cards?)(?:, then |\. (?:then )?)draw that many cards\b(?! plus| and )",
                   r"\1, then draw a card for each card discarded this way", body)
     # (wave 45D) Jared Carthalion: "For each of them, put a number of +1/+1 counters on it equal to the number of colors it is." is each chosen creature's own count
