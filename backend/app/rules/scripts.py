@@ -591,6 +591,9 @@ _TOKEN_MAKERS = {"create_token", "create_attacking"}  # (what they introduce are
 _RECORDING["rest_looked"] = None  # (wave 44A: its verb is _verb_of's)
 _RECORDING["haunt"] = None  # -- keywords (wave 50H) -- 702.55a (app/rules/haunt.py)
 _RECORDING["paradigm"] = None  # (702.192a: app/rules/paradigm.py)
+_RECORDING["draw"] = "drawn"  # -- if you do (wave 52A) -- "You draw a card for each card drawn this way." (Struggle for Project Purity): this_way.drawn
+_RECORDING["return_yours"] = "returned"  # -- if you do (wave 52A) -- "Return a land you control to its owner's hand. If another Desert was returned this way, …" (Arid Archway)
+_MOVERS.add("return_yours")
 _RECORDING["linked_cards"] = "exiled"  # -- resolution memory (wave 22D) -- exiled_with.linked_cards
 _MOVERS.add("linked_cards")
 _RECORDING["reveal_random"] = "revealed"  # -- random choices (wave 47B) -- "that card" is the card revealed at random
@@ -601,7 +604,7 @@ _RECORDING["transform"] = None  # -- most-played cards II (wave 45A) -- "Transfo
 _RECORDING["double_pt"] = None  # -- trigger other (wave 41C) -- "double the power of each other creature you control until end of turn. Those creatures gain vigilance …"
 _RECORDING["create_attacking"] = None  # -- keywords (wave 15E) -- "create … tokens that are tapped and attacking. Sacrifice them …":
 _MOVERS.add("create_attacking")  # the pronoun names the tokens made, not the ability's source (was bound to the source)
-_CHOSEN = {"sacrifice_choice": "n", "edict": "n", "discard": "n", "mill": "n", "create_token": "n", "search": "max", "pick_looked": "n",
+_CHOSEN = {"sacrifice_choice": "n", "edict": "n", "discard": "n", "mill": "n", "create_token": "n", "search": "max", "pick_looked": "n", "return_yours": "n",
            "create_attacking": "n", "reveal_random": "n"}  # (reveal_random, wave 47B: a targeted player's reveal names cards, not only the player)
 # ("on": "for each +1/+1 counter on it" — the object a pronoun names, as for its power. Not "hand":
 # "that player's hand" names a player, which _bind_stats (objects only) can't bind — values reads
@@ -635,7 +638,7 @@ class _Introducer:
         self.do = e.get("do")
         self.verb = _verb_of(e)  # (-- resolution memory (wave 22D) -- "Exile a creature you control": what it exiled, not sacrificed)
         self.recording = self.do in _RECORDING  # (can carry a binding: "its controller", "its power")
-        self.objects = self.recording
+        self.objects = self.recording and self.do != "draw"  # (-- if you do (wave 52A) -- a draw records how many it drew, never objects a pronoun could name)
         self.player = False
         self.number: int | None = 1  # 1 (singular), 2 (several), None (unknown)
         g = _group_of(e)
@@ -1176,7 +1179,7 @@ def _each_controller_creates(text: str) -> list[dict[str, Any]] | None:
 def _this_way_binding(kinds: tuple[str, ...], at: int, find: Any, bound: Any) -> str | None:
     """-- "this way" outcomes (wave 4A) -- the binding of the latest instruction before ``at`` that did one of
     ``kinds`` ("destroyed", "milled", …: _RECORDING's verbs), marking it to record what it acted on."""
-    found = find(lambda i: i.objects and i.recording and i.verb in kinds, at)
+    found = find(lambda i: (i.objects or i.do == "draw") and i.recording and i.verb in kinds, at)
     return bound(found) if found is not None else None
 
 
@@ -1229,7 +1232,7 @@ def rename_bindings(value: Any, prefix: str) -> Any:
             out[k] = v
             continue
         if k in ("as", "bind", "succeeded", "flag", "did", "ref_amount", "ref_count",
-                 "bind_dealt", "bind_excess", "bind_hit", "paid_x", "perm_as", "bind_amount") and isinstance(v, str) and v not in (this_way.COST, this_way.DEVOURED):  # (wave 48B: the spell's own cost, a devourer's own sacrifices: one name for every line)  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
+                 "bind_dealt", "bind_excess", "bind_hit", "paid_x", "perm_as", "bind_amount", "exclude") and isinstance(v, str) and v not in (this_way.COST, this_way.DEVOURED):  # (wave 48B: the spell's own cost, a devourer's own sacrifices: one name for every line)  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
             v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on;
             # "flag": the verdict an "instead" / "Otherwise" clause reads)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
@@ -2409,6 +2412,19 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
 
     body = body.replace(" your team controls", " you control")  # -- static_other (wave 49C) -- 102.4: outside a team game "your team" is "you" (Combo Attack, Dwarven Lightsmith)
     body = _licids.rewrite(body)  # -- licids (wave 50A) --
+    from app.rules import controller_each, counter_riders, this_way_words  # -- if you do (wave 52A) --
+
+    body = this_way_words.rewrite_excess(this_way_words.rewrite(counter_riders.rewrite(controller_each.rewrite(body))))
+    if (cb := counter_riders.counterbalance(body, it)) is not None:
+        return cb
+    from app.rules import sacrifice_return  # -- if you do (wave 52A) --
+
+    if (sr := sacrifice_return.parse(body, lambda t: _parse_effects_plain(t, it, event_player=event_player))) is not None:
+        return sr
+    from app.rules import counters_removed as _counters_removed  # -- if you do (wave 52A) --
+
+    if (cw := _counters_removed.either_way(body, lambda t: _parse_effects_plain(t, it, event_player=event_player))) is not None:
+        return cw
     # -- damage wordings (wave 51B) -- "Then each player creates X Treasure tokens and this enchantment deals X damage to each player, where X is the number of descent counters on this
     # enchantment." (Descent into Avernus): two instructions in order (608.2c), the same X for both (nothing between them changes the counters)
     body = re.sub(r"\b(each player creates X [A-Z][a-z]+ tokens?) and ((?:this \w+|~) deals) X damage to (each player), where X is ([^.]+)\.",
@@ -3407,6 +3423,14 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         prev_groups, groups_at = groups_at, len(groups)  # -- kicked / instead (wave 4G) -- each sentence's own target groups
         sentences.append(start)
         if (per := _each_controller_creates(text)) is not None:  # -- "this way" outcomes (wave 4A) --
+            effects += per
+            continue
+        from app.rules import (  # -- if you do (wave 52A) -- its controller draws / cloaks / investigates; mana for the counters removed this way
+            controller_each,
+            counters_removed,
+        )
+
+        if (per := controller_each.parse(text, _clause, _lower_first(texts[i - 1].rstrip(".")) if i else None) or counters_removed.parse(text, effects)) is not None:
             effects += per
             continue
         if (swap := this_way.graveyard_swap(text)) is not None:  # -- if you do (wave 5G) -- Living Death
@@ -5554,6 +5578,9 @@ def _has_player(cond: dict[str, Any]) -> bool:
     if cond.get("subject") == "sel" and cond["event"] in ("enter", "die", "leave") and not cond.get("aggregate") \
             and re.search(r'"controller":"(?:opponent|enchanted)"', str(cond.get("sel"))):
         return True
+    # -- if you do (wave 52A) -- "Whenever a card is put into an opponent's graveyard from anywhere, … that player loses 2 life" (Bloodchief Ascension): the owner of that graveyard
+    if cond.get("subject") == "sel" and cond["event"] == "to_graveyard" and not cond.get("aggregate") and re.search(r'"zone_owner":"opponent"', str(cond.get("sel"))):
+        return True
     # -- source damage (wave 11F) -- "that source's controller": the player who controlled the source (triggers._fire_generic)
     return cond["event"] == "deal_damage" and (cond.get("to") in ("player", "opponent", "you") or cond.get("subject") == "source")
 
@@ -7608,7 +7635,7 @@ def _probed_move(e: dict[str, Any]) -> bool:
     if e["do"] in ("tap", "transform"):  # -- if you do (wave 30G) -- "you may tap it. If you do, …": that one permanent, if it is untapped (effects._did_tap); wave 50C: "you may convert ~. When you do, …" (Ratchet): that permanent, if it turned over (effects._did_transform)
         return e.get("who") in ("self", "it") and not e.get("optional")
     if e["do"] == "lose_life":  # -- if you do (wave 30G) -- "you may have target player lose 3 life. If you do, …": chosen unless their life can't change (effects._did_lose_life)
-        return isinstance(e.get("who"), str) and e["who"].startswith("target") and isinstance(e.get("n"), int) and e["n"] > 0 and not e.get("optional")
+        return isinstance(e.get("who"), str) and (e["who"].startswith("target") or e["who"] in ("event_player", "that_player")) and isinstance(e.get("n"), int) and e["n"] > 0 and not e.get("optional")  # (wave 52A: "you may have that player lose 2 life. If you do, …", Bloodchief Ascension)
     if e["do"] == "sacrifice":  # -- if you do (wave 31A) -- "you may sacrifice it. If you do, …" (Foot Chopper): that one permanent, if it is still on the battlefield (701.21a)
         return e.get("who") in ("self", "it") and not e.get("optional")
     if e["do"] == "look_top":  # -- if you do (wave 31A) -- "you may reveal / look at the top card of [a] library. If you do, …" (Baneful Omen): one card, if there is one (effects._did_look)

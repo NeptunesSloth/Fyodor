@@ -184,8 +184,8 @@ def test_counts_parse_to_the_instruction_they_name():
 def test_unread_forms_stay_manual():
     # a count with no instruction of that verb before it
     assert scripts.parse_effects("Draw a card for each creature destroyed this way.") is None
-    # "its controller" for each object, with a different instruction than creating tokens
-    assert scripts.parse_effects("Destroy all creatures. For each creature destroyed this way, its controller draws a card.") is None
+    # "its controller" for each object, with a different instruction than creating tokens, drawing, cloaking or investigating (wave 52A: those are read now)
+    assert scripts.parse_effects("Destroy all creatures. For each creature destroyed this way, its controller gains 1 life.") is None
     # (wave 19C: "you discarded" after every player discarded is read now: only the cards the controller discarded count —
     # a discarded card is its owner's, 701.9a — tests/test_rules_wave19c_ifyoudo.py)
     assert this_way.condition("you discarded a land card this way")["value"]["by"] == "you"

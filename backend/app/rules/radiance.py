@@ -60,26 +60,29 @@ def split(body: str) -> tuple[str, str, str] | None:
     return text, ("ctl|" if ctl else "") + sel.key(), prefix
 
 
-def _bind(node: Any, ref: str, sel: str, prefix: str) -> Any | None:
+_NOT_READ = object()  # (-- if you do (wave 52A) -- a None leaf, like a token's power in a Clue, is no failure)
+
+
+def _bind(node: Any, ref: str, sel: str, prefix: str) -> Any:
     if isinstance(node, dict):
         out = {}
         for k, v in node.items():
             if k == "who" and v == ref:
                 out[k] = f"{prefix}{ref}|{sel}"
                 continue
-            if (r := _bind(v, ref, sel, prefix)) is None:
-                return None
+            if (r := _bind(v, ref, sel, prefix)) is _NOT_READ:
+                return _NOT_READ
             out[k] = r
         return out
     if isinstance(node, list):
         out_l = []
         for v in node:
-            if (r := _bind(v, ref, sel, prefix)) is None:
-                return None
+            if (r := _bind(v, ref, sel, prefix)) is _NOT_READ:
+                return _NOT_READ
             out_l.append(r)
         return out_l
     if isinstance(node, str) and (node == "target" or node.startswith("target:")):
-        return None  # (the target named any other way — a source, an amount: not read)
+        return _NOT_READ  # (the target named any other way — a source, an amount: not read)
     return node
 
 
@@ -90,7 +93,7 @@ def bind(found: tuple[list[dict[str, Any]], Any, bool] | None, sel: str, prefix:
     if optional or not groups or (isinstance(groups, list) and len(groups) != 1) or not effects:
         return None
     bound = _bind(effects, "target", sel, prefix)
-    if bound is None or not any(prefix in str(e) for e in bound):
+    if bound is _NOT_READ or not any(prefix in str(e) for e in bound):
         return None
     return bound, groups, optional
 

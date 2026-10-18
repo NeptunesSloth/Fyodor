@@ -317,6 +317,10 @@ def _moved(plan: Plan, ctx: Context, e: dict[str, Any], before: list[ObjectRef])
 def draw(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # -- replacement effects stage 2 (wave 2E): the draw choke point (app/rules/replace.py: 121.2,
     # 121.2c APNAP, 121.6a / 614.11 with an empty library, 704.5b) --
+    if e.get("as"):  # -- if you do (wave 52A) -- "for each card drawn this way": what each player had drawn this turn before (this_way.drawn reads the difference)
+        from app.rules import this_way
+
+        this_way.mark_drawn(plan, ctx, e["as"])
     players = _players(plan, ctx, e["who"])
     if e.get("may") and players and ctx.get("may_ok") != ctx["next"]:  # -- activated sweep (wave 17B) -- "Target opponent may draw a card": their choice (608.2d)
         decide(plan, player=players[0], kind="confirm", prompt=f"{ctx.get('name') or 'It'}: draw a card?",
@@ -1161,15 +1165,20 @@ def remove_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     n = _amount(plan, ctx, e["n"])
     cards = _cards(plan, ctx, e["who"])
     _remember(plan, ctx, e, cards)
+    removed = 0
     for cid in cards:
         if e["kind"] == "*":  # -- attached events (wave 25D) -- "remove all counters from it": every kind it has
             for kind, have in sorted(plan.state.cards[cid].counters.items()):
                 if have > 0 and n:
                     plan.do({"type": "counter", "card_ids": [cid], "kind": kind, "delta": -min(have, n)}, actor=ctx["controller"])
+                    removed += min(have, n)
             continue
         have = plan.state.cards[cid].counters.get(e["kind"], 0)
         if have and n:
             plan.do({"type": "counter", "card_ids": [cid], "kind": e["kind"], "delta": -min(have, n)}, actor=ctx["controller"])
+            removed += min(have, n)
+    if e.get("bind"):  # -- if you do (wave 52A) -- "Add {C} for each charge counter removed this way": the counters it actually removed (counters_removed.py)
+        context.bind_amount(ctx, e["bind"], removed)
     return True
 
 
@@ -1311,12 +1320,19 @@ def return_yours(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if n == 0:
         return True
     if n == len(pool):
-        _return_to_hands(plan, pool, pid)
+        _return_yours_to_hands(plan, ctx, e, pool, pid)
         return True
     decide(plan, player=pid, kind="choose_cards", prompt=f"Return {n} {e['what']}{'s' if n != 1 else ''} you control to hand",
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool],
-           min_choices=n, max_choices=n, resume={"step": "return_yours", "ctx": ctx})
+           min_choices=n, max_choices=n, resume={"step": "return_yours", "ctx": ctx, "e": e})
     return False
+
+
+def _return_yours_to_hands(plan: Plan, ctx: Context, e: dict[str, Any], ids: list[str], actor: str) -> None:
+    """-- if you do (wave 52A) -- what it returned is bound ("If another Desert was returned this way", Arid Archway): the permanents as they were (608.2h)."""
+    before = _remember(plan, ctx, e, ids)
+    _return_to_hands(plan, ids, actor)
+    _moved(plan, ctx, e, before)
 
 
 def return_any(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -1349,7 +1365,7 @@ def _return_to_hands(plan: Plan, ids: list[str], actor: str) -> None:
 
 
 def resume_return_yours(plan: Plan, d: Any, chosen: list[str]) -> None:
-    _return_to_hands(plan, chosen, d.player)
+    _return_yours_to_hands(plan, d.resume["ctx"], d.resume.get("e") or {}, chosen, d.player)
     continue_effects(plan, d.resume["ctx"])
 
 
@@ -4506,6 +4522,8 @@ def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     found = (_cards(plan, ctx, e["who"]) if e.get("who") else  # (-- wave 22D -- "a creature card put into a graveyard this way")
              selectors.candidates(plan, selectors.from_key(e["sel"]), pid, ctx.get("source_card")))
     # -- reanimation (wave 37B) -- "the top creature card of your graveyard": the last matching card of the graveyard's order (index -1 is the top), nothing chosen
+    if e.get("exclude"):  # -- if you do (wave 52A) -- "return another permanent card" after "sacrificed a creature this way": not the card just sacrificed (Rise of the Witch-king)
+        found = [c for c in found if c not in context.objects(plan, ctx, e["exclude"])]
     pool = found[-1:] if e.get("top") else sorted(found)
     want = _amount(plan, ctx, e["n"])
     if e.get("random"):
@@ -4543,6 +4561,8 @@ def resume_return_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
     pool = set(_cards(plan, ctx, e["who"]) if e.get("who") else
                selectors.candidates(plan, selectors.from_key(e["sel"]), d.player if e.get("chooser") else ctx["controller"], ctx.get("source_card")))
+    if e.get("exclude"):
+        pool -= set(context.objects(plan, ctx, e["exclude"]))
     cards = [c for c in chosen if c in pool]  # (still there and still matching)
     _within_total(plan, e, cards)
     if e.get("different"):  # -- refused zones/sized (wave 3R4) -- "… cards with different names / mana values"

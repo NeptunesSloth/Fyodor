@@ -1979,7 +1979,8 @@ def _free_pool(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> list[str]:
         return [c for p in ([pid] if e.get("own") else plan.live()) for c in plan.state.zones.get(zone_key(p, "exile"), [])
                 if plan.state.cards[c].counters.get(e["kind"], 0) > 0 and (not e.get("own") or plan.state.cards[c].owner == pid)]
     who = str(e.get("who") or "")
-    return context.objects(plan, ctx, who[len(context.PREFIX):]) if who.startswith(context.PREFIX) else []
+    # (-- if you do (wave 52A) -- a spell that was not countered is still on the stack: no card to cast, 601.2a)
+    return [c for c in context.objects(plan, ctx, who[len(context.PREFIX):]) if getattr(plan.state.cards.get(c), "zone", "") != "stack"] if who.startswith(context.PREFIX) else []
 
 
 def resume_free_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
