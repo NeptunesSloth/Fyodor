@@ -100,7 +100,7 @@ def parse(phrase: str) -> dict[str, Any] | None:
         kind = "died"
     else:
         kind = verb
-    if kind == "revealed" and (not _NOUN_ONLY.match(m["what"].strip()) or m["ctl"]):
+    if kind == "revealed" and (not (_NOUN_ONLY.match(m["what"].strip()) or re.search(r"\bcards?\b", m["what"])) or m["ctl"]):  # -- chosen filters (wave 53B) -- "card of the chosen type revealed this way"
         return None  # (-- if you do (wave 10C) -- only "cards revealed this way": a revealed card isn't a permanent or a moved object)
     of: str | None = None
     if not _NOUN_ONLY.match(what):
@@ -111,10 +111,12 @@ def parse(phrase: str) -> dict[str, Any] | None:
             return None
         if sel.other and (sel.card or kind not in ("returned", "your_hand", "exiled", "destroyed", "sacrificed", "died")):
             return None  # -- if you do (wave 52A) -- "another" is than the source (a permanent as it last existed): not read for a card in a hidden or other zone
+        if kind == "revealed" and not sel.card:
+            return None
         of = sel.key()
     elif m["ctl"]:
         return None
-    return {"this_way": kind, "of": of}
+    return {"this_way": kind, "of": of, **({"public": True} if kind == "revealed" and of else {})}  # (wave 53B: the cards shown to everyone, 701.20a: their kind is known)
 
 
 # -- resolution memory (wave 22D) -- the OBJECTS an earlier instruction moved: "Return each card put into a graveyard this way to the

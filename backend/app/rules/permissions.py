@@ -64,7 +64,7 @@ STATIC_COST = re.compile(
 # mana in that cost to less than one mana." / "Abilities you activate that aren't mana abilities cost {2} less to activate."
 ABILITY_COST = re.compile(
     rf"^(?:activated abilities(?: of (?P<sel>[a-z][a-z' ,-]*?))?|(?P<yours>abilities you activate that aren't mana abilities)) "
-    rf"costs? (?:{_N}|\{{(?P<x>X)\}}) (?P<dir>less|more) to activate(?:, where X is (?P<xv>~'s (?:power|toughness)))?"  # (wave 44D: Agatha of the Vile Cauldron)
+    rf"costs? (?:{_N}|\{{(?P<x>X)\}}) (?P<dir>less|more) to activate(?P<nomana> unless they're mana abilities)?(?:, where X is (?P<xv>~'s (?:power|toughness)))?"  # (wave 44D: Agatha of the Vile Cauldron; wave 53B: Anointed Peacekeeper)
     rf"(?:\. (?P<floor>this effect can't reduce the mana in that cost to less than one mana))?$",
     re.IGNORECASE)
 # -- equip (wave 15E) -- "Equip abilities you activate cost {1} less to activate." (Bureau Headmaster), "Equip costs you pay cost
@@ -694,9 +694,13 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         # permanent's own mana cost (702.193a), on the generic component (118.7a)
         return {"kind": "static", "static": "ability_cost_modifier", "delta": -int(m["n"]), "filter": pu.key(), "who": "you", "floor": False, "power_up": True, "effects": []}
     m = ABILITY_COST.fullmatch(tt)
+    if m and m["sel"] == "sources with the chosen name" and not m["nomana"]:
+        return None  # -- chosen filters (wave 53B) -- one that taxes a named source's mana abilities too (Skyseer's Chariot) stays manual
     if m:  # -- costs (wave 3$) -- the source permanent is matched at the cost, relative to the ability's controller
         key = None
-        if m["sel"]:
+        if m["sel"] == "sources with the chosen name":  # -- chosen filters (wave 53B) -- 201.2 / 709.4a: any source with the permanent's chosen name, in any zone it can be activated from
+            key = selectors.Selector(zones=("battlefield", "hand", "graveyard", "exile", "command"), extras=("chosen_name",)).key()
+        elif m["sel"]:
             sel = selectors.parse(m["sel"])
             if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.controller == "opponent" \
                     or sel.extras or sel.attacking or sel.blocking:
@@ -713,7 +717,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
             return None
         return {"kind": "static", "static": "ability_cost_modifier", "delta": 0 if m["x"] else int(m["n"]) * sign,
                 "filter": key, "who": "you" if m["yours"] or (m["sel"] and "you control" in m["sel"]) else "any",
-                "floor": bool(m["floor"]), "effects": [], **xtra, **({"target_self": True} if tgt else {})}
+                "floor": bool(m["floor"]), "effects": [], **xtra, **({"target_self": True} if tgt else {}), **({"nonmana": True} if m["nomana"] else {})}  # (wave 53B: "unless they're mana abilities", 605.1a)
     # -- conditional statics (wave 4B) -- "You may cast this card from your graveyard as long as you control a Zombie."
     # (Gravecrawler; 113.6f: functions from the graveyard; 611.3a: checked whenever the cast is offered or begun)
     m = RETRACE_GRANT.fullmatch(t)
@@ -1539,7 +1543,7 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
 
 # -- costs (wave 3$) -- cost modifiers for activated abilities (602.2b -> 601.2f, 118.7) ---------------------
 def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characteristics, mana: str, info: CardInfo,
-                 own: int = 0, ability_text: str = "", target: str | None = None) -> str:
+                 own: int = 0, ability_text: str = "", target: str | None = None, mana_ability: bool = False) -> str:
     """The mana part of an activated ability's cost after "Activated abilities of creatures you control cost {2} less to
     activate" and its increases: increases first, then reductions on the generic component only (118.7a, 601.2f), and with
     "can't reduce the mana in that cost to less than one mana" never below one mana. Costs with {X} are left alone."""
@@ -1556,6 +1560,8 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
 
     for src, d in mods:
         if d["who"] == "you" and src.controller != player:
+            continue
+        if mana_ability and d.get("nonmana"):  # -- chosen filters (wave 53B) -- "unless they're mana abilities": a mana ability is not charged
             continue
         if d.get("equip") and not attachments.is_equip_text(ability_text):  # -- equip (wave 15E) --
             continue

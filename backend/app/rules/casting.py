@@ -464,7 +464,7 @@ def ability_taxes(state: GameState, info: CardInfo) -> bool:
 def mana_ability_taxed(state: GameState, card: CardInstance, ch: Characteristics, ab: M.ManaAbility, info: CardInfo) -> bool:
     """Does a cost modifier change this mana ability's cost (``ability_taxes`` checked first by the caller)?"""
     mana = parse_ability_cost(ab.extra_cost, card_name=ch.name).mana if ab.extra_cost else ""
-    return permissions.ability_mana(state, card.controller, card, ch, mana, info) != mana
+    return permissions.ability_mana(state, card.controller, card, ch, mana, info, mana_ability=True) != mana
 # -- end review (wave 4R) --
 
 

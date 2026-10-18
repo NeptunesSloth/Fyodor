@@ -662,7 +662,7 @@ class _Introducer:
         self.do = e.get("do")
         self.verb = _verb_of(e)  # (-- resolution memory (wave 22D) -- "Exile a creature you control": what it exiled, not sacrificed)
         self.recording = self.do in _RECORDING  # (can carry a binding: "its controller", "its power")
-        self.objects = self.recording and self.do != "draw"  # (-- if you do (wave 52A) -- a draw records how many it drew, never objects a pronoun could name)
+        self.objects = self.recording and self.do not in ("draw", "reveal_hand")  # (-- if you do (wave 52A) -- a draw records how many it drew, never objects a pronoun could name)
         self.player = False
         self.number: int | None = 1  # 1 (singular), 2 (several), None (unknown)
         g = _group_of(e)
@@ -958,6 +958,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 else:
                     e["player"] = "event_player"
             who = e.get("who")
+            if isinstance(who, str) and who.startswith("sel:") and '"controller":"that_player"' in who:  # -- chosen filters (wave 53B) -- "Then destroy all creatures of that type that player controls." (Tsabo's Decree): the player "that player" names, as "each creature that player controls" does
+                who = e["who"] = "controlled:that_player|" + replace(selectors.from_key(who), controller=None).key()
             if isinstance(who, str) and (who in ("it", "them") or who.startswith(("it:", "them:"))):
                 pronoun, _, verb = who.partition(":")
                 verb, _, flt = verb.partition("|")  # -- resolution memory (wave 22D) -- "them:graveyard|<selector>": only the cards of that kind
@@ -1218,7 +1220,7 @@ def _each_controller_creates(text: str) -> list[dict[str, Any]] | None:
 def _this_way_binding(kinds: tuple[str, ...], at: int, find: Any, bound: Any) -> str | None:
     """-- "this way" outcomes (wave 4A) -- the binding of the latest instruction before ``at`` that did one of
     ``kinds`` ("destroyed", "milled", …: _RECORDING's verbs), marking it to record what it acted on."""
-    found = find(lambda i: (i.objects or i.do == "draw") and i.recording and i.verb in kinds, at)
+    found = find(lambda i: (i.objects or i.do in ("draw", "reveal_hand")) and i.recording and i.verb in kinds, at)  # (wave 53B: reveal_hand, "cards of the chosen type revealed this way")
     return bound(found) if found is not None else None
 
 
@@ -7263,7 +7265,7 @@ from app.rules import time_travel as _time_travel  # noqa: E402  (a leaf module)
 
 _choice_template(_time_travel.PATTERN, _time_travel.build)  # (wave 25A: 701.56a)
 _RECORDING.update({"edict": "sacrificed", "player_chooses": None, "choose_from_hand": None, "discard_named": "discarded",
-                   "reveal_hand": None, "choose_value": None})
+                   "reveal_hand": "revealed", "choose_value": None})  # (wave 53B: reveal_hand "revealed" for "each card of the chosen type revealed this way": this_way; never an object a pronoun names, _Introducer)
 _MOVERS.update({"edict", "player_chooses", "choose_from_hand", "discard_named"})
 _CHOSEN.update({"edict": "n", "player_chooses": "n", "choose_from_hand": "n"})
 

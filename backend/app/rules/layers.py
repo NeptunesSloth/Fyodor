@@ -42,6 +42,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from app.game.rules_state import ContinuousEffect
 from app.game.state import CardInstance, GameState
+from app.rules import chosen as _chosen  # -- chosen filters (wave 53B) --
 from app.rules import read_pass
 from app.rules.characteristics import CardInfo, Characteristics
 
@@ -759,16 +760,18 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         for k, (st, text) in enumerate(grants):
             if "‹granter›" in text and state.rules is not None:  # -- granted from object (wave 18F) -- 607.1a: the granting object
                 text = text.replace("‹granter›", f"‹granter#{state.rules.object_id(st.source)}›")
-            if text == "Protection from the chosen color":  # -- attached events (wave 25D) -- the granting Aura's own recorded color
+            if text in _chosen.PROTECTION:  # -- attached events (wave 25D) -- the granting Aura's own recorded color (wave 53B: or card type, or creature type)
                 src = state.cards.get(st.source)
-                color = (src.choices.get("Chosen color") or "").strip().lower() if src is not None else ""
-                if color not in ("white", "blue", "black", "red", "green"):
+                line = _chosen.protection_line(text, src.choices) if src is not None else None
+                if line is None:
                     continue
-                text = f"Protection from {color}"
+                text = line
             ab = granted_ability(text)
             if ab is not None:
                 keeps = st.definition.get("keeps")  # (702.16n: attachments.host_problem)
-                extra.append(replace(ab, index=100 + k, keeps=None if keeps is None else f"self:{st.source}" if keeps == "self" else keeps))
+                owner = state.cards.get(st.source)
+                extra.append(replace(ab, index=100 + k, keeps=None if keeps is None else f"self:{st.source}" if keeps == "self"
+                                     else f"yours:{owner.controller}" if keeps == "yours" and owner is not None else keeps))  # (wave 53B: "Auras and Equipment you control", the granting Aura's controller)
         ch = replace(ch, abilities=ch.abilities + tuple(extra))
     lent = tuple({ab.index: ab for seq, ab in borrowed if wipe is None or (seq, 0, 0) > wipe}.values())
     if lent:

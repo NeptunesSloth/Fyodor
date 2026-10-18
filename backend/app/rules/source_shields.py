@@ -729,6 +729,8 @@ def source_scope(phrase: str) -> dict[str, Any] | None:
         return {"spell": True, "types": ["Instant", "Sorcery"]}
     if p == "sources of the chosen color":  # (Prismatic Ward: the color its permanent chose as it entered, read as damage is dealt)
         return {"chosen_color": True}
+    if p == "sources with the chosen name":  # -- chosen filters (wave 53B) -- 201.2, 709.4a: the name its permanent chose as it entered (614.12a), read as damage is dealt (Gideon's Intervention)
+        return {"chosen_name": True}
     alts = []
     for part in re.split(r"(?<=sources) and (?=\w)|(?<=creatures) and (?=\w)", p):
         m = _SRC.fullmatch(part)

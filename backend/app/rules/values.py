@@ -52,7 +52,7 @@ NUMBERS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5
            "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "twenty": 20,
            "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
            "thirty": 30, "forty": 40, "fifty": 50}  # (static_other, wave 36B: "if you control thirty or more artifacts" (Knuckles the Echidna), "mills fourteen cards")
-AMOUNT = r"(?:twice [xX]|half [xX] rounded (?:up|down)|(?:two|three|four|five|six|seven|eight|nine|ten) times [xX]|[xX] (?:plus|minus) (?:\d+|one|two|three|four|five)|twice that (?:much|many)|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|x|X|that much|that many)"  # (wave 36B: the number words up to nineteen; wave 34C: "five times X", "X plus 3", "X minus one")
+AMOUNT = r"(?:twice [xX]|half [xX] rounded (?:up|down)|(?:two|three|four|five|six|seven|eight|nine|ten) times [xX]|[xX] (?:plus|minus) (?:\d+|one|two|three|four|five)|twice that (?:much|many)|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|x|X|that much|that many|the chosen number)"  # (wave 36B: the number words up to nineteen; wave 34C: "five times X", "X plus 3", "X minus one")
 
 # Counters that carry rules the engine doesn't model yet (122.1b keyword counters, 122.1c shield,
 # 122.1d stun, 122.1h finality, 122.1i rad, 714 lore): an effect putting one of these
@@ -86,6 +86,8 @@ def parse_amount(word: str) -> Value | None:
         return {m[1]: [{"x": 1}, int(m[2]) if m[2].isdigit() else NUMBERS[m[2]]]}
     if w in ("that much", "that many"):
         return {"event_amount": 1}  # the trigger event's amount (TriggerEvent.amount)
+    if w == "the chosen number":  # -- chosen filters (wave 53B) -- "Choose a number. … that many creatures": chosen.bind_effects writes the answer in
+        return {"chosen_n": 1}
     if w in ("twice that much", "twice that many"):  # -- reflexive this way (wave 30G) -- "deals twice that much damage"
         return {"times": [2, {"event_amount": 1}]}
     return None
@@ -644,6 +646,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sized_damage.evaluate(plan, ctx, v)
     if "x" in v:
         return max(0, int(ctx.get("x") or 0))
+    if "chosen_n" in v:  # (wave 53B: never left unbound by a definition chosen.chosen_value_ok accepts)
+        return 0
     if "die" in v:  # -- rolling dice (wave 12A) -- this resolution's own roll (app/rules/dice.py)
         from app.rules import dice
 

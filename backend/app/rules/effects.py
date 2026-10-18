@@ -3881,6 +3881,8 @@ def reveal_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             plan.note(f"{plan.name(pid)} reveals an empty hand", actor=pid)
         revealed += hand
     ctx["revealed"] = revealed
+    if e.get("as") and not e.get("private"):  # -- chosen filters (wave 53B) -- "for each card of the chosen type revealed this way": the cards shown to everyone (701.20a)
+        context.bind_objects(plan, ctx, e["as"], revealed)
     if not ctx.get("hide_queued"):  # (appended in place: the resolver walks the same list)
         ctx["hide_queued"] = True
         ctx["effects"].append({"do": "hide_revealed"})
@@ -4006,7 +4008,8 @@ CHOICE_OPTIONS: dict[str, list[str]] = {
     "card type other than creature or land": ["Artifact", "Battle", "Enchantment", "Instant", "Kindred", "Planeswalker", "Sorcery"],
     "artifact, creature, enchantment, instant, or sorcery": ["Artifact", "Creature", "Enchantment", "Instant", "Sorcery"],  # (Cloud Key)
 }
-CHOICE_LABELS = {"color": "Chosen color", "creature type": "Chosen creature type", "basic land type": "Chosen basic land type",
+CHOICE_LABELS = {"number": "Chosen number", "color": "Chosen color",  # (wave 53B: "Choose a number between 0 and 10": the options in the instruction)
+                 "creature type": "Chosen creature type", "basic land type": "Chosen basic land type",
                  "opponent": "Chosen opponent", "player": "Chosen player", "card type": "Chosen card type",
                  "card type other than creature or land": "Chosen card type", "artifact, creature, enchantment, instant, or sorcery": "Chosen card type",
                  "number between 1 and 10": "Chosen number", "odd or even": "Chosen quality",  # (wave 49B: Talion, the Kindly Lord; wave 50J: Gollum, Riddle Master)
@@ -4024,6 +4027,10 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
         return copying.entry_options(plan, ctx["controller"], what, ctx.get("source_card"))  # (wave 5F: the entering card)
     if what == "creature type":
         return [DecisionOption(id=t, label=t) for t in sorted(CREATURE_TYPES)]
+    if what == "number":  # -- chosen filters (wave 53B) -- 107.1b-c: any number, offered up to NUMBER_TOP; the instruction's own range narrows it (``options``)
+        from app.rules import chosen as _chosen
+
+        return [DecisionOption(id=str(n), label=str(n)) for n in range(_chosen.NUMBER_TOP + 1)]
     if what == "number between 1 and 10":  # (wave 49B) a number chosen as the permanent enters (614.12a)
         return [DecisionOption(id=str(n), label=str(n)) for n in range(1, 11)]
     if what.startswith("two abilities from among "):  # (wave 49B) every pair of the three (Greymond)
@@ -4081,7 +4088,7 @@ def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
     plan.note(f"{plan.name(d.player)} chooses {shown} ({e['what']})", actor=d.player)
     if e.get("as"):
         context.refs(ctx)[e["as"]] = {"kind": "choice", "what": e["what"], "value": value}
-    if not e.get("remember") and (e["what"] in ("creature type", "color", "odd or even", "card type") or card_names.is_choice(e["what"])):  # -- chosen type (wave 4J) -- (wave 53B: a card type)
+    if not e.get("remember") and (e["what"] in ("creature type", "color", "odd or even", "card type", "number") or card_names.is_choice(e["what"])):  # -- chosen type (wave 4J) -- (wave 53B: a card type)
         from app.rules import chosen as picked
 
         what = "card name" if card_names.is_choice(e["what"]) else e["what"]  # (wave 22B)

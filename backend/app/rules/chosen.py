@@ -49,18 +49,28 @@ _CHOSEN_COLOR_LINE = re.compile(r"(?:Protection|Hexproof) from the chosen color"
 _SOURCE_KEYS = frozenset({"who", "sel", "spell", "obj", "what", "source"})  # (wave 43A: "source": a trigger multiplier's sources — Roaming Throne, read against its own choice)
 
 
+def split_key(node: str) -> tuple[str, str] | None:
+    """(head, selector key) of a string that is a selector key, alone or after the group head of a "controlled:target|sel:…" / "them:graveyard|sel:…" reference."""
+    from app.rules import selectors
+
+    if node.startswith(selectors.PREFIX):
+        return "", node
+    head, bar, rest = node.partition("|")
+    return (head + bar, rest) if bar and rest.startswith(selectors.PREFIX) and re.fullmatch(r"[a-z_]+(?::[\w.-]+)?", head) else None
+
+
 def _uses(node: Any, key: str = "") -> list[tuple[str, str]]:
     """(the JSON key, "creature type" / "color") for every selector in the definition that reads a chosen value."""
     from app.rules import selectors
 
     if isinstance(node, dict):
-        return [u for k, v in node.items() for u in _uses(v, k)]
+        return ([(key, "number")] if CHOSEN_N in node else []) + [u for k, v in node.items() for u in _uses(v, k)]  # (wave 53B: the chosen number as an amount)
     if isinstance(node, list):
         return [u for v in node for u in _uses(v, key)]
     if isinstance(node, str) and node.startswith(RULE_PREFIX):  # -- chosen type (wave 50J) -- "can't be blocked by creatures of the chosen color": the rule carries the selector
         node = node[len(RULE_PREFIX):]
-    if isinstance(node, str) and node.startswith(selectors.PREFIX) and "chosen_" in node:
-        sel = selectors.from_key(node)
+    if isinstance(node, str) and "chosen_" in node and (split := split_key(node)) is not None:  # (wave 53B: "controlled:target|sel:…")
+        sel = selectors.from_key(split[1])
         what = selectors.chosen_what(sel)
         return [(key, what or "?")] if any(e in selectors.CHOSEN_EXTRAS for e in sel.extras) else []
     return []
@@ -95,8 +105,9 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
         return False  # (wave 49B: "Humans you control have each of the chosen abilities." needs that one choice, Greymond)
 
     dumped = json.dumps(d)
-    if "Protection from the chosen color" in dumped and d.get("static") == "grant":  # -- attached events (wave 25D) -- an Aura's static: its own enters choice
-        return _enters_choices(ch).count("color") == 1
+    for line, (kind, _) in PROTECTION.items():  # -- attached events (wave 25D) -- an Aura's static: its own enters choice (wave 53B: a card type, a creature type)
+        if line in dumped and d.get("static") == "grant":
+            return _enters_choices(ch).count(kind) == 1
     if _CHOSEN_COLOR_LINE.search(dumped):  # -- chosen type (wave 20E) -- only in the instructions after a "Choose a color." of this resolution (wave 50J: and hexproof from it)
         effects = d.get("effects") or []
         picks = [i for i, e in enumerate(effects) if e.get("do") == "choose_value" and e.get("what") == "color" and not e.get("remember")]
@@ -108,6 +119,8 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
         return False  # (wave 16F: "the chosen player" needs the one "As ~ enters, choose an opponent / a player.")
     if '"chosen_color": true' in dumped:  # -- prevention riders (wave 17A) -- "sources of the chosen color": this permanent's own choice
         return d.get("kind") != "spell" and _enters_choices(ch).count("color") == 1
+    if '"chosen_name": true' in dumped:  # -- chosen filters (wave 53B) -- "sources with the chosen name": this permanent's own choice
+        return d.get("kind") != "spell" and _enters_choices(ch).count("card name") == 1
     uses = _uses(d)
     if not uses:
         return True
@@ -126,7 +139,7 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
             continue
         if d.get("kind") == "spell" or _enters_choices(ch).count(what) != 1:
             return False
-        if any(w == what and k not in _SOURCE_KEYS and not (k == "filter" and d.get("static") == "cast_limit") for k, w in uses):  # (wave 22B)
+        if any(w == what and k not in _SOURCE_KEYS and not (k == "filter" and d.get("static") in ("cast_limit", "ability_cost_modifier")) for k, w in uses):  # (wave 22B)
             return False
     return True
 
@@ -137,15 +150,17 @@ def bind_effects(effects: list[dict[str, Any]], what: str, value: str) -> list[d
 
     def walk(node: Any) -> Any:
         if isinstance(node, dict):
+            if what == "number" and set(node) == {CHOSEN_N} and value.isdigit():
+                return int(value)  # -- chosen filters (wave 53B) -- "that many": the number just chosen
             return {k: walk(v) for k, v in node.items()}
         if isinstance(node, list):
             return [walk(v) for v in node]
         if isinstance(node, str) and node.startswith(RULE_PREFIX) and "chosen_" in node:  # (wave 50J: a restriction's rule carries its selector)
             return RULE_PREFIX + walk(node[len(RULE_PREFIX):])
-        if isinstance(node, str) and node.startswith(selectors.PREFIX) and "chosen_" in node:
-            sel = selectors.from_key(node)
+        if isinstance(node, str) and "chosen_" in node and (split := split_key(node)) is not None:
+            sel = selectors.from_key(split[1])
             if selectors.chosen_what(sel) == what and (bound := selectors.bind_chosen(sel, value)) is not None:
-                return bound.key()
+                return split[0] + bound.key()
         if node == "Protection from the chosen color" and what == "color":  # (wave 20E: protection_grants.CHOSEN_LINE)
             return f"Protection from {value.lower()}"
         if node == "Hexproof from the chosen color" and what == "color":  # (wave 50J: protection_grants.CHOSEN_HEXPROOF)
@@ -246,6 +261,21 @@ def type_choice(text: str) -> dict[str, Any] | None:
     return None
 
 
+# A number: "Choose a number." (any number 107.1b-c; ponytail: offered 0-40, as X is, casting.py), "a number between 0 and 10", "a number greater than 0".
+NUMBER_CHOICE = r"number(?: between \d+ and \d+| greater than \d+)?"
+CHOSEN_N = "chosen_n"  # the placeholder of the chosen number in an amount ({"chosen_n": 1}) and a comparison (selectors.compare), written in by bind_effects
+NUMBER_TOP = 40
+
+
+def number_choice(text: str) -> dict[str, Any] | None:
+    """The ``choose_value`` instruction for "number" / "number between 0 and 10" / "number greater than 0" (None: not one of them)."""
+    m = re.fullmatch(r"number(?: between (?P<lo>\d+) and (?P<hi>\d+)| greater than (?P<gt>\d+))?", text)
+    if m is None:
+        return None
+    lo, hi = (int(m["lo"]), int(m["hi"])) if m["lo"] else (int(m["gt"]) + 1, NUMBER_TOP) if m["gt"] else (0, NUMBER_TOP)
+    return {"do": "choose_value", "who": "you", "what": "number", "options": [str(n) for n in range(lo, max(lo, hi) + 1)]}
+
+
 def _walk_keys(node: Any, fn: Any) -> Any:
     if isinstance(node, dict):
         return {k: _walk_keys(v, fn) for k, v in node.items()}
@@ -261,19 +291,46 @@ def retag(d: dict[str, Any], ch: Characteristics) -> dict[str, Any]:
     picks = {_kind(e.get("what")) for e in effects if e.get("do") == "choose_value" and not e.get("remember")} | set(_enters_choices(ch))
     if "card type" not in picks or picks & {"creature type", "basic land type"}:
         return d
-    return _walk_keys(d, lambda s: s.replace('"chosen_type"', '"chosen_card_type"').replace('"not_chosen_type"', '"not_chosen_card_type"')
-                      if s.startswith((RULE_PREFIX, "sel:")) else s)
+    return _walk_keys(d, lambda s: s.replace('"chosen_type"', '"chosen_card_type"').replace('"not_chosen_type"', '"not_chosen_card_type"') if "chosen_type" in s else s)
 
 
-_CHOOSE_SENTENCE = re.compile(rf"(?:^|(?<=\. ))[Cc]hoose (?:an? )?(?P<what>color|creature type|{TYPE_CHOICE})\.")
+_CHOOSE_SENTENCE = re.compile(rf"(?:^|(?<=\. ))(?:[Yy]ou may )?[Cc]hoose (?:an? )?(?P<what>color|creature type|{TYPE_CHOICE}|{NUMBER_CHOICE})\.")
 _CHOOSE_THEN = re.compile(rf"(?:^|(?<=\. ))(?P<c>[Cc])hoose (?:an? )?(?P<what>{TYPE_CHOICE}), then (?P<r>\w)")
-_THAT = re.compile(r"\bof that (color|type)\b")
+_THAT = re.compile(r"\b(?:of their choice )?of that (color|type)\b")  # ("sacrifices a permanent of their choice of that type": the permanent they choose is of the chosen type)
 
 
 def rewrite(body: str) -> str:
     """"Choose a card type, then reveal …" is two sentences; after a "Choose a color / creature type / card type." sentence, "of that color /
     type" is "of the chosen color / type" (the value just chosen: 608.2c)."""
     body = _CHOOSE_THEN.sub(lambda m: f"{m['c']}hoose a {m['what']}. {m['r'].upper()}", body)
+    body = re.sub(r"((?:If you do, )?)(that player reveals their hand) and (~ deals damage) to the player (equal to the number of [^.]* revealed this way)",
+                  r"\1\2. \1\3 to that player \4", body)  # (Darigaaz: two instructions, one after the other, the second under the same "If you do")
     m = _CHOOSE_SENTENCE.search(body)
-    return body if m is None else body[: m.end()] + _THAT.sub(r"of the chosen \1", body[m.end():])
+    if m is None:
+        return body
+    tail = _THAT.sub(r"of the chosen \1", body[m.end():])
+    if m["what"].startswith("number"):  # "that many creatures", "mana value equal to that number" / "to the number": the chosen number
+        tail = re.sub(r"\b(?:that many|that number|the number(?! of\b))", "the chosen number", tail)
+    return body[: m.end()] + tail
+
+
+# Protection from a chosen quality, granted by a static ability (702.16a): the granted line names the quality, which the source's own entering choice fills in as the
+# grant is applied (layers; the choice is public, 614.12a). A card type is protected from by its plural name (702.16a: "protection from artifacts"), a creature type as
+# "creatures of that type" ("Elf creatures"); the line stays unwritten (no protection) when the source recorded no choice.
+PROTECTION = {"Protection from the chosen color": ("color", "Chosen color"), "Protection from the chosen card type": ("card type", "Chosen card type"),
+              "Protection from creatures of the chosen type": ("creature type", "Chosen creature type")}
+
+
+def protection_line(text: str, choices: dict[str, str]) -> str | None:
+    """"Protection from the chosen card type" + the source's choices → "Protection from creatures" (None: no usable choice)."""
+    from app.rules import protection
+
+    kind, label = PROTECTION[text]
+    value = (choices.get(label) or "").strip()
+    if kind == "color":
+        return f"Protection from {value.lower()}" if value.lower() in protection.COLORS else None
+    if kind == "card type":
+        plural = next((k for k, v in protection.CARD_TYPES.items() if v == value), None)
+        return f"Protection from {plural}" if plural else None
+    return f"Protection from {value.lower()} creatures" if value else None
 # -- end chosen filters (wave 53B) -----------------------------------------------------------------------------------------

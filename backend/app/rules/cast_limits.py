@@ -57,7 +57,7 @@ Context = dict[str, Any]
 Definition = dict[str, Any]
 
 # -- grammar ---------------------------------------------------------------------------------------
-_SPELLS = r"(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells(?P<tail> with the chosen name| with (?:even|odd) mana values| with mana value \d+ or (?:greater|less)| with mana value greater than the number of lands you control)?"  # (wave 22B: card_names.py; wave 44D: Brisela's mana value bound, as STATIC_NOBODY reads it; wave 50J: Lavinia's, counted for the caster)
+_SPELLS = r"(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells(?P<tail> with the chosen name| of the chosen type| with mana value equal to the chosen number| with (?:even|odd) mana values| with mana value \d+ or (?:greater|less)| with mana value greater than the number of lands you control)?"  # (wave 22B: card_names.py; wave 44D: Brisela's mana value bound, as STATIC_NOBODY reads it; wave 50J: Lavinia's, counted for the caster)
 _FROM = r"(?: from (?P<frm>anywhere other than their hands|graveyards or libraries|graveyards or exile|graveyards))?"
 _ACT = (r"(?: or (?P<act>activate abilities of artifacts, creatures, or enchantments|activate abilities that aren't mana abilities"
         r"|activate abilities of cards in graveyards|activate planeswalkers' loyalty abilities))?")
@@ -78,7 +78,7 @@ STATIC_CAST = re.compile(rf"^(?:(?P<lead>during your turn|during combat), )?(?P<
 # "Each player can't cast more than one spell each turn." / "Each player can't cast more than one noncreature spell each turn."
 # -- prohibitions (wave 22B) -- 601.3: "Spells with the chosen name can't be cast." (Meddling Mage, Nevermore), "Creature spells can't be cast."
 # (Aether Storm), "Noncreature spells with mana value 4 or greater can't be cast." (Gaddock Teeg): nobody may cast them
-STATIC_NOBODY = re.compile(r"^(?P<sel>[A-Za-z][A-Za-z' ,-]*?)? ?spells(?P<tail> with (?:the chosen name|mana value \d+ or (?:greater|less)"
+STATIC_NOBODY = re.compile(r"^(?P<sel>[A-Za-z][A-Za-z' ,-]*?)? ?spells(?P<tail> of the chosen type| with mana value equal to the chosen number| with (?:the chosen name|mana value \d+ or (?:greater|less)"
                            r"|\{X\} in their mana costs))? can't be cast$")
 # 602.5: "Activated abilities of sources with the chosen name can't be activated [unless they're mana abilities]." (Pithing Needle, Phyrexian
 # Revoker, Sorcerous Spyglass, Voidstone Gargoyle)
