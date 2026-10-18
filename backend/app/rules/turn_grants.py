@@ -25,7 +25,7 @@ from typing import Any
 _UNBLOCKED = re.compile(r"^(?!.*\")(?P<o>(?:(?!\b(?:gains?|gets|has|have)\b| and (?!target )).)+?) can't be blocked (?P<by>by .+?) this (?P<d>turn|combat)$")  # (wave 47A: "this combat", Tadeas: effects.restrict ``duration``)
 _UNBLOCKED_EXCEPT = re.compile(r"^(?!.*\")(?P<o>.+?) can't be blocked this turn except by (?P<ex>.+)$")
 _UNBLOCKED_LEAD = re.compile(r"^(?!.*\")until end of turn, (?P<o>.+?) can't be blocked (?P<by>by .+)$")
-_SHARED = re.compile(r"^(?!.*\")(?P<lead>until end of turn, )?(?P<o>(?:target|another target|this|that|~|it\b)[^,]*?) "
+_SHARED = re.compile(r"^(?!.*\")(?P<lead>until end of turn, )?(?P<o>(?:target|another target|this|that|~|it\b|(?:other )?creatures you control|each (?:other )?creature you control)[^,]*?) "
                      r"(?P<a>(?:gains?|gets|has|have) .+?) and (?P<b>(?:gains?|can't be blocked) .+)$")
 _EOT = " until end of turn"
 

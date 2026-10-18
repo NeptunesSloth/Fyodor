@@ -38,17 +38,20 @@ def combat_step(s):
     """Rules on, to Alice's declare attackers step; both players stop at the declare blockers step (to act once the blocks are known)."""
     _combat_step(s)
     for pid in ("p1", "p2"):
-        act(s, pid, type="set_stops", own=["declare_blockers"], others=["declare_blockers"], smart_pass=False)
+        act(s, pid, type="set_stops", own=["declare_attackers", "declare_blockers"], others=["declare_attackers", "declare_blockers"], smart_pass=False)
 
 
 def attach(s, equipment, host, pid="p1"):
     act(s, pid, type="attach", card_ids=[equipment.id], to=host.id)
 
 
-def swing(s, attackers, blocks=(), pid="p1", opp="p2", target=None):
+def swing(s, attackers, blocks=(), pid="p1", opp="p2", target=None, before=None):
     """Alice (p1) attacks Bob with ``attackers``; ``blocks`` = [(blocker, attacker), …]; plays on until the blockers are declared and answered
     (the trigger stack settled), then returns with the table in the declare blockers step."""
     act(s, pid, type="declare_attackers", attackers=[{"card_id": c.id, "target": target or opp} for c in attackers])
+    if before is not None:  # (the declare attackers step, attackers declared, before blockers: cast a spell, …)
+        priority_to(s, pid)
+        before()
     for _ in range(12):
         d = s.state.rules.decision
         if d is not None and d.kind == "declare_blockers":

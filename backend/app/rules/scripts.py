@@ -5364,6 +5364,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if ante == "event" and cond is not None and cond.get("event") == "blocked" and not cond.get("other"):
                     # -- block events (wave 53C) -- 509.3c: "each creature blocking it": "it" is the creature that became blocked (the trigger's object, not ~)
                     body = re.sub(r"\b(blocking(?: or blocked by)?|blocked by) it\b", r"\1 that creature", body)
+                    body = re.sub(r"\bthat attacking creature\b", "that creature", body)  # (Seifer: the creature that became blocked)
+                first_creature = cond is not None and cond.get("subject") == "host" and cond.get("event") == "blocked" and not cond.get("other") \
+                    and "the first creature assigns no combat damage" in body
+                if first_creature:  # -- block events (wave 53C) -- Laccolith Rig: "the first creature" is the one that became blocked (the event's, bound below)
+                    body = body.replace("the first creature", "enchanted creature")
                 body = _may_have(body, ante)  # -- trigger tail (wave 15B) --
                 to_gy = cond is not None and cond.get("event") == "to_graveyard" and cond.get("subject") == "self"
                 if to_gy:  # -- trigger tail (wave 15B) -- 603.6c: the card is in its owner's graveyard, whose owner controls the ability
@@ -5398,6 +5403,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                                   {"do": "counter", "who": "event_source"}]
                 parsed = _own_choice(parse_effects(body, it=ante, event_player=has_player)) if (tm is None and not plain_counter and um is None) \
                     or not _targeted(cond) else (counter_it, None, False)  # (_own_choice for a trigger: wave 25C)
+                if cond is not None and (both_ := block_events.both_creatures(cond, body)) is not None:
+                    parsed = both_  # -- block events (wave 53C) -- "destroy both creatures" / "~ and that creature phase out": the pair, whatever "that creature" would bind to
                 if from_gy and parsed is not None:  # (review 42: the card only while it is in the graveyard, effects._cards "event_gy")
                     parsed = ([{**x, "who": "event_gy"} if x.get("who") == "event" and x.get("do", "").removeprefix("deferred:") in ("bounce", "return_card")
                                else x for x in parsed[0]], *parsed[1:])
@@ -5413,7 +5420,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     body = body.replace("that creature's controller", OTHER_SIDE + "'s controller")
                     body = body.replace("that creature", OTHER_SIDE)
                     ante = _trigger_antecedent(name, cond)
+                    if cond.get("subject") == "host":
+                        body = block_events.host_wording(body)  # -- block events (wave 53C) -- "it gains deathtouch": the equipped creature, not the one on the other side
                     parsed = parse_effects(body, it=ante, event_player=has_player)
+                if first_creature and parsed is not None:
+                    parsed = ([{**e, "who": "event"} if e.get("rules") == ["assign_none"] and e.get("who") == "host" else e for e in parsed[0]], *parsed[1:])
                 if same and parsed is not None:
                     parsed = attached_players.does_the_same(parsed)
                 if parsed is None:  # -- this-turn history (wave 4D) -- "…, if [condition], you may …" (603.4 + 603.5)
@@ -5673,6 +5684,10 @@ def _event_refs_ok(d: Definition) -> bool:
     generic trigger condition whose event has that player or amount can use them. A "one or more"
     trigger has one event per batch (603.2c) — per damaged player for damage to players, per
     acting player for a player's actions — so it can too."""
+    if (picked := [i for i, e in enumerate(d.get("effects") or []) if e.get("do") == "choose_value" and e.get("what") == "player with the most life or tied for most life"]):
+        # -- block events (wave 53C) -- "that player" after "Choose a player with the most life…" is the player chosen (effects._bind_chosen_player), not an event's
+        d = {**d, "effects": [*d["effects"][:picked[0] + 1], *json.loads(json.dumps(d["effects"][picked[0] + 1:]).replace(
+            '\\"controller\\":\\"that_player\\"', '\\"controller\\":\\"player:chosen\\"').replace('"event_player"', '"player:chosen"'))]}
     effects = [e for e in d.get("effects") or []] + [e for m in d.get("modes") or [] for e in m.get("effects") or []]
     if not _event_spell_ok(d):  # -- refused copy/mana (wave 3R3) --
         return False
@@ -7159,6 +7174,15 @@ def _watch_whenever_leading(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any
     from app.rules import watches
 
     return _from_language(watches.parse_leading(m["rest"], next_turn=m["lead"] == "until your next turn"))
+
+
+# -- block events (wave 53C) -- "When that creature becomes blocked this turn, it gets +1/+1 until end of turn for each creature blocking it." (Barreling Attack): the same watch on the
+# one creature, a delayed triggered ability with "when": once (603.7b); only the creature's own blocked / block events
+@effect(r"when (?P<cond>(?:that creature|it|target creature[^,]*?) becomes blocked) this turn, (?P<clause>.+)")
+def _watch_when_blocked(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import watches
+
+    return _from_language(watches.parse(m["cond"], re.sub(r"\b(blocking) it\b", r"\1 that creature", m["clause"]), once=True))
 
 
 @effect(r"the next (?:(?P<sel>[a-z, ]+?) )?spell you cast this turn can't be countered")

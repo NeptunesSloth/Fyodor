@@ -240,6 +240,12 @@ def _other_than_self(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, other=True)
 
 
+# -- block events (wave 53C) -- 708.2: "can't be blocked by creatures that don't have a name" (Pompous Gadabout): a face-down permanent has no name
+@_suffix(r"that (?:don['’]t|doesn['’]t) have a name")
+def _nameless(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "nameless"))
+
+
 @_suffix(r"that['’]s (?P<w>attacking or blocking|attacking|blocking|tapped|untapped)")
 def _thats_status(s: Selector, m: re.Match[str]) -> Selector:
     s2 = _prefix(s, m["w"].replace(" ", "-"))
@@ -374,7 +380,7 @@ def _dealt_damage_by_source(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "dealt_damage_by_source"))
 
 
-@_suffix(r"(?:that (?:was|were) )?dealt damage this turn")
+@_suffix(r"(?:that (?:was|were|has been|have been) )?dealt damage this turn")  # (wave 53C: "has been dealt damage", Giant Shark)
 def _was_dealt_damage_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "was_dealt_damage"))
 
@@ -2007,6 +2013,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
     for extra in sel.extras:
         if extra == "not_event" and card.id == attacker:  # (wave 23B) the event's own object (``attacker``: attacker_of)
+            return False
+        if extra == "nameless" and ch.name:  # (wave 53C)
             return False
         if extra == "two_colors" and len(ch.colors) != 2:  # (wave 44C)
             return False

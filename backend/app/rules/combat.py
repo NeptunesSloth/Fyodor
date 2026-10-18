@@ -73,7 +73,7 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
         if name == "cant_be_blocked_if_defender_controls" and _defender_controls(state, info, arg, blocker.controller):
             return f"{ach.name} can't be blocked while {state.players[blocker.controller].name} controls {_phrase(arg)}"
         if name == "cant_be_blocked_if_defender" and _defender_condition(state, info, arg, blocker.controller):  # -- as long as (wave 25A) --
-            return f"{ach.name} can't be blocked while {state.players[blocker.controller].name} {arg.split(':')[0].replace('count', 'controls').replace('most', 'controls the most')}"
+            return f"{ach.name} can't be blocked while {state.players[blocker.controller].name} {arg.split(':')[0].replace('count', 'controls').replace('most', 'controls the most').replace('monarch', 'is the monarch')}"
         if name == "cant_be_blocked_by_if_defender":
             fact, _, sels = arg.partition("@@")
             if _defender_condition(state, info, fact, blocker.controller) and _any_selector(state, info, sels, blocker, bch, attacker):
@@ -194,6 +194,8 @@ def _defender_condition(state: GameState, info: CardInfo | None, fact: str, defe
         return _defender_controls(state, info, rest, defender)
     if kind == "counters":
         return state.players[defender].resources.get(rest, 0) > 0
+    if kind == "monarch":  # -- block events (wave 53C) -- 725.1: the defender is the monarch (a blocker is the monarch's: "creatures the monarch controls")
+        return state.table.monarch == defender
     from app.rules.layers import _view
 
     view = _view(state, info)

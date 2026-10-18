@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import contextlib
 import itertools
+import json
 from collections.abc import Iterator
 from typing import Any
 
@@ -162,6 +163,8 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
 
         base, _, key = who.partition("|")
         return this_way.filtered(plan, ctx, _cards(plan, ctx, base), key)
+    if who.startswith("union:"):  # -- block events (wave 53C) -- several references at once: "destroy both creatures"
+        return list(dict.fromkeys(c for w in who[len("union:"):].split("+") for c in _cards(plan, ctx, w)))
     if who.startswith("controlled:"):  # -- damage sized by a count (wave 4E) -- "each creature that player controls"
         return _controlled_by(plan, ctx, who)
     if who.startswith("graveyard_of:"):  # -- graveyard exile (wave 4J) -- "target player's graveyard": every card in it
@@ -4041,6 +4044,9 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
     if what in ("opponent", "player"):
         pids = [p for p in plan.live() if what == "player" or p != ctx["controller"]]
         return [DecisionOption(id=p, label=plan.name(p)) for p in pids]
+    if what == MOST_LIFE:  # -- block events (wave 53C) -- "Choose a player with the most life or tied for most life" (The Black Gate): life totals are public; with a tie, the choice is real
+        top = max(plan.state.players[p].life for p in plan.live())
+        return [DecisionOption(id=p, label=plan.name(p)) for p in plan.live() if plan.state.players[p].life == top]
     # -- counters (wave 7C) -- "enters with your choice of a flying or a hexproof counter"
     from app.rules import counter_choice
 
@@ -4055,6 +4061,16 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
     return [DecisionOption(id=v, label=v) for v in CHOICE_OPTIONS[what]]
 
 
+MOST_LIFE = "player with the most life or tied for most life"
+
+
+def _bind_chosen_player(ctx: Context, pid: str) -> None:
+    """-- block events (wave 53C) -- "Choose a player with the most life or tied for most life. Target creature can't be blocked by creatures that player controls": "that player" of the
+    instructions after the choice is the player chosen (as bind_that_player does for a trigger's player)."""
+    rest = json.dumps(ctx["effects"][ctx["next"]:]).replace('\\"controller\\":\\"that_player\\"', f'\\"controller\\":\\"player:{pid}\\"').replace('"event_player"', f'"player:{pid}"')
+    ctx["effects"] = ctx["effects"][: ctx["next"]] + json.loads(rest)
+
+
 def choose_value(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Choose a color / a creature type / a basic land type / an opponent / a player": the
     controller's public choice, bound under ``as`` as {"kind": "choice"}; with ``remember`` it is
@@ -4066,6 +4082,9 @@ def choose_value(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         options = [o for o in options if o.id in e["options"]]
     if not options:
         return True  # (no opponent left to choose: 800.4)
+    if e["what"] == MOST_LIFE and len(options) == 1:  # (one player has the most life: nothing to choose)
+        _bind_chosen_player(ctx, options[0].id)
+        return True
     src = plan.state.cards.get(ctx.get("source_card") or "")
     article = "an" if e["what"][0] in "aeiou" else "a"
     chooser = _players(plan, ctx, e["who"])  # -- card names (wave 49C) -- "Target player chooses a card name": the target player (a target who left the game chooses nothing, 800.4)
@@ -4079,7 +4098,9 @@ def choose_value(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
     value = chosen[0]
-    shown = plan.name(value) if e["what"] in ("opponent", "player") else value
+    shown = plan.name(value) if e["what"] in ("opponent", "player", MOST_LIFE) else value
+    if e["what"] == MOST_LIFE:
+        _bind_chosen_player(ctx, value)
     plan.note(f"{plan.name(d.player)} chooses {shown} ({e['what']})", actor=d.player)
     if e.get("as"):
         context.refs(ctx)[e["as"]] = {"kind": "choice", "what": e["what"], "value": value}

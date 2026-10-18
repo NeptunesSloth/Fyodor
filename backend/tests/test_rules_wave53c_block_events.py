@@ -485,3 +485,287 @@ def test_scarab_of_the_unseen_returns_the_auras_to_their_owners_hands_and_draws_
     settle(s)
     assert len([c for c in s.state.cards.values() if c.zone == "p1:hand"]) == hand + 1  # drawn at the next turn's upkeep (Bob's)
     check(s)
+
+
+# -- a trigger about the creature an Aura / Equipment is attached to, and the creature on the other side (509.3b, 509.3d) --
+def test_dead_iron_sledge_destroys_both_creatures_when_the_equipped_creature_is_blocked(cards):
+    s = sandbox(cards, "Dead-Iron Sledge")
+    sledge = on_field(s, "Dead-Iron Sledge")
+    brute = creature(s, "p1", "Brute", "2/2")
+    guard = creature(s, "p2", "Guard", "1/1")
+    bystander = creature(s, "p2", "Bystander", "1/1")
+    attach(s, sledge, brute)
+    combat_step(s)
+    swing(s, [brute], [(guard, brute)])
+    settle(s)
+    assert not alive(s, brute) and not alive(s, guard) and alive(s, bystander)  # before combat damage
+    check(s)
+
+
+def test_dead_iron_sledge_destroys_both_when_the_equipped_creature_blocks(cards):
+    s = sandbox(cards, "Dead-Iron Sledge")
+    sledge = on_field(s, "Dead-Iron Sledge")
+    wall = creature(s, "p1", "Wall", "0/6")
+    raider = creature(s, "p2", "Raider", "1/1")
+    attach(s, sledge, wall)
+    combat_step(s)
+    bob_swings(s, [raider], [(wall, raider)])
+    settle(s)
+    assert not alive(s, wall) and not alive(s, raider)
+    check(s)
+
+
+def test_mirror_shield_destroys_a_deathtouch_creature_that_blocks_the_equipped_creature(cards):
+    s = sandbox(cards, "Mirror Shield")
+    shield = on_field(s, "Mirror Shield")
+    brute = creature(s, "p1", "Brute", "2/2")
+    snake = creature(s, "p2", "Snake", "1/1", text="Deathtouch")
+    plain = creature(s, "p2", "Plain", "1/1")
+    attach(s, shield, brute)
+    combat_step(s)
+    swing(s, [brute], [(snake, brute), (plain, brute)])
+    settle(s)
+    assert not alive(s, snake) and alive(s, plain) and alive(s, brute)  # the deathtouch creature is destroyed as it blocks; the plain one is not
+    check(s)
+
+
+def test_mirror_shield_destroys_a_deathtouch_creature_the_equipped_creature_blocks(cards):
+    s = sandbox(cards, "Mirror Shield")
+    shield = on_field(s, "Mirror Shield")
+    wall = creature(s, "p1", "Wall", "0/5")
+    snake = creature(s, "p2", "Snake", "1/1", text="Deathtouch")
+    plain = creature(s, "p2", "Plain", "1/1")
+    attach(s, shield, wall)
+    combat_step(s)
+    bob_swings(s, [snake, plain], [(wall, snake)])
+    settle(s)
+    assert not alive(s, snake) and alive(s, plain) and alive(s, wall)  # the equipped creature blocked a creature with deathtouch
+    check(s)
+
+
+def test_hedron_blade_gives_deathtouch_when_blocked_by_colorless_creatures(cards):
+    s = sandbox(cards, "Hedron Blade")
+    blade = on_field(s, "Hedron Blade")
+    brute = creature(s, "p1", "Brute", "2/2")
+    robot = token_of(s, "p2", "Robot", "Token Artifact Creature — Robot", "1/9")
+    other = creature(s, "p1", "Other", "2/2")
+    green = token_of(s, "p2", "Elf", "Token Creature — Elf", "1/9", colors=["G"])
+    attach(s, blade, brute)
+    combat_step(s)
+    swing(s, [brute, other], [(robot, brute), (green, other)])
+    settle(s)
+    ch = lambda c: Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id])  # noqa: E731
+    assert "deathtouch" in ch(brute).keywords and "deathtouch" not in ch(other).keywords
+    check(s)
+
+
+def test_dream_fighter_and_the_creature_it_blocks_phase_out(cards):
+    s = sandbox(cards, "Dream Fighter")
+    fighter = on_field(s, "Dream Fighter")
+    raider = creature(s, "p2", "Raider", "3/3")
+    other = creature(s, "p2", "Other", "3/3")
+    combat_step(s)
+    bob_swings(s, [raider, other], [(fighter, raider)])
+    settle(s)
+    assert zone_of(s, fighter) == "p1:phased" and zone_of(s, raider) == "p2:phased" and zone_of(s, other) == "p2:battlefield"
+    check(s)
+
+
+def test_giant_shark_gets_bigger_against_a_creature_that_was_dealt_damage(cards):
+    s = sandbox(cards, "Giant Shark", "Lightning Bolt", "Island", p2=("Island",))
+    on_field(s, "Island", "p2")
+    on_field(s, "Island")  # (the Shark is sacrificed when its controller controls no Island)
+    shark = on_field(s, "Giant Shark")
+    hurt = creature(s, "p2", "Hurt", "0/9")
+    creature(s, "p2", "Fresh", "0/9")  # (a second possible blocker, not dealt damage)
+    combat_step(s)
+    swing(s, [shark], [(hurt, shark)], before=lambda: cast_now(s, "Lightning Bolt", [hurt], R=1))
+    settle(s)
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[shark.id])
+    assert ch.pt == (6, 4) and "trample" in ch.keywords
+    check(s)
+
+
+def test_giant_shark_is_not_bigger_against_a_fresh_creature(cards):
+    s = sandbox(cards, "Giant Shark", "Island", p2=("Island",))
+    on_field(s, "Island", "p2")
+    on_field(s, "Island")
+    shark = on_field(s, "Giant Shark")
+    fresh = creature(s, "p2", "Fresh", "0/9")
+    combat_step(s)
+    swing(s, [shark], [(fresh, shark)])
+    settle(s)
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[shark.id])
+    assert ch.pt == (4, 4) and "trample" not in ch.keywords
+    check(s)
+
+
+def test_seifer_gives_deathtouch_to_an_attacker_blocked_by_two_or_more_creatures(cards):
+    s = sandbox(cards, "Seifer, Balamb Rival")
+    on_field(s, "Seifer, Balamb Rival")
+    one = creature(s, "p1", "Single", "2/2")
+    two = creature(s, "p1", "Double", "2/2")
+    g1 = creature(s, "p2", "Guard One", "0/9")
+    g2 = creature(s, "p2", "Guard Two", "0/9")
+    g3 = creature(s, "p2", "Guard Three", "0/9")
+    combat_step(s)
+    swing(s, [one, two], [(g1, one), (g2, two), (g3, two)])
+    settle(s)
+    ch = lambda c: Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id])  # noqa: E731
+    assert "deathtouch" in ch(two).keywords and "deathtouch" not in ch(one).keywords
+    check(s)
+
+
+def test_laccolith_rig_lets_the_blocked_creature_deal_damage_and_then_assign_none(cards):
+    s = sandbox(cards, "Laccolith Rig")
+    rig = on_field(s, "Laccolith Rig")
+    brute = creature(s, "p1", "Brute", "4/4")
+    guard = creature(s, "p2", "Guard", "0/9")
+    victim = creature(s, "p2", "Victim", "0/3")
+    attach(s, rig, brute)
+    combat_step(s)
+    swing(s, [brute], [(guard, brute)])
+    for _ in range(8):
+        d = s.state.rules.decision
+        if d is None:
+            if not alive(s, victim):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "confirm":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"])
+        else:  # the target of the trigger: only the victim
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[victim.id])
+    settle(s)
+    assert not alive(s, victim)
+    to_postcombat(s)
+    assert s.state.cards[guard.id].damage == 0  # Brute assigned no combat damage
+    check(s)
+
+
+def test_barreling_attack_pumps_for_each_creature_blocking_it_when_it_becomes_blocked(cards):
+    s = sandbox(cards, "Barreling Attack")
+    brute = creature(s, "p1", "Brute", "2/2")
+    other = creature(s, "p1", "Other", "2/2")
+    g1 = creature(s, "p2", "Guard One", "0/9")
+    g2 = creature(s, "p2", "Guard Two", "0/9")
+    g3 = creature(s, "p2", "Guard Three", "0/9")
+    combat_step(s)
+    swing(s, [brute, other], [(g1, brute), (g2, brute), (g3, other)], before=lambda: cast_now(s, "Barreling Attack", [brute], R=2, C=2))
+    settle(s)
+    pl = Plan(s.state, "p1", s.cards, None)
+    assert pl.ch(s.state.cards[brute.id]).pt == (4, 4) and "trample" in pl.ch(s.state.cards[brute.id]).keywords  # +1/+1 for each of its two blockers
+    assert pl.ch(s.state.cards[other.id]).pt == (2, 2)
+    check(s)
+
+
+# -- "can't be blocked by …" (509.1b) --
+def test_black_gate_picks_a_player_with_the_most_life_and_their_creatures_cannot_block(cards):
+    s = sandbox(cards, "The Black Gate", p2=("Grizzly Bears",))
+    gate = on_field(s, "The Black Gate")
+    brute = creature(s, "p1", "Brute", "3/3")
+    bears = on_field(s, "Grizzly Bears", "p2")
+    main_step(s)
+    pool(s, B=1, C=1)
+    activate(s, "p1", gate, "Choose", targets=[brute.id])  # both players have 40 life: a tie, Alice chooses
+    d = ask(s)
+    assert {o.id for o in d.options} == {"p1", "p2"}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])
+    settle(s)
+    until(s, lambda s: s.state.turn.phase == "declare_attackers", limit=20)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": brute.id, "target": "p2"}])
+    for _ in range(6):
+        if s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    with pytest.raises(ActionError, match="can't be blocked"):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": bears.id, "attacker_id": brute.id}])  # Bob has the most life: his creatures can't block it
+    act(s, "p2", type="declare_blockers", blocks=[])
+    check(s)
+
+
+def test_black_gate_with_one_player_ahead_asks_nothing(cards):
+    s = sandbox(cards, "The Black Gate", p2=("Grizzly Bears",))
+    gate = on_field(s, "The Black Gate")
+    brute = creature(s, "p1", "Brute", "3/3")
+    bears = on_field(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="set_life", player="p2", value=30)
+    main_step(s)
+    pool(s, B=1, C=1)
+    activate(s, "p1", gate, "Choose", targets=[brute.id])
+    settle(s)
+    assert s.state.rules.decision is None  # Alice has the most life: no choice, and her own creatures are not the blockers
+    until(s, lambda s: s.state.turn.phase == "declare_attackers", limit=20)
+    swing(s, [brute], [(bears, brute)])  # Bob's creature may block
+    check(s)
+
+
+def test_legion_loyalist_battalion_gives_first_strike_trample_and_evades_tokens(cards):
+    s = sandbox(cards, "Legion Loyalist", p2=("Grizzly Bears",))
+    loyalist = on_field(s, "Legion Loyalist")
+    a = creature(s, "p1", "Attacker One", "2/2")
+    b = creature(s, "p1", "Attacker Two", "2/2")
+    home = creature(s, "p1", "Stays Home", "2/2")
+    robot = token_of(s, "p2", "Robot", "Token Artifact Creature — Robot", "1/9")
+    bears = on_field(s, "Grizzly Bears", "p2")
+    combat_step(s)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"} for c in (loyalist, a, b)])
+    for _ in range(6):
+        if s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    pl = Plan(s.state, "p1", s.cards, None)
+    for c in (loyalist, a, b, home):
+        assert {"first strike", "trample"} <= pl.ch(s.state.cards[c.id]).keywords
+    with pytest.raises(ActionError, match="can't be blocked"):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": robot.id, "attacker_id": a.id}])  # creature tokens can't block
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": bears.id, "attacker_id": a.id}])  # a card can
+    check(s)
+
+
+def test_legion_loyalist_needs_two_other_attackers(cards):
+    s = sandbox(cards, "Legion Loyalist")
+    loyalist = on_field(s, "Legion Loyalist")
+    a = creature(s, "p1", "Attacker One", "2/2")
+    guard = creature(s, "p2", "Guard", "0/9")
+    combat_step(s)
+    swing(s, [loyalist, a], [(guard, a)])
+    settle(s)
+    pl = Plan(s.state, "p1", s.cards, None)
+    assert "trample" not in pl.ch(s.state.cards[a.id]).keywords
+    check(s)
+
+
+def test_azure_fleet_admiral_cannot_be_blocked_by_the_monarchs_creatures(cards):
+    s = sandbox(cards, "Azure Fleet Admiral")
+    admiral = on_field(s, "Azure Fleet Admiral")
+    guard = creature(s, "p2", "Guard", "0/9")
+    main_step(s)
+    s.state.table.monarch = "p2"  # (set by hand for the test: no action sets it, and the replay below is of the actions only)
+    # the monarch's creatures may not block it
+    from app.rules import combat
+    from app.rules.plan import Plan as _Plan
+
+    pl = _Plan(s.state, "p2", s.cards, None)
+    problem = combat.block_problem(s.state, s.state.cards[guard.id], pl.ch(s.state.cards[guard.id]), s.state.cards[admiral.id], pl.ch(s.state.cards[admiral.id]), pl.info)
+    assert problem is not None and "can't be blocked" in problem
+    s.state.table.monarch = "p1"
+    assert combat.block_problem(s.state, s.state.cards[guard.id], pl.ch(s.state.cards[guard.id]), s.state.cards[admiral.id], pl.ch(s.state.cards[admiral.id]), pl.info) is None
+    s.state.table.monarch = None
+
+
+def test_pompous_gadabout_cannot_be_blocked_by_a_face_down_creature(cards):
+    s = sandbox(cards, "Pompous Gadabout", p2=("Gravel Slinger", "Grizzly Bears"))
+    gadabout = on_field(s, "Pompous Gadabout")
+    slinger = on_field(s, "Gravel Slinger", "p2")
+    act(s, "p2", type="move", card_ids=[slinger.id], to={"player": "p2", "zone": "battlefield"}, face_down=True, face_down_kind="morph")
+    bears = on_field(s, "Grizzly Bears", "p2")
+    combat_step(s)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": gadabout.id, "target": "p2"}])
+    for _ in range(6):
+        if s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    with pytest.raises(ActionError, match="can't be blocked"):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": slinger.id, "attacker_id": gadabout.id}])  # it has no name
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": bears.id, "attacker_id": gadabout.id}])
+    check(s)

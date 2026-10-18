@@ -136,14 +136,15 @@ def bound_cond(text: str) -> tuple[dict[str, Any], str, Any] | None:
     return None
 
 
-def parse(cond_text: str, clause: str, *, next_turn: bool = False) -> tuple[list[dict[str, Any]], Any] | None:
-    """"Whenever <cond> this turn, <clause>": a watch on players or objects, or on the one object the condition names."""
+def parse(cond_text: str, clause: str, *, next_turn: bool = False, once: bool = False) -> tuple[list[dict[str, Any]], Any] | None:
+    """"Whenever <cond> this turn, <clause>": a watch on players or objects, or on the one object the condition names. ``once``: "When <cond> this turn" -
+    a delayed triggered ability with "when" triggers once (603.7b)."""
     from app.rules import events
 
     if (bound := bound_cond(cond_text)) is not None:
-        found = build(bound[0], clause, once=False, text=cond_text, bound=bound[1], next_turn=next_turn)
+        found = build(bound[0], clause, once=once, text=cond_text, bound=bound[1], next_turn=next_turn)
         return (found[0], bound[2]) if found is not None else None
-    return build(events.parse_condition(cond_text), clause, once=False, text=cond_text, next_turn=next_turn)
+    return build(events.parse_condition(cond_text), clause, once=once, text=cond_text, next_turn=next_turn)
 
 
 def parse_leading(rest: str, *, next_turn: bool = False) -> tuple[list[dict[str, Any]], Any] | None:

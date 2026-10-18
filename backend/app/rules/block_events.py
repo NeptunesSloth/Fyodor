@@ -232,6 +232,26 @@ def targeted(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list
     return effects, kinds.pop(), found[2]
 
 
+def host_wording(body: str) -> str:
+    """A trigger of the creature an Aura / Equipment is attached to, about the creature on the other side of a block: "it gains deathtouch" (Hedron Blade) and
+    "the first creature assigns no combat damage" (Laccolith Rig) name the host, which "that creature" (the other side) would hide."""
+    body = re.sub(r"\bthe first creature\b", "equipped creature", body)
+    return re.sub(r"^it (?=gains? |gets? |has |assigns )", "equipped creature ", body)
+
+
+def both_creatures(cond: dict[str, Any], body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """"Whenever equipped creature blocks or becomes blocked by a creature, destroy both creatures." (Dead-Iron Sledge): the host and the creature on the other side,
+    destroyed together (one instruction, so one event: 603.10a, and regeneration shields are used up together); "this creature and that creature phase out."
+    (Dream Fighter)."""
+    if not cond.get("other") or not (cond["event"] in ("block", "blocked") or set(cond.get("events", ())) <= {"block", "blocked"}):
+        return None
+    if cond.get("subject") == "host" and body == "destroy both creatures.":
+        return [{"do": "destroy", "who": "union:ref:event_other+host"}], None, False
+    if cond.get("subject", "self") == "self" and body == "~ and that creature phase out.":  # (Dream Fighter: both phase out, 702.26a)
+        return [{"do": "phase_out", "who": "union:self+ref:event_other"}], None, False
+    return None
+
+
 def settle_it(d: dict[str, Any] | None, ante: str | None) -> dict[str, Any] | None:
     """"…blocked by it": "it" is the source in an activated ability and in a trigger about the source (``self``, ``self_gone``), the object the
     event is about in any other trigger, the target in a spell."""

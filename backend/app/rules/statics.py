@@ -1128,6 +1128,8 @@ def _rule(piece: str) -> list[str] | None:
     if m:
         colors = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}[m["c"]]
         return [f"untargetable:{1 if m['o1'] or m['o2'] else 0}:{1 if m['n'] else 0}:{colors}"]
+    if piece == "can't be blocked by creatures the monarch controls":  # -- block events (wave 53C) -- 509.1b, 725: by a blocker whose controller is the monarch (Azure Fleet Admiral)
+        return ["cant_be_blocked_if_defender:monarch"]
     m = re.fullmatch(r"can't be blocked (?P<except>except )?by (?P<sel>.+)", piece)
     if m:
         sels = _sels(m["sel"])
