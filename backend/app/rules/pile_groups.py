@@ -57,12 +57,14 @@ _AFTER = (
     (("Then each player chooses one of their piles at random and sacrifices those permanents.",), ("random", "sacrifice", None, "permanents")),
 )
 # piles of cards just revealed or exiled: who separates and who chooses, then what the piles do
-_REVEAL = re.compile(r"^Reveal the top (?P<n>\w+) cards of your library(?P<sep> and separate them into two piles)?\.$")
+_REVEAL = re.compile(r"^(?P<reveal>Reveal the top [^.]+? cards of your library(?:, where X is [^.]+?)?)(?P<sep> and separate them into two piles)?\.$")
 _EXILE = re.compile(r"^(?P<ex>Exile up to \w+ target (?:permanent|creature) cards from (?:your graveyard|graveyards))(?P<sep> and separate them into two piles)?\.$")
 _OPP_CHOOSES = "An opponent chooses one of those piles."
-_OPP_SEPARATES = ("An opponent separates those cards into two piles.",)
+_OPP_SEPARATES = ("An opponent separates those cards into two piles.", "An opponent separates the revealed cards into two piles.",
+                  "An opponent separates these cards into two piles.")
 _DEST = {  # the sentence -> (chosen op, other op, who chooses)
     "Put that pile into your hand and the other into your graveyard.": ("hand", "graveyard", "opponent"),
+    "Put one pile into your hand and the other into your graveyard.": ("hand", "graveyard", "you"),
     "Put a card from the chosen pile into your hand, then put all other cards revealed this way on the bottom of your library in any order.":
         ("pick_hand", "bottom", "opponent"),
     "Put one pile into your hand and the other on the bottom of your library in any order.": ("hand", "bottom", "you"),
@@ -78,6 +80,7 @@ def bind(body: str, parse: Any, split_sentences: Any) -> Found | None:
     sentences = split_sentences(body.strip())
     if not sentences:
         return None
+    sentences[0] = sentences[0][:1].upper() + sentences[0][1:]  # (a trigger's body: "reveal the top five cards …")
     first = sentences[0]
     if _SEPARATE.match(first):
         return _permanents(sentences)
@@ -118,17 +121,18 @@ def _cards(sentences: list[str], parse: Any) -> Found | None:
     rest = list(sentences[1:])
     m = _REVEAL.match(sentences[0]) or _EXILE.match(sentences[0])
     assert m is not None
-    reveal = "n" in m.groupdict()
-    found = parse(f"Reveal the top {m['n']} cards of your library." if reveal else f"{m['ex']}.")
-    if found is None or found[2] or len(found[0]) != 1:
-        return None
+    reveal = "reveal" in m.groupdict()
+    found = parse(f"{m['reveal']}." if reveal else f"{m['ex']}.")
+    if found is None or found[2] or len(found[0]) != 1 or (reveal and (found[0][0]["do"] != "look_top" or not found[0][0].get("reveal")
+                                                                     or found[0][0].get("until") or found[0][0].get("player") != "you")):
+        return None  # (only cards just revealed from your library: public, 701.20a, 700.3c)
     effects, groups = found[0], found[1]
     if m["sep"]:  # "and separate them into two piles": you separate, an opponent chooses
         if not rest or rest.pop(0) != _OPP_CHOOSES:
             return None
         split, who = "you", "opponent"
     else:  # "An opponent separates those cards into two piles.": the pile of your choice
-        if not rest or tuple(rest[:1]) != _OPP_SEPARATES:
+        if not rest or rest[0] not in _OPP_SEPARATES:
             return None
         rest.pop(0)
         split, who = "opponent", "you"
@@ -251,7 +255,7 @@ def _run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             continue
         decide(plan, player=chooser, kind="choose_one",
                prompt=f"{ctx.get('name') or 'Piles'}: choose one of {plan.name(grp['owner']) + chr(39) + 's ' if e.get('who') else 'the '}piles",
-               options=[DecisionOption(id=str(i), label=f"Pile {i + 1}: {_names(plan, p)}") for i, p in enumerate(grp["piles"])],
+               options=[DecisionOption(id=str(i + 1), label=f"Pile {i + 1}: {_names(plan, p)}") for i, p in enumerate(grp["piles"])],
                resume={"step": "pile_pick", "ctx": ctx, "e": e, "rest": [], "picked": []})
         return False
     return _apply(plan, ctx, e)
@@ -285,7 +289,7 @@ def resume_pick(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
     st = ctx["pile"]
     grp = st["groups"][st["g"]]
-    grp["pick"] = int(chosen[0]) if chosen else 0
+    grp["pick"] = int(chosen[0]) - 1 if chosen else 0
     plan.note(f"{plan.name(d.player)} chooses pile {grp['pick'] + 1}: {_names(plan, grp['piles'][grp['pick']])}", grp["piles"][grp["pick"]], actor=d.player)
     st["g"] += 1
     if _run(plan, ctx, e):

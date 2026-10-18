@@ -3214,7 +3214,6 @@ PRIMITIVES.update({"look_top": look_top, "pick_looked": pick_looked, "rest_looke
                    "rest_exiled": permissions.rest_exiled, "found_to": permissions.found_to})
 from app.rules import looking as _looking  # noqa: E402, I001  -- refused look/cast-free (wave 3R5) -- (a leaf module)
 
-PRIMITIVES["piles"] = _looking.piles
 PRIMITIVES["piles_down"] = _looking.piles_down  # -- hidden exile (wave 18A) -- a face-down pile and a face-up pile
 PRIMITIVES["win_if_library"] = _looking.win_if_library  # -- refused look/cast-free (wave 3R5) --
 from app.rules import reveal_hand as _reveal_hand  # noqa: E402, I001  -- if you do (wave 10C) -- (a leaf module)

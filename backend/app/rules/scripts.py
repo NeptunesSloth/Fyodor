@@ -2585,7 +2585,9 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
 
     if (vote := voting.split(body)) is not None:
         return voting.bind(vote, lambda t: parse_effects(t, it, event_player=event_player), split_sentences)
-    from app.rules import group_choice  # -- group choices (wave 53D) -- 101.4, 700.3: "each player chooses …", secret choices, piles, bids
+    from app.rules import (
+        group_choice,  # -- group choices (wave 53D) -- 101.4, 700.3: "each player chooses …", secret choices, piles, bids
+    )
 
     if (grouped := group_choice.bind(body, lambda t: parse_effects(t, it, event_player=event_player), split_sentences)) is not None:
         return grouped
@@ -3530,12 +3532,6 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects += untapped[0]
             skip_to = i + untapped[1]
             continue
-        if (piles := _piles(texts, i, effects)) is not None:  # -- refused look/cast-free (wave 3R5) -- 700.3
-            if not piles[0]:
-                return None
-            effects += piles[0]
-            skip_to = i + piles[1]
-            continue
         if _WIN_IF_X.fullmatch(text):  # -- refused look/cast-free (wave 3R5) -- Thassa's Oracle (104.2b)
             bound_x = [x["n"] for x in effects if isinstance(x.get("n"), dict) and x["n"] != {"x": 1}]
             if len(bound_x) != 1 or not re.search(r"\bwhere x is\b", body, re.IGNORECASE):
@@ -4165,40 +4161,7 @@ _KICKED = re.compile(r"^if (?P<neg>this spell wasn't|(?:this spell|it|~) was) ki
 # -- refused look/cast-free (wave 3R5) -- after a free cast: a replacement effect on the spell cast (614.1a)
 _FREE_EXILE_GY = re.compile(r"^if (?:that spell|that card|a spell cast this way|(?P<is>an instant or sorcery) spell cast this way) "  # (wave 19C: "is")
                             r"would be put into (?P<g>your|their|a) graveyard, exile it instead$")
-# -- refused look/cast-free (wave 3R5) -- 700.3: piles of the cards just revealed (public: 701.20a)
-_PILES_THEY = re.compile(r"^an opponent separates (?:those|the revealed|these) cards into two piles$")
-_PILES_YOU = re.compile(r"^(?P<reveal>reveal the top .+? of your library) and separate them into two piles$")
-_PILES_CHOOSE = re.compile(r"^an opponent chooses one of (?:those|the) piles$")
-_PILES_PUT = re.compile(r"^put (?:one|that) pile into your hand and the other into your graveyard$")
-
-
-def _piles(texts: list[str], i: int, effects: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int] | None:
-    """"Reveal the top five cards of your library. An opponent separates those cards into two piles. Put one
-    pile into your hand and the other into your graveyard." (Fact or Fiction: the opponent separates, you
-    choose) / "Reveal the top five cards of your library and separate them into two piles. An opponent
-    chooses one of those piles. Put that pile into your hand and the other into your graveyard." (Steam
-    Augury: you separate, the opponent chooses). Which opponent: the spell's controller chooses (608.2d).
-    Returns (effects, sentences used); ([], …) refuses; None: not a piles sentence."""
-    from app.rules.language import parse_sentence
-
-    def text(k: int) -> str:
-        return _lower_first(texts[k].rstrip(".").strip()) if k < len(texts) else ""
-
-    if _PILES_THEY.match(text(i)):
-        if not _PILES_PUT.match(text(i + 1)) or "one pile" not in text(i + 1):
-            return [], 1
-        if not effects or effects[-1]["do"] != "look_top" or not effects[-1].get("reveal") or effects[-1].get("until") \
-                or effects[-1].get("player") != "you":
-            return [], 1  # (only cards just revealed from your library: public, 700.3c)
-        return [{"do": "piles", "separator": "opponent", "chooser": "you"}], 2
-    m = _PILES_YOU.match(text(i))
-    if m:
-        found = parse_sentence(m["reveal"])
-        if not _PILES_CHOOSE.match(text(i + 1)) or not _PILES_PUT.match(text(i + 2)) or "that pile" not in text(i + 2) \
-                or found is None or len(found[0]) != 1 or found[0][0]["do"] != "look_top" or not found[0][0].get("reveal"):
-            return [], 1
-        return [found[0][0], {"do": "piles", "separator": "you", "chooser": "opponent"}], 3
-    return None
+# (-- piles (wave 53D) -- the piles of cards just revealed are app/rules/pile_groups.py's: it reads the whole body)
 
 
 _WIN_IF_X = re.compile(r"^if [xX] is greater than or equal to the number of cards in your library, you win the game$")
