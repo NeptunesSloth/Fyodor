@@ -227,7 +227,7 @@ def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answe
             if what in answers:
                 out.setdefault("choices", {})[what] = answers[what]
             elif "choice" not in out:
-                out["choice"] = {"what": what, **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}),
+                out["choice"] = {"what": what, **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}), **({"reveal": True} if e.get("reveal") else {}),
                                  **({"options": e["options"]} if e.get("options") else {})}  # (wave 51C: "choose Elemental, Elf, …": only the creature types listed)
 
 
@@ -439,7 +439,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
     if (named := card_names.prompt(plan, card, controller, choice)) is not None:  # -- card names (wave 22B) -- look at a hand, then name
         return named
     from app.rules import battles, reveal_lands
+    from app.rules.chosen import PAIR_WHAT
 
+    if what == PAIR_WHAT:  # -- chosen filters (wave 53B) -- "choose white Citizen, blue Camarid, …": its own options
+        return f"{card.name}: as it enters, choose a color and creature type", [DecisionOption(id=o, label=o) for o in choice["options"]]
     if reveal_lands.is_choice(what):  # -- "this way" outcomes (wave 4A) -- private: the cards in their hand
         return reveal_lands.prompt(plan, card, controller, what)
     from app.rules import enter_cost
@@ -766,6 +769,11 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
             if value and value in (_chosen.words(what) or ()):  # -- linked words (wave 33B) -- 607.2f: the word, public, kept for this object (400.7)
                 plan.do({"type": "set_choice", "card_id": card_id, "key": _chosen.WORD_LABEL, "value": value}, actor=controller)
                 _chosen.record_word(plan, card_id, value)
+                continue
+            if value and what == _chosen.PAIR_WHAT:  # (wave 53B: a color and a creature type in one answer, each recorded as its own public choice)
+                color, kind = value.split(" ", 1)
+                plan.do({"type": "set_choice", "card_id": card_id, "key": "Chosen color", "value": color}, actor=controller)
+                plan.do({"type": "set_choice", "card_id": card_id, "key": "Chosen creature type", "value": kind}, actor=controller)
                 continue
             if not value or (what not in CHOICE_LABELS and not card_names.is_choice(what)):
                 continue

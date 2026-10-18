@@ -708,6 +708,10 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
         if cond.get("color") and not (och is not None and (not och.colors if cond["color"] == "colorless"  # -- counters (wave 41A) -- "a red source": 105.2
                                                           else selectors.COLORS[cond["color"]] in och.colors)):
             return False
+        if cond.get("chosen_color"):  # -- chosen filters (wave 53B) -- "a source of the chosen color": the color the watching permanent chose as it entered (614.12a), none chosen: none
+            chosen = selectors.source_choice(plan, watcher.id, "color")
+            if chosen is None or selectors.COLORS.get(chosen.lower()) not in (och.colors if och is not None else ()):
+                return False
         return int(info.get("amount") or 0) > 0 and (cond.get("ctl", "any") == "any" or (cond["ctl"] == "you") == (player == you))
     if subject == "self_or_host":  # "~ or equipped creature"
         return obj.id == watcher.id or _hosted(plan, watcher, obj, info, event)

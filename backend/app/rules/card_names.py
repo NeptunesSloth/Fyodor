@@ -141,6 +141,13 @@ def enters_choice(text: str) -> dict[str, Any] | None:
         return {"kind": "replacement", "replacement": "enters_choice",
                 "effects": [{"do": "choose_value", "who": "you", "what": LOOK},
                             {"do": "choose_value", "who": "you", "what": "card name", "remember": True, "look": True}]}
+    if text == "As ~ enters, each opponent reveals their hand. You choose the name of a nonland card revealed this way.":  # -- chosen filters (wave 53B) -- Alhammarret, High Arbiter: 701.20a, only a revealed card's name
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": "nonland card name", "remember": True, "reveal": True}]}
+    if text == "As ~ enters, look at an opponent's hand, then choose a card type other than creature.":  # -- chosen filters (wave 53B) -- Arachne, Psionic Weaver: the same look, then a card type
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": LOOK},
+                            {"do": "choose_value", "who": "you", "what": "card type other than creature", "remember": True, "look": True}]}
     return None
 
 
@@ -157,10 +164,24 @@ def prompt(plan: Plan, card: CardInstance, player: str, choice: dict[str, Any]) 
     if what == LOOK:
         return (f"{card.name}: as it enters, choose an opponent whose hand you look at",
                 [DecisionOption(id=p, label=plan.name(p)) for p in plan.live() if p != player])
+    if choice.get("reveal") and is_choice(what):  # -- chosen filters (wave 53B) -- each opponent reveals their hand (public, 701.20a): the names of the nonland cards in them are the options
+        names: list[str] = []
+        for p in plan.live():
+            if p == player:
+                continue
+            cards = [plan.state.cards[cid] for cid in plan.state.zones.get(zone_key(p, "hand"), []) if cid in plan.state.cards]
+            plan.note(f"{plan.name(p)} reveals their hand: {', '.join(c.name or 'a card' for c in cards) or 'no cards'}", [c.id for c in cards])
+            names += [c.name for c in cards if c.name and "Land" not in plan.ch(c).types and c.name not in names]
+        return f"{card.name}: as it enters, choose the name of a nonland card revealed this way", [DecisionOption(id=n, label=n) for n in names]
     look = choice.get("look")
-    if not is_choice(what) or not look or look not in plan.state.players:
+    if not (is_choice(what) or what.startswith("card type")) or not look or look not in plan.state.players:
         return None
     plan.note(f"{plan.name(player)} looks at {plan.name(look)}'s hand", actor=player)
     hand = [DecisionOption(id=f"seen:{cid}", label=plan.state.cards[cid].name or "a card", card_id=cid, group="seen")
             for cid in plan.state.zones.get(zone_key(look, "hand"), []) if cid in plan.state.cards]
+    if not is_choice(what):  # -- chosen filters (wave 53B) -- a card type, picked from its options with the hand shown beside them (the shown cards are not answers: engine.choose)
+        from app.rules.effects import CHOICE_OPTIONS
+
+        return (f"{card.name}: as it enters, choose a {what} (you look at {plan.name(look)}'s hand)",
+                [DecisionOption(id=o, label=o) for o in CHOICE_OPTIONS[what]] + hand)
     return f"{card.name}: as it enters, choose any card name (you look at {plan.name(look)}'s hand)", [option(what), *hand]

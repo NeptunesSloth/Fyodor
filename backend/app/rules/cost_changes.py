@@ -404,7 +404,7 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
     if named and (m["chosen"] or m["chosen1"] or m["with"] or m["with2"] or sum(bool(re.fullmatch(rf"As .+ enters, choose (?:a|an) {_card_names.WHAT_RX}\.?", x.strip())
                                                                                     or x.strip().endswith("then choose any card name.")) for x in lines) != 1):
         return None
-    card_type = (m["chosen"] or m["chosen1"]) and any(re.fullmatch(r"As .+ enters, choose (?:a card type(?: other than creature or land)?|artifact, creature, enchantment, instant, or sorcery)\.?", x.strip()) for x in lines)  # (wave 47A: Umori, Stenn)
+    card_type = (m["chosen"] or m["chosen1"]) and any(re.fullmatch(r"As .+ enters, (?:choose (?:a card type(?: other than creature or land)?|artifact, creature, enchantment, instant, or sorcery)|look at an opponent's hand, then choose a card type other than creature)\.?", x.strip()) for x in lines)  # (wave 47A: Umori, Stenn; wave 53B: Arachne)
     if (m["chosen"] or m["chosen1"]) and not card_type and not any(re.fullmatch(r"As .+ enters, choose a creature type\.?", x.strip()) for x in lines):
         return None
     sel = m["sel"]

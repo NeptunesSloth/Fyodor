@@ -957,6 +957,13 @@ def join_exile_play(body: str) -> str:
 def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     """An effect sentence of the permission grammar (see ``scripts._one_clause``), or None.
     ("Exile the top card of your library" itself is the library grammar's: app/rules/language.py.)"""
+    if (named := re.fullmatch(rf"spells with the chosen name cost {_N} (?P<dir>less|more) to cast this turn", text, re.IGNORECASE)) is not None:
+        # -- chosen filters (wave 53B) -- "Choose a card name. Spells with the chosen name cost {1} less to cast this turn." (Cheering Fanatic): everybody's spells (601.2f,
+        # 611.2a), the name just chosen bound into the filter (chosen.bind_effects)
+        sel = selectors.parse("spells with the chosen name")
+        if sel is None:
+            return None
+        return [{"do": "cost_modifier", "delta": int(named["n"]) * (-1 if named["dir"] == "less" else 1), "filter": sel.key(), "until": "end_of_turn", "any": True}], None
     m = STORED_COST.fullmatch(text)
     if m and bool(m["until"]) != bool(m["this_turn"]):
         key = spell_filter(m["sel"])
@@ -1738,7 +1745,7 @@ def cost_modifier(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
     delta = e["dir"] * values.evaluate(plan, ctx, e["delta"]) if isinstance(e["delta"], dict) else int(e["delta"])  # (wave 44D: an amount read now, 611.2a)
     plan.rules.cost_modifiers.append(CostModifier(
-        id=secrets.token_hex(4), controller=pid, delta=delta, caster="you", filter=e.get("filter"),
+        id=secrets.token_hex(4), controller=pid, delta=delta, caster="any" if e.get("any") else "you", filter=e.get("filter"),  # (wave 53B: Cheering Fanatic, everybody's spells)
         until=e["until"], turn=plan.state.turn.number, source=ctx.get("source_object"),
         label=(ctx.get("name") or "An effect")[:120]))
     amount = f"{{{abs(delta)}}} {'less' if delta < 0 else 'more'}"

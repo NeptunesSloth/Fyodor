@@ -104,7 +104,7 @@ STATIC_OWN_FLASH = re.compile(r"^(?P<sel>[a-z]+) cards you own that aren't on th
 SELF_FLASH_IF = re.compile(r"^you may cast (?:this spell|~) as though it had flash if (?P<cond>.+)$")
 # Effects: "Your opponents can't cast spells this turn." / "Target player can't cast spells this turn." / "Players can't cast
 # noncreature spells this turn." / "Until your next turn, your opponents can't cast spells from anywhere other than their hands."
-EFFECT_CAST = re.compile(rf"^(?:(?P<lead>until your next turn|until the end of your next turn|this turn), )?(?P<who>your opponents|players|each player|each opponent|"
+EFFECT_CAST = re.compile(rf"^(?:(?P<lead>until your next turn|until the end of your next turn|this turn), )?(?P<who>your opponents|opponents|players|each player|each opponent|"
                          rf"target player|target opponent|its controller) can't cast {_SPELLS}{_FROM}{_ACT}(?: (?P<when>this turn|until your next turn|until the end of your next turn))?$")  # (wave 32C: Single Combat)
 # Flash permissions (601.3b): "You may cast Spirit spells as though they had flash." / "You may cast Dragon spells and artifact
 # spells as though they had flash." / "Any player may cast spells as though they had flash." / "During each opponent's end
@@ -435,7 +435,7 @@ def _effect_cast(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     act = _ACTS.get(m["act"] or "")
     if act not in (None, "loyalty"):
         raise ValueError("only loyalty abilities")  # (an effect's other activation limits aren't read)
-    who = {"your opponents": "each_opponent", "each opponent": "each_opponent", "players": "each_player", "each player": "each_player",
+    who = {"your opponents": "each_opponent", "opponents": "each_opponent", "each opponent": "each_opponent", "players": "each_player", "each player": "each_player",
            "target player": "target", "target opponent": "target", "its controller": "it.controller"}[m["who"]]  # (wave 51C: Render Silent)
     sel = {"target player": "player", "target opponent": "opponent"}.get(m["who"])
     until = "end_of_next_turn" if "end of your next turn" in (lead or when or "") else "next_turn" if "next turn" in (lead or when or "") else "turn"
@@ -467,6 +467,34 @@ def _effect_next_flash(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | No
     return [{"do": "flash_permission", "spell": sel.key(), "next": True}], None
 
 
+# -- chosen filters (wave 53B) -- "Until your next turn, spells with the chosen name can't be cast and lands with the chosen name can't be played." (Conjurer's Ban): 601.3, 305.1;
+# the name is bound into the spell selector (chosen.bind_effects) and the lands are judged by that same name (``land_problem``)
+EFFECT_BAN_NAMED = re.compile(r"^until your next turn, spells with the chosen name can't be cast(?P<lands> and lands with the chosen name can't be played)?$")
+
+
+def _effect_ban_named(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import selectors
+
+    sel = selectors.parse("spells with the chosen name")
+    if sel is None:
+        raise ValueError("selector")
+    return [{"do": "cast_limit", "who": "each_player", "until": "next_turn", "filter": sel.key(), "from": None, "act": None,
+             **({"lands": True} if m["lands"] else {})}], None
+
+
+def land_problem(state: GameState, player: str, ch: Characteristics) -> str | None:
+    """Why a stored limit forbids ``player`` playing this land now (305.1), or None: "lands with the chosen name can't be played" until a turn (the name is the bound ``name:`` of its spell selector)."""
+    r = state.rules
+    for x in r.cast_limits if r is not None else ():
+        if x.get("lands") and x.get("player") == player and _record_live(state, x):
+            names = [e[5:] for e in selectors.from_key(x["filter"]).extras if e.startswith("name:")]
+            from app.rules import card_names
+
+            if names and card_names.has_name(ch, names[0]):
+                return f"{x.get('label') or 'An effect'}: you can't play {ch.name} now"
+    return None
+
+
 def _template(rx: re.Pattern[str], fn: Any) -> tuple[re.Pattern[str], Any]:
     def run(m: re.Match[str]) -> Any:
         from app.rules.scripts import _NoMatch
@@ -485,7 +513,7 @@ def _player_templates() -> list[tuple[re.Pattern[str], Any]]:
     return [*player_shields.TEMPLATES, *life_lock.TEMPLATES]  # (-- can't lose life (wave 29D) --)
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [_template(EFFECT_CAST, _effect_cast), _template(EFFECT_NEXT_FLASH, _effect_next_flash), *_player_templates()]
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [_template(EFFECT_CAST, _effect_cast), _template(EFFECT_NEXT_FLASH, _effect_next_flash), _template(EFFECT_BAN_NAMED, _effect_ban_named), *_player_templates()]
 
 
 def flash_sentence(text: str) -> list[dict[str, Any]] | None:
@@ -511,7 +539,7 @@ def cast_limit(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     label = ctx.get("name") or "An effect"
     for pid in _players(plan, ctx, e["who"]):
         r.cast_limits.append({"id": secrets.token_hex(4), "player": pid, "controller": ctx["controller"], "until": e["until"],
-                              "turn": turn, "filter": e.get("filter"), "from": e.get("from"), "act": e.get("act"),
+                              "turn": turn, "filter": e.get("filter"), "from": e.get("from"), "act": e.get("act"), "lands": e.get("lands"),
                               "label": label})
         what = _spells_words(e.get("filter"), e.get("from"))
         if e.get("act") == "loyalty":

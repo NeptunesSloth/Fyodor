@@ -76,6 +76,19 @@ def _uses(node: Any, key: str = "") -> list[tuple[str, str]]:
     return []
 
 
+# -- chosen filters (wave 53B) -- "When this land enters, choose a land card name." (Petrified Hamlet): a trigger, so the name is chosen as it resolves (608.2d), not as it enters; the
+# permanent keeps it (its public choice, 607.2a: the statics after it are linked to it), as an entering choice would be
+NAME_TRIGGER = re.compile(r"^When ~ enters, choose (?:a|an) (?P<what>(?:non)?(?:land|artifact|creature|enchantment|instant|sorcery|planeswalker|basic)? ?card name)\.$")
+
+
+def remember_name(d: dict[str, Any] | None, text: str) -> dict[str, Any] | None:
+    """The definition of a lone "When ~ enters, choose a … card name." trigger with the answer recorded on the permanent (effects.resume_choose_value ``remember``)."""
+    effects = d.get("effects") if d is not None else None
+    if d is None or d.get("kind") != "triggered" or NAME_TRIGGER.match(text) is None or not effects or len(effects) != 1 or effects[0].get("do") != "choose_value":
+        return d
+    return {**d, "effects": [{**effects[0], "remember": True}]}
+
+
 def _enters_choices(ch: Characteristics) -> list[str]:
     from app.rules import (
         card_names,  # -- card names (wave 22B) -- "As ~ enters, choose a card name." counts as a card name choice
@@ -85,9 +98,12 @@ def _enters_choices(ch: Characteristics) -> list[str]:
 
     texts = [choice_head(self_text(ab.text, ch.name)) for ab in ch.abilities]  # (wave 53B: a line that also puts counters on it)
     named = [e["what"] for t in texts if (d := card_names.enters_choice(t)) is not None for e in d["effects"] if card_names.is_choice(e["what"])]
-    singles = ["card type" if m["what"].startswith("card type") or type_choice(m["what"]) is not None else "number" if m["what"].startswith("number") else "abilities" if m["what"].startswith("two abilities") else "basic land type" if re.fullmatch(r"\w+ or \w+", m["what"]) and m["what"][:1].isupper() else "creature type" if m["what"][:1].isupper() else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] != "color and a creature type"]
+    named += [m["what"] for t in texts if (m := NAME_TRIGGER.match(t)) is not None]  # (wave 53B: "When ~ enters, choose a land card name." — recorded on the permanent as the trigger resolves, Petrified Hamlet)
+    pairs = [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and re.fullmatch(PAIRS, m["what"]) for k in ("color", "creature type")]  # (wave 53B: Sarpadian Empires)
+    singles = ["card type" if m["what"].startswith("card type") or type_choice(m["what"]) is not None else "number" if m["what"].startswith("number") else "abilities" if m["what"].startswith("two abilities") else "basic land type" if re.fullmatch(r"\w+ or \w+", m["what"]) and m["what"][:1].isupper() else "creature type" if m["what"][:1].isupper() else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] != "color and a creature type" and not re.fullmatch(PAIRS, m["what"])]
     both = [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "color and a creature type" for k in ("color", "creature type")]  # (wave 53B: "choose a color and a creature type")
-    return singles + both + ["card name" for _ in named]  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
+    typed = ["card type" for ab in ch.abilities if self_text(ab.text, ch.name) == "As ~ enters, look at an opponent's hand, then choose a card type other than creature."]  # (wave 53B: Arachne)
+    return singles + both + pairs + typed + ["card name" for _ in named]  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
 
 
 def _kind(what: str | None) -> str | None:
@@ -125,7 +141,7 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     if d.get("counters"):  # -- chosen filters (wave 53B) -- "enters with a counter for each creature you control of the chosen type": counted with the answer of the same line
         return all(w == d["counters_choice"] for _, w in _uses(d["counters"]))
     dumped = json.dumps(d)
-    if '"chosen": true' in dumped:  # -- chosen filters (wave 53B) -- "a token of the chosen color and type": the source's own entering choices of both
+    if any(isinstance(e.get("token"), dict) and e["token"].get("chosen") for e in d.get("effects") or []):  # -- chosen filters (wave 53B) -- "a token of the chosen color and type": the source's own entering choices of both
         return d.get("kind") in ("activated", "triggered") and {"color", "creature type"} <= set(_enters_choices(ch)) and _enters_choices(ch).count("color") == 1 and _enters_choices(ch).count("creature type") == 1
     for line, (kind, _) in PROTECTION.items():  # -- attached events (wave 25D) -- an Aura's static: its own enters choice (wave 53B: a card type, a creature type)
         if line in dumped and d.get("static") == "grant":
@@ -270,6 +286,11 @@ def record_word(plan: Plan, card_id: str, word: str) -> None:
 # type" is a creature type unless the choice that goes with it is a card type (``retag``, 205.3m vs 205.2a).
 _TYPE_WORD = "artifact|battle|creature|enchantment|instant|kindred|land|planeswalker|sorcery"
 TYPE_CHOICE = rf"(?:card type|permanent type|(?:{_TYPE_WORD})(?:, (?:{_TYPE_WORD}))*,? or (?:{_TYPE_WORD}))"
+# -- chosen filters (wave 53B) -- "As ~ enters, choose white Citizen, blue Camarid, black Thrull, red Goblin, or green Saproling." (Sarpadian Empires, Vol. VII): one answer that is both a
+# color and a creature type, each its own public record ("Chosen color", "Chosen creature type"), 614.12a
+_PAIR = r"(?:white|blue|black|red|green) [A-Z][a-z]+"
+PAIRS = rf"{_PAIR}(?:, {_PAIR})*,? or {_PAIR}"
+PAIR_WHAT = "color and creature type pair"
 PERMANENT_TYPES = ["Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker"]  # 205.2a
 
 
@@ -333,6 +354,8 @@ _THAT = re.compile(r"\b(?:of their choice )?of that (color|type)\b")  # ("sacrif
 def rewrite(body: str) -> str:
     """"Choose a card type, then reveal …" is two sentences; after a "Choose a color / creature type / card type." sentence, "of that color /
     type" is "of the chosen color / type" (the value just chosen: 608.2c)."""
+    body = re.sub(r"(, then c|(?<=\. )C|^C)hoose a color\. ((?:This [a-z]+|~) becomes) the chosen color\b",  # (Puca's Eye: nothing comes between the choice and the change, so it is "the color of your choice")
+                  lambda m: (". " if m[1].startswith(",") else "") + f"{m[2]} the color of your choice", body)
     body = _CHOOSE_THEN.sub(lambda m: f"{m['c']}hoose a {m['what']}. {m['r'].upper()}", body)
     body = re.sub(r"((?:If you do, )?)(that player reveals their hand) and (~ deals damage) to the player (equal to the number of [^.]* revealed this way)",
                   r"\1\2. \1\3 to that player \4", body)  # (Darigaaz: two instructions, one after the other, the second under the same "If you do")

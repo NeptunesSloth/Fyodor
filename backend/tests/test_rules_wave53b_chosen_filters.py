@@ -1257,3 +1257,219 @@ def test_sungold_sentinel_gains_hexproof_from_the_color_and_cant_be_blocked_by_c
         act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": goblin.id, "attacker_id": sentinel.id}])
     act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": elf.id, "attacker_id": sentinel.id}])  # a green one can
     check(s)
+
+
+# ---- a card name chosen as an ability resolves, cheapening the named spells for the turn (step 18): 601.2f, 611.2a ----------------------------------
+def test_cheering_fanatic_makes_every_spell_with_the_chosen_name_cost_one_less_this_turn(cards):
+    s = build(cards, ["Cheering Fanatic", "Probe Gem", "Probe Relic"], ["Probe Gem"])
+    assert coverage.of_card_data(cards.resolve("Cheering Fanatic")).level == "FULL"
+    fanatic = put(s, "Cheering Fanatic")
+    s.state.rules.controlled_since[fanatic.id].turn = 0
+    assert (cost_of(s, "Probe Gem"), cost_of(s, "Probe Gem", "p2")) == ("{4}", "{4}")
+    act(s, "p1", type="pass_priority")  # → combat
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": fanatic.id, "target": "p2"}])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.options[0].id == "__name__")
+    name_it(s, "Probe Gem")
+    assert (cost_of(s, "Probe Gem"), cost_of(s, "Probe Gem", "p2")) == ("{3}", "{3}")  # both players' spells with that name
+    assert cost_of(s, "Probe Relic") == "{1}"  # (other names are not cheaper)
+    check(s)
+
+
+def test_pucas_eye_draws_then_becomes_the_color_chosen(cards):
+    s = build(cards, ["Puca's Eye", "Probe Elf"])
+    assert coverage.of_card_data(cards.resolve("Puca's Eye")).level == "FULL"
+    eye = card_named(s, "Puca's Eye")
+    assert Plan(s.state, "p1", s.cards, None).ch(eye).colors == frozenset()
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, "p1", C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Puca's Eye").id)
+    answer(s, "Blue")
+    assert len(s.state.zones["p1:hand"]) == hand + 1  # (the card to hand, and the draw)
+    assert Plan(s.state, "p1", s.cards, None).ch(card_named(s, "Puca's Eye")).colors == frozenset({"U"})  # 611.2a: no duration stated, so for the rest of the game
+    check(s)
+
+
+# ---- damage from a source of the color its enchantment chose as it entered (step 19): 603.2, 105.2 ----------------------------------
+def test_circle_of_affliction_triggers_only_for_damage_from_a_source_of_the_chosen_color(cards):
+    s = build(cards, ["Circle of Affliction", "Probe Burner", "Probe Sting"])
+    assert coverage.of_card_data(cards.resolve("Circle of Affliction")).level == "FULL"
+    enter(s, "Circle of Affliction", "Red", B=1, C=1)
+    assert s.state.cards[card_named(s, "Circle of Affliction").id].choices == {"Chosen color": "Red"}
+    # a green source hurts Alice: no trigger
+    mana(s, "p1", G=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Probe Sting").id, targets=["p1"])
+    answer(s)
+    assert life(s, "p1") == 38 and life(s, "p2") == 40
+    # a red one: the trigger, a payment of {1}, and the drain
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Probe Burner").id, targets=["p1"])
+    mana(s, "p1", C=1)
+    answer(s, "p2", "pay")  # the trigger's target, then the {1}
+    assert (life(s, "p1"), life(s, "p2")) == (37, 39)  # 38 - 2 + 1 for the drain; Bob loses 1
+    check(s)
+
+
+def test_harsh_judgment_sends_the_damage_of_a_spell_of_the_chosen_color_back_to_its_controller(cards):
+    s = build(cards, ["Harsh Judgment", "Probe Gain"], ["Probe Burner", "Probe Sting"])
+    assert coverage.of_card_data(cards.resolve("Harsh Judgment")).level == "FULL"
+    enter(s, "Harsh Judgment", "Red", W=2, C=2)
+    for prefs in s.state.rules.prefs.values():
+        prefs.response = "on"  # (each player stops to respond)
+    for spell, cost in (("Probe Sting", dict(G=1)), ("Probe Burner", dict(R=1))):
+        mana(s, "p1", R=1)
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Probe Gain").id)  # Bob responds with his burn spell at Alice
+        mana(s, "p2", **cost)
+        act(s, "p2", type="cast_spell", card_id=to_hand(s, spell, "p2").id, targets=["p1"])
+        answer(s)
+        act(s, "p1", type="move", card_ids=[card_named(s, "Probe Gain").id], to={"player": "p1", "zone": "library"})
+    # the green spell hurt Alice (2) and the red one hurt Bob (2) instead; Alice gained 1 twice
+    assert (life(s, "p1"), life(s, "p2")) == (40 - 2 + 2, 40 - 2)
+    check(s)
+
+
+# ---- a card type chosen after looking at an opponent's hand, taxing the spells of that type (step 20): 701.20e, 614.12a, 601.2f ----------------------------------
+def test_arachne_looks_at_the_opponents_hand_then_taxes_the_spells_of_the_chosen_card_type(cards):
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Arachne, Psionic Weaver", "Probe Gain", "Probe Elf"], ["Probe Bolt", "Probe Gem"])
+    assert coverage.of_card_data(cards.resolve("Arachne, Psionic Weaver")).level == "FULL"
+    to_hand(s, "Probe Bolt", "p2")
+    to_hand(s, "Probe Gem", "p2")
+    mana(s, "p1", W=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Arachne, Psionic Weaver").id)
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d.player == "p1" and sorted(o.label for o in d.options if o.group == "seen") == ["Probe Bolt", "Probe Gem"]  # Alice sees Bob's whole hand (and only she is asked)
+    assert "Creature" not in [o.id for o in d.options] and "Instant" in [o.id for o in d.options]
+    seen = next(o.id for o in d.options if o.group == "seen")
+    with pytest.raises(ActionError):  # a card she looked at is not an answer
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[seen])
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Instant"])
+    arachne = card_named(s, "Arachne, Psionic Weaver")
+    assert s.state.cards[arachne.id].choices == {"Chosen card type": "Instant"}
+    assert (cost_of(s, "Probe Gain"), cost_of(s, "Probe Bolt", "p2")) == ("{1}{R}", "{1}{R}")  # {1} more for everyone's instants
+    assert (cost_of(s, "Probe Elf"), cost_of(s, "Probe Gem", "p2")) == ("{1}", "{4}")  # (creatures and artifacts are not taxed)
+    check(s)
+
+
+# ---- a card name chosen as a spell resolves, banning spells and lands of that name until the caster's next turn (step 21): 601.3, 305.1 ----------------------------------
+def ban(s, name):
+    mana(s, "p1", W=1, B=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Conjurer's Ban").id)
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    name_it(s, name)
+
+
+def test_conjurers_ban_stops_the_named_spell_for_every_player_until_your_next_turn(cards):
+    s = build(cards, ["Conjurer's Ban", "Probe Gem", "Probe Gem", "Probe Relic"], ["Probe Gem", "Probe Gem"])
+    assert coverage.of_card_data(cards.resolve("Conjurer's Ban")).level == "FULL"
+    hand = len(s.state.zones["p1:hand"])
+    ban(s, "Probe Gem")
+    assert len(s.state.zones["p1:hand"]) == hand + 1  # (the Ban was added to the hand and cast; "Draw a card")
+    assert can_cast(s, "Probe Gem", C=4) is not None and can_cast(s, "Probe Gem", "p2", C=4) is not None  # nobody can cast it
+    assert can_cast(s, "Probe Relic", C=1) is None  # (another name)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")  # Alice's next turn
+    assert can_cast(s, "Probe Gem", C=4) is None  # it ended as that turn began
+    check(s)
+
+
+def test_conjurers_ban_stops_the_named_land_from_being_played(cards):
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Conjurer's Ban", "Probe Land", "Probe Swamp"])
+    ban(s, "Probe Land")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="play_land", card_id=to_hand(s, "Probe Land").id)
+    act(s, "p1", type="play_land", card_id=to_hand(s, "Probe Swamp").id)  # (another name is fine)
+    assert zone_of(s, "Probe Swamp") == "p1:battlefield" and zone_of(s, "Probe Land") == "p1:hand"
+    check(s)
+
+
+# ---- a card name chosen from the nonland cards an opponent revealed as the permanent entered (step 22): 701.20a, 201.4, 614.12a ----------------------------------
+def test_alhammarret_names_a_revealed_nonland_card_and_stops_the_opponents_from_casting_it(cards):
+    s = build(cards, ["Alhammarret, High Arbiter", "Probe Gem"], ["Probe Bolt", "Probe Gem", "Probe Land"])
+    assert coverage.of_card_data(cards.resolve("Alhammarret, High Arbiter")).level == "FULL"
+    for n in ("Probe Bolt", "Probe Gem", "Probe Land"):
+        to_hand(s, n, "p2")
+    mana(s, "p1", U=2, C=5)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Alhammarret, High Arbiter").id)
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d.player == "p1" and sorted(o.id for o in d.options) == ["Probe Bolt", "Probe Gem"]  # the nonland cards revealed: the Land is not one
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Probe Gem"])
+    assert s.state.cards[card_named(s, "Alhammarret, High Arbiter").id].choices == {"Chosen card name": "Probe Gem"}
+    from app.rules import cast_limits
+    from app.rules import characteristics as chars
+
+    def problem(name, pid):
+        c = card_named(s, name, pid)
+        return cast_limits.cast_problem(s.state, pid, c, chars.of(c, s.cards), s.cards)
+
+    assert "can't cast" in problem("Probe Gem", "p2")  # your opponents can't cast it
+    assert problem("Probe Bolt", "p2") is None and problem("Probe Gem", "p1") is None  # (another name; you can)
+    check(s)
+
+
+# ---- one answer that is both a color and a creature type (step 23): 614.12a, 111.4 ----------------------------------
+def test_sarpadian_empires_makes_a_token_of_the_color_and_type_of_the_one_answer(cards):
+    s = build(cards, ["Sarpadian Empires, Vol. VII"])
+    assert coverage.of_card_data(cards.resolve("Sarpadian Empires, Vol. VII")).level == "FULL"
+    mana(s, "p1", C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Sarpadian Empires, Vol. VII").id)
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert option_ids(s) == ["White Citizen", "Blue Camarid", "Black Thrull", "Red Goblin", "Green Saproling"]  # the five pairs the card lists
+    answer(s, "Black Thrull")
+    book = card_named(s, "Sarpadian Empires, Vol. VII")
+    assert book.choices == {"Chosen color": "Black", "Chosen creature type": "Thrull"}
+    mana(s, "p1", C=3)
+    act(s, "p1", type="activate_ability", card_id=book.id, ability=1)
+    answer(s)
+    token = tokens(s)[0]
+    ch = Plan(s.state, "p1", s.cards, None).ch(token)
+    assert (token.name, ch.colors, ch.subtypes, ch.pt) == ("Thrull", frozenset({"B"}), frozenset({"Thrull"}), (1, 1))
+    check(s)
+
+
+# ---- a land card name chosen as a trigger resolves, kept by the land for its linked statics (step 24): 608.2d, 607.2a, 602.5, 613.1f ----------------------------------
+def test_petrified_hamlet_names_a_land_that_loses_its_activated_abilities_but_taps_for_colorless(cards):
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Petrified Hamlet", "Probe Fort", "Probe Land"])
+    assert coverage.of_card_data(cards.resolve("Petrified Hamlet")).level == "FULL"
+    fort, plain = put(s, "Probe Fort"), put(s, "Probe Land")
+    act(s, "p1", type="play_land", card_id=to_hand(s, "Petrified Hamlet").id)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.options[0].id == "__name__")
+    name_it(s, "Probe Fort")
+    assert s.state.cards[card_named(s, "Petrified Hamlet").id].choices == {"Chosen card name": "Probe Fort"}
+    got = Plan(s.state, "p1", s.cards, None).ch(fort)
+    assert any("Add {C}" in a.text for a in got.abilities)  # "Lands with the chosen name have "{T}: Add {C}.""
+    assert not any("Add {C}" in a.text for a in Plan(s.state, "p1", s.cards, None).ch(plain).abilities)
+    mana(s, "p1", C=1)
+    with pytest.raises(ActionError, match="can.t be activated"):  # its own ping is a non-mana ability of a source with the chosen name (602.5)
+        act(s, "p1", type="activate_ability", card_id=fort.id, ability=0, targets=["p2"])
+    check(s)
+
+
+# ---- the chosen type for two groups at once (step 25): 205.1b, 613.1d, 611.3 ----------------------------------
+def test_rukarumel_gives_the_chosen_type_to_slivers_and_nontoken_creatures_you_control(cards):
+    s = build(cards, ["Rukarumel, Biologist", "Probe Goblin", "Probe Knight", "Probe Relic"], ["Probe Goblin"])
+    assert coverage.of_card_data(cards.resolve("Rukarumel, Biologist")).level == "FULL"
+    on_field(s, "Probe Goblin")
+    on_field(s, "Probe Goblin", "p2")
+    to_graveyard(s, "Probe Knight")
+    rukarumel = enter(s, "Rukarumel, Biologist", "Elf", W=1, U=1, B=1, R=1, G=1)
+    assert kinds(s, "Probe Goblin") == frozenset({"Goblin", "Elf"})  # in addition to its other types
+    assert kinds(s, "Rukarumel, Biologist") >= {"Elf", "Human", "Wizard"}  # (he is a nontoken creature you control too)
+    assert kinds(s, "Probe Goblin", "p2") == frozenset({"Goblin"})  # (not an opponent's)
+    assert kinds(s, "Probe Knight") == frozenset({"Human", "Knight", "Elf"})  # "creature cards you own that aren't on the battlefield"
+    s.state.rules.controlled_since[rukarumel.id].turn = 0
+    mana(s, "p1", C=3)
+    act(s, "p1", type="activate_ability", card_id=rukarumel.id, ability=2)
+    answer(s)
+    sliver = tokens(s)[0]
+    assert Plan(s.state, "p1", s.cards, None).ch(sliver).subtypes == frozenset({"Sliver", "Elf"})  # a token Sliver is one of the first group
+    check(s)
