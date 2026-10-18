@@ -79,3 +79,23 @@ def resolve(s, limit=20):
             return
         act(s, s.state.rules.priority, type="pass_priority")
     raise AssertionError("the stack never emptied")
+
+
+def pin_random(monkeypatch, index=-1):
+    """Every "at random" pick of the table takes the item at ``index`` of what it picks among (the last when ``index`` is -1): a fixed source for the scenario."""
+    from tests.wave47b_kit import pin_random as pin
+
+    pin(monkeypatch, index)
+
+
+def loyalty(s, name, n, pid="p1"):
+    """The planeswalker ``name`` (a card of the deck) on the battlefield with ``n`` loyalty counters (it enters with its printed loyalty: 306.5b)."""
+    c = put(s, name, pid)
+    have = s.state.cards[c.id].counters.get("loyalty", 0)
+    if n != have:
+        act(s, pid, type="counter", card_ids=[c.id], kind="loyalty", delta=n - have)
+    return c
+
+
+def names_on(s, pid, zone="battlefield"):
+    return sorted(s.state.cards[c].name for c in s.state.zones[f"{pid}:{zone}"])
