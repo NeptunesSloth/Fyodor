@@ -377,6 +377,13 @@ _GRENZO = ("Create a 4/4 red Ogre creature token.", "Starting with you, each pla
 _SUNBURST = ("Choose a creature you control, then each opponent chooses a creature they control with equal or lesser power.",
              "If you chose a creature this way, exile each creature not chosen by any player this way.")
 _VERBS = {"Return": "bounce", "Exile": "exile", "Destroy": "destroy"}
+_STICK = ("Each player chooses a party from among creatures they control, then sacrifices the rest.",)
+_BALANCE = re.compile(r"^Each player chooses a number of (?P<k>lands|permanents) they control equal to the number of (?P=k) controlled by the player who controls the "
+                      r"fewest, then sacrifices the rest\. (?P<tail>Players sacrifice creatures and discard cards the same way|Players discard cards and sacrifice "
+                      r"creatures the same way|Each player discards cards the same way)\.$")
+_GRUDGE = "Each opponent chooses a permanent they control that shares a card type with the sacrificed permanent and sacrifices it."
+_MANIFOLD = ("Reveal the top ten cards of your library.", "Starting with the next opponent in turn order, each opponent chooses a different nonland card from "
+             "among them.", "Put the chosen cards into your hand and the rest on the bottom of your library in a random order.")
 
 
 def _key(phrase: str) -> str | None:
@@ -428,4 +435,26 @@ def _chosen_objects(text: str, parse: Any, split_sentences: Any) -> tuple[list[d
         return [{"do": "player_chooses", "who": "you", "sel": key, "n": 1, "label": "creature", "as": "gco", "did": "gcd"},
                 {"do": "player_chooses", "who": "each_opponent", "sel": key, "n": 1, "label": "creature", "cap_power": "ref:gco", "add": True, "as": "gco"},
                 {"do": "only_if", "cond": {"succeeded": "gcd"}, "skip": 1}, {"do": "exile", "who": f"except:gco|{key}"}], None, False
+    if tuple(sentences) == _STICK:  # Stick Together: a party (700.8) from the creatures they control; the rest are sacrificed
+        kinds = [_key(f"{t} creature") for t in ("Cleric", "Rogue", "Warrior", "Wizard")]
+        if None in kinds or (key := _key("creature")) is None:
+            return None
+        return [{"do": "player_chooses", "who": "each_player", "sel": key, "n": 1, "label": "creature of the party", "party": kinds, "rest": "sacrifice"}], None, False
+    if (b := _BALANCE.match(text)) is not None:  # Restore Balance, Magus of the Balance, Balancing Act: each stage down to the fewest, one after the other
+        order = {"lands": ["lands"], "permanents": ["permanents"]}[b["k"]]
+        stages = ["creatures", "hand"] if b["tail"].startswith("Players sacrifice") else ["hand", "creatures"] if b["tail"].startswith("Players discard") else ["hand"]
+        out: list[dict[str, Any]] = []
+        for kind in [*order, *stages]:
+            if kind == "hand":
+                out.append({"do": "discard", "who": "each_player", "n": 0, "fewest": True})
+            elif (key := _key(kind[:-1])) is not None:
+                out.append({"do": "player_chooses", "who": "each_player", "sel": key, "n": {"fewest": key}, "label": kind[:-1], "rest": "sacrifice"})
+        return out, None, False
+    if tuple(sentences) == (_GRUDGE,) and (key := _key("permanent")) is not None:
+        # Fatal Grudge: each opponent chooses (and sacrifices) a permanent sharing a card type with the one sacrificed as the spell's additional cost
+        return [{"do": "edict", "who": "each_opponent", "sel": key, "n": 1, "label": "permanent", "shares_type_with": "cost"}], None, False
+    if tuple(sentences) == _MANIFOLD and (key := _key("nonland card")) is not None and (look := parse("Reveal the top ten cards of your library. Put the rest "
+                                                                                                    "on the bottom of your library in a random order.")) is not None:
+        return [look[0][0], {"do": "player_chooses", "who": "each_opponent", "sel": key, "n": 1, "label": "nonland card", "looked": True, "start": "next",
+                             "distinct": True, "as": "gco"}, {"do": "return_card", "who": "ref:gco", "to": "hand"}, look[0][1]], None, False
     return None

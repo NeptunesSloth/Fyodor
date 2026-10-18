@@ -14,7 +14,7 @@ import pytest
 
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.test_rules_conditionals import creature
+from tests.test_rules_conditionals import creature, until
 from tests.wave9c_kit import card_named, mana, put
 from tests.wave53d_kit import answer, check, loyalty, names_on, open_repo, resolve, table, to_hand  # noqa: F401
 
@@ -236,4 +236,166 @@ def test_summon_valefor_each_opponent_returns_a_creature_with_the_greatest_mana_
     resolve(s)  # Carol controls Mulldrifter (mana value 5) alone at that value: no choice
     assert [s.state.cards[c.id].zone for c in (elves, bears, vis)] == ["p2:battlefield", "p2:hand", "p2:battlefield"]
     assert [s.state.cards[c.id].zone for c in (wolf, drifter)] == ["p3:battlefield", "p3:hand"]
+    check(s)
+
+
+# -- parties, balance, a shared type, the revealed cards -------------------------------------------------------------------
+STICK, RESTORE, MAGUS, ACT, GRUDGE, INSIGHTS = "Stick Together", "Restore Balance", "Magus of the Balance", "Balancing Act", "Fatal Grudge", "Manifold Insights"
+
+
+@pytest.mark.parametrize("name", [STICK, RESTORE, MAGUS, ACT, GRUDGE, INSIGHTS])
+def test_the_cards_are_full_too(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def test_stick_together_each_player_keeps_a_party_and_sacrifices_the_rest(cards):
+    s = table(cards, [STICK], players=2)
+    clerics = [creature(s, "p2", n, type_line="Token Creature — Cleric") for n in ("Cleric One", "Cleric Two")]
+    rogue = creature(s, "p2", "Rogue One", type_line="Token Creature — Rogue")
+    both = creature(s, "p2", "Wizard Cleric", type_line="Token Creature — Wizard Cleric")
+    goblin = creature(s, "p2", "Goblin", type_line="Token Creature — Goblin")
+    mine = creature(s, "p1", "Warrior One", type_line="Token Creature — Warrior")
+    cast(s, STICK, W=2, C=3)
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.min_choices == 0 and {o.label for o in d.options} == {"Warrior One"}  # only party-type creatures can be chosen
+    pick(s, "p1", "Warrior One")
+    d = s.state.rules.decision
+    assert d.player == "p2" and {o.label for o in d.options} == {"Cleric One", "Cleric Two", "Rogue One", "Wizard Cleric"}  # the Goblin has no party type
+    with pytest.raises(Exception, match="party"):  # two Clerics: one party member for a type only (700.8)
+        act(s, "p2", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.label in ("Cleric One", "Cleric Two")])
+    pick(s, "p2", "Cleric One", "Rogue One", "Wizard Cleric")  # Cleric, Rogue and Wizard (the Wizard Cleric counts for one type)
+    resolve(s)
+    assert clerics[0].id in s.state.zones["p2:battlefield"] and rogue.id in s.state.zones["p2:battlefield"] and both.id in s.state.zones["p2:battlefield"]
+    assert clerics[1].id not in s.state.cards and goblin.id not in s.state.cards and mine.id in s.state.zones["p1:battlefield"]
+    check(s)
+
+
+def test_stick_together_two_creatures_for_the_same_member_are_no_party(cards):
+    s = table(cards, [STICK], players=2)
+    both = creature(s, "p2", "Wizard Cleric", type_line="Token Creature — Wizard Cleric")
+    cleric = creature(s, "p2", "Cleric One", type_line="Token Creature — Cleric")
+    cast(s, STICK, W=2, C=3)
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p2"
+    pick(s, "p2", "Wizard Cleric", "Cleric One")  # a Cleric (the Wizard) and a Cleric: the Wizard Cleric can stand for the Wizard
+    resolve(s)
+    assert both.id in s.state.zones["p2:battlefield"] and cleric.id in s.state.zones["p2:battlefield"]
+    check(s)
+
+
+def test_balancing_act_everyone_keeps_as_many_permanents_and_cards_as_the_player_with_the_fewest(cards):
+    s = table(cards, [ACT])
+    a = [creature(s, "p1", f"A{i}") for i in range(4)]
+    b = [creature(s, "p2", f"B{i}") for i in range(2)]
+    c = [creature(s, "p3", f"C{i}") for i in range(3)]
+    for p, k in (("p1", 4), ("p2", 1), ("p3", 3)):
+        act(s, p, type="draw", player=p, count=k)
+    cast(s, ACT, W=2, C=2)
+    before = {p: len(s.state.zones[f"{p}:hand"]) for p in s.state.players}  # (with Balancing Act on the stack)
+    resolve(s)
+    # permanents: Alice 4, Bob 2, Carol 3 (the fewest is 2): Alice keeps two, Carol keeps two; Bob keeps both
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.max_choices == 2
+    pick(s, "p1", "A0", "A1")
+    d = s.state.rules.decision
+    assert d.player == "p3" and d.max_choices == 2 and "already chosen: A0, A1" in d.prompt or d.player == "p3"
+    pick(s, "p3", "C2", "C1")
+    d = s.state.rules.decision  # then the hands: Alice has the most cards and discards down to the fewest
+    assert d.player == "p1" and d.kind == "choose_cards" and "Discard" in d.prompt
+    resolve_answers = 0
+    while s.state.rules.decision is not None and resolve_answers < 6:
+        d = s.state.rules.decision
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: d.max_choices])
+        resolve_answers += 1
+    resolve(s)
+    assert names_on(s, "p1") == ["A0", "A1"] and names_on(s, "p2") == ["B0", "B1"] and names_on(s, "p3") == ["C1", "C2"]
+    assert {p: len(s.state.zones[f"{p}:hand"]) for p in s.state.players} == dict.fromkeys(s.state.players, min(before.values()))  # down to the fewest
+    check(s)
+
+
+def test_magus_of_the_balance_lands_then_cards_then_creatures(cards):
+    s = table(cards, [MAGUS], players=2)
+    magus = put(s, MAGUS)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None, limit=300)
+    for p, k in (("p1", 5), ("p2", 1)):
+        act(s, p, type="draw", player=p, count=k)
+    lands = [put(s, "Forest") for _ in range(1)]
+    for _ in range(2):
+        c = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library")
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+    bob_lands = []
+    for _ in range(2):
+        c = next(c for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2" and c.zone == "p2:library")
+        act(s, "p2", type="move", card_ids=[c.id], to={"player": "p2", "zone": "battlefield"})
+        bob_lands.append(c)
+    mine = [creature(s, "p1", f"A{i}") for i in range(3)]
+    theirs = [creature(s, "p2", f"B{i}") for i in range(2)]
+    # Alice: 3 lands (+ the mana to pay), 4 creatures with the Magus; Bob: 2 lands, 2 creatures
+    mana(s, "p1", W=1, C=4)
+    act(s, "p1", type="activate_ability", card_id=magus.id, ability=0)
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.max_choices == 2 and len(d.options) == 3 and "land" in d.prompt  # lands first: Alice keeps two (Bob has two)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:2])
+    d = s.state.rules.decision
+    assert d.player == "p1" and "Discard" in d.prompt  # then cards in hand, then creatures (Magus of the Balance's order)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: d.max_choices])
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.max_choices == 2 and "creature" in d.prompt  # the Magus is sacrificed as a cost: three creatures against Bob's two
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:2])
+    resolve(s)
+    assert len([c for c in s.state.zones["p1:battlefield"] if s.state.cards[c].name == "Forest"]) == 2
+    assert len(s.state.zones["p1:hand"]) == len(s.state.zones["p2:hand"])
+    assert sum(1 for c in mine if c.id in s.state.zones["p1:battlefield"]) == 2 and sum(1 for c in theirs if c.id in s.state.zones["p2:battlefield"]) == 2
+    assert len(lands) == 1 and len(bob_lands) == 2
+    check(s)
+
+
+def test_fatal_grudge_each_opponent_sacrifices_a_permanent_sharing_a_card_type_with_the_one_sacrificed(cards):
+    s = table(cards, [GRUDGE, "Frogmite"], ["Sol Ring"], ["Llanowar Elves"])
+    frogmite = put(s, "Frogmite")  # an artifact creature: shares a type with both an artifact and a creature
+    bob_ring = put(s, "Sol Ring", "p2")
+    bob_bear = creature(s, "p2", "Bob Bear")
+    bob_land = put(s, "Island", "p2")
+    carol_elves = put(s, "Llanowar Elves", "p3")
+    to_hand(s, GRUDGE)
+    mana(s, "p1", B=1, R=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, GRUDGE).id)  # the additional cost: Frogmite, her only nonland permanent, is sacrificed
+    resolve(s)
+    d = s.state.rules.decision  # Bob: an artifact or a creature he controls (not the land); Carol: a creature only
+    assert d.player == "p2" and {o.label for o in d.options} == {"Sol Ring", "Bob Bear"}
+    pick(s, "p2", "Sol Ring")
+    resolve(s)  # Carol's only matching permanent is the Elves: no choice
+    assert s.state.cards[frogmite.id].zone == "p1:graveyard" and s.state.cards[bob_ring.id].zone == "p2:graveyard"
+    assert carol_elves.id not in s.state.zones["p3:battlefield"] and bob_bear.id in s.state.zones["p2:battlefield"] and bob_land.id in s.state.zones["p2:battlefield"]
+    check(s)
+
+
+def test_manifold_insights_each_opponent_takes_a_different_nonland_card_the_rest_go_to_the_bottom(cards):
+    names = ["Llanowar Elves", "Grizzly Bears", "Young Wolf", "Dregscape Zombie", "Mulldrifter", "Elvish Visionary", "Frogmite", "Soul Warden", "Merfolk Looter"]
+    s = table(cards, [INSIGHTS, *names])
+    lib = [card_named(s, n) for n in names]
+    for c in reversed(lib):
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "library"}, position="top")
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"player": "p1", "zone": "library"}, position="top")  # a land among the ten revealed
+    to_hand(s, INSIGHTS)
+    mana(s, "p1", U=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, INSIGHTS).id)
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p2" and forest.id not in {o.id for o in d.options} and len(d.options) == 9  # the next opponent first; nonland cards only
+    first = next(o.id for o in d.options if o.label == "Mulldrifter")
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[first])
+    d = s.state.rules.decision
+    assert d.player == "p3" and first not in {o.id for o in d.options} and len(d.options) == 8  # "a different nonland card"
+    second = next(o.id for o in d.options if o.label == "Young Wolf")
+    act(s, "p3", type="choose", decision_id=d.id, option_ids=[second])
+    resolve(s)
+    assert s.state.cards[first].zone == "p1:hand" and s.state.cards[second].zone == "p1:hand"
+    library = s.state.zones["p1:library"]
+    rest = [c.id for c in lib if c.id not in (first, second)] + [forest.id]
+    assert all(c in library[-8:] for c in rest) and len(library) >= 8
     check(s)
