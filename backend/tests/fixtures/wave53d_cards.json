@@ -819,5 +819,20 @@
    "R"
   ],
   "keywords": []
+ },
+ {
+  "name": "Fight or Flight",
+  "layout": "normal",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of combat on each opponent's turn, separate all creatures that player controls into two piles. Only creatures in the pile of their choice can attack this turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
  }
 ]

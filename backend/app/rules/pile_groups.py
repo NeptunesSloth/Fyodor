@@ -10,8 +10,8 @@ pile into your hand and the other into your graveyard. …" (Intrude on the Mind
 cards revealed this way on the bottom of your library in any order." (Truth or Tale), "Exile up to five target permanent cards from your graveyard and
 separate them into two piles. …" (Split the Spoils), "Exile up to five target creature cards from graveyards. An opponent separates those cards into two
 piles. Put all cards from the pile of your choice onto the battlefield under your control and the rest into their owners' graveyards." (Boneyard Parley).
-Researched against CR 2026-09-25 and the cards' rulings. (Fact or Fiction's and Steam Augury's wording is looking.py's, and the face-down piles of
-exiled cards are facedown piles': 18A, 53D face-down.)
+Researched against CR 2026-09-25 and the cards' rulings. (Fact or Fiction's and Steam Augury's wording is read here too, as the piles of revealed cards.
+Stand or Fall stays unsupported: its "each defending player" at the beginning of combat names nobody in a multiplayer game, 506.2a.)
 
 * 700.3a-d: each object of the group goes into exactly one pile, a pile may be empty, a pile is no object, and objects grouped into piles stay in their
   zone (nothing moves until the effect says so). The piles are public: the cards (or permanents) are, so the separation is logged with the names.
@@ -26,7 +26,9 @@ exiled cards are facedown piles': 18A, 53D face-down.)
   the controller's library) or the objects an earlier instruction bound (``src`` "ref:<name>", e.g. the cards a Split the Spoils exiled).
 * What a pile does (``chosen``, ``other``): sacrifice, destroy, exile, tap, hand ("your hand": the cards' owner's, 400.3), graveyard (their owners'),
   battlefield (their owners' control) / battlefield_you (under your control), bottom (the bottom of the library, in the order the controller picks: 401.4;
-  always the last step), pick_hand (the controller picks one card of the pile for their hand; the rest of that pile join the next step).
+  always the last step), pick_hand (the controller picks one card of the pile for their hand; the rest of that pile join the next step), limit_attack ("Only
+  creatures in the pile of their choice can attack this turn", Fight or Flight: ``RulesState.attack_piles`` keeps, for the turn, the objects of the chosen pile; combat
+  refuses any other creature of that player, one that entered later too, and with two such abilities a creature must be in both chosen piles: ruling 2008-08-01).
 
 * Piles of exiled cards, face down or face up (``pile_exile``: "Exile the top three cards of your library in a face-down pile", Hostile Negotiations,
   Abstract Performance): a face-down pile is exiled unseen (406.3a: not even its owner looks at it until told to), its cards are known to nobody; "look at the cards
@@ -52,7 +54,7 @@ if TYPE_CHECKING:
 
 Context = dict[str, Any]
 Found = tuple[list[dict[str, Any]], Any, bool]
-_SEPARATE = re.compile(r"^(?:(?P<start>Starting with you), )?(?:[Ss]eparate all (?P<what>[a-z ]+?) (?P<who>target player controls|in your graveyard)|"
+_SEPARATE = re.compile(r"^(?:(?P<start>Starting with you), )?(?:[Ss]eparate all (?P<what>[a-z ]+?) (?P<who>target player controls|that player controls|in your graveyard)|"
                        r"[Ee]ach (?P<each>player|opponent) separates (?:all |the )?(?P<what2>[a-z ]+?) they control) into (?P<n>two|three) piles\.$")
 _NOUN = {"permanents": "", "creatures": "creature", "creature cards": "creature card", "nontoken lands": "nontoken land", "lands": "land"}
 # the sentences after the separation, each: (how the pile is chosen, what is done to the chosen pile, to the others)
@@ -62,6 +64,7 @@ _AFTER = (
     (("For each opponent, you choose one of their piles.", "Each opponent sacrifices the creatures in their chosen pile."), ("you", "sacrifice", None, "creatures")),
     (("Exile the pile of an opponent's choice and return the other to the battlefield.",), ("opponent", "exile", "battlefield", "creature cards")),
     (("Then each player chooses one of their piles at random and sacrifices those permanents.",), ("random", "sacrifice", None, "permanents")),
+    (("Only creatures in the pile of their choice can attack this turn.",), ("owner", "limit_attack", None, "creatures")),  # (Fight or Flight)
 )
 # piles of cards just revealed or exiled: who separates and who chooses, then what the piles do
 _REVEAL = re.compile(r"^(?P<reveal>Reveal the top [^.]+? cards of your library(?:, where X is [^.]+?)?)(?P<sep> and separate them into two piles)?\.$")
@@ -154,9 +157,9 @@ def _permanents(sentences: list[str]) -> Found | None:
     pick, chosen, other, _ = after[1]
     n = 3 if m["n"] == "three" else 2
     # who is grouped, who separates: "target player controls" (you separate), "in your graveyard" (you), "each opponent / player … they control" (each one)
-    group = {"who": "target", "split": "you"} if m["who"] == "target player controls" else {"who": "you", "split": "you"} if m["who"] else \
-        {"who": "each_opponent" if m["each"] == "opponent" else "each_player", "split": "owner"}
-    if (pick == "random") != (n == 3) or (pick == "owner") != (m["who"] == "target player controls") or (pick == "opponent") != (m["who"] == "in your graveyard"):
+    group = {"who": "target", "split": "you"} if m["who"] == "target player controls" else {"who": "event_player", "split": "you"} if m["who"] == "that player controls" \
+        else {"who": "you", "split": "you"} if m["who"] else {"who": "each_opponent" if m["each"] == "opponent" else "each_player", "split": "owner"}
+    if (pick == "random") != (n == 3) or (pick == "owner") != (m["who"] in ("target player controls", "that player controls")) or (pick == "opponent") != (m["who"] == "in your graveyard"):
         return None
     zone = "graveyard" if m["who"] == "in your graveyard" else "battlefield"
     noun = _NOUN[what]
@@ -422,6 +425,12 @@ def _apply(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """Every group's piles are made and chosen: what the chosen piles and the others do, all at once (101.4)."""
     st = ctx["pile"]
     groups = st["groups"]
+    if e.get("chosen") == "limit_attack":  # "Only creatures in the pile of their choice can attack this turn": the chosen pile's creatures, the rest (and any that enter later) can't
+        r, turn = plan.rules, plan.state.turn.number
+        r.attack_piles = [x for x in r.attack_piles if x[0] == turn]
+        r.attack_piles += [[turn, g["owner"], [r.object_id(c) for c in (g["piles"][g["pick"]] if g.get("pick") is not None else []) if c in plan.state.cards]] for g in groups]
+        del ctx["pile"]
+        return True
     chosen = [c for g in groups if g.get("pick") is not None for c in g["piles"][g["pick"]]]
     other = [c for g in groups if g.get("pick") is not None for i, p in enumerate(g["piles"]) if i != g["pick"] for c in p]
     st["steps"] = [[op, cards, which == "other"] for which, op, cards in (("chosen", e.get("chosen"), chosen), ("other", e.get("other"), other)) if op]  # (the ``as`` is the other pile's)

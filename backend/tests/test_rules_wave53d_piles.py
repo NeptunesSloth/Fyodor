@@ -482,3 +482,39 @@ def test_triumph_of_saint_katherine_does_nothing_when_it_is_no_longer_in_the_gra
     resolve(s)
     assert [s.state.cards[c].name for c in s.state.zones["p1:library"][:6]] == SIX  # the top six stay where they were
     check(s)
+
+
+# -- only the creatures of a chosen pile may attack (wave 53D; 700.3, 508.1) ------------------------------------------------------
+FLIGHT = "Fight or Flight"
+
+
+def test_fight_or_flight_is_full(cards):
+    assert coverage.of_card_data(cards.resolve(FLIGHT)).level == "FULL"
+
+
+def test_fight_or_flight_only_the_creatures_of_the_pile_the_opponent_chooses_can_attack(cards):
+    s = table(cards, [FLIGHT], players=2)
+    put(s, FLIGHT)
+    one, two = creature(s, "p2", "Bob One"), creature(s, "p2", "Bob Two")
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "choose_cards", limit=300)
+    d = s.state.rules.decision
+    assert d.player == "p1" and s.state.turn.active_player == "p2" and {o.label for o in d.options} == {"Bob One", "Bob Two"}  # Alice separates Bob's creatures
+    split(s, "p1", ["Bob One"])
+    d = s.state.rules.decision
+    assert d.player == "p2" and [o.label for o in d.options] == ["Pile 1: Bob One", "Pile 2: Bob Two"]  # Bob chooses
+    pile(s, "p2", 2)
+    late = creature(s, "p2", "Bob Late", text="Haste")  # (entered after the ability resolved: in no pile, so it can't attack either)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert [e[1:] for e in s.state.rules.attack_piles] == [["p2", [s.state.rules.object_id(two.id)]]]  # the chosen pile's creatures only
+    for c in (one, late):  # the creature of the other pile and the one that entered later: not in the chosen pile
+        with pytest.raises(Exception, match="can't attack"):
+            act(s, "p2", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p1"}])
+    life = s.state.players["p1"].life
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": two.id, "target": "p1"}])
+    until(s, lambda s: s.state.turn.phase == "main2", limit=30)
+    assert s.state.players["p1"].life == life - 2  # the creature of the chosen pile attacked
+    check(s)
