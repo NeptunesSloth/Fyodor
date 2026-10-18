@@ -69,6 +69,9 @@ def supported(text, name="Avalanche"):
     "card until the end of your next turn.",  # Scholar of Combustion (reminder text left out)
     "{T}: Exile the top two cards of your library. You may play them until the end of your next turn.",
     COP_RED, "{W}: The next time a black or red source of your choice would deal damage to you this turn, prevent that damage.",
+    "{1}: The next time a source of your choice would deal damage this turn, that damage is dealt to that source's controller instead.",
+    "{T}: The next time a source of your choice would deal damage to you this turn, prevent half that damage, rounded down.",
+    "{1}: The next time a black or red source of your choice would deal damage this turn, prevent that damage.",
     "{2}: The next time an artifact source of your choice would deal damage to you this turn, prevent that damage.",
     "Sacrifice this creature: Prevent all damage a red source of your choice would deal this turn.",
     "{W}, Sacrifice this creature: Prevent all damage a source of your choice would deal to you this turn.",
@@ -80,12 +83,8 @@ def test_read(text):
 
 
 @pytest.mark.parametrize("text", [
-    # redirection (614.9), half, no recipient: still manual (wave 17A reads a rider on the prevented damage, 615.5, and a target
-    # as the recipient: tests/test_rules_wave17a_prevention.py)
-    "{1}: The next time a source of your choice would deal damage this turn, that damage is dealt to that source's "
-    "controller instead.",
-    "{T}: The next time a source of your choice would deal damage to you this turn, prevent half that damage, rounded down.",
-    "{1}: The next time a black or red source of your choice would deal damage this turn, prevent that damage.",
+    # (wave 35A: redirection to the source's controller, "half … rounded down" and a shield with no recipient are read now — "the next
+    # time" is one time damage is dealt, every chunk of it: tests/test_rules_wave35a_one_shot_shields.py)
     "{W}: The next time a source of your choice of the chosen color would deal damage to you this turn, prevent that damage.",
     "{1}: The next time an artifact or red source of your choice would deal damage to you this turn, prevent that damage.",
     "{1}: The damage can't be prevented.",
@@ -278,7 +277,7 @@ def test_leyline_of_punishment_stops_prevention_and_shields_arent_used_up(cards)
     # the shield wasn't used up (615.12): now both apply, and which one first decides whether the Circle's
     # shield is spent — the affected player chooses (616.1)
     assert [r["op"] for r in rules(s).replacements if r.get("kind") == "replace"] == [
-        {"do": "prevent_all", "prevention": True, "once": True}]
+        {"do": "prevent_all", "prevention": True, "once": True, "batch": True}]
     activate(s, pinger, targets=["p1"])
     d = decision(s)
     assert d is not None and d.player == "p1" and d.kind == "confirm"
@@ -432,7 +431,7 @@ def test_peregrin_took_adds_a_food_and_two_add_two(cards):
     activate(s, maker)
     assert count(s, "Treasure") == 1 and count(s, "Food") == 1
     food = next(c for c in s.state.cards.values() if c.name == "Food")
-    assert not food.tapped  # (only the Treasure is created tapped)
+    assert food.tapped  # (tapped like the Treasure: "Anything else specified in the effect creating the token (such as tapped …) applies to both", Peregrin Took ruling, review 35)
     token(s, "p1", "Peregrin Took Two", "2/3", PEREGRIN)
     activate(s, maker)
     assert decision(s) is None  # (the two commute: no question)

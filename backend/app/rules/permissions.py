@@ -39,7 +39,7 @@ from app.game.rules_state import CostModifier, Permission, TopReveal
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.game.visibility import can_see
 from app.rules import characteristics as chars
-from app.rules import cost_changes, costs, land_plays, selectors
+from app.rules import cost_changes, costs, delayed, land_plays, offering, selectors
 from app.rules import mana as M
 from app.rules.characteristics import CardInfo, Characteristics
 
@@ -64,7 +64,8 @@ STATIC_COST = re.compile(
 # mana in that cost to less than one mana." / "Abilities you activate that aren't mana abilities cost {2} less to activate."
 ABILITY_COST = re.compile(
     rf"^(?:activated abilities(?: of (?P<sel>[a-z][a-z' ,-]*?))?|(?P<yours>abilities you activate that aren't mana abilities)) "
-    rf"costs? {_N} (?P<dir>less|more) to activate(?:\. (?P<floor>this effect can't reduce the mana in that cost to less than one mana))?$",
+    rf"costs? (?:{_N}|\{{(?P<x>X)\}}) (?P<dir>less|more) to activate(?:, where X is (?P<xv>~'s (?:power|toughness)))?"  # (wave 44D: Agatha of the Vile Cauldron)
+    rf"(?:\. (?P<floor>this effect can't reduce the mana in that cost to less than one mana))?$",
     re.IGNORECASE)
 # -- equip (wave 15E) -- "Equip abilities you activate cost {1} less to activate." (Bureau Headmaster), "Equip costs you pay cost
 # {1} less." (Auriok Steelshaper), "Equip abilities you activate of other Equipment cost {1} less to activate." (Bladehold
@@ -72,30 +73,61 @@ ABILITY_COST = re.compile(
 EQUIP_COST = re.compile(
     rf"^equip (?:abilities you activate(?P<other> of other equipment)?|costs you pay) costs? {_N} (?P<dir>less|more)(?: to activate)?$",
     re.IGNORECASE)
+POWER_UP_COST = re.compile(rf"^power-up abilities of (?P<sel>other creatures you control) cost {_N} less to activate$", re.IGNORECASE)
 # An effect's cost modifier with a duration (611.2a): "Artifact, instant, and sorcery spells you cast this turn cost {2}
 # less to cast." (Urza, Planeswalker) / "Until your next turn, instant and sorcery spells you cast cost {1} less to cast."
 # (Ral, Leyline Prodigy)
 STORED_COST = re.compile(
     rf"^(?P<until>until your next turn, )?{_SEL} spells you cast (?P<this_turn>this turn )?cost {_N} (?P<dir>less|more) to cast$",
     re.IGNORECASE)
+# -- cost changers (wave 44D) -- "Spells you cast this turn that are white and/or blue cost {X} less to cast, where X is the amount of life you gained this turn." (Will,
+# Scion of Peace; Rowan, Scion of War): X is read once, as the ability resolves (the rulings of 2023-09-01), then it is the stored cost modifier above
+STORED_COST_X = re.compile(r"^spells you cast this turn that are (?P<sel>[a-z]+) and/or (?P<sel2>[a-z]+) cost \{X\} less to cast, where X is (?P<v>.+)$", re.IGNORECASE)
 # "This spell costs {1} less to cast for each creature card in your graveyard."
 SELF_PER = re.compile(rf"^(?:this spell|~) costs {_N} less to cast for each (?P<what>.+)$")
 # "This spell costs {1} less to cast if you control a Wizard."
 SELF_IF = re.compile(rf"^(?:this spell|~) costs {_N} less to cast if (?P<cond>.+)$")
 # "You may cast creature spells from the top of your library." / "You may play lands from your
 # graveyard." / "Once during each of your turns, you may cast a creature spell from your graveyard."
+# -- cast permissions (wave 30Q) -- also "During your turn, …" (Leonardo, Festival of Embers), "During each of your turns, you may play a land and
+# cast a permanent spell of each permanent type from your graveyard." (Muldrotha: one use per type, ``slots``), "… play lands and cast Insect spells …"
+# (Zask), "You may play Forests / Desert lands from your graveyard." (Titania, Hazezon: the land's own kind), "… play a [historic] land [from your
+# graveyard] or cast a … spell [with mana value 3 or less] from your graveyard" (Serra Paragon, The Eighth Doctor: one use for either), a quality of the
+# spell ("with mana value 2 or less" Lurrus, "with power or toughness 1 or less"), "… by paying 3 life / sacrificing a land … in addition to paying its
+# other costs" (Noctis, Maestros Ascendancy: a cost paid with the rest, 601.2b), and the rider "If you cast a spell this way, that artifact enters
+# tapped / with a finality counter on it." (Edgar, Noctis, Leonardo) or "If you do, it gains "…"" (Serra Paragon, The Eighth Doctor)
+_QUAL = r" with [a-z ]+? (?:\d+ or (?:less|greater)|less than or equal to the number of [a-z]+ counters on ~)"
 PERMISSION = re.compile(
-    r"^(?P<once>once during each of your turns, )?you may "
-    r"(?P<what>play lands and cast spells|play lands|cast spells|play a land|"
-    r"cast (?:a |an )?(?P<sel>[a-z][a-z' ,-]*?) spells?(?P<qual> with mana value \d+ or less)?|cast (?:this card|~))"
-    r" from (?P<zone>your graveyard|the top of your library)"
+    r"^(?:(?P<once>once during each of your turns, )|(?P<during>during (?:your turn|each of your turns), )|(?P<whilst>as long as [^,]+, ))?you may "
+    r"(?P<what>play lands and cast spells|play cards|play lands|cast spells|play a land|(?P<slots>play a land and cast a permanent spell of each permanent type)|"
+    r"play lands and cast (?P<psel>[a-z][a-z' ,-]*?) spells|play (?P<lsel>[a-z][a-z']*)(?P<lands> lands)?|"
+    rf"play a (?P<hist>historic )?land(?: from your graveyard)? or cast (?:a |an )?(?P<csel>[a-z][a-z' ,-]*?) spell(?P<cq>{_QUAL})?|"
+    rf"cast (?:a |an )?(?P<sel>[a-z][a-z' ,-]*?) spells?(?P<qual>{_QUAL})?|cast (?:this card|~))"
+    rf" from (?P<zone>your graveyard|the top of your library)(?P<qual2>{_QUAL})?"
+    r"(?: by (?P<by>.+?) in addition to (?:paying )?(?:its|their) other costs)?"
     # -- cast from graveyard (wave 19C) -- 614.1a: "If a spell cast this way would be put into your graveyard, exile it instead."
-    r"(?:\. If (?P<exile>a|an instant or sorcery) spell cast this way would be put into your graveyard, exile it instead)?$", re.IGNORECASE)
+    r"(?:\. If (?:(?P<exile>a|an instant or sorcery) spell cast this way would be put into your graveyard, exile it instead"
+    r"|(?:you cast a spell this way|you do), (?:that [a-z]+ enters (?:(?P<tapped>tapped)|(?P<fin>with a finality counter on it))|it gains \"(?P<gain>[^\"]+)\"))"
+    # -- most-played cards (wave 43B) -- "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost." (Bolas's Citadel)
+    r"|\. If you cast a spell this way, (?P<lmv>pay life equal to its mana value rather than pay its mana cost)"
+    # -- if you do (wave 51D) -- 601.3b / 614.1c / 611.2a: the riders of a cast from the top of the library: "If you cast a creature spell this way, it gains haste until end of
+    # turn." (Thundermane Dragon), "…, that creature enters with an additional +1/+1 counter on it." (Mikey & Don), "If you cast a spell this way, you may cast it as though it had flash." (Elsha)
+    r"|\. If you cast (?P<rtype>a creature spell|a spell) this way, (?:(?P<rhaste>it gains haste until end of turn)|(?P<rcounter>that creature enters with an additional \+1/\+1 counter on it)"
+    r"|(?P<rflash>you may cast it as though it had flash)))?$",
+    re.IGNORECASE)
+_GY_POOL = re.compile(r" from among cards in your graveyard that (?:were put there from (?P<from>anywhere other than the battlefield|your library)|"
+                      r"(?P<milled>were milled)) this turn$")  # (-- free cast (wave 40D) --)
 # -- resolution memory (wave 22D) -- "You may play lands and cast spells from among cards exiled with this creature." (Nightveil Specter),
 # "During your turn, if an opponent lost life this turn, you may play lands and cast spells from among cards exiled with this enchantment."
 # (Theater of Horrors): a static permission (611.3a) over the cards the object's linked exiling ability exiled (607.2a)
+# -- linked permissions (wave 30H) -- also "You may cast spells from among cards exiled with ~." (Rona), "You may play lands from among …" (Hedonist's
+# Trove), "You may play cards exiled with ~ as long as you attacked this turn." (Pick Up the Pace), "You can't cast more than one spell this way each
+# turn." (Hedonist's Trove: once a turn, any turn) and "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost."
+# (Valgavoth: the alternative cost of 118.9, 119.4, always paid when the permission is used)
 LINKED_PLAY = re.compile(r"^(?:(?P<during>during your turn), )?(?:(?:if|as long as) (?P<cond>[^,]+), )?you may "
-                         r"(?:play lands and cast spells from among|play) cards exiled with ~$")
+                         r"(?P<what>play lands and cast spells from among|cast spells from among|play lands from among|play) cards exiled with ~"
+                         r"(?: as long as (?P<cond2>[^,.]+))?(?:\. (?:(?P<once>[Yy]ou can't cast more than one spell this way each turn)"
+                         r"|(?P<life>[Ii]f you cast a spell this way, pay life equal to its mana value rather than pay its mana cost)))?$")
 
 
 def exiled_with_exiles(line: str) -> bool:
@@ -128,31 +160,51 @@ TOP_LOOK = "you may look at the top card of your library any time"
 # permanents). In Commander every other player is an opponent.
 FACE_DOWN_LOOK = re.compile(r"^you may look at (?P<top>the top card of your library and at )?face-down creatures "
                             r"(?:you don't control|your opponents control) any time$")
+# -- durations (wave 30M) -- 611.2a: "Until your next turn, you may play that card." (Three Wishes) / "Until the beginning of your next upkeep, …"
+# (Elkin Bottle, Grinning Totem): ends as that player's next turn begins (500.4; no player gets priority in the untap step, 502.4, so the two
+# wordings end the same way for a permission)
+_UNTILS = "until end of turn|until the end of your next turn|until your next end step|until your next turn|until the beginning of your next upkeep"
 # Effect sentences: "Exile the top card of your library. You may play that card this turn." — the
 # pronoun ("that card" / "it" / "those cards") is bound by scripts.resolve_it to what an earlier
 # instruction of the same ability moved (400.7j: found where it went); with no such instruction
 # the ability stays manual. A bare "You may cast that card." (no duration) means "cast it now, as
 # this resolves, ignoring timing" — not a permission that lasts: refused.
-GRANT_THAT = re.compile(r"^(?:(?P<until>until end of turn|until the end of your next turn|until your next end step), )?you may (?P<verb>play|cast) "
-                        r"(?P<what>that card|those cards|it)(?P<this_turn> this turn)?(?P<free> without paying (?:its|their) mana costs?)?"
+GRANT_THAT = re.compile(rf"^(?:(?:(?P<until>{_UNTILS})|during any turn you attacked with (?P<watt>[^,]+)), )?you may (?P<verb>play|cast) "  # (wave 51E: watt)
+                        r"(?:(?P<upto>up to (?P<upn>one|two|three|four) of ))?(?P<what>that card|those cards|it)(?P<from_ex> from exile)?(?P<this_turn> this turn)?(?P<free> without paying (?:its|their) mana costs?)?"
                         r"(?:, and (?P<spend>mana of any type can be spent to cast (?:that spell|those spells))"  # (wave 25C: Dire Fleet Daredevil)
                         r"| and (?P<spend2>you may spend mana as though it were mana of any (?P<k2>color|type) to cast (?:that spell|those spells)))?$")  # (Hurl Through Hell)
+# -- free cast (wave 40D) -- "Until end of turn, you may cast noncreature spells from among those cards without paying their mana costs." (Narset, Enlightened
+# Master), "Until end of turn, you may cast spells from among them." (Apex of Power): a permission (611.2a) for each of the cards an earlier instruction moved,
+# any number of them, with the cast's own timing (601.3) — the spell kind a quality of the permission (it is read when a card is cast)
+AMONG_GRANT = re.compile(r"^until end of turn, you may cast (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells from among (?:them|those cards|those exiled cards|the exiled cards)"
+                         r"(?P<free> without paying their mana costs)?$")
 # -- refused grants/replacements (wave 3R2) -- "You may play that card until the end of your next turn."
-_TRAILING_UNTIL = re.compile(r"^(?P<rest>you may (?:play|cast) (?:that card|those cards|it|them)(?: without paying (?:its|their) mana costs?)?) "
-                             r"(?P<until>until end of turn|until the end of your next turn|until your next end step)$")
+_TRAILING_UNTIL = re.compile(r"^(?P<rest>you may (?:play|cast) (?:up to (?:one|two|three|four) of )?(?:that card|those cards|it|them)(?: without paying (?:its|their) mana costs?)?) "
+                             rf"(?P<until>{_UNTILS})$")
 # -- end refused grants/replacements (wave 3R2) --
 # "Until end of turn, you may play lands and cast spells from your graveyard." (Yawgmoth's Will)
-GRANT_ZONE = re.compile(r"^(?:(?P<until>until end of turn), )?you may (?P<what>play lands and cast spells|play lands|cast spells)"
+# -- cast permissions (wave 30Q) -- also "You may cast a creature spell from your graveyard this turn." (Chainer: one spell) and "You may cast Zombie spells
+# from your graveyard this turn." (Liliana, Untouched by Death: any number)
+# (-- zone replacements (wave 37B) -- "When you unlock this door, you may cast spells from your graveyard this turn" (Walk-In Closet): the trigger's own "you may"
+# is the ability's, so the sentence arrives without it)
+GRANT_ZONE = re.compile(r"^(?:(?P<until>until end of turn), )?(?:you may )?(?P<what>play lands and cast spells|play lands|cast spells|"
+                        r"cast (?P<a>an? )?(?P<sel>[A-Za-z][A-Za-z' ,-]*?) (?P<sp>spells?))"
                         r" from your graveyard(?P<this_turn> this turn)?$")
 # -- cast a copy (wave 13C) -- "You may cast the copy without paying its mana cost." (707.12; each copy is its own choice, 707.12a)
 # (wave 18F: without "without paying …" the copy's mana cost is paid: 707.12 "You may cast the copy. (You still pay its costs.)")
 FREE_COPY = re.compile(r"^(?:if you do, )?you may cast (?P<w>the copy|the copies|any number of the copies)(?P<free> without paying (?:its|their) mana costs?)?$")
+# -- trigger other (wave 44D) -- "Whenever you discard a nonland card, you may cast it from your graveyard." (Oskar, Rubbish Reclaimer): cast now, as this resolves (608.2g), paying its
+# costs (the Oskar ruling of 2022-04-29: "You may cast the spell immediately. You must pay all costs")
+CAST_IT_FROM_GRAVEYARD = re.compile(r"^(?:you may )?cast (?:it|that card) from your graveyard$")
 # -- cast without paying (wave 3C) --
 # "You may cast a spell with mana value 5 or less from your hand without paying its mana cost." (cast now,
 # as this resolves: 608.2g) / "You may cast an instant or sorcery spell from your hand with mana value X
 # or less without paying its mana cost."
 FREE_HAND = re.compile(r"^(?:you may )?cast (?:a|an) (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?(?:spell|card)(?P<h1> from your hand)?"
-                       r"(?: with mana value (?:(?P<n>\d+|X) or less|less than or equal to (?P<x2>[^,]+?)))?(?P<h2> from your hand)?"
+                       r"(?: with mana value (?:(?P<n>\d+|X) or less|less than or equal to (?P<x2>[^,]+?)))?"
+                       # -- if you do (wave 40A) -- "a permanent spell with equal or lesser mana value" (Kellan, the Kid), "a spell with lesser mana value that shares a card type
+                       # with it" (Baral and Kari Zev): than the spell that triggered it, the reading of Rashmi's "lesser mana value" below (_free_if)
+                       r"(?: with (?P<rel>equal or lesser|lesser) mana value(?P<share> that shares a card type with it)?)?(?P<h2> from your hand)?"
                        r" without paying its mana cost$")
 # -- play now (wave 28A) -- "You may play a land from the top of your library or cast a spell with mana value less than or equal to the damage dealt
 # from the top of your library without paying its mana cost." (Ziatora's Envoy): the card looked at, a land played (305.2a) or a spell cast within the limit
@@ -174,10 +226,15 @@ _FREE_MV = r"with mana value (?:(?P<n>\d+|X) or less|less than or equal to (?P<v
 FREE_AMONG = re.compile(
     r"^(?:you may )?cast (?:(?P<q>a|an|up to (?P<k>one|two|three)|any number of) )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?(?P<sp>spells?)"
     rf"(?: {_FREE_MV.replace('?P<n>', '?P<n1>').replace('?P<v>', '?P<v1>')})?"
+    r"(?: with mana value (?P<eq>X))?"  # -- linked casting (wave 30H) -- exactly X: "a spell with mana value X from among cards exiled with ~" (Kaho)
     r" from among (?P<src>them|those cards|those nonland cards|cards revealed this way|the revealed cards|the exiled cards"
-    r"|cards exiled this way|the cards exiled this way)"
+    r"|cards exiled this way|the cards exiled this way|the nonland cards exiled this way)"  # (wave 44A: a land is never cast, so "nonland" adds nothing)
     rf"(?: {_FREE_MV.replace('?P<n>', '?P<n2>').replace('?P<v>', '?P<v2>')})?"
-    r" without paying (?:its|their) mana costs?$")
+    r"(?P<free> without paying (?:its|their) mana costs?)?$")  # (wave 50G: without it, the cast is paid for, as the ability resolves: 608.2g, Nathan Drake)
+# -- cast riders (wave 38C) -- "You may cast a spell from among cards you own in exile with dream counters on them without paying its mana cost." (Goliath
+# Daydreamer; the cards its other ability exiled), "… from among cards in exile with page counters on them …" (Tasha, the Witch Queen: any owner's): one at a time
+FREE_COUNTED = re.compile(r"^(?:you may )?cast (?:a|an) (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell from among cards (?P<own>you own )?in exile with "
+                          r"(?P<kind>[a-z]+) counters on them without paying its mana cost$")
 # "Once during each of your turns, you may cast an instant or sorcery spell from your hand without paying its
 # mana cost." (Zaffai and the Tempests): a static permission used up by the cast (``consume``), on its
 # controller's own turns only, with the cast's normal timing (601.3: a permission, not a cast as something resolves)
@@ -245,24 +302,32 @@ def _free_among(text: str) -> list[dict[str, Any]] | None:
     if (one := PLAY_ONE.fullmatch(text) or _linked_one(text)) is not None:
         return [{"do": "free_cast", "zone": "among", "who": "them:card", "filter": None, "optional": True, "mv": None, "n": 1,
                  **({"play": True} if one["verb"] == "play" else {})}]
+    if (c := FREE_COUNTED.fullmatch(text)) is not None:  # -- cast riders (wave 38C) -- the cards in exile with that kind of counter (``_free_pool``)
+        key = spell_filter(c["sel"]) if c["sel"] else None
+        if c["sel"] and key is None:
+            return None
+        return [{"do": "free_cast", "zone": "exile_counters", "kind": c["kind"], "own": bool(c["own"]), "filter": key, "optional": True, "mv": None, "n": 1}]
     m = FREE_AMONG.fullmatch(text)
     if m is None:
         return None
-    if (m["n1"] or m["v1"]) and (m["n2"] or m["v2"]):
+    if (m["n1"] or m["v1"]) and (m["n2"] or m["v2"]) or (m["eq"] and (m["n1"] or m["v1"] or m["n2"] or m["v2"])):
         return None
     if m["q"] is None and m["sp"] != "spells":
         return None  # ("cast instant and sorcery spells … from among them": any number of them; "cast spell": not English)
     key = spell_filter(m["sel"]) if m["sel"] else None
     if m["sel"] and key is None:
-        return None
+        two = re.fullmatch(r"(.+?) or (.+)", m["sel"])  # -- cant restrictions (wave 50G) -- "a Vehicle or artifact creature spell" (Sanwell): a spell of either kind, each its own selector
+        if two is None or not (first := spell_filter(two[1])) or not (second := spell_filter(two[2])):
+            return None
+        key = selectors.Selector(either=(first, second), zones=("stack",)).key()
     try:
         mv = free_mv(m["n1"] or m["n2"], m["v1"] or m["v2"])
     except ValueError:
         return None
     # "zone": "among" — resolved to the cards looked at (still in the library: "looked") or to the
     # cards an earlier instruction moved ("that", a binding) by scripts.resolve_it
-    return [{"do": "free_cast", "zone": "among", "who": "them:card", "filter": key, "optional": True, "mv": mv,
-             "n": _FREE_COUNT[m["q"] or "any number of"]}]
+    return [{"do": "free_cast", "zone": "among", "who": "them:card", "filter": key, "optional": True, "mv": "x" if m["eq"] else mv,
+             "n": _FREE_COUNT[m["q"] or "any number of"], **({"mv_eq": True} if m["eq"] else {}), **({} if m["free"] else {"paid": True})}]
 
 
 # "You may cast it without paying its mana cost if it's a spell with lesser mana value." (Rashmi, Eternities
@@ -336,8 +401,8 @@ def _free_target(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     # a land among them only with a land play left on your turn (305.2a/305.3: Tangled Florahedron's back face): not modelled, stays manual
     play = m["verb"] == "play"
     timed = bool(m["until"] or m["this_turn"])
-    if (m["until"] and m["this_turn"]) or (m["spend"] and (m["free"] or not timed)):
-        return None  # (mana spent is only for a permission; a free cast spends none)
+    if (m["until"] and m["this_turn"]) or (m["spend"] and (m["free"] or (play and not timed))):
+        return None  # (a free cast spends no mana; -- cast-permission riders (wave 38C) -- the bare paid cast may: "… from a graveyard, and mana of any type can be spent to cast that spell")
     # -- play now (wave 28A) -- the bare "play target … card from your graveyard [without paying its mana cost]" (Horde of Notions) is played as it
     # resolves (608.2g; a land with a land play left on its controller's turn, 305.2a-b, 305.3: ``free_cast`` "play")
     phrase = m["what"][len("target "):]
@@ -351,7 +416,8 @@ def _free_target(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         return [{"do": "grant_play", "who": "target", "play": play, "cast": True, "until": "end_of_turn", "optional": True,
                  **({"free": True} if m["free"] else {}), **({"spend": "type"} if m["spend"] else {})}], sel.key()
     return [{"do": "free_cast", "zone": "target", "filter": None, "optional": True, "mv": None, "n": 1,
-             **({} if m["free"] else {"paid": True}), **({"play": True} if play else {})}], sel.key()
+             **({} if m["free"] else {"paid": True}), **({"play": True} if play else {}),
+             **({"spend": "type"} if m["spend"] else {})}], sel.key()  # (118.14: casting.cast_free spends the mana as the permission says)
 # -- end refused look/cast-free (wave 3R5) --
 
 
@@ -374,14 +440,14 @@ def spell_filter(phrase: str | None, tail: str | None = None) -> str | None:
         return None
     kinds = sum(bool(x) for x in (sel.types, sel.subtypes, sel.colors, sel.supertypes, sel.not_types, sel.colorless))
     # (-- cost changers (wave 20E) -- "red or green creature": any of those colors, and the type: the colors are one list, 105.1)
-    colors_then_type = re.fullmatch(r"(?:white|blue|black|red|green)(?:(?: or|,) (?:white|blue|black|red|green))+ [a-z]+", text, re.I)
+    colors_then_type = re.fullmatch(r"(?:white|blue|black|red|green)(?:(?: or|,) (?:white|blue|black|red|green))+ (?:instant or sorcery|[a-z]+)", text, re.I)  # (wave 44C: Wort, "red or green instant or sorcery")
     if re.search(r"\bor\b|,", text) and not sel.union and kinds > 1 and not (colors_then_type and len(sel.colors) > 1 and sel.types):
         return None  # "red or creature" can't be one selector: a list of one kind only
     return sel.key()
 
 
 def _permission_what(what: str, sel: str | None, qual: str | None) -> dict[str, Any] | None:
-    if what in ("play lands and cast spells",):
+    if what in ("play lands and cast spells", "play cards"):  # (-- free cast (wave 40D) -- 305.1, 601.1: playing cards is playing lands and casting spells: Hades, Sorcerer of Eld)
         return {"play": True, "cast": True, "filter": None}
     if what in ("play lands", "play a land"):
         return {"play": True, "cast": False, "filter": None}
@@ -389,16 +455,49 @@ def _permission_what(what: str, sel: str | None, qual: str | None) -> dict[str, 
         return {"play": False, "cast": True, "filter": None}
     if what in ("cast this card", "cast ~"):
         return {"play": False, "cast": True, "filter": None, "self": True}
-    key = spell_filter(f"{sel}{qual or ''}")
+    if sel in ("a", "an") and not qual:  # (-- free cast (wave 40D) -- "you may cast a spell from your graveyard": any spell, "a" is the article)
+        return {"play": False, "cast": True, "filter": None}
+    key = spell_filter(sel, qual.strip() if qual else None)  # (-- cast permissions (wave 30Q) -- the quality is the selector's tail: "permanent" + "with mana value 2 or less")
     if key is None:
         return None
     return {"play": False, "cast": True, "filter": key}
+
+
+# -- cast permissions (wave 30Q) -- the permission sentence's other forms (PERMISSION): two kinds of card in one use ("play a land … or cast …"),
+# a land's own kind ("Forests"), and one use per permanent type (Muldrotha)
+SLOT_TYPES = ("Land", "Artifact", "Battle", "Creature", "Enchantment", "Planeswalker")  # 110.4: the permanent types (a land is played, 305.1)
+
+
+def _permission_forms(m: re.Match[str]) -> dict[str, Any] | None:
+    if m["qual2"] and not m["sel"]:
+        return None
+    if m["slots"]:
+        return {"play": True, "cast": True, "filter": spell_filter("permanent"), "slots": True}
+    if m["psel"]:
+        key = spell_filter(m["psel"])
+        return {"play": True, "cast": True, "filter": key} if key else None
+    if m["lsel"]:
+        key = spell_filter(m["lsel"] + (" land" if m["lands"] else ""))
+        return {"play": True, "cast": False, "filter": None, "land_filter": key} if key else None
+    if m["csel"]:
+        key = spell_filter(m["csel"], m["cq"].strip() if m["cq"] else None)
+        return {"play": True, "cast": True, "filter": key, **({"land_filter": "historic"} if m["hist"] else {})} if key else None
+    if m["qual"] and m["qual2"]:
+        return None
+    return _permission_what(m["what"], m["sel"], m["qual"] or m["qual2"])  # ("… spell from your graveyard with mana value …": Arcade Gannon)
 
 
 # -- casting costs (wave 22F) -- 601.3b-c: "You may cast this spell as though it had flash if it targets a commander." (a target chosen
 # while casting), "… if you pay {2} more to cast it." (an additional cost, paid only when the timing needs it), "… if X is 3 or less."
 SELF_FLASH_COND = re.compile(r"^you may cast (?:this spell|~) as though it had flash if (?:it targets (?:an? )?(?P<what>.+)|you pay "
                              r"(?P<pay>\{\d+\}) more to cast it|x is (?P<x>\d+) or less)(?:\. \(.*\))?$", re.IGNORECASE)
+
+
+# -- flash auras (wave 46B) -- 601.3b: "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the
+# permanent it becomes sacrifices it at the beginning of the next cleanup step." (Ward of Lights, Mystic Veil, Soar …): the flash is the card's own permission, the
+# sacrifice a delayed trigger created as the permanent spell resolves (603.7; ruling 2022-12-08: only when this ability was the one used, casting.flash_sac)
+SELF_FLASH_SAC = re.compile(r"^you may cast (?:this spell|~) as though it had flash\. if you cast it any time a sorcery couldn't have been cast, the controller of "
+                            r"the permanent it becomes sacrifices it at the beginning of the next cleanup step$", re.IGNORECASE)
 
 
 def flash_condition(t: str) -> dict[str, Any] | None:
@@ -422,14 +521,30 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     t = _lower_first(text.strip().rstrip("."))
     if kind not in ("static", "spell"):
         return None
+    if kind == "static":  # -- cant restrictions (wave 50G) -- "As long as Haakon is on the battlefield, you may cast Knight spells from your graveyard.": a static of a permanent works only there anyway (113.6)
+        t = re.sub(r"^as long as ~ is on the battlefield, (?=you may cast )", "", t)
+        if t in ("you may cast this card from your graveyard, but not from anywhere else", "you may cast ~ from your graveyard, but not from anywhere else"):
+            # 2006-07-15 ruling: it can't be cast from any other zone, the command zone or one an effect opens included (casting.cast_grant reads ``only``)
+            return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": True, "play": False, "cast": True,
+                    "filter": None, "only": True, "effects": []}
+    # -- cost changers (wave 44D) -- "Spells you cast with mana value 5 or greater cost {1} less to cast and can't be countered." (Thryx, the Sudden Storm): the cost change
+    # (601.2f), whose spells also can't be countered (101.2: ``spell_uncounterable`` reads the mark)
+    if (both := re.fullmatch(r"(spells you cast with mana value \d+ or greater cost \{\d+\} less to cast) and can't be countered", t)) is not None:
+        cheaper = define_static(both[1], kind, lines)
+        return {**cheaper, "uncounterable": True} if cheaper is not None and cheaper.get("static") == "cost_modifier" and cheaper.get("caster") == "you" else None
     # -- costs (wave 3$) -- "As an additional cost to cast this spell, sacrifice a creature." (601.2b): paid with the
     # rest of the cost as the spell is cast (casting.cast_spell); a wording the cost grammar can't pay stays manual
-    if cost_changes.OWN_OPTIONAL.fullmatch(t):  # -- casting costs (wave 22F) -- "you may collect evidence 6" / "you may behold a Dragon"
+    if cost_changes.OWN_OPTIONAL.fullmatch(t) or cost_changes.ANY_COST.fullmatch(t):  # -- casting costs (wave 22F) -- "you may collect evidence 6" / "you may behold a Dragon"; (wave 47C) "you may sacrifice any number of …"
         return cost_changes.optional_definition(t)
     extra = costs.additional_cost_text(t)
     if extra is not None:
         ok = costs.parse_additional_cost(extra) is not None
         return {"kind": "static", "static": "additional_cost", "cost": extra, "effects": []} if ok else None
+    if kind == "static" and (off := offering.definition(t)) is not None:  # -- offering (wave 51H) -- 702.48a
+        return off
+    if SELF_FLASH_SAC.fullmatch(t):  # -- flash auras (wave 46B) --
+        return {"kind": "static", "static": "permission", "zone": "any", "once": False, "flash": True, "self": True, "play": False,
+                "cast": True, "filter": None, "flash_sac": True, "effects": []}
     if (fl := flash_condition(t)) is not None:  # -- casting costs (wave 22F) -- 601.3b-d: flash only if a choice made while casting is …
         return {"kind": "static", "static": "permission", "zone": "any", "once": False, "flash": True, "self": True, "play": False,
                 "cast": True, "filter": None, "flash_if": fl, "effects": []}
@@ -457,7 +572,8 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         from app.rules import alt_costs
 
         return alt_costs.grant_web_slinging(t)
-    if " rather than pay " in t or (" without paying its mana cost" in t and t.startswith("if ") and "commander" not in t):  # alternative costs (118.9): app/rules/alt_costs.py
+    if " rather than pay " in t or (" without paying its mana cost" in t and t.startswith("if ") and "commander" not in t) \
+            or (t.startswith("as long as ") and re.search(r", you may pay [^,]+? to cast (?:this spell|~)$", t)):  # alternative costs (118.9): app/rules/alt_costs.py (wave 49B: "As long as …, you may pay {B/R} to cast this spell")
         from app.rules import alt_costs
 
         found_alt = alt_costs.define(t)
@@ -496,11 +612,18 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
             return None
         return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": True,
                 "play": False, "cast": True, "filter": None, "extra": extra, "effects": [], **({"exile": True} if m["exile"] else {})}
+    if kind == "spell":  # -- as long as (wave 35D) -- 601.3d: an instant's or sorcery's own flash condition ("This spell has flash as long as …")
+        from app.rules import cast_limits
+
+        if cast_limits.SELF_FLASH_IF.fullmatch(t) or cast_limits.HAS_FLASH_WHILE.fullmatch(t):
+            return cast_limits.static_definition(text)
     if kind != "static":
         return None
     # -- small wordings (wave 11E) -- "Creature spells you control can't be countered." (101.2, 701.6)
     # (-- cant restrictions (wave 20F) -- "Creature spells can't be countered" (Gaea's Herald), "Creature spells you cast …", "… you control
     # with power 5 or greater …": whose spells, and a with-tail; 101.2, 701.6)
+    if t == "spells and abilities can't be countered":  # -- cant restrictions (wave 46A) -- 101.2, 701.6: Spider-Punk; counter_object lets neither a spell nor an ability be countered
+        return {"kind": "static", "static": "spells_uncounterable", "filter": None, "effects": [], "any_player": True, "abilities": True}
     m = re.fullmatch(r"(?:(?P<sel>[\w ,'-]+?) )?spells(?: (?P<own>you control|you cast))?(?: (?P<with>with (?:power|toughness) "
                      r"\d+ or (?:greater|less)))? can't be countered", t)  # (not "mana value": a spell's X, 107.3f, isn't read here)
     if m:
@@ -548,12 +671,25 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[m["who"]]
         delta = int(m["n"]) * (-1 if m["dir"] == "less" else 1)
         return {"kind": "static", "static": "cost_modifier", "delta": delta, "caster": caster, "filter": key, "effects": []}
-    m = EQUIP_COST.fullmatch(t)
+    m = re.fullmatch(r"plotting cards from your hand costs \{(?P<n>\d+)\} less", t)  # -- cant restrictions (wave 46A) -- 702.170a, 118.7a: the plot cost (Doc Aurlock, Grizzled Genius)
+    if m:
+        return {"kind": "static", "static": "ability_cost_modifier", "delta": -int(m["n"]), "filter": None, "who": "you", "floor": False, "plot": True, "effects": []}
+    # -- most-played cards III (wave 46C) -- "Equip abilities you activate that target this creature cost {2} less to activate." (Helitrooper, Fervent Champion, Dwarven
+    # Mauler), "Activated abilities of Equipment you control that target this creature cost {1} less to activate." (Bladegraft Aspirant): the ability's target is the
+    # source of this static (target_self): known once targets are chosen (601.2c), before the total cost is determined (601.2f)
+    tt = re.sub(r" that target (?:this creature|~)", "", t)
+    tgt = tt != t
+    m = EQUIP_COST.fullmatch(tt)
     if m:
         return {"kind": "static", "static": "ability_cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1),
                 "filter": other.key() if m["other"] and (other := selectors.parse("other Equipment")) else None, "who": "you", "floor": False,
-                "equip": True, "effects": []}
-    m = ABILITY_COST.fullmatch(t)
+                "equip": True, "effects": [], **({"target_self": True} if tgt else {})}
+    m = POWER_UP_COST.fullmatch(tt)
+    if m and (pu := selectors.parse(m["sel"])) is not None and pu.other and pu.controller == "you":
+        # -- power-up (wave 50J) -- "Power-up abilities of other creatures you control cost {3} less to activate." (Hulk, Gamma Goliath): after the reduction by the
+        # permanent's own mana cost (702.193a), on the generic component (118.7a)
+        return {"kind": "static", "static": "ability_cost_modifier", "delta": -int(m["n"]), "filter": pu.key(), "who": "you", "floor": False, "power_up": True, "effects": []}
+    m = ABILITY_COST.fullmatch(tt)
     if m:  # -- costs (wave 3$) -- the source permanent is matched at the cost, relative to the ability's controller
         key = None
         if m["sel"]:
@@ -562,9 +698,18 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                     or sel.extras or sel.attacking or sel.blocking:
                 return None
             key = sel.key()
-        return {"kind": "static", "static": "ability_cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1),
+        sign = -1 if m["dir"] == "less" else 1
+        xtra: dict[str, Any] = {}
+        if m["x"]:  # -- cost changers (wave 44D) -- "{X} less to activate, where X is ~'s power": the source's power, read as each cost is determined (601.2f)
+            value = cost_changes._value(m["xv"] or "")
+            if value is None:
+                return None
+            xtra = {"value": value, "sign": sign}
+        elif m["xv"]:
+            return None
+        return {"kind": "static", "static": "ability_cost_modifier", "delta": 0 if m["x"] else int(m["n"]) * sign,
                 "filter": key, "who": "you" if m["yours"] or (m["sel"] and "you control" in m["sel"]) else "any",
-                "floor": bool(m["floor"]), "effects": []}
+                "floor": bool(m["floor"]), "effects": [], **xtra, **({"target_self": True} if tgt else {})}
     # -- conditional statics (wave 4B) -- "You may cast this card from your graveyard as long as you control a Zombie."
     # (Gravecrawler; 113.6f: functions from the graveyard; 611.3a: checked whenever the cast is offered or begun)
     m = RETRACE_GRANT.fullmatch(t)
@@ -602,40 +747,87 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     # -- end top of library (wave 5I) --
     if (m := LINKED_PLAY.fullmatch(t)) is not None:  # -- resolution memory (wave 22D) -- 607.2a: "cards exiled with ~" (app/rules/exiled_with.py)
         cond = None
-        if m["cond"]:
+        if m["cond"] and m["cond2"] or (m["once"] and m["what"] != "cast spells from among") or (m["life"] and m["what"] != "play"):
+            return None
+        if m["cond"] or m["cond2"]:
             from app.rules import conditions
 
-            cond = conditions.parse(m["cond"])
+            cond = conditions.parse(m["cond"] or m["cond2"])
             if cond is None or "succeeded" in cond or "flag" in cond:
                 return None
         exiling = [x for x in lines if x.strip().rstrip(".") and exiled_with_exiles(x)]
         if not exiling or any("face down" in x.lower() for x in exiling):
             return None  # (the linked ability must be one that exiles: otherwise the permission has nothing to read; review 22D: a card
             # exiled face down is hidden even from its exiler unless the text lets them look, 406.3 — not read)
-        return {"kind": "static", "static": "permission", "zone": "exile", "linked": True, "once": False, "flash": False, "self": False,
-                "play": True, "cast": True, "filter": None, "effects": [],
+        return {"kind": "static", "static": "permission", "zone": "exile", "linked": True, "once": bool(m["once"]), "flash": False, "self": False,
+                "play": m["what"] != "cast spells from among", "cast": m["what"] != "play lands from among", "filter": None, "effects": [],
+                **({"once_any": True} if m["once"] else {}), **({"free": True, "life_mv": True} if m["life"] else {}),
                 **({"during": "your_turn"} if m["during"] else {}), **({"if": cond} if cond is not None else {})}
-    m = PERMISSION.fullmatch(t)
+    # -- free cast (wave 40D) -- "… from among cards in your graveyard that were put there from anywhere other than the battlefield / from your library this turn"
+    # (Banon, Kagha), "… that were milled this turn" (Raul): the permission of the graveyard, for the cards that arrived this turn as that says (the turn's log, 400.7)
+    pool = _GY_POOL.search(t)
+    m = PERMISSION.fullmatch(t[:pool.start()] + " from your graveyard" if pool is not None else t)
     if m:
-        what = _permission_what(m["what"], m["sel"], m["qual"])
+        what = _permission_forms(m)
         if what is None:
             return None
         zone = "graveyard" if m["zone"] == "your graveyard" else "library_top"
         if (what.get("self") and zone != "graveyard") or (m["exile"] and (zone != "graveyard" or what.get("self"))):
             return None
+        extras: dict[str, Any] = {}
+        if m["whilst"]:  # -- as long as (wave 35D) -- 611.3a: "As long as ~ is attached to a creature, you may play lands and cast spells from the top of your
+            # library." (The Reality Chip, Summoning Materia), "As long as an opponent controls more lands than you, you may play lands from the top of
+            # your library." (Verge Rangers): the permission of the top of the library, read afresh as a card there is looked at
+            from app.rules import statics
+
+            cond = statics.condition(m["whilst"][len("as long as "):-2])
+            if zone != "library_top" or what.get("self") or cond is None or "succeeded" in cond or "flag" in cond:
+                return None
+            extras["if"] = cond
+        if m["by"] or m["tapped"] or m["fin"] or m["gain"] or m["during"] or m["slots"] or m["lsel"] or m["psel"] or m["csel"]:
+            if (zone != "graveyard" or what.get("self")) and not (  # (-- if you do (wave 51D) -- "play lands and cast Mutant, Ninja, or Turtle spells from the top of your library", Mikey & Don: the same wording as Zask's)
+                    zone == "library_top" and m["psel"] and not what.get("self") and not (m["by"] or m["tapped"] or m["fin"] or m["gain"] or m["during"] or m["slots"] or m["lsel"] or m["csel"])):
+                return None  # (-- cast permissions (wave 30Q) -- the new wordings are the graveyard's)
+            if m["by"]:  # 601.2b: "by paying 3 life / sacrificing a creature in addition to paying its other costs" is an additional cost, paid with the rest
+                extra = re.sub(r"\b(discarding|paying|sacrificing|exiling)\b", lambda g: _GERUND[g[1].lower()], m["by"])
+                if costs.parse_additional_cost(extra) is None:
+                    return None
+                extras["extra"] = extra
+            if m["tapped"] or m["fin"] or m["gain"]:
+                extras["enters"] = {**({"tapped": True} if m["tapped"] else {}), **({"counters": {"finality": 1}} if m["fin"] else {}),
+                                    **({"abilities": [m["gain"].replace("~", "this permanent")]} if m["gain"] else {})}  # (the card's own name stands for the one that gains it)
+            if m["during"]:
+                extras["during"] = "your_turn"
+            if what.get("slots"):
+                extras["slots"] = True
+            if what.get("land_filter"):
+                extras["land_filter"] = what["land_filter"]
+        if m["rhaste"] or m["rcounter"] or m["rflash"]:  # -- if you do (wave 51D) -- the top of the library alone, a spell cast with the permission (never the land it plays)
+            if zone != "library_top" or not what["cast"] or what.get("self") or what.get("slots") or (m["rflash"] is None) != (m["rtype"] == "a creature spell"):
+                return None  # ("a creature spell" for haste and the counter, "a spell" for flash)
+            if m["rflash"]:
+                extras["flash"] = True  # 601.3b: every spell cast with this permission may be cast any time its caster has priority
+            else:  # (the rider is for creature spells only: a spell of another kind cast with the same permission gets none, casting.py)
+                extras["enters"] = {"only": "Creature", **({"keywords": ["haste"]} if m["rhaste"] else {"counters": {"+1/+1": 1}})}
+        if m["lmv"]:  # -- most-played cards (wave 43B) -- 118.9, 119.4: the alternative cost of a spell cast from the top of the library, always paid (X is 0: 107.3b)
+            if zone != "library_top" or not what["cast"] or what.get("self"):
+                return None
+            extras["free"], extras["life_mv"] = True, True
         if zone == "library_top" and not any(_lower_first(x.strip().rstrip(".")) in (TOP_REVEAL, TOP_LOOK) for x in lines):
             # The engine offers a cast from the top of the library only when the player can see
             # that card (401.5; app/rules/view.hints): without a reveal / look line on the same
             # card the permission could never be used — refused rather than claimed
             return None
+        if pool is not None:
+            if zone != "graveyard" or what.get("self") or what.get("slots") or m["by"] or m["exile"] or m["gain"] or m["fin"] or m["tapped"]:
+                return None  # (the pool is read for the plain graveyard permission only)
+            extras["put_there"] = "milled" if pool["milled"] else "library" if pool["from"] == "your library" else "not_battlefield"
         return {"kind": "static", "static": "permission", "zone": zone, "once": bool(m["once"]), "flash": False,
                 "self": bool(what.get("self")), "play": what["play"], "cast": what["cast"], "filter": what["filter"],
-                "effects": [], **({"exile_gy": "is" if m["exile"] == "an instant or sorcery" else "all"} if m["exile"] else {})}
+                "effects": [], **extras, **({"exile_gy": "is" if m["exile"] == "an instant or sorcery" else "all"} if m["exile"] else {})}
     m = FLASH.fullmatch(t)
-    if m:
-        key = spell_filter(m["sel"]) if m["sel"] else None
-        if m["sel"] and key is None:
-            return None
+    key = spell_filter(m["sel"]) if m and m["sel"] else None
+    if m and not (m["sel"] and key is None):  # (wave 45D: not read here, cast_limits reads "legendary spells and artifact spells")
         return {"kind": "static", "static": "permission", "zone": "any", "once": False, "flash": True, "self": False,
                 "play": False, "cast": True, "filter": key, "effects": []}
     if (shown := REVEALED_ZONES.get(t)) is not None:  # -- revealed zones (wave 25A) -- 401.5, 701.20a: every player's top card, or the hands
@@ -651,7 +843,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     # they had flash.", "You may activate abilities of creatures you control as though those creatures had haste."
     from app.rules import cast_limits
 
-    return cast_limits.static_definition(text)
+    found_limit = cast_limits.static_definition(text)
+    if found_limit is not None and found_limit.get("exiled_with_name") and any("face down" in x.lower() for x in lines):
+        return None  # -- linked exile (wave 30H) -- 406.3: a card exiled face down has no name to share (nor may the table learn it from what can't be cast)
+    return found_limit
 
 
 # -- as long as (wave 9B) -- 611.2b: the permission lasts for as long as the card (the object an earlier instruction exiled,
@@ -661,16 +856,17 @@ _RIDER = (r"(?:, and (?:mana of any type can be spent to cast (?P<t>that spell|i
           r"it were mana of any (?P<k>color|type) to cast (?P<t2>that spell|it|them|those spells)))")
 GRANT_EXILED = re.compile(
     r"^(?:for as long as (?P<d1>it|they|that card|those cards) remains? exiled, )?(?P<who>you|its owner|their owners) may (?P<verb>play|cast) "
-    r"(?P<what>that card|those cards|it|them)(?P<free> without paying (?:its|their) mana costs?)?"
-    r"(?: for as long as (?P<d2>it|they|that card|those cards) remains? exiled)?" + _RIDER + r"?$")
+    r"(?P<what>that card|those cards|it|them|this card)(?P<free> without paying (?:its|their) mana costs?)?"  # (this card: wave 37A)
+    # (-- durations (wave 30M) -- 611.2b: "You may play that card for as long as you control Lightning" (d3): while its source is controlled)
+    r"(?: for as long as (?:(?P<d2>it|they|that card|those cards) remains? exiled|(?P<d3>you control ~|~ remains on the battlefield)))?" + _RIDER + r"?$")
 
 
 def _grant_exiled(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
-    if bool(m["d1"]) == bool(m["d2"]):
+    if sum(map(bool, (m["d1"], m["d2"], m["d3"]))) != 1:
         return None  # (exactly one duration)
     plural = m["what"] in ("those cards", "them")
     # the duration and the rider name the same card(s) the permission is for
-    if (m["d1"] or m["d2"]) not in (("they", "those cards") if plural else ("it", "that card")):
+    if (m["d1"] or m["d2"]) and (m["d1"] or m["d2"]) not in (("they", "those cards") if plural else ("it", "that card")):
         return None
     rider = m["t"] or m["t2"]
     if rider and rider not in (("them", "those spells") if plural else ("it", "that spell")):
@@ -679,10 +875,15 @@ def _grant_exiled(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
     if m["free"] and spend:
         return None  # (a free cast spends no mana: no card words it so)
     owner = m["who"] != "you"  # -- Marvel keywords (wave 25A) -- "For as long as that card remains exiled, its owner may cast it without paying its mana cost."
-    if owner and (m["verb"] == "play" or spend or bool(m["d2"]) or plural != (m["who"] == "their owners")):
+    if owner and (m["verb"] == "play" or spend or bool(m["d2"]) or m["d3"] or plural != (m["who"] == "their owners")):
         return None  # (read for casting only, the duration first, one rider-less permission)
-    return [{"do": "grant_play", "who": "them:card" if plural else "it:card", "play": m["verb"] == "play", "cast": True,
-             "until": "permanent", "optional": not owner, **({"free": True} if m["free"] else {}),
+    until = "permanent" if not m["d3"] else "source_controlled" if m["d3"].startswith("you control") else "source_on_battlefield"
+    if m["what"] == "this card" and (owner or spend or m["free"] or not m["d2"] or m["verb"] != "cast"):
+        return None  # (wave 37A: only "You may cast this card for as long as it remains exiled.")
+    # -- as long as (wave 37A) -- "{2}, Exile this card from your hand: … You may cast this card for as long as it remains exiled." (400.7j: the
+    # card the cost exiled; scripts.define reads it only after that cost)
+    return [{"do": "grant_play", "who": "cost_exiled_self" if m["what"] == "this card" else "them:card" if plural else "it:card",
+             "play": m["verb"] == "play", "cast": True, "until": until, "optional": not owner, **({"free": True} if m["free"] else {}),
              **({"spend": spend} if spend else {}), **({"owner": True} if owner else {})}], None
 
 
@@ -695,17 +896,23 @@ LOOK_EXILED = re.compile(r"^you may look at (?P<what>it|that card|those cards|th
                          r"remains? exiled$")
 _LOOK_AND_PLAY = re.compile(r"You may look at and (?P<v>play|cast) (?P<w>that card|those cards|it|them)(?P<free> without paying "
                             r"(?:its|their) mana costs?)? for as long as (?P<d>it|they) (?P<r>remains?) exiled")
-_PLAY_RIDER = re.compile(r"(?P<g>You may (?:play|cast) (?P<w>that card|those cards|it|them)[^.]*?)\. (?:(?P<a>Mana of any type can be "
-                         r"spent to cast (?:a spell|spells) this way)|(?P<b>If you cast a spell this way, you may spend mana as though it "
-                         r"were mana of any type to cast it))\.")
+_PLAY_RIDER = re.compile(r"(?P<g>[Yy]ou may (?:play|cast) (?P<w>that card|those cards|it|them)[^.]*?)\. (?:(?P<a>Mana of any type can be "
+                         r"spent to cast (?:a spell|spells) this way|If you cast a spell this way, mana of any type can be spent to cast it)"
+                         r"|(?P<b>If you cast a spell this way, you may spend mana as though it were mana of any type to cast it))\.")  # (wave 32C: Bloodsoaked Insight, after "Until …, you may play …")
 
 
 def join_exile_play(body: str) -> str:
     """The wordings above as the sentences the permission grammar reads (permissions.GRANT_EXILED, LOOK_EXILED)."""
+    from app.rules import exiled_with
+
+    if exiled_with.linked():  # -- linked casting (wave 30H) -- 607.2a
+        body = exiled_with.among(body)
     # (Ugin, the Ineffable: "Exile the top card of your library face down and look at it." — 406.3: whoever looked may go on looking;
     # "put the exiled card into your hand" is the return of that card, 400.3)
     body = re.sub(r"([Ee]xile the top card of your library face down) and look at it\b", r"\1. You may look at it for as long as it remains exiled",
                   body)
+    body = re.sub(r"(face down\. )You may look at and play (that card) this turn\b", r"\1You may look at \2 for as long as it remains exiled. You may play \2 this turn",
+                  body)  # -- hidden exile (wave 48C) -- Headliner Scarlett: two permissions (the look stays, like Ugin's "and look at it")
     body = re.sub(r"For each card exiled this way, you may (play|cast) that card for as long as it remains exiled, and mana of any type can be "
                   r"spent to cast that spell\.", r"You may \1 those cards for as long as they remain exiled, and mana of any type can be spent to "
                   r"cast those spells.", body)  # (Heartless Conscription)
@@ -722,6 +929,10 @@ def join_exile_play(body: str) -> str:
                   r"It becomes foretold with a foretell cost of its mana cost reduced by \1.", body)  # (Ethereal Valkyrie: 702.143d)
     body = re.sub(r"([Yy]ou may (?:look at and )?(?:play|cast) )the exiled (card|cards)\b",  # (-- hideaway (wave 29D) -- also mid-sentence: "Then if …, you may play the exiled card")
                   lambda m: m[1] + ("that card" if m[2] == "card" else "those cards"), body)
+    # -- end of next turn (wave 32C) -- "Until the end of your next turn, you may play those cards. If this spell was cast from a graveyard, you may play
+    # cards this way without paying their mana costs." (Ignite the Future): "this way" is the same permission's duration, said again
+    body = re.sub(r"(Until [a-z ]+?), you may (play|cast) those cards\. (If [^,.]+), you may \2 cards this way without paying their mana costs\.",
+                  lambda m: f"{m[1]}, you may {m[2]} those cards. {m[3]}, {m[1][0].lower()}{m[1][1:]}, you may {m[2]} those cards without paying their mana costs.", body)
     body = _LOOK_AND_PLAY.sub(lambda m: f"You may look at {m['w']} for as long as {m['d']} {m['r']} exiled. You may {m['v']} {m['w']}"
                               f"{m['free'] or ''} for as long as {m['d']} {m['r']} exiled", body)
 
@@ -745,9 +956,18 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
             return None
         return [{"do": "cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1), "filter": key,
                  "until": "next_turn" if m["until"] else "end_of_turn"}], None
+    if (x := STORED_COST_X.fullmatch(text)) is not None:
+        from app.rules import values
+
+        key, value = spell_filter(f"{x['sel']} or {x['sel2']}"), values.parse_count(x["v"])
+        if key is None or not isinstance(value, dict) or "turn_history" not in value:
+            return None
+        return [{"do": "cost_modifier", "delta": value, "dir": -1, "filter": key, "until": "end_of_turn"}], None
     m = LOOK_EXILED.fullmatch(text)  # -- hidden exile (wave 18A) --
     if m:
         return [{"do": "look_exiled", "who": "them:card" if m["what"] in ("those cards", "them") else "it:card", "optional": True}], None
+    if CAST_IT_FROM_GRAVEYARD.fullmatch(text):
+        return [{"do": "free_cast", "zone": "that", "who": "ref:event", "filter": None, "optional": True, "mv": None, "n": 1, "paid": True}], None
     m = FREE_COPY.fullmatch(text)  # -- cast a copy (wave 13C) --
     if m:
         many = m["w"] != "the copy"
@@ -756,6 +976,12 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     among = _free_among(text)  # -- refused look/cast-free (wave 3R5) --
     if among is not None:
         return among, None
+    if (granted := AMONG_GRANT.fullmatch(text)) is not None:  # -- free cast (wave 40D) --
+        key = spell_filter(granted["sel"]) if granted["sel"] else None
+        if granted["sel"] and key is None:
+            return None
+        return [{"do": "grant_play", "who": "them:card", "play": False, "cast": True, "until": "end_of_turn", "optional": True,
+                 **({"filter": key} if key else {}), **({"free": True} if granted["free"] else {})}], None
     target = _free_target(text)
     if target is not None:
         return target
@@ -773,7 +999,14 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
             mv = free_mv(m["n"], m["x2"])
         except ValueError:
             return None
-        return [{"do": "free_cast", "zone": "hand", "filter": key, "optional": True, "mv": mv}], None
+        e: dict[str, Any] = {"do": "free_cast", "zone": "hand", "filter": key, "optional": True, "mv": mv}
+        if m["rel"]:  # (-- if you do (wave 40A) -- the trigger's spell: scripts._event_refs_ok accepts it only on a cast trigger)
+            if mv is not None:
+                return None
+            e["mv" if m["rel"] == "equal or lesser" else "mv_lt"] = {"mana_value": "event"}
+            if m["share"]:
+                e["shares_type"] = "event"
+        return [e], None
     m = PLAY_OR_CAST_TOP.fullmatch(text)  # -- play now (wave 28A) --
     if m:
         try:
@@ -784,17 +1017,28 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     # -- refused grants/replacements (wave 3R2) -- the same permission with its duration at the end ("You may play it
     # until the end of your next turn.": 611.2a, the duration is the one stated, wherever the sentence states it) and
     # "them" for "those cards" ("You may play them until the end of your next turn.")
+    text = re.sub(r"^((?:until [a-z ]+, )?you may (?:play|cast)) (?:them|cards exiled this way|the exiled cards)\b", r"\1 those cards", text)  # (wave 32C: Escape to the Wilds)
     trailing = _TRAILING_UNTIL.fullmatch(text)
     if trailing:
         text = f"{trailing['until']}, {trailing['rest']}"
-    text = re.sub(r"^((?:until [a-z ]+, )?you may (?:play|cast)) them\b", r"\1 those cards", text)
     # -- end refused grants/replacements (wave 3R2) --
     # -- as long as (wave 9B) -- "You may cast that card for as long as it remains exiled, and mana of any type can be spent
     # to cast that spell." (Gonti, Hostage Taker, Thief of Sanity)
     m = GRANT_EXILED.fullmatch(text)
-    if m and (m["d1"] or m["d2"]):
+    if m and (m["d1"] or m["d2"] or m["d3"]):
         return _grant_exiled(m)
     m = GRANT_THAT.fullmatch(text)
+    if m and m["watt"]:  # -- trigger other (wave 51E) -- "During any turn you attacked with a token, you may play that card." (Neyali, Neriv, Goblin Researcher): it stays exiled with a
+        # permission that works in the turns you attacked with such a creature (611.2a: no end but the card leaving exile); the usual timing rules still apply
+        when = _attacked_when(m["watt"])
+        if when is None or m["upto"] or m["from_ex"] or m["this_turn"] or m["free"] or m["spend"] or m["spend2"]:
+            return None
+        return [{"do": "grant_play", "who": "them:card" if m["what"] == "those cards" else "it:card", "play": m["verb"] == "play", "cast": True,
+                 "until": "permanent", "optional": True, "when": when}], None
+    if m and m["upto"] and m["what"] != "those cards":
+        return None
+    if m and m["from_ex"] and bool(m["until"]) == bool(m["this_turn"]):
+        return None  # -- free cast (wave 40D) -- "play that card from exile this turn" (Norin) is a permission with a stated duration only
     if m and m["free"] and not (m["until"] or m["this_turn"]):
         if m["what"] == "those cards":
             return None  # (several cards at once: not modelled)
@@ -812,22 +1056,29 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         if (m["until"] and m["this_turn"]) or not (m["until"] or m["this_turn"]):
             return None  # (a bare "you may play that card" / several cards: cast as this resolves, not modelled)
         free = bool(m["free"])  # (wave 3C) "... without paying its mana cost" (118.9)
-        if spend_kind and (free or m["verb"] != "cast" or (m["what"] == "those cards") != ("those spells" in (m["spend"] or m["spend2"]))):
+        if spend_kind and (free or (m["what"] == "those cards") != ("those spells" in (m["spend"] or m["spend2"]))):
             return None  # (-- if you do (wave 25C) -- 118.14: mana is spent only to cast, never for a free cast)
-        until = {"until the end of your next turn": "end_of_next_turn", "until your next end step": "next_end_step"}.get(m["until"], "end_of_turn")
+        until = {"until the end of your next turn": "end_of_next_turn", "until your next end step": "next_end_step",
+                 "until your next turn": "next_turn", "until the beginning of your next upkeep": "next_turn"}.get(m["until"], "end_of_turn")
         # "who": a pronoun for scripts.resolve_it — the object(s) the preceding instruction moved
         # ("that card": a card — never a token the same sentence created, 111.1: scripts.resolve_it)
+        if m["upto"] and (free or spend_kind or m["from_ex"]):
+            return None  # (-- cost reductions paid with objects (wave 47C) -- "You may play up to two of those cards until the end of your next turn." (March of Reckless Joy) only)
         return [{"do": "grant_play", "who": "them:card" if m["what"] == "those cards" else "it:card", "play": m["verb"] == "play",
                  "cast": True, "until": until, "optional": True, **({"free": True} if free else {}),
-                 **({"spend": spend_kind} if spend_kind else {})}], None
+                 **({"limit": {"one": 1, "two": 2, "three": 3, "four": 4}[m["upn"]]} if m["upto"] else {}),
+                 **({"spend": spend_kind} if spend_kind else {}), **({"from_exile": True} if m["from_ex"] else {})}], None
     m = GRANT_ZONE.fullmatch(text)
     if m:
         if m["until"] and m["this_turn"]:
             return None
-        what = _permission_what(m["what"], None, None)
-        assert what is not None
+        if m["sel"] and bool(m["a"]) == (m["sp"] == "spells"):
+            return None  # ("a creature spells": not English)
+        what = {"play": False, "cast": True, "filter": spell_filter(m["sel"])} if m["sel"] else _permission_what(m["what"], None, None)
+        if what is None or (m["sel"] and what["filter"] is None):
+            return None
         return [{"do": "grant_play", "zone": "graveyard", "play": what["play"], "cast": what["cast"], "until": "end_of_turn",
-                 "optional": True}], None
+                 "optional": True, **({"filter": what["filter"]} if m["sel"] else {}), **({"once": True} if m["a"] else {})}], None
     return None
 
 
@@ -850,6 +1101,10 @@ class Grant:
     exile_gy: str = ""  # -- cast from graveyard (wave 19C) -- 614.1a: "all" | "is" (instants and sorceries only): "If a spell cast this way would be put into your graveyard, exile it instead"
     exile: bool = False  # -- casting extras (wave 18E) -- jump-start 702.133a: exile the card instead of putting it anywhere else as it leaves the stack
     alt_mana: str = ""  # -- trigger other (wave 25B) -- airbend 701.65a: an alternative cost the permission requires ("{2}")
+    slot: str = ""  # -- cast permissions (wave 30Q) -- the permanent type this use of "each permanent type" is for (Muldrotha); its ``once_key`` is that type's
+    enters: dict[str, Any] | None = None  # -- cast permissions (wave 30Q) -- "If you cast a spell this way, that artifact enters tapped / with a finality counter" / "it gains …"
+    use: str = ""  # -- cast permissions (wave 32D) -- what this way uses up (a once-a-turn permission's key, Muldrotha's type: the action's ``via``); "" = unlimited
+    among: tuple[Grant, ...] = ()  # -- cast permissions (wave 32D) -- on the way taken by default: one way per different use up, when there is more than one (``with_choices``)
 
 
 def _view(state: GameState, player: str, info: CardInfo) -> Plan:
@@ -862,15 +1117,28 @@ def spell_matches(state: GameState, player: str, card: CardInstance, ch: Charact
                   source: str | None = None) -> bool:
     """Would the spell this card becomes match the selector ("creature spells", "red spells")? (``source``: the
     permanent whose "chosen type" the selector reads, wave 5I)"""
-    probe = card.model_copy(update={"zone": STACK, "controller": player})
+    probe = card.model_copy(update={"zone": STACK, "controller": player, **({"face_down": True} if ch.face_down else {})})  # (wave 46A: a spell being cast face down, 708.4)
     return selectors.matches(_view(state, player, info), selectors.from_key(key), probe, ch, player, source)
+
+
+def abilities_uncounterable(state: GameState, info: CardInfo) -> bool:
+    """-- cant restrictions (wave 46A) -- does a static on the table say abilities can't be countered (Spider-Punk: "Spells and abilities can't be countered", 101.2)?"""
+    return any(d.get("abilities") for _, _, d in _table_statics(state, info, {"spells_uncounterable"}))
 
 
 def spell_uncounterable(state: GameState, info: CardInfo, card: CardInstance, ch: Characteristics) -> bool:
     """-- small wordings (wave 11E) -- does a static on the table say this spell, controlled by its caster, can't be
     countered (101.2, 701.6)?"""
+    turn = state.turn.number  # -- most-played cards (wave 43B) -- "Spells you control can't be countered this turn." (prohibitions.uncounterable_turn)
+    if state.rules is not None and any(x.get("what") == "uncounterable" and x["turn"] == turn and x["player"] == card.controller
+                                       and (x["oid"] == state.rules.object_id(card.id) if x.get("oid") else
+                                            (not x.get("filter") or spell_matches(state, card.controller, card, ch, x["filter"], info)))
+                                       for x in state.rules.results):
+        return True
     return any((d.get("any_player") or src.controller == card.controller) and (not d["filter"] or spell_matches(state, card.controller, card, ch, d["filter"], info))
-               for src, _, d in _table_statics(state, info, {"spells_uncounterable"}))
+               for src, _, d in _table_statics(state, info, {"spells_uncounterable"})) \
+        or any(d.get("uncounterable") and src.controller == card.controller and (not d["filter"] or spell_matches(state, card.controller, card, ch, d["filter"], info))
+               for src, _, d in _table_statics(state, info, {"cost_modifier"}))  # (-- cost changers (wave 44D) -- Thryx)
 
 
 def _table_statics(state: GameState, info: CardInfo, kinds: set[str]) -> list[tuple[CardInstance, int, Definition]]:
@@ -945,6 +1213,14 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
     for p in r.permissions:
         if p.player != player or not _wants(p, verb) or (p.once and p.used_turn == turn) or (p.after_turn and turn <= p.after_turn):
             continue
+        if p.until in SOURCE_UNTIL and not source_holds(state, p):
+            continue  # (-- durations (wave 30M) -- 611.2b: over, whenever the table was last looked at)
+        if p.when is not None:  # -- trigger other (wave 51E) -- "During any turn you attacked with …": read now; ``source`` is the object the permission came from ("this creature")
+            from app.rules import conditions
+            from app.rules.layers import _view
+
+            if not conditions.holds(_view(state, info), {"controller": player, "source_object": p.source, "source_card": card.id}, p.when):
+                continue
         if p.object_id is not None:
             if p.object_id != oid:
                 continue  # a new object since (400.7): the permission was for the one it was
@@ -954,7 +1230,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue
         zone_ok = p.object_id is not None or p.zone != "any"  # (a flash-only permission grants no zone)
         out.append(Grant("permission", p.label, zone_ok=zone_ok, free=p.free, flash=p.flash, permission=p.id, spend=p.spend,
-                         sorcery=p.sorcery, alt_mana=p.alt_mana,
+                         sorcery=p.sorcery, alt_mana=p.alt_mana, enters=p.enters,  # (wave 51D: "If you do, it enters tapped", Jorn)
                          exile_gy=p.exile_gy if not p.exile_own or card.owner == player else ""))  # (wave 25C)
     if verb == "cast" and where in ("graveyard", "exile") and card.owner == player and not card.face_down:
         for index, d in _definitions(ch).items():  # the card's own ability, functioning in the graveyard (113.6) / exile (wave 20D)
@@ -966,6 +1242,11 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                     continue  # -- conditional statics (wave 4B) -- "as long as you control a Zombie"
                 out.append(Grant("permission", f"{ch.name}: cast it from {'exile' if where == 'exile' else 'your graveyard'}", once_key=key if d["once"] else None,
                                  extra=d.get("extra") or "", exile=bool(d.get("exile"))))
+    if verb == "cast" and where == "graveyard" and card.owner == player and not card.face_down:  # -- static_other (wave 44C) -- 702.133a: jump-start a static gave it (Niv-Mizzet, Supreme)
+        from app.rules import zone_grants
+
+        if zone_grants.jump_start(state, player, card, ch, info):
+            out.append(Grant("permission", f"{ch.name}: cast it from your graveyard (jump-start)", extra="discard a card", exile=True))
     if verb == "play" and where == "graveyard" and card.owner == player:  # -- Marvel keywords (wave 25A) -- 702.187c: a bare "Mayhem"
         from app.rules import mayhem
 
@@ -981,7 +1262,9 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
 
         if (label := cast_limits.self_flash(state, player, card, ch, info)) is not None:
             out.append(Grant("permission", label, zone_ok=False, flash=True))
-    for src, index, d in _table_statics(state, info, {"permission"}):
+    # (-- spell grants (wave 30T) -- a cost changer that also gives flash carries it as "flash_perm": Radagast of Rhosgobel)
+    for src, index, d in [*_table_statics(state, info, {"permission"}),
+                          *((s, i, x["flash_perm"]) for s, i, x in _table_statics(state, info, {"cost_modifier"}) if x.get("flash_perm"))]:
         # -- cast limits (wave 5E) -- "Any player may cast …" / "During each opponent's end step, you may cast …"
         if (src.controller != player and not d.get("any_player")) or d.get("self") or not d[verb]:
             continue
@@ -997,26 +1280,54 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                 continue
             if d.get("if") is not None and not _linked_if(state, info, player, src, d["if"]):
                 continue
-            out.append(Grant("permission", src.name, zone_ok=True))
+            key = f"{src.id}:permission:{index}"  # -- linked permissions (wave 30H) -- "You can't cast more than one spell this way each turn."
+            if d["once"] and r.once_per_turn.get(key) == turn:
+                continue
+            out.append(Grant("permission", src.name, zone_ok=True, free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
+                             once_key=key if d["once"] else None))
             continue
         if d["zone"] != "any" and d["zone"] != where:
             continue
-        if d["filter"] and verb == "cast" and not spell_matches(state, player, card, ch, d["filter"], info):
+        if d.get("put_there") and not selectors.put_there_state(state, card, d["put_there"]):
+            continue  # -- free cast (wave 40D) -- only a card that is the object put into the graveyard this turn from there (400.7)
+        # -- spell grants (wave 30T) -- 611.3a: "As long as ~ is tapped, you may cast spells as though they had flash" is read now, as its source's controller;
+        # "the first creature spell you cast each turn" (601.2i): none of that kind cast earlier this turn, whenever the source arrived
+        if d.get("if") is not None and not _linked_if(state, info, src.controller, src, d["if"]):
+            continue
+        if d.get("first") and not cost_changes.first_ok(state, info, player, d["filter"]):
+            continue
+        if d["filter"] and verb == "cast" and not spell_matches(state, player, card, ch, d["filter"], info, source=src.id):  # (wave 30Q: "quest counters on ~")
             continue
         # -- top of library (wave 5I) -- "artifact spells and colorless spells", the chosen type, historic lands
         from app.rules import top_library
 
         if not top_library.static_ok(state, player, card, ch, info, d, src, verb):
             continue
-        key = f"{src.id}:permission:{index}"
+        key = f"{r.object_id(src.id)}:permission:{index}"  # (-- review 30c -- 400.7: a new Muldrotha / Lurrus has new uses, the rulings 2020-11-10)
         if d["once"] and (r.once_per_turn.get(key) == turn or (state.turn.active_player != player and not d.get("once_any"))):
             continue  # "once during each of your turns" ("once each turn": any turn, wave 5I)
-        out.append(Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"], free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
-                         once_key=key if d["once"] else None, extra=d.get("extra") or "", exile_gy=d.get("exile_gy", "")))
+        # -- cast permissions (wave 30Q) -- Muldrotha: a use for each permanent type, a card of several types counting as one of them as it is played or
+        # cast ("choose one as you play it"); one grant per type still unused, the player picks which (cast_grant ``slot``)
+        slots = [t for t in SLOT_TYPES if (t == "Land") == (verb == "play") and t in ch.types and r.once_per_turn.get(f"{key}:{t}") != turn] \
+            if d.get("slots") else [""]
+        out += [Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"], free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
+                      once_key=f"{key}:{slot}" if slot else key if d["once"] else None, extra=d.get("extra") or "", exile_gy=d.get("exile_gy", ""),
+                      slot=slot, enters=d.get("enters")) for slot in slots]
     # -- top of library (wave 5I) -- the player picks the permission they use (601.3): a once-each-turn one is offered
     # last, so a cast another permission also allows doesn't use it up
-    out.sort(key=lambda g: g.once_key is not None)
+    # (-- review 30c -- a stored one-spell permission too: Chainer's is kept while Liliana's covers the cast, the Chainer ruling 2019-08-23)
+    once = {p.id for p in r.permissions if p.once}
+    out = [replace(g, use=g.once_key or ((g.permission or "") if g.permission in once else "")) for g in out]  # (-- wave 32D -- what each use of it uses up)
+    out.sort(key=lambda g: bool(g.use))
     return out
+
+
+def with_choices(best: Grant, ways: list[Grant]) -> Grant:
+    """-- cast permissions (wave 32D) -- 601.2: the player announces the permission a cast or play uses (the Muldrotha ruling 2020-11-10: "you choose which
+    permission you're using"). ``best`` is the way taken by default; when it is a limited one (a once-a-turn permission, a Muldrotha type) and ``ways`` holds
+    others that use up something else, it carries them in ``among`` and the caster is asked. An unlimited way as the default uses nothing up: no question."""
+    uses = {g.use: g for g in ways if g.use}
+    return replace(best, among=tuple(uses.values())) if best.use and len(uses) > 1 else best
 
 
 def _linked_if(state: GameState, info: CardInfo, player: str, src: CardInstance, cond: dict[str, Any]) -> bool:
@@ -1025,6 +1336,10 @@ def _linked_if(state: GameState, info: CardInfo, player: str, src: CardInstance,
     from app.rules.plan import Plan
 
     ctx = {"controller": player, "source_card": src.id, "source_object": state.rules.object_id(src.id) if state.rules else None}
+    if "static" in cond:  # -- as long as (wave 35D) -- a static's own condition ("~ is attached to a creature", "~ is tapped"): app/rules/statics.py
+        from app.rules import statics
+
+        return statics.holds(Plan.view(state, player, info), cond, source=src, controller=player)
     return conditions.holds(Plan.view(state, player, info), ctx, cond)
 
 
@@ -1049,6 +1364,47 @@ def _definitions(ch: Characteristics) -> dict[int, Definition]:
     return scripts.definitions(ch)
 
 
+def ask_use(plan: Plan, a: Any, card: CardInstance, ch: Characteristics, among: tuple[Grant, ...], verb: str) -> None:
+    """-- cast permissions (wave 32D) -- which of several limited permissions this cast ("cast") or land play ("play") uses up (601.2; Muldrotha's types are
+    one source's uses: the rulings 2020-11-10, an artifact creature spell may be the artifact or the creature). The answer is the action's ``via``,
+    asked before anything is paid (wave 30Q asked the types only; an answer saved then, with no ``field``, sets ``slot``)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    types = len({g.label for g in among}) == 1 and all(g.slot for g in among)  # (one permission's types)
+    decide(plan, player=plan.actor, kind="choose_one", prompt=f"{ch.name or 'This card'}: {verb} it as which permanent type?" if types
+           else f"{ch.name or 'This card'}: {verb} it using which permission?",
+           options=[DecisionOption(id=g.use, label=g.slot if types else f"{g.label} ({g.slot})" if g.slot else g.label) for g in among],
+           resume={"step": "slot", "field": "via", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})}, source=card)
+
+
+def resume_slot(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game import actions as A
+    from app.rules.engine import INTENTS
+
+    intent = A.parse_action(d.resume["intent"])
+    setattr(intent, d.resume.get("field", "slot"), chosen[0])
+    plan.rules.priority = d.player
+    plan.rules.passed = []
+    INTENTS[intent.type](plan, intent)
+
+
+def gain_on_entry(plan: Plan, card_id: str, controller: str, rider: dict[str, Any] | None) -> None:
+    """-- cast permissions (wave 30Q) -- "If you do, it gains "When this permanent is put into a graveyard from the battlefield, exile it and you gain 2
+    life."" (Serra Paragon): the permanent the card became has the ability for as long as it is that object (613.1f layer 6; a new object has none, 400.7)."""
+    card = plan.state.cards.get(card_id)
+    if rider and rider.get("keywords") and card is not None and card.zone.endswith(":battlefield"):  # -- if you do (wave 51D) -- 611.2a: "it gains haste until end of turn", from the moment it is on the battlefield (613.1f)
+        from app.rules import layers
+
+        layers.add_effect(plan, affected=[plan.oid(card_id)], layer="6", source=None, controller=controller, add_keywords=tuple(rider["keywords"]),
+                          label="Gained from the cast permission")
+    if rider and rider.get("abilities") and card is not None and card.zone.endswith(":battlefield"):
+        from app.rules import layers
+
+        layers.add_effect(plan, affected=[plan.oid(card_id)], layer="6", source=None, controller=controller, duration="permanent",
+                          add_abilities=list(rider["abilities"]), label="Gained from the cast permission")
+
+
 def consume(plan: Plan, grant: Grant | None) -> None:
     """The spell was cast (or the land played) this way: a once-per-turn permission is used up."""
     if grant is None:
@@ -1058,6 +1414,12 @@ def consume(plan: Plan, grant: Grant | None) -> None:
     if grant.once_key:
         r.once_per_turn[grant.once_key] = turn
     if grant.permission:
+        used = next((p for p in r.permissions if p.id == grant.permission), None)
+        if used is not None and used.group:  # -- cost reductions paid with objects (wave 47C) -- "play up to two of those cards": one fewer may be, the rest end with the last
+            for p in r.permissions:
+                if p.group == used.group:
+                    p.left -= 1
+            r.permissions = [p for p in r.permissions if not (p.group == used.group and p.left <= 0)]
         for p in r.permissions:
             if p.id == grant.permission and p.once:
                 p.used_turn = turn
@@ -1143,6 +1505,9 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
     reduction = affinity
     changes = cost_changes.Changes()  # -- cost changers (wave 4I) -- colored increases / reductions (118.7b/c)
     if info is not None:
+        from app.rules import spell_grants
+
+        reduction += spell_grants.cost_reduction(state, player, card, ch, info)  # (-- cant restrictions (wave 46A) -- "The next spell you cast this turn costs {1} less")
         for m in modifiers(state, player, card, ch, info, targets):  # (targets: wave 4I, "spells that target …")
             if m.mana:
                 changes.add(m.delta, m.mana)
@@ -1156,6 +1521,7 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
         reduction += own.reduction
         changes.colored_more += own.colored_more
         changes.colored_less += own.colored_less
+        changes.colored_only += own.colored_only
         for d in _definitions(ch).values():  # -- static_other sweep (wave 16B) -- strive: for each target beyond the first
             if d.get("static") == "self_cost" and d.get("per_target"):
                 more, each = max(0, len(targets) - 1), M.parse_cost(d["per_target"])
@@ -1163,12 +1529,13 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
                 changes.colored_more += tuple(each.colored) * more
     cost = cost_changes.add_colored(cost.plus_generic(increase), changes.colored_more)
     cost = cost_changes.reduce_colored(cost, changes.colored_less)  # (colored first: what's left over reduces generic, 118.7c)
+    cost = cost_changes.reduce_colored(cost, changes.colored_only, only=True)  # (wave 46A: Morophon)
     return cost.plus_generic(-min(cost.generic, reduction))
 
 
 # -- costs (wave 3$) -- cost modifiers for activated abilities (602.2b -> 601.2f, 118.7) ---------------------
 def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characteristics, mana: str, info: CardInfo,
-                 own: int = 0, ability_text: str = "") -> str:
+                 own: int = 0, ability_text: str = "", target: str | None = None) -> str:
     """The mana part of an activated ability's cost after "Activated abilities of creatures you control cost {2} less to
     activate" and its increases: increases first, then reductions on the generic component only (118.7a, 601.2f), and with
     "can't reduce the mana in that cost to less than one mana" never below one mana. Costs with {X} are left alone."""
@@ -1188,14 +1555,26 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
             continue
         if d.get("equip") and not attachments.is_equip_text(ability_text):  # -- equip (wave 15E) --
             continue
+        if d.get("power_up") and not ability_text.startswith("Power-up — "):  # (wave 50J)
+            continue
+        if d.get("target_self") and (target is None or target not in ("?", src.id) or (target == "?" and d["delta"] > 0)):
+            continue  # -- most-played cards III (wave 46C) -- only for an ability that targets the source ("?": not chosen yet, the best case for a reduction)
+        if bool(d.get("plot")) != (ability_text == "plot"):  # -- cant restrictions (wave 46A) -- plotting is a special action (116.2k): only plot changers touch its cost, and they touch nothing else
+            continue
         if d["filter"]:
             view = view or _view(state, player, info)
             if not selectors.matches(view, selectors.from_key(d["filter"]), card, ch, src.controller, src.id):
                 continue
-        if d["delta"] > 0:
-            increase += d["delta"]
-        else:
-            reduction -= d["delta"]
+        delta = d["delta"]
+        if d.get("value") is not None:  # (wave 44D) the amount read now, with the source's own context
+            view = view or _view(state, player, info)
+            from app.rules import values
+
+            delta = d["sign"] * values.evaluate(view, cost_changes.context(state, src.controller, src), d["value"])
+        if delta > 0:
+            increase += delta
+        elif delta < 0:
+            reduction -= delta
             floor = floor or d["floor"]
     if not increase and not reduction:
         return mana
@@ -1213,6 +1592,20 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
 
 
 # -- effects ---------------------------------------------------------------------------------------
+def _attacked_when(what: str) -> dict[str, Any] | None:
+    """-- trigger other (wave 51E) -- the condition of "During any turn you attacked with <what>": "this creature" (the permission's source), "three or more creatures", or a
+    kind of creature ("a token", "a commander", "a Rogue"), read from the turn's declared attackers (508.1, history._attacked_with)."""
+    from app.rules import selectors
+
+    if what in ("this creature", "~"):
+        return {"history": "attacked_with", "self": True}
+    if (m := re.fullmatch(r"(\w+) or more creatures", what)) is not None:
+        n = {"two": 2, "three": 3, "four": 4, "five": 5}.get(m[1])
+        return {"history": "attackers", "n": n} if n else None
+    sel = selectors.parse(re.sub(r"^an? ", "", what))
+    return {"history": "attacked_with", "sel": sel.key()} if sel is not None and sel.player is None and not sel.card and sel.zones in ((), ("battlefield",)) else None
+
+
 def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """"You may play that card this turn" (the objects an earlier instruction of this ability
     moved — bound by scripts.resolve_it, found where they went: 400.7h/j) or "Until end of turn,
@@ -1226,24 +1619,39 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         turn += 1  # (granted in its own end step or later: the next one is the following turn's)
     when = "until the end of their next turn" if e["until"] == "end_of_next_turn" else \
         "until their next end step" if e["until"] == "next_end_step" else \
+        "until their next turn" if e["until"] == "next_turn" else \
+        f"for as long as they {'control' if e['until'] == 'source_controlled' else 'have'} {ctx.get('name') or 'its source'}" \
+        if e["until"] in SOURCE_UNTIL else \
         "for as long as it remains there" if e["until"] == "permanent" else "this turn"  # (permanent: wave 3E, 611.2a)
+    if e["until"] in SOURCE_UNTIL and not delayed._source_ok(plan, e["until"], ctx.get("source_card"), ctx.get("source_object"), pid):
+        plan.note(f"{ctx.get('name') or 'The effect'} does nothing: its duration has already ended")  # 611.2b
+        return True
     verb = "play" if e["play"] else "cast"
     if e.get("who"):
-        if not str(e["who"]).startswith(context.PREFIX) and e["who"] != "target":
+        if not str(e["who"]).startswith(context.PREFIX) and e["who"] not in ("target", "cost_exiled_self"):
             return True  # (an unbound pronoun never reaches here: resolve_it refuses the ability)
-        for cid in context.objects(plan, ctx, e["who"][len(context.PREFIX):]) if e["who"] != "target" else _target_cards(plan, ctx):
+        # -- as long as (wave 37A) -- "You may cast this card for as long as it remains exiled": the card its cost exiled
+        from app.rules import effects as _effects
+
+        group = secrets.token_hex(4) if e.get("limit") else ""  # (-- cost reductions paid with objects (wave 47C) -- "up to two of those cards": one limit for them all)
+        for cid in _effects._cards(plan, ctx, "cost_exiled_self") if e["who"] == "cost_exiled_self" else \
+                context.objects(plan, ctx, e["who"][len(context.PREFIX):]) if e["who"] != "target" else _target_cards(plan, ctx):
             card = plan.state.cards[cid]
-            if e["until"] == "permanent" and not card.zone.endswith(":exile"):
+            if e.get("from_exile") and not card.zone.endswith(":exile"):
+                continue  # -- free cast (wave 40D) -- "play that card from exile this turn" (Norin): a card a replacement put elsewhere isn't in exile to be played from
+            if (e["until"] == "permanent" or e["until"] in SOURCE_UNTIL) and not card.zone.endswith(":exile"):
                 continue  # (-- Marvel keywords (wave 25A) -- "for as long as it remains exiled": a spell that wasn't countered, a card replaced elsewhere: no permission)
             holder = card.owner if e.get("owner") else pid  # ("its owner may cast it")
             r.permissions.append(Permission(id=secrets.token_hex(4), player=holder, play=e["play"], cast=e["cast"], zone="any",
                                             object_id=plan.oid(card), card=cid, until=e["until"], turn=turn, free=bool(e.get("free")), spend=e.get("spend", ""),
-                                            exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")),  # (wave 25C)
-                                            source=ctx.get("source_object"),
+                                            filter=e.get("filter"),  # (-- free cast (wave 40D) -- "noncreature spells from among those cards")
+                                            exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")), enters=e.get("enters"),  # (wave 25C; wave 51D: enters)
+                                            source=ctx.get("source_object"), group=group, left=int(e.get("limit") or 0), when=e.get("when"),  # (wave 51E)
                                             label=f"{ctx.get('name') or 'An effect'}: {verb} it {when}" + (" without paying its mana cost" if e.get("free") else "")))
             plan.note(f"{plan.name(holder)} may {verb} {card.name} {when}", [cid])
         return True
     r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=e["play"], cast=e["cast"], zone=e["zone"],
+                                    filter=e.get("filter"), once=bool(e.get("once")),  # (-- cast permissions (wave 30Q) -- "a creature spell": one spell, of that kind)
                                     exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")),  # (wave 25C)
                                     until=e["until"], turn=turn, source=ctx.get("source_object"),
                                     label=f"{ctx.get('name') or 'An effect'}: {verb} from your {e['zone']} {when}"))
@@ -1278,6 +1686,27 @@ def expire(plan: Plan) -> None:
                         and not (m.until == "next_turn" and r.turn_started.get(m.controller, 0) > m.turn)]
 
 
+SOURCE_UNTIL = ("source_controlled", "source_on_battlefield")  # (-- durations (wave 30M) -- Permission.until: "for as long as you control ~")
+
+
+def source_holds(state: GameState, p: Permission) -> bool:
+    """-- durations (wave 30M) -- 611.2b: "for as long as you control ~ / ~ remains on the battlefield" is still true: the granting object is the one
+    that was on the battlefield (a new object, 400.7, is not), in the game (800.4a), and under the permission's player's control for "you control"."""
+    from app.rules.plan import live_players
+
+    card = state.cards.get((p.source or "").rsplit(".", 1)[0])
+    return (card is not None and state.rules is not None and card.zone.endswith(":battlefield") and state.rules.object_id(card.id) == p.source
+            and card.owner in (live := live_players(state)) and card.controller in live
+            and (p.until != "source_controlled" or card.controller == p.player))
+
+
+def expire_source(plan: Plan) -> None:
+    """-- durations (wave 30M) -- the stored permissions whose "for as long as …" is over are gone (called with the other checks: delayed.expire)."""
+    r = plan.rules
+    if any(p.until in SOURCE_UNTIL for p in r.permissions):
+        r.permissions = [p for p in r.permissions if p.until not in SOURCE_UNTIL or source_holds(plan.state, p)]
+
+
 def expire_end_step(plan: Plan) -> None:
     """-- trigger tail (wave 15B) -- "until your next end step" (611.2a): the permission ends as that player's end step begins
     (``turn`` is the first turn whose end step may end it: grant_play), before anything is played in it."""
@@ -1291,11 +1720,14 @@ def cost_modifier(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     cost {N} less to cast": a cost modifier for its controller's spells with that duration (601.2f,
     611.2a; generic mana only, 118.7a), read with the table's static ones (``modifiers``)."""
     pid = ctx["controller"]
+    from app.rules import values
+
+    delta = e["dir"] * values.evaluate(plan, ctx, e["delta"]) if isinstance(e["delta"], dict) else int(e["delta"])  # (wave 44D: an amount read now, 611.2a)
     plan.rules.cost_modifiers.append(CostModifier(
-        id=secrets.token_hex(4), controller=pid, delta=int(e["delta"]), caster="you", filter=e.get("filter"),
+        id=secrets.token_hex(4), controller=pid, delta=delta, caster="you", filter=e.get("filter"),
         until=e["until"], turn=plan.state.turn.number, source=ctx.get("source_object"),
         label=(ctx.get("name") or "An effect")[:120]))
-    amount = f"{{{abs(int(e['delta']))}}} {'less' if int(e['delta']) < 0 else 'more'}"
+    amount = f"{{{abs(delta)}}} {'less' if delta < 0 else 'more'}"
     plan.note(f"{plan.name(pid)}'s spells cost {amount} to cast "
               + ("until their next turn" if e["until"] == "next_turn" else "this turn") + f" ({ctx.get('name') or 'an effect'})")
     return True
@@ -1397,11 +1829,13 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                     options.append(DecisionOption(id=_option_id(cid, face), label=f"{ch.name or card.name or 'Card'} (play as a land)",
                                                   card_id=cid))
                 continue
-            if limit is not None and ch.mana_value > limit:
+            if limit is not None and (ch.mana_value > limit or (e.get("mv_eq") and ch.mana_value != limit)):
                 continue
             if e.get("paid") and not ch.mana_cost:
                 continue  # (review 18F) 118.6: no mana cost is an unpayable cost (Living End's copy can't be cast by paying it)
             if below is not None and ch.mana_value >= below:
+                continue
+            if e.get("shares_type") and not _shares_type(plan, ctx, ch):  # -- if you do (wave 40A) -- "that shares a card type with it": the spell that triggered this
                 continue
             if e.get("parity") and ch.mana_value % 2 != (1 if e["parity"] == "odd" else 0):
                 continue
@@ -1432,6 +1866,14 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                   + " (or none)",
            options=options, min_choices=0, max_choices=1, resume={"step": "free_cast_pick", "ctx": ctx, "e": e})
     return False
+
+
+def _shares_type(plan: Plan, ctx: dict[str, Any], ch: Characteristics) -> bool:
+    """-- if you do (wave 40A) -- 205.2: the card shares a card type with the spell the trigger is about (as it was cast, 608.2h)."""
+    from app.rules import values
+
+    found = values._object(plan, ctx, "event")
+    return found is not None and bool(set(ch.types) & set(found[1].types))
 
 
 # -- play now (wave 28A) --
@@ -1529,6 +1971,9 @@ def _free_pool(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> list[str]:
     if zone == "graveyard":  # your graveyard, or every graveyard (public zones)
         whose = [pid] if e.get("whose") == "you" else plan.live()
         return [c for p in whose for c in plan.state.zones.get(zone_key(p, "graveyard"), [])]
+    if zone == "exile_counters":  # -- cast riders (wave 38C) -- the cards in exile (a player's own, or all) that have that kind of counter on them
+        return [c for p in ([pid] if e.get("own") else plan.live()) for c in plan.state.zones.get(zone_key(p, "exile"), [])
+                if plan.state.cards[c].counters.get(e["kind"], 0) > 0 and (not e.get("own") or plan.state.cards[c].owner == pid)]
     who = str(e.get("who") or "")
     return context.objects(plan, ctx, who[len(context.PREFIX):]) if who.startswith(context.PREFIX) else []
 
@@ -1579,6 +2024,8 @@ def free_cast_done(plan: Plan, card_id: str, *, cast: bool) -> None:
     if (granted := pending.get("granted")) is not None:  # -- review (wave 29B) -- a cascade, discover, ripple, suspend, rebound, madness or
         if not cast:  # miracle cast (effects.resume_suspend_cast): its ability is over; a card not cast goes where the declined one goes
             effects.leave_uncast(plan, granted["player"], card_id, granted.get("decline"), granted.get("group") or ())
+        if granted.get("ctx") is not None:  # -- free-cast cleanup (wave 30A) -- ripple (702.60a): the ability puts the revealed cards not cast on the bottom
+            effects.continue_effects(plan, granted["ctx"])
         return
     ctx, e = pending["ctx"], pending["e"]
     if not cast:
@@ -1626,12 +2073,14 @@ def rest_exiled(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     cards = [c for c in context.objects(plan, ctx, who[len(context.PREFIX):]) if plan.state.cards[c].zone.endswith(":exile")]
     if not cards:
         return True
-    if e["to"] == "bottom_random":
-        order = list(cards)
-        (plan.rng or secrets.SystemRandom()).shuffle(order)
-        for cid in order:
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
-                     "position": "bottom"}, actor=pid)
+    if e["to"] == "bottom_random":  # (-- review 30 -- one move per library: one move per card made the order readable, 401.4)
+        from app.rules import effects
+
+        by_owner: dict[str, list[str]] = {}
+        for cid in cards:
+            by_owner.setdefault(plan.state.cards[cid].owner, []).append(cid)
+        for owner, group in by_owner.items():
+            effects.bottom_at_random(plan, owner, group, actor=pid)
         return True
     for cid in cards:
         to = pid if e["to"] == "hand" else plan.state.cards[cid].owner

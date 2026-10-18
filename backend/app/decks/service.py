@@ -363,6 +363,7 @@ def validate(deck: DeckIn, cards: CardRepository, card_data: dict[str, dict[str,
     playing = [e for e in deck.entries if e.section in ("main", "commander")]
     if deck.format == "commander":
         warnings += _commander_checks(deck, data, count, playing)
+        warnings += _companion_checks(deck, data)
     elif deck.format == "constructed":
         if count["main"] < 60:
             warnings.append(Warning(level="warning", message=f"Main deck has {count['main']} cards (minimum 60)."))
@@ -377,6 +378,22 @@ def validate(deck: DeckIn, cards: CardRepository, card_data: dict[str, dict[str,
             if over_limit(data.get(entry.printing_id or ""), qty, 4):
                 warnings.append(Warning(level="warning", message=f"{qty} copies of {name} (maximum 4).", card=name))
     return warnings
+
+
+def _companion_checks(deck: DeckIn, data: dict[str, dict[str, Any]]) -> list[Warning]:
+    """-- companion (wave 38D) -- 103.2b: no more than one companion, and its condition must be fulfilled by the starting deck — the main
+    deck and the commander (702.139a-b; app.rules.commander.companion_problem). Otherwise the companion can't be used: the 116.2g special
+    action refuses it too. (A companion in the main deck or as the commander is no companion: its ability does nothing there.)"""
+    chosen = [e for e in deck.entries if e.section == "companion"]
+    if sum(e.quantity for e in chosen) > 1:
+        return [Warning(level="error", message="Only one card may be your companion (103.2b): none of them can be used.")]
+    card = data.get(chosen[0].printing_id or "") if chosen else None
+    if card is None:
+        return []
+    starting = [data[e.printing_id] for e in deck.entries if e.section in ("main", "commander") and e.printing_id in data
+                for _ in range(e.quantity)]
+    problem = cmdr.companion_problem(card, starting)
+    return [Warning(level="error", message=problem + ".", card=chosen[0].name)] if problem else []
 
 
 def _commander_checks(deck: DeckIn, data: dict[str, dict[str, Any]], count: Counter[str], playing: list[Any]) -> list[Warning]:

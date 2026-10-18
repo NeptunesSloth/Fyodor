@@ -5,7 +5,7 @@ import { isVisible, splitZone, type GameCard, type GameView } from "../../types/
 import { abilityLines, automationOn, isLand, send, setPrefs } from "./intents";
 
 /** 702.33a / 702.33c: a "Kicker {cost}" or "Multikicker {cost}" keyword line (mana costs only, as the server pays them). */
-const KICKER = /^(?:(?:multi)?kicker|entwine) (?:\{[^}]+\})+$|^entwine—/i; // (702.42a entwine: kicker's count 1 is "choose all modes")
+const KICKER = /^(?:(?:multi)?kicker|entwine) (?:\{[^}]+\})+(?: and\/or (?:\{[^}]+\})+)?$|^entwine—|^kicker—/i; // (702.42a entwine: kicker's count 1 is "choose all modes"; wave 43D: "Kicker—Sacrifice a land.", paid by the server)
 /** Multikicker: how many times to pay (a submenu; more is rare enough to do by hand). */
 export const MULTIKICKER_COUNTS = [1, 2, 3, 4, 5, 6];
 
@@ -20,7 +20,10 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   const items: MenuItem[] = [];
   const hints = rules.hints;
   const data = card.card_id ? useCardCache.getState().cards[card.card_id] : undefined;
-  const mine = card.controller === me
+  // A card in another player's exile is yours to cast or play when the server lists it in your hints (Hostage Taker, Valgavoth).
+  const offered = zone === "exile" && player !== me && !!(hints.castable?.includes(card.id) || hints.free_castable?.includes(card.id)
+    || hints.playable_lands?.includes(card.id) || hints.alt_castable?.[card.id]);
+  const mine = card.controller === me || offered
     || (player === me && (zone === "hand" || zone === "command" || zone === "graveyard" || zone === "exile" || zone === "library"));
   const oracle = data?.faces?.[card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "";
   // Other zones (your graveyard, exile, the top of your library): only when the server says a
@@ -80,7 +83,7 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     items.push({ label: "Cast both halves (fuse)", disabled: !hints.castable?.includes(card.id),
       onClick: () => void send({ type: "cast_spell", card_id: card.id, fuse: true }) });
   }
-  const buyback = abilityLines(oracle).find((l) => /^buyback \{/i.test(l));
+  const buyback = abilityLines(oracle).find((l) => /^buyback(?: \{|—)/i.test(l));
   if (mine && zone === "hand" && buyback) {
     items.push({ label: `Cast with ${buyback}`, disabled: !hints.castable?.includes(card.id),
       onClick: () => void send({ type: "cast_spell", card_id: card.id, buyback: true }) });
@@ -89,7 +92,12 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   if (mine && (zone === "hand" || zone === "command") && kicker) {
     const castable = !!hints.castable?.includes(card.id);
     const cast = (times: number) => () => void send({ type: "cast_spell", card_id: card.id, kicker: times });
-    if (/^multikicker/i.test(kicker)) {
+    const two = /^kicker ((?:\{[^}]+\})+) and\/or ((?:\{[^}]+\})+)$/i.exec(kicker);
+    if (two) {
+      // 702.33b (wave 50H): "Kicker {A} and/or {B}" is two kicker costs, each paid at most once: the server reads kicker as a mask (1: the first, 2: the second, 3: both)
+      items.push({ label: `Cast with ${kicker}`, disabled: !castable,
+        submenu: [{ label: `Kicked with ${two[1]}`, onClick: cast(1) }, { label: `Kicked with ${two[2]}`, onClick: cast(2) }, { label: "Kicked with both", onClick: cast(3) }] });
+    } else if (/^multikicker/i.test(kicker)) {
       // 702.33c: any number of times. The server checks the total cost when it's paid.
       items.push({ label: `Cast with ${kicker}`, disabled: !castable,
         submenu: MULTIKICKER_COUNTS.map((n) => ({ label: `Kicked ×${n}`, onClick: cast(n) })) });
@@ -119,6 +127,12 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   // 702.94a: a card with miracle you just drew as the first card this turn may be revealed now (the server lists only your own).
   if (mine && zone === "hand" && hints.miracle?.includes(card.id)) {
     items.push({ label: "Reveal for miracle", onClick: () => void send({ type: "miracle_reveal", card_id: card.id }) });
+  }
+  // -- companion (wave 38D) -- 116.2g, 702.139a: your companion is put into your hand for {3}, a special action (the server checks the main
+  // phase, the empty stack, the starting deck against the card's condition and the payment); it is the card's "Companion — …" line.
+  if (player === me && zone === "companion") {
+    const i = abilityLines(oracle).findIndex((l) => /^companion\s*—/i.test(l));
+    if (i >= 0) items.push({ label: "Put into your hand ({3}, special action)", disabled: !hints.has_priority, onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
   }
   // 702.151a / 702.167a: reconfigure's attach and unattach abilities and craft are activated abilities the server adds after / in place of their
   // keyword line (rules/oracle.py): reconfigure's two come after all the printed lines (numbers n and n + 1 for n printed lines, so no
@@ -165,6 +179,12 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
         onClick: () => void send({ type: "unlock_door", card_id: card.id, door: i + 1 }) });
     });
   }
+  // -- licids (wave 50A) -- 116.2c: "You may pay {W} to end this effect" is a special action of the effect's player (any time they have priority, no stack); the
+  // server lists the cost only to that player, on the permanent the effect is on
+  const endCost = rules.stats?.[card.id]?.end_cost;
+  if (zone === "battlefield" && endCost) {
+    items.push({ label: `End the effect (${endCost}, special action)`, disabled: !hints.has_priority, onClick: () => void send({ type: "end_effect", card_id: card.id }) });
+  }
   if (mine && zone === "battlefield" && card.face_down && morph) {
     items.push({ label: `Turn face up (${morph})`, onClick: () => void send({ type: "turn_face_up", card_id: card.id }) });
   }
@@ -173,7 +193,7 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     abilityLines(text).forEach((line, i) => {
       // (wave 5A) 113.6m / 605.3a: "Exile this card from your hand: Add {R}." (Simian Spirit Guide)
       // (wave 24C) 702.57a: "Forecast — {1}{U}, Reveal this card from your hand: …" (the server checks the upkeep and once each turn)
-      if (/^(?:(?:basic )?[a-z]+)?cycling \{/i.test(line) || /^suspend \d+\s*[—-]/i.test(line) || /^forecast\s*—/i.test(line)
+      if (/^(?:(?:basic )?[a-z]+)?cycling \{/i.test(line) || /^suspend (?:\d+|X)\s*[—-]/i.test(line) || /^forecast\s*—/i.test(line)
         || /^Exile this card from your hand: Add /.test(line)
         // (review 24C) 113.6m: any other ability that works from the hand ("{B}, Reveal this card from your hand: …", channel) when the server lists it
         || !!hints.activatable?.some((a) => a.card_id === card.id && a.ability === i)) {

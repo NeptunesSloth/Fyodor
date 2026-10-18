@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DecisionOption
 from app.rules import context
+from app.rules.token_grammar import AT, at_spec
 
 if TYPE_CHECKING:
     from app.rules.plan import Plan
@@ -30,9 +31,12 @@ Context = dict[str, Any]
 _PERMANENT_TYPES = frozenset({"Artifact", "Creature", "Enchantment", "Land", "Planeswalker", "Battle"})
 # (-- triggers (wave 19B) -- "any number of creature cards", "a permanent card with mana value less than or equal to the number of lands you
 # control / that damage": the count is read as the card is chosen, 608.2h)
-PATTERN = (r"put (?P<cnt>an?|any number of) (?P<what>[^.]+?) cards?(?P<q> with total power and toughness \d+ or (?:less|greater))?"
-           r"(?: with mana value (?P<op>less than or equal to|less than) (?P<v>that damage|the number of [^.]+?))? from your hand "
-           r"onto the battlefield(?P<tapped> tapped(?P<atk> and attacking)?)?")
+PATTERN = (r"put (?P<cnt>an?|any number of|up to (?P<upto>\d+|one|two|three|four|five)) (?P<what>[^.]+?) cards?(?P<q> with total power and toughness \d+ or (?:less|greater))?"
+           # -- put from hand (wave 30P) -- "with mana value 3 or less" / "X or less, where X is the number of attacking creatures you control"
+           # (Kinscaer Sentry), "less than that creature's mana value" (Arni Metalbrow), "less than or equal to that creature's power" (Minn, Wily Illusionist; wave 44D), "with lesser power" (Shadowfax): the limit is read as the card is chosen
+           r"(?: with (?:mana value (?:(?P<op>less than or equal to|less than|equal to) (?P<v>that damage|the number of [^.]+?|that creature's (?:mana value|power))"
+           r"|(?P<n>\d+|X) or less)|(?P<lp>lesser power)|(?P<elv>equal or lesser mana value)))? from your hand "
+           rf"onto the battlefield(?P<tapped> tapped(?P<atk> and attacking{AT})?)?(?:, where X is (?P<xdef>[^.]+))?")
 
 
 def _selector(what: str, q: str) -> Any:
@@ -57,18 +61,39 @@ def parse(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
     if len(sels) > 1:
         effect["alt"] = [x.key() for x in sels[1:]]
     if m["op"]:
-        from app.rules import values
+        from app.rules import language, values
 
-        value = {"event_amount": 1} if m["v"] == "that damage" else values.parse_count(m["v"])
+        value = {"event_amount": 1} if m["v"] == "that damage" else values.parse_count(m["v"]) or language.x_definition(m["v"])
         if value is None:
             return None
-        effect["mv"] = ["<=" if m["op"].endswith("equal to") else "<", value]
+        effect["mv"] = ["==" if m["op"] == "equal to" else "<=" if m["op"].endswith("equal to") else "<", value]
+    if m["n"]:  # (a number, or X: "where X is …", defined once and read as the card is chosen)
+        from app.rules import language
+
+        value = int(m["n"]) if m["n"].isdigit() else language.x_definition(m["xdef"] or "") if m["xdef"] else {"x": 1}  # (wave 51G: no "where X is": the X of the spell, 107.3, Mind into Matter)
+        if value is None:
+            return None
+        effect["mv"] = ["<=", value]
+    elif m["xdef"]:
+        return None  # (a "where X is" nothing here uses)
+    if m["elv"]:  # -- trigger other (wave 51E) -- "a permanent card with equal or lesser mana value" (Kodama of the East Tree): than the permanent that entered, as it entered
+        from app.rules import language
+
+        if (value := language.x_definition("that creature's mana value")) is None:
+            return None
+        effect["mv"] = ["<=", value]
+    if m["lp"]:  # "a creature card with lesser power" (Shadowfax): less than the source creature's power
+        effect["pw"] = ["<", {"power": "self"}]
     if m["cnt"] == "any number of":
         effect["many"] = True
+    if m["upto"]:  # -- if you do (wave 44A) -- "put up to X land cards from your hand onto the battlefield tapped" (The Gitrog, Ravenous Ride): at most X, read as they are chosen
+        effect["many"], effect["cap"] = True, int(m["upto"]) if m["upto"].isdigit() else ("", "one", "two", "three", "four", "five").index(m["upto"])  # (wave 50I: "up to two")  # (X is the stand-in scripts._swap_x turns into the value, 608.2h)
     if m["tapped"]:
         effect["tapped"] = True
     if m["atk"]:  # -- trigger tail (wave 15B) -- 508.4: its controller chooses whom it attacks (looking.attack_with_entered)
         effect["attacking"] = True
+        if (at := at_spec(m)) is not None:  # -- enter attacking (wave 30P) -- "… attacking that player": the effect says whom (508.4)
+            effect["at"] = at
     return [effect], None
 
 
@@ -89,6 +114,12 @@ def put_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                if plan.state.cards[c].zone == f"{pid}:hand" and _permanent_card(plan, c) and _mv_ok(plan, ctx, e, c)]
     options = list(dict.fromkeys(options))
     may = bool(e.get("optional")) or bool(e.get("many"))  # ("you may": none is a choice; a trigger's "you may" was asked already, 603.5)
+    cap = len(options) if e.get("cap") is None else max(0, effects._amount(plan, ctx, e["cap"]))
+    if e.get("cap") is not None and cap == 0:  # ("up to 0": no choice to make, and nothing to ask: the hand's contents stay hidden)
+        effects._remember(plan, ctx, e, [])
+        if e.get("did"):
+            context.bind_payment(ctx, e["did"], False)
+        return True
     if not options and not (may and plan.state.zones.get(f"{pid}:hand")):
         effects._remember(plan, ctx, e, [])
         if e.get("did"):  # -- if you do (wave 26C) -- "If you do": no card was put onto the battlefield
@@ -100,21 +131,27 @@ def put_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
            prompt=f"{ctx.get('name') or 'It'}: {'you may ' if may else ''}put a {e.get('label') or 'permanent'} card from "
                   "your hand onto the battlefield",
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in options],
-           min_choices=0 if may else 1, max_choices=len(options) if e.get("many") else 1,
+           min_choices=0 if may else 1, max_choices=min(len(options), cap) if e.get("many") else 1,
            resume={"step": "put_from_hand", "ctx": ctx, "e": e})
     return False
 
 
 def _mv_ok(plan: Plan, ctx: Context, e: dict[str, Any], cid: str) -> bool:
-    """-- triggers (wave 19B) -- the mana value limit of "with mana value less than or equal to …" (read now, 608.2h)."""
-    if not e.get("mv"):
-        return True
+    """-- triggers (wave 19B) -- the mana value limit of "with mana value less than or equal to …" (read now, 608.2h); wave 30P: "N or less",
+    "equal to …", and "with lesser power" (less than the source's)."""
     from app.rules import characteristics as chars
     from app.rules import effects
 
+    ch = chars.of(plan.state.cards[cid], plan.info)
+    if e.get("pw"):  # -- put from hand (wave 30P) -- "with lesser power": the card's power is less than the source's
+        pt = plan.ch(plan.state.cards[cid]).pt
+        if pt is None or pt[0] >= effects._amount(plan, ctx, e["pw"][1]):
+            return False
+    if not e.get("mv"):
+        return True
     op, value = e["mv"]
-    mv, limit = chars.of(plan.state.cards[cid], plan.info).mana_value, effects._amount(plan, ctx, value)
-    return mv <= limit if op == "<=" else mv < limit
+    mv, limit = ch.mana_value, effects._amount(plan, ctx, value)
+    return mv == limit if op == "==" else mv <= limit if op == "<=" else mv < limit
 
 
 def _permanent_card(plan: Plan, cid: str) -> bool:
@@ -132,6 +169,8 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
     pid = ctx["controller"]
     cards = []
+    if e.get("cap") is not None and len(chosen) > max(0, effects._amount(plan, ctx, e["cap"])):
+        raise ActionError("Choose no more cards than the effect allows")
     for cid in chosen[: 999 if e.get("many") else 1]:
         card = plan.state.cards.get(cid)
         if card is None or card.zone != f"{pid}:hand" or not _permanent_card(plan, cid) or not _mv_ok(plan, ctx, e, cid) \
@@ -141,14 +180,14 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     before = effects._remember(plan, ctx, e, cards)
     if e.get("did"):  # -- if you do (wave 26C) -- 608.2c: a card was chosen and entered (the grammar reads it only for cards that can't stay in the hand)
         context.bind_payment(ctx, e["did"], bool(cards))
-    entries = [{"card": c, "player": pid, "actor": pid, "tapped": bool(e.get("tapped"))} for c in cards]
+    entries = [{"card": c, "player": pid, "actor": pid, "tapped": bool(e.get("tapped")), "via": ctx.get("source_object")} for c in cards]  # (wave 51E: Entry.via)
     if entries and not attachments.enter(plan, entries, ctx):
         return  # (an Aura chooses what it enchants; the resolution goes on from there)
     effects._moved(plan, ctx, e, before)
     if e.get("attacking"):  # -- trigger tail (wave 15B) -- 508.4 (the choice of whom, if any, goes on from token_attack)
         from app.rules import looking
 
-        if not looking.attack_with_entered(plan, ctx, cards):
+        if not looking.attack_with_entered(plan, ctx, cards, e.get("at")):
             return
     effects.continue_effects(plan, ctx)
 
@@ -179,6 +218,7 @@ def each_put(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import effects
 
     who = [p for p in plan.apnap() if p in effects._players(plan, ctx, e["who"])]
+    ctx["_each_put_who"] = list(who)  # -- trigger other (wave 44B) -- "then each opponent who didn't draws a card" (Kynaios and Tiro): who was asked, to tell who put nothing
     return _ask_each(plan, ctx, e, who, [])
 
 
@@ -187,6 +227,7 @@ def _ask_each(plan: Plan, ctx: Context, e: dict[str, Any], who: list[str], picks
     from app.rules.plan import decide
 
     if not who:
+        ctx["_put_none"] = [p for p in ctx.get("_each_put_who", ()) if not any(x["player"] == p for x in picks)]  # (wave 44B: players who put nothing)
         return not picks or attachments.enter(plan, picks, ctx)  # (an Aura chooses what it enchants: the resolution goes on after)
     pid = who[0]
     options = [c for c in selectors.candidates(plan, selectors.from_key(e["sel"]), pid, ctx.get("source_card"))

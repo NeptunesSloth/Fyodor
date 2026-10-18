@@ -250,14 +250,10 @@ def test_player_counter_wordings_are_read_and_the_rest_refused():
 
 
 def test_coverage_of_the_counter_cards():
-    # Guide of Souls: "When you do" (a reflexive trigger, 603.12) isn't modelled; the venturing cards are
-    # carried out, but a dungeon room they may lead into is resolved by hand (an "engine:dungeon" feature)
-    partial = {"Goliath Paladin"}  # (Guide of Souls: FULL since its flying counter, wave 5H) (Goliath Paladin: Undercity's Arena — goad — is resolved by hand)
+    # Guide of Souls: "When you do" (a reflexive trigger, 603.12) isn't modelled; the venturing cards are carried out and FULL while every
+    # dungeon room they may lead into is (wave 45B: Undercity's Arena, goad, is automated: Goliath Paladin is FULL)
     for c in REAL:
-        cov = cov_of(c)
-        assert cov.level == ("PARTIAL" if c["name"] in partial else "FULL"), c["name"]
-    paladin = cov_of(next(c for c in REAL if c["name"] == "Goliath Paladin"))
-    assert [f.id for f in paladin.features if not f.supported] == ["engine:dungeon"]
+        assert cov_of(c).level == "FULL", c["name"]
 
 
 # -- energy (107.14) --------------------------------------------------------------------------------

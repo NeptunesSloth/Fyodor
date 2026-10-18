@@ -17,8 +17,8 @@
 * **Defeat**: a non-Siege battle with no defense is put into its owner's graveyard (704.5w); a
   Siege has "When the last defense counter is removed from this permanent, exile it, then you may
   cast it transformed without paying its mana cost" (310.12b) and is put into the graveyard by
-  704.5v only once that trigger has left the stack. Casting a card transformed isn't automated:
-  after exiling it, its controller is asked to cast it by hand (then Done).
+  704.5v only once that trigger has left the stack. After exiling it, its controller is asked whether to cast
+  it transformed (712.11a: the back face), free (``granted_casts.ask(back=True)``, ``casting.cast_free``).
 """
 
 from __future__ import annotations
@@ -177,9 +177,10 @@ def defeated_triggers(plan: Plan, e: Any) -> None:
 
 
 def siege_defeated(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    """310.12b: "exile it, then you may cast it transformed without paying its mana cost" — the
-    exile, then its controller casts it by hand (casting a card transformed isn't automated)."""
-    from app.rules.plan import decide
+    """310.12b: "exile it, then you may cast it transformed without paying its mana cost" — the exile, then its
+    controller is asked (-- battles (wave 45B) -- ``granted_casts``: the back face only, 712.11a; a token or a
+    card that isn't a transforming double-faced card stays exiled, per the Siege rulings)."""
+    from app.rules import granted_casts
 
     card = plan.state.cards.get(ctx.get("source_card") or "")
     if card is None or not card.zone.endswith(":battlefield") or plan.oid(card) != ctx.get("source_object"):
@@ -188,14 +189,12 @@ def siege_defeated(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     exiled = plan.state.cards.get(card.id)
     if exiled is None or not exiled.zone.endswith(":exile") or exiled.is_token:
         return True
-    decide(plan, player=ctx["controller"], kind="manual_resolution",
-           prompt=f"{card.name or 'The Siege'} was defeated: you may cast it transformed without paying its mana cost "
-                  "— do it by hand from exile, then press Done (310.12b)",
-           options=[DecisionOption(id="done", label="Done")], resume={"step": "siege_cast", "ctx": ctx}, source=exiled)
-    return False
+    return granted_casts.ask(plan, ctx, player=ctx["controller"], cid=card.id, head=f"{card.name or 'The Siege'} was defeated",
+                             no="Leave it exiled", back=True)
 
 
 def resume_siege_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """(A save made before wave 45B may hold the old by-hand question.)"""
     from app.rules.effects import continue_effects
 
     continue_effects(plan, d.resume["ctx"])

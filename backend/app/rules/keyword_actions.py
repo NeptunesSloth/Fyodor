@@ -105,6 +105,44 @@ def resume_amass(plan: Plan, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, r["ctx"])
 
 
+# -- empower Jace (wave 48A) ------------------------------------------------------------------
+# 701.71a: "To empower Jace N means 'If you don't control a Jace planeswalker token, create a blue Jace planeswalker token with 0
+# loyalty, "[−1]: Surveil 1," and "[−3]: Draw a card." Choose a Jace planeswalker token you control. Put N loyalty counters on it.'"
+JACE: dict[str, Any] = {"name": "Jace", "power": None, "toughness": None, "colors": ["U"], "type_line": "Token Planeswalker — Jace",
+                        "text": "−1: Surveil 1\n−3: Draw a card."}
+JACE_KEY = selectors.Selector(controller="you", types=("Planeswalker",), subtypes=("Jace",), token=True).key()
+
+
+def _jaces(plan: Plan, ctx: Context) -> list[str]:
+    return selectors.candidates(plan, selectors.from_key(JACE_KEY), ctx["controller"], ctx.get("source_card"))
+
+
+def empower_jace(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.71a. The token enters with 0 loyalty (state-based actions are not checked mid-resolution, 704.3); the choice among several
+    Jace tokens (a token-doubling effect) is the controller's. After a 616.1 choice the instruction runs again from the start."""
+    n = effects._amount(plan, ctx, e["n"])
+    jaces = _jaces(plan, ctx)
+    if not jaces:
+        if not effects.create_token(plan, ctx, {"who": "you", "n": 1, "token": dict(JACE)}, then=replace.rerun_then(ctx, e)):
+            return False
+        if not (jaces := _jaces(plan, ctx)):
+            return True  # (the token could not be created: nothing to put counters on)
+    if len(jaces) > 1:
+        decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"Empower Jace {n}: choose a Jace planeswalker token you control",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Jace", card_id=c) for c in jaces],
+               resume={"step": "empower_choose", "ctx": ctx, "n": n})
+        return False
+    return n <= 0 or replace.put_counters(plan, [(jaces[0], "loyalty", n)], by=ctx["controller"], then={"do": "continue", "ctx": ctx})
+
+
+def resume_empower(plan: Plan, d: Any, chosen: list[str]) -> None:
+    r = d.resume
+    if chosen and chosen[0] in plan.state.cards and plan.state.cards[chosen[0]].zone.endswith(":battlefield") and r["n"] > 0 \
+            and not replace.put_counters(plan, [(chosen[0], "loyalty", r["n"])], by=r["ctx"]["controller"], then={"do": "continue", "ctx": r["ctx"]}):
+        return  # (a 616.1 choice first)
+    effects.continue_effects(plan, r["ctx"])
+
+
 # -- connive (701.50) -------------------------------------------------------------------------
 def connive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.50a: "that permanent's controller draws a card, then discards a card. If a nonland card
@@ -125,6 +163,11 @@ def connive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             queue = [(None, None, lki.controller)]
     order = plan.apnap()
     queue.sort(key=lambda x: order.index(x[2]) if x[2] in order else len(order))
+    if queue and replace.candidates(plan, "connive"):  # -- keyword actions (wave 35C) -- "If a creature you control would connive, …" (Leader, Super-Genius)
+        if len(queue) > 1:  # (each of several conniving permanents is its own event, 701.50c: no card of Commander makes several connive at once)
+            plan.note("A replacement effect of connive may apply to these creatures here, and the engine can't ask: apply it by hand (614.1a)")
+        elif queue[0][0] is not None and (replaced := replace.keyword_replace(plan, ctx, e, "connive", queue[0][2], card=queue[0][0], n=n)) is not None:
+            return replaced
     return _connive_next(plan, ctx, queue, n)
 
 
@@ -320,6 +363,7 @@ def goad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
              and pid not in goaded_by(plan.ch(plan.state.cards[c]))]
     if fresh:
         _until_next_turn(plan, ctx, fresh, (GOADED + pid,), "Goaded", "goads")
+        ctx.setdefault("goaded", []).extend(plan.oid(c) for c in fresh)  # -- goad (wave 50J) -- "goaded this way" (this_way.py)
     return True
 
 
@@ -353,6 +397,16 @@ def suspect(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             plan.do({"type": "add_effect", "card_ids": [cid], "name": "Suspected", "value": "Suspected",
                      "text": "until it leaves the battlefield"})
             plan.note(f"{plan.name(ctx['controller'])} suspects {plan.state.cards[cid].name}", [cid], actor=ctx["controller"])
+    return True
+
+
+# -- Case (wave 51C) -- 719.3b: solved is a designation a permanent has until it leaves the battlefield, kept as the card's public "Solved" choice (reset by every zone change,
+# 400.7; characteristics.of drops the "Solved — [ability]" lines of a Case that doesn't have it, 719.3c)
+def become_solved(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    if card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object") and "Solved" not in card.choices:
+        plan.do({"type": "set_choice", "card_id": card.id, "key": "Solved", "value": "Yes"}, actor=ctx["controller"])
+        plan.note(f"{card.name} becomes solved", [card.id], actor=ctx["controller"])
     return True
 
 
@@ -516,7 +570,9 @@ def transform(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import characteristics as chars
 
     r = plan.rules
-    for cid in effects._cards(plan, ctx, e.get("who", "self")):
+    named = effects._cards(plan, ctx, e.get("who", "self"))
+    effects._remember(plan, ctx, e, named)  # -- most-played cards II (wave 45A) -- "Transform this land, then untap it." (Westvale Abbey): "it" is the permanent named, transformed or not
+    for cid in named:
         card = plan.state.cards[cid]
         if not card.zone.endswith(":battlefield") or card.face_down:
             continue
@@ -524,6 +580,8 @@ def transform(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             continue
         if r.transformed.get(cid, 0) > r.objects.get(ctx.get("stack_id") or "", 1 << 60):
             continue  # (an ability not on the stack has no number: never ignored)
+        if e.get("since") is not None and r.transformed.get(cid, 0) > e["since"]:
+            continue  # (wave 47D) 701.27f: a delayed triggered ability counts from when it was created
         plan.do({"type": "set_face", "card_id": cid, "face": 1 - min(card.face, 1)}, actor=ctx["controller"])
         now = plan.state.cards[cid]
         # -- transform (wave 16F) -- 701.28: "When this creature transforms into …" (the same object, 712.18; designations.facts)
@@ -572,10 +630,10 @@ def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[st
 
 
 PRIMITIVES = {"class_level": class_level, "amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
-              "goad": goad, "detain": detain, "suspect": suspect, "prepare": prepare, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "transform": transform, "flip": flip,
+              "goad": goad, "detain": detain, "suspect": suspect, "become_solved": become_solved, "prepare": prepare, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "empower_jace": empower_jace, "transform": transform, "flip": flip,
               **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
               **token_grammar.PRIMITIVES}
-RESUME = {"amass_choose": resume_amass, "bolster_choose": resume_bolster, "connive_discard": resume_connive,
+RESUME = {"amass_choose": resume_amass, "empower_choose": resume_empower, "bolster_choose": resume_bolster, "connive_discard": resume_connive,
           **facedown.RESUME,  # -- keyword actions & face-down (wave 3F) --
           **token_grammar.RESUME}
 # -- replacement effects stage 2 (wave 2E): where a keyword action goes on after a 616.1 choice --

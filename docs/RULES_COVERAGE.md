@@ -111,6 +111,12 @@ against Scryfall's `color_identity` over the whole pool: the only differences ar
 basic land types (the CR handles those with 903.5d, which the deck checks apply separately,
 plus the 903.12e colorless exception) and 3 meld results that can't be in a deck.
 
+**Companion** (wave 38D, CR 702.139, 116.2g, 103.2b): the ten conditions are predicates in `commander.COMPANION_RESTRICTIONS` over the
+starting deck, the commander included (702.139b; Yorion can never qualify in Commander, 903.5a). The deck check reports a failing or second
+companion; the special action (pay {3}, main phase, empty stack, once per game) is `activate_ability` on the card in the companion zone
+and re-checks the deck at the table. A companion in the deck or as the commander does nothing. The Commander rules committee's extra
+rule (the companion must fit the commander's color identity and singleton) is not checked.
+
 ## Inventory of the pod's cards
 
 Run it on the host computer (from `backend/`):

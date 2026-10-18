@@ -14,7 +14,8 @@ Researched against CR 2026-09-25.
 * "Shuffle Blue Sun's Zenith into its owner's library." (701.24a; 608.2n: it isn't on the stack when it'd go to a
   graveyard); countered, it goes to its owner's graveyard as usual.
 * "Target player draws X cards and loses X life, where X is …": one X for both halves (107.3c).
-* Refused: a triggered ability's bare X that isn't its enters X (Shark Typhoon's cycling trigger: the cycling cost's X),
+* Refused: a triggered ability's bare X that nothing gives it (wave 34C: a cycling trigger's X on a card without Cycling {X} —
+  with it, Shark Typhoon's trigger reads the cycling cost's X; a cast trigger's X from the spell cast: test_rules_wave34c_x_triggers),
   a bare X beside "where X is" in the same ability (Chainer's Torment), "investigate X times" (each investigation is
   its own event, 701.16a), "up to X target …" in a triggered ability.
 
@@ -158,12 +159,13 @@ def hand(s, pid="p1"):
                                   "Black Sun's Zenith", "Pest Infestation", "By Force", "Monumental Corruption",
                                   "Elenda's Hierophant", "Kin-Tree Invocation", "Prime Speaker Zegana", "Stag Beetle",
                                   "Meteor Swarm", "Candelabra of Tawnos", "Gelatinous Genesis", "Hatred", "Ghoulcaller Gisa",
-                                  "Awaken the Woods", "Artifact Mutation", "Mirror Entity", "Sanctum Weaver", "Finale of Glory"])
+                                  "Awaken the Woods", "Artifact Mutation", "Mirror Entity", "Sanctum Weaver", "Finale of Glory",
+                                  "Shark Typhoon"])  # (wave 34C: the cycling trigger reads the cycling cost's X, 107.3a)
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
-@pytest.mark.parametrize("name", ["Shark Typhoon", "Chainer's Torment"])
+@pytest.mark.parametrize("name", ["Chainer's Torment"])
 def test_coverage_refused(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level != "FULL"
 

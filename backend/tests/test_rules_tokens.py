@@ -205,6 +205,9 @@ def test_attacking_tokens_choose_whom_to_attack_in_multiplayer(cards):
     d = s.state.rules.decision
     assert d is not None and d.player == "p1" and {o.id for o in d.options} == {"p2", "p3"}  # 802.2: every opponent defends
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["p3"])
+    d = s.state.rules.decision  # (wave 30D, 508.4: its controller chooses for *each* token, so the second Goblin is asked about too)
+    assert d is not None and d.player == "p1" and "enters attacking" in d.prompt
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p3"])
     goblins = tokens(s, "Goblin")
     assert len(goblins) == 2 and all(g.tapped for g in goblins)
     for _ in range(8):  # (nobody can block: the table runs on through combat damage)

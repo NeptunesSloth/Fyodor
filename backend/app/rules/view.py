@@ -17,10 +17,11 @@ from app.game.rules_state import cancelable, preset_name
 from app.game.state import GameState, zone_key
 from app.game.visibility import OMNISCIENT, can_see, mask_face_down
 from app.rules import characteristics as chars
-from app.rules import read_pass
+from app.rules import licids, read_pass
 from app.rules.casting import (
     activatable,
     alt_castable,
+    announces_kicker_x,
     announces_x,
     castable,
     free_castable,
@@ -167,6 +168,8 @@ def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, 
             data = info.get(room_printing(state.rules, card, state.rules.object_id(card.id))) if state.rules else None
             if data is not None and chars.room(data):
                 entry["halves"] = [{"name": h.name, "mana_cost": h.mana_cost} for h in (chars.half_from_data(data, i) for i in (0, 1))]
+        if end := licids.ending(state, card, viewer):  # -- licids (wave 50A) -- 116.2c: the cost of the special action that ends the viewer's effect on it
+            entry["end_cost"] = end[0].end_cost
         if not now.is_creature:
             if entry:
                 out[cid] = entry
@@ -207,6 +210,15 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     candidates = [cid for key in (zone_key(viewer, "hand"), zone_key(viewer, "command"), zone_key(viewer, "graveyard"),
                                   zone_key(viewer, "exile"), zone_key(viewer, "foretell")) for cid in state.zones.get(key, [])
                   if can_see(state, state.cards[cid], viewer)]  # (-- review (sys 18A) -- not a face-down exiled card nobody looked at, 406.3)
+    # -- review 30 -- a card in another player's exile this viewer may cast or play (Hostage Taker, Valgavoth, Jeleva, Opposition Agent: the
+    # card stays in its owner's exile, 400.3): the hints are this viewer's own, so listing it tells no one else anything
+    # Only cards a grant could name are checked (a permission for that object, a linked "exiled with" set: permissions.grants reads nothing
+    # else for another player's card), so a big exile costs nothing (wave 29A's hint speed)
+    r = state.rules
+    named = {o for objs in r.exiled_with.values() for o in objs} | {o for p in r.permissions if p.player == viewer for o in (p.object_id, r.object_id(p.card) if p.card else None) if o} \
+        if r is not None else set()
+    candidates += [cid for pid in state.players if pid != viewer for cid in state.zones.get(zone_key(pid, "exile"), [])
+                   if r is not None and (r.object_id(cid) in named or cid in r.free_casts) and can_see(state, state.cards[cid], viewer)]
     library = state.zones.get(zone_key(viewer, "library"), [])
     if library and can_see(state, state.cards[library[0]], viewer):
         candidates.append(library[0])
@@ -221,6 +233,8 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     # (wave 24D) 107.3a: castable cards that ask for X when cast (the server validates the range; min 0)
     if x_cast := [cid for cid in out["castable"] if announces_x(state.cards[cid], info)]:
         out["x_cast"] = x_cast
+    if x_kicker := [cid for cid in out["castable"] if announces_kicker_x(state.cards[cid], info)]:  # (wave 43D: "Kicker {X}", asked only when kicked)
+        out["x_kicker"] = x_kicker
     # (wave 3C) cards a permission lets you cast without paying their mana costs
     out["free_castable"] = [cid for cid in candidates if free_castable(state, viewer, state.cards[cid], info)]
     # -- cost changers (wave 4I) -- alternative costs written on cards (118.9): card id → [{"id", "label"}]

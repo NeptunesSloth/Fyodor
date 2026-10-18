@@ -38,6 +38,7 @@ CHOOSE = "x:"  # a decision option "x:<n>": pay {n}
 _MAX = 40  # (the most X offered: far beyond any real table's mana; the payer is never offered more than they can pay)
 _MANA_X = re.compile(r"^pay \{X\}(?P<extra>(?:\{[^}X]+\})*)(?:, where X is less than or equal to (?P<cap>.+))?$")  # (wave 26C: "{X}{W}{U}{B}", 118.12)
 _LIFE_X = re.compile(r"^pay X life, where X is (?P<v>.+)$")
+_ENERGY_X = re.compile(r"^pay X \{E\}$")  # -- energy X (wave 50J) -- see ``energy_text``
 _LIFE_EQUAL = re.compile(r"^pay life equal to (?P<v>.+)$")
 _CAP = re.compile(r"^x can't be greater than (?P<v>.+)$")
 
@@ -71,11 +72,42 @@ def payment(phrase: str) -> dict[str, Any] | None:
             return None
         # ("pay life equal to its power. If you do, put that many +1/+1 counters on it": "that many" is the life paid)
         return {"cost": "", "life_x": v, **({"that_many": True} if _LIFE_EQUAL.match(p) else {})}
+    if m := _TIMES.match(p):  # -- pay N times (wave 51A) -- "that many" is the number of times
+        return {"cost": "", "choose_x": {"max": int(m["n"]) if m["n"] else None, "times": m["c"]}, "that_many": True}
+    if _ENERGY_X.match(p):
+        return {"cost": "", "choose_x": {"max": None, "energy": True}}
     if p == "pay that much life":
         return {"cost": "", "life_x": {"event_amount": 1}}
     if p == "pay any amount of life":  # -- if you do (wave 21C) -- Necrodominance: the payer chooses 0 up to their life total (119.4), "that many" is it
         return {"cost": "", "choose_x": {"max": {"life": "you"}, "life": True}, "that_many": True}
     return None
+
+
+_TIMES = re.compile(r"^pay (?P<c>(?:\{[^}]+\})+) X times(?:, at most (?P<n>\d+))?$")
+_TIMES_TEXT = re.compile(r"\bpay (?P<c>(?:\{[^}]+\})+) (?:any number of times|up to (?P<n>one|two|three|four|five) times)\. When you (?:pay this cost one or more times|do), (?P<rest>[^.\n]+)")
+_ENERGY_PAID = re.compile(r"(?P<pay>\bpay) one or more \{E\}\. (?P<if>If you do|When you do), (?P<rest>[^.]+)\.")
+
+
+def times_text(body: str) -> str:
+    """-- pay N times (wave 51A) -- 118.8, 107.1b: "you may pay {1}{W} any number of times. When you pay this cost one or more times, put that many valor counters on
+    this creature." (Intrepid Adversary), "you may pay {G} up to three times" (Tranquil Frillback): the payer chooses how many times (one or more, at most the
+    limit and what they can pay in full: 118.3) and pays that many copies of the cost together; the number is the X after it, like "you may pay one or more {E}"."""
+    from app.rules import values
+
+    def one(m: re.Match[str]) -> str:
+        rest = re.sub(r"\bthat many\b", "X", m["rest"])
+        return f"pay {m['c']} X times" + (f", at most {values.NUMBERS[m['n']]}" if m["n"] else "") + f". When you do, {rest}"
+    return _TIMES_TEXT.sub(one, body)
+
+
+def energy_text(body: str) -> str:
+    """-- energy X (wave 50J) -- 107.14, 107.3f: "you may pay one or more {E}. If you do, create an X/X … token, where X is the amount of {E} paid this way." (Pia Nalaar,
+    Aether Refinery), "… put that many +1/+1 counters on this creature." (Rampaging Aetherhood), "When you do, this creature deals that much damage to each other creature."
+    (Territorial Aetherkite): the payer chooses how many {E} to pay as they pay (one or more), and that number is the X after it, like "you may pay {X}"."""
+    def one(m: re.Match[str]) -> str:
+        rest = re.sub(r"\b(?:that (?:much|many)|the amount of \{E\} paid this way)\b", "X", re.sub(r", where X is the amount of \{E\} paid this way$", "", m["rest"]))
+        return f"{m['pay']} X {{E}}. {m['if']}, {rest}."
+    return _ENERGY_PAID.sub(one, body)
 
 
 def cap_sentence(text: str, effects: list[dict[str, Any]]) -> bool:
@@ -145,7 +177,34 @@ def start(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool | str:
             _record(ctx, bind, True, 0)
             return True
         return f"Pay {n} life"
+    if e["choose_x"].get("energy"):  # -- energy X (wave 50J) -- one or more of the {E} the payer has (118.3: no partial payment)
+        have = max(0, plan.state.players[payer].resources.get("energy", 0))
+        if have == 0:
+            plan.note(f"{plan.name(payer)} has no {{E}} to pay for {ctx.get('name') or 'it'}")
+            _record(ctx, bind, False, 0)
+            return True
+        options = [DecisionOption(id=f"{CHOOSE}{n}", label=f"Pay {n} {{E}} (X = {n})") for n in range(1, min(have, 250) + 1)]
+        options.append(DecisionOption(id=O.DECLINE, label="Don't pay"))
+        decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay {{E}}? Choose X (you have {have})", options=options,
+               source=plan.state.cards.get(ctx.get("source_card") or ""),
+               resume={"step": O.STEP, "ctx": ctx, "choose_x": {"bind": bind, "payer": payer, "energy": True}, "cost": ""})
+        return False
     cap = e["choose_x"].get("max")
+    if (each := e["choose_x"].get("times")) is not None:  # -- pay N times (wave 51A) -- one or more copies of the cost, as many as the payer can pay in full (118.3)
+        most = 0
+        while most < min(_MAX, cap if cap is not None else _MAX) and casting.can_pay(plan.state, payer, M.parse_cost(each * (most + 1)), plan.info):
+            most += 1
+        if most == 0:
+            plan.note(f"{plan.name(payer)} can't pay {each} for {ctx.get('name') or 'it'}")
+            _record(ctx, bind, False, 0)
+            return True
+        options = [DecisionOption(id=f"{CHOOSE}{n}", label=f"Pay {each} {n} time{'s' if n > 1 else ''} (X = {n})") for n in range(1, most + 1)]
+        options.append(DecisionOption(id=O.DECLINE, label="Don't pay"))
+        hint = " (tap your mana first)" if O._self_pays(plan, payer) else ""
+        decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay {each} how many times?{hint}", options=options,
+               source=plan.state.cards.get(ctx.get("source_card") or ""),
+               resume={"step": O.STEP, "ctx": ctx, "choose_x": {"bind": bind, "payer": payer, "times": each}, "cost": ""})
+        return False
     limit = min(_MAX, values.evaluate(plan, ctx, cap)) if cap is not None else _MAX
     extra = e["choose_x"].get("extra", "")  # (wave 26C: the rest of "{X}{W}{U}{B}", paid with the X: 118.3, no partial payment)
     most = 0 if not extra or casting.can_pay(plan.state, payer, M.parse_cost(extra), plan.info) else -1
@@ -192,7 +251,9 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
         _record(ctx, bind, True, 0)
         effects.continue_effects(plan, ctx)
         return
-    text = f"Pay {n} life" if info.get("life") else (f"{{{n}}}{extra}" if n else extra)
+    if info.get("times"):  # (wave 51A) the copies of the cost, together (601.2h)
+        extra = info["times"] * n
+    text = f"Pay {n} life" if info.get("life") else "Pay " + "{E}" * n if info.get("energy") else (extra if info.get("times") else f"{{{n}}}{extra}" if n else extra)
     cost = O.parse(text)
     assert cost is not None
     ctx.setdefault("paid_x", {})[bind] = n

@@ -42,6 +42,8 @@ MEANINGS: dict[str, str] = {
     "living weapon": "When this Equipment enters, create a 0/0 black Phyrexian Germ creature token, then attach this "
                      "Equipment to it.",  # 702.92a
     "for mirrodin!": "When this Equipment enters, create a 2/2 red Rebel creature token, then attach this Equipment to it.",  # 702.163a
+    "haunt": "When this creature dies, exile it haunting target creature.",  # -- keywords (wave 50H) -- 702.55a (a permanent's: app/rules/haunt.py)
+    "job select": "When this Equipment enters, create a 1/1 colorless Hero creature token, then attach this Equipment to it.",  # -- keywords (wave 50H) -- 702.182a
     "annihilator": "Whenever this creature attacks, defending player sacrifices {n} permanents.",  # 702.86a
     "afflict": "Whenever this creature becomes blocked, defending player loses {n} life.",  # 702.130a
     # 702.156a: the triggered half of ravenous (its "enters with X +1/+1 counters" half is replacements.entering_counters;
@@ -105,7 +107,7 @@ def pieces(kw: str, line: str) -> list[str]:
         p = p.strip().lower()
         if p == kw or (kw in _NUMBERED and re.fullmatch(rf"{re.escape(kw)} \d+", p)) or kw == "recover" and re.fullmatch(r"recover (?:\{[^}x]+\})+", p):
             out.append(p)
-        elif kw in _COSTED and re.fullmatch(rf"{re.escape(kw)} (?:\{{[^}}]+\}})+", p):  # (wave 15E) "squad {1}{g}": the keyword
+        elif kw in _COSTED and re.fullmatch(rf"{re.escape(kw)} (?:\{{[^}}]+\}})+|{re.escape(kw)}—[^{{}}]+", p):  # (wave 15E) "squad {1}{g}": the keyword (wave 43D: "squad—exile four cards from your graveyard")
             out.append(kw)
     return out
 
@@ -122,7 +124,7 @@ def _definition(piece: str) -> str | None:
     if piece.startswith("recover "):  # -- casting extras (wave 18E) -- 702.59a
         kw, cost = "recover", piece[len("recover "):].upper()
     meaning = MEANINGS.get(kw)
-    if meaning is None or (kw in _NUMBERED) != bool(n):
+    if meaning is None or ((kw in _NUMBERED) != bool(n) and not (kw == "vanishing" and not n)):  # (-- keywords (wave 50H) -- 702.63b: "Vanishing" without a number is the two triggers only)
         return None
     one = n == "1"
     word = "a" if one else {"2": "two", "3": "three", "4": "four", "5": "five"}.get(n, n)
@@ -229,3 +231,38 @@ def backup_definition(ch: Any, ab: AbilityText, nth: int = 0) -> dict[str, Any] 
     probe = AbilityText(index=0, text=text, kind="triggered")
     d = scripts.define(probe, Characteristics(name="\u0000", abilities=(probe,), types=frozenset({"Creature"})))
     return d if d is not None and d.get("kind") == "triggered" and scripts._event_refs_ok(d) else None
+
+
+# -- X keywords (wave 41B) -- "Fumiko has bushido X, where X is the number of attacking creatures." (702.45a), "Firebending X, where X is
+# ~'s power." (702.189a), "Mobilize X, where X is the number of creature cards in your graveyard." (702.181a): the keyword's own meaning with
+# the number the text defines (107.3c); a triggered ability works its X out as it resolves (608.2h) — Fumiko's ruling (2005-02-01): "The bushido
+# bonus is calculated each time Fumiko's bushido trigger resolves, based on the number of attackers at that time." Soulshift X (Kodama of the
+# Center Tree) stays manual: its ruling reads the state "immediately before the Soulshift trigger", Kodama's own count included, which is not
+# when its trigger resolves. A bushido definition is carried by triggers.blocked, the others are ordinary triggers (triggers.abilities).
+_DYNAMIC_X = re.compile(r"(?P<kw>bushido|firebending|mobilize|annihilator) X, where X is (?P<xdef>[^.]+?)\.?", re.IGNORECASE)
+_NOT_ALONE = re.compile(r'"(?:it|that_player|this_way|event[a-z_]*|ref[a-z_]*|cost:[a-z]+)"|"x"')  # a value that needs what this line has not got
+
+
+def dynamic_x(text: str) -> dict[str, Any] | None:
+    """The triggered ability of a static line "[~ has] bushido / firebending / mobilize X, where X is …", or None (not read)."""
+    from app.rules import scripts  # (scripts imports this module)
+
+    m = _DYNAMIC_X.fullmatch(text.removeprefix("~ has "))
+    if m is None:
+        return None
+    try:
+        value = scripts._x_amount(re.sub(r"\bon it$", "on ~", m["xdef"]))  # (wave 49B: "counters on it", the creature that has the keyword)
+    except scripts._NoMatch:
+        return None
+    if _NOT_ALONE.search(json.dumps(value)):
+        return None
+    kw = m["kw"].lower()
+    if kw in ("mobilize", "annihilator"):  # (wave 49B: annihilator X, 702.86a, read as it resolves: Ulamog, the Defiler's ruling 2024-06-07)
+        d = json.loads(_definition(f"{kw} 2") or "[]")
+        if len(d) != 1 or d[0]["effects"][0].get("do") != ("create_attacking" if kw == "mobilize" else "sacrifice_choice"):
+            return None
+        d[0]["effects"][0]["n"] = value
+        return d[0]
+    effect = {"do": "firebend", "n": value} if kw == "firebending" else {"do": "pump", "who": "self", "p": value, "t": value}
+    return {"kind": "triggered", "trigger": "attacks_self" if kw == "firebending" else "bushido", "optional": False, "target": None,
+            "effects": [effect]}

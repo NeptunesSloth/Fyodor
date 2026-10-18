@@ -97,6 +97,8 @@ class Move(Base):
     # -- merged permanents (wave 18D) -- 903.9c: a merged or melded commander put into the command zone instead of its owner's hand or
     # library: the zone ("hand" / "library") every card of it that isn't a commander goes to
     rest_zone: Literal["hand", "library"] | None = None
+    # -- counters (wave 51E) -- the cards among them whose counters stay on as they move (Skullbriar: server-built by the rules engine, 122.2)
+    keep_counters: list[Id] | None = Field(default=None, max_length=250)
     r: MoveData | None = None
     keep_ids: bool = False  # server-built: the rules engine renumbers the face-down cards when its intent is complete (Renumber)
 
@@ -235,6 +237,7 @@ class Tap(Base):
     type: Literal["tap"] = "tap"
     card_ids: IdList
     tapped: bool | None = None  # None = toggle each
+    declared: bool = False  # -- tap events (wave 45C) -- 508.1f: tapped as attackers are declared (rules/combat.py)
 
 
 class UntapAll(Base):
@@ -286,6 +289,7 @@ class TokenSpec(BaseModel):
     colors: list[Literal["W", "U", "B", "R", "G"]] = Field(default_factory=list)
     type_line: str = Field(default="Token Creature", max_length=120)
     text: str = Field(default="", max_length=1000)
+    mana_cost: str = Field(default="", max_length=40, pattern=r"^(\{[0-9WUBRGCX]+\})*$")  # -- named tokens (wave 49D) -- 111.3
     back: TokenSpec | None = None  # -- wave 3F -- a double-faced token's back face (111.10i)
 
     @field_validator("name", "type_line")
@@ -325,6 +329,9 @@ class CopyCard(Base):
     zone: Literal["exile", "graveyard"] | None = None
     face: int | None = None
     printing: str | None = Field(default=None, max_length=64)  # the copied card's printing when the source is itself a copy (722.2b)
+    # -- spell copies (wave 31D) -- 707.10, 608.2h: a copy of a spell that has left the stack is made from how it last existed there (the object id
+    # it had): its name, printing and face are the snapshot's (public: it was a spell), whatever zone the card is in now
+    last_known: str | None = Field(default=None, max_length=80)
     x: Coord | None = None
     y: Coord | None = None
     r: NewIds | None = None
@@ -936,6 +943,7 @@ class PlayLand(_Intent):
     x: Coord | None = None
     y: Coord | None = None
     pay_life: bool | None = None  # shock lands: the answer to "pay 2 life or enter tapped" (asked if missing)
+    via: str | None = Field(default=None, max_length=64)  # -- cast permissions (wave 32D) -- the limited permission the play uses up (see CastSpell.via)
 
 
 class Contribution(BaseModel):
@@ -996,6 +1004,17 @@ class CastSpell(_Intent):
     # "As an additional cost to cast green permanent spells, you may pay 2 life" (Defiler of Vigor): the permanents whose
     # optional additional cost is paid (601.2b); the hints list them (``optional_costs``)
     optional_costs: list[Id] = Field(default_factory=list, max_length=10)
+    # -- cast permissions (wave 30Q) -- "each permanent type" (Muldrotha): the type of this card the cast uses up (asked when it has more than one unused)
+    slot: str | None = Field(default=None, max_length=20)
+    # -- cast permissions (wave 32D) -- 601.2: the limited permission the cast uses up when several fit (a once-a-turn permission, one of Muldrotha's types:
+    # a Grant's ``use``); absent: the default way, or a question when the ways use up different things
+    via: str | None = Field(default=None, max_length=64)
+    # -- free-cast optional costs (wave 41D) -- 118.9d, 601.2b: a cast made as an effect resolves (cascade, discover, Gandalf …) asks its caster which optional
+    # additional costs to pay (kicker, bargain, gift, casualty …); True once they were asked, so the answer "none" is not asked again
+    optional_asked: bool = False
+    # -- phyrexian mana (wave 50B) -- 601.2b, 107.4f: the Phyrexian symbols of the cost (their colors, "G/W" for {G/W/P}) paid with 2 life each; the
+    # rest are paid with mana. None: not announced yet (asked when both ways can be paid); [] announces mana for every symbol
+    life_symbols: list[str] | None = Field(default=None, max_length=20)
 
 
 class MiracleReveal(_Intent):
@@ -1015,6 +1034,14 @@ class TurnFaceUp(_Intent):
     # (702.37e), its disguise cost (702.168d), or a manifested / cloaked creature card's mana cost (701.40b)
     method: Literal["morph", "disguise", "mana_cost"] | None = None
     cost_choices: list[CostChoice] = Field(default_factory=list)  # -- hidden exile (wave 18A) -- what pays a non-mana morph cost (602.2b)
+
+
+class EndEffect(_Intent):
+    """-- licids (wave 50A) -- 116.2c: "You may pay {W} to end this effect", a special action on the permanent the effect is on (app/rules/licids.py)."""
+
+    type: Literal["end_effect"] = "end_effect"
+    card_id: Id
+    sources: list[Id] | None = Field(default=None, max_length=60)
 
 
 class UnlockDoor(_Intent):
@@ -1050,6 +1077,7 @@ class ActivateAbility(_Intent):
     # Objects chosen for cost parts ("Sacrifice a creature", "Discard a card" …); any part not
     # given is asked for as a private decision before anything is paid.
     cost_choices: list[CostChoice] = Field(default_factory=list, max_length=10)
+    life_symbols: list[str] | None = Field(default=None, max_length=20)  # -- phyrexian mana (wave 50B) -- as CastSpell.life_symbols
 
 
 class AttackDeclaration(BaseModel):
@@ -1144,6 +1172,7 @@ class SetPrefs(_Intent):
     payment: Literal["self"] | None = None  # players always tap their own mana
     auto_resolve_own_triggers: Literal["off", "safe", "on"] | None = None
     auto_order_identical_triggers: bool | None = None
+    ask_graveyard_order: bool | None = None  # -- graveyard order (wave 40C) -- 404.3
     hold_priority: bool | None = None
     full_control: bool | None = None
     force_stop: bool | None = None
@@ -1263,6 +1292,7 @@ class DamageDealt(BaseModel):
     target: Id  # card id or player id
     target_object: Annotated[str, Field(max_length=64)] | None = None
     amount: int = Field(ge=0, le=100000)
+    excess: int = Field(default=0, ge=0, le=100000)  # -- trigger damage (wave 39B) -- 120.10: the excess damage this batch dealt to the target (on its first event)
 
 
 class RulesLog(Base):
@@ -1278,7 +1308,7 @@ class RulesLog(Base):
 INTENT_TYPES = frozenset(
     {"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers", "pass_priority",
      "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door",
-     "miracle_reveal"}
+     "miracle_reveal", "end_effect"}
 )
 SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage", "renumber"})
 
@@ -1382,6 +1412,7 @@ Action = Annotated[
     | CastSpell
     | TurnFaceUp
     | UnlockDoor
+    | EndEffect
     | MiracleReveal
     | ActivateAbility
     | DeclareAttackers

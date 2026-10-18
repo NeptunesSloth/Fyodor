@@ -56,7 +56,7 @@ def blocks(s, pid, *pairs):
     ("~ can't be blocked except by two or more creatures.", "self", ["min_blockers:2"], {}),
     ("~ can't be blocked except by three or more creatures.", "self", ["min_blockers:3"], {}),
     ("~ can't be blocked except by creatures with flying or reach.", "self",
-     ["cant_be_blocked_except_by:" + key("creatures with flying") + "|" + key("creatures with reach")], {}),
+     ["cant_be_blocked_except_by:" + key("creatures with flying or reach")], {}),  # (one either-keyword selector since wave 45D)
     ("~ can't be blocked except by creatures with flying.", "self", ["cant_be_blocked_except_by:" + key("creatures with flying")], {}),
     ("~ can't be blocked except by black creatures.", "self", ["cant_be_blocked_except_by:" + key("black creatures")], {}),
     ("~ can't be blocked by artifact creatures.", "self", ["cant_be_blocked_by:" + key("artifact creatures")], {}),
@@ -128,13 +128,11 @@ def test_parse_rules(text, who, rules, extra):
 
 
 @pytest.mark.parametrize("text", [
-    "~ can't be blocked by creatures with power 2 or less and/or Walls.",  # two selectors joined oddly
     "~ can't be blocked by creatures with banding.",  # not a selector keyword (wave 6C: horsemanship now is)
     "Enchanted permanent can't attack or block, and its activated abilities can't be activated unless they have flash.",
     "Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.",
     "~ gets +1/+1 if you control a Forest.",  # "if" belongs to restrictions only
     "No more than one creature can attack each combat.",
-    "~ must be blocked by two or more creatures if able.",
     "Creature spells you control can't be countered.",  # spells: not a battlefield selector
     "Players can't gain life.",  # a rule about players, not objects
     "~ can't be blocked by creatures that don't have a name.",
@@ -226,7 +224,7 @@ def test_except_by_creatures_with_flying_or_reach(cards):
     spider = creature(s, "p2", "Spider", "1/3", "Reach")
     automate(s)
     attack(s, (pest, "p2"))
-    with pytest.raises(ActionError, match="except by creatures with flying or creatures with reach"):
+    with pytest.raises(ActionError, match="except by creatures with flying or reach"):
         block(s, "p2", (cat, pest))
     block(s, "p2", (spider, pest))
     assert pest.id not in s.state.cards

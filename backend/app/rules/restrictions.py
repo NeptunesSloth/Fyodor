@@ -194,6 +194,10 @@ def _clause(clause: str) -> Restriction | None:
 def _condition(text: str) -> dict[str, Any] | None:
     from app.rules import conditions, selectors
 
+    # -- activated other (wave 34B) -- "Activate only if this artifact or another artifact entered the battlefield under your control this turn." (Master's
+    # Guide-Mural): the source is one of those artifacts too, so it is "an artifact entered …" (the turn's history reads every permanent that entered)
+    text = re.sub(r"^~ or another (\w+) (entered the battlefield under your control this turn)$",
+                  lambda m: f"{'an' if m[1][0] in 'aeiou' else 'a'} {m[1]} {m[2]}", text)
     cond = conditions.parse(text) or activation_words.condition(text)  # (wave 7B)
     if cond is not None:
         return cond
@@ -273,8 +277,14 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
         elif kind == "per_game":
             if x.get("exhaust") and _exhaust_again(state, player):
                 continue  # (wave 4F) 702.177b: an effect lets exhaust abilities be activated again: the player decides
-            if uses(r, r.object_id(card.id), index, None) >= x["n"]:
-                return "That can only be activated once"
+            if x.get("power_up") and state.turn.number in r.no_power_up_turns:  # -- power-up (wave 50J) -- Kang the Conqueror's extra turn
+                return "Power-up abilities can't be activated this turn"
+            # -- power-up (wave 50J) -- "Each power-up ability of permanents you control can be activated an additional time." (Wonder Man; name-keyed like Birgi's, ponytail: it
+            # stays while he has lost his abilities)
+            n = x["n"] + (1 if x.get("power_up") and any((c := state.cards.get(cid)) is not None and _face_name(c) == "Wonder Man, Hollywood Hero"
+                                                         for cid in state.zones.get(f"{player}:battlefield", [])) else 0)
+            if uses(r, r.object_id(card.id), index, None) >= n:
+                return "That can only be activated once" if n == 1 else f"That can be activated only {_times(n)}"
         elif kind == "if":
             if plan is None:
                 return f"That can only be activated if {x['text']}"

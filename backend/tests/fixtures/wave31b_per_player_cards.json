@@ -1,0 +1,301 @@
+[
+ {
+  "name": "Eager Construct",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact Creature — Construct",
+  "oracle_text": "When this creature enters, each player may scry 1. (To scry 1, look at the top card of your library, then you may put that card on the bottom.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Scry"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Myr Custodian",
+  "layout": "normal",
+  "mana_cost": "{3}",
+  "cmc": 3.0,
+  "type_line": "Artifact Creature — Myr",
+  "oracle_text": "When this creature enters, scry 2. Then each opponent may scry 1. (To scry X, a player looks at the top X cards of their library, then puts any number of them on the bottom and the rest on top in any order.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Scry"
+  ],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "Tempting Contract",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact",
+  "oracle_text": "At the beginning of your upkeep, each opponent may create a Treasure token. For each opponent who does, you create a Treasure token.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Treasure"
+  ]
+ },
+ {
+  "name": "Kwain, Itinerant Meddler",
+  "layout": "normal",
+  "mana_cost": "{W}{U}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Rabbit Wizard",
+  "oracle_text": "{T}: Each player may draw a card, then each player who drew a card this way gains 1 life.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Noble Benefactor",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature — Human Cleric",
+  "oracle_text": "When this creature dies, each player may search their library for a card and put that card into their hand. Then each player who searched their library this way shuffles.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Jungle Wayfinder",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Elf Warrior",
+  "oracle_text": "When this creature enters, each player may search their library for a basic land card, reveal it, put it into their hand, then shuffle.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Rags // Riches",
+  "layout": "split",
+  "mana_cost": "{2}{B}{B} // {5}{U}{U}",
+  "cmc": 11.0,
+  "type_line": "Sorcery // Sorcery",
+  "oracle_text": "All creatures get -2/-2 until end of turn.\n//\nAftermath (Cast this spell only from your graveyard. Then exile it.)\nEach opponent chooses a creature they control. You gain control of those creatures.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Aftermath"
+  ],
+  "card_faces": [
+   {
+    "name": "Rags",
+    "mana_cost": "{2}{B}{B}",
+    "type_line": "Sorcery",
+    "oracle_text": "All creatures get -2/-2 until end of turn."
+   },
+   {
+    "name": "Riches",
+    "mana_cost": "{5}{U}{U}",
+    "type_line": "Sorcery",
+    "oracle_text": "Aftermath (Cast this spell only from your graveyard. Then exile it.)\nEach opponent chooses a creature they control. You gain control of those creatures."
+   }
+  ]
+ },
+ {
+  "name": "Kaya, Intangible Slayer",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Legendary Planeswalker — Kaya",
+  "oracle_text": "Hexproof\n+2: Each opponent loses 3 life and you gain 3 life.\n0: You draw two cards. Then each opponent may scry 1.\n−3: Exile target creature or enchantment. If it wasn't an Aura, create a token that's a copy of it, except it's a 1/1 white Spirit creature with flying in addition to its other types.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": [
+   "Hexproof",
+   "Scry"
+  ],
+  "loyalty": "6"
+ },
+ {
+  "name": "Sadistic Shell Game",
+  "layout": "normal",
+  "mana_cost": "{4}{B}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Starting with the next opponent in turn order, each player chooses a creature you don't control. Destroy the chosen creatures.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Druid of Purification",
+  "layout": "normal",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Creature — Human Druid",
+  "oracle_text": "When this creature enters, starting with you, each player may choose an artifact or enchantment you don't control. Destroy each permanent chosen this way.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "3"
+ },
+ {
+  "name": "The Horus Heresy",
+  "layout": "saga",
+  "mana_cost": "{3}{U}{B}{R}",
+  "cmc": 6.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — For each opponent, gain control of up to one target nonlegendary creature that player controls for as long as this Saga remains on the battlefield.\nII — Draw a card for each creature you control but don't own.\nIII — Starting with you, each player chooses a creature. Destroy each creature chosen this way.",
+  "colors": [
+   "B",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "The Legend of Yangchen // Avatar Yangchen",
+  "layout": "transform",
+  "mana_cost": "{3}{W}{W} // ",
+  "cmc": 5.0,
+  "type_line": "Enchantment — Saga // Legendary Creature — Avatar",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter.)\nI — Starting with you, each player chooses up to one permanent with mana value 3 or greater from among permanents your opponents control. Exile those permanents.\nII — You may have target opponent draw three cards. If you do, draw three cards.\nIII — Exile this Saga, then return it to the battlefield transformed under your control.\n//\nFlying\nWhenever you cast your second spell each turn, airbend up to one other target nonland permanent. (Exile it. While it's exiled, its owner may cast it for {2} rather than its mana cost.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Airbend",
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "The Legend of Yangchen",
+    "mana_cost": "{3}{W}{W}",
+    "type_line": "Enchantment — Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter.)\nI — Starting with you, each player chooses up to one permanent with mana value 3 or greater from among permanents your opponents control. Exile those permanents.\nII — You may have target opponent draw three cards. If you do, draw three cards.\nIII — Exile this Saga, then return it to the battlefield transformed under your control.",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/a/6/a60e8f23-90b2-4bc6-bd54-a95055556389.jpg?1783905002",
+     "normal": "https://cards.scryfall.io/normal/front/a/6/a60e8f23-90b2-4bc6-bd54-a95055556389.jpg?1783905002",
+     "large": "https://cards.scryfall.io/large/front/a/6/a60e8f23-90b2-4bc6-bd54-a95055556389.jpg?1783905002",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/a/6/a60e8f23-90b2-4bc6-bd54-a95055556389.jpg?1783905002"
+    }
+   },
+   {
+    "name": "Avatar Yangchen",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Avatar",
+    "oracle_text": "Flying\nWhenever you cast your second spell each turn, airbend up to one other target nonland permanent. (Exile it. While it's exiled, its owner may cast it for {2} rather than its mana cost.)",
+    "power": "4",
+    "toughness": "5",
+    "colors": [],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/a/6/a60e8f23-90b2-4bc6-bd54-a95055556389.jpg?1783905002",
+     "normal": "https://cards.scryfall.io/normal/back/a/6/a60e8f23-90b2-4bc6-bd54-a95055556389.jpg?1783905002",
+     "large": "https://cards.scryfall.io/large/back/a/6/a60e8f23-90b2-4bc6-bd54-a95055556389.jpg?1783905002",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/a/6/a60e8f23-90b2-4bc6-bd54-a95055556389.jpg?1783905002"
+    }
+   }
+  ]
+ },
+ {
+  "name": "Turtles in Time",
+  "layout": "normal",
+  "mana_cost": "{5}{U}{U}",
+  "cmc": 7.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Return all creatures to their owners' hands. Each player may shuffle their hand and graveyard into their library, then each player who does draws seven cards.\nExile Turtles in Time.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Step Between Worlds",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{U}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player may shuffle their hand and graveyard into their library. Each player who does draws seven cards. Exile Step Between Worlds.\nPlot {4}{U}{U} (You may pay {4}{U}{U} and exile this card from your hand. Cast it as a sorcery on a later turn without paying its mana cost. Plot only as a sorcery.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Plot"
+  ]
+ },
+ {
+  "name": "Weird Harvest",
+  "layout": "normal",
+  "mana_cost": "{X}{G}{G}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player may search their library for up to X creature cards, reveal those cards, put them into their hand, then shuffle.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ }
+]

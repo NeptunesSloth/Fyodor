@@ -39,18 +39,43 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
         body = _THEY.sub(lambda m: f"{m['i'] or ''}that player {_VERBS[m['v']]}", body)
         # -- damage wordings (wave 6B) -- "At the beginning of each player's upkeep, ~ deals 1 damage to them."
         body = re.sub(r"\b(deals? (?:\d+|X) damage) to them\b", r"\1 to that player", body)
+        # -- trigger other (wave 49C) -- "…, if that player controls more lands than each other player, the player creates a 1/1 green Saproling creature token." (Greener Pastures)
+        body = re.sub(r"^(if that player (?:controls|has) more [^,]+? than each other player), the player (?=creates\b)", r"\1, that player ", body)
         # -- trigger other (wave 25B) -- "… deals 2 damage to that player unless they control two or more basic lands": they are that player
         body = re.sub(r"\b(unless|if) they (control|have)\b", lambda m: f"{m[1]} that player {'controls' if m[2] == 'control' else 'has'}", body)
     # -- intervening ifs (wave 11F) -- "if you have fewer than seven cards in hand, draw cards equal to the difference": the
     # difference between that number and the cards in hand as it resolves (608.2h; the "if" holds again then, 603.4)
     body = re.sub(r"^(if you have fewer than (\w+) cards in hand, draw cards equal to) the difference\.$",
                   r"\1 \2 minus the number of cards in your hand.", body)
+    # -- trigger damage (wave 39B) -- "if a Giant, Wizard, or spell you controlled dealt damage to it this turn" (Aegar): the list's commas would end the
+    # condition early; it is "a Giant or Wizard or spell" (conditions._dealt_by_kinds)
+    body = re.sub(r"^(if an? [A-Z]\w+(?:, [A-Z]\w+)*), or (spell|[A-Z]\w+)( you controlled dealt damage to )",
+                  lambda m: f"{m[1].replace(', ', ' or ')} or {m[2]}{m[3]}", body)
+    if (cond or {}).get("excess"):  # -- trigger damage (wave 39B) -- 120.10: "where X is that excess damage" (Fall of Cair Andros): the amount of an "is dealt excess
+        body = re.sub(r"\b(?:that excess damage|the excess damage|the excess)\b", "the amount of damage dealt", body)  # damage" event is the excess (triggers._fire_generic)
     if (cond or {}).get("event") == "cast":  # "…, if at least four mana was spent to cast it": the spell cast
         body = re.sub(r"^(if (?:at least \w+|\w+ or more) mana was spent to cast) it,", r"\1 that spell,", body)
         # (-- mana provenance (wave 18B) -- "if mana from a Treasure / three or more mana from creatures was spent to cast it")
         body = re.sub(r"^(if (?:(?:at least )?\w+ (?:or more )?)?mana from [^,]+? (?:was|were) spent to cast) it,", r"\1 that spell,", body)
+    # -- trailing & intervening ifs (wave 38A) -- "…, draw a card. Draw another card if you've completed a dungeon." (Imoen): a later sentence's own draw,
+    # gated by its trailing "if" (608.2c) — the plain "draw a card"; a name that is two creatures takes a plural verb ("Tokka & Rahzar deal 3 damage")
+    body = re.sub(r"(?<=\. )([Dd]raw) (?:another|an additional) card(?= if )", r"\1 a card", body)
+    body = re.sub(r"(^|, )~ deal (?=\d|X)", r"\1~ deals ", body)
+    # -- trigger other (wave 39A) -- "Until end of turn, that creature gets +2/+0, gains trample if it's red, and gains vigilance if it's white." (Aurelia, Exemplar of
+    # Justice): the pump, then each conditional grant as the sentence of its own it is (608.2c: in order; each "if" is judged as that instruction is carried out)
+    cg = re.search(r"Until end of turn, that creature gets ([+-]\d+/[+-]\d+)((?:, (?:and )?gains [a-z ]+? if it's [a-z]+)+)\.", body)
+    if cg is not None:
+        body = (body[:cg.start()] + f"That creature gets {cg[1]} until end of turn."
+                + "".join(f" That creature gains {k} until end of turn if {c}." for k, c in re.findall(r"gains ([a-z ]+?) if (it's [a-z]+)", cg[2])) + body[cg.end():])
+    # -- trigger other (wave 39A) -- "~'s base power and toughness become 6/6 and they gain trample" (Moon Girl and Devil Dinosaur): "they" is the one card, whose name is two names
+    body = re.sub(r"(~(?:'s base power and toughness become| has base power and toughness) \d+/\d+) and they (gain|have) ", lambda t: f"{t[1]} and {t[2]}s ", body)
+    if (cond or {}).get("event") == "attack" and (cond or {}).get("subject") == "sel":  # -- trailing & intervening ifs (wave 38A) -- 508.1: "the creature that
+        body = body.replace("the creature that attacked", "that creature")  # attacked" (Aradesh) is the object the event is about, "that creature"
     if name == "cast_self":  # -- history (wave 22E) -- "When you cast this spell, … where X is the amount of mana spent to cast it" (Prossh)
         body = re.sub(r"\bthe amount of mana spent to cast it\b", "the amount of mana spent to cast this spell", body)
+        # -- trigger other (wave 39A) -- "When you cast this spell, any player may sacrifice a creature of their choice. If a player does, counter ~." (Brain
+        # Gorgers, Phantasmagorian, Dash Hopes, Temporal Extortion): the trigger goes on the stack above the spell cast (603.3, 601.2i), which "counter ~" names
+        body = re.sub(r"\b(counter) ~(?=[.,\s]|$)", r"\1 that spell", body)
     if name == "dies_self" or (cond is not None and cond.get("event") == "die" and cond.get("subject") == "self"):
         # -- trigger other (wave 25B) -- "When this creature dies, … return this card to …": the card it is now, in its owner's graveyard (400.7: "it")
         body = re.sub(r"\b(return|put|exile|shuffle) this card\b", r"\1 it", body)
@@ -122,6 +147,18 @@ def comma_condition(text: str, m: re.Match[str]) -> re.Match[str]:
     Z" keeps its intervening "if"; the match unchanged when the plain split reads or no longer one does."""
     from app.rules import events
 
+    # -- most-played cards (wave 43B) -- "Whenever another creature dies, or a creature card is put into a graveyard from anywhere other than the battlefield, or a
+    # creature card leaves your graveyard, ~ deals 1 damage to each opponent." (Syr Konrad): the list of whole conditions runs to the comma that ends the last
+    if ", or " in text:
+        lead = re.match(r"^(?:When|Whenever) ", text)
+        rest = text[lead.end():] if lead is not None else ""
+        longest = None
+        for found in re.finditer(r", ", rest):
+            cond = rest[: found.start()]
+            if ", or " in cond and (got := events.parse_condition(cond)) is not None and got.get("event") == "either":
+                longest = cond
+        if longest is not None and (again := re.match(rf"^(?:When|Whenever) (?P<cond>{re.escape(longest)}), (?P<body>.+)$", text, re.DOTALL)) is not None:
+            return again
     # a list in the condition ("an Aura, Equipment, or Vehicle spell"): the whole list, even when its first word alone
     # would read ("you cast an Aura")
     listed = re.match(r"^(?:When|Whenever) (?P<cond>.+?\b(?:[\w-]+, )+(?:or|and|and/or) [^,]+), (?P<body>.+)$", text,

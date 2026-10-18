@@ -5,7 +5,7 @@ its controller's "phased" zone (app/game/handlers/cards.py ``phase_shift``), so 
 it, and the object keeps its identity, counters and tokens. Phasing events are no zone change (rules_state._diff).
 Phasing in happens in the untap step of the player it phased out under (702.26a); with the keyword, the controller's
 phased-in permanents with phasing phase out at the same time. A skipped untap step has no phasing event (702.26m).
-Left manual: "whenever this phases in / out", "until ~ leaves", "can't phase in" wordings.
+"Whenever ~ phases in" (wave 50G, King of the Oathbreakers) is read; left manual: "whenever this phases out", "until ~ leaves", "can't phase in" wordings.
 """
 
 from __future__ import annotations
@@ -34,6 +34,10 @@ def untap_step(plan: Plan, player: str) -> None:
     out = [c for c in state.zones.get(zone_key(player, "battlefield"), []) if "phasing" in plan.ch(state.cards[c]).keywords]
     back = [c for c in state.zones.get(zone_key(player, "phased"), []) if not state.cards[c].phased_indirect]
     if back:
+        from app.game.rules_state import emit
+
+        for c in back:  # -- trigger other (wave 50G) -- "Whenever ~ or another Spirit you control phases in" (King of the Oathbreakers): each one that phases in (ponytail: not an Aura or Equipment that comes along)
+            emit(state, "designation", counter="phase_in", card=c, object_id=plan.oid(c), player=state.cards[c].controller)
         plan.do({"type": "phase_shift", "card_ids": back, "out": False}, actor=player)
         from app.rules import (
             keyword_actions,  # -- prepared (wave 13C) -- 722.3c: one that "phases in prepared" gets its copy anew

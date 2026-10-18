@@ -19,6 +19,8 @@ What counts (CR 2026-09-25):
   replacement effect was still destroyed (701.8a moves it; the replacement only changes where it
   goes — the Oracle wording "put into a graveyard this way" exists to say the other thing).
 * "exiled": the objects that are in exile after the instruction (the new objects, 400.7j).
+* "created" (wave 30G): the tokens an instruction made, of the name it asked for (``named``: a Chatterfang's extra Squirrels aren't "this way",
+  the Ajani, Nacatl Avenger ruling) — "Create a token. When you do, …" (603.12: the reflexive ability triggers once for each).
 * "put into a/your/their graveyard" / "that died": the objects whose new object is in a graveyard
   ("your": the controller's) as the instruction finished (700.4: "dies" is battlefield → graveyard).
 * The qualifier is read from the object as it last existed where it was for a permanent ("nontoken
@@ -29,6 +31,9 @@ What counts (CR 2026-09-25):
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DecisionOption
@@ -38,17 +43,21 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 # The verbs, each with the recording effects' verbs (scripts._RECORDING) that it may name.
-_VERBS = {"destroyed": ("destroyed",), "exiled": ("exiled",), "sacrificed": ("sacrificed",),
-          "discarded": ("discarded",), "milled": ("milled",), "returned": ("returned",), "your_hand": ("returned",),
-          "graveyard": ("destroyed", "sacrificed", "milled", "discarded"), "your_graveyard": ("milled", "discarded"),
-          "died": ("destroyed", "sacrificed"), "tapped": ("tapped",),
-          "revealed": ("revealed",), "shuffled": ("shuffled",)}  # (wave 10C: reveal_hand.py)
+_VERBS = {"destroyed": ("destroyed",), "exiled": ("exiled", "blinked"), "sacrificed": ("sacrificed",),  # (blinked, wave 46C: "Exile target creature you control, then return that card to the battlefield. If a Pirate was exiled this way, …", Siren's Ruse)
+          "discarded": ("discarded",), "milled": ("milled",), "returned": ("returned", "blinked"), "your_hand": ("returned", "put_hand", "blinked"),
+          "graveyard": ("destroyed", "sacrificed", "milled", "discarded", "put_graveyard"), "your_graveyard": ("milled", "discarded", "put_graveyard"),
+          "died": ("destroyed", "sacrificed"), "tapped": ("tapped",), "goaded": ("goaded",),  # (goaded: wave 50J)
+          "revealed": ("revealed",), "shuffled": ("shuffled",),  # (wave 10C: reveal_hand.py)
+          "battlefield_put": ("put_battlefield",),  # -- most-played cards II (wave 45A) -- "If you put a Cave onto the battlefield this way" (put_from_hand)
+          "created": ("created",)}  # -- reflexive this way (wave 30G) -- 603.12: "create a token. When you do, …" (the tokens it made)
 _PHRASE = re.compile(
     r"^(?P<what>.+?) (?:(?P<ctl>you controlled|they controlled) )?(?:that (?:was|were) |who )?"
-    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?"
+    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|goaded|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?|you put into your hand|you put onto the battlefield"
     r"|put into (?P<gy>a|your|their|its owner's|that player's|their owners') graveyards?|died|that died) this way$")
 _NOUN_ONLY = re.compile(r"^(?:cards?)$")
 _GREATEST = re.compile(r"^the greatest number of cards a player (?P<verb>discarded|milled) this way$")
+_TOTAL = re.compile(r"^the total (?P<stat>power|toughness) of the (?P<verb>sacrificed|tapped) (?P<what>.+)$")
+_TOTAL_GOADED = re.compile(r"^the total (?P<stat>power|toughness) of (?P<what>.+?) goaded this way$")  # -- goad (wave 50J) -- Havoc Eater
 
 
 def parse(phrase: str) -> dict[str, Any] | None:
@@ -56,10 +65,20 @@ def parse(phrase: str) -> dict[str, Any] | None:
     graveyard this way" / "creatures you controlled that were destroyed this way" → the placeholder,
     or None (not this grammar, or a form that isn't read: a player-relative "they controlled")."""
     p = phrase.strip()
+    if (total := _TOTAL.match(p)) is not None and (sel := selectors.parse(total["what"])) is not None and sel.player is None:  # -- any number as an additional cost (wave 48B) -- Corpse Cobble
+        return {"this_way": total["verb"], "of": sel.key(), "stat": total["stat"]}  # ("the total power of the sacrificed creatures": as each last existed, 608.2h)
+    if (tg := _TOTAL_GOADED.match(p)) is not None and (sel := selectors.parse(tg["what"])) is not None and sel.player is None:
+        return {"this_way": "goaded", "of": sel.key(), "stat": tg["stat"]}
     most = _GREATEST.match(p)
     if most is not None:  # Windfall: "the greatest number of cards a player discarded this way" (each player's own)
         return {"this_way": most["verb"], "of": None, "max_by": "owner"}
     p = re.sub(r"^the number of ", "", p)
+    if (dv := re.fullmatch(r"(?P<what>.+?) (?:it|~) devoured", p)) is not None and not re.fullmatch(r"creatures?", dv["what"]) \
+            and (sel := selectors.parse(dv["what"])) is not None and sel.player is None:  # -- keyword mechanics (wave 48B) -- 702.82b: "twice the number of Goblins it devoured" (Voracious
+        return {"this_way": "sacrificed", "of": sel.key(), "ref_count": DEVOURED}  # Dragon): the permanents its devour sacrificed as it entered, as they last existed (608.2h)
+    if (types :=re.fullmatch(r"card types? among (cards? .+ this way)", p)) is not None:  # -- if you do (wave 44A) -- "a card for each card type among cards discarded this way" (Kefka)
+        inner = parse(types[1])
+        return {**inner, "distinct": "types"} if inner is not None and inner.get("of") is None else None
     m = _PHRASE.match(p)
     if m is None:
         return None
@@ -68,8 +87,10 @@ def parse(phrase: str) -> dict[str, Any] | None:
     what = m["what"].strip()
     what = re.sub(r" that$", "", what)  # ("creature that died this way")
     verb = m["verb"]
-    if verb.startswith("returned"):
-        kind = "your_hand" if verb.startswith("returned to your") else "returned"
+    if verb == "you put onto the battlefield":
+        kind = "battlefield_put"
+    elif verb.startswith("returned") or verb.startswith("you put"):
+        kind = "your_hand" if verb.startswith(("returned to your", "you put")) else "returned"
     elif verb.startswith("put into"):
         kind = "your_graveyard" if m["gy"] == "your" else "graveyard"
     elif verb in ("died", "that died"):
@@ -131,6 +152,7 @@ def filtered(plan: Plan, ctx: dict[str, Any], cards: list[str], key: str) -> lis
 
 _IF_PASSIVE = re.compile(r"^(?:a|an|at least one|one or more|any) (?P<what>.+?) (?:is|was|were|are) (?P<rest>.+ this way)$")
 _IF_THAT = re.compile(r"^that (?:creature|permanent) (?:(?:was|is) (?P<verb>destroyed|sacrificed|exiled)|(?P<dies>dies|died)) this way$")
+_IF_YOU_PUT = re.compile(r"^you put (?:a|an|one or more) (?P<what>.+?) (?P<dest>into your hand|onto the battlefield) this way$")  # (wave 45A)
 _IF_YOU = re.compile(r"^you (?P<verb>sacrificed|exiled|discarded|milled|destroyed) (?:a|an|one or more) (?P<what>.+?) this way$")
 
 
@@ -155,17 +177,25 @@ def hit_condition(text: str) -> dict[str, Any] | None:
     return {"value": {"ref_amount": HIT}, "op": ">=", "n": 1, "hit_is": sel.key()}
 
 
+def _own_json(effects: list[dict[str, Any]]) -> str:
+    """-- reflexive excess (wave 42D) -- 603.12: the effects as JSON without the ability they hold (a reflexive trigger's body). That body went through
+    ``parse_effects`` itself, so its "dealt damage / damage dealt / excess damage this way" readers are bound to ITS damage instruction already: the
+    outer ability has none of its own to bind ("When you do, ~ deals damage equal to that creature's power to another target creature. If excess damage
+    was dealt this way, amass Goblins X, where X is that excess damage." — Bolg of the North)."""
+    import json
+
+    return json.dumps([{k: v for k, v in e.items() if k != "ability"} for e in effects])
+
+
 def dealt_to(found: Any) -> Any:
     """Bind every "dealt damage this way" condition of the ability to the one plain damage instruction before it: that
     instruction counts, as it is dealt, the recipients that match (effects._deal). Anything else — no such instruction, two
     of them, a damage chain (several recipients in one sentence), another reader of that damage — leaves the ability manual."""
-    import json
-
-    if found is None or '"hit_is"' not in json.dumps(found[0]):
+    if found is None or '"hit_is"' not in _own_json(found[0]):
         return found
     effects = list(found[0])
     gates = [e for e in effects if e.get("do") == "only_if" and "hit_is" in e["cond"]]
-    if len(gates) != json.dumps(effects).count('"hit_is"') or len({g["cond"]["hit_is"] for g in gates}) != 1:
+    if len(gates) != _own_json(effects).count('"hit_is"') or len({g["cond"]["hit_is"] for g in gates}) != 1:
         return None  # (the condition inside an "and" / "or", or two different questions about it)
     dmg = [i for i, e in enumerate(effects) if e.get("do") == "damage"]
     if len(dmg) != 1 or any(effects.index(g) < dmg[0] for g in gates):
@@ -213,6 +243,8 @@ def condition(text: str) -> dict[str, Any] | None:
         phrase = f"{m['what']}{ctl} {m['verb']} this way"
         if m["verb"] in ("milled", "discarded") and (v := parse(phrase)) is not None:
             return {"value": {**v, "by": "you"}, "op": ">=", "n": 1}
+    if phrase is None and (m := _IF_YOU_PUT.match(text)) is not None:  # -- most-played cards II (wave 45A) -- "If you put a Town card into your hand this way" (Town Greeter), "a Cave onto the battlefield" (Spelunking)
+        phrase = f"{m['what']} you put {m['dest']} this way"
     v = parse(phrase) if phrase is not None else None
     if v is None:
         return hit_condition(text)  # -- if you do (wave 10C) --
@@ -223,6 +255,28 @@ def verbs(kind: str) -> tuple[str, ...]:
     return _VERBS[kind]
 
 
+# -- any number as an additional cost (wave 48B) -- 601.2h: "As an additional cost to cast this spell, sacrifice any number of creatures. Target creature gets +2/+2 until end of turn for each
+# creature sacrificed this way.": no instruction of the spell sacrificed them, its cost did. The verbs of the spell's any-number cost (read while its text is defined) bind to the payment record.
+COST = "cost"
+DEVOURED = "devoured"
+_PAID: ContextVar[frozenset[str]] = ContextVar("paid_kinds", default=frozenset())
+_PAID_VERBS = {"SACRIFICE": "sacrificed", "TAP_OTHER": "tapped", "EXILE_FROM_GRAVEYARD": "exiled", "EXILE_FROM_HAND": "exiled"}
+
+
+def paid() -> frozenset[str]:
+    return _PAID.get()
+
+
+@contextmanager
+def paid_by(cost: Any) -> Iterator[None]:
+    """The verbs of the any-number parts of ``cost`` (a spell's additional cost, or an activated ability's cost), while its text is read."""
+    token = _PAID.set(frozenset(_PAID_VERBS[c.kind] for c in cost.components if c.anyn and c.kind in _PAID_VERBS) if cost is not None else frozenset())
+    try:
+        yield
+    finally:
+        _PAID.reset(token)
+
+
 def bind(v: Any, find: Any) -> Any:
     """Rewrite every placeholder in a value with the binding ``find(kinds)`` names (None: unbound →
     raises LookupError, the line stays manual)."""
@@ -231,7 +285,7 @@ def bind(v: Any, find: Any) -> Any:
     if not isinstance(v, dict):
         return v
     if "this_way" in v and "ref_count" not in v:
-        name = find(_VERBS[v["this_way"]])
+        name = find(_VERBS[v["this_way"]]) or (COST if v["this_way"] in _PAID.get() else None)
         if name is None:
             raise LookupError(v["this_way"])
         return {**v, "ref_count": name}
@@ -250,7 +304,7 @@ def unbound(v: Any) -> bool:
 
 
 def _happened(plan: Plan, kind: str, new: dict[str, Any], was: dict[str, Any], you: str) -> bool:
-    if kind in ("tapped", "revealed"):  # (tap_choice binds exactly the permanents it tapped; reveal_hand: the cards it showed, which stay put)
+    if kind in ("tapped", "revealed", "created", "goaded"):  # (wave 50J: goaded, ``_matched`` keeps those it goaded; tap_choice binds exactly the permanents it tapped; reveal_hand: the cards it showed, which stay put; create_token: the tokens it made)
         return True
     old_card = plan.state.cards.get(was["card"])
     if kind == "shuffled":  # (-- static_other sweep (wave 16B) -- a library shuffle gives its cards new ids: gone from where it was, or in a library)
@@ -259,11 +313,17 @@ def _happened(plan: Plan, kind: str, new: dict[str, Any], was: dict[str, Any], y
     if not moved:
         return False
     dest = (new.get("zone") or "").rsplit(":", 1)[-1] if new["object_id"] != was["object_id"] else None
+    if old_card is None and dest is None:  # -- review 40 -- a token went where it was sent, then ceased to exist (111.7): the turn log keeps where (Siren's Ruse 2017-09-29)
+        from app.rules import history
+
+        dest = next((d.to for d in reversed(history.log_for(plan).left) if d.object_id == was["object_id"]), None)
     if kind in ("returned", "your_hand"):  # (a hand is hidden: only the card's zone now tells where it went)
         return old_card is not None and old_card.zone == f"{you}:hand" if kind == "your_hand" else \
             old_card is not None and old_card.zone.endswith(":hand")
     if kind == "exiled":
-        return dest == "exile"
+        return dest in ("exile", "battlefield")  # (wave 46C: a blinked permanent came back as a new object, 400.7, but it was exiled)
+    if kind == "battlefield_put":
+        return dest == "battlefield"
     if kind in ("graveyard", "your_graveyard"):
         return dest == "graveyard"
     if kind == "died":
@@ -276,6 +336,18 @@ def count(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     match the qualifier): see the module docstring. ``max_by: "owner"``: the most any one player had (a
     discarded or milled card is its owner's: 701.9a, 701.17a)."""
     found = _matched(plan, ctx, v)
+    if v.get("stat"):  # -- any number as an additional cost (wave 48B) -- "the total power of the sacrificed creatures": each as it is, or as it last existed (608.2h)
+        from app.game.rules_state import ObjectRef
+        from app.rules import context
+        from app.rules.triggers import _snapshot_card
+
+        got = [_still_there(plan, was) or (_snapshot_card(plan, snap) if (snap := context.snapshot(plan, ObjectRef.model_validate(was))) else None) for _, was in found]
+        return max(0, sum(int(getattr(ch, v["stat"]) or 0) for g in got if g for ch in (g[1],)))  # (107.1b: a total below 0 is 0)
+    if v.get("distinct"):  # "card types among cards discarded this way": the different types the cards have where they went (205.2a)
+        from app.rules import values
+
+        return len({"Kindred" if t == "Tribal" else t for new, _ in found if (c := plan.state.cards.get(new["card"])) is not None
+                    for t in plan.ch(c).types if t in values.CARD_TYPES})
     if v.get("delta"):  # -- static_other sweep (wave 16B) -- "draws that many cards plus / minus one"
         return max(0, len(found) + int(v["delta"]))
     if v.get("max_by") == "owner":
@@ -315,12 +387,29 @@ def _still_there(plan: Plan, was: dict[str, Any]) -> tuple[Any, Any] | None:
     return card, plan.ch(card)
 
 
+def cost_objects(plan: Plan, ctx: dict[str, Any], source: str, kind: str) -> dict[str, Any]:
+    """-- any number as an additional cost (wave 48B) -- what the spell's cost sacrificed or tapped, from its payment record (a copy has the original's, 707.10); or what the
+    source devoured as it entered (702.82b)."""
+    sid = ctx.get("stack_id")
+    record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    if record is None and src is not None and src.zone == "stack":  # a cast trigger of the spell itself (601.2i): its cost's record
+        record = plan.rules.payments.get(plan.oid(src))
+    if kind == "exiled":  # (the cards it exiled are in exile now, new objects: 400.7j)
+        pairs = [] if record is None else list(zip(record.exiled_objects, record.exiled_was, strict=False))
+        news = [{"card": o.rsplit(".", 1)[0], "object_id": o, "zone": f"{plan.state.cards[o.rsplit('.', 1)[0]].owner}:exile"} for o, _ in pairs if o.rsplit(".", 1)[0] in plan.state.cards]
+        return {"objects": news, "was": [{"card": w.rsplit(".", 1)[0], "object_id": w, "zone": None} for o, w in pairs if o.rsplit(".", 1)[0] in plan.state.cards]}
+    oids = plan.rules.devoured_ids.get(ctx.get("source_object") or "", []) if source == DEVOURED else \
+        [] if record is None else record.sacrificed_objects if kind == "sacrificed" else record.tapped_objects
+    return {"objects": [{"card": o.rsplit(".", 1)[0], "object_id": o, "zone": None} for o in oids]}
+
+
 def _matched(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     from app.game.rules_state import ObjectRef
     from app.rules import context
     from app.rules.triggers import _snapshot_card  # (triggers imports effects, which imports values → this)
 
-    b = (ctx.get("refs") or {}).get(v["ref_count"]) or {}
+    b = cost_objects(plan, ctx, v["ref_count"], v["this_way"]) if v["ref_count"] in (COST, DEVOURED) else (ctx.get("refs") or {}).get(v["ref_count"]) or {}
     news = b.get("objects") or []
     wases = b.get("was") or news
     you = ctx["controller"]
@@ -329,13 +418,28 @@ def _matched(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> list[tuple[d
     for new, was in zip(news, wases, strict=False):
         if not _happened(plan, v["this_way"], new, was, you):
             continue
+        if v["this_way"] == "goaded" and new["object_id"] not in ctx.get("goaded", []):
+            continue  # -- goad (wave 50J) -- 701.15d: goading a creature the same player already goaded has no effect, so it wasn't goaded this way
+        if v.get("named") and getattr(plan.state.cards.get(new["card"]), "name", None) != v["named"]:
+            continue  # -- reflexive this way (wave 30G) -- the tokens this instruction asked for, by name (a Chatterfang's extra Squirrels aren't)
         if v.get("by") == "you" and getattr(plan.state.cards.get(new["card"]), "owner", None) != you:
             continue  # (wave 19C: only the cards the controller discarded / milled)
         if v["this_way"] == "your_graveyard" and not (new.get("zone") or "").startswith(f"{you}:"):
             continue
-        if sel is not None:
+        if sel is not None and v["this_way"] == "battlefield_put":  # -- most-played cards II (wave 45A) -- the permanent it became: what it is now that it is there ("a Cave", "a land card")
+            now = plan.state.cards.get(new["card"])
+            if now is None or plan.oid(now) != new["object_id"] or not now.zone.endswith(":battlefield") or not selectors.matches(
+                    plan, selectors.replace(sel, card=False, zones=("battlefield",)), now, plan.ch(now), you):
+                continue
+        elif sel is not None:
             if sel.card:  # a card: where it went (a public zone, 400.7j / 701.17c)
                 card = plan.state.cards.get(new["card"])
+                if v.get("public") and card is not None and not card.is_token and new["object_id"] == was["object_id"]:
+                    # (wave 45A: a card put into the hand that was public before - milled, revealed: its printed kind; scripts.py checked the look before it)
+                    if not selectors.matches(plan, sel, card, plan.ch(card), you):
+                        continue
+                    out.append((new, was))
+                    continue
                 if card is None or new["object_id"] == was["object_id"] or card.is_token:
                     continue  # (a hidden zone, or gone: nothing to read; a token isn't a card, 111.1)
                 then = card if card.zone == new.get("zone") else card.model_copy(update={"zone": new.get("zone") or card.zone})
@@ -365,13 +469,11 @@ def damage_dealt(found: Any) -> Any:
     damage instruction just before actually dealt — after prevention and replacement (615.6, 120.4: the damage events
     as they are dealt), all recipients together. Only right after one plain damage instruction; anything else in
     between, or no such instruction, leaves the ability manual."""
-    import json
-
-    if found is None or f'"{DAMAGE_DEALT}"' not in json.dumps(found[0]):
+    if found is None or f'"{DAMAGE_DEALT}"' not in _own_json(found[0]):
         return found
     effects = found[0]
     for i, e in enumerate(effects):
-        if f'"{DAMAGE_DEALT}"' not in json.dumps(e):
+        if f'"{DAMAGE_DEALT}"' not in _own_json([e]):
             continue
         prev = effects[i - 1] if i else None
         if prev is None or prev.get("do") != "damage" or prev.get("with_next") or prev.get("bind_dealt") \
@@ -391,12 +493,10 @@ def excess_dealt(found: Any) -> Any:
     replacement, above lethal damage — a planeswalker's loyalty, a battle's defense — to the permanent it was dealt to, as it was
     before the damage). Bound to the nearest plain damage instruction before the first thing that reads it; that instruction
     must name one target (several recipients: "to that creature" would be ambiguous). Anything else leaves the line manual."""
-    import json
-
-    if found is None or f'"{EXCESS_DEALT}"' not in json.dumps(found[0]):
+    if found is None or f'"{EXCESS_DEALT}"' not in _own_json(found[0]):
         return found
     effects = list(found[0])
-    first = next(i for i, e in enumerate(effects) if f'"{EXCESS_DEALT}"' in json.dumps(e))
+    first = next(i for i, e in enumerate(effects) if f'"{EXCESS_DEALT}"' in _own_json([e]))
     prev = next((i for i in range(first - 1, -1, -1) if effects[i].get("do") == "damage"), None)
     if prev is None:
         return None
@@ -408,10 +508,10 @@ def excess_dealt(found: Any) -> Any:
     return effects, found[1], found[2]
 
 
-def excess_of(plan: Plan, events: list[dict[str, Any]]) -> int:
+def excess_by_target(plan: Plan, events: list[dict[str, Any]], *, note: bool = True) -> dict[str, int]:
     """120.10: the damage dealt by these events to permanents, in excess of what was lethal (a creature: its toughness less the
     damage marked before this damage; a planeswalker: its loyalty; a battle: its defense; several of those types: the greatest),
-    all sources together, summed over the permanents. Read before the damage is recorded. -- review (wave 10C) -- 120.4a: "Any
+    all sources together, for each permanent that was dealt some. Read before the damage is recorded. -- review (wave 10C) -- 120.4a: "Any
     amount of damage greater than 1 is excess damage if the source dealing that damage to a creature has deathtouch" (702.2c: any
     nonzero deathtouch damage is lethal for excess): a deathtouch source's damage beyond 1 is excess (all of it once the creature
     has already been dealt lethal). Wither and infect (120.3d) deal the same damage, as counters: lethal damage is unchanged.
@@ -427,10 +527,10 @@ def excess_of(plan: Plan, events: list[dict[str, Any]]) -> int:
                 dt[ev["target"]] = dt.get(ev["target"], 0) + n
                 dt_hits[ev["target"]] = dt_hits.get(ev["target"], 0) + 1
     mixed = [cid for cid in dt if dt[cid] != total[cid] and plan.ch(plan.state.cards[cid]).is_creature]
-    if mixed:
+    if mixed and note:  # (``note`` False: the trigger record of every damage event, wave 39B, which asks nobody)
         plan.note("Damage from a deathtouch source and from other sources was dealt to the same creature together: the excess is "
                   "counted as the damage beyond its toughness — adjust by hand if it should differ", mixed)
-    excess = 0
+    excess: dict[str, int] = {}  # -- trigger damage (wave 39B) -- per permanent: do_damage records it on the damage event (a trigger reads it)
     for cid, n in total.items():
         card = plan.state.cards[cid]
         if not card.zone.endswith(":battlefield"):
@@ -445,8 +545,13 @@ def excess_of(plan: Plan, events: list[dict[str, Any]]) -> int:
             over.append(n - card.counters.get("loyalty", 0))
         if "Battle" in ch.types:
             over.append(n - card.counters.get("defense", 0))
-        excess += max(0, max(over, default=0))
+        excess[cid] = max(0, max(over, default=0))
     return excess
+
+
+def excess_of(plan: Plan, events: list[dict[str, Any]]) -> int:
+    """120.10: the excess damage of these events, summed over the permanents they dealt damage to (``excess_by_target``)."""
+    return sum(excess_by_target(plan, events).values())
 
 
 _SWAP = re.compile(r"^each player exiles all (?P<cards>creature) cards from their graveyard, then sacrifices all (?P<perms>creatures) "

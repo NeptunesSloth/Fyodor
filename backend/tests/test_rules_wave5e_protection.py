@@ -114,8 +114,7 @@ def test_wordings():
     assert static_definition("You, planeswalkers you control, and other creatures you control have hexproof.")["player_shield"]
 
 
-@pytest.mark.parametrize("text", [
-    "Target creature gains protection from the card type of your choice until end of turn.",
+@pytest.mark.parametrize("text", [  # ("the card type of your choice" is read since wave 42C: tests/test_rules_wave42c_activated.py, Pippin)
     "You gain protection from that player until your next turn.",
     "Target creature gains protection from the color of your choice until your next turn.",
 ])

@@ -297,3 +297,114 @@ def deck_identity(commanders: list[dict[str, Any]]) -> tuple[str, ...]:
     """The combined color identity of a deck's commanders (702.124c)."""
     colors = {c for card in commanders for c in color_identity(card)}
     return tuple(c for c in COLORS if c in colors)
+
+
+# -- companion (wave 38D) -- 702.139a: "Companion — [condition]" functions outside the game: before the game you may reveal one card you
+# own with a companion ability whose condition your starting deck fulfills (103.2b); 702.139b: that deck is the one before sideboarding
+# and, in a Commander game, "also before you've set aside your commander" — the commander counts (Scryfall ruling on Lurrus,
+# 2020-04-17: "Your deck, including your commander, must meet its companion requirement. Your companion is not one of your one hundred
+# cards."). A companion in the deck or as the commander does nothing (ruling: it "creates no restriction"). The ten restrictions are read
+# from the card's own line; any other wording is not checked (the special action then stays manual: casting.companion_action).
+PERMANENT_TYPES = frozenset({"Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker"})  # 110.4
+_QUOTED = re.compile(r'"[^"]*"')
+_KAHEERA = frozenset({"Cat", "Elemental", "Nightmare", "Dinosaur", "Beast"})
+
+
+def _each(ok: Any, why: str) -> Any:
+    def check(deck: list[Any]) -> str | None:
+        bad = sorted({c.name for c in deck if not ok(c)})
+        return f"{why} ({', '.join(bad[:3])}{'…' if len(bad) > 3 else ''})" if bad else None
+
+    return check
+
+
+def _symbols_repeat(c: Any) -> bool:
+    """Jegantha: the exact symbols of the mana cost are compared ({X}{X}{R}, {R/G}{R/G}: a repeat; 709.4b: a split card's cost is both
+    halves', so Fire // Ice repeats {1}); a double-faced card, an adventurer card and a Room use the cost it has outside the stack."""
+    symbols = _SYMBOL.findall(c.mana_cost or "")
+    return len(set(symbols)) < len(symbols)
+
+
+# -- review 35 -- the keyword abilities the rules call activated abilities (702.6a equip, 702.29a cycling and 702.29e typecycling, 702.122a crew,
+# 702.49a ninjutsu, 702.53a, 702.65a, 702.67a, 702.71a, 702.77a, 702.84a, 702.87a, 702.97a, 702.107a, 702.128a, 702.129a, 702.141a, 702.151a,
+# 702.167a craft, 702.171a saddle, 702.184a station): their Oracle line has no reminder text on most cards ("Equip {1}": Bonesplitter), so no colon.
+# A line about such abilities ("Equip abilities you activate cost {1} less", "Cycling abilities …") isn't one: the cost follows the keyword.
+_ACTIVATED_KEYWORD = re.compile(
+    r"^(?:equip(?: (?!abilities\b|costs?\b)[\w'-]+(?:,? (?:or )?[\w'-]+)*?)?|(?:\w+ )?\w*cycling|crew|saddle|(?:commander )?ninjutsu|transmute|aura swap"
+    r"|fortify|transfigure|reinforce [\dX]+|unearth|level up|scavenge|outlast|embalm|eternalize|encore|reconfigure|craft with .+?|station)"
+    r"(?: (?:\{|\d|X\b)|—|$)", re.IGNORECASE)
+
+
+def _activated(c: Any) -> bool:
+    """Zirda: Gatherer ruling 2020-04-17: "Activated abilities contain a colon", and keyword abilities show it in their reminder text
+    (equip, cycling …). An ability in quotation marks belongs to what is given it, and so does a keyword a line says something "has"
+    ("Each creature card in your graveyard has unearth {2}{B}. ({2}{B}: Return …)"); 305.6: a basic land type is an intrinsic mana ability.
+    (review 35: an activated keyword printed without its reminder text, ``_ACTIVATED_KEYWORD``.)"""
+    for line in _QUOTED.sub("", c.oracle_text or "").splitlines():
+        main = strip_reminders(line)
+        if ":" in main or (":" in line and not re.search(r"\b(?:has|have)\b", main)) or _ACTIVATED_KEYWORD.match(main.strip()):
+            return True
+    return bool(c.subtypes & BASIC_TYPES.keys())
+
+
+def _shared_type(deck: list[Any]) -> str | None:
+    """Umori: one card type that every nonland card has (ruling: an artifact creature and a creature share Creature; an artifact creature,
+    an artifact and a creature don't)."""
+    nonland = [c.types for c in deck if "Land" not in c.types]
+    return None if not nonland or frozenset.intersection(*nonland) else "the nonland cards have no card type in common"
+
+
+def _distinct_names(deck: list[Any]) -> str | None:
+    names = [c.name for c in deck if "Land" not in c.types]
+    dupes = sorted({n for n in names if names.count(n) > 1})
+    return f"some nonland cards share a name ({', '.join(dupes[:3])})" if dupes else None
+
+
+def _never(deck: list[Any]) -> str:
+    """Yorion: "at least twenty cards more than the minimum deck size". 903.5a: a Commander deck's minimum and maximum size are both 100,
+    so 120 can't be reached (ruling 2020-04-17: "Yorion can never be your chosen companion in a Commander game")."""
+    return "a Commander deck has exactly 100 cards (903.5a), never the 120 this needs"
+
+
+COMPANION_RESTRICTIONS: dict[str, Any] = {  # the condition (reminder text and the full stop left out, lower case) → deck -> why not, or None
+    "each permanent card in your starting deck has mana value 2 or less":
+        _each(lambda c: not c.types & PERMANENT_TYPES or c.mana_value <= 2, "a permanent card has mana value 3 or more"),
+    "each permanent card in your starting deck has an activated ability":
+        _each(lambda c: not c.types & PERMANENT_TYPES or _activated(c), "a permanent card has no activated ability"),
+    "no card in your starting deck has more than one of the same mana symbol in its mana cost":
+        _each(lambda c: not _symbols_repeat(c), "a mana cost repeats a mana symbol"),
+    "your starting deck contains only cards with even mana values":  # (X is 0 outside the stack: 202.3e; {½} makes a value odd)
+        _each(lambda c: c.mana_value % 2 == 0, "a card has an odd mana value"),
+    "each creature card in your starting deck is a cat, elemental, nightmare, dinosaur, or beast card":
+        _each(lambda c: "Creature" not in c.types or bool(c.subtypes & _KAHEERA), "a creature card is none of those types"),
+    "your starting deck contains only cards with mana value 3 or greater and land cards":
+        _each(lambda c: "Land" in c.types or c.mana_value >= 3, "a nonland card has mana value 2 or less"),
+    "your starting deck contains only cards with odd mana values and land cards":
+        _each(lambda c: "Land" in c.types or c.mana_value % 2 == 1, "a nonland card has an even mana value"),
+    "each nonland card in your starting deck shares a card type": _shared_type,
+    "each nonland card in your starting deck has a different name": _distinct_names,
+    "your starting deck contains at least twenty cards more than the minimum deck size": _never,
+}
+
+
+def companion_condition(text: str | None) -> str | None:
+    """The condition of a card's "Companion — …" line, as ``COMPANION_RESTRICTIONS`` keys it (None: no such line)."""
+    for line in (text or "").splitlines():
+        m = re.match(r"companion\s*[—-]\s*(?P<c>.+)", strip_reminders(line).strip(), re.I)
+        if m:
+            return m["c"].strip().rstrip(".").lower()
+    return None
+
+
+def companion_problem(companion: dict[str, Any], deck: list[dict[str, Any]]) -> str | None:
+    """Why ``companion`` can't be chosen with this starting deck (every card of it, the commander included: 702.139b), or None (103.2b)."""
+    from app.rules.characteristics import (
+        printed_from_data,  # (characteristics imports the game state: not at load time)
+    )
+
+    name = companion.get("name")
+    check = COMPANION_RESTRICTIONS.get(companion_condition(companion.get("oracle_text")) or "")
+    if check is None:
+        return f"{name} has no companion condition Fyodor can check"
+    why = check([printed_from_data(d) for d in deck])
+    return f"{name} can't be your companion: {why}" if why else None

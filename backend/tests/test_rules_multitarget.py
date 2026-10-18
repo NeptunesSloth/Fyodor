@@ -95,7 +95,7 @@ def test_pronouns_bind_to_the_last_group():
 
 @pytest.mark.parametrize("text", [
     "~ deals X damage divided as you choose among any number of target creatures, where X is its power.",
-    "Exile two target cards from an opponent's graveyard.",  # (the same opponent's? not a guess)
+    "Exile two target cards from an opponent's graveyard and an opponent's hand.",  # (wave 48A: one opponent's graveyard is settled by the rulings; any other pairing is not read)
     # "with flying" qualifies only the creature (any artifact can be chosen): a selector can't say that
     "~ deals 2 damage to another target.",  # ("another" than what?)
 ])

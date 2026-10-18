@@ -21,7 +21,7 @@ from typing import Any
 
 from app.game.rules_state import ObjectRef, TriggerEvent
 
-_THAT = re.compile(r"\bthat creature(?:'s)?\b")
+_THAT = re.compile(r"\bthat (?:creature|permanent)(?:'s)?\b")  # (wave 30S: "becomes unattached from a permanent, sacrifice that permanent")
 _IT = re.compile(r"\b(?:it|its|itself)\b", re.IGNORECASE)
 
 
@@ -29,7 +29,8 @@ def wanted(cond: dict[str, Any] | None) -> bool:
     """A condition whose event pairs this object with a creature on the other side."""
     if not cond:
         return False
-    return bool(cond.get("other")) or (cond.get("event") == "deal_damage" and cond.get("to") == "creature")
+    # (-- trigger other (wave 44B) -- "deals combat damage to a planeswalker, destroy that planeswalker": the planeswalker dealt damage, 120.1)
+    return bool(cond.get("other")) or (cond.get("event") == "deal_damage" and cond.get("to") in ("creature", "planeswalker"))
 
 
 def antecedent(cond: dict[str, Any] | None, body: str) -> str | None:

@@ -17,7 +17,7 @@
 * 608.2h / 601.1: "put any number of creature cards from your hand onto the battlefield", "an artifact card with mana value less than or
   equal to that damage" - chosen privately, not cast.
 * 701.21a: "sacrifice any number of other permanents, then draw that many cards" - the player picks which (none is allowed).
-* "deals 1 damage to the player or planeswalker it's attacking" stays manual (Hellrider-style damage after leaving combat is unsettled).
+* "deals 1 damage to the player or planeswalker it's attacking" was manual here (review 19); automated in wave 45A (tests/test_rules_wave45a_attacked.py).
 """
 
 from __future__ import annotations
@@ -91,20 +91,14 @@ def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
-def test_that_many_after_sacrificing_any_number_stays_manual(cards):
-    # Scapeshift: "up to that many" is the number of lands sacrificed, not an event's amount - not read (wrong automation otherwise)
-    from tests.fixtures.cards import card
-
-    scape = card("Scapeshift", set_code="tst", number="19B1", mana_cost="{2}{G}{G}", cmc=4.0, type_line="Sorcery", colors=["G"],
-                 color_identity=["G"], keywords=[], oracle_text="Sacrifice any number of lands. Search your library for up to that many land cards, put them onto the battlefield tapped, then shuffle.")
-    assert coverage.of_card_data(scape).level != "FULL"
+# (Scapeshift's "up to that many" — the lands sacrificed — is read since wave 30G: tests/test_rules_wave30g_action_memory.py)
 
 
-def test_damage_to_what_it_is_attacking_stays_manual(cards):
-    # Review 19: "the player or planeswalker it's attacking" after the attacker left combat is an unsettled ruling
-    # (docs/CURRENT_STATE.md: Hellrider-style damage stays manual)
+def test_damage_to_what_it_is_attacking_is_automated_since_wave_45a(cards):
+    # Review 19 kept it manual ("after the attacker left combat" looked unsettled); wave 45A read the rulings (Raid Bombardment 2018-12-07: it left the battlefield, it
+    # damages what it was attacking; Fathom Fleet Swordjack 2020-11-10: still on the battlefield but out of combat, nothing): tests/test_rules_wave45a_attacked.py
     for name in ("Hellrider", "Scorch Spitter"):
-        assert coverage.of_card_data(cards.resolve(name)).level != "FULL"
+        assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
 @pytest.mark.parametrize("name, kind", [("Edric, Spymaster of Trest", "Rogue"), ("Synapse Sliver", "Sliver")])

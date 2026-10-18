@@ -16,10 +16,11 @@ import re
 from typing import Any
 
 PREFIX = "graveyard_of:"
-_PLAYERS = {"target player's": ("target", "player"), "target opponent's": ("target", "opponent"),
+_PLAYERS = {"its controller's": ("it.controller", None), "its owner's": ("it.owner", None),  # (-- turn-long triggers (wave 35B) -- a pronoun: scripts.resolve_it binds it)
+            "target player's": ("target", "player"), "target opponent's": ("target", "opponent"),
             "each opponent's": ("each_opponent", None), "each player's": ("each_player", None),
             "all": ("each_player", None), "all opponents'": ("each_opponent", None)}  # (wave 20F: Phyrexian Scriptures)
-_EXILE = re.compile(r"^exile (?P<p>target player's|target opponent's|each opponent's|each player's) graveyard$|"
+_EXILE = re.compile(r"^exile (?P<p>target player's|target opponent's|each opponent's|each player's|its controller's|its owner's) graveyard$|"
                     r"^exile (?P<p3>all opponents') graveyards$|"
                     r"^exile (?P<all>all) graveyards$|"
                     r"^exile all (?P<sel>[a-z]+ cards) from (?P<p2>target player's|target opponent's) graveyard$")  # (wave 15C)
@@ -38,4 +39,12 @@ def _effect(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "exile", "who": PREFIX + who}], target
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_EXILE, _effect)]
+def _many(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """-- graveyard exile (wave 51C) -- "Exile any number of target players' graveyards." (Thraben Charm, Stonespeaker Crystal): one target group of zero or more players (115.1, 601.2c),
+    each one's whole graveyard exiled at once"""
+    from app.rules import language  # (a leaf module)
+
+    return [{"do": "exile", "who": PREFIX + "target"}], language.target_group("any number of target players")
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_EXILE, _effect), (re.compile(r"^exile any number of target players' graveyards$"), _many)]

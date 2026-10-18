@@ -6,8 +6,8 @@ A value is an int (a literal) or a dict:
 
 * ``{"x": 1}`` — the X the spell or ability was cast / activated with (107.3);
 * ``{"count": "<selector key>"}`` — the number of objects (or players) matching a selector;
-* ``{"hand": "you" | "target"}`` — the number of cards in a player's hand;
-* ``{"opponents": 1}`` — the number of opponents still in the game;
+* ``{"hand": "you" | "target" | "opponent_max"}`` — the number of cards in a player's hand (opponent_max, wave 42A: the largest hand among your opponents);
+* ``{"opponents": 1}`` — the number of opponents still in the game; ``{"players_lost": 1}`` — the players who have lost the game, ``{"lowest_life": 1}`` — the lowest life total among the players, ``{"below_start": 1}`` — how far your life total is below the starting one, ``{"greater": [a, b]}`` — the larger of two values (wave 51G);
 * ``{"power": "self" | "target" | "it" | "event" | "ref:<b>"}`` / ``{"toughness": …}`` /
   ``{"mana_value": …}`` — of an object (as it is, or as it last existed: 608.2h);
 * ``{"counters": kind | None, "on": "self" | "target" | …}`` — counters of a kind (None: of all
@@ -49,8 +49,10 @@ if TYPE_CHECKING:
 
 Value = int | dict[str, Any]
 NUMBERS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
-           "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "twenty": 20}
-AMOUNT = r"(?:twice [xX]|(?:two|three|four) times [xX]|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|x|X|that much|that many)"
+           "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "twenty": 20,
+           "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+           "thirty": 30, "forty": 40, "fifty": 50}  # (static_other, wave 36B: "if you control thirty or more artifacts" (Knuckles the Echidna), "mills fourteen cards")
+AMOUNT = r"(?:twice [xX]|half [xX] rounded (?:up|down)|(?:two|three|four|five|six|seven|eight|nine|ten) times [xX]|[xX] (?:plus|minus) (?:\d+|one|two|three|four|five)|twice that (?:much|many)|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|x|X|that much|that many)"  # (wave 36B: the number words up to nineteen; wave 34C: "five times X", "X plus 3", "X minus one")
 
 # Counters that carry rules the engine doesn't model yet (122.1b keyword counters, 122.1c shield,
 # 122.1d stun, 122.1h finality, 122.1i rad, 714 lore): an effect putting one of these
@@ -76,11 +78,30 @@ def parse_amount(word: str) -> Value | None:
         return NUMBERS[w]
     if w == "x":
         return {"x": 1}
-    if (m := re.fullmatch(r"(?:twice|(two|three|four) times) x", w)) is not None:  # (wave 16D) "twice X", "three times X"
+    if (m := re.fullmatch(r"(?:twice|(two|three|four|five|six|seven|eight|nine|ten) times) x", w)) is not None:  # (wave 16D) "twice X", "three times X"
         return {"times": [NUMBERS[m[1]] if m[1] else 2, {"x": 1}]}
+    if (m := re.fullmatch(r"half x rounded (up|down)", w)) is not None:  # -- X arithmetic (wave 34C) -- 107.1a: rounded as the text says (half_x)
+        return {"half": {"x": 1}, "round": m[1]}
+    if (m := re.fullmatch(r"x (plus|minus) (\d+|one|two|three|four|five)", w)) is not None:  # -- X arithmetic (wave 34C) -- "X plus 3", "X minus one" (107.1b: never below 0)
+        return {m[1]: [{"x": 1}, int(m[2]) if m[2].isdigit() else NUMBERS[m[2]]]}
     if w in ("that much", "that many"):
         return {"event_amount": 1}  # the trigger event's amount (TriggerEvent.amount)
+    if w in ("twice that much", "twice that many"):  # -- reflexive this way (wave 30G) -- "deals twice that much damage"
+        return {"times": [2, {"event_amount": 1}]}
     return None
+
+
+_HALF_X_NOUN = re.compile(r"\bhalf X ([a-z]+(?: counters)?),? rounded (up|down)(?:,(?= ))?")
+_ROUND_EACH = re.compile(r"^(?P<pre>.*?)\s*\bRound (?P<dir>up|down) each time\.", re.S)
+
+
+def half_x(text: str) -> str:
+    """-- X arithmetic (wave 34C) -- 107.1a: "half X" is rounded the way the text says, wherever it says so ("draw half X cards, rounded down",
+    "half X damage, rounded up, to you", "…half X life and draw half X cards. Round down each time."): the rounding moves next to the
+    quantity ("half X rounded down cards"), where the amount grammar reads it (``AMOUNT``)."""
+    if (each := _ROUND_EACH.match(text)) is not None:
+        text = re.sub(r"\bhalf X\b(?! rounded)", f"half X rounded {each['dir']}", each["pre"]) + text[each.end():]
+    return _HALF_X_NOUN.sub(lambda m: f"half X rounded {m[2]} {m[1]}", text)
 
 
 # -- dynamic values (agent F): "the number of …" and friends --------------------------------------
@@ -114,6 +135,8 @@ _COUNTERS_AMONG = re.compile(r"^(?:(?P<kinds>different kinds of counters)|(?:(?P
 _DAMAGE_EVENT = re.compile(r"^the amount of (?:combat )?damage (?:(?:it|he|she|they|~|this creature|that creature|those creatures) dealt"
                            r"(?: to (?:that player|that opponent|them))?|dealt)$")
 _HALF = re.compile(r"^half (?P<v>.+?), rounded (?P<round>up|down)$")
+_EVENT_GROUP = re.compile(r"^(?:(?P<max>the (?:greatest|highest) (?P<s1>power|toughness|mana value) among (?:them|those creatures))"
+                          r"|their total (?P<s2>power|toughness|mana value)|(?:the )?total (?P<s3>power|toughness|mana value) of (?:them|those creatures))$")
 _PLUS = re.compile(r"^(?P<v>.+?) plus (?P<n>\d+|one|two|three|four|five)$")
 _TYPE_WORDS = "|".join(selectors.CARD_TYPES)
 
@@ -135,9 +158,9 @@ _MANA_FROM = re.compile(r"(?:the amount of )?(?:\{S\}|mana from (?:an? )?(?P<wha
 _MANA_SPENT = re.compile(r"(?:the )?amount of mana spent to cast (?P<o>that spell|this spell|her|him|~|this creature)")
 
 
-_THAT_PLAYER = re.compile(r"\b(?:that player's|their|that player controls|they control|that player owns|they own)\b")
+_THAT_PLAYER = re.compile(r"\b(?:that player's|their|that player controls|they control|that player owns|they own|they have|that player has|that opponent controls)\b")
 _THAT_PLAYER_TO_YOU = {"that player's": "your", "their": "your", "that player controls": "you control", "they control": "you control",
-                       "that player owns": "you own", "they own": "you own"}
+                       "that player owns": "you own", "they own": "you own", "they have": "you have", "that player has": "you have", "that opponent controls": "you control"}  # (wave 30N: "poison counters they have")
 
 
 def player_relative(phrase: str) -> Value | None:
@@ -193,6 +216,14 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return None if inner is None else {"minus": [inner, 1]}
     # -- cost self reduction (wave 16F) -- "for each 1 life you gained this turn" (a count of life)
     p = re.sub(r"^1 (life you (?:gained|lost) this turn)$", r"\1", p)
+    p = re.sub(r"^the amount of (unspent (?:\w+ )?mana you have)$", r"the number of \1", p)  # -- activated other (wave 48C) -- Glissa Sunseeker: 106.4, the same count
+    if p == "the amount of life you gained":  # -- event batches (wave 34C) -- "Whenever you gain life, …": the event's amount (scripts._event_refs_ok: only a life-gain trigger has one)
+        return {"event_amount": 1}
+    p = re.sub(r"\b(counters?) (?:it|he|she|they) had on (it|them)$", r"\1 on \2", p)  # -- event batches (wave 34C) -- "the number of counters it had on it" (Felisa): as it last existed (608.2h)
+    g = re.fullmatch(r"(?P<a>\d+|the .+?) or (?P<b>the .+?), whichever is greater", p)  # -- most-played cards IV (wave 51G) -- "the number of Zombies you control or the number of Zombie cards in your graveyard, whichever is greater" (Prophet of the Scarab): the larger count
+    if g:
+        a, b = (int(g["a"]) if g["a"].isdigit() else _parse_count(g["a"], it=it)), _parse_count(g["b"], it=it)
+        return None if a is None or b is None else {"greater": [a, b]}
     m = _COUNT.match(p)
     what = m["what"] if m else p
     if what.lower() == "x":
@@ -223,10 +254,16 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"minus": [a, b]} if a is not None and b is not None else None
     if what in ("cards in their hand", "cards in that player's hand", "card in their hand", "card in that player's hand"):
         return {"hand": "that_player"}  # (scripts._that_players_hand binds it: the target player, or the trigger's)
+    if what in ("cards in their library", "cards in that player's library"):  # -- most-played cards II (wave 45A) -- Peer into the Abyss: the same binding, a library's public count
+        return {"library": "that_player"}
     m = re.match(r"^twice (?P<v>.+)$", what)
     if m:
         inner = parse_count(m["v"], it=it)
         return {"times": [2, inner]} if inner is not None else None
+    m = _EVENT_GROUP.match(what)  # -- event batches (wave 34C) -- scripts._event_refs_ok: only a trigger whose event holds the batch
+    if m:
+        stat = (m["s1"] or m["s2"] or m["s3"]).replace(" ", "_")
+        return {"max" if m["max"] else "sum": stat, "of": "event"}
     m = _HALF.match(what)
     if m:
         inner = parse_count(m["v"], it=it)
@@ -255,14 +292,22 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"hand": "target"}
     if what in ("cards in all players' hands", "card in all players' hands"):  # -- X sized by a count (wave 19F) --
         return {"hand": "all"}
+    if what in ("cards in the hand of the opponent with the most cards in hand", "cards in the hand of the opponent with the most cards in their hand"):
+        return {"hand": "opponent_max"}  # -- static_other (wave 42A) -- Adamaro: the largest hand among your opponents (a count of cards, public: 402.3)
     if what in ("opponents you have", "opponent you have", "your opponents", "opponent", "opponents"):
         return {"opponents": 1}
+    if what in ("player who has lost the game", "players who have lost the game"):  # -- most-played cards IV (wave 51G) -- Rampant Frogantua: the seats no longer in the game (800.4)
+        return {"players_lost": 1}
     if what in ("cards exiled with ~", "cards exiled with it", "card exiled with ~", "card exiled with it"):
         return {"exiled_with": 1}  # -- resolution memory (wave 22D) -- 607.2a: the cards the linked ability exiled and that are still there
     if what == "opponent you attacked with a creature this combat":  # -- casting extras (wave 18E) -- melee 702.121a
         return {"attacked_opponents": 1}
+    if what in ("players being attacked", "player being attacked"):  # -- if you do (wave 40A) -- "draw a card for each player being attacked" (Amber Gristle O'Maul), "create a
+        return {"players_attacked": 1}  # Food token for each player being attacked" (Apothecary White): the players some creature is attacking now (506.2, 506.6; not a player whose planeswalker or battle is attacked — Commander Liara Portyr's ruling of 2022-06-10, Suppressor Skyguard's of 2024-02-02)
     if re.fullmatch(r"times? (?:it|he|she|~|this (?:spell|creature|permanent|enchantment|artifact|land|planeswalker)) (?:was|were) kicked", what):
         return {"kicked": 1}  # (wave 23C: plural and "he"/"she"/"this permanent": 702.33d, a permanent remembers how its spell was kicked)
+    if what in ("times that spell was kicked", "time that spell was kicked"):  # -- cast keywords (wave 43D) -- Rumbling Aftershocks: the cast trigger's spell (its record, 702.33d)
+        return {"kicked": 1, "of": "cast_spell"}
     if what in ("times this creature has mutated", "times ~ has mutated", "times this permanent has mutated", "time this creature has mutated"):  # -- merged permanents (wave 18D)
         return {"mutated": 1}  # (702.140: how many spells merged with it)
     if what in ("creature it devoured", "creature ~ devoured"):  # -- keyword mechanics (wave 9D) -- 702.82b
@@ -286,6 +331,9 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"life": "target"}
     if what in ("the highest life total among your opponents", "the greatest life total among your opponents"):
         return {"life": "opponent_max"}
+    m = re.fullmatch(r"(?:the number of )?(?P<c>white|blue|black|red|green) mana symbols? in that spell's mana cost", what)
+    if m:  # -- trigger other (wave 44B) -- Namor the Sub-Mariner: the symbols of that color in the mana cost of the spell a cast trigger is about (202.1, 107.4e hybrid counts for each color)
+        return {"cast_symbols": _COLOR_WORDS[m["c"]]}
     m = re.fullmatch(r"(?P<c>white|blue|black|red|green) mana symbols? (?:in|among) the mana costs? of permanents you control", what)
     if m:  # -- value grammar (wave 23C) -- 700.5: that IS devotion (chroma)
         return {"devotion": [_COLOR_WORDS[m["c"]]]}
@@ -295,8 +343,12 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     m = _PLAYER_COUNTERS.match(what)
     if m:
         return {"player_counters": m["kind"]}
+    if what == "differently named dungeon you've completed":  # -- dungeons (wave 45B) -- 309.7: Ellywick Tumblestrum's emblem, one per name
+        return {"dungeons_completed": 1}
     if _EXCESS_DEALT.fullmatch(what):  # -- as long as (wave 9B) -- 120.10: scripts bind it to the damage just before (this_way.excess_dealt)
         return {"ref_amount": "excess_dealt"}
+    if (gv := re.fullmatch(r"graveyards? with (?P<n>\w+) or more cards? in (?:it|them)", what)) is not None and gv["n"] in NUMBERS:
+        return {"graveyards_with": NUMBERS[gv["n"]]}  # -- trigger other (wave 44D) -- "a card for each graveyard with seven or more cards in it" (The Master of Lake-town): every player's, 404.1
     if re.fullmatch(r"cards in all graveyards with the same name as (?:that|the) spell", what):  # -- value grammar (wave 23C) -- Cabal Shrine: 201.2
         return {"same_name": "event", "zone": "graveyard"}  # (the spell a cast trigger is about; scripts._event_refs_ok)
     if _DAMAGE_EVENT.fullmatch(what):  # -- value grammar (wave 23C) -- "the amount of damage it dealt to that player": the damage trigger's amount
@@ -335,7 +387,14 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         if on is None or (m["kind"] and m["kind"] in UNMODELED_COUNTERS):
             return None
         return {"counters": m["kind"], "on": on}
+    if (m := re.fullmatch(r"abilities from among (?P<ks>.+?) found among (?P<sel>.+)", what)) is not None:  # -- keyword soups (wave 50J) -- Odric, Blood-Cursed
+        from app.rules import keyword_soup
+
+        ks, key = keyword_soup.words(m["ks"]), _selector_key(m["sel"])
+        return {"abilities_among": ks, "among": key} if ks and key else None
     m = _AMONG.match(what)
+    if m and m["sel"] in ("spells you've cast this turn", "spells you have cast this turn") and _DISTINCT[m["kind"]] == "types":
+        return {"cast_types": "you"}  # -- trigger other (wave 44B) -- April O'Neil: the card types of this turn's cast spells, as they were cast (601.2i, history.CastNote)
     if m:
         key = _selector_key(m["sel"])
         return {"distinct": _DISTINCT[m["kind"]], "among": key} if key else None
@@ -343,6 +402,13 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"max": "mana_value", "of": selectors.Selector(commander=True, owner="you", zones=selectors.ZONES).key()}
     if what == "the greatest mana value of a commander you own on the battlefield or in the command zone":  # -- amounts (wave 12C) --
         return {"max": "mana_value", "of": selectors.Selector(commander=True, owner="you", zones=("battlefield", "command")).key()}  # 903.3
+    m = re.fullmatch(r"the (?:greatest|highest) mana value among (?P<sel>.+? spells?) you(?:'ve| have) cast this turn", what)
+    if m:  # -- this-turn state (wave 33D) -- Rootha: the spells cast this turn, as they were cast (601.2i), an {X} spell with its X (202.3e)
+        from app.rules import conditions  # (conditions imports this module)
+
+        kind = re.sub(r"^(instant|sorcery) and (instant|sorcery) ", r"\1 or \2 ", m["sel"])
+        key = conditions._history_sel(kind, "stack")
+        return None if key is None else {"spells_cast": "you", "sel": key, "greatest": True}
     m = _AGGREGATE.match(what)
     if m:
         # -- X sized by a count (wave 19F) -- "the greatest power among creatures you control and creature cards in your graveyard":
@@ -415,10 +481,22 @@ def _sized(what: str, it: str | None) -> Value | None:
 # "cards you've drawn this turn", "creatures that died this turn", "opponent who drew two or more cards this turn".
 _TURN_LIFE = re.compile(r"^(?:the )?(?:amount of )?life you(?:'ve| have)? (?P<k>gained|lost) this turn$")
 _TURN_SPELL = re.compile(r"^spell (?P<who>you|they)(?:'ve| have) cast this turn$")
+# -- this-turn state (wave 42B) -- 119.3, 608.2h: "the amount of life you gained this turn or the amount of life you lost this turn, whichever is greater"
+# (Willowdusk, Essence Seer): the larger of the two totals the turn's log keeps (neither is the net change: 119.3)
+_TURN_LIFE_GREATER = re.compile(r"^(?:the )?amount of life you(?:'ve| have)? (?:gained|lost) this turn or the amount of life you(?:'ve| have)? "
+                                r"(?:lost|gained) this turn, whichever is greater$")
+_TURN_CAST = re.compile(r"^(?:the number of )?(?P<other>other )?(?:(?P<sel>[a-z]+(?: (?:and|or) [a-z]+)?) )?spells?"
+                        r"(?: (?P<who>you|they)(?:'ve| have))? cast(?P<before> before it)? this turn(?P<first> other than the first)?$")
 _TURN_DREW = re.compile(r"^(?:the number of )?cards? you(?:'ve| have) drawn this turn$")
-_TURN_DIED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?|[A-Z][a-z-]+) that died(?P<mine> under your control)? this turn$")
-_OPPONENTS_WHO = re.compile(r"^(?:the number of )?opponents? who (?:(?P<drew>drew (?P<n>\w+) or more cards)|"
-                            r"(?P<lost>lost life)|(?P<hurt>was dealt damage)|(?P<lands>had (?P<m>\w+) or more lands enter the battlefield under their control)) "
+_TURN_OPP_DREW = re.compile(r"^(?:the number of )?cards? your opponents(?:'ve| have) drawn this turn$")  # -- commanders (wave 47A) -- Heliod, the Radiant Dawn
+# -- this-turn history (wave 30R) -- also "creature you controlled that died", "creature put into your graveyard from the battlefield" (dies, 700.4,
+# into its owner's graveyard, 400.3) and "permanent that left the battlefield under your control" (to any zone): history.amount "died"
+_TURN_DIED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?|permanents?|[A-Z][a-z-]+)(?P<ctl> you controlled)?"
+                        r"(?: that (?P<verb>died|left the battlefield)|(?: that (?:was|were))? (?P<gy>put into your graveyard from the battlefield))"
+                        r"(?P<mine> under your control)? this turn$")
+_TURN_EXILED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?) that (?:was|were) exiled under your opponents' control this turn$")  # (wave 41B)
+_OPPONENTS_WHO = re.compile(r"^(?:the number of )?(?:your )?opponents? (?:who|that) (?:(?P<drew>drew (?P<n>\w+) or more cards)|"  # (wave 41B: "your opponents")
+                            r"(?P<lost>lost life)|(?P<hurt>(?:was|were) dealt (?P<combat>combat )?damage(?: by ~ or an? (?P<by>[A-Z][a-z]+))?)|(?P<lands>had (?P<m>\w+) or more lands enter the battlefield under their control)) "
                             r"this turn$")
 
 
@@ -426,15 +504,37 @@ _OPPONENTS_HAND = re.compile(r"^(?:the number of )?opponents? who (?:has|have) (
 # ("who has more cards in hand than you" stays manual: tests/test_rules_wave8b_triggers.py)
 
 
+# -- tokens (wave 38B) -- "the number of nontoken creatures you had enter the battlefield under your control this turn" (Gyome, Master Chef), "for each land you
+# had enter the battlefield under your control this turn" (Emergent Sequence): a look back (608.2i) at what entered under your control this turn, whether or not it
+# is still there (the ruling for Gyome counts those that died, stopped being creatures or changed hands), read as each was when it entered (history.entered)
+_TURN_ENTERED = re.compile(r"^(?:the number of )?(?P<sel>(?:nontoken )?(?:creature|land|permanent|artifact)s?) you had enter the battlefield under your control this turn$")
+
+
 def _turn_amount(what: str) -> Value | None:
     if m := _OPPONENTS_HAND.match(what):  # each opponent whose hand size now says so (the count of a hand is public)
         n = int(m["n"]) if m["n"].isdigit() else NUMBERS.get(m["n"])
         return {"opponents_hand": m["cmp"], "n": n} if n is not None else None
+    if m := _TURN_ENTERED.match(what):
+        sel = selectors.parse(m["sel"])
+        return {"turn_history": "entered", "sel": sel.key()} if sel is not None else None
+    if re.fullmatch(r"(?:the )?(?:number of )?times you descended this turn", what):  # -- commander sweep (wave 49B) -- 700.11: the permanent cards put into your graveyard from anywhere (The Mycotyrant)
+        return {"turn_history": "descended"}
     m = _TURN_LIFE.match(what)
     if m:
         return {"turn_history": "gained" if m["k"] == "gained" else "lost"}
+    if _TURN_LIFE_GREATER.match(what):
+        return {"turn_history": "life_greater"}  # (-- this-turn state (wave 42B) --)
     if (m := _TURN_SPELL.match(what)):
         return {"spells_cast": "you" if m["who"] == "you" else "event_player"}
+    if (m := _TURN_CAST.match(what)):  # -- this-turn history (wave 30R) -- "instant and sorcery spells you've cast", "other spells", "spells cast"
+        from app.rules import conditions  # (conditions imports this module)
+
+        kind = re.sub(r"^(instant|sorcery) and (instant|sorcery)$", r"\1 or \2", m["sel"] or "")
+        key = conditions._history_sel(f"{kind} spell" if kind else "spell", "stack")
+        if key is not None:  # (a kind the recorded notes can't answer — keywords, a creature type with a capital … — isn't read)
+            found: Value = {"spells_cast": {"you": "you", "they": "event_player", None: "all"}[m["who"]], "sel": key,
+                            **({"other": True} if m["other"] else {}), **({"before": True} if m["before"] else {})}
+            return {"minus": [found, 1]} if m["first"] else found  # ("other than the first": one fewer, 601.2i)
     if re.fullmatch(r"cards? you(?:'ve)? discarded this turn", what):  # -- value grammar (wave 23C) -- a cycled card is discarded too (702.29a)
         return {"turn_history": "discarded"}
     m = re.fullmatch(r"creature (?:(?P<any>that attacked)|(?P<mine>you attacked with)) this turn", what)
@@ -442,32 +542,52 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "attackers", **({"who": "you"} if m["mine"] else {})}
     if _TURN_DREW.match(what):
         return {"turn_history": "drew"}
+    if _TURN_OPP_DREW.match(what):  # the cards your opponents (still in the game, 800.4a) drew this turn, all of them together (121.1)
+        return {"turn_history": "opp_drew"}
+    m = _TURN_EXILED.match(what)
+    if m:  # -- this-turn history (wave 41B) -- "the number of creatures that were exiled under your opponents' control this turn" (Vren): each left the battlefield
+        # for exile, controlled by an opponent as it left (608.2i: as it last existed there)
+        sel = selectors.parse(m["sel"])
+        return None if sel is None else {"turn_history": "died", "sel": sel.key(), "to": "exile", "who": "opponent"}
     m = _TURN_DIED.match(what)
     if m:  # 700.4; as they last existed on the battlefield (608.2i)
         # -- trigger tail (wave 15B) -- "for each Zubera that died this turn": a creature type counts creatures (700.4)
         sel = selectors.parse(m["sel"] + (" creature" if m["sel"][0].isupper() else ""))
-        if sel is None:
-            return None
+        if sel is None or (m["mine"] and m["ctl"]) or (m["verb"] == "left the battlefield" and not (m["mine"] or m["ctl"])):
+            return None  # (leaving is read only for what was yours: no card counts anyone's)
         # -- X actions (wave 9A) -- "that died under your control this turn": the ones you controlled as they died (700.4)
-        return {"turn_history": "died", "sel": sel.key(), **({"who": "you"} if m["mine"] else {})}
+        return {"turn_history": "died", "sel": sel.key(), **({"who": "you"} if m["mine"] or m["ctl"] else {}),
+                **({"owner": "you"} if m["gy"] else {}), **({"left": True} if m["verb"] == "left the battlefield" else {})}
     # -- X sized by a count (wave 19F) -- this turn's log: tokens you created, permanents you sacrificed, what your opponents lost
     if re.fullmatch(r"tokens? you(?:'ve)? created this turn", what):
         return {"turn_history": "tokens"}
     if m := re.fullmatch(r"permanents? (you(?:'ve)? )?sacrificed this turn", what):  # (wave 21F: The Balrog, "each permanent sacrificed": anyone's)
         return {"turn_history": "sacrificed", **({} if m[1] else {"who": "any"})}
+    if re.fullmatch(r"other artifacts? or creatures? you(?:'ve)? sacrificed this turn", what):  # -- cost reductions paid with objects (wave 47C) -- Dargo, the Shipwrecker: the ones
+        return {"turn_history": "sacrificed", "sel": selectors.Selector(types=("Artifact", "Creature")).key()}  # sacrificed before; this cast's own are sacrificed later (601.2h)
     if re.fullmatch(r"cards? you(?:'ve)? cycled or discarded this turn", what):  # (wave 21F: Hollow One; a cycled card is discarded, 702.29a)
         return {"turn_history": "discarded"}
-    if re.fullmatch(r"(?:the )?(?:total )?(?:amount of )?life (?:lost by your opponents|your opponents have lost) this turn", what):
+    if re.fullmatch(r"(?:the )?(?:total )?(?:amount of )?(?:1 )?life (?:lost by your opponents|your opponents (?:have )?lost) this turn", what):  # (wave 30J: "for each 1 life", Neheb; "the total amount of life your opponents lost", Florian)
         return {"turn_history": "opp_lost"}
     if re.fullmatch(r"(?:the )?(?:total )?damage dealt to your opponents this turn", what):
         return {"turn_history": "opp_damage"}
+    if re.fullmatch(r"(?:the )?(?:total )?(?:amount of )?(?:1 )?damage dealt to you this turn", what):  # -- this-turn history (wave 50E) -- 120.3: "gain life equal to the damage dealt to you this turn" (Simulacrum), "for each 1 damage dealt to you this turn" (Discordant Spirit)
+        return {"turn_history": "damage_to_you"}
+    if re.fullmatch(r"opponents? you(?:'ve| have)? attacked(?: this turn)?", what):  # -- this-turn state (wave 33D) -- Rose: 508.6, players you declared attackers against
+        return {"turn_history": "opponents_attacked"}
     m = _OPPONENTS_WHO.match(what)
     if m:  # each opponent whose history this turn says so (one per opponent)
         word = m["n"] or m["m"]
         n = 1 if word is None else int(word) if word.isdigit() else NUMBERS.get(word)
         if n is None:
             return None
-        return {"turn_history": "opponents_who", "what": "drew" if m["drew"] else "lost" if m["lost"] else "damaged" if m["hurt"] else "lands", "n": n}
+        from app.rules.creature_types import CREATURE_TYPES
+
+        if m["by"] and m["by"] not in CREATURE_TYPES:
+            return None
+        return {"turn_history": "opponents_who", "what": "drew" if m["drew"] else "lost" if m["lost"] else "damaged" if m["hurt"] else "lands", "n": n,
+                **({"combat": True} if m["combat"] else {}),  # (-- triggers (wave 30J) -- Tymna the Weaver: "opponents that were dealt combat damage", 510.2)
+                **({"by": m["by"]} if m["by"] else {})}  # (-- this-turn history (wave 41B) -- "dealt combat damage by ~ or a Dragon this turn" (Estinien Varlineau): the source was ~ or had that type, as it dealt it)
     from app.rules import (
         player_filter,  # -- per-player filters (wave 23A) -- "for each opponent who controls fewer creatures than you"
     )
@@ -528,14 +648,20 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "times" in v:
         a, b = v["times"]
         return evaluate(plan, ctx, a) * evaluate(plan, ctx, b)
-    if "plus" in v:
-        return sum(evaluate(plan, ctx, x) for x in v["plus"])
+    if "plus" in v:  # (review 30b: 107.1b, a calculation uses a negative power as it is, only its result is at least 0: Phthisis's 2021 ruling)
+        return max(0, sum(_signed_stat(plan, ctx, x) for x in v["plus"]))
     if "half" in v:
         n = evaluate(plan, ctx, v["half"])
         return (n + 1) // 2 if v.get("round") == "up" else n // 2
     if "neg" in v:
         return 0  # a negative result of an effect is zero (107.1b); the sign is evaluate_signed's
     if "kicked" in v:
+        if v.get("of") == "cast_spell":  # -- cast keywords (wave 43D) -- "the number of times that spell was kicked" (702.33d): the spell a cast trigger is about
+            from app.rules import context
+
+            refs = context._object_refs(ctx, context.EVENT)
+            record = plan.rules.payments.get(refs[0].object_id) if refs else None
+            return record.kicked if record is not None else 0
         return kicked_count(plan, ctx)
     if "mutated" in v:  # -- merged permanents (wave 18D) --
         from app.rules import merged
@@ -565,6 +691,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sum(1 for t in record.mana_tags if v["mana_from"] in t)
     if "mana_spent" in v:  # -- X actions (wave 9A) -- a spell cast by hand: no mana known, 0 (and said so)
         return _mana_spent(plan, ctx, v["mana_spent"])
+    if "graveyards_with" in v:  # -- trigger other (wave 44D) -- the graveyards of the players still in the game
+        live = plan.live()
+        return sum(1 for key, ids in plan.state.zones.items() if key.endswith(":graveyard") and key.split(":")[0] in live and len(ids) >= v["graveyards_with"])
     if "named_self_in_graveyards" in v:  # -- mana riders (wave 5A) -- cards with the source's name in every graveyard
         from app.rules import characteristics as chars
 
@@ -587,10 +716,42 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         if sel.player is not None:
             return sum(1 for p in plan.live() if selectors.matches_player(plan, sel, p, you))
         away = ctx.get("not_yet_entered") or ()  # -- review (wave 26D) -- an "enters with" count, read before they enter (replacements._counter_amount)
-        return sum(1 for c in selectors.candidates(plan, sel, you, _other_than(ctx)) if c not in away)
+        if "blocking_event" in sel.extras:  # -- trigger other (wave 39A) -- "for each creature blocking it": the creature the "becomes blocked" event is about, as this resolves
+            from app.rules import context
+
+            event_creatures = context.objects(plan, ctx, context.EVENT)
+            sel = selectors.replace(sel, extras=tuple("blocking_source" if x == "blocking_event" else x for x in sel.extras))
+            return sum(1 for c in selectors.candidates(plan, sel, you, event_creatures[0] if event_creatures else "") if c not in away)
+        if "shares_type_event" in sel.extras:  # -- most-played cards (wave 43B) -- "for each other attacking creature that shares a creature type with it" (Shared Animosity): "it"
+            from app.rules import (
+                context,  # is the creature the trigger is about, as this resolves; the others than IT are counted
+            )
+
+            event_creatures = context.objects(plan, ctx, context.EVENT)
+            return sum(1 for c in selectors.candidates(plan, sel, you, event_creatures[0] if event_creatures else "") if c not in away)
+        # (wave 32A: "for each land with the same name as the exiled card" (Strata Scythe) compares with the ability's own source, not with the
+        # object a static's "other" is about — the equipped creature)
+        where = ctx.get("source_card") if not sel.other and any(x.startswith(("samename_src", "nosamename_src", "samename_exiled_with")) for x in sel.extras) \
+            else _other_than(ctx)
+        return sum(1 for c in selectors.candidates(plan, sel, you, where) if c not in away)
+    if "cast_symbols" in v:  # -- trigger other (wave 44B) -- the spell the trigger is about, on the stack (a cast trigger resolves with it still there or as it was)
+        from app.rules import context
+
+        refs = context._object_refs(ctx, context.EVENT)
+        card = plan.state.cards.get(refs[0].card) if refs else None
+        cost = plan.ch(card).mana_cost if card is not None else ""
+        return sum(1 for sym in re.findall(r"\{([^}]+)\}", cost or "") if v["cast_symbols"] in sym.split("/"))
+    if "cast_types" in v:  # -- trigger other (wave 44B) -- 205.2a: the different card types among the spells you cast this turn (a spell of two types counts both)
+        from app.rules import history
+
+        return len({"Kindred" if t == "Tribal" else t for n in history.log_for(plan).casts if n.player == ctx["controller"] for t in n.types if t in CARD_TYPES})
     if "spells_cast" in v:  # -- sized amounts (wave 3D) -- "the number of spells you've cast this turn"
         from app.rules import context
 
+        if "sel" in v:  # -- this-turn history (wave 30R) -- of a kind ("instant and sorcery"), "other" than this one (history.cast_amount)
+            from app.rules import history
+
+            return history.cast_amount(plan, ctx, v)
         return sum(plan.rules.spells_this_turn(p, plan.state.turn.number) for p in (
             [you] if v["spells_cast"] == "you" else plan.state.seat_order if v["spells_cast"] == "all"
             else context.players(plan, ctx, context.EVENT)))
@@ -608,6 +769,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return context.amount(ctx, v["ref_amount"])
     if "event_count" in v:  # how many objects the "one or more" batch had
         return max(0, int((ctx.get("event") or {}).get("count") or 0))
+    if "greater" in v:  # (wave 51G)
+        return max(evaluate(plan, ctx, x) for x in v["greater"])
+    if "diff" in v:  # -- most-played cards II (wave 45A) -- "the difference between A and B": how far apart, never negative
+        return abs(evaluate(plan, ctx, v["diff"][0]) - evaluate(plan, ctx, v["diff"][1]))
     if "minus" in v:  # -- refused zones/sized (wave 3R4) -- 107.1b: a negative result is 0
         return max(0, evaluate(plan, ctx, v["minus"][0]) - evaluate(plan, ctx, v["minus"][1]))
     if "hand" in v and v["hand"] == "event":  # -- refused zones/sized (wave 3R4) -- the trigger's player ("that player")
@@ -624,6 +789,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return len(plan.state.zones.get(f"{who}:hand", [])) if who in plan.live() else 0
     if "hand" in v and v["hand"] == "all":  # (wave 19F) every player's hand, a public count
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in plan.live())
+    if "hand" in v and v["hand"] == "opponent_max":  # (wave 42A) the opponent with the most cards in hand: that many (0 with no opponent)
+        return max([len(plan.state.zones.get(f"{p}:hand", [])) for p in plan.live() if p != you] or [0])
     if "hand" in v:
         players = [you] if v["hand"] == "you" else _target_players(plan, ctx)
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in players)
@@ -635,6 +802,15 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sum(len(plan.state.zones.get(f"{p}:library", [])) for p in players if p in plan.live())
     if "opponents" in v:
         return sum(1 for p in plan.live() if p != you)
+    if "lowest_life" in v:  # -- most-played cards IV (wave 51G) -- the lowest life total among the players still in the game (Repay in Kind)
+        return min(plan.state.players[p].life for p in plan.live())
+    if "below_start" in v:  # -- most-played cards IV (wave 51G) -- "the difference" between the starting life total and a lower life total (119.1, 903.7), Shadow of Mortality
+        return max(0, plan.state.settings.starting_life - plan.state.players[you].life)
+    if "players_lost" in v:  # (wave 51G)
+        return len(plan.state.seat_order) - len(plan.live())
+    if "players_attacked" in v:  # -- if you do (wave 40A) -- 506.2, 506.6: a player is "being attacked" when a creature attacks that player (the ruling of Commander Liara Portyr, 2022-06-10: a planeswalker attacked alone does not count its controller)
+        return len({c.attacking.id for c in plan.state.cards.values()
+                    if c.attacking is not None and c.attacking.kind == "player" and c.zone.endswith(":battlefield") and c.attacking.id in plan.live()})
     if "attacked_opponents" in v:  # -- casting extras (wave 18E) -- the players its controller attacked in the latest declaration
         return sum(1 for p in plan.rules.attacked_players.get(you, []) if p in plan.live() and p != you)
     if "life" in v:
@@ -648,6 +824,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "unspent" in v:  # (106.4: the plain pool and the units both hold mana; "" = any color)
         me = plan.state.players[you]
         return sum(n for c, n in me.mana.items() if v["unspent"] in ("", c)) + sum(1 for u in me.mana_units if v["unspent"] in ("", u.sym))
+    if "dungeons_completed" in v:  # -- dungeons (wave 45B) -- the different names among the dungeons you completed (309.7)
+        return len(set(plan.rules.completed_dungeons.get(you, ())))
     if "player_counters" in v:
         if v.get("of") == "opponents":  # (wave 3E) "poison counters your opponents have": all of them together
             return sum(max(0, int(plan.state.players[p].resources.get(v["player_counters"], 0))) for p in plan.live() if p != you)
@@ -657,6 +835,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "opponents_hand" in v:  # -- triggers (wave 21B) -- the opponents still in the game (800.4a), by hand size as it resolves
         size = {p: len(plan.state.zones.get(f"{p}:hand", [])) for p in plan.live() if p != you}
         return sum(1 for k in size.values() if (k >= v["n"] if v["opponents_hand"] == "more" else k <= v["n"]))
+    if "turns_taken" in v:  # -- most-played cards (wave 43B) -- "your first, second, or third turn of the game" (Starting Town): the turns you have begun, this one included
+        tt = plan.rules.turns_taken
+        return tt.get(you, 0) if tt else int(plan.state.turn.active_player == you)  # (before the first turn ends nothing is counted: it is the first player's first)
     if "commander_casts" in v:  # -- triggers (wave 19B) --
         return sum(plan.state.players[you].commander_casts.values())
     if "exiled_with" in v:  # -- resolution memory (wave 22D) -- Unlicensed Hearse: "the number of cards exiled with it"
@@ -679,8 +860,20 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return max(tally.values(), default=0)
     if "distinct" in v:
         return _distinct(plan, ctx, v["distinct"], v["among"])
+    if "abilities_among" in v:  # -- keyword soups (wave 50J) --
+        from app.rules import keyword_soup
+
+        return keyword_soup.count(plan, ctx, v["among"], v["abilities_among"])
     if "devotion" in v:
         return _devotion(plan, you, v["devotion"])
+    if ("sum" in v or "max" in v) and v.get("of") == "event":  # -- event batches (wave 34C) -- "their total power" / "the greatest power among them": the
+        from app.rules import (
+            context,  # objects a "one or more" trigger's event holds (603.2c), as they were (608.2h)
+        )
+
+        stat = v.get("sum") or v["max"]
+        nums = [stat_n for _, ch in context.infos(plan, ctx, context.EVENT) if (stat_n := _stat_of(ch, stat)) is not None]
+        return max(0, sum(nums) if "sum" in v else max(nums or [0]))
     if "sum" in v or "max" in v:
         stat = v.get("sum") or v["max"]
         found = [_stat_of(plan.ch(plan.state.cards[c]), stat)
@@ -709,6 +902,15 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
             return 0
         host = got[0].id
         kinds = set(v["attached"])
+        # -- attached events (wave 30S) -- 608.2h: this object left the battlefield before it resolved (Valduk's ruling 2022-12-08): the
+        # Auras and Equipment last attached to it, wherever they are now
+        snap = plan.rules.lki.get(ctx.get("source_object") or "") if v.get("on", "self") == "self" and plan.state.cards.get(host) is not got[0] else None
+        if snap is not None:  # (-- review 30c -- a token Aura that ceased to exist, 704.5d, as it last existed too)
+            from app.rules.triggers import _snapshot_card
+
+            gone = {s.card: s for s in plan.rules.lki.values() if s.card in snap.attached and s.card not in plan.state.cards}
+            return sum(1 for c in snap.attached if (c in plan.state.cards or c in gone) and kinds & (
+                plan.ch(plan.state.cards[c]) if c in plan.state.cards else _snapshot_card(plan, gone[c])[1]).subtypes)
         return sum(1 for c in plan.state.cards.values() if c.attached_to == host and c.zone.endswith(":battlefield")
                    and plan.in_game(c) and kinds & plan.ch(c).subtypes)
     if "for_player" in v:  # -- value grammar (wave 23C) -- "the number of cards in that player's graveyard": the count as that one player's ("you" of the phrase)
@@ -737,6 +939,15 @@ def evaluate_signed(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if isinstance(v, dict) and "neg" in v:
         return -evaluate(plan, ctx, v["neg"])
     return evaluate(plan, ctx, v)
+
+
+def _signed_stat(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
+    """A power or toughness as it is, below 0 too (107.1b); any other value as ``evaluate`` reads it."""
+    stat = next((s for s in ("power", "toughness") if isinstance(v, dict) and s in v and set(v) <= {s, "target_sel"}), None)
+    if stat is None or not isinstance(v, dict):
+        return evaluate(plan, ctx, v)
+    got = _object(plan, ctx, v[stat])
+    return 0 if got is None else _stat_of(got[1], stat) or 0
 
 
 def _stat_of(ch: Any, stat: str) -> int | None:
@@ -812,7 +1023,13 @@ def _relative(plan: Plan, ctx: dict[str, Any], v: Any) -> int:
         return evaluate(plan, {**ctx, "controller": card.controller}, v["of"])
     if v["relative"] == "counters":  # -- counters (wave 26D) -- "for each +1/+1 counter on it" (122.1): counters on the object modified
         return sum(n for k, n in card.counters.items() if v["kind"] in ("any", k))
+    if v["relative"] == "attacks":  # -- commander sweep (wave 49B) -- "for each time it has attacked this turn" (Moraug): this turn's record of the object
+        from app.rules import history
+
+        return history.log_for(plan).attack_counts.get(plan.oid(card), 0)
     mine = plan.ch(card)
+    if v["relative"] == "bushido":  # -- counters (wave 44C) -- 702.45a: "for each point of bushido it has": the sum of its bushido abilities' numbers (each instance counts)
+        return sum(int(n) for a in mine.abilities if "bushido" in a.keywords for n in re.findall(r"(?i)bushido (\d+)", a.text))
     if v["relative"] == "mana_value":  # -- attached events (wave 20A) -- 202.3: the object modified (a creature's X is 0 on the battlefield)
         from app.rules.stack_interaction import mana_value
 
@@ -849,6 +1066,24 @@ def _devotion(plan: Plan, you: str, colors: list[str]) -> int:
             if set(sym.split("/")) & wanted:
                 total += 1
     return total
+
+
+def kicked_holds(plan: Plan, ctx: dict[str, Any], need: Any, card_id: str | None = None) -> bool:
+    """-- keywords (wave 50H) -- 702.33f: "if it was kicked", "kicked twice", "kicked with its {R} kicker" (``need``: True, ``{"times": 2}`` or ``{"with": "{R}"}``)."""
+    n = kicked_count(plan, ctx)
+    if not isinstance(need, dict):
+        return n > 0
+    if "times" in need:
+        return n == need["times"]
+    from app.rules.costs import kicker_cost
+
+    entry = plan.rules.stack.get(ctx.get("stack_id") or "")
+    record = plan.rules.payments.get(ctx.get("source_object") or "")
+    mask = entry.kicked_mask if entry is not None and entry.kind == "spell" else record.kicked_mask if record is not None else 0
+    card = plan.state.cards.get(card_id or ctx.get("source_card") or "")
+    kick = kicker_cost(plan.ch(card).abilities) if card is not None else None
+    bit = 0 if kick is None or not kick.second else 1 if kick.cost.upper() == need["with"].upper() else 2 if kick.second.upper() == need["with"].upper() else 0
+    return bool(mask & bit)
 
 
 def kicked_count(plan: Plan, ctx: dict[str, Any]) -> int:

@@ -10,10 +10,11 @@ in their private decision, nobody else does.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from app.game.actions import MAX_TARGETS
+from app.game.errors import ActionError
 from app.game.rules_state import TargetRef
 from app.game.state import CardInstance
 from app.rules import protection, selectors
@@ -59,9 +60,12 @@ SELECTORS: dict[str, tuple[bool, Check | None]] = {
     # (a player, or any planeswalker: not only an opponent's)
     "player_or_planeswalker": (True, _types("Planeswalker")),
     "opponent_or_planeswalker": (True, _types("Planeswalker")),
+    # -- damage sized by a count (wave 42D) -- "target opponent or battle" (Ayara), "target player or battle" (Onakke Javelineer): a player, or any battle
+    "player_or_battle": (True, _types("Battle")),
+    "opponent_or_battle": (True, _types("Battle")),
     "permanent_or_player": (True, lambda plan, who, card, ch: True),  # -- counter kinds (wave 24C) -- "target permanent or player"
 }
-OPPONENTS_ONLY = ("opponent", "opponent_or_planeswalker")
+OPPONENTS_ONLY = ("opponent", "opponent_or_planeswalker", "opponent_or_battle")
 
 
 SPELL_SELECTORS: dict[str, Callable[[Characteristics], bool]] = {
@@ -75,13 +79,25 @@ SPELL_SELECTORS: dict[str, Callable[[Characteristics], bool]] = {
 def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics,
                source: Characteristics | None = None) -> bool:
     """Hexproof: not by opponents; shroud: by nobody; protection: not by a source with that quality."""
+    from app.rules import prohibitions
+
+    if prohibitions.untargetable(plan, chooser, card):  # -- cant restrictions (wave 50G) -- 115.2: "Lands on the battlefield … can't be the targets of spells or abilities your opponents control"
+        return False
     if "shroud" in ch.keywords:
         return False
     if "hexproof" in ch.keywords and card.controller != chooser:
         return False
+    if card.controller != chooser and protection.hexproof_from(ch, source):  # -- keywords (wave 44D) -- 702.11d
+        return False
     for rule in ch.imposed:  # -- cant (wave 16F) -- "can't be the target of black spells or abilities from black sources"
         if rule.startswith("untargetable_by_opponents_of:") and chooser != rule.split(":", 1)[1]:
             return False  # (-- review 20A -- the Aura's controller's opponents; no teams: every other player, 102.2)
+        if rule.startswith("untargetable_spells") and source is not None and source.is_spell:  # -- cant (wave 49C) -- 115.2: no spell (of those colors) may target it; an ability still may
+            colors = rule.partition(":")[2]
+            if not colors or set(colors) & source.colors:
+                return False
+        if rule == "untargetable_aura_spells" and source is not None and source.is_spell and "Aura" in source.subtypes:  # -- cant restrictions (wave 50G) -- 115.2: an Aura spell
+            return False
         if rule.startswith("untargetable:") and source is not None:
             _, opp, non, colors = rule.split(":")
             if (opp == "0" or card.controller != chooser) and bool(set(colors) & source.colors) != (non == "1"):
@@ -110,6 +126,8 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
         margin = 2 if cond == "hand2" else 1
         return [p for p in legal_targets(plan, "opponent", chooser, source, source_card, attacker)
                 if _more(plan, cond, p) >= _more(plan, cond, chooser) + margin]
+    if selector == "any_other":  # -- damage sized by a count (wave 34D) -- 115.4: "deals that much damage to any other target" (Black Panther): any target
+        return [t for t in legal_targets(plan, "any", chooser, source, source_card, attacker) if t != source_card]  # but the creature that deals it
     if selector.startswith(selectors.PREFIX):  # a structured selector (app/rules/selectors.py)
         return _selector_targets(plan, selectors.from_key(selector), chooser, source, source_card, attacker)
     if selector.startswith("graveyard:"):  # "target Spirit card with mana value N or less from your graveyard"
@@ -120,7 +138,10 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
         for cid in plan.state.zones.get(f"{chooser}:graveyard", []):
             g = chars.of(plan.state.cards[cid], plan.info)
             if (sub == "*" or sub in g.subtypes or sub in g.types) and g.mana_value <= int(mv):
-                found.append(cid)
+                from app.rules import prohibitions
+
+                if not prohibitions.untargetable(plan, chooser, plan.state.cards[cid]):  # (wave 50G)
+                    found.append(cid)
         return found
     if selector in SPELL_SELECTORS:  # spells on the stack (115.1)
         check_spell = SPELL_SELECTORS[selector]
@@ -162,11 +183,15 @@ def _selector_targets(plan: Plan, sel: selectors.Selector, chooser: str, source:
 
         return [p for p in plan.live() if selectors.matches_player(plan, sel, p, chooser)
                 and player_shields.can_target(plan, chooser, p, source)]
+    from app.rules import prohibitions
+
     out = []
     for cid in selectors.candidates(plan, sel, chooser, source_card, attacker):
         card = plan.state.cards[cid]
         on_field = card.zone.endswith(":battlefield") or card.zone == "stack"
         if on_field and not can_target(plan, chooser, card, plan.ch(card), source):  # hexproof / shroud / protection
+            continue
+        if not on_field and prohibitions.untargetable(plan, chooser, card):  # -- cant restrictions (wave 50G) -- "Cards in graveyards can't be the targets of spells or abilities"
             continue
         out.append(cid)
     return out
@@ -189,6 +214,12 @@ def still_legal(plan: Plan, selector: str, chooser: str, target: TargetRef, sour
     return target.id in legal_targets(plan, selector, chooser, source, source_card, attacker)
 
 
+class BadPick(ActionError):
+    """-- X from the triggering object (wave 34C) -- a choice of targets that breaks a rule of the group (the wrong number, one twice, not legal,
+    over a total): an ActionError for whoever chose it. For a trigger that is a bad choice to make again, not "no legal target" (603.3d: that
+    removes the ability)."""
+
+
 @dataclass
 class GroupChoice:
     """Where choosing the targets of a spell or ability with target groups stands (601.2c-d):
@@ -208,6 +239,8 @@ def divide_total(spec: dict[str, Any], x: int | None) -> int | None:
     if not divide:
         return None
     total = divide["total"]
+    if isinstance(total, dict) and "plus" in total:  # -- X arithmetic (wave 34C) -- "X plus 1 damage divided as you choose" (Meteor Shower): the X announced, plus 1 (601.2d)
+        return int(x or 0) + int(total["plus"][1])
     return int(total) if isinstance(total, int) else int(x or 0)
 
 
@@ -223,6 +256,15 @@ def where_x(plan: Plan, spec: dict[str, Any], chooser: str, source_card: str | N
     return values.evaluate(plan, ctx, spec["x_value"])
 
 
+def divide_x(plan: Plan, spec: dict[str, Any], chooser: str, source_card: str | None, source_object: str | None,
+             event: dict[str, Any] | None, x: int | None) -> int | None:
+    """-- damage sized by a count (wave 34D) -- "deals X damage divided as you choose among …, where X is the number of lands you control" (Ureni, Jaws of
+    Stone): the total is the count as the spell is cast or the ability put on the stack (601.2d: the division is announced then; 608.2d: "the amount and
+    division were determined as the spell or ability was put onto the stack"), the cast X otherwise."""
+    value = (spec.get("divide") or {}).get("value")
+    return x if value is None else where_x(plan, {"x_value": value}, chooser, source_card, source_object, event)
+
+
 def free_limits(spec: dict[str, Any], x: int | None) -> tuple[int, int]:
     """(min, max) targets of a group as the rules give them, before the engine's own limit; a divided group needs at most as many
     targets as there is to divide, and at least one (601.2d: each gets at least one)."""
@@ -234,7 +276,9 @@ def free_limits(spec: dict[str, Any], x: int | None) -> tuple[int, int]:
             return 0, 0  # (X is 0: no targets, nothing to divide among them)
     total = divide_total(spec, x)
     if total is not None:
-        lo, hi = max(lo, 1), min(hi, total)
+        lo, hi = lo if (spec.get("divide") or {}).get("value") is not None else max(lo, 1), min(hi, total)  # (wave 41B: a counted total says how few, language._divided)
+        if total == 0 and (spec.get("divide") or {}).get("value") is not None:
+            return 0, 0  # -- damage sized by a count (wave 34D) -- a total counted as it's put on the stack may be 0: nothing to divide, no targets (601.2d)
     return lo, hi
 
 
@@ -265,6 +309,9 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
     choice."""
     from app.game.errors import ActionError
 
+    random_only = len(specs) == 1 and bool(specs[0].get("random"))  # -- random choices (wave 47B) -- "target … chosen at random": the table picks (601.2c; each
+    if random_only:  # legal target equally likely: Scab-Clan Giant ruling 2013-04-15); nobody is asked, and a choice sent along is not read
+        targets, counts = [], []
     if len(counts) > len(specs) or sum(counts) != len(targets):
         raise ActionError(f"Those aren't the right number of targets for {what}")
     out = GroupChoice(counts=list(counts))
@@ -273,43 +320,55 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
         banned = {t for d in spec.get("distinct_from") or [] if d < len(out.groups) for t in out.groups[d]}
         options = [t for t in legal_targets(plan, spec["what"], chooser, source, source_card, attacker)
                    if t not in exclude and t not in banned]
+        if (owner := spec.get("graveyard_of")) is not None and owner < len(out.groups):  # -- shuffle target cards (wave 46B) -- "target cards from their graveyard":
+            options = [t for t in options if plan.state.cards[t].owner in out.groups[owner]]  # the graveyard of the player chosen for that group
         shaped = {**spec, "x_count": "upto"} if "x_value" in spec else spec
-        counted = where_x(plan, spec, chooser, source_card, source_object, event) if "x_value" in spec else x
+        counted = where_x(plan, spec, chooser, source_card, source_object, event) if "x_value" in spec else divide_x(
+            plan, spec, chooser, source_card, source_object, event, x)
         lo, hi = group_limits(shaped, counted)
         allowed = free_limits(shaped, counted)[1]
+        if random_only and options and (lo, hi) == (1, 1):
+            import secrets
+
+            targets = [(plan.rng or secrets.SystemRandom()).choice(sorted(options))]
+            out.counts.append(1)
         if g >= len(out.counts) and hi == 0:  # -- kicked / instead (wave 4G) -- a group the spell doesn't require (601.2c)
             out.counts.append(0)
+        room = relation_room(plan, spec, options)  # (wave 51A) how many of the options can be chosen together
         if g >= len(out.counts):
-            if len(options) < lo or hi < lo:
+            if room < lo or hi < lo:
                 raise ActionError(f"{what} has no legal target" if not options else f"{what} doesn't have enough legal targets")
             if lo == 0 and not options:
                 out.counts.append(0)  # "up to one target …" with nothing to target: zero targets (115.6)
             else:
-                out.ask = ("group", g, options, lo, min(hi, len(options)))
+                out.ask = ("group", g, options, lo, min(hi, room))
                 out.capped = allowed if allowed > hi and len(options) > hi else 0  # (said in the prompt: ask_targets)
                 return out
         count = out.counts[g]
         chosen = targets[pos:pos + count]
         pos += count
         if not lo <= len(chosen) <= hi:
-            raise ActionError(f"Choose {lo if lo == hi else f'{lo} to {hi}'} target{'s' if hi != 1 else ''} for {what}")
+            raise BadPick(f"Choose {lo if lo == hi else f'{lo} to {hi}'} target{'s' if hi != 1 else ''} for {what}")
         if len(set(chosen)) != len(chosen):
-            raise ActionError("The same target can't be chosen twice for one “target”")  # 115.3
+            raise BadPick("The same target can't be chosen twice for one “target”")  # 115.3
         if any(t in banned for t in chosen):
-            raise ActionError("“Another target” can't be one you already chose")
+            raise BadPick("“Another target” can't be one you already chose")
         if any(t not in options for t in chosen):
-            raise ActionError("That isn't a legal target")
+            raise BadPick("That isn't a legal target")
         if spec.get("same_graveyard") and len({plan.state.cards[t].owner for t in chosen if t in plan.state.cards}) > 1:
-            raise ActionError("Those targets must all be from a single graveyard")  # (400.1: one player's graveyard)
-        if spec.get("total") and _total(plan, chosen, spec["total"][0]) > spec["total"][1]:  # -- refused zones/sized (wave 3R4)
+            raise BadPick("Those targets must all be from a single graveyard")  # (400.1: one player's graveyard)
+        limit = int(x or 0) if spec.get("total") and spec["total"][1] == "X" else spec.get("total", [0, 0])[1]  # (wave 34C: "total mana value X or less": the X announced)
+        if spec.get("total") and _total(plan, chosen, spec["total"][0]) > limit:  # -- refused zones/sized (wave 3R4)
             stat = spec["total"][0].replace("_", " ")  # -- "with total mana value 3 or less": checked as they're chosen (601.2c)
-            raise ActionError(f"Those targets have a total {stat} over {spec['total'][1]}")
+            raise BadPick(f"Those targets have a total {stat} over {limit}")
+        if not relation_ok(plan, spec, [ref(plan, t) for t in chosen]):  # -- group relations (wave 51A) -- "that share a creature type" / "controlled by different players" (601.2c)
+            raise BadPick("Those targets must share a " + spec["shares"].replace("_", " ") if spec.get("shares") else "Those targets must be controlled by different players")
         if spec.get("different") and not _different(plan, chosen, spec["different"]):  # -- refused zones/sized (wave 3R4)
-            raise ActionError(f"Those targets must have different {'names' if spec['different'] == 'name' else 'mana values'}")
+            raise BadPick(f"Those targets must have different {'names' if spec['different'] == 'name' else 'mana values'}")
         out.groups.append(chosen)
     given = list(division)
     for g, spec in enumerate(specs):
-        total = divide_total(spec, x)
+        total = divide_total(spec, divide_x(plan, spec, chooser, source_card, source_object, event, x))
         if total is None or not out.groups[g]:
             out.division.append([])
             continue
@@ -322,11 +381,48 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
             return out
         amounts, given = given[:n], given[n:]
         if len(amounts) != n or any(a < 1 for a in amounts) or sum(amounts) != total:
-            raise ActionError(f"Divide {total} among the {n} targets: at least 1 each, {total} in all")
+            raise BadPick(f"Divide {total} among the {n} targets: at least 1 each, {total} in all")
         out.division.append(amounts)
     if given:
-        raise ActionError("That division doesn't match the targets")
+        raise BadPick("That division doesn't match the targets")
     return out
+
+
+# -- group relations (wave 51A) -- 601.2c: a restriction on the targets together ("two target creatures that share a creature type", "… controlled by different
+# players"); 608.2b: judged again as the spell resolves, a target that left counted as it last existed (608.2h; rulings: Return from Extinction, Run Away Together)
+def _facts(plan: Plan, t: TargetRef) -> tuple[Characteristics, str] | None:
+    card = plan.state.cards.get(t.id)
+    if card is not None and (t.object_id is None or plan.oid(card) == t.object_id):
+        return plan.ch(card), card.controller
+    from app.rules.triggers import _snapshot_card
+
+    snap = plan.rules.lki.get(t.object_id or "")
+    return None if snap is None else (_snapshot_card(plan, snap)[1], snap.controller)
+
+
+def _kinds(ch: Characteristics, kind: str) -> frozenset[str]:
+    from app.rules.characteristics import PERMANENT_TYPES
+    from app.rules.creature_types import CREATURE_TYPES
+
+    return ch.subtypes & CREATURE_TYPES if kind == "creature_type" else ch.types & PERMANENT_TYPES if kind == "permanent_type" else ch.types
+
+
+def relation_ok(plan: Plan, spec: dict[str, Any], refs: list[TargetRef]) -> bool:
+    facts = [f for t in refs if (f := _facts(plan, t))]
+    if spec.get("shares") and len(facts) > 1 and not frozenset.intersection(*(_kinds(ch, spec["shares"]) for ch, _ in facts)):
+        return False
+    return not spec.get("controllers") or len({c for _, c in facts}) == len(facts)
+
+
+def relation_room(plan: Plan, spec: dict[str, Any], options: list[str]) -> int:
+    """How many of the legal ``options`` can be chosen together under the group's relation (all of them without one)."""
+    if not (spec.get("shares") or spec.get("controllers")):
+        return len(options)
+    facts = [f for t in options if (f := _facts(plan, ref(plan, t)))]
+    if spec.get("controllers"):
+        return len({c for _, c in facts})
+    kinds = [_kinds(ch, spec["shares"]) for ch, _ in facts]
+    return max([1 if kinds else 0, *(sum(k in ks for ks in kinds) for k in frozenset().union(*kinds))])
 
 
 def _total(plan: Plan, chosen: list[str], stat: str) -> int:
@@ -353,10 +449,14 @@ def _different(plan: Plan, chosen: list[str], what: str) -> bool:
     return len(set(seen)) == len(seen)
 
 
-def source_of(plan: Plan, card_id: str | None) -> Characteristics | None:
-    """The characteristics of a spell or of an ability's source, for protection checks."""
+def source_of(plan: Plan, card_id: str | None, spell: bool = False) -> Characteristics | None:
+    """The characteristics of a spell or of an ability's source, for protection checks (``spell``: it is a spell that targets, 115.2)."""
     card = plan.state.cards.get(card_id or "")
-    return plan.ch(card) if card is not None else None
+    return None if card is None else as_spell(plan.ch(card)) if spell else plan.ch(card)
+
+
+def as_spell(ch: Characteristics) -> Characteristics:
+    return replace(ch, is_spell=True)
 
 
 def label(plan: Plan, target: str) -> str:

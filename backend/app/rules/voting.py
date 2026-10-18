@@ -19,9 +19,18 @@ control. Exile each permanent with the most votes or tied for most votes." (Coun
   vote). "for each X vote" does the instruction once per vote for X (608.2c, in order). The instruction after "for each" must be a
   plain, target-free, mandatory one; anything else keeps the card manual.
 
-Not read (manual): votes for players (Mob Verdict, Círdan), "for each creature with one or more votes, … that many …" (Trap the
+* (wave 47B) A vote for a player ("votes for a player" Círdan; "for another player" Mob Verdict, nobody votes for themself): the choices are the
+  players in the game as the vote begins; "Each player draws a card for each vote they received." / "For each vote an opponent received, …" do the
+  instruction for each player (turn order, 101.4) once for each vote that player got (``vote_each``), "that player" being the one voted for.
+  "Each player who received no votes may …" is a per-player filter (player_filter, ``{"votes": 0}``).
+
+Not read (manual): "for each creature with one or more votes, … that many …" (Trap the
 Trespassers), several-choice results that move cards between voters (Expropriate), a "this way" count of a repeated instruction
-(Messenger Jays), "Whenever players finish voting" triggers and "You choose how each player votes" (Illusion of Choice).
+(Messenger Jays) and "You choose how each player votes" (Illusion of Choice).
+
+* (wave 48D) "Whenever players finish voting" (Model of Unity, Erestor of the Council, Grudge Keeper) triggers as the last ballot is in (``_finish``), carrying
+  the ballots; "each opponent who voted for a choice you voted for / didn't vote for" are player filters (player_filter, ``{"voted": "same" | "other"}``) read
+  against the trigger's ballots: a player with several votes may be both (Erestor's ruling).
 """
 
 from __future__ import annotations
@@ -52,7 +61,17 @@ _NUMBER_OF = re.compile(r"^(?P<e>.+?) a number of (?P<what>.+?) equal to (?P<twi
 _DRAW_NUMBER = re.compile(r"^(?:You )?[Dd]raw cards equal to the number of (?P<w>[\w' ]+?) votes\.$")
 _LEADERS = re.compile(r"^(?P<pre>Otherwise, )?(?P<verb>[A-Za-z]+) each (?P<noun>[a-z ]+?) with the most votes or tied for most votes"
                       r"(?P<rest>[^.]*)\.$")
-_SCALED = ("add_counters", "create_token", "gain_life", "lose_life", "draw", "discard", "mill", "edict")
+_PICK_RANDOM = re.compile(r"^(?:Then )?[Cc]hoose (?P<w>an opponent|a player) at random\.$")
+_EACH_RECEIVED = re.compile(r"^(?P<s>Each player|Each opponent) (?P<v>.+?) for each vote (?:they|that player) received\.$")
+_FOR_RECEIVED = re.compile(r"^For each vote (?P<s>an opponent|you) received, (?P<e>.+)\.$")
+_SCALED = ("add_counters", "create_token", "gain_life", "lose_life", "draw", "discard", "mill", "edict", "damage")  # (damage: wave 47B, "deals 3 damage to that player for each … vote": one amount)
+def _scalable(inner: list[dict[str, Any]]) -> bool:
+    """One counted instruction, or only damage (Mob Verdict's "deals 2 damage to that player and each creature that player controls"): damage dealt
+    "for each" of something is one event (Kazarov ruling), so the amounts are multiplied rather than the instructions repeated."""
+    return bool(inner) and all(type(x.get("n")) is int for x in inner) and (
+        (len(inner) == 1 and inner[0].get("do") in _SCALED) or all(x.get("do") == "damage" for x in inner))
+
+
 _COND = re.compile(r"^(?:(?P<w>[\w' ]+?) gets more votes(?P<tie> or the vote is tied)?|no (?P<none>[a-z ]+?) got votes)$")
 
 
@@ -74,6 +93,8 @@ def split(body: str) -> dict[str, Any] | None:
     if m is None or bool(m["start"]) == bool(m["sec"]) or bool(m["sec"]) != bool(m["rev"]):
         return None  # (a public vote starts with you; a secret one is revealed afterwards)
     what, out = m["what"], {"secret": bool(m["sec"]), "rest": m["rest"] or ""}
+    if what in ("a player", "another player"):  # -- random choices (wave 47B) -- votes for players
+        return {**out, "players": True, "other": what == "another player"}
     if not _ARTICLE.match(what):
         words = [w for w in re.split(r", or |, | or ", what) if w]
         if len(words) < 2 or not all(_WORD.match(w) for w in words) or len({w.lower() for w in words}) != len(words):
@@ -121,8 +142,9 @@ def bind(head: dict[str, Any], parse: Any, split_sentences: Any) -> tuple[list[d
     words = head.get("words")
     labels = list(words) if words else []
     opts = [w.lower() for w in labels]
-    effects: list[dict[str, Any]] = [{"do": "vote", "secret": head["secret"], **({"opts": opts, "labels": labels} if words else
-                                      {"sel": head["sel"], "upto": head["upto"], "as": "vote"})}]
+    effects: list[dict[str, Any]] = [{"do": "vote", "secret": head["secret"], **(
+        {"players": True, "other": head["other"]} if head.get("players") else {"opts": opts, "labels": labels} if words else
+        {"sel": head["sel"], "upto": head["upto"], "as": "vote"})}]
     buffer: list[str] = []
     leaders = [False]
 
@@ -140,17 +162,51 @@ def bind(head: dict[str, Any], parse: Any, split_sentences: Any) -> tuple[list[d
         return True
 
     def repeat(word: str, text: str, scale: bool = True) -> bool:
-        inner = _plain(parse(text[:1].upper() + text[1:].rstrip(".") + "."))
+        if any(x.get("do") == "choose_random" for x in effects):  # -- random choices (wave 47B) -- "Then choose an opponent at random. ~ deals 3 damage to that player for each
+            from app.rules import (
+                scripts,  # consequences vote." (Truth or Consequences): "that player" is the player picked, read as the instruction's own
+            )
+
+            got = scripts.parse_effects(text[:1].upper() + text[1:].rstrip(".") + ".", None, event_player=True)
+            inner = None if got is None or got[1] is not None or got[2] or any(x.get("bind") or x.get("as") or x.get("did") for x in got[0]) else _vp(got[0], "vr")
+        else:
+            inner = _plain(parse(text[:1].upper() + text[1:].rstrip(".") + "."))
         if inner is None or not words or word.lower() not in opts:
             return False
         # "X for each W vote" is one instruction for all the votes (Capital Punishment ruling: the creatures are sacrificed at
         # once): its amount is multiplied (one event: Hardened Scales adds one counter, a life-gain trigger triggers once)
-        one = scale and len(inner) == 1 and inner[0].get("do") in _SCALED and type(inner[0].get("n")) is int
+        one = scale and _scalable(inner)
         effects.extend([{"do": "vote_repeat", "choice": word.lower(), "skip": len(inner), **({"scale": True} if one else {})}, *inner])
         return True
 
+    def received(who: str, text: str, scale: bool) -> bool:
+        """-- random choices (wave 47B) -- the instruction (about "that player") once for each vote each player of ``who`` received."""
+        from app.rules import scripts
+
+        got = scripts.parse_effects(text[:1].upper() + text[1:].rstrip(".") + ".", None, event_player=True)
+        if got is None or got[1] is not None or got[2] or not got[0] or not head.get("players") \
+                or any(x.get("bind") or x.get("as") or x.get("did") for x in got[0]):  # (plain: target-free, mandatory, no bindings)
+            return False
+        inner = _vp(got[0])
+        if inner is None:
+            return False
+        # (a non-damage "for each vote you received, draw a card" stays repeated; damage "for each" is one event either way: Kazarov ruling)
+        one = _scalable(inner) if scale else bool(inner) and all(x.get("do") == "damage" and type(x.get("n")) is int for x in inner)
+        effects.extend([{"do": "vote_each", "who": who, "skip": len(inner), "as": "vp", **({"scale": True} if one else {})}, *inner])
+        return True
+
     for sentence in split_sentences(head["rest"]):
-        if (m := _TWO_EACH.match(sentence)) is not None:
+        if (m := _PICK_RANDOM.match(sentence)) is not None and words and not any(x.get("do") == "choose_random" for x in effects):
+            if not flush():
+                return None
+            effects.append({"do": "choose_random", "pool": "opponent" if m["w"] == "an opponent" else "player", "as": "vr"})
+        elif (m := _EACH_RECEIVED.match(sentence)) is not None:
+            if not (flush() and received("each_player" if m["s"] == "Each player" else "each_opponent", f"that player {m['v']}", True)):
+                return None
+        elif (m := _FOR_RECEIVED.match(sentence)) is not None:
+            if not (flush() and received("you" if m["s"] == "you" else "each_opponent", m["e"], False)):
+                return None
+        elif (m := _TWO_EACH.match(sentence)) is not None:
             e1, e2 = m["e1"], m["e2"]
             subject = _SUBJECT.match(e1)
             if e2[:1].islower() and subject is not None:  # "Each opponent sacrifices a creature … and discards a card …"
@@ -184,6 +240,15 @@ def bind(head: dict[str, Any], parse: Any, split_sentences: Any) -> tuple[list[d
     if any(x.get("do") == "vote_repeat" for x in effects) and not words:
         return None
     return effects, None, False
+
+
+def _vp(node: Any, name: str = "vp") -> Any:
+    """The effects of an instruction about "that player" (read as the trigger event's): the player voted for (the binding ``vp``) or picked at random
+    (``vr``); None if the instruction still names anyone else's event or target (stays manual)."""
+    text = json.dumps(node)
+    if "target" in text or '"it"' in text or "that_player" in text or "ref:e" in text:
+        return None
+    return json.loads(text.replace('"event_player"', f'"ref:{name}"').replace("controlled:event_player|", f"controlled:ref:{name}|"))
 
 
 def _walk(node: Any) -> list[str]:
@@ -259,7 +324,10 @@ def vote(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     order = [me]
     while (nxt := plan.after(order[-1])) != me:
         order.append(nxt)
-    if "sel" in e:
+    if e.get("players"):  # -- random choices (wave 47B) -- the players in the game as the vote begins
+        opts = list(plan.live())
+        labels = [plan.name(p) for p in opts]
+    elif "sel" in e:
         from app.rules import selectors
 
         opts = selectors.candidates(plan, selectors.from_key(e["sel"]), me, ctx.get("source_card"))
@@ -272,7 +340,7 @@ def vote(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             continue
         must, may = extra_votes(plan, p)
         schedule += [[p, False]] * (1 + must) + [[p, True]] * may
-    ctx["vote"] = {"opts": opts, "labels": labels, "secret": bool(e.get("secret")), "schedule": schedule, "i": 0, "ballots": []}
+    ctx["vote"] = {"opts": opts, "labels": labels, "secret": bool(e.get("secret")), "schedule": schedule, "i": 0, "ballots": [], "other": bool(e.get("other"))}
     return _ask(plan, ctx, e)
 
 
@@ -282,7 +350,8 @@ def _ask(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     v = ctx["vote"]
     while v["i"] < len(v["schedule"]):
         pid, extra = v["schedule"][v["i"]]
-        if not v["opts"] or pid not in plan.live():  # (800.4a: a player who left the game doesn't vote)
+        pool = [(o, lab) for o, lab in zip(v["opts"], v["labels"], strict=True) if not (v.get("other") and o == pid)]  # (nobody votes for themself: "another player")
+        if not pool or pid not in plan.live():  # (800.4a: a player who left the game doesn't vote)
             v["i"] += 1
             continue
         chooser = _chooser(plan, pid)
@@ -294,14 +363,13 @@ def _ask(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             return False
         if v.get("taken") == v["i"]:
             extra = False
-        options = [DecisionOption(id=o, label=lab) if "sel" not in e else DecisionOption(id=o, label=lab, card_id=o)
-                   for o, lab in zip(v["opts"], v["labels"], strict=True)]
+        options = [DecisionOption(id=o, label=lab) if "sel" not in e else DecisionOption(id=o, label=lab, card_id=o) for o, lab in pool]
         optional = extra or bool(e.get("upto"))
         if optional and "sel" not in e:
             options.append(DecisionOption(id=NONE_LEFT, label="Don't vote again"))
         decide(plan, player=chooser, kind="choose_cards" if optional and "sel" in e else "choose_one",
                prompt="Vote" + (f" for {plan.name(pid)}" if chooser != pid else "") + (" (secret)" if v["secret"] else "")
-               + (": " + " or ".join(v["labels"]) if "sel" not in e else ""),
+               + (": " + " or ".join(lab for _, lab in pool) if "sel" not in e else ""),
                options=options, min_choices=0 if optional and "sel" in e else 1, max_choices=1,
                resume={"step": "vote", "ctx": ctx, "e": e})
         return False
@@ -346,6 +414,9 @@ def _finish(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for _, choice in v["ballots"]:
         tally[choice] += 1
     v["tally"] = tally
+    from app.rules.triggers import voted  # -- voting (wave 48D) -- "Whenever players finish voting"
+
+    voted(plan, ctx["controller"], v["ballots"])
     if "sel" in e:
         from app.rules import context
 
@@ -362,12 +433,37 @@ def repeat(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         ctx["next"] = at + n
         return True
     if e.get("scale"):
-        effects[at] = {**effects[at], "n": int(effects[at]["n"]) * times}
+        effects[at:at + n] = [{**x, "n": int(x["n"]) * times} for x in effects[at:at + n]]
         return True
     block = effects[at:at + n]
     effects[at + n:at + n] = [copy.deepcopy(x) for _ in range(times - 1) for x in block]
     return True
 
 
-PRIMITIVES = {"vote": vote, "vote_repeat": repeat, "vote_control": vote_control}
+def each(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- random choices (wave 47B) -- the next ``skip`` instructions, for each player of ``who`` in turn order (101.4), once for each vote that player
+    received (a counted instruction once, with its amount multiplied), the player bound as ``vp``; a player with no votes gets none."""
+    from app.rules.effects import _players
+
+    effects, at, n = ctx["effects"], ctx["next"], int(e["skip"])
+    block, who, tally = effects[at:at + n], _players(plan, ctx, e["who"]), ctx["vote"]["tally"]
+    out: list[dict[str, Any]] = []
+    for p in (q for q in plan.apnap() if q in who):
+        k = int(tally.get(p, 0))
+        if k and e.get("scale"):
+            out += [{"do": "vote_bind", "player": p, "as": e["as"]}, *({**x, "n": int(x["n"]) * k} for x in block)]
+        elif k:
+            out += [{"do": "vote_bind", "player": p, "as": e["as"]}, *(copy.deepcopy(x) for _ in range(k) for x in block)]
+    effects[at:at + n] = out
+    return True
+
+
+def bind_player(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    context.bind_players(ctx, e["as"], [e["player"]] if e["player"] in plan.live() else [])
+    return True
+
+
+PRIMITIVES = {"vote": vote, "vote_repeat": repeat, "vote_control": vote_control, "vote_each": each, "vote_bind": bind_player}
 RESUME = {"vote": resume}

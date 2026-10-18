@@ -77,8 +77,8 @@ def parse_cost(text: str | None) -> ManaCost:
             x += 1
         elif sym in ALL_MANA or sym == SNOW:  # -- snow mana (wave 7E) -- {S} is a colored requirement of its own (107.4h)
             colored.append(sym)
-        elif sym.endswith("/P") and sym[0] in COLORS:
-            phyrexian.append(sym[0])
+        elif sym.endswith("/P") and all(c in COLORS for c in sym[:-2].split("/")):
+            phyrexian.append(sym[:-2])  # (-- review 38 -- 107.4f: a hybrid Phyrexian {G/W/P} is kept whole, "G/W": {G}, {W} or 2 life)
         elif "/" in sym:
             hybrid.append(tuple(sym.split("/")))
         else:
@@ -173,6 +173,10 @@ def _effect_options(effect: str, identity: tuple[str, ...]) -> tuple[tuple[str, 
         return ((m.group(2),) * _NUM[m.group(1)],)
     if effect == "Add one mana of any type that a land you control could produce":
         return (("LANDS",),)
+    if effect in ("Add one mana of any of this creature's colors", "Add one mana of any of ~'s colors", "Add one mana of any of its colors"):  # -- counters (wave 44C) -- Katilda, Dawnhart Prime (read in casting.mana_abilities)
+        return (("OWN_COLORS",),)
+    if effect in ("Add one mana of any of the exiled card's colors", "Add one mana of any of the exiled cards' colors"):  # -- imprint (wave 51B) -- Chrome Mox, Pit of Offerings: the colors of what the linked exile ability put there (607.2a; casting._resolve_options)
+        return (("EXILED_COLORS",),)
     # -- mana (wave 19E) -- "any color that a land / basic land / Gate you control could produce", "any type that a Gate …":
     # ("LANDS:<color|type>:<land|basic|Gate>",) read by casting.mana_abilities
     if m := re.fullmatch(r"Add one mana of any (?P<k>color|type) that an? (?P<f>land|basic land|Gate) you control could produce", effect):
@@ -224,12 +228,22 @@ _X_COUNT = re.compile(r"^Add X mana of any one color, where X is the number of (
                       r"you control$")
 _URZA = re.compile(r"^If you control an? (?P<what>[A-Z][\w'-]*(?: [A-Z][\w'-]*)*(?: and an? [A-Z][\w'-]*(?: [A-Z][\w'-]*)*)*), "
                    r"add (?P<add>(?:\{[WUBRGC]\})+) instead$")  # (wave 3R3: the Urza lands)
+# -- named permanents (wave 35C) -- "If you control creatures named Mine Worker and Power Plant Worker, add {C}{C}{C} instead." (Tower Worker): a
+# creature with each name (the ruling: at least one of each); ``instead_if`` holds ("@named", <name>) for each
+_NAMED_INSTEAD = re.compile(r"^If you control creatures named (?P<a>[A-Z][\w'-]*(?: [A-Z][\w'-]*)*) and (?P<b>[A-Z][\w'-]*(?: [A-Z][\w'-]*)*), "
+                            r"add (?P<add>(?:\{[WUBRGC]\})+) instead$")
 # -- this-turn history (wave 4D) -- "If you played a land this turn, add {B} instead." (River of Tears; 305.1, 701.18a:
 # played, not put onto the battlefield): ``instead_if`` holds this marker instead of permanents to control
 _PLAYED_LAND = re.compile(r"^If you played a land this turn, add (?P<add>(?:\{[WUBRGC]\})+) instead$")
 PLAYED_LAND = ("@played_land",)
+# -- designations (wave 45B) -- "If you have the initiative, add {C}{C} instead." (Sarevok's Tome), "If you've completed a dungeon, add six {G} instead."
+# (Undermountain Adventurer; 726.1, 309.7): checked as the ability resolves (605.3a); ``instead_if`` holds ("@status", <the designation>)
+_STATUS_INSTEAD = re.compile(r"^If you(?: have the (?P<i>initiative)|'ve completed a (?P<d>dungeon)), (?P<add>add .+) instead$")
 # -- opening hand (wave 18C) -- "If Gemstone Caverns has a luck counter on it, instead add one mana of any color." (122.1: the
 # source's own counters, checked as the ability resolves, 605.3a): ``instead_if`` holds ("@counter", <kind>)
+# -- most-played cards (wave 51F) -- "If this creature has a +1/+1 counter on it, add three mana of that type instead." (Incubation Druid, 605.3a): the type picked for the
+# first sentence, three times; ``instead_if`` holds ("@counter", <kind>) and ``instead`` ("LANDS", "LANDS", "LANDS") (casting._resolve_options)
+_OWN_COUNTER_TRIPLE = re.compile(r"^If (?:~|this [a-z]+) has an? (?P<k>\+1/\+1) counter on it, add three mana of that type instead$")
 _OWN_COUNTER_INSTEAD = re.compile(r"^If (?:~|this [a-z]+|[A-Z][\w',-]*(?: (?:of |the |[A-Z])[\w',-]*)*) has an? (?P<k>[a-z]+) counter on "
                                   r"it, instead (?P<add>add .+)$")
 # -- kicked / instead (wave 4G) -- "If you control four or more creatures, add {G}{G} instead." (Leafkin Druid); "If you
@@ -246,7 +260,7 @@ _CHOSEN_COLOR: dict[str, str | None] = {  # (wave 3R3) "Choose a color. <this>":
 }
 _PUT_SELF = re.compile(r"^Put an? (?P<k>[+-]\d+/[+-]\d+) counter on (?:this \w+|~)$")  # (wave 3R3: Wall of Roots)
 _SAC_SELF = re.compile(r"^Sacrifice (this \w+|it|~)$")  # (wave 17C: ~, a quoted grant read through self_text)
-_EXTRA = re.compile(r"^(\{[^}]+\})+$|^Pay \d+ life$|^Pay (?:\{E\})+$|^Pay (?:one|two|three|four|five|six|seven|eight) \{E\}$|^Remove (a|an|one|two|three) (?:[a-z]+|[+-]\d+/[+-]\d+) counters? from (this \w+|it)$")
+_EXTRA = re.compile(r"^(\{[^}]+\})+$|^Pay \d+ life$|^Pay (?:\{E\})+$|^Pay (?:one|two|three|four|five|six|seven|eight) \{E\}$|^Remove (a|an|one|two|three|four|five) (?:[a-z]+|[+-]\d+/[+-]\d+) counters? from (this \w+|it|~|[A-Z][\w',-]+(?: [A-Za-z',-]+)*)$")  # (wave 47D: five, the card's own name: Ramos)
 
 
 # -- ability words (wave 4F) ---------------------------------------------------------------------------
@@ -287,7 +301,7 @@ def _choice_part(part: str) -> bool:
     602.2b): sacrificing, discarding, tapping an untapped permanent, exiling from the graveyard."""
     from app.rules import costs as C
 
-    found = C.parse_ability_cost(part, card_name="~")
+    found = C.parse_ability_cost(part, card_name="~", anyn=False)
     # -- activated sweep (wave 17B) -- also exerting / untapping the source ({Q}, 107.6) and foraging (701.61a): paid by hand
     return not found.unsupported and bool(found.components) and all(
         c.kind in (C.EXERT, C.UNTAP, C.FORAGE, C.DISCARD_HAND) or (  # (wave 26C: "Discard your hand", 701.9a: no choice, paid with the rest)
@@ -428,6 +442,11 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             if more is None or len(more) != 1 or not all(needs):
                 return None
             instead_if, instead = needs, more
+        elif (nm := _NAMED_INSTEAD.fullmatch(s)) and not instead and len(options) == 1:  # -- named permanents (wave 35C) --
+            more = _effect_options("Add " + nm.group("add"), identity)
+            if more is None or len(more) != 1:
+                return None
+            instead_if, instead = (("@named", nm.group("a")), ("@named", nm.group("b"))), more
         elif (ci := _CONTROL_INSTEAD.fullmatch(s)) and not instead and count is None:  # -- kicked / instead (wave 4G) --
             more = _effect_options("A" + ci.group("add")[1:], identity)
             if more is None or not all(more) or any(x not in ALL_MANA for opt in (*options, *more) for x in opt):
@@ -435,11 +454,18 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             marker = ("@power", ci.group("p")) if ci.group("p") else \
                 ("@count", _COUNT_TYPES[ci.group("what").rstrip("s")], str(_NUM[ci.group(1)]))
             instead_if, instead = (marker,), more
+        elif (ot := _OWN_COUNTER_TRIPLE.fullmatch(s)) and not instead and options == (("LANDS",),):  # -- most-played cards (wave 51F) --
+            instead_if, instead = (("@counter", ot["k"]),), (("LANDS",) * 3,)
         elif (oc := _OWN_COUNTER_INSTEAD.fullmatch(s)) and not instead and len(options) == 1:  # -- opening hand (wave 18C) --
             more = _effect_options("A" + oc.group("add")[1:], identity)
             if more is None or not all(more):
                 return None
             instead_if, instead = (("@counter", oc.group("k")),), more
+        elif (si := _STATUS_INSTEAD.fullmatch(s)) and not instead and len(options) == 1:  # -- designations (wave 45B) --
+            more = _effect_options("A" + si["add"][1:], identity)
+            if more is None or len(more) != 1:
+                return None
+            instead_if, instead = (("@status", "initiative" if si["i"] else "completed_dungeon"),), more
         elif (pl := _PLAYED_LAND.fullmatch(s)) and not instead and len(options) == 1:  # -- this-turn history (wave 4D) --
             more = _effect_options("Add " + pl.group("add"), identity)
             if more is None or len(more) != 1:
@@ -586,7 +612,7 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
 
     phy = cost.phyrexian
     by_life = {tuple(sorted(phy[i] for i in ix)): ix for k in range(len(phy) + 1) for ix in combinations(range(len(phy)), k)}
-    attempts = [(base + [(c,) for i, c in enumerate(phy) if i not in ix], 2 * len(ix)) for ix in by_life.values()]
+    attempts = [(base + [tuple(c.split("/")) for i, c in enumerate(phy) if i not in ix], 2 * len(ix)) for ix in by_life.values()]
     for reqs, life_cost in attempts:
         if life_cost and life_cost > life:  # 119.4 (wave 29C): the life total only has to be at least the payment — all of it may be paid
             continue
@@ -657,6 +683,9 @@ def _alt(words: str, *, source: bool) -> dict[str, object] | None:
     if text.endswith(" of the chosen type"):
         out["chosen"] = True
         text = text[: -len(" of the chosen type")]
+    elif text.endswith(" of that color") and not source:  # -- most-played cards (wave 51F) -- "monocolored spells of that color" (Throne of Eldraine): the color chosen as it entered
+        out["chosen_color"] = True
+        text = text[: -len(" of that color")]
     tokens = text.split()
     types: list[str] = []
     subs: list[str] = []
@@ -684,14 +713,17 @@ def _alt(words: str, *, source: bool) -> dict[str, object] | None:
             subs.append(w if _known_subtype(w) else bare)
         elif w[:1].isupper() and i + 1 < len(tokens) and tokens[i + 1] == "planeswalker":
             subs.append(w)  # (a planeswalker type: "a Chandra planeswalker spell", 205.3j)
-        elif w in ("source", "sources", "permanent", "permanents") and source:
+        elif (w in ("source", "sources", "permanent", "permanents") and source) \
+                or (w in ("spell", "spells") and not source and out.get("chosen")):  # (wave 51C: "a spell of the chosen type" (Eclipsed Realms): any spell with that creature type)
             pass
         else:
             return None
         i += 1
-    if not (types or subs or supers or "color" in out or "non" in out or out.get("kicked")):
+    if not (types or subs or supers or "color" in out or "non" in out or out.get("kicked") or out.get("chosen")):
         return None
-    if out.get("chosen") and types != ["Creature"]:
+    if out.get("chosen") and types not in ([], ["Creature"]):  # (wave 51C: no card type named: any spell / source of the chosen creature type)
+        return None
+    if out.get("chosen_color") and (out.get("color") != "monocolored" or types or subs or supers):
         return None
     if types:
         out["types"] = types
@@ -728,7 +760,7 @@ def _alts(phrase: str, *, source: bool) -> list[dict[str, object]] | None:
                     extra, part = make(w), w["pre"]
                     break
         if not source:  # ("instant and sorcery spells": the noun may come once, at the end)
-            part = re.sub(r" spells?(?= of the chosen type$)| spells?$", "", part)
+            part = re.sub(r" spells?(?= of the chosen type$| of that color$)| spells?$", "", part)
         alt = _alt(part, source=source) if part or not extra else {}
         if alt is None:
             return None
@@ -737,7 +769,7 @@ def _alts(phrase: str, *, source: bool) -> list[dict[str, object]] | None:
 
 
 _GENERIC_SPEND = re.compile(
-    r"^Spend this mana only to (?:(?P<cast>cast (?P<spells>.+?))(?: (?:or|and) (?:to )?(?P<act>activate (?:an ability|abilities)"
+    r"^Spend this mana only to (?:(?P<cast>cast (?P<spells>.+?))(?:,? (?:or|and) (?:to )?(?P<act>activate (?:an ability|abilities)"  # (wave 34B: ", or to activate" — Brotherhood Headquarters)
     r"(?: of (?P<src>.+))?))?|(?P<act2>activate (?:an ability|abilities)(?: of (?P<src2>.+?))?)(?: or (?:to )?cast (?P<spells2>.+))?)$")
 
 
@@ -794,6 +826,9 @@ def parse_spend(sentence: str) -> str | None:
         return "q:" + json.dumps({"cast": None, "ability": "any"}, sort_keys=True)
     if s == "This mana can't be spent to cast spells from your hand":
         return "q:" + json.dumps({"cast": [{"not_zone": "hand"}], "ability": "any"}, sort_keys=True)
+    if s in ("Spend this mana only to cast a spell from anywhere other than your hand", "Spend this mana only to cast spells from anywhere other than your hand"):
+        # -- static_other (wave 42A) -- Mm'menon, the Right Hand: a spell cast from any zone but its caster's hand (601.2a), and no ability
+        return "q:" + json.dumps({"cast": [{"not_zone": "hand"}], "ability": None}, sort_keys=True)
     if m := _ORIGIN.fullmatch(s):
         alt: dict[str, object] = {"zone": "exile" if m["z"] == "exile" else "graveyard", "own": m["z"] == "your graveyard"}
         if m["kw"]:
@@ -844,6 +879,8 @@ def spend_alt_matches(alt: dict[str, Any], ch: Any) -> bool:
     if alt.get("has_x") and "{X}" not in ch.mana_cost:
         return False
     if alt.get("no_abilities") and ch.abilities:
+        return False
+    if alt.get("mono_color") and colors != {alt["mono_color"]}:  # -- most-played cards (wave 51F) -- "monocolored spells of that color": exactly the chosen color
         return False
     color = alt.get("color")
     if color == "colorless" and colors:

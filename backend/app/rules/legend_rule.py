@@ -8,7 +8,9 @@ control." (Cadric, Soul Kindler), "… to creatures you control." (Council of Re
   keeps any number of legendary permanents, while the opponent's, whom it doesn't name, still lose all but one).
 * The static applies while its source is on the battlefield (611.3a); "you" is its controller. Read lazily, only when
   a player controls two or more legendary permanents with one name (app/rules/sba.py).
-* Not read: a condition ("If there are exactly two permanents named Brothers Yamazaki …").
+* (wave 42A) "If there are exactly two permanents named Brothers Yamazaki on the battlefield, the "legend rule" doesn't apply to them.": checked each time
+  the rule is (611.3a): with exactly two permanents of that name on the battlefield, whoever controls them, those two are not counted (one player controlling both
+  keeps both); with a third, or one, the rule is the ordinary one for all of them. Any other condition is not read.
 """
 
 from __future__ import annotations
@@ -22,18 +24,30 @@ if TYPE_CHECKING:
 
 KIND = "no_legend_rule"
 _TEXT = re.compile(r'^The "legend rule" doesn\'t apply(?: to (?P<what>permanents|tokens|creatures) you control)?\.$')
+_KIND = re.compile(r'^The "legend rule" doesn\'t apply to (?P<what>[A-Za-z ]+?) you control\.$')  # (wave 49B) "… to Slivers you control." (Sliver Gravemother), "… to creature tokens you control." (The Master, Multiplied)
+
+
+_NAMED_TWO = re.compile(r'^If there are exactly two permanents named (?:~|this creature) on the battlefield, the "legend rule" doesn\'t apply to them\.$')
 
 
 def static_definition(text: str) -> dict[str, Any] | None:
-    m = _TEXT.match(text.strip().replace("“", '"').replace("”", '"'))
+    t = text.strip().replace("“", '"').replace("”", '"')
+    if _NAMED_TWO.match(t) is not None:
+        return {"kind": "static", "static": KIND, "scope": "named_two", "effects": []}
+    m = _TEXT.match(t)
     if m is None:
-        return None
+        from app.rules import selectors
+
+        k = _KIND.match(t)
+        sel = selectors.parse(f"{k['what']} you control") if k is not None else None
+        return {"kind": "static", "static": KIND, "scope": "sel", "sel": sel.key(), "effects": []} \
+            if sel is not None and sel.controller == "you" and sel.zones == ("battlefield",) and sel.player is None else None
     return {"kind": "static", "static": KIND, "scope": m["what"] or "all", "effects": []}
 
 
 def exempt_cards(plan: Plan, group: list[CardInstance]) -> set[str]:
     """The cards of one same-named group the rule doesn't apply to."""
-    from app.rules import scripts
+    from app.rules import scripts, selectors
     from app.rules.replace import conditional_lines
 
     out: set[str] = set()
@@ -45,7 +59,15 @@ def exempt_cards(plan: Plan, group: list[CardInstance]) -> set[str]:
         for i, d in scripts.definitions(ch).items():
             if i in skip or d.get("kind") != "static" or d.get("static") != KIND:
                 continue
+            if d["scope"] == "named_two":  # (wave 42A) exactly two permanents with the source's name on the battlefield: those two
+                same = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c) and plan.ch(c).name == ch.name]
+                out |= {card.id for card in group if card.id in same} if len(same) == 2 else set()
+                continue
             for card in group:
+                if d["scope"] == "sel":  # (wave 49B) the permanents the selector names, the source's controller's (704.5j: "you control")
+                    if selectors.matches(plan, selectors.from_key(d["sel"]), card, plan.ch(card), src.controller, src.id):
+                        out.add(card.id)
+                    continue
                 if d["scope"] == "all" or card.controller == src.controller and (
                         d["scope"] == "permanents" or (d["scope"] == "tokens" and card.is_token)
                         or (d["scope"] == "creatures" and plan.ch(card).is_creature)):

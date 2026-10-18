@@ -19,7 +19,8 @@ Quality = Callable[[Characteristics], bool]
 
 COLORS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
 CARD_TYPES = {"artifacts": "Artifact", "creatures": "Creature", "enchantments": "Enchantment", "instants": "Instant",
-              "sorceries": "Sorcery", "planeswalkers": "Planeswalker", "lands": "Land", "battles": "Battle"}
+              "sorceries": "Sorcery", "planeswalkers": "Planeswalker", "lands": "Land", "battles": "Battle",
+              "kindreds": "Kindred"}  # (kindreds: wave 42C, "the card type of your choice")
 # Irregular plurals of creature types that appear after "protection from".
 _PLURALS = {"elves": "Elf", "dwarves": "Dwarf", "wolves": "Wolf", "werewolves": "Werewolf", "thieves": "Thief",
             "mice": "Mouse", "fungi": "Fungus", "sphinxes": "Sphinx", "foxes": "Fox", "djinn": "Djinn"}
@@ -77,9 +78,25 @@ def parse(line: str) -> list[Quality] | None:
     return [q for q in out if q is not None] if out and all(out) else None
 
 
+def hexproof(line: str) -> list[Quality] | None:
+    """-- keywords (wave 44D) -- the qualities of "hexproof from white and from black" / "… from artifacts, creatures, and enchantments" (702.11d, 702.11f: one
+    ability for each quality), or None if one isn't understood."""
+    m = re.search(r"hexproof from (.+)$", line.strip().rstrip(".").lower())
+    out = [_one(w) for w in re.split(r",\s*(?:and\s+)?(?:from\s+)?|\s+and\s+(?:from\s+)?", m[1])] if m else []
+    return [q for q in out if q is not None] if out and all(out) else None
+
+
+def hexproof_from(ch: Characteristics, source: Characteristics | None) -> bool:
+    """-- keywords (wave 44D) -- 702.11d: does ``ch`` have hexproof from a quality ``source`` (the spell, or the source of the ability) has? An effect that makes it
+    lose hexproof loses these too (702.11e)."""
+    if source is None or "hexproof from" not in ch.keywords or "hexproof" in ch.lost:
+        return False
+    return any(q(source) for ab in ch.abilities if ab.kind == "keywords" and "hexproof from" in ab.keywords for q in hexproof(ab.text) or [])
+
+
 def _pieces(line: str) -> list[str]:
     """The protection pieces of a keyword line ("Flying, protection from red" → ["protection from red"])."""
-    return [p.strip() for p in re.split(r"[,;]", line) if p.strip().lower().startswith("protection")]
+    return [p.strip() for p in re.split(r",(?!\s*(?:and\s+)?from\b)|;", line) if p.strip().lower().startswith("protection")]  # (wave 50H: "from blue, from black, and from red" is one keyword's qualities)
 
 
 def qualities(ch: Characteristics, exempt: Callable[[str], bool] | None = None) -> list[Quality]:

@@ -91,7 +91,7 @@ def test_target_phrases():
 @pytest.mark.parametrize("text", [
     "Tap two target creatures defending player controls.",  # one specific defending player (508.5a): not modelled
     # (wave 19B: the non-targeted "creatures defending player controls" now parse; scripts refuses them outside an attacker's own trigger)
-    "Exile two target cards from an opponent's graveyard.",  # (unchanged: the same opponent's?)
+    # ("Exile two target cards from an opponent's graveyard." is read since wave 48A: one opponent's graveyard, per the rulings)
 ])
 def test_refused_target_phrases(text):
     assert parse_effects(text) is None
@@ -340,3 +340,20 @@ def test_targets_by_size_token_and_other_than_self(cards):
     pass_until_stack_empty(s)
     assert big.id not in s.state.cards
     replay_matches(s)
+
+
+def test_side_by_side_subtypes_narrow_each_other(cards):
+    """Lead fix (wave 48): "Eldrazi Scion" (Drowner of Hope, Deathless Behemoth, Kor Castigator) is a creature with both subtypes (205.3), not
+    either; "Eldrazi or Scion" is either."""
+    s = table(cards)
+    for name, line in (("Scion", "Token Creature — Eldrazi Scion"), ("Big", "Token Creature — Eldrazi"), ("Lone", "Token Creature — Scion")):
+        act(s, "p1", type="create_token", player="p1", token={"name": name, "type_line": line, "power": "1", "toughness": "1", "text": ""})
+    plan = Plan(s.state, "p1", cards, None)
+    ids = {c.name: c.id for c in s.state.cards.values() if c.name in ("Scion", "Big", "Lone")}
+
+    def found(phrase):
+        return {c for c in S.candidates(plan, S.parse(phrase), "p1", None, None)}
+
+    assert found("Eldrazi Scion") == {ids["Scion"]}
+    assert found("Eldrazi Scions you control") == {ids["Scion"]}
+    assert found("Eldrazi or Scion creature") == set(ids.values())

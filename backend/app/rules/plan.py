@@ -42,6 +42,9 @@ class Plan:
     # -- life payments (wave 29C) -- 119.4: the life a spell's additional costs ("pay X life") will also pay: Phyrexian mana can be paid with
     # life only up to what is left of the life total after it (casting.find_payment ``reserve``)
     reserved_life: int = 0
+    # -- cost reductions paid with objects (wave 47C) -- "for each counter, … sacrifices a nonland permanent … or discards a card": what a player's earlier choices of one resolution already
+    # take (paid together at the end), so none is chosen twice (optional_payment._taken)
+    excluded: frozenset[str] = frozenset()
 
     def __init__(self, state: GameState, actor: str, info: CardInfo, rng: Any) -> None:
         self.state = state.model_copy(deep=True)
@@ -54,6 +57,7 @@ class Plan:
         self.probe_903: list[tuple[str, str]] | None = None  # a look ahead for 903.9b (replacements.ask_903_9b_first)
         # -- review (face-down ids) -- whether each card is face down in view (as the intent began, then after each of its moves)
         self.began: dict[str, bool] | None = {cid: down_public(c) for cid, c in self.state.cards.items()}
+        self.put_via: str | None = None  # -- trigger other (wave 51E) -- the object whose effect is putting cards onto the battlefield now (Entry.via)
         self.moved: dict[str, bool] = {}  # card -> did one of its moves this intent make it a card others have seen (ops.seen_move)
 
     began: dict[str, bool] | None = None
@@ -87,15 +91,21 @@ class Plan:
         """Resolve and apply one table action on the scratch copy, and record it."""
         from app.game.engine import HANDLERS  # the game engine imports resolve → this module
         from app.game.resolve import resolve
+        from app.rules import (
+            graveyard_order,  # (-- graveyard order (wave 40C) -- 404.3: graveyard_order → plan)
+        )
 
         if len(self.steps) >= self.max_steps:
             raise ActionError("The rules engine stopped: too many steps for one action")
         if payload.get("type") in ("move", "mill"):
             # Zone-change replacement effects (614): unearth's "exile it instead", "If ~ would die,
             # exile it instead", Rest in Peace-like statics, madness, 903.9b — app/rules/replacements.py
-            from app.rules.replacements import replace_move  # (replacements → plan for type hints only)
+            from app.rules.replacements import (
+                kept_counters,  # (-- counters (wave 51E) -- Skullbriar)
+                replace_move,  # (replacements → plan for type hints only)
+            )
 
-            payload = replace_move(self, payload, actor)
+            payload = kept_counters(self, graveyard_order.unordered(self, replace_move(self, payload, actor)))
         if payload.get("type") in ("move", "mill", "put_top_face_down"):
             payload = {**payload, "keep_ids": True}  # (renumber_face_down)
         if payload.get("type") == "rules_sync" and self.renumber_face_down():
@@ -107,6 +117,7 @@ class Plan:
         if before is not None:  # (the turn log: what a permanent was as it left, layers applied)
             before.types = self._battlefield_types(payload)
         entered_before = (self.state.turn.number, len(self.rules.turn_log.entered)) if self.state.rules else None
+        gy_seen = graveyard_order.before(self, payload)
         HANDLERS[resolved.type](self.state, resolved)
         if before is not None and self.began is not None:
             for cid, zone in before.zones.items():
@@ -114,21 +125,27 @@ class Plan:
                     was, self.began[cid] = self.began.get(cid, False), down_public(c)
                     self.moved[cid] = self.moved.get(cid, False) or seen_move(zone, c.zone, was)
         track(self.state, before, actor=resolved.actor or None, group=getattr(resolved, "group", 0),
-              put_by=wither_put_by(resolved))  # (5H, 7C, 17D)
+              put_by=wither_put_by(resolved), declared=getattr(resolved, "declared", False))  # (5H, 7C, 17D; 45C: the attack declaration's tap)
+        if gy_seen is not None:  # (wave 40C) two or more cards into one graveyard at once: its owner may arrange them (404.3)
+            graveyard_order.after(self, gy_seen)
         if entered_before is not None:  # -- refused modal/conditional (wave 3R1) -- what entered was, as it entered (608.2i)
             log = self.rules.turn_log
             for entry in log.entered[entered_before[1] if log.turn == entered_before[0] else 0:]:
                 card = self.state.cards.get(entry.card)
+                entry.via = self.put_via
                 if entry.types is None and card is not None and self.oid(card) == entry.object_id:
                     now = self.ch(card)
                     entry.types, entry.subtypes = sorted(now.types), sorted(now.subtypes)
-        for oid, (pt, abilities, keywords, traits) in leaving.items():  # last known information (608.2h)
+        for oid, (pt, abilities, keywords, traits, base, goaded) in leaving.items():  # last known information (608.2h)
             snap = self.rules.lki.get(oid)
             if snap is not None:
                 if pt is not None:  # power / toughness
                     snap.power, snap.toughness = pt
+                if base is not None:  # (wave 30J) and the base ones, 208.4b
+                    snap.base_power, snap.base_toughness = base
                 # -- quoted grants (wave 2D) -- its abilities, keywords and types as they last existed (603.10a)
                 snap.abilities, snap.keywords, snap.traits = abilities, keywords, traits
+                snap.goaded = sorted(goaded)  # (-- goad (wave 48D) -- 701.15b)
         self.state.renames().clear()
         self.steps.append(resolved.model_dump(mode="json"))
         if payload.get("type") == "rules_mana" and self.rules.kept_mana:  # -- refused copy/mana (wave 3R3) --
@@ -142,7 +159,9 @@ class Plan:
         (``CreateArrow``), so a spell with more targets ("up to X target …", "any number of target …") gets several. (review 29C: arrows only
         show the targets: past ``ENGINE_ARROWS`` on the table none are added, as the table refuses more than 200 and that would refuse the
         cast or the resolution itself)"""
-        ids = list(dict.fromkeys(ids))
+        # (-- cast keywords (wave 43D) -- a target paid as a cost, "Kicker—Sacrifice an artifact or Goblin." with the Goblin chosen as the target (Goblin
+        # Barrage's ruling), is a token that ceased to exist (111.7): no arrow to a thing that isn't on the table)
+        ids = [i for i in dict.fromkeys(ids) if i in self.state.cards or i in self.state.players]
         for i in range(0, len(ids), ARROW_TARGETS):
             if len(self.state.arrows) >= ENGINE_ARROWS:
                 return
@@ -159,7 +178,7 @@ class Plan:
                 out[cid] = sorted(self.ch(card).types)
         return out
 
-    def _battlefield_lki(self, payload: dict[str, Any]) -> dict[str, tuple[Any, Any, Any, Any]]:
+    def _battlefield_lki(self, payload: dict[str, Any]) -> dict[str, tuple[Any, Any, Any, Any, Any, Any]]:
         """What a step may move off the battlefield looks like right now: the current power /
         toughness of the creatures (608.2h) and — quoted grants, wave 2D — the abilities, keywords
         and types of any permanent when they differ from the printed ones (603.10a: abilities that
@@ -167,14 +186,15 @@ class Plan:
         creature)."""
         from app.rules import granted  # (granted → plan for type hints only)
 
-        out: dict[str, tuple[Any, Any, Any, Any]] = {}
+        out: dict[str, tuple[Any, Any, Any, Any, Any, Any]] = {}
         for cid in payload.get("card_ids") or []:
             card = self.state.cards.get(cid) if isinstance(cid, str) else None
             if card is not None and card.zone.endswith(":battlefield"):
                 now = self.ch(card)
                 abilities, keywords, traits = granted.last_existed(chars.of(card, self.info), now)
-                if now.pt is not None or abilities is not None or keywords is not None or traits is not None:
-                    out[self.oid(card)] = (now.pt, abilities, keywords, traits)
+                goaded = {r[7:] for r in now.imposed if r.startswith("goaded:")}  # -- goad (wave 48D) -- (keyword_actions.GOADED, not imported: it would be a cycle for mypy) 701.15b, 608.2h: a goaded creature that dies was goaded as it last existed
+                if now.pt is not None or abilities is not None or keywords is not None or traits is not None or goaded:
+                    out[self.oid(card)] = (now.pt, abilities, keywords, traits, now.base_pt, goaded)
         return out
 
     def note(self, message: str, card_ids: list[str] | tuple[str, ...] = (), *, actor: str | None = None) -> None:

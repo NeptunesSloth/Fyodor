@@ -35,6 +35,10 @@ stack, researched against CR 2026-09-25 (and the cards' current rulings).
   it's on the battlefield" (Ouphe Vandals) is the same rider. "Counter target activated ability, triggered ability, or legendary
   spell" (Tale's End): any one object on the stack that is one of those (selectors.parse_stack_union).
 
+* "You may choose new targets for target spell or ability." (Deflecting Swat, 115.7d): this spell's controller keeps or changes each target of it in
+  turn, as for a copy (707.10c: copying.ask_targets); the new targets must be legal (for the spell's own controller and source) and, with the ones left
+  unchanged, a legal set (115.7d-e); how many targets it has and how its effect is divided can't change (115.7f). With no targets nothing happens.
+
 Refused (stays manual): "targets only a single creature / only a player" (Muck Drubb, Rebound),
 "the new target must be a creature" (Silver Wyvern), "that targets you or a creature you control"
 (Siren Stormtamer), "Change any targets" / "choose new targets" by a player other than the copy's
@@ -92,7 +96,24 @@ def _change(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [e], group["what"]
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(re.compile("^" + _CHANGE.pattern + "$"), _change)]
+# -- static_other (wave 36B) -- "You may choose new targets for target spell or ability." (Deflecting Swat, 115.7d)
+_NEW_TARGETS = re.compile(r"choose new targets for (?P<what>target (?:spell or ability|spell|activated ability|triggered ability|activated or triggered ability))")
+
+
+def _new_targets(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import copying, selectors
+    from app.rules.scripts import _NoMatch
+
+    group = copying._target_group(m["what"])
+    if group is None or (group["min"], group["max"]) != (1, 1) or "another" in group or not str(group["what"]).startswith(selectors.PREFIX):
+        raise _NoMatch
+    sel = selectors.from_key(group["what"])
+    if sel.zones != ("stack",) or sel.player is not None or "single_target" in sel.extras:
+        raise _NoMatch
+    return [{"do": "choose_new_targets", "who": "target"}], group["what"]
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(re.compile("^" + _CHANGE.pattern + "$"), _change), (re.compile("^" + _NEW_TARGETS.pattern + "$"), _new_targets)]
 
 
 # -- countering an ability: the permanent it came from (wave 23B) ---------------------------------------------------
@@ -143,7 +164,7 @@ def _legal(plan: Plan, entry: StackEntry, pos: Any, stack_id: str) -> list[str]:
     from app.rules import copying, selectors, targets
 
     spec = copying._spec(entry, pos)
-    found = targets.legal_targets(plan, spec.get("what", "any"), entry.controller, targets.source_of(plan, entry.source_card),
+    found = targets.legal_targets(plan, spec.get("what", "any"), entry.controller, targets.source_of(plan, entry.source_card, entry.kind == "spell"),
                                   entry.source_card, selectors.attacker_of(entry.event))
     return [x for x in found if x != stack_id]
 
@@ -273,5 +294,65 @@ def _apply(plan: Plan, sid: str, new: StackEntry | None) -> None:
     targeted(plan, sid, new.controller, added, crime=False)
 
 
-PRIMITIVES = {"change_target": change_target}
-RESUME = {"change_target": resume_change_target}
+def choose_new_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """115.7d: the controller of this effect keeps or changes each target of the spell or ability in turn (``choose_one``: "keep" or a legal new target)."""
+    from app.rules.effects import _stack_targets
+
+    for sid in _stack_targets(plan, ctx, e):
+        return _ask_new_targets(plan, ctx, sid, [])
+    return True
+
+
+def _ask_new_targets(plan: Plan, ctx: Context, sid: str, picks: list[str]) -> bool:
+    """True once every target has been kept or changed (the changed entry applied); False while a question is open."""
+    from app.rules import copying, targets
+    from app.rules.plan import decide
+
+    entry = plan.rules.stack.get(sid)
+    if entry is None:
+        return True
+    me = ctx["controller"]
+    positions = copying.positions(entry)
+    name = _label(plan, sid) or "that spell"
+    while len(picks) < len(positions):
+        k = len(picks)
+        kind, g, _ = positions[k]
+        so_far = [(q, copying._current(entry, q).id if p == "keep" else p) for p, q in zip(picks, positions, strict=False)]
+        others = set(copying._spec(entry, positions[k]).get("distinct_from") or []) if kind == "group" else set()  # (115.3: not twice for one "target")
+        taken = {x for q, x in so_far if q[0] == kind and (q[1] == g or q[1] in others)}
+        current = copying._current(entry, positions[k]).id
+        legal = [x for x in _legal(plan, entry, positions[k], sid) if x != current and x not in taken]
+        if not legal:  # nothing else it could target: it keeps this one
+            picks.append("keep")
+            continue
+        options = [DecisionOption(id="keep", label=f"Keep {_label(plan, current)}"[:200], card_id=current if current in plan.state.cards else None),
+                   *(DecisionOption(id=x, label=_label(plan, x)[:200], card_id=x if x in plan.state.cards else None) for x in legal)]
+        count = f" ({k + 1} of {len(positions)})" if len(positions) > 1 else ""
+        decide(plan, player=me, kind="choose_one", prompt=f"{ctx.get('name', '')}: keep the target of {name}{count} or choose a new one (115.7d)",
+               options=options, resume={"step": "choose_new_targets", "ctx": ctx, "sid": sid, "oid": plan.oid(sid), "picks": picks})
+        return False
+    if all(p == "keep" for p in picks):
+        return True
+    refs = [copying._current(entry, q) if p == "keep" else targets.ref(plan, p) for p, q in zip(picks, positions, strict=True)]
+    new = copying._retargeted(entry, positions, refs)
+    problem = copying._problem(plan, new)
+    if problem is not None:  # 115.7e: only the final set is judged: choose again
+        plan.note(f"Those targets aren't legal together: {problem}. Choose again", actor=me)
+        return _ask_new_targets(plan, ctx, sid, [])
+    _apply(plan, sid, new)
+    return True
+
+
+def resume_choose_new_targets(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    r = d.resume
+    if plan.rules.stack.get(r["sid"]) is None or plan.oid(r["sid"]) != r["oid"]:  # (gone, or a new object: 400.7)
+        continue_effects(plan, r["ctx"])
+        return
+    if _ask_new_targets(plan, r["ctx"], r["sid"], [*r["picks"], chosen[0]]):
+        continue_effects(plan, r["ctx"])
+
+
+PRIMITIVES = {"change_target": change_target, "choose_new_targets": choose_new_targets}
+RESUME = {"change_target": resume_change_target, "choose_new_targets": resume_choose_new_targets}

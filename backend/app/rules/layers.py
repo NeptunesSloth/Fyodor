@@ -58,7 +58,8 @@ def _num(value: str | None) -> int | None:
 
 def affecting(state: GameState, card: CardInstance) -> list[ContinuousEffect]:
     r = state.rules
-    if r is None or not r.effects or not card.zone.endswith(":battlefield"):
+    # (-- color lace (wave 46B) -- a spell on the stack is affected too: "Target spell or permanent becomes blue" locks in the spell, 611.2c)
+    if r is None or not r.effects or not (card.zone.endswith(":battlefield") or card.zone == "stack"):
         return []
     oid = r.object_id(card.id)
     return sorted((e for e in r.effects if oid in e.affected), key=lambda e: e.timestamp)
@@ -93,6 +94,7 @@ class _Derivation(threading.local):
         self.solving: list[list[Static]] = []  # (wave 22A) the table being solved: group_layers.solve
         self.l4: set[str] = set()  # (wave 4B) the objects whose own layer-4/5 statics' conditions are being read
         self.cda: set[str] = set()  # the objects whose characteristic-defining P/T is being read
+        self.pt: dict[str, tuple[int, int] | None] = {}  # (wave 42A) the object whose rule static is being judged -> its power / toughness after layer 7
 
 
 _T = _Derivation()
@@ -130,7 +132,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     # (the face and flip state are part of the key: a transformed permanent has only its back
     # face's characteristics, 712.8e — its front face's statics are gone, 611.3a)
     key = tuple(sorted((cid, c.controller, c.face_down, c.face, c.flipped, c.card_id or c.name, c.token.text if c.token else "",
-                        r.card_mode(cid) if r else "", timestamp(state, cid),
+                        r.card_mode(cid) if r else "", timestamp(state, cid), c.choices.get("Chosen word", ""),  # (wave 33B: linked words, 607.2f)
                         copies.get(r.object_id(cid), (0, "")) if r else (0, ""))
                        for cid, c in state.cards.items() if c.zone.endswith(":battlefield")))
     # -- conditional statics (wave 4B) -- statics that function from a graveyard (113.6b): which cards are there
@@ -234,7 +236,9 @@ def _finish(state: GameState, info: CardInfo, out: list[Static], wiped: dict[str
         if st.definition["static"] != "grant":
             continue
         for text in st.definition.get("grants", ()):
-            inner = grammar.parse(scripts.self_text(text, ""))
+            # (wave 42A) 702.98a: a granted "Unleash" brings its second half, the static "can't block as long as it has a +1/+1 counter" (the first, the counter, is
+            # chosen as it enters: riot.py); the same static the printed keyword is (scripts.define)
+            inner = grammar.parse("~ can't block as long as it has a +1/+1 counter on it." if text.rstrip(".").lower() == "unleash" else scripts.self_text(text, ""))
             if inner is None:
                 continue
             for cid, controller in field:
@@ -282,7 +286,7 @@ def _table_key(state: GameState) -> tuple:
                      tuple(state.zones.get(f"{pid}:graveyard", ())), tuple(state.zones.get(f"{pid}:exile", ())),
                      tuple(sorted(state.players[pid].resources.items()))) for pid in state.seat_order)
     field = tuple((cid, c.controller, c.tapped, c.attacking is not None, bool(c.blocking), c.attached_to, c.face_down,
-                   tuple(sorted(c.counters.items())))
+                   tuple(sorted(c.counters.items())), c.face, c.blocking, tuple(c.blocking_more))  # (wave 35D: face, whom it blocks)
                   for cid, c in state.cards.items() if c.zone.endswith(":battlefield"))
     log = r.turn_log if r else None  # (conditions read this turn's history: "a creature died this turn")
     history = (log.turn, tuple(log.attacked), tuple(sorted(log.gained.items())), tuple(sorted(log.lost.items())),
@@ -292,7 +296,10 @@ def _table_key(state: GameState) -> tuple:
                len(log.casts), len(log.facts), tuple(sorted((p, len(a)) for p, a in log.attackers.items())),
                len(r.events), r.trigger_batch,  # (wave 24A: facts of events not yet looked at are read too, history.log_for)
                tuple(sorted((p, (c.turn, c.count)) for p, c in r.lands_played.items()))) if log is not None and r else ()
-    designations = (tuple(r.monstrous), tuple(r.renowned), tuple(r.suspected)) if r else ()  # -- conditional statics (wave 4B) --
+    designations = (tuple(r.monstrous), tuple(r.renowned), tuple(r.suspected),  # -- conditional statics (wave 4B) --
+                    # -- as long as (wave 35D) -- what a static's condition reads of an object's past, the Ring-bearer, the unlocked doors
+                    tuple(r.dealt_damage), tuple(sorted(r.ring_bearers.items())), tuple(r.payments), tuple(sorted(r.devoured.items())),  # (wave 48B: "if it devoured a creature")
+                    tuple(sorted((k, tuple(v)) for k, v in r.unlocked.items()))) if r else ()
     return (state.seq, state.turn.number, state.turn.active_player, players, field,
             r.timestamp if r else 0, len(r.effects) if r else 0, history, designations)
 
@@ -362,6 +369,8 @@ def _hits(view: Plan, table: list[Static], card: CardInstance, ch: Characteristi
         elif not grammar.applies(view, d, source=source, controller=st.controller, card=card, ch=ch, conditions=True):
             continue
         if solved or _conditions(view, st, tkey):  # (a solved static's conditions were read as it was solved)
+            if d.get("chosen_keywords"):  # -- commander sweep (wave 49B) -- "have each of the chosen abilities" (Greymond): the pair its permanent chose as it entered (614.12a), read now (the table is cached)
+                st = replace(st, definition={**d, "keywords": (source.choices.get("Chosen abilities") or "").split(" and ") if source.choices.get("Chosen abilities") else []})
             hits.append(st)
     return hits, imposed
 
@@ -425,6 +434,8 @@ def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEff
             lost |= gone
             granted -= gone
         elif isinstance(item, ContinuousEffect):
+            if item.lose_index:  # -- licids (wave 50A) -- 613.1f: "This creature loses this ability" (only that printed one)
+                abilities = tuple(a for a in abilities if a.index not in item.lose_index)
             if item.remove_abilities:
                 abilities = ()
                 lost |= {k for a in printed if a.kind == "keywords" for k in a.keywords} | granted
@@ -441,6 +452,7 @@ def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEff
 
 
 # -- animation (agent A2): layer 4 type changes, layer 5 colors, layer 6 "loses all abilities" ----
+COMMANDER_PLATE = "Protection from each color not in your commander's color identity"  # (wave 43B: statics grants it; derive writes the colors in)
 _PT_COUNTER = re.compile(r"(?P<p>[+-]\d+)/(?P<t>[+-]\d+)")  # (wave 3R3: a power/toughness counter, 122.1a)
 
 # Subtypes belong to a card type (205.3g-k); when an effect sets the card types (205.1a) the
@@ -517,6 +529,7 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
             if e.get("set_types") is not None:  # -- as long as (wave 20B) -- 205.1a: "it's a land"
                 types = frozenset(e["set_types"]) | (types & frozenset({"Instant", "Sorcery"}))
             types = (types - frozenset(e.get("remove_types") or ())) | frozenset(e.get("add_types") or ())  # (205.1b: "creature in addition …")
+            supers = supers - frozenset(e.get("remove_supertypes") or ())  # (wave 42A) 205.4: "isn't legendary if it's a token" (Aeve)
             subtypes = subtypes | frozenset(e.get("add_subtypes") or ())
             subtypes = frozenset(s for s in subtypes if _subtype_fits(s, types))
             continue
@@ -725,6 +738,24 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         from app.rules.scripts import granted_ability
 
         extra = []
+        # -- most-played cards (wave 43B) -- "has protection from each color that's not in your commander's color identity" (Commander's Plate): one protection ability for each
+        # color outside the combined identity of its controller's commanders (903.4); none at all without a commander (the ruling 2020-11-10); a commander with no color
+        # in its identity gives protection from all five
+        if any(text == COMMANDER_PLATE for _, text in grants):
+            expanded: list[tuple[Static, str]] = []
+            for st, text in grants:
+                if text != COMMANDER_PLATE:
+                    expanded.append((st, text))
+                    continue
+                owner = state.cards.get(st.source)
+                if owner is None or info is None or not any(c.owner == owner.controller and c.commander_key for c in state.cards.values()):
+                    continue
+                from app.rules.casting import commander_identity
+
+                identity = commander_identity(state, owner.controller, info)
+                expanded += [(st, f"Protection from {name}") for name, letter in (("white", "W"), ("blue", "U"), ("black", "B"), ("red", "R"), ("green", "G"))
+                             if letter not in identity]
+            grants = expanded
         for k, (st, text) in enumerate(grants):
             if "‹granter›" in text and state.rules is not None:  # -- granted from object (wave 18F) -- 607.1a: the granting object
                 text = text.replace("‹granter›", f"‹granter#{state.rules.object_id(st.source)}›")
@@ -762,6 +793,8 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
             setters.append(((st.seq, 0, 0), st.definition["base"][0], st.definition["base"][1]))
         elif st.definition.get("base_mv"):  # -- layers (wave 22A) -- "base power and toughness each equal to its mana value" (Opalescence)
             setters.append(((st.seq, 0, 0), int(ch.mana_value), int(ch.mana_value)))
+        elif (st.definition.get("each") or {}).get("set"):  # -- most-played cards II (wave 45A) -- "base power and toughness X/X, where X is …" (Aettir and Priwen, Dollmaker's Shop)
+            setters.append(((st.seq, 0, 0), each_amounts.get(id(st), 0), each_amounts.get(id(st), 0)))
     for e in effects:  # 7b: resolved setting effects, interleaved by timestamp (613.7)
         if e.layer == "7b":
             setters.append(((e.object_seq, 1, e.timestamp), e.power, e.toughness))
@@ -780,11 +813,12 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     for _, sp, stt in setters:
         p = sp if sp is not None else p
         t = stt if stt is not None else t
+    base = (p, t)  # -- base power (wave 30J) -- 208.4b, 613.4b: what a CDA (7a) and the setting effects (7b) left, before any modification (7c, counters)
     for st in hits:  # 7c: static modifications (613.4c) …
         p += st.definition["p"]
         t += st.definition["t"]
         each = st.definition.get("each")
-        if each is not None:  # "… gets +1/+1 for each Elf you control" (613.4c, a dynamic amount)
+        if each is not None and not each.get("set"):  # "… gets +1/+1 for each Elf you control" (613.4c, a dynamic amount)
             n = each_amounts.get(id(st), 0)
             p += each["p"] * n
             t += each["t"] * n
@@ -804,7 +838,7 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     for e in effects:
         if e.layer == "7d":
             p, t = t, p
-    return _with_rules(state, card, replace(ch, pt=(p, t)), info, imposed)
+    return _with_rules(state, card, replace(ch, pt=(p, t), base_pt=base), info, imposed)
 
 
 def _hone(state: GameState, card: CardInstance, info: CardInfo) -> int:
@@ -819,8 +853,29 @@ def _hone(state: GameState, card: CardInstance, info: CardInfo) -> int:
 # -- conditional statics (wave 4B) ----------------------------------------------------------------------------
 
 
+def _impending_layer4(state: GameState, card: CardInstance, info: CardInfo | None) -> list[tuple[float, dict[str, Any]]]:
+    """-- cast keywords (wave 43D) -- 702.176a: "As long as this permanent's impending cost was paid and it has a time counter on it, it's not a creature."
+    (its own static, 613.1d: removing the type removes the creature types too, 205.3d); the cast record says the cost was paid, the counters are read
+    now. Nothing here reads characteristics, so every reader gets it (as ``_own_layer4``)."""
+    r = state.rules
+    if r is None or not card.counters.get("time") or not card.zone.endswith(":battlefield"):
+        return []
+    rec = r.payments.get(r.object_id(card.id))
+    if rec is None or rec.alternative != "impending" or info is None:
+        return []
+    if not any("impending" in a.keywords for a in copiable(state, card, info).abilities if a.kind == "keywords"):
+        return []
+    return [(float(timestamp(state, card.id)), {"remove_types": ["Creature"], "add_subtypes": []})]
+
+
 def _own_layer4(state: GameState, card: CardInstance, info: CardInfo | None,
                 table: list[Static] | None = None) -> list[tuple[float, dict[str, Any]]]:
+    """The object's own layer-4 statics whose conditions hold now (and, wave 43D, impending's)."""
+    return _impending_layer4(state, card, info) + _own_layer4_statics(state, card, info, table)
+
+
+def _own_layer4_statics(state: GameState, card: CardInstance, info: CardInfo | None,
+                        table: list[Static] | None = None) -> list[tuple[float, dict[str, Any]]]:
     """The object's own layer-4 statics whose conditions hold now ("As long as your devotion to red is less than
     five, ~ isn't a creature."; app/rules/statics.py ``_layer4_parts``). Applied for every reader, also while
     another static's condition reads this object (``_T.depth`` > 0): their conditions never read characteristics
@@ -882,7 +937,7 @@ def _grants(d: dict[str, Any]) -> bool:
     """Does the static change characteristics (layers 6-7)? A rules-only static ("Creatures your
     opponents control can't block.") is applied by ``_with_rules`` instead."""
     return bool(d["p"] or d["t"] or d.get("base") or d.get("base_mv") or d["keywords"] or d["grants"] or d.get("each") or d.get("abilities_of")
-                or d.get("lose_keywords") or d.get("lose_all") or d.get("deny_keywords"))  # -- attached events (wave 4L) --
+                or d.get("lose_keywords") or d.get("lose_all") or d.get("deny_keywords") or d.get("chosen_keywords"))  # -- attached events (wave 4L) -- (wave 49B: the chosen abilities)
 
 
 def _attached45(state: GameState, card: CardInstance, info: CardInfo | None,
@@ -1008,14 +1063,31 @@ def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info:
                 if set(rules) <= imposed or not _gate_open(view, st, tkey):
                     continue
                 source = state.cards[st.source]
-                if grammar.applies(view, d, source=source, controller=st.controller, card=card, ch=ch, conditions=True) \
-                        and _conditions(view, st, tkey):
+                if not grammar.applies(view, d, source=source, controller=st.controller, card=card, ch=ch, conditions=True):
+                    continue
+                if any(grammar._mentions(c, ("self_stat",)) for c in d.get("conditions") or ()):
+                    # -- static_other (wave 42A) -- "~ can't be blocked if her power is 1 or less" (Stature): a rule of the source itself (``applies`` holds only for
+                    # it), judged on its own power after layer 7 (613.4), right here where that is known; never cached (it is the object's, not the table's)
+                    _T.pt[card.id] = ch.pt
+                    try:
+                        holds = grammar.conditions_hold(view, d, source=source, controller=st.controller)
+                    finally:
+                        _T.pt.pop(card.id, None)
+                else:
+                    holds = _conditions(view, st, tkey)
+                if holds:
                     imposed.update(rules)
         finally:
             _T.depth -= 1
     if imposed:
         ch = replace(ch, imposed=ch.imposed | frozenset(imposed))
     return ch
+
+
+def rule_pt(card_id: str, stat: str) -> int | None:
+    """-- static_other (wave 42A) -- the power / toughness of the object whose own rule static is being judged by ``_with_rules`` (None: not now)."""
+    pt = _T.pt.get(card_id)
+    return None if pt is None else pt[0 if stat == "power" else 1]
 
 
 def _own(rules: list[str], controller: str) -> list[str]:
@@ -1063,7 +1135,7 @@ def _group_imposed(state: GameState, card: CardInstance, ch: Characteristics, in
 
 
 Layer = Literal["1", "2", "3", "4", "5", "6", "7a", "7b", "7c", "7d"]
-Duration = Literal["end_of_turn", "permanent", "end_of_combat"]
+Duration = Literal["end_of_turn", "permanent", "end_of_combat", "next_turn", "end_of_next_turn"]  # (wave 31C: "next_turn" — a copy effect "until your next turn", copying.add_copy_effect)
 
 
 def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | None, controller: str,
@@ -1092,6 +1164,9 @@ def end_of_turn(plan: Plan) -> None:
     """514.2: "until end of turn" effects end in the cleanup step."""
     r = plan.rules
     r.effects = [e for e in r.effects if e.duration not in ("end_of_turn", "end_of_combat")]  # (a combat a turn ended in, 18E review)
+    from app.rules import delayed
+
+    delayed.end_of_next_turn(plan)  # -- end of next turn (wave 32C) -- "until the end of your next turn" ends in the cleanup of that turn
     control_sync(plan)  # -- control (wave 3K) -- a Threaten effect ends: the creature goes back (613.1b)
 
 

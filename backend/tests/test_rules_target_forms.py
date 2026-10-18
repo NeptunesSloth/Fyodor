@@ -57,7 +57,7 @@ def test_selectors(phrase, fields):
 
 
 @pytest.mark.parametrize("phrase", [
-    "activated or triggered ability from your graveyard", "artifact creature or Vehicle",
+    "activated or triggered ability from your graveyard",  # ("artifact creature or Vehicle": read since wave 33C)
 ])
 def test_refused_selectors(phrase):
     assert selectors.parse(phrase) is None
@@ -108,15 +108,15 @@ def test_target_forms_are_parsed(text, effects_, target):
 
 
 @pytest.mark.parametrize("text", [
-    "~ deals 2 damage to any other target.",  # ("other" than what? nothing was targeted before)
+    # ("~ deals 2 damage to any other target.": read since wave 34D, any target but the source)
     "Tap each of up to two other targets.",
-    "~ deals 1 damage to any target, 2 damage to another target, and 3 damage to a third target.",  # (three-way: not read)
+    # ("… 1 damage to any target, 2 damage to another target, and 3 damage to a third target" is read since wave 50E: Cone of Flame)
     "Counter target creature.",  # (a permanent can't be countered, 701.6a)
     # ("Counter target activated or triggered ability from an artifact or enchantment source.": read since wave 23B, a source union —
     #  tests/test_rules_wave23b_stack.py, Green Slime)
     "Return all creature cards from target player's graveyard to your hand.",  # (a target player's zone as the objects: not modelled)
     "Exile it until ~ leaves the battlefield.",
-    "Target player shuffles up to four target cards from their graveyard into their library.",
+    # ("Target player shuffles up to four target cards from their graveyard into their library.": read since wave 46B, tests/test_rules_wave46b_shuffle.py)
     # ("Tap up to X target creatures.": read since wave 4K, tests/test_rules_wave4k_x_sized.py)
 ])
 def test_refused_forms(text):
@@ -128,7 +128,6 @@ def test_refusals_are_registered():
     for text, piece in [
         ("Return all creature cards from target player's graveyard to your hand.", "zone"),  # (exiling the graveyard: wave 4J, 15C)
         ("Destroy target creature that player controls.", "named earlier"),
-        ("Target player shuffles up to four target cards from their graveyard into their library.", "earlier target"),
         ("Exchange target creature's power and toughness with its mana value.", "P/T"),  # (switching: wave 7E)
     ]:
         reason = coverage.refusal(text)
@@ -139,7 +138,8 @@ def test_refusals_are_registered():
     assert coverage.refusal("Destroy target creature.") is None
     # (read since: fight, "choose … target", "copy that spell", target groups with a total mana value)
     for text in ("Target creature you control fights another target creature.", "You may copy that spell.",
-                 "Return up to three target creature cards with total mana value 3 or less from your graveyard to the battlefield."):
+                 "Return up to three target creature cards with total mana value 3 or less from your graveyard to the battlefield.",
+                 "Target player shuffles up to four target cards from their graveyard into their library."):
         assert coverage.refusal(text) is None and parse_effects(text) is not None, text
     assert coverage.refusal("Put up to two creature cards with total mana value 6 or less from among them onto the battlefield.")
 
@@ -168,7 +168,7 @@ def test_choose_targets_grammar_now_has_its_primitive():
     assert parse_effects("Choose two target creatures. Untap them. Put two +1/+1 counters on each of them.") == (
         [{"do": "choose_targets", "who": "target:0"}, {"do": "untap", "who": "target:0"},
          {"do": "add_counters", "who": "target:0", "kind": "+1/+1", "n": 2}], [{"what": CREATURE, "min": 2, "max": 2}], False)
-    assert parse_effects("Choose a creature you control.") is None  # (not a target: the player-choices grammar)
+    assert parse_effects("Choose a creature you control.")[0][0]["do"] == "player_chooses"  # (not a target: the player-choices grammar, wave 32A)
 
 
 def test_choose_targets_binds_a_later_pronoun_end_to_end(cards):

@@ -186,6 +186,14 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "activate_ability", card_id: "m1", ability: 2 }]);
   });
 
+  it("offers a card in an opponent's exile only when the server lists it for you (Hostage Taker, Valgavoth)", () => {
+    const listed = view({ ...RULES, hints: { castable: ["x1"] } });
+    const v = { ...listed, cards: { ...listed.cards, x1: card("x1", "p2:exile", "firebolt") } } as unknown as GameView;
+    expect(labels(rulesMenu(v.cards.x1!, v, "p1"))[0]).toBe("Cast from exile");
+    const unlisted = { ...v, rules: { ...v.rules, hints: {} } } as unknown as GameView;
+    expect(labels(rulesMenu(unlisted.cards.x1!, unlisted, "p1"))).not.toContain("Cast from exile");
+  });
+
   it("offers a hand ability the server lists (Tetzimoc's reveal from the hand, 113.6m)", () => {
     const base = view({ ...RULES, hints: { activatable: [{ card_id: "t1", ability: 1 }] } });
     const v = { ...base, cards: { ...base.cards, t1: card("t1", "p1:hand", "tetz") } } as unknown as GameView;
@@ -253,6 +261,45 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "unlock_door", card_id: "rb", door: 2 }]);
   });
 
+  it("offers the special action that ends a Licid's effect (116.2c) when the server lists its cost", () => {
+    const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true }, stats: { lb: { end_cost: "{W}" } } });
+    const v = { ...base, cards: { ...base.cards, lb: card("lb", "p1:battlefield", "licid"), lc: card("lc", "p1:battlefield", "licid") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        licid: { id: "licid", name: "Calming Licid", type_line: "Creature — Licid", oracle_text: "{W}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature." } as CardData,
+      },
+    });
+    const end = rulesMenu(v.cards.lb!, v, "p1").find((i) => i !== "separator" && i.label.startsWith("End the effect"));
+    if (!end || end === "separator") throw new Error("expected the special action");
+    expect(end.label).toBe("End the effect ({W}, special action)");
+    expect(end.disabled).toBe(false);
+    end.onClick?.();
+    expect(sent).toEqual([{ type: "end_effect", card_id: "lb" }]);
+    expect(rulesMenu(v.cards.lc!, v, "p1").some((i) => i !== "separator" && i.label.startsWith("End the effect"))).toBe(false); // no effect of yours on it
+  });
+
+  it("offers your companion's special action (116.2g) with priority, as its Companion line", () => {
+    const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true } });
+    const v = { ...base, cards: { ...base.cards, lu: card("lu", "p1:companion", "lurrus"), ob: card("ob", "p2:companion", "lurrus") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        lurrus: { id: "lurrus", name: "Lurrus of the Dream-Den", type_line: "Legendary Creature — Cat Nightmare",
+          oracle_text: "Companion — Each permanent card in your starting deck has mana value 2 or less. (If this card is your chosen companion, you may put it into your hand from outside the game for {3} as a sorcery.)\nLifelink" } as CardData,
+      },
+    });
+    const take = rulesMenu(v.cards.lu!, v, "p1").find((i) => i !== "separator" && i.label.startsWith("Put into your hand"));
+    if (!take || take === "separator") throw new Error("expected the companion action");
+    expect(take.disabled).toBe(false);
+    take.onClick?.();
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "lu", ability: 0 }]);
+    expect(rulesMenu(v.cards.ob!, v, "p1").some((i) => i !== "separator" && i.label.startsWith("Put into your hand"))).toBe(false); // not yours
+    const idle = view({ ...RULES, hints: { ...RULES.hints, has_priority: false } });
+    const w = { ...idle, cards: { ...idle.cards, lu: card("lu", "p1:companion", "lurrus") } } as unknown as GameView;
+    expect(rulesMenu(w.cards.lu!, w, "p1").find((i) => i !== "separator" && i.label.startsWith("Put into your hand"))).toMatchObject({ disabled: true });
+  });
+
   it("offers Equip for an Equipment on the battlefield", () => {
     const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true } });
     const v = { ...base, cards: { ...base.cards, eq: card("eq", "p1:battlefield", "splitter") } } as unknown as GameView;
@@ -301,6 +348,23 @@ describe("rules card menu", () => {
     expect(labels(rulesMenu(v.cards.c2!, v, "p1")).some((l) => /kicker/i.test(l))).toBe(false);  // no kicker line
   });
 
+  it("offers each kicker cost of \"Kicker {A} and/or {B}\" (wave 50H, 702.33b): the cast's kicker is a mask", () => {
+    const base = view({ ...RULES, hints: { castable: ["k1"] } });
+    const v = { ...base, cards: { ...base.cards, k1: card("k1", "p1:hand", "battlemage") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        battlemage: { id: "battlemage", name: "Thornscape Battlemage", type_line: "Creature — Elf Wizard",
+          oracle_text: "Kicker {R} and/or {W} (You may pay an additional {R} and/or {W} as you cast this spell.)\nWhen this creature enters, if it was kicked with its {R} kicker, it deals 2 damage to any target." } as CardData,
+      },
+    });
+    const both = item(rulesMenu(v.cards.k1!, v, "p1"), "Cast with Kicker {R} and/or {W}");
+    expect(both.disabled).toBe(false);
+    expect(both.submenu?.map((i) => (i === "separator" ? "—" : i.label))).toEqual(["Kicked with {R}", "Kicked with {W}", "Kicked with both"]);
+    both.submenu?.forEach((i) => (i === "separator" ? undefined : i.onClick?.()));
+    expect(sent.map((m) => (m as { kicker?: number }).kicker)).toEqual([1, 2, 3]);
+  });
+
   it("offers entwine, prototype, splice and miracle (wave 18E)", () => {
     const base = view({ ...RULES, hints: { castable: ["e1", "p1x", "s1"], miracle: ["w1"] } });
     const v = { ...base, zones: { "p1:hand": ["e1", "p1x", "s1", "s2", "w1"] },
@@ -331,6 +395,21 @@ describe("rules card menu", () => {
     expect(sent[2]).toEqual({ type: "cast_spell", card_id: "s1", splice: ["s2"] });
     item(rulesMenu(v.cards.w1!, v, "p1"), "Reveal for miracle").onClick?.();
     expect(sent[3]).toEqual({ type: "miracle_reveal", card_id: "w1" });
+  });
+
+  it("lists Suspend X in the hand and waits for X before sending it (wave 50H, 107.3d)", () => {
+    const base = view({ ...RULES, hints: { activatable: [{ card_id: "x1", ability: 1, x: true }] } });
+    const v = { ...base, cards: { ...base.cards, x1: card("x1", "p1:hand", "chron") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        chron: { id: "chron", name: "Aeon Chronicler", type_line: "Creature — Avatar",
+          oracle_text: "Aeon Chronicler's power and toughness are each equal to the number of cards in your hand.\nSuspend X—{X}{3}{U}. X can't be 0." } as CardData,
+      },
+    });
+    useGame.setState({ view: v });
+    item(rulesMenu(v.cards.x1!, v, "p1"), "Suspend X—{X}{3}{U}. X can't be 0.").onClick?.();
+    expect(useXPrompt.getState().action).toEqual({ type: "activate_ability", card_id: "x1", ability: 1 });
   });
 
   it("numbers reconfigure's abilities after every printed line (702.151a)", () => {
@@ -411,5 +490,21 @@ describe("decision answers", () => {
     useXPrompt.setState({ action: null });
     void dropAsIntent(["c2"], { zone: "stack" }); // the drag-to-cast path asks too
     expect(useXPrompt.getState().action).toEqual({ type: "cast_spell", card_id: "c2" });
+  });
+
+  it("asks for X for an alternative cost or a kicker cost that has {X}, and only then (107.3a, wave 43D)", () => {
+    useGame.setState({ view: view({ ...RULES, hints: { castable: ["c2", "c4"], x_cast: ["c2"], x_kicker: ["c4"],
+      alt_castable: { c2: [{ id: "c2:1", label: "overload {X}{X}{R}{R}", x: true }, { id: "c2:2", label: "pitch" }] } } }) });
+    sent.length = 0;
+    useXPrompt.setState({ action: null });
+    void send({ type: "cast_spell", card_id: "c2", alt_cost: "c2:2" }); // an alternative cost without X: X is 0 (107.3b)
+    void send({ type: "cast_spell", card_id: "c4" }); // not kicked: no X
+    expect(sent).toHaveLength(2);
+    void send({ type: "cast_spell", card_id: "c4", kicker: 1 });
+    expect(useXPrompt.getState().action).toEqual({ type: "cast_spell", card_id: "c4", kicker: 1 });
+    useXPrompt.setState({ action: null });
+    void send({ type: "cast_spell", card_id: "c2", alt_cost: "c2:1" });
+    expect(useXPrompt.getState().action).toEqual({ type: "cast_spell", card_id: "c2", alt_cost: "c2:1" });
+    useXPrompt.setState({ action: null });
   });
 });

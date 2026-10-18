@@ -19,7 +19,7 @@ planeswalkers you control, and other creatures you control have hexproof." (the 
 layer-6 grant, app/rules/statics.py); effects "You gain protection from everything until your next turn.", "You
 gain protection from the color of your choice until end of turn.", "You gain hexproof / shroud until end of turn /
 until your next turn.", "You and permanents you control gain hexproof until end of turn.". Refused: protection from
-a player, "hexproof from <quality>", conditional statics ("During your turn, you and this creature have hexproof"),
+a player, conditional statics ("During your turn, you and this creature have hexproof"),
 "your life total can't change" (Teferi's Protection), Auras that grant it ("Enchanted player has …").
 """
 
@@ -38,7 +38,7 @@ Context = dict[str, Any]
 Definition = dict[str, Any]
 
 _STATIC = re.compile(r"^you(?P<rest>(?:, [A-Za-z][A-Za-z' ]*?)*,? and (?:other )?[A-Za-z][A-Za-z' ]*?)? (?:have|has) (?P<kw>hexproof|shroud)$")
-_EFFECT = re.compile(r"^you(?P<also> and permanents you control)? gain (?P<what>hexproof|shroud|protection from (?P<q>.+?)) "
+_EFFECT = re.compile(r"^(?P<all>players|you)(?P<also> and permanents you control)? gain (?P<what>hexproof from (?P<h>.+?)|hexproof|shroud|protection from (?P<q>.+?)) "
                      r"(?P<when>until end of turn|until your next turn)$")
 _CHOICE = "the color of your choice"
 
@@ -47,8 +47,18 @@ def _lower_first(s: str) -> str:
     return s[:1].lower() + s[1:] if s[:1].isupper() else s
 
 
+_STATIC_PROTECTION = re.compile(r"^you and (?P<perm>permanents you control) have protection from (?P<q>[A-Za-z]+)$")  # (wave 44C: Gor Muldrak, Amphinologist)
+
+
 def static_definition(text: str) -> Definition | None:
     t = _lower_first(text.strip().rstrip("."))
+    if (p := _STATIC_PROTECTION.fullmatch(t)) is not None:  # -- counters (wave 44C) -- 702.16b: you have protection from that quality, as the permanents do (a layer-6 grant)
+        from app.rules import protection, statics
+
+        d = statics.parse(f"Permanents you control have protection from {p['q']}.")
+        if d is None or d.get("static") != "grant" or d.get("conditions") or protection.parse(f"protection from {p['q']}") is None:
+            return None
+        return {**d, "player_shield": "protection", "quality": p["q"]}
     m = _STATIC.fullmatch(t)
     if m is None:
         return None
@@ -90,7 +100,17 @@ def _effect(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     until = "turn" if m["when"] == "until end of turn" else "next_turn"
     out: list[dict[str, Any]] = []
     q = m["q"]
-    if q is None:
+    if m["all"] == "players":  # -- player shields (wave 51C) -- "Players gain hexproof until end of turn." (Everybody Lives!): every player, each one's own shield (702.11c: against their opponents)
+        if q is not None or m["h"] or m["also"] or until != "turn":
+            raise ValueError("only hexproof / shroud until end of turn for every player")
+        return [{"do": "player_shield", "shield": m["what"], "until": until, "who": "each"}], None
+    if m["h"]:  # -- hexproof from (wave 51B) -- Veil of Summer: "You and permanents you control gain hexproof from blue and from black": 702.11d, 702.11f; the card's reminder text says it covers you too
+        from app.rules import protection
+
+        if protection.hexproof(f"hexproof from {m['h']}") is None:
+            raise ValueError("quality")
+        out.append({"do": "player_shield", "shield": "hexproof_from", "quality": m["h"], "until": until})
+    elif q is None:
         out.append({"do": "player_shield", "shield": m["what"], "until": until})
     elif q == _CHOICE:
         out.append({"do": "player_shield_choice", "until": until})
@@ -107,7 +127,8 @@ def _effect(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 
         sel = selectors.parse("permanents you control")
         assert sel is not None
-        out.append({"do": "grant", "who": sel.key(), "keywords": [m["what"]]})
+        out.append({"do": "grant", "who": sel.key(), "keywords": [], "abilities": [f"Hexproof from {m['h']}"]} if m["h"]
+                   else {"do": "grant", "who": sel.key(), "keywords": [m["what"]]})
     return out, None
 
 
@@ -124,21 +145,24 @@ TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_EFFECT, _template)]
 
 
 # -- effects ---------------------------------------------------------------------------------------
-def _add(plan: Plan, ctx: Context, shield: str, quality: str | None, until: str) -> None:
-    pid = ctx["controller"]
+def _add(plan: Plan, ctx: Context, shield: str, quality: str | None, until: str, pid: str | None = None) -> None:
+    pid = pid or ctx["controller"]
     r = plan.rules
     turn = plan.state.turn.number
     r.player_shields = [x for x in r.player_shields if not (x.get("until") == "turn" and x.get("turn") != turn)]
     label = ctx.get("name") or "An effect"
-    r.player_shields.append({"id": secrets.token_hex(4), "player": pid, "controller": pid, "shield": shield, "quality": quality,
+    r.player_shields.append({"id": secrets.token_hex(4), "player": pid, "controller": ctx["controller"], "shield": shield, "quality": quality,
                              "until": until, "turn": turn, "label": label})
-    what = shield if shield != "protection" else f"protection from {quality}"
+    what = {"protection": f"protection from {quality}", "hexproof_from": f"hexproof from {quality}"}.get(shield, shield)
     plan.note(f"{plan.name(pid)} gains {what} {'until end of turn' if until == 'turn' else 'until their next turn'} ({label})",
               actor=pid)
 
 
 def player_shield(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    _add(plan, ctx, e["shield"], e.get("quality"), e["until"])
+    from app.rules.plan import live_players
+
+    for pid in live_players(plan.state) if e.get("who") == "each" else [ctx["controller"]]:  # (wave 51C)
+        _add(plan, ctx, e["shield"], e.get("quality"), e["until"], pid)
     return True
 
 
@@ -193,9 +217,11 @@ def _shields(plan: Plan, player: str) -> list[tuple[str, str | None, str]]:
     for src, d in cast_limits._statics(plan.state, plan.info, "player_shield"):
         if src.controller == player:
             out.append((d["shield"], None, src.name or "a permanent"))
+    from app.rules import statics
+
     for src, d in cast_limits._statics(plan.state, plan.info, "grant"):
-        if d.get("player_shield") and src.controller == player:
-            out.append((d["player_shield"], None, src.name or "a permanent"))
+        if d.get("player_shield") and src.controller == player and statics.conditions_hold(plan, d, source=src, controller=src.controller):  # (wave 35D)
+            out.append((d["player_shield"], d.get("quality"), src.name or "a permanent"))  # (wave 44C: protection has its quality)
     return out
 
 
@@ -213,17 +239,21 @@ def can_target(plan: Plan, chooser: str, player: str, source: Characteristics | 
     """702.11c / 702.18a / 702.16b: may ``chooser``'s spell or ability (from ``source``) target ``player``?"""
     if not plan.rules.player_shields and not _any_static(plan.state, plan.info):
         return True
+    from app.rules import protection
+
     for shield, quality, _ in _shields(plan, player):
         if shield == "shroud" or (shield == "hexproof" and chooser != player):
             return False
         if shield == "protection" and _protects(quality, source):
             return False
+        if shield == "hexproof_from" and chooser != player and source is not None and any(q(source) for q in protection.hexproof(f"hexproof from {quality}") or []):
+            return False  # (wave 51B) 702.11d: spells and abilities your opponents control from that quality
     return True
 
 
 def protected_from(plan: Plan, player: str, source: Characteristics | None) -> str | None:
     """702.16c/e/j: the label of a protection ``player`` has from ``source`` (an Aura, a damage source), or None."""
-    if not plan.rules.player_shields:
+    if not plan.rules.player_shields and not _any_static(plan.state, plan.info):  # (wave 44C: a static's protection too)
         return None
     for shield, quality, label in _shields(plan, player):
         if shield == "protection" and _protects(quality, source):

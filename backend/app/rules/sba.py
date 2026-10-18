@@ -77,6 +77,14 @@ class Found:
         return "; ".join(parts)
 
 
+def game_result_zero_life_ok(plan: Plan, pid: str) -> bool:
+    from app.rules import (
+        game_result,  # -- most-played cards III (wave 46C) -- "You don't lose the game for having 0 or less life." (704.5a)
+    )
+
+    return game_result.zero_life_ok(plan, pid)
+
+
 def find(plan: Plan) -> Found:
     state = plan.state
     r = plan.rules
@@ -85,7 +93,7 @@ def find(plan: Plan) -> Found:
     for pid in live_players(state):
         p = state.players[pid]
         reason = None
-        if p.life <= 0:
+        if p.life <= 0 and not game_result_zero_life_ok(plan, pid):
             reason = "0 or less life"
         elif p.resources.get("poison", 0) >= POISON_LETHAL:
             reason = f"{POISON_LETHAL} poison counters"
@@ -170,6 +178,8 @@ def _attachment(plan: Plan, card: CardInstance, ch: Characteristics, out: Found)
                 out.unbestow.append(card)
             return
         if host is None:
+            if any(attachments.host_problem(plan, card, cid, sba=True) is None for cid in attachments.enchanted_cards(plan, card)):
+                return  # -- reanimation Auras (wave 51F) -- 303.4a: it enchants a creature card in a graveyard (still one, still that object)
             out.dying.append((card, "an Aura attached to nothing"))
             return
         problem = attachments.host_problem(plan, card, host, sba=True)
@@ -198,6 +208,10 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         if offer_616(plan):
             return True
     found = find(plan)
+    # -- storied (wave 45D) -- 702.195a, any time: before a permanent that leaves in this very check (legend rule, 0 toughness) is gone (ruling 2026-06-29)
+    from app.rules import designations
+
+    storied = designations.storied_permanents(plan)
     if found.vanishing:
         plan.do({"type": "delete_card", "card_ids": [c.id for c in found.vanishing], "force": True},
                 actor=found.vanishing[0].owner)
@@ -206,14 +220,13 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         # hand). A declined set isn't asked about again until something changes.
         fingerprint = found.fingerprint()
         if r.sba_declined == fingerprint:
-            return bool(found.vanishing)
+            return bool(found.vanishing) or storied
         decide(plan, player=plan.turn_player, kind="confirm", prompt=f"State-based actions: {found.summary(plan)}",
                options=[DecisionOption(id="yes", label="Apply"), DecisionOption(id="no", label="Leave for now")],
                resume={"step": "sba_confirm", "fingerprint": fingerprint})
         return True
-    happened = bool(found.vanishing)
-    from app.rules import designations  # -- keywords (wave 15E) -- 702.131b: ascend, any time
-
+    happened = bool(found.vanishing) or storied
+    # -- keywords (wave 15E) -- 702.131b: ascend, any time
     happened = designations.ascend_permanents(plan) or happened
     from app.rules import speed  # -- speed (wave 24B) -- 704.5aa
 
@@ -354,6 +367,11 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
                 return True
         else:
             r.commander_offered.pop(card.id, None)
+    if r.pending_gy_order:  # -- graveyard order (wave 40C) -- 404.3: the owner arranges cards put into a graveyard together, before priority
+        from app.rules import graveyard_order
+
+        if graveyard_order.offer(plan):
+            return True
     return happened
 
 

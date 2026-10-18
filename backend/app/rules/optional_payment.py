@@ -51,7 +51,7 @@ PAY, DECLINE = "pay", "decline"
 SUPPORTED = frozenset({C.MANA, C.PAY_LIFE, C.PAY_ENERGY, C.SACRIFICE, C.DISCARD, C.EXILE, C.EXILE_FROM_GRAVEYARD,
                        C.REMOVE_COUNTER, C.RETURN_PERMANENT, C.TAP_OTHER, C.PUT_COUNTER, C.DISCARD_HAND,
                        C.MILL, "EXILE_FROM_HAND", C.EXILE_TO_GY,  # (MILL, EXILE_FROM_HAND: wave 8C; EXILE_TO_GY: wave 15C)  # (PUT_COUNTER: wave 6F, blight)
-                       C.FORAGE, C.COLLECT_EVIDENCE, "SOURCE_DAMAGE"})  # (SOURCE_DAMAGE: wave 27A; wave 26C: "you may forage", "you may collect evidence 4": 701.61a, 701.59a)
+                       C.FORAGE, C.COLLECT_EVIDENCE, C.BEHOLD, "SOURCE_DAMAGE"})  # (C.BEHOLD: wave 49B)  # (SOURCE_DAMAGE: wave 27A; wave 26C: "you may forage", "you may collect evidence 4": 701.61a, 701.59a)
 FLEXIBLE = (C.FORAGE, C.COLLECT_EVIDENCE)  # (wave 26C) the cards that pay are chosen as a whole (cost_payment._flexible_options)
 _MANA_ONLY = re.compile(r"^(\{[^}]+\})+$")
 
@@ -62,8 +62,9 @@ _MANA_ONLY = re.compile(r"^(\{[^}]+\})+$")
 def _blight_like(comp: C.CostComponent) -> bool:
     """A "put N counters on a creature you control" part (blight): one chosen permanent of the payer's — or "discard
     your hand" (every card in it; ``paid_x`` records how many, for "draw that many cards"); -- champion (wave 12B) -- or one chosen
-    permanent exiled (702.72a)."""
-    return comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE) or (comp.kind == C.PUT_COUNTER and comp.selector is not None and comp.alt is None and not comp.x) \
+    permanent exiled (702.72a); -- keywords (wave 43C) -- or a counter put on the source itself ("Cumulative upkeep—Put a -1/-1 counter on this
+    creature": not on the battlefield, it can't be paid, cost_payment._new_part_problem)."""
+    return comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE) or (comp.kind == C.PUT_COUNTER and comp.alt is None and not comp.x) \
         or comp.kind == C.DISCARD_HAND or comp.kind == C.MILL \
         or (comp.kind == C.EXILE and comp.selector is not None and comp.amount == 1) \
         or (comp.kind == C.SACRIFICE and comp.alt is not None and comp.selector is not None)  # (wave 8C: mill 701.17b; "another creature or an artifact")
@@ -76,6 +77,7 @@ def cost_text(phrase: str) -> str | None:
     text the cost parser reads — or None when the engine couldn't pay every part by itself."""
     if " another " not in f" {phrase} ":  # -- if you do (wave 15C) -- the payer chooses what pays (Torment of Scarabs); "another" is
         phrase = phrase.replace(" of their choice", "")  # other than what? (an Aura's: the enchanted creature) — not read
+    phrase = re.sub(r"\b(non[a-z]+), (?=non[a-z]+ )", r"\1 ", phrase)  # -- trigger other (wave 39A) -- "two nonland, nontoken permanents" (Rakdos, Patron of Chaos): one adjective list, not two costs
     parts = []
     # -- if you do (wave 6F) -- "sacrifice an artifact, creature, enchantment, land, or planeswalker" (Braids): one
     # permanent of any of those types — the cost parser's "a creature or artifact or land"
@@ -152,12 +154,15 @@ def parse(text: str) -> AbilityCost | None:
     if (r := _REVEAL_FROM_HAND.match(text)) is not None:  # -- if you do (wave 15C) --
         key = C._selector(r["what"], zone="hand")
         return AbilityCost(components=(C.CostComponent(REVEAL_FROM_HAND, selector=key, text=text),)) if key else None
+    if text.startswith("Behold "):  # -- commander sweep (wave 49B) -- "You may behold a Dragon. If you do, …" (Sarkhan, Dragon Ascendant): 701.4a, a Dragon card revealed from your hand or a Dragon you control
+        behold = C._extra_part(text)
+        return AbilityCost(components=(behold,)) if behold is not None and behold.kind == C.BEHOLD else None
     if (m := _EXILE_FROM_HAND.match(text)) is not None:  # -- if you do (wave 8C) -- "Exile a creature card from your hand"
         from app.rules import alt_costs
 
         part = alt_costs._part(text)
         return AbilityCost(components=(part,)) if isinstance(part, C.CostComponent) and m else None
-    cost = C.parse_ability_cost(text)
+    cost = C.parse_ability_cost(text, anyn=False)
     if cost.unsupported or not cost.components or "{X}" in cost.mana.upper() or cost.energy_x:
         return None
     if any(c.activation_only and not _blight_like(c) for c in cost.components):  # (wave 4H; wave 6F: blight)
@@ -297,11 +302,23 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                resume={"step": STEP, "ctx": ctx, "opt": {"cost": "", "bind": str(e.get("bind") or "pay0"), "payer": who, "chosen": {}},
                        "cost": "{0}", "ask": True}, source=plan.state.cards.get(ctx.get("source_card") or ""))
         return False
+    if (alt := e.get("alt")) and alt.get("hard"):  # -- unless pays (wave 51C) -- "If you control a creature with power 4 or greater, counter that spell instead." (Stubborn Denial): checked as it resolves (608.2c), nothing is offered when it holds
+        from app.rules import conditions
+
+        if conditions.holds(plan, ctx, alt["cond"]):
+            context.bind_payment(ctx, str(e.get("bind") or "pay0"), False)
+            return True
     text = unless_pays.concrete_cost(plan, ctx, e)
     cost = parse(text)
     # -- end unless pays (wave 4C) --
     name = str(e.get("bind") or "pay0")
     payer = payer_of(plan, ctx, e.get("who", "you"))
+    from app.rules import effects
+
+    if e.get("needs") and not effects._cards(plan, ctx, e["needs"]):  # -- exile as a cost (wave 49D) -- 118.3, 400.7: "pay … and exile it" with it gone (Timothar's ruling)
+        plan.note(f"{plan.name(payer or ctx['controller'])} can't pay for {ctx.get('name') or 'it'}: the card is no longer where it went")
+        context.bind_payment(ctx, name, False)
+        return True
     if cost is None or payer is None:
         context.bind_payment(ctx, name, False)
         return True
@@ -316,11 +333,15 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True
     source = plan.state.cards.get(ctx.get("source_card") or "")
     opt: dict[str, Any] = {"cost": text, "bind": name, "payer": payer, "chosen": {}}  # (the concrete cost: wave 4C)
+    if e.get("needs"):
+        opt["needs"] = e["needs"]  # (wave 49D)
     if e.get("defer"):  # -- review (wave 6R) -- paid with the other players' choices (pay_deferred)
         opt["defer"] = True
     hint = " (tap your mana first)" if cost.mana and _self_pays(plan, payer) else ""
-    decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay {_label(cost)}?{hint}",
-           options=[DecisionOption(id=PAY, label=f"Pay {_label(cost)}"), DecisionOption(id=DECLINE, label="Don't pay")],
+    shown = re.sub(r"^pay ", "", _label(cost).replace("~", ctx.get("name") or "it"), flags=re.IGNORECASE)  # ("Have ~ deal 7 damage to you": the source by name; "Pay 3 life" once)
+    ask = shown if shown.startswith("Have ") else f"Pay {shown}"
+    decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: {ask[0].lower()}{ask[1:]}?{hint}",
+           options=[DecisionOption(id=PAY, label=ask), DecisionOption(id=DECLINE, label="Don't pay")],
            resume=_resume(ctx, opt, cost), source=source,
            display={"kind": "optional_cost", "cost": _label(cost), "pool": dict(plan.state.players[payer].mana)} if cost.mana else None)
     return False
@@ -330,8 +351,12 @@ def _offer_alternatives(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """-- if you do (wave 6F) -- PAY one of ``alts`` (each offered only while payable in full, 118.3) or DECLINE."""
     name = str(e.get("bind") or "pay0")
     payer = payer_of(plan, ctx, e.get("who", "you"))
-    payable = [(i, text, cost) for i, text in enumerate(e["alts"])
-               if (cost := parse(text)) is not None and payer is not None and problem(plan, ctx, cost, payer) is None]
+    was, plan.excluded = plan.excluded, _taken(ctx, payer)
+    try:
+        payable = [(i, text, cost) for i, text in enumerate(e["alts"])
+                   if (cost := parse(text)) is not None and payer is not None and problem(plan, ctx, cost, payer) is None]
+    finally:
+        plan.excluded = was
     if payer is None or not payable:
         if payer is not None:
             plan.note(f"{plan.name(payer)} can't pay {' or '.join(e['alts'])} for {ctx.get('name') or 'it'}")
@@ -430,6 +455,12 @@ def defers(text: str | None, alts: list[str] | None = None) -> bool:
     return bool(costs) and all(c is not None and not c.mana for c in costs)
 
 
+def _taken(ctx: Context, payer: str | None) -> frozenset[str]:
+    """-- cost reductions paid with objects (wave 47C) -- what the payer's earlier choices of this resolution (chosen, not yet paid) already take: Rottenmouth Viper's "previously
+    chosen can't be chosen again" (ruling 2024-07-26)."""
+    return frozenset(c for o in (ctx.get("deferred_pay") or {}).values() if o["payer"] == payer for ids in o["chosen"].values() for c in ids)
+
+
 def _defer(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> None:
     payer = opt["payer"]
     picked = [c for ids in opt["chosen"].values() for c in ids]
@@ -485,7 +516,7 @@ def _choose_next(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCos
     payer = opt["payer"]
     source = _source(plan, ctx)
     picked = {int(k): list(v) for k, v in opt["chosen"].items()}
-    used = {c for ids in picked.values() for c in ids}
+    used = {c for ids in picked.values() for c in ids} | _taken(ctx, payer)
     for i, comp in cost.choices:
         if i in picked:
             continue
@@ -534,7 +565,11 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
     name: str = opt["bind"]
     label = ctx.get("name") or "it"
     chosen = {int(k): list(v) for k, v in opt["chosen"].items()}
+    from app.rules import effects
+
     why = problem(plan, ctx, cost, payer, chosen)
+    if why is None and opt.get("needs") and not effects._cards(plan, ctx, opt["needs"]):  # (wave 49D: it may have moved while the payer tapped mana)
+        why = "the card is no longer where it went"
     if why is not None:
         hand = any(c.kind == "EXILE_FROM_HAND" for c in cost.components)  # (wave 18F: no reason given: it would describe a hidden hand)
         plan.note(f"{plan.name(payer)} " + (f"didn't pay {_label(cost)}" if hand else f"couldn't pay {_label(cost)}: {why}") + f" for {label}")
@@ -566,6 +601,8 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
     # -- unless damage (wave 27A) -- the source deals the damage to the payer (120.3) as the next instruction (review 27A: a damage
     # instruction of its own, so the payer's 616.1 choices among replacement / prevention effects can pause it)
     hurt = [{"do": "damage", "who": f"player:{payer}", "n": comp.amount} for comp in cost.components if comp.kind == "SOURCE_DAMAGE"]
+    if opt.get("needs"):  # -- exile as a cost (wave 49D) -- "… and exile it": the other half of the cost, done the moment the rest is paid
+        hurt.append({"do": "exile", "who": opt["needs"], "as": f"{name}x"})
     if hurt:
         at = int(ctx.get("next") or 0)
         ctx["effects"] = [*ctx["effects"][:at], *hurt, *ctx["effects"][at:]]
@@ -573,10 +610,9 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
         if comp.kind == REVEAL_FROM_HAND and chosen.get(i):
             plan.do({"type": "reveal", "card_ids": chosen[i]}, actor=payer)
     for i, comp in enumerate(cost.components):  # -- if you do (wave 6F) -- to the bottom of the payer's library
-        if comp.kind == HAND_TO_BOTTOM:
-            for cid in chosen.get(i, []):
-                plan.do({"type": "move", "card_ids": [cid], "to": {"player": payer, "zone": "library"}, "position": "bottom"},
-                        actor=payer)
+        if comp.kind == HAND_TO_BOTTOM and chosen.get(i):  # (-- review 30 -- at once, one move: 401.4)
+            plan.do({"type": "move", "card_ids": list(chosen[i]), "to": {"player": payer, "zone": "library"}, "position": "bottom"},
+                    actor=payer)
     if any(c.kind == C.DISCARD_HAND for c in cost.components):  # -- if you do (wave 6F) -- "draw that many cards"
         ctx.setdefault("paid_x", {})[name] = len(record.discarded)
     if any(c.kind in (C.EXILE, "EXILE_FROM_HAND") and c.selector is not None for c in cost.components):  # -- champion (wave 12B) -- 607.2a (wave 18F: imprint)

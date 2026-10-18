@@ -28,61 +28,17 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DecisionOption
 from app.game.state import zone_key
-from app.rules import player_control, selectors
+from app.rules import player_control, selectors, token_grammar
 from app.rules.plan import decide
 
 if TYPE_CHECKING:
     from app.rules.plan import Plan
 
-_ATTACKING_PHASES = ("declare_attackers", "declare_blockers", "combat_damage", "end_combat")
 
-
-def enter_attacking(plan: Plan, ctx: dict[str, Any], cards: list[str]) -> bool:
-    """The returned ``cards`` (now on the battlefield) become attacking creatures (508.4). True when
-    done; False when their controller is asked whom they attack (the resolution then pauses)."""
-    from app.rules import battles
-
-    pid = ctx["controller"]
-    attackers = [c for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")
-                 and plan.state.cards[c].controller == pid and plan.ch(plan.state.cards[c]).is_creature
-                 and not battles.is_battle(plan.ch(plan.state.cards[c]))]
-    if not attackers or plan.state.turn.phase not in _ATTACKING_PHASES or pid != plan.active:
-        return True
-    defenders = [p for p in plan.live() if p != pid]
-    options = [DecisionOption(id=p, label=plan.name(p)) for p in defenders]
-    options += [DecisionOption(id=c.id, label=f"{c.name} ({plan.name(c.controller)})", card_id=c.id)
-                for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller in defenders
-                and plan.in_game(c) and "Planeswalker" in plan.ch(c).types]
-    options += [DecisionOption(id=b, label=f"{plan.state.cards[b].name} (battle)", card_id=b)
-                for b in battles.attackable(plan.state, pid, defenders, plan.ch)]
-    if not options:
-        return True
-    if len(options) == 1:
-        _attack_with(plan, attackers, options[0].id, pid)
-        return True
-    decide(plan, player=pid, kind="choose_one",
-           prompt=f"{', '.join(plan.state.cards[c].name or 'Creature' for c in attackers)} enter attacking: attacking whom?",
-           options=options, resume={"step": "enter_attacking", "ctx": ctx, "cards": attackers})
-    return False
-
-
-def _attack_with(plan: Plan, cards: list[str], target: str, actor: str) -> None:
-    kind = "player" if target in plan.state.players else "card"
-    cards = [c for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")]
-    if kind == "card" and (target not in plan.state.cards or not plan.state.cards[target].zone.endswith(":battlefield")):
-        return  # 508.4a: the planeswalker or battle is gone: never an attacking creature
-    if kind == "player" and target not in plan.live():
-        return  # 508.4a: that player left the game
-    if cards:
-        plan.do({"type": "attack", "card_ids": cards, "target": {"kind": kind, "id": target}}, actor=actor)
-
-
-def resume_enter_attacking(plan: Plan, d: Any, chosen: list[str]) -> None:
-    from app.rules import effects
-
-    if chosen:
-        _attack_with(plan, d.resume["cards"], chosen[0], d.player)
-    effects.continue_effects(plan, d.resume["ctx"])
+def enter_attacking(plan: Plan, ctx: dict[str, Any], cards: list[str], at: dict[str, Any] | None = None) -> bool:
+    """The returned ``cards`` (now on the battlefield) become attacking creatures (508.4): token_grammar.enter_attacking, the one reading of it.
+    True when done; False when their controller is asked whom they attack (the resolution then pauses)."""
+    return token_grammar.enter_attacking(plan, ctx, cards, at)
 
 
 # -- Gifts piles ---------------------------------------------------------------------------------------
@@ -120,6 +76,9 @@ def gifts(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     if (why := prohibitions.cant_search(plan, pid, ctx["controller"])) is not None:
         plan.note(f"{why}: {plan.name(pid)} can't search their library", actor=pid)
         library = []
+    else:
+        prohibitions.note_search(plan, pid, pid)  # -- most-played cards (wave 43B) -- "Whenever an opponent searches their library"; Aven Mindcensor: the top four
+        library = library[:prohibitions.search_depth(plan, pid)]
     sel = selectors.from_key(e["sel"])
     matching = [c for c in library
                 if selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
@@ -219,5 +178,5 @@ def resume_may_mill(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 PRIMITIVES: dict[str, Any] = {"gifts": gifts, "may_mill": may_mill}
-RESUME = {"enter_attacking": resume_enter_attacking, "gifts_found": resume_gifts_found,
+RESUME = {"enter_attacking": token_grammar.resume_token_attack, "gifts_found": resume_gifts_found,
           "gifts_opponent": resume_gifts_opponent, "gifts_split": resume_gifts_split, "may_mill": resume_may_mill}

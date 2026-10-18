@@ -135,11 +135,11 @@ def triggered(s):
     ("Teysa Karlov", "FULL"), ("Harmonic Prodigy", "FULL"), ("Veyran, Voice of Duality", "FULL"),
     ("Delney, Streetwise Lookout", "FULL"),
     ("Krang, the All-Powerful", "FULL"), ("Annie Joins Up", "FULL"),
-    # -- review (wave 5R) -- an entering cause: refused until "whenever you create a token" is settled
-    ("Panharmonicon", "PARTIAL"), ("Ancient Greenwarden", "PARTIAL"), ("Yarok, the Desecrated", "PARTIAL"),
-    ("Naban, Dean of Iteration", "PARTIAL"),
-    # refused: an attack's cause ("attacks and isn't blocked"?), spells' abilities, a condition on the multiplier
-    ("Isshin, Two Heavens as One", "PARTIAL"), ("Echoes of Eternity", "PARTIAL"), ("Sanctum of All", "PARTIAL"),
+    # -- review (wave 43A) -- an entering cause is read again (trigger_multipliers.py), and so are an attack's cause, a colorless spell's abilities and a
+    # condition on the multiplier (tests/test_rules_wave43a_trigger_multipliers.py)
+    ("Panharmonicon", "FULL"), ("Ancient Greenwarden", "FULL"), ("Yarok, the Desecrated", "FULL"),
+    ("Naban, Dean of Iteration", "FULL"),
+    ("Isshin, Two Heavens as One", "FULL"), ("Echoes of Eternity", "FULL"), ("Sanctum of All", "FULL"),
 ])
 def test_multiplier_coverage(name, level):
     assert cov(name) == level
@@ -153,24 +153,17 @@ def test_multiplier_wordings():
              "additional time.")["source"] == ['sel:{"controller":"you","subtypes":["Shaman"]}',
                                                'sel:{"controller":"you","other":true,"subtypes":["Wizard"]}']
     assert d("If a creature attacking causes a triggered ability of a permanent you control to trigger, that ability "
-             "triggers an additional time.") is None
+             "triggers an additional time.")["cause"] == "attack"
+    # (still unread, so the card stays manual: a creature being dealt damage, a permanent turned face up, a creature that isn't "a creature you control")
+    assert d("If a creature you control being dealt damage causes a triggered ability of a permanent you control to trigger, that ability triggers an "
+             "additional time.") is None
+    assert d("If turning a face-down permanent face up causes a triggered ability of a permanent you control to trigger, that ability triggers an "
+             "additional time.") is None
+    assert d("If a Goblin attacking causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.") is None
 
 
 # -- entering (Panharmonicon, Yarok, Greenwarden, Naban) -----------------------------------------------------------
-@pytest.fixture()
-def entering():
-    """-- review (wave 5R) -- the entering cause is refused (trigger_multipliers.ENTERING); its machinery is still
-    tested with it switched on."""
-    from app.rules import scripts
-
-    trigger_multipliers.ENTERING = True
-    scripts._cached.cache_clear()
-    yield
-    trigger_multipliers.ENTERING = False
-    scripts._cached.cache_clear()
-
-
-def test_panharmonicon_doubles_enters_triggers(cards, entering):
+def test_panharmonicon_doubles_enters_triggers(cards):
     """Its own enters ability and Soul Warden's "another creature enters" each trigger twice (rulings)."""
     s = build(cards, "Panharmonicon", "Elvish Visionary", "Soul Warden")
     put(s, "Panharmonicon")
@@ -186,7 +179,7 @@ def test_panharmonicon_doubles_enters_triggers(cards, entering):
     replay_matches(s)
 
 
-def test_two_panharmonicons_three_times_and_not_for_an_opponent(cards, entering):
+def test_two_panharmonicons_three_times_and_not_for_an_opponent(cards):
     """Two multipliers: three times, not four (rulings). An opponent's Panharmonicon doesn't count for your
     abilities (603.2d: "a permanent you control")."""
     s = build(cards, "Panharmonicon", "Panharmonicon", "Grizzly Bears", "Soul Warden", p2=("Panharmonicon",))
@@ -202,7 +195,7 @@ def test_two_panharmonicons_three_times_and_not_for_an_opponent(cards, entering)
     replay_matches(s)
 
 
-def test_each_instance_has_its_own_target(cards, entering):
+def test_each_instance_has_its_own_target(cards):
     """Rulings: the instances are separate abilities — each target is chosen as it's put on the stack (603.3d)."""
     s = build(cards, "Panharmonicon", "Flametongue Kavu", p2=("Grizzly Bears", "Soul Warden"))
     put(s, "Panharmonicon")
@@ -228,7 +221,7 @@ def test_each_instance_has_its_own_target(cards, entering):
     replay_matches(s)
 
 
-def test_greenwarden_lands_and_panharmonicon_not(cards, entering):
+def test_greenwarden_lands_and_panharmonicon_not(cards):
     """A land entering: Ancient Greenwarden adds an instance of a landfall ability; Panharmonicon doesn't (not an
     artifact or creature)."""
     for multiplier, expected in (("Ancient Greenwarden", 2), ("Panharmonicon", 1), ("Yarok, the Desecrated", 2)):
@@ -612,7 +605,7 @@ def test_mirkwood_bats_create_or_sacrifice_a_token(cards):
     replay_matches(s)
 
 
-def test_panharmonicon_each_token_entering(cards, entering):
+def test_panharmonicon_each_token_entering(cards):
     """Raise the Alarm: two creatures entering, each one an event Soul Warden triggers on — twice each."""
     s = build(cards, "Panharmonicon", "Soul Warden", "Raise the Alarm")
     put(s, "Panharmonicon")

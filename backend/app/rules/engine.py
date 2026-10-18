@@ -54,9 +54,11 @@ from app.rules import (
     exert,  # -- static wordings (wave 6E) --
     extra_turns,  # -- extra turns (wave 8A) --
     gift,  # -- gift (wave 23D) --
+    graveyard_order,  # -- graveyard order (wave 40C) --
     hideaway,  # -- hideaway (wave 29D) --
     kinship,  # -- kinship (wave 9C) --
     layers,
+    licids,  # -- licids (wave 50A) --
     looking,
     merged,  # -- merged permanents (wave 18D) --
     miracle,  # -- casting extras (wave 18E) --
@@ -80,7 +82,7 @@ from app.rules import (
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.leave import leave_game
 from app.rules.plan import Plan, decide, require_no_decision, require_priority
-from app.rules.targets import still_legal
+from app.rules.targets import as_spell, still_legal
 
 MAIN_PHASES = ("main1", "main2")
 
@@ -91,7 +93,7 @@ NOT_YET: dict[str, str] = {}
 RULES_ENGINE_VERSION = 2  # bump when the rules engine's behaviour changes (saved with scenarios/diagnostics)
 PREF_INTENTS = frozenset({"set_stops", "set_prefs", "set_card_automation"})  # allowed any time
 ACTION_INTENTS = frozenset({"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers",
-                            "repeat_sequence", "turn_face_up", "unlock_door"})
+                            "repeat_sequence", "turn_face_up", "unlock_door", "end_effect"})
 
 
 def automation_on(state: GameState) -> bool:
@@ -207,6 +209,9 @@ def absorb_manual_events(plan: Plan) -> None:
             from app.rules import history  # -- this-turn history (wave 4D) --
 
             history.note_cast(plan, card)
+            from app.rules import prohibitions
+
+            prohibitions.bind_next_uncounterable(plan, card, card.controller)  # -- most-played cards (wave 43B) -- also a spell cast by hand
             # -- review (wave 4R) -- "their first noncreature spell each turn" counts a spell cast by hand too (601.2i)
             from app.rules import unless_pays
 
@@ -501,6 +506,11 @@ def next_step(plan: Plan) -> None:
     r = plan.rules
     phase = plan.state.turn.phase
     if phase == "cleanup":
+        if r.cleanup_again:  # -- review 34 -- 514.3a: a new cleanup step (discard to hand size, 514.2 again)
+            r.cleanup_again = False
+            _mark_step(plan)
+            on_step_start(plan)
+            return
         start_next_turn(plan)
         return
     if phase == "combat_damage" and r.combat_round == "first":
@@ -590,6 +600,12 @@ def start_next_turn(plan: Plan) -> None:
             break
         skipped.append((plan.active, plan.state.turn.number))
     plan.rules.turn_base = base if extra else plan.active  # -- extra turns (wave 8A) -- 500.7
+    plan.rules.extra_turn = bool(extra)  # -- static_other (wave 42A) -- 500.7: this turn is one an effect added
+    tt = plan.rules.turns_taken  # -- most-played cards (wave 43B) -- the game's first turn was never begun here: counted when it ends
+    # ponytail: a state loaded mid-game starts the count at its next turn, so "first, second, or third turn" reads low there
+    if not tt:
+        tt[previous[0]] = 1
+    tt[plan.active] = tt.get(plan.active, 0) + 1
     player_control.turn_began(plan)  # -- controlling another player (wave 18H) -- 723.1: the whole turn, its untap choices too
     if untap_choice.ask(plan, asked, {"stunned": stunned, "previous": list(previous), "skipped": [list(s) for s in skipped],
                                       "plain": stay is None, "keep": keep}, limited):  # (wave 7F) the untap step waits for the choice
@@ -664,10 +680,16 @@ def on_step_start(plan: Plan) -> None:
         from app.rules import sagas
 
         sagas.precombat_main(plan)
+        from app.rules import (
+            paradigm,  # -- keywords (wave 50H) -- 702.192a: the copies of the exiled paradigm cards
+        )
+
+        paradigm.main_phase(plan)
         # -- counters & designations (wave 3E): 728.1 rad counters (precombat main phase) --
         effects.designations.rad_trigger(plan)
     elif phase == "begin_combat":  # -- combat (wave 5C) -- "if it's the first combat phase of the turn"
         combat_rules.combat_began(plan)
+        delayed.at_step(plan, "begin_combat")  # -- commander sweep (wave 49B) -- 603.7: "At the beginning of that combat" (Moraug), the one combat phase a tagged trigger waits for
     elif phase == "end_combat":  # -- (wave 3E) delayed triggers "at end of combat" (511.2, 603.7: the Ring's sacrifice) --
         delayed.at_step(plan, "end_combat")
     elif phase == "declare_attackers":
@@ -680,10 +702,11 @@ def on_step_start(plan: Plan) -> None:
         else:
             combat_damage(plan, "only", "done")
     elif phase == "cleanup":
+        delayed.at_step(plan, "cleanup")  # -- flash auras (wave 46B) -- 514.3a: "at the beginning of the next cleanup step" waits to go on the stack after 514.1-2
         cleanup_step(plan)
     if phase in ("main1", "main2"):  # -- stack interaction (wave 5B) -- "at the beginning of your next main phase" (603.7)
         delayed.at_step(plan, phase)
-    if phase in ("upkeep", "draw", "main1", "begin_combat", "main2", "end"):
+    if phase in ("upkeep", "draw", "main1", "begin_combat", "end_combat", "main2", "end"):  # (wave 31D: 511.2 "At end of combat")
         triggers.at_step_generic(plan)  # "At the beginning of [whose] [step]" (503, 504, 505, 507, 513)
 
 
@@ -753,7 +776,19 @@ def cleanup_step(plan: Plan) -> None:
 
 def finish_cleanup(plan: Plan) -> None:
     turn_cleanup(plan)
-    # Cleanup normally grants no priority: the turn ends (triggers during cleanup arrive in M16).
+    # Cleanup normally grants no priority: the turn ends. -- review 34 -- 514.3a: unless a state-based action is performed or a triggered
+    # ability waits to be put on the stack (a discard to hand size: Rielle's ruling, "you'll draw that many cards … and a new cleanup step
+    # will happen after that one"): then the players get priority in this step, and once the stack is empty and all pass another cleanup
+    # step begins (next_step)
+    seq = plan.state.seq
+    sba.check(plan)
+    performed = plan.state.seq != seq
+    triggers.collect(plan)
+    r = plan.rules
+    if r.decision is not None or performed or any(t.controller in plan.live() for t in r.pending_triggers):
+        r.cleanup_again = True
+        _mark_step(plan)
+        return
     start_next_turn(plan)
 
 
@@ -799,6 +834,12 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
 
     oid = plan.oid(card_id)
     if not countered and x_spells.left_stack_itself(plan, card_id):
+        return
+    from app.rules import (
+        resolve_exile,  # -- cast riders (wave 38C) -- 614.1a, 608.2n: "exile it instead of putting it into your graveyard as it resolves"
+    )
+
+    if oid in plan.rules.exile_resolves and resolve_exile.resolved(plan, card_id, controller, countered):  # (first: the controller picks, 616.1; this one has "If you do")
         return
     if oid in plan.rules.rebound_cast:  # 702.88a rebound: exiled as it resolves, cast again next upkeep
         plan.rules.rebound_cast = [o for o in plan.rules.rebound_cast if o != oid]
@@ -856,6 +897,10 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         if stack[-1] != card_id:  # -- refused look/cast-free (wave 3R5) -- 608.2g: spells cast while it resolved are
             step["card_id"] = card_id  # above it now; it leaves the stack all the same (608.2n)
         plan.do(step, actor=controller)
+        if not countered:  # -- keywords (wave 50H) -- 702.55a haunt on an instant or sorcery: put into a graveyard during its resolution
+            from app.rules import haunt
+
+            haunt.spell_resolved(plan, card_id, controller)
         record = plan.rules.payments.pop(oid, None)
         if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
@@ -907,12 +952,12 @@ def resolve_top_of_stack(plan: Plan) -> None:
         or ("Aura" in ch.subtypes and aura_target is None)
     if aura_target is not None and not manual:
         selector = attachments.enchant_selector(ch)
-        if (selector is None or not still_legal(plan, selector, controller, aura_target, ch)) and bestow.is_bestowed(plan.state, top):
+        if (selector is None or not still_legal(plan, selector, controller, aura_target, as_spell(ch))) and bestow.is_bestowed(plan.state, top):
             bestow.cease(plan, top, "its target is illegal")  # -- keywords (wave 15E) -- 702.103e: it resolves as a creature spell
             aura_target = None
             ch = plan.ch(top)
             manual = ch.is_instant_or_sorcery or ch.is_ability or needs_manual_resolution(ch) or plan.manual(top)
-        elif selector is None or not still_legal(plan, selector, controller, aura_target, ch):
+        elif selector is None or not still_legal(plan, selector, controller, aura_target, as_spell(ch)):
             # 608.2b / 303.4g: its target is illegal: it doesn't resolve and goes to the graveyard
             plan.note(f"{ch.name or 'The Aura'} does nothing: its target is no longer legal")
             plan.do({"type": "move", "card_ids": [top_id], "to": {"player": top.owner, "zone": "graveyard"}}, actor=controller)
@@ -924,7 +969,13 @@ def resolve_top_of_stack(plan: Plan) -> None:
     # spell asks a question as it enters today (the pay-life wording is printed on lands only).
     entering = ch.is_permanent_card and not manual
     answers = plan.rules.entry_choices.pop(top_id, None)
-    ep: dict[str, Any] = replacements.entry_plan(plan, top, controller, answers=answers) if entering else {"tapped": False}
+    # -- cast permissions (wave 30Q) -- "If you cast a spell this way, that artifact enters tapped / with a finality counter on it" (122.6, 614.1c)
+    rider = plan.rules.cast_enters.pop(plan.oid(top_id), None) or {}
+    ep: dict[str, Any] = replacements.entry_plan(plan, top, controller, answers=answers, extra=rider.get("counters")) if entering else {"tapped": False}
+    paid_for = plan.rules.payments.get(plan.oid(top_id))
+    sneaked = entering and paid_for is not None and paid_for.alternative == "sneak"
+    if sneaked or (entering and rider.get("tapped")):
+        ep["tapped"] = True  # -- keywords (wave 30I) -- 702.190b: a permanent spell whose sneak cost was paid enters tapped (and attacking, below)
     x = top.stack_info.x if top.stack_info else None
     if ep.get("life"):
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
@@ -953,7 +1004,15 @@ def resolve_top_of_stack(plan: Plan) -> None:
     if aura_target is not None and not manual and plan.state.cards[top_id].zone.endswith(":battlefield"):
         attachments.attach(plan, top_id, aura_target.id, controller)  # 303.4f: it enters attached to its target
     if entering:
-        replacements.after_entry(plan, top_id, controller, x=x, choices=ep.get("choices"))
+        counters = rider.get("counters")
+        paid = plan.rules.payments.get(plan.oid(top_id))
+        if paid is not None and paid.alternative == "impending" and not manual:  # -- cast keywords (wave 43D) -- 702.176a: "it enters with N time counters on it"
+            from app.rules import alt_costs
+
+            if (n_time := alt_costs.impending_n(ch)) is not None:
+                counters = {**(counters or {}), "time": (counters or {}).get("time", 0) + n_time}
+        replacements.after_entry(plan, top_id, controller, x=x, choices=ep.get("choices"), extra_counters=counters)
+        permissions.gain_on_entry(plan, top_id, controller, rider)
     if top_id in plan.rules.evoked:  # 702.74a: "When this permanent enters, if its evoke cost was paid, its controller sacrifices it."
         plan.rules.evoked = [c for c in plan.rules.evoked if c != top_id]
         entered_now = plan.state.cards.get(top_id)
@@ -979,6 +1038,10 @@ def resolve_top_of_stack(plan: Plan) -> None:
         entered_now = plan.state.cards.get(top_id)
         if entered_now is not None and entered_now.zone.endswith(":battlefield"):
             delayed.create_move(plan, controller, top_id, plan.oid(top_id), "exile", entered_now.name, warp=True)
+    if rec is not None and rec.flash_sac and entering and not manual:  # -- flash auras (wave 46B) -- the controller of the permanent sacrifices it at the next cleanup step
+        entered_now = plan.state.cards.get(top_id)
+        if entered_now is not None and entered_now.zone.endswith(":battlefield"):
+            delayed.create_move(plan, controller, top_id, plan.oid(top_id), "graveyard", entered_now.name, sacrifice=True, step="cleanup")
     if rec is not None and rec.alternative == "blitz" and entering and not manual:  # -- keywords (wave 15E) -- 702.152a
         entered_now = plan.state.cards.get(top_id)
         if entered_now is not None and entered_now.zone.endswith(":battlefield"):
@@ -987,6 +1050,10 @@ def resolve_top_of_stack(plan: Plan) -> None:
                               duration="permanent", label="Haste (blitz)",
                               add_abilities=["When this permanent is put into a graveyard from the battlefield, draw a card."])
             delayed.create_move(plan, controller, top_id, oid, "graveyard", entered_now.name, sacrifice=True)
+    if sneaked and not manual:  # -- keywords (wave 30I) -- 702.190b, 506.3d: attacking what the returned creature attacked, unblocked
+        from app.rules import ninjutsu
+
+        ninjutsu.attack_returned(plan, top_id, rec, controller)
     if top_id in plan.rules.suspend_haste:  # 702.62e: a suspended creature has haste
         plan.rules.suspend_haste = [c for c in plan.rules.suspend_haste if c != top_id]
         entered_now = plan.state.cards.get(top_id)
@@ -1020,13 +1087,14 @@ def _after_resolution(plan: Plan) -> None:
 
 # -- intents -----------------------------------------------------------------------------
 def land_play_grant(state: GameState, player: str, card: CardInstance, ch: Characteristics,
-                    info: CardInfo | None) -> permissions.Grant | None:
+                    info: CardInfo | None, via: str | None = None) -> permissions.Grant | None:
     """How ``player`` may play this land from where it is: from their hand (305.1), or a
-    permission ("you may play lands from your graveyard", "you may play that card this turn")."""
+    permission ("you may play lands from your graveyard", "you may play that card this turn").
+    (-- cast permissions (wave 32D) -- ``via``: the limited permission the player named, 601.2)"""
     if card.zone == zone_key(player, "hand"):
         return permissions.Grant("hand")
-    found = [g for g in permissions.grants(state, player, card, ch, info, verb="play") if g.zone_ok] if info else []
-    return found[0] if found else None
+    found = [g for g in permissions.grants(state, player, card, ch, info, verb="play") if g.zone_ok and (via is None or g.use == via)] if info else []
+    return permissions.with_choices(found[0], found) if found else None
 
 
 def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, *,
@@ -1045,6 +1113,13 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
         return "Lands are played in a main phase"
     if state.zones.get(STACK):
         return "You can only play a land while the stack is empty"
+    from app.rules import cast_limits
+
+    if info is not None and (barred := next((src for src, _ in cast_limits._statics(state, info, "cant_play_lands") if src.controller == player), None)) is not None:
+        return f"{barred.name or 'A permanent'}: you can't play lands"  # -- most-played cards III (wave 46C) -- 305.1
+    if info is not None and card.zone.endswith(":graveyard") and (barred := next(
+            (src for src, _ in cast_limits._statics(state, info, "cant_play_gy_lands") if src.controller != player), None)) is not None:
+        return f"{barred.name or 'A permanent'}: you can't play land cards from graveyards"  # -- cant restrictions (wave 50G) -- Tomik, Distinguished Advokist
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
     from app.rules import land_plays  # -- additional land plays (wave 4J) -- 305.2a
@@ -1066,7 +1141,12 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     problem = land_play_problem(plan.state, plan.actor, card, plan.ch(probe), info=plan.info)
     if problem:
         raise ActionError(problem)
-    grant = land_play_grant(plan.state, plan.actor, card, plan.ch(probe), plan.info)
+    grant = land_play_grant(plan.state, plan.actor, card, plan.ch(probe), plan.info, a.via)
+    if a.via is not None and (grant is None or grant.use != a.via):  # -- cast permissions (wave 32D) -- 601.2: a permission that doesn't cover this play
+        raise ActionError(f"{plan.ch(probe).name or 'That card'} can't be played using that permission now")
+    if grant is not None and len(grant.among) > 1:  # … or several limited ones fit: which does the player use up? (asked before anything else is)
+        permissions.ask_use(plan, a, card, plan.ch(probe), grant.among, "play")
+        return
     # The land's own "enters" replacement effects (614.1c-d, app/rules/replacements.py): "enters
     # tapped [unless …]", a shock land's pay-life-or-tapped choice (made before it enters: 614.12a),
     # "enters [tapped] with … counters" as it enters (122.6).
@@ -1078,9 +1158,8 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
                        "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
         return
     if ep.get("choice") is not None:
-        n = ep["choice"]["life"]
-        decide(plan, player=plan.actor, kind="choose_one", prompt=f"{plan.ch(probe).name}: pay {n} life, or it enters tapped?",
-               options=[DecisionOption(id="pay", label=f"Pay {n} life (untapped)"), DecisionOption(id="tapped", label="Enters tapped")],
+        prompt, options = replacements.shock_prompt(plan.ch(probe).name or "", ep["choice"]["life"], bool(ep["choice"].get("untapped")))
+        decide(plan, player=plan.actor, kind="choose_one", prompt=prompt, options=options,
                resume={"step": "shock", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})}, source=card)
         return
     if a.face is not None and a.face != card.face:
@@ -1104,7 +1183,8 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
         r.priority = plan.actor
         return
     # -- end entering for a cost (wave 5G) --
-    payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"}, "tapped": bool(ep["tapped"])}
+    payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"},
+                               "tapped": bool(ep["tapped"]) or bool(grant is not None and grant.enters and grant.enters.get("tapped"))}  # (wave 51D: "If you do, it enters tapped", 614.1d)
     if a.x is not None and a.y is not None:
         payload.update(x=a.x, y=a.y)
     if probe.face:  # (review 25B) 712.12: a modal double-faced land played back face up enters that way (leaving the hand resets the face)
@@ -1116,6 +1196,7 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
         permissions.consume(plan, grant)  # ("once during each of your turns")
         plan.note(f"{plan.name(plan.actor)} plays {card.name} from their {from_where} ({grant.label})", [card.id])
     replacements.after_entry(plan, card.id, plan.actor, choices=ep.get("choices"))
+    permissions.gain_on_entry(plan, card.id, plan.actor, grant.enters if grant is not None else None)  # (-- cast permissions (wave 30Q) -- "If you do, it gains …")
     # -- entry forms (wave 5F) -- 305.1: the land was played ("When you play another land", City of Traitors)
     from app.game.rules_state import emit
 
@@ -1186,11 +1267,14 @@ def choose(plan: Plan, a: A.Choose) -> None:
         prefs.yields = [y for y in prefs.yields if y.key != d.memory_key][-49:]
         prefs.yields.append(Yield(kind=a.remember, key=d.memory_key, context=d.memory_context,
                                   turn=plan.state.turn.number))
+    effects.check_total_power(plan, d, chosen)  # -- per-player choices (wave 30K) -- "total power 4 or less" (Slaughter the Strong)
     plan.rules.decision = None
     step = (d.resume or {}).get("step")
     RESUME[str(step)](plan, d, chosen)
     if plan.rules.payment_outer is not None:  # -- nested payment choices (wave 28D) -- back to the payment the choice was nested in
         casting.resume_outer(plan)
+    permissions.free_cast_abandoned(plan)  # -- free-cast cleanup (wave 30A) -- a cancelled free cast ends before play goes on: advance would resolve the
+    # ability it belongs to (still on the stack, ripple) again from its start (-- review 30 -- after the payment a nested choice set aside is back)
     if step != "reconcile":  # after reconciling, play picks up where the table is (like without questions)
         advance(plan)
 
@@ -1307,7 +1391,7 @@ def _require_seated(plan: Plan) -> None:
 
 
 SIMPLE_PREFS = ("response", "stops_my_turn", "stops_their_turn", "bluff_stops", "payment", "auto_resolve_own_triggers",
-                "auto_order_identical_triggers", "hold_priority", "full_control", "force_stop")
+                "auto_order_identical_triggers", "ask_graveyard_order", "hold_priority", "full_control", "force_stop")
 
 
 def set_prefs(plan: Plan, a: A.SetPrefs) -> None:
@@ -1379,6 +1463,7 @@ INTENTS: dict[str, Callable[[Plan, Any], None]] = {
     "cast_spell": casting.cast_spell,
     "turn_face_up": casting.turn_face_up,
     "unlock_door": rooms.unlock_action,
+    "end_effect": licids.end_effect,  # -- licids (wave 50A) -- 116.2c
     "miracle_reveal": miracle.reveal,  # -- casting extras (wave 18E) --
     "activate_ability": casting.activate_ability,
     "declare_attackers": combat.declare_attackers,
@@ -1413,6 +1498,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "return_yours": effects.resume_return_yours,
     "return_any": effects.resume_return_any,  # (wave 26C)
     "explore": effects.resume_explore,
+    "explore_each": effects.resume_explore_each,  # (wave 50G)
     "aura_enters": attachments.resume_aura_enters,
     "battle_protector": battles.resume_protector,  # 310.11
     "siege_cast": battles.resume_siege_cast,  # 310.12b
@@ -1427,6 +1513,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "shuffle_library": effects.resume_shuffle_library,
     "cast_modes": casting.resume_cast_modes,
     "cast_slot_target": casting.resume_cast_slot_target,
+    "phyrexian": casting.resume_phyrexian,  # -- phyrexian mana (wave 50B) --
     "cast_group": casting.resume_cast_group,
     "cast_divide": casting.resume_cast_divide,
     "trigger_group": triggers.resume_group,
@@ -1462,7 +1549,11 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "enlist": enlist.resume,  # -- casting extras (wave 18E) -- 702.154a
     "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a
     "gift": gift.resume,  # -- gift (wave 23D) -- 702.174a
+    "free_optional": casting.resume_free_optional,  # -- free-cast optional costs (wave 41D) -- 118.9d, 601.2b
+    "free_x": casting.resume_free_x,  # -- cast keywords (wave 43D) -- 107.3a: the X of a kicker or miracle cost paid on a free cast
+    "slot": permissions.resume_slot,  # -- cast permissions (wave 30Q) -- Muldrotha: which permanent type a cast uses up
     "legend_rule": sba.resume_legend_rule,
+    "graveyard_order": graveyard_order.resume,  # -- graveyard order (wave 40C) -- 404.3
     "commander_zone": sba.resume_commander_zone,
     **effects.keyword_actions.RESUME,  # amass / bolster choices, tokens entering attacking (app/rules/keyword_actions.py)
     **effects.RESUME,  # player choices: edicts, "chooses a", a revealed hand, "choose a color" (app/rules/effects.py)

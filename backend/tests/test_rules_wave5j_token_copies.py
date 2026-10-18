@@ -212,10 +212,9 @@ def test_the_family_is_covered(name):
 
 
 def test_wordings_still_refused():
-    # populate X times, a token entering attacking, a pronoun that names a card an
+    # populate X times (a populated token entering attacking is read since wave 46A: Ghired), a pronoun that names a card an
     # earlier instruction moved, "for each other …"
     assert not ok("Populate X times.", "Full Flowering", "Sorcery")
-    assert not ok("Whenever Ghired attacks, populate. The token enters tapped and attacking.", "Ghired")
     assert not ok("Return target Equipment card from your graveyard to the battlefield. Attach it to target creature you "
                   "control.", "Card", "Sorcery")
     assert not ok("For each other creature you control, create a token that's a copy of that creature.", "Card", "Sorcery")
@@ -613,5 +612,7 @@ def test_put_from_hand_wordings():
                   "this creature.")
     assert ok("Whenever this creature attacks, you may put a creature card from your hand onto the battlefield tapped "
               "and attacking.")  # (wave 15B: 508.4, its controller chooses what it attacks)
-    assert not ok("Whenever this creature deals combat damage to a player, you may put a creature card and/or a land card "
-                  "from your hand onto the battlefield.")
+    assert not ok("Whenever this creature attacks, you may put a creature card and/or a land card "
+                  "from your hand onto the battlefield.")  # (wave 44B: only Michelangelo's "deals combat damage to a player" wording is read, two optional puts)
+    assert ok("Whenever this creature deals combat damage to a player, you may put a creature card and/or a land card "
+              "from your hand onto the battlefield.")

@@ -66,12 +66,13 @@ _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 
 # -- statics ---------------------------------------------------------------------------------------------------------
 _TAX_RE = re.compile(r"(?P<sub>.+?) can't attack you unless their controller pays (?P<cost>(?:\{[^}]+\})+) for each "
-                     r"creature they control that's attacking you(?:, where X is (?P<x>.+))?\.")
+                     r"(?:creature they control that's attacking you|of those creatures)(?:, where X is (?P<x>.+))?\.")  # (wave 45D: Dáin)
 _TAX_PW_RE = re.compile(r"(?P<sub>.+?) can't attack you or planeswalkers you control unless their controller pays "
                         r"(?P<cost>(?:\{[^}]+\})+) for each of those creatures(?:, where X is (?P<x>.+))?\.")
 _CTRL_RE = re.compile(r"(?P<sub>.+?) can't block creatures you control\.")
 _POWER_SUB = re.compile(r"Creatures with power less than (?:~|this creature)'s power")
 _LIMIT_RE = re.compile(r"No more than (?P<n>one|two|three|four|five) creatures? can attack you each combat\.")
+_LIMIT_PW_RE = re.compile(r"No more than (?P<n>one|two|three|four|five) creatures? can attack (?:~|this planeswalker) each combat\.")  # (wave 44C: Tomik, Orzhov Lawmage)
 _LIMIT_ALL_RE = re.compile(r"No more than (?P<n>one|two|three|four|five) creatures? can (?P<v>attack|block) each combat\.")
 
 
@@ -80,9 +81,16 @@ def static_definition(text: str) -> Definition | None:
     from app.rules import statics
 
     t = text.strip()
+    held = re.fullmatch(r"As long as ~ is (un)?tapped, ([Nn]o more than .+)", t)  # -- commander sweep (wave 49B) -- 611.3a: "As long as Mirri is tapped, no more than one creature can attack you each combat."
+    if held:
+        own = static_definition(held[2][0].upper() + held[2][1:])
+        return {**own, "conditions": [{"static": "self", "test": "untapped" if held[1] else "tapped"}]} if own is not None and own["static"] == LIMIT else None
     m = _LIMIT_RE.fullmatch(t)
     if m:
         return {"kind": "static", "static": LIMIT, "n": _NUMBERS[m["n"]], "effects": []}
+    m = _LIMIT_PW_RE.fullmatch(t)  # -- counters (wave 44C) -- 508.1: no more than N creatures attack this planeswalker (keyed by it in ``limits``)
+    if m:
+        return {"kind": "static", "static": LIMIT, "n": _NUMBERS[m["n"]], "pw": True, "effects": []}
     m = _LIMIT_ALL_RE.fullmatch(t)
     if m:
         return {"kind": "static", "static": LIMIT_ALL if m["v"] == "attack" else BLOCK_LIMIT_ALL, "n": _NUMBERS[m["n"]], "effects": []}
@@ -147,12 +155,7 @@ def taxes(plan: Plan, ch: Characteristics, target: str) -> list[tuple[str, str, 
     return out
 
 
-def attack_cost(plan: Plan, declared: list[tuple[str, str]]) -> str:
-    """The total cost of the declaration (508.1h, "" when none): for each attack-cost static that applies to a creature
-    attacking its controller (or, for "you or planeswalkers you control", one of their planeswalkers), its cost for
-    each creature attacking that player (or them and their planeswalkers)."""
-    from app.rules import mana as M
-
+def _applying(plan: Plan, declared: list[tuple[str, str]]) -> tuple[set[tuple[str, str, str, str]], dict[str, int], dict[str, int]]:
     applying: set[tuple[str, str, str, str]] = set()
     direct: dict[str, int] = {}
     any_way: dict[str, int] = {}
@@ -164,9 +167,21 @@ def attack_cost(plan: Plan, declared: list[tuple[str, str]]) -> str:
         if is_direct:
             direct[player] = direct.get(player, 0) + 1
         applying.update(taxes(plan, plan.ch(plan.state.cards[cid]), target))
+    return applying, direct, any_way
+
+
+def attack_cost(plan: Plan, declared: list[tuple[str, str]]) -> str:
+    """The total cost of the declaration (508.1h, "" when none): for each attack-cost static that applies to a creature
+    attacking its controller (or, for "you or planeswalkers you control", one of their planeswalkers), its cost for
+    each creature attacking that player (or them and their planeswalkers)."""
+    from app.rules import mana as M
+
+    applying, direct, any_way = _applying(plan, declared)
     generic, symbols = 0, []
     for kind, player, cost, src in sorted(applying):
         n = (direct if kind == TAX else any_way).get(player, 0)
+        if cost.endswith(" life"):  # (the life part: ``attack_life``)
+            continue
         if cost == "{X}":
             cost = f"{{{_tax_x(plan, src)}}}"
         each = M.parse_cost(cost)
@@ -175,6 +190,14 @@ def attack_cost(plan: Plan, declared: list[tuple[str, str]]) -> str:
     if not generic and not symbols:
         return ""
     return (f"{{{generic}}}" if generic else "") + "".join(symbols)
+
+
+def attack_life(plan: Plan, declared: list[tuple[str, str]]) -> int:
+    """-- life attack costs (wave 49D) -- 508.1g-h: the life the declaration costs, "unless their controller pays 2 life for each of those
+    creatures" (Sivitri, Dragon Master): the same count as a mana cost's, paid together with it (508.1j)."""
+    applying, direct, any_way = _applying(plan, declared)
+    return sum(int(cost.split()[0]) * (direct if kind == TAX else any_way).get(player, 0)
+               for kind, player, cost, _ in applying if cost.endswith(" life"))
 
 
 def _tax_x(plan: Plan, source: str) -> int:
@@ -199,17 +222,18 @@ def taxed(plan: Plan, ch: Characteristics, target: str) -> bool:
 def limits(plan: Plan, kind: str = LIMIT) -> dict[str, int]:
     """Players and the most creatures that can attack them each combat (the smallest of their limits); ``"*"``: the most
     that can attack at all (``LIMIT_ALL``), or that can block at all (``kind`` BLOCK_LIMIT_ALL, key ``"*"`` only)."""
-    from app.rules import scripts
+    from app.rules import scripts, statics
 
     out: dict[str, int] = {}
     for c in plan.state.cards.values():
         if not c.zone.endswith(":battlefield") or c.face_down or not plan.in_game(c) or plan.manual(c):
             continue
         for d in scripts.definitions(plan.ch(c)).values():
-            if d.get("kind") != "static":
+            if d.get("kind") != "static" or not statics.conditions_hold(plan, d, source=c, controller=c.controller):  # (wave 49B: Mirri's "as long as it is tapped")
                 continue
             if d.get("static") == kind == LIMIT:
-                out[c.controller] = min(out.get(c.controller, 99), int(d["n"]))
+                who = c.id if d.get("pw") else c.controller  # (wave 44C: "attack this planeswalker": the planeswalker itself)
+                out[who] = min(out.get(who, 99), int(d["n"]))
             elif d.get("static") == (BLOCK_LIMIT_ALL if kind == BLOCK_LIMIT_ALL else LIMIT_ALL):
                 out["*"] = min(out.get("*", 99), int(d["n"]))
     return out
@@ -219,7 +243,8 @@ def limit_problem(plan: Plan, declared: list[tuple[str, str]], caps: dict[str, i
     for player, n in caps.items():
         k = len(declared) if player == "*" else sum(1 for _, t in declared if t == player)
         if k > n:
-            return f"No more than {n} creature{'s' if n != 1 else ''} can attack {'' if player == '*' else plan.name(player) + ' '}each combat"
+            who = "" if player == "*" else (plan.state.cards[player].name if player in plan.state.cards else plan.name(player)) + " "
+            return f"No more than {n} creature{'s' if n != 1 else ''} can attack {who}each combat"
     return None
 
 
@@ -316,7 +341,19 @@ def extra_phases(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         kind = {"main": "main ", "combat": "combat "}.get(e["after"], "")
         plan.note(f"{ctx.get('name') or 'It'}: this isn't a {kind}phase to add a combat phase after (500.8)")
         return True
-    added = ["begin_combat"] + (["main2"] if e.get("main") else [])
+    tag = ""
+    if e.get("then"):  # -- commander sweep (wave 49B) -- 603.7: "At the beginning of that combat, untap all creatures you control." (Moraug): a delayed trigger of the combat this adds
+        # (tagged on its queue entry, so another phase added before it in the same turn doesn't take its trigger)
+        import secrets
+
+        from app.game.rules_state import DelayedTrigger
+
+        tag = secrets.token_hex(4)
+        r.delayed.append(DelayedTrigger(
+            id=tag, controller=ctx["controller"], source_card=ctx.get("source_card"), source_object=ctx.get("source_object"), name=ctx.get("name") or "",
+            when={"kind": "step", "step": "begin_combat", "whose": "next", "tag": tag}, effects=e["then"], turn=plan.state.turn.number, step=phase,
+            until_turn=plan.state.turn.number))
+    added = ["begin_combat" + (f"@{tag}" if tag else "")] + (["main2"] if e.get("main") else [])
     r.extra_phases = added + (list(r.extra_phases) or [_NATURAL[current]])
     plan.note(f"{ctx.get('name') or 'An effect'}: an additional combat phase"
               + (" and an additional main phase" if e.get("main") else "") + " after this phase (500.8)",
@@ -329,11 +366,13 @@ def next_phase(plan: Plan) -> str | None:
     r = plan.rules
     if not r.extra_phases:
         return None
-    return r.extra_phases.pop(0)
+    name, _, r.combat_tag = r.extra_phases.pop(0).partition("@")  # (wave 49B: the trigger id of the combat now beginning, "" for any other phase)
+    return name
 
 
 def new_turn(plan: Plan) -> None:
     plan.rules.extra_phases = []
+    plan.rules.combat_tag = ""
     plan.rules.combats = 0
 
 
@@ -344,21 +383,34 @@ def combat_began(plan: Plan) -> None:
 # -- effects ---------------------------------------------------------------------------------------------------------
 _EXTRA = re.compile(r"(?:after this (?:(?P<main>main )|(?P<combat>combat ))?phase, there is an additional combat phase"
                     r"(?P<and> followed by an additional main phase)?"
-                    r"|there is an additional combat phase after this (?:(?P<main2>main )|(?P<combat2>combat ))?phase)")
+                    r"|there(?: is|'s) an additional combat phase after this (?:(?P<main2>main )|(?P<combat2>combat ))?phase)"  # (wave 49B: "there's", Moraug)
+                    r"(?: \[at the beginning of that combat, (?P<then>untap all creatures[^\]]*)\])?")
+_EXTRA_THEN = re.compile(r"(?P<x>(?:[Aa]fter this (?:main |combat )?phase, there is|[Tt]here(?: is|'s)) an additional combat phase"
+                         r"(?: after this (?:main |combat )?phase)?)\. At the beginning of that combat, (?P<u>untap all creatures[^.]*)\.")
+
+
+def merge_extra(body: str) -> str:
+    """-- commander sweep (wave 49B) -- the two sentences "There's an additional combat phase after this phase. At the beginning of that combat, untap all creatures you control."
+    (Moraug) as the one instruction they are (scripts._parse_effects)."""
+    return _EXTRA_THEN.sub(r"\g<x> [at the beginning of that combat, \g<u>].", body) if "At the beginning of that combat" in body else body
 _MUST = re.compile(r"(?P<o>.+?) attacks? this turn if able")
 _MUST_COMBAT = re.compile(r"(?P<o>.+?) attacks this combat if able")  # -- trigger other (wave 26B) -- 508.1d, this combat only
+_MUST_THAT = re.compile(r"(?P<o>.+?) attacks that player this combat if able")  # -- random choices (wave 47B) -- the player an instruction before picked (Ruhan)
 _MUST_YOU = re.compile(r"(?P<o>target creature(?: an opponent controls)?) attacks you this turn if able")  # -- activated other (wave 21E) --
 _EACH_COMBAT = re.compile(r"(?P<o>.+?) (?:attack each combat if able(?P<pl> and attack a player other than you if able)?"
                          r"|attacks each combat if able(?P<sg> and attacks a player other than you if able)?)"
                          r"(?P<eot> until end of turn)?")
-_EACH_OPP = re.compile(r"for each opponent, (?P<create>create .+? token(?:s)? that's tapped and attacking) that player"
-                       r"(?P<pw> or a planeswalker they control)?")
+# -- tapped and attacking (wave 38B) -- "for each opponent, you create a 2/2 … token that's tapped and attacking that opponent" (Stampede Surfer, Veteran
+# Soldier): the same instruction as "… attacking that player", the player being the one this opponent is (508.4: the effect says what it attacks)
+_EACH_OPP = re.compile(r"for each opponent, (?:you )?(?P<create>create .+? token(?:s)? that's tapped and attacking) "
+                       r"(?:that player(?P<pw> or a planeswalker they control)?|that opponent)")
 _AND_EXTRA = re.compile(r"(?P<a>.+?),? and (?P<b>after this (?:main |combat )?phase, there is an additional combat phase.*)")
+_BLOCK_CAP = re.compile(r"each opponent can't block with more than (?P<n>one|two|three|four|five) creatures? this combat")
 _REMOVE = re.compile(r"remove (?P<o>.+?) from combat")
 _MAZE = re.compile(r"prevent all combat damage that would be dealt to and dealt by (?P<o>that creature|it|target creature(?: you control)?|~)"
                    r" this turn")
-_DOUBLE = re.compile(r"double (?:the (?P<w1>power and toughness|power) of (?P<o1>.+?)|(?P<o2>.+?)'s "
-                     r"(?P<w2>power and toughness|power)|(?P<o3>its) (?P<w3>power and toughness|power)) until end of turn")
+_DOUBLE = re.compile(r"double (?:the (?P<w1>power and toughness|power|toughness) of (?P<o1>.+?)|(?P<o2>.+?)'s "  # (-- trigger other (wave 41C) -- toughness alone, Rasaad yn Bashir)
+                     r"(?P<w2>power and toughness|power|toughness)|(?P<o3>its) (?P<w3>power and toughness|power|toughness)) until end of turn")
 # -- keywords (wave 15E) -- myriad (702.116a): "for each opponent other than defending player, you may create a token that's a
 # copy of ~ that's tapped and attacking that player or a planeswalker they control. If one or more tokens are created this way,
 # exile the tokens at end of combat."
@@ -379,7 +431,15 @@ def clause(text: str) -> tuple[Effects, Any] | None:
     m = _EXTRA.fullmatch(text)
     if m:
         after = "main" if m["main"] or m["main2"] else "combat" if m["combat"] or m["combat2"] else "phase"
-        return [{"do": "extra_phases", "after": after, "main": bool(m["and"])}], None
+        then = None
+        if m["then"]:  # (wave 49B) the untap that begins that combat: one instruction without a target of its own
+            from app.rules import scripts
+
+            inner = scripts._clause(m["then"])
+            if inner is None or inner[1] is not None or [x["do"] for x in inner[0]] != ["untap"]:
+                return None
+            then = inner[0]
+        return [{"do": "extra_phases", "after": after, "main": bool(m["and"]), **({"then": then} if then else {})}], None
     m = _AND_EXTRA.fullmatch(text)
     if m:  # "untap all attacking creatures and after this phase, there is an additional combat phase"
         from app.rules import scripts
@@ -388,9 +448,12 @@ def clause(text: str) -> tuple[Effects, Any] | None:
         if left is None or right is None:
             return None
         return left[0] + right[0], left[1]
+    m = _BLOCK_CAP.fullmatch(text)
+    if m:  # -- commander sweep (wave 49B) -- 509.1b: "Each opponent can't block with more than one creature this combat." (Mirri)
+        return [{"do": "block_cap", "n": _NUMBERS[m["n"]]}], None
     m = _REMOVE.fullmatch(text)
     if m:  # 506.4
-        found = _object(m["o"])
+        found = _object(m["o"], host=True)  # (wave 40B: "remove enchanted creature from combat", 303.4b)
         return ([{"do": "remove_from_combat", "who": found[0]}], found[1]) if found is not None else None
     m = _MAZE.fullmatch(text)
     if m:  # (Maze of Ith: 615, a prevention effect for this turn)
@@ -404,13 +467,17 @@ def clause(text: str) -> tuple[Effects, Any] | None:
         found = _object(m["o1"] or m["o2"] or m["o3"], each=True)
         if found is None:
             return None
-        return [{"do": "double_pt", "who": found[0], "toughness": what == "power and toughness"}], found[1]
+        return [{"do": "double_pt", "who": found[0], "toughness": what != "power", **({"power": False} if what == "toughness" else {})}], found[1]
     m = _EACH_COMBAT.fullmatch(text)
     if m:  # (with a duration: "until end of turn", or "until your next turn, …" read as that: ``unwrapped``)
         restricted = _restrict(m["o"], ["must_attack"] + ([f"{OTHER_THAN}:@you"] if m["pl"] or m["sg"] else []))
         if restricted is None:
             return None
         return ([restricted[0][0]] if m["eot"] else [{**restricted[0][0], "each_combat": True}]), restricted[1]
+    m = _MUST_THAT.fullmatch(text)
+    if m:  # 508.1d, Ruhan ruling 2011-09-22: that player, not a planeswalker of theirs; this combat only (611.2), the player bound by random_choice
+        that = _restrict(m["o"], [f"{ATTACK_PLAYER}:@that"])
+        return ([{**that[0][0], "player": "that_player", "duration": "end_of_combat"}], that[1]) if that is not None else None
     m = _MUST_YOU.fullmatch(text)
     if m:  # 508.1d: it attacks the effect's controller ("you") if able (ATTACK_PLAYER, as encore's tokens)
         return _restrict(m["o"], [f"{ATTACK_PLAYER}:@you"])
@@ -472,9 +539,9 @@ def _token(create: str) -> dict[str, Any] | None:
     return found[0]
 
 
-def _object(phrase: str, *, each: bool = False) -> tuple[str, Any] | None:
+def _object(phrase: str, *, each: bool = False, host: bool = False) -> tuple[str, Any] | None:
     """An object reference: a target, "it" / "that creature", ~ (and with ``each``, a group: "each creature you
-    control") -> (who, target group)."""
+    control"; with ``host``, -- attached events (wave 40B) -- "enchanted creature") -> (who, target group)."""
     from app.rules import language
 
     if phrase == "its":
@@ -483,7 +550,7 @@ def _object(phrase: str, *, each: bool = False) -> tuple[str, Any] | None:
         kind, key, group = language.ref(phrase)
     except language._Fail:
         return None
-    if kind in ("players", "them", "host") or (kind == "each" and not each):
+    if kind in ("players", "them") or (kind == "host" and not host) or (kind == "each" and not each):
         return None
     return language._who(kind, key), language._one(group)
 
@@ -602,7 +669,7 @@ def double_pt(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         ch = plan.ch(card)
         if not card.zone.endswith(":battlefield") or not ch.is_creature:
             continue
-        p = power(card, ch)
+        p = power(card, ch) if e.get("power", True) else 0  # (701.10b: +X/+0 for its power, +0/+X for its toughness)
         t = toughness(card, ch) if e.get("toughness") else 0
         if p is None or t is None:
             plan.note(f"{ctx.get('name') or 'The effect'}: {card.name}'s power isn't known: double it by hand")
@@ -687,7 +754,50 @@ def encore_attack(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"encore_attack": encore_attack, "extra_phases": extra_phases, "create_attacking_each": create_attacking_each,
+def block_cap(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """-- commander sweep (wave 49B) -- 509.1b: each opponent of the ability's controller can't block with more than N creatures this combat (the smallest N
+    stands); the cap is dropped as the combat ends (``combat.end_combat``)."""
+    caps = plan.rules.block_caps
+    for pid in plan.live():
+        if pid != ctx["controller"]:
+            caps[pid] = min(caps.get(pid, 99), int(e["n"]))
+    return True
+
+
+# -- blocking tokens (wave 50J) -- "Whenever Brimaz blocks a creature, create a 1/1 white Cat Soldier creature token with vigilance that's blocking that creature."
+# 509.4: a creature put onto the battlefield blocking is a blocking creature that never "blocked" (no block triggers); 509.4a: if the creature it is to block is no longer
+# attacking, or its controller isn't a defending player for it, it enters but never blocks; 509.4b: requirements and restrictions of the declaration don't apply.
+# Read only where the creature is the one the trigger's source blocks (so it is a blocked creature already: an unblocked attacker would stay unblocked, 509.1h)
+_BLOCKING_TOKEN = re.compile(r"^(?P<make>[Cc]reate (?:a|an) [^.]+? token[^.]*?) that's blocking that creature\.$")
+
+
+def blocking_token(body: str, it: str | None, parse: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    m = _BLOCKING_TOKEN.match(body.strip())
+    if m is None or it != "event":
+        return None
+    found = parse(m["make"] + ".", it)
+    if found is None or len(found[0]) != 1 or found[0][0].get("do") != "create_token" or found[1] is not None or found[2]:
+        return None
+    return [{**found[0][0], "as": "blk0"}, {"do": "enter_blocking", "who": "ref:blk0", "blocked": "event"}], None, False
+
+
+def enter_blocking(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    for att_id in effects._cards(plan, ctx, e["blocked"]):
+        attacker = plan.state.cards[att_id]
+        for cid in effects._cards(plan, ctx, e["who"]):
+            token = plan.state.cards[cid]
+            target = attacker.attacking
+            protected = target is not None and (target.id == token.controller or (
+                target.id in plan.state.cards and plan.state.cards[target.id].controller == token.controller))  # (a planeswalker's controller; a battle's protector: not read)
+            if attacker.zone.endswith(":battlefield") and token.zone.endswith(":battlefield") and protected and plan.ch(token).is_creature:
+                plan.do({"type": "block", "card_id": cid, "attacker_id": att_id, "also": token.blocking is not None}, actor=ctx["controller"])
+                plan.note(f"{token.name} enters blocking {plan.ch(attacker).name}", [cid, att_id], actor=ctx["controller"])
+    return True
+
+
+PRIMITIVES = {"enter_blocking": enter_blocking, "block_cap": block_cap, "encore_attack": encore_attack, "extra_phases": extra_phases, "create_attacking_each": create_attacking_each,
               "remove_from_combat": remove_from_combat, "double_pt": double_pt,
               "myriad_choose": myriad_choose, "myriad_create": myriad_create}
 RESUME = {"attack_each_opponent": resume_attack_each, "myriad_pick": resume_myriad}

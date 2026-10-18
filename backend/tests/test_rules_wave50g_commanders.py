@@ -1,0 +1,971 @@
+"""Wave 50G: commanders blocked by exactly two lines, real Oracle text (tests/fixtures/wave50g_cards.json, from data/cards.sqlite). Every scenario checks the
+replay and a save and a load (tests/wave9c_kit.check).
+
+* Kenessos, Priest of Thassa: 614.1a, 701.22 "If you would scry a number of cards, scry that many cards plus one instead" (the scry itself, one card deeper; scrying 0 is no
+  scry, 701.22b); "If it's a Kraken, Leviathan, Octopus, or Serpent creature card" (a list of kinds, the commas don't end the condition).
+* Maralen of the Mornsong: 121.2, 101.2 "Players can't draw cards" (also the draw step's turn-based draw and a draw that is a cost or a replacement's); "that player loses 3
+  life, searches their library for a card, puts it into their hand, then shuffles" (701.23).
+* Tetsuo Umezawa: 115.2 "can't be the target of Aura spells" (an ability still may); "target tapped or blocking creature".
+* Valentina Allegra de Fontaine: "Other Villains you control are Heroes in addition to their other types" (613.1d); "Target Hero you control connives" (701.50).
+* Anje, Maid of Dishonor: 603.2c "Whenever Anje and/or one or more other Vampires you control enter" is one trigger for a batch; "Sacrifice another creature or a Blood token".
+* Hakbal of the Surging Soul: 701.44a "each Merfolk creature you control explores" in the order its controller chooses (2023-11-10 ruling); "If you don't" after a
+  "you may put a land card from your hand onto the battlefield" (608.2c, 118.12).
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from app.cards.images import ImageStore
+from app.cards.importer import build_database
+from app.cards.repository import CardRepository
+from app.game.errors import ActionError
+from app.rules import coverage
+from tests.fixtures.cards import card, fixture_cards
+from tests.game_helpers import act
+from tests.test_rules_attachments import ch
+from tests.test_rules_conditionals import settle, until
+from tests.test_rules_wave39b_trigger_damage import attack, finish_turn, to_main1
+from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand
+
+DATA = json.loads((Path(__file__).parent / "fixtures" / "wave50g_cards.json").read_text("utf-8"))
+KNOWN = {c["name"] for c in fixture_cards()}
+EXTRA = [card(c["name"], set_code="t50g", number=f"G{i:02d}", **{k: v for k, v in c.items() if k != "name"})
+         for i, c in enumerate(DATA) if c["name"] not in KNOWN]
+FULL = ["Kenessos, Priest of Thassa", "Maralen of the Mornsong", "Tetsuo Umezawa", "Bartel Runeaxe", "Valentina Allegra de Fontaine",
+        "Anje, Maid of Dishonor", "Hakbal of the Surging Soul", "Tamiyo, Inquisitive Student // Tamiyo, Seasoned Scholar", "Sneaky Snacker",
+        "Ketramose, the New Dawn", "Haakon, Stromgald Scourge", "Dennick, Pious Apprentice // Dennick, Pious Apparition", "Tomik, Distinguished Advokist",
+        "King of the Oathbreakers", "Beluna Grandsquall // Seek Thrills"]
+
+
+@pytest.fixture()
+def cards(settings):
+    settings.ensure_dirs()
+    build_database([*fixture_cards(), *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
+    repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
+    yield repo
+    repo.close()
+
+
+@pytest.mark.parametrize("name", FULL)
+def test_the_promoted_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def stack_top(s, names, pid="p1"):
+    """Put these cards on top of the library, the first named on top."""
+    for name in reversed(names):
+        c = card_named(s, name, pid)
+        act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "library"}, position="top")
+
+
+def top(s, pid="p1"):
+    return s.state.cards[s.state.zones[f"{pid}:library"][0]].name
+
+
+def ability(s, c, contains):
+    return next(a.index for a in ch(s, c).abilities if a.kind in ("activated", "loyalty") and contains in a.text)
+
+
+def answer(s, pick=None):
+    """Answer the open decision with the option whose label contains ``pick`` (the first option if None); returns its prompt."""
+    d = s.state.rules.decision
+    ids = [o.id for o in d.options if pick is None or pick in o.label][:1] if pick != [] else []
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+    return d.prompt
+
+
+def on_battlefield(s, name, pid="p1"):
+    return [c for c in s.state.cards.values() if c.name == name and c.owner == pid and c.zone.endswith(":battlefield")]
+
+
+# -- Kenessos, Priest of Thassa ----------------------------------------------------------------------------------------------------------------------
+def scry_prompt(s, with_kenessos):
+    s2 = s
+    if with_kenessos:
+        put(s2, "Kenessos, Priest of Thassa")
+    stack_top(s2, ["Grizzly Bears", "Llanowar Elves", "Holy Strength"])
+    mana(s2, "p1", U=1)
+    act(s2, "p1", type="cast_spell", card_id=to_hand(s2, "Opt").id)
+    d = s2.state.rules.decision
+    if d is None:  # (Opt is on the stack; let it resolve)
+        act(s2, s2.state.rules.priority, type="pass_priority")
+        d = s2.state.rules.decision
+    return d
+
+
+@pytest.mark.parametrize("with_kenessos, looked", [(True, 2), (False, 1)])
+def test_kenessos_scries_one_deeper(cards, with_kenessos, looked):
+    """Opt's "Scry 1" is a scry of two with Kenessos (the same scry, 701.22), one without."""
+    s = build(cards, ["Kenessos, Priest of Thassa", "Opt", "Grizzly Bears", "Llanowar Elves", "Holy Strength"], [])
+    d = scry_prompt(s, with_kenessos)
+    assert d is not None and d.prompt.startswith(f"Scry {looked}:") and len(d.options) == looked
+    answer(s, [])  # (keep both on top)
+    settle(s)
+    assert top(s) == ("Llanowar Elves" if looked == 2 else "Llanowar Elves")  # (Opt draws the top card: Grizzly Bears)
+    check(s)
+
+
+def test_kenessos_activated_puts_a_serpent_onto_the_battlefield(cards):
+    """"{3}{G/U}: Look at the top card of your library. If it's a Kraken, Leviathan, Octopus, or Serpent creature card, you may put it onto the battlefield."""
+    s = build(cards, ["Kenessos, Priest of Thassa", "Kraken Hatchling", "Grizzly Bears"], [])
+    k = put(s, "Kenessos, Priest of Thassa")
+    stack_top(s, ["Kraken Hatchling", "Grizzly Bears"])
+    mana(s, "p1", G=4)
+    act(s, "p1", type="activate_ability", card_id=k.id, ability=ability(s, k, "Look at the top card"))
+    settle_pick(s, "Kraken Hatchling")
+    assert on_battlefield(s, "Kraken Hatchling")
+    check(s)
+
+
+def settle_pick(s, pick=None, limit=20):
+    """Resolve everything; a decision is answered with the option whose label contains ``pick`` (else its first option)."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            answer(s, pick if pick is not None and any(pick in o.label for o in d.options) else None)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
+
+
+def test_kenessos_activated_leaves_a_bear_alone(cards):
+    s = build(cards, ["Kenessos, Priest of Thassa", "Kraken Hatchling", "Grizzly Bears"], [])
+    k = put(s, "Kenessos, Priest of Thassa")
+    stack_top(s, ["Grizzly Bears", "Kraken Hatchling"])
+    mana(s, "p1", G=4)
+    act(s, "p1", type="activate_ability", card_id=k.id, ability=ability(s, k, "Look at the top card"))
+    settle_pick(s, "Keep")
+    assert not on_battlefield(s, "Grizzly Bears") and not on_battlefield(s, "Kraken Hatchling")
+    check(s)
+
+
+# -- Maralen of the Mornsong -------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("maralen, drawn", [(True, 0), (False, 1)])
+def test_maralen_stops_a_spells_draw(cards, maralen, drawn):
+    """Opt's "Draw a card" does nothing while Maralen is in play (121.2); the scry still happens."""
+    s = build(cards, ["Maralen of the Mornsong", "Opt"], [])
+    if maralen:
+        put(s, "Maralen of the Mornsong")
+    opt = to_hand(s, "Opt")
+    before = len(s.state.zones["p1:library"])
+    mana(s, "p1", U=1)
+    act(s, "p1", type="cast_spell", card_id=opt.id)
+    settle(s)
+    assert before - len(s.state.zones["p1:library"]) == drawn
+    check(s)
+
+
+@pytest.mark.parametrize("maralen, loses", [(True, False), (False, True)])
+def test_maralen_nobody_loses_for_drawing_from_an_empty_library(cards, maralen, loses):
+    """The 2008-04-01 ruling: with Maralen in play a draw from an empty library is no draw, so 704.5b loses nobody the game."""
+    from app.rules.plan import live_players
+
+    s = build(cards, ["Maralen of the Mornsong", "Opt"], [])
+    if maralen:
+        put(s, "Maralen of the Mornsong")
+    opt = to_hand(s, "Opt")
+    act(s, "p1", type="move", card_ids=list(s.state.zones["p1:library"]), to={"player": "p1", "zone": "exile"})
+    mana(s, "p1", U=1)
+    act(s, "p1", type="cast_spell", card_id=opt.id)
+    settle(s)
+    assert ("p1" not in live_players(s.state)) == loses
+    check(s)
+
+
+def seasoned(s, *names):
+    """These cards on the battlefield since before this turn (no summoning sickness): put there, then on to Alice's next turn."""
+    for n in names:
+        put(s, n)
+    finish_turn(s)
+    finish_turn(s)
+
+
+# -- Tetsuo Umezawa ----------------------------------------------------------------------------------------------------------------------------------
+def test_tetsuo_cant_be_the_target_of_an_aura_spell(cards):
+    s = build(cards, ["Tetsuo Umezawa", "Grizzly Bears", "Holy Strength"], [])
+    tetsuo, bears = put(s, "Tetsuo Umezawa"), put(s, "Grizzly Bears")
+    aura = to_hand(s, "Holy Strength")
+    mana(s, "p1", W=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=aura.id, targets=[tetsuo.id])
+    act(s, "p1", type="cast_spell", card_id=aura.id, targets=[bears.id])  # (a creature without that text is fine)
+    settle(s)
+    assert s.state.cards[aura.id].attached_to == bears.id
+    check(s)
+
+
+def test_bartel_runeaxe_cant_be_the_target_of_an_aura_spell(cards):
+    s = build(cards, ["Bartel Runeaxe", "Holy Strength"], [])
+    bartel = put(s, "Bartel Runeaxe")
+    mana(s, "p1", W=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Holy Strength").id, targets=[bartel.id])
+    check(s)
+
+
+def tetsuo_kill(s, tetsuo, target):
+    mana(s, "p1", U=1, B=2, R=1)
+    act(s, "p1", type="activate_ability", card_id=tetsuo.id, ability=ability(s, tetsuo, "Destroy target"), targets=[target.id])
+    settle(s)
+
+
+def test_tetsuo_destroys_a_tapped_creature_not_an_untapped_one(cards):
+    s = build(cards, ["Tetsuo Umezawa"], ["Grizzly Bears"])
+    tetsuo, bears = put(s, "Tetsuo Umezawa"), put(s, "Grizzly Bears", "p2")
+    finish_turn(s)
+    finish_turn(s)
+    mana(s, "p1", U=1, B=2, R=1)
+    with pytest.raises(ActionError):  # (untapped, not blocking)
+        act(s, "p1", type="activate_ability", card_id=tetsuo.id, ability=ability(s, tetsuo, "Destroy target"), targets=[bears.id])
+    act(s, "p2", type="tap", card_ids=[bears.id])
+    tetsuo_kill(s, tetsuo, bears)
+    assert s.state.cards[bears.id].zone == "p2:graveyard"
+    check(s)
+
+
+def test_tetsuo_destroys_a_blocking_creature(cards):
+    s = build(cards, ["Tetsuo Umezawa", "Llanowar Elves"], ["Grizzly Bears"])
+    tetsuo, elves, bears = put(s, "Tetsuo Umezawa"), put(s, "Llanowar Elves"), put(s, "Grizzly Bears", "p2")
+    finish_turn(s)
+    finish_turn(s)
+    act(s, "p1", type="set_prefs", stops_my_turn=["main1", "declare_blockers", "main2"])
+    attack(s, (elves, "p2"))
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": bears.id, "attacker_id": elves.id}])
+    assert s.state.turn.phase == "declare_blockers" and s.state.cards[bears.id].blocking
+    tetsuo_kill(s, tetsuo, bears)
+    assert s.state.cards[bears.id].zone == "p2:graveyard"
+    check(s)
+
+
+# -- Valentina Allegra de Fontaine -------------------------------------------------------------------------------------------------------------------
+def test_valentina_makes_your_other_villains_heroes_not_theirs(cards):
+    """613.1d: "Other Villains you control are Heroes in addition to their other types" - yours, not an opponent's, and not a creature that isn't a Villain."""
+    s = build(cards, ["Valentina Allegra de Fontaine", "Undead Hand Ninja", "Grizzly Bears"], ["Kree Commandos"])
+    put(s, "Valentina Allegra de Fontaine")
+    ninja, bears, kree = put(s, "Undead Hand Ninja"), put(s, "Grizzly Bears"), put(s, "Kree Commandos", "p2")
+    assert "Hero" in ch(s, ninja).subtypes and "Villain" in ch(s, ninja).subtypes
+    assert "Hero" not in ch(s, bears).subtypes and "Hero" not in ch(s, kree).subtypes
+    check(s)
+
+
+def test_valentina_connives_a_hero_you_control(cards):
+    """"{T}: Target Hero you control connives. Activate only as a sorcery." A Villain of yours is a Hero, an opponent's Hero is no target (701.50)."""
+    s = build(cards, ["Valentina Allegra de Fontaine", "Undead Hand Ninja", "Grizzly Bears"], ["Masked Meower"])
+    val, ninja, bears, theirs = (put(s, "Valentina Allegra de Fontaine"), put(s, "Undead Hand Ninja"), put(s, "Grizzly Bears"),
+                                 put(s, "Masked Meower", "p2"))
+    finish_turn(s)
+    finish_turn(s)
+    for bad in (bears, theirs):
+        with pytest.raises(ActionError):
+            act(s, "p1", type="activate_ability", card_id=val.id, ability=ability(s, val, "connives"), targets=[bad.id])
+    hand, library, yard = len(s.state.zones["p1:hand"]), len(s.state.zones["p1:library"]), len(s.state.zones["p1:graveyard"])
+    act(s, "p1", type="activate_ability", card_id=val.id, ability=ability(s, val, "connives"), targets=[ninja.id])
+    settle(s)
+    assert (len(s.state.zones["p1:hand"]), len(s.state.zones["p1:library"]), len(s.state.zones["p1:graveyard"])) == (hand, library - 1, yard + 1)
+    check(s)
+
+
+# -- Anje, Maid of Dishonor --------------------------------------------------------------------------------------------------------------------------
+def bloods(s, pid="p1"):
+    return [c for c in s.state.cards.values() if c.name == "Blood" and c.controller == pid and c.zone.endswith(":battlefield")]
+
+
+def cast_now(s, name, **m):
+    """Cast ``name`` from the hand with this mana and let everything resolve."""
+    mana(s, "p1", **m)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, name).id)
+    settle(s)
+
+
+def test_anje_triggers_for_anje_or_another_vampire_once_each_turn(cards):
+    """Anje entering uses the turn's trigger up (603.2c: one trigger, however many Vampires entered); a Vampire a turn later makes a Blood, one that is no Vampire never does."""
+    s = build(cards, ["Anje, Maid of Dishonor", "Vampire Interloper", "Bishop's Soldier", "Grizzly Bears"], [])
+    cast_now(s, "Anje, Maid of Dishonor", R=2, B=1, G=3)
+    assert len(bloods(s)) == 1  # (Anje herself)
+    cast_now(s, "Vampire Interloper", B=2)
+    assert len(bloods(s)) == 1  # (only once each turn)
+    finish_turn(s)
+    finish_turn(s)
+    cast_now(s, "Grizzly Bears", G=2)
+    assert len(bloods(s)) == 1  # (not a Vampire)
+    cast_now(s, "Bishop's Soldier", W=2)
+    assert len(bloods(s)) == 2
+    check(s)
+
+
+@pytest.mark.parametrize("pay", ["Blood", "Grizzly Bears"])
+def test_anje_sacrifices_another_creature_or_a_blood_token(cards, pay):
+    s = build(cards, ["Anje, Maid of Dishonor", "Grizzly Bears"], [])
+    cast_now(s, "Anje, Maid of Dishonor", R=2, B=1, G=3)
+    anje = card_named(s, "Anje, Maid of Dishonor")
+    bears = put(s, "Grizzly Bears")
+    finish_turn(s)
+    finish_turn(s)
+    paid = bloods(s)[0] if pay == "Blood" else bears
+    mana(s, "p1", G=2)
+    act(s, "p1", type="activate_ability", card_id=anje.id, ability=ability(s, anje, "Each opponent loses 2 life"),
+        cost_choices=[{"component": 1, "cards": [paid.id]}])
+    settle(s)
+    assert (life(s, "p2"), life(s, "p1")) == (38, 42) and paid.id not in on_battlefield_ids(s)
+    check(s)
+
+
+def test_anje_cant_sacrifice_herself_for_her_ability(cards):
+    s = build(cards, ["Anje, Maid of Dishonor"], [])
+    cast_now(s, "Anje, Maid of Dishonor", R=2, B=1, G=3)
+    anje = card_named(s, "Anje, Maid of Dishonor")
+    finish_turn(s)
+    finish_turn(s)
+    mana(s, "p1", G=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=anje.id, ability=ability(s, anje, "Each opponent loses 2 life"),
+            cost_choices=[{"component": 1, "cards": [anje.id]}])
+    check(s)
+
+
+def on_battlefield_ids(s):
+    return {c.id for c in s.state.cards.values() if c.zone.endswith(":battlefield")}
+
+
+def test_maralen_replaces_the_draw_step_with_a_tutor(cards):
+    """Bob's draw step: no draw; he loses 3 life, searches his library for a card, puts it into his hand and shuffles."""
+    s = build(cards, ["Maralen of the Mornsong"], ["Counterspell"], islands=6)
+    put(s, "Maralen of the Mornsong")
+    hand, library = len(s.state.zones["p2:hand"]), len(s.state.zones["p2:library"])
+    to_main1(s, 2)
+    assert life(s, "p2") == 37
+    assert len(s.state.zones["p2:hand"]) == hand + 1 and len(s.state.zones["p2:library"]) == library - 1
+    check(s)
+
+
+# -- Hakbal of the Surging Soul ----------------------------------------------------------------------------------------------------------------------
+def drive(s, picks, done, limit=60):
+    """Pass priority until ``done(s)``; a decision is answered by the first of ``picks`` (substrings of an option's label or of the prompt) that fits, else its first option."""
+    for _ in range(limit):
+        if done(s):
+            return
+        d = s.state.rules.decision
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        if d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+            continue
+        if "<none>" in picks and d.min_choices == 0:  # (decline an optional choice)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[])
+            continue
+        want = next((o for p in picks for o in d.options if p in o.label or p in d.prompt), d.options[0])
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[want.id])
+    raise AssertionError("never got there")
+
+
+def counters(s, name, pid="p1"):
+    return s.state.cards[card_named(s, name, pid).id].counters.get("+1/+1", 0)
+
+
+def merfolk_table(cards, theirs=()):
+    s = build(cards, ["Hakbal of the Surging Soul", "Merfolk Looter", "Merfolk Branchwalker", "Grizzly Bears", "Llanowar Elves"], list(theirs))
+    seasoned(s, "Hakbal of the Surging Soul", "Merfolk Looter", "Merfolk Branchwalker", "Grizzly Bears")
+    return s
+
+
+def test_hakbal_explores_each_merfolk_in_the_order_you_choose(cards):
+    """At the beginning of combat each Merfolk you control explores, one after another in the order you pick (the 2023-11-10 ruling): the Bears on top gives +1/+1 to
+    whoever explores first, then two lands go to the hand. Your other creatures, and an opponent's Merfolk, don't explore."""
+    s = merfolk_table(cards, ["Merfolk Looter"])
+    put(s, "Merfolk Looter", "p2")
+    stack_top(s, ["Llanowar Elves", "Forest", "Forest"])
+    hand = len(s.state.zones["p1:hand"])
+    base = {n: counters(s, n) for n in ("Merfolk Branchwalker", "Merfolk Looter", "Hakbal of the Surging Soul", "Grizzly Bears")}  # (turns 1 and 2 had combats too)
+    asked = []
+
+    def ordered(s):
+        d = s.state.rules.decision
+        if d is not None:
+            asked.append(d.prompt)
+        return bool(asked) and d is None and not s.state.zones.get("stack")
+
+    drive(s, ["Merfolk Branchwalker", "Put it into your graveyard"], ordered)
+    assert asked.count("Choose the creature that explores next") == 2  # (three Merfolk: asked while two or more are left)
+    assert {n: counters(s, n) - b for n, b in base.items()} == {"Merfolk Branchwalker": 1, "Merfolk Looter": 0, "Hakbal of the Surging Soul": 0, "Grizzly Bears": 0}
+    assert counters(s, "Merfolk Looter", "p2") == 0
+    assert len(s.state.zones["p1:hand"]) == hand + 2 and "Llanowar Elves" in [s.state.cards[c].name for c in s.state.zones["p1:graveyard"]]
+    check(s)
+
+
+@pytest.mark.parametrize("mode, lands, drawn", [("put", 1, 0), ("decline", 0, 1), ("no land", 0, 1)])
+def test_hakbal_puts_a_land_from_your_hand_or_draws(cards, mode, lands, drawn):
+    """"Whenever Hakbal attacks, you may put a land card from your hand onto the battlefield. If you don't, draw a card."  A land put: no draw; declined, or no land in
+    the hand to put: a draw (608.2c, 118.12)."""
+    s = build(cards, ["Hakbal of the Surging Soul"], [])
+    hakbal = put(s, "Hakbal of the Surging Soul")
+    finish_turn(s)
+    finish_turn(s)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    if mode == "no land":
+        act(s, "p1", type="move", card_ids=[c for c in s.state.zones["p1:hand"]], to={"zone": "exile"})
+    in_hand = len(s.state.zones["p1:hand"])
+    forests, library = len(on_battlefield(s, "Forest")), len(s.state.zones["p1:library"])
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": hakbal.id, "target": "p2"}])
+    drive(s, {"put": ["Forest"], "decline": ["<none>"], "no land": []}[mode], lambda s: s.state.rules.decision is None and not s.state.zones.get("stack"))
+    assert len(on_battlefield(s, "Forest")) - forests == lands and library - len(s.state.zones["p1:library"]) == drawn
+    assert len(s.state.zones["p1:hand"]) == in_hand - lands + drawn
+    check(s)
+
+
+# -- Tamiyo, Inquisitive Student ---------------------------------------------------------------------------------------------------------------------
+TAMIYO = "Tamiyo, Inquisitive Student // Tamiyo, Seasoned Scholar"
+
+
+def three_opts(s, n=3):
+    """Alice casts Opt ``n`` times this turn: one draw each."""
+    for _ in range(n):
+        mana(s, "p1", U=1)
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Opt").id)
+        settle(s)
+
+
+@pytest.mark.parametrize("draws, flipped", [(3, True), (2, False)])
+def test_tamiyo_transforms_on_the_third_card_drawn_in_a_turn(cards, draws, flipped):
+    """"When you draw your third card in a turn, exile Tamiyo, then return her to the battlefield transformed" (701.28): the third card, not the second."""
+    s = build(cards, [TAMIYO, "Opt", "Opt", "Opt"], [])
+    put(s, TAMIYO)
+    three_opts(s, draws)
+    now = s.state.cards[card_named(s, TAMIYO).id]
+    assert (now.zone == "p1:battlefield" and now.face == 1) == flipped
+    check(s)
+
+
+def test_tamiyo_seasoned_scholar_shrinks_attackers_until_your_next_turn(cards):
+    """+2: "Until your next turn, whenever a creature attacks you or a planeswalker you control, it gets -1/-0 until end of turn." Bob's Bears hit for 1 on his turn;
+    the watch is gone when Alice's next turn begins (500.4)."""
+    s = build(cards, [TAMIYO, "Opt", "Opt", "Opt"], ["Grizzly Bears"])
+    put(s, TAMIYO)
+    bears = put(s, "Grizzly Bears", "p2")
+    three_opts(s)
+    scholar = card_named(s, TAMIYO)
+    act(s, "p1", type="activate_ability", card_id=scholar.id, ability=ability(s, scholar, "+2"))
+    settle(s)
+    assert [t for t in s.state.rules.delayed if t.until_player == "p1"]
+    until(s, lambda s: s.state.turn.number == 2 and s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    before = life(s, "p1")
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p1"}])
+    until(s, lambda s: s.state.turn.phase == "main2" and s.state.rules.decision is None)
+    assert before - life(s, "p1") == 1
+    finish_turn(s)
+    assert s.state.turn.number == 3 and not [t for t in s.state.rules.delayed if t.until_player == "p1"]
+    check(s)
+
+
+# -- Sneaky Snacker (the same "third card in a turn" wording, read from the graveyard) -------------------------------------------------------------
+@pytest.mark.parametrize("draws, returns", [(3, True), (2, False)])
+def test_sneaky_snacker_returns_from_the_graveyard_on_the_third_draw(cards, draws, returns):
+    s = build(cards, ["Sneaky Snacker", "Opt", "Opt", "Opt"], [])
+    snacker = card_named(s, "Sneaky Snacker")
+    act(s, "p1", type="move", card_ids=[snacker.id], to={"player": "p1", "zone": "graveyard"})
+    three_opts(s, draws)
+    now = s.state.cards[snacker.id]
+    assert (now.zone == "p1:battlefield") == returns and (not returns or now.tapped)
+    check(s)
+
+
+# -- Ketramose, the New Dawn -------------------------------------------------------------------------------------------------------------------------
+def exile_cards(s, n, pid="p1"):
+    """``n`` cards off the top of ``pid``'s library into exile (a manual move: no trigger reads it)."""
+    act(s, pid, type="move", card_ids=list(s.state.zones[f"{pid}:library"])[:n], to={"player": pid, "zone": "exile"})
+
+
+@pytest.mark.parametrize("exiled, can", [(6, False), (7, True)])
+def test_ketramose_attacks_only_with_seven_cards_in_exile(cards, exiled, can):
+    """"Ketramose can't attack or block unless there are seven or more cards in exile": cards in every player's exile zone count (400.1). Alice is asked who attacks only
+    when someone can."""
+    s = build(cards, ["Ketramose, the New Dawn"], [])
+    ketramose = put(s, "Ketramose, the New Dawn")
+    finish_turn(s)
+    finish_turn(s)
+    exile_cards(s, exiled - 2)
+    exile_cards(s, 2, "p2")
+    for _ in range(30):
+        d = s.state.rules.decision
+        if (d is not None and d.kind == "declare_attackers") or s.state.turn.phase == "main2":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    asked = s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers"
+    assert asked == can
+    if can:
+        act(s, "p1", type="declare_attackers", attackers=[{"card_id": ketramose.id, "target": "p2"}])
+    check(s)
+
+
+def test_ketramose_draws_when_cards_are_exiled_from_the_battlefield_or_a_graveyard(cards):
+    """On your turn: Swords to Plowshares exiling Bob's Bears from the battlefield, Relic of Progenitus exiling a card from a graveyard - one card and 1 life each."""
+    s = build(cards, ["Ketramose, the New Dawn", "Swords to Plowshares", "Relic of Progenitus", "Grizzly Bears"], ["Grizzly Bears"])
+    put(s, "Ketramose, the New Dawn")
+    bears, relic = put(s, "Grizzly Bears", "p2"), put(s, "Relic of Progenitus")
+    mana(s, "p1", W=1)
+    lib, hp = len(s.state.zones["p1:library"]), life(s, "p1")
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Swords to Plowshares").id, targets=[bears.id])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p2:exile"
+    assert (len(s.state.zones["p1:library"]), life(s, "p1")) == (lib - 2, hp - 1)  # (Swords left the library for the hand, Ketramose drew one; Alice lost 1)
+    act(s, "p1", type="move", card_ids=[card_named(s, "Grizzly Bears").id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p1", type="activate_ability", card_id=relic.id, ability=ability(s, relic, "exiles a card"), targets=["p1"])
+    settle_pick(s)
+    assert (len(s.state.zones["p1:library"]), life(s, "p1")) == (lib - 3, hp - 2)
+    check(s)
+
+
+def test_ketramose_ignores_a_token_exiled_from_the_battlefield(cards):
+    s = build(cards, ["Ketramose, the New Dawn", "Swords to Plowshares", "Raise the Alarm"], [])
+    put(s, "Ketramose, the New Dawn")
+    mana(s, "p1", W=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Raise the Alarm").id)
+    settle(s)
+    token = next(c for c in s.state.cards.values() if c.name == "Soldier" and c.zone == "p1:battlefield")
+    hp, lib = life(s, "p1"), len(s.state.zones["p1:library"])
+    mana(s, "p1", W=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Swords to Plowshares").id, targets=[token.id])
+    settle(s)
+    assert len(s.state.zones["p1:library"]) == lib - 1 and life(s, "p1") == hp + 1  # (the Swords went to the hand; a token is no card: nothing drawn, no life lost, the 1 life is Swords')
+    check(s)
+
+
+# -- Haakon, Stromgald Scourge -----------------------------------------------------------------------------------------------------------------------
+def to_graveyard(s, name, pid="p1"):
+    c = card_named(s, name, pid)
+    act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "graveyard"})
+    return c
+
+
+def test_haakon_is_cast_from_the_graveyard_not_the_hand(cards):
+    """"You may cast this card from your graveyard, but not from anywhere else" (the 2006-07-15 ruling: not from the hand, whatever else would allow it)."""
+    s = build(cards, ["Haakon, Stromgald Scourge"], [])
+    haakon = to_graveyard(s, "Haakon, Stromgald Scourge")
+    mana(s, "p1", B=2, G=1)
+    act(s, "p1", type="cast_spell", card_id=haakon.id)
+    settle(s)
+    assert s.state.cards[haakon.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_haakon_cant_be_cast_from_the_hand(cards):
+    s = build(cards, ["Haakon, Stromgald Scourge"], [])
+    haakon = to_hand(s, "Haakon, Stromgald Scourge")
+    mana(s, "p1", B=2, G=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=haakon.id)
+    check(s)
+
+
+def test_haakon_cant_be_cast_from_the_command_zone(cards):
+    """As a commander he stays in the command zone: "not from anywhere else" includes it."""
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    alice = deck(cards, "Haakon, Stromgald Scourge", [(9, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    haakon = card_named(s, "Haakon, Stromgald Scourge")
+    assert haakon.zone == "p1:command"
+    mana(s, "p1", B=2, G=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=haakon.id)
+    check(s)
+
+
+@pytest.mark.parametrize("haakon_in_play, castable", [(True, True), (False, False)])
+def test_haakon_lets_you_cast_knights_from_the_graveyard_while_he_is_in_play(cards, haakon_in_play, castable):
+    s = build(cards, ["Haakon, Stromgald Scourge", "Fallen Askari", "Grizzly Bears"], [])
+    if haakon_in_play:
+        put(s, "Haakon, Stromgald Scourge")
+    knight, bears = to_graveyard(s, "Fallen Askari"), to_graveyard(s, "Grizzly Bears")
+    mana(s, "p1", B=1, G=1)
+    with pytest.raises(ActionError):  # (a Bears isn't a Knight)
+        act(s, "p1", type="cast_spell", card_id=bears.id)
+    if castable:
+        act(s, "p1", type="cast_spell", card_id=knight.id)
+        settle(s)
+        assert s.state.cards[knight.id].zone == "p1:battlefield"
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="cast_spell", card_id=knight.id)
+    check(s)
+
+
+# -- Dennick, Pious Apprentice and Tomik, Distinguished Advokist -------------------------------------------------------------------------------------
+DENNICK = "Dennick, Pious Apprentice // Dennick, Pious Apparition"
+
+
+@pytest.mark.parametrize("dennick, legal", [(True, False), (False, True)])
+def test_dennick_makes_cards_in_graveyards_untargetable(cards, dennick, legal):
+    """115.2: "Cards in graveyards can't be the targets of spells or abilities" - anyone's, yours too: no Raise Dead on your own Bears."""
+    s = build(cards, [DENNICK, "Raise Dead", "Grizzly Bears"], [])
+    if dennick:
+        put(s, DENNICK)
+    bears = to_graveyard(s, "Grizzly Bears")
+    mana(s, "p1", B=1)
+    spell = to_hand(s, "Raise Dead")
+    if legal:
+        act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears.id])
+        settle(s)
+        assert s.state.cards[bears.id].zone == "p1:hand"
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears.id])
+    check(s)
+
+
+def test_dennick_investigates_once_a_turn_for_creature_cards_put_into_any_graveyard(cards):
+    """The back face (Pious Apparition, what a disturb cast puts onto the battlefield): "Whenever one or more creature cards are put into graveyards from anywhere,
+    investigate. This ability triggers only once each turn."  A land card doesn't (Stone Rain on Alice's Forest); Bob's Bears dying does; a second one the same turn doesn't."""
+    s = build(cards, [DENNICK, "Stone Rain", "Lightning Bolt", "Lightning Bolt"], ["Grizzly Bears", "Grizzly Bears"])
+    dennick = card_named(s, DENNICK)
+    act(s, "p1", type="move", card_ids=[dennick.id], to={"player": "p1", "zone": "battlefield"}, back_ids=[dennick.id])  # (as a disturb cast would leave it, 702.146b)
+    assert s.state.cards[dennick.id].zone == "p1:battlefield" and s.state.cards[dennick.id].face == 1
+    forest, first, second = put(s, "Forest"), put(s, "Grizzly Bears", "p2"), next(c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.zone == "p2:library")
+    act(s, "p2", type="move", card_ids=[second.id], to={"player": "p2", "zone": "battlefield"})
+    clues = lambda: len([c for c in s.state.cards.values() if c.name == "Clue" and c.zone.endswith(":battlefield")])  # noqa: E731
+
+    def cast(name, target, **m):
+        mana(s, "p1", **m)
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, name).id, targets=[target.id])
+        settle(s)
+
+    cast("Stone Rain", forest, R=3)
+    assert s.state.cards[forest.id].zone == "p1:graveyard" and clues() == 0
+    cast("Lightning Bolt", first, R=1)
+    assert s.state.cards[first.id].zone == "p2:graveyard" and clues() == 1
+    cast("Lightning Bolt", second, R=1)
+    assert s.state.cards[second.id].zone == "p2:graveyard" and clues() == 1
+    check(s)
+
+
+@pytest.mark.parametrize("tomik, legal", [(True, False), (False, True)])
+def test_tomik_stops_your_opponents_targeting_lands(cards, tomik, legal):
+    """Bob's Stone Rain can't target a land while Tomik is in play, any land (even his own); Alice's can."""
+    s = build(cards, ["Tomik, Distinguished Advokist", "Stone Rain"], ["Stone Rain"])
+    if tomik:
+        put(s, "Tomik, Distinguished Advokist")
+    forest = put(s, "Forest")
+    to_main1(s, 2)
+    mana(s, "p2", R=3)
+    rain = to_hand(s, "Stone Rain", "p2")
+    if legal:
+        act(s, "p2", type="cast_spell", card_id=rain.id, targets=[forest.id])
+        settle(s)
+        assert s.state.cards[forest.id].zone == "p1:graveyard"
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p2", type="cast_spell", card_id=rain.id, targets=[forest.id])
+    check(s)
+
+
+def test_tomik_doesnt_stop_his_controller_targeting_lands(cards):
+    s = build(cards, ["Tomik, Distinguished Advokist", "Stone Rain"], [])
+    put(s, "Tomik, Distinguished Advokist")
+    forest = put(s, "Forest")
+    mana(s, "p1", R=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Stone Rain").id, targets=[forest.id])
+    settle(s)
+    assert s.state.cards[forest.id].zone == "p1:graveyard"
+    check(s)
+
+
+@pytest.mark.parametrize("who, tomik, legal", [("p2", True, False), ("p2", False, True), ("p1", True, True)])
+def test_tomik_stops_your_opponents_playing_lands_from_graveyards(cards, who, tomik, legal):
+    """"Your opponents can't play land cards from graveyards": Bob's Crucible of Worlds is stopped, Alice's own isn't."""
+    s = build(cards, ["Tomik, Distinguished Advokist", "Crucible of Worlds"], ["Crucible of Worlds"])
+    if tomik:
+        put(s, "Tomik, Distinguished Advokist")
+    put(s, "Crucible of Worlds", who)
+    if who == "p2":
+        to_main1(s, 2)
+    land = to_graveyard(s, "Forest", who) if who == "p1" else to_graveyard(s, "Island", "p2")
+    if legal:
+        act(s, who, type="play_land", card_id=land.id)
+        assert s.state.cards[land.id].zone == f"{who}:battlefield"
+    else:
+        with pytest.raises(ActionError):
+            act(s, who, type="play_land", card_id=land.id)
+    check(s)
+
+
+# -- King of the Oathbreakers ------------------------------------------------------------------------------------------------------------------------
+KING = "King of the Oathbreakers"
+
+
+def spirits(s):
+    return [c for c in s.state.cards.values() if c.name == "Spirit" and c.zone == "p1:battlefield"]
+
+
+@pytest.mark.parametrize("target, phased", [("Kami of Ancient Law", True), ("Grizzly Bears", False)])
+def test_king_phases_out_a_spirit_that_is_targeted_and_makes_a_spirit_as_it_phases_in(cards, target, phased):
+    """Bob's Lightning Bolt at Alice's Kami (a Spirit): it phases out in response (the Bolt fizzles), phases in as Alice untaps (702.26a) and the King makes a tapped 1/1
+    Spirit with flying for it. A Bears isn't a Spirit: nothing phases."""
+    s = build(cards, [KING, "Kami of Ancient Law", "Grizzly Bears"], ["Lightning Bolt"])
+    put(s, KING)
+    victim = put(s, target)
+    to_main1(s, 2)
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Lightning Bolt", "p2").id, targets=[victim.id])
+    settle(s)
+    assert (s.state.cards[victim.id].zone == "p1:phased") == phased and (s.state.cards[victim.id].zone == "p1:graveyard") == (not phased)
+    assert not spirits(s)
+    to_main1(s, 3)
+    assert s.state.cards[victim.id].zone == ("p1:battlefield" if phased else "p1:graveyard")
+    made = spirits(s)
+    assert len(made) == (1 if phased else 0) and all(t.tapped for t in made)
+    check(s)
+
+
+def test_king_makes_a_spirit_when_it_phases_in_itself(cards):
+    """The King is a Spirit: a spell at him phases him out and, as he phases in, "King of the Oathbreakers or another Spirit you control phases in" is about him too."""
+    s = build(cards, [KING], ["Lightning Bolt"])
+    king = put(s, KING)
+    to_main1(s, 2)
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Lightning Bolt", "p2").id, targets=[king.id])
+    settle(s)
+    assert s.state.cards[king.id].zone == "p1:phased"
+    to_main1(s, 3)
+    assert s.state.cards[king.id].zone == "p1:battlefield" and len(spirits(s)) == 1
+    check(s)
+
+
+# -- Beluna Grandsquall // Seek Thrills ---------------------------------------------------------------------------------------------------------------
+BELUNA = "Beluna Grandsquall // Seek Thrills"
+GIANT = "Bonecrusher Giant // Stomp"
+
+
+@pytest.mark.parametrize("name, paid, cast", [(GIANT, {"R": 1, "G": 1}, True), (GIANT, {"R": 2}, True), ("Grizzly Bears", {"G": 1}, False)])
+def test_beluna_makes_permanent_spells_with_an_adventure_cost_one_less(cards, name, paid, cast):
+    """Bonecrusher Giant ({2}{R}) costs {1}{R}; a Bears ({1}{G}) full price. Without Beluna the Giant needs all three."""
+    s = build(cards, [BELUNA, GIANT, "Grizzly Bears"], [])
+    put(s, BELUNA)
+    card = to_hand(s, name)
+    mana(s, "p1", **paid)
+    if cast:
+        act(s, "p1", type="cast_spell", card_id=card.id)
+        settle(s)
+        assert s.state.cards[card.id].zone == "p1:battlefield"
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="cast_spell", card_id=card.id)
+    check(s)
+
+
+def test_the_giant_costs_three_without_beluna(cards):
+    s = build(cards, [GIANT], [])
+    giant = to_hand(s, GIANT)
+    mana(s, "p1", R=1, G=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=giant.id)
+    check(s)
+
+
+def test_seek_thrills_puts_the_adventure_cards_milled_into_the_hand(cards):
+    """"Mill seven cards. Then put all cards that have an Adventure from among the milled cards into your hand."  The Giant is milled and comes back to the hand; a Bears stays."""
+    s = build(cards, [BELUNA, GIANT, "Grizzly Bears"], [])
+    beluna = to_hand(s, BELUNA)
+    stack_top(s, [GIANT, "Grizzly Bears"])
+    mana(s, "p1", G=2, U=1, R=1, B=2)
+    act(s, "p1", type="cast_spell", card_id=beluna.id, face=1)
+    settle(s)
+    assert s.state.cards[card_named(s, GIANT).id].zone == "p1:hand"
+    assert s.state.cards[card_named(s, "Grizzly Bears").id].zone == "p1:graveyard"
+    check(s)
+
+
+# -- Nathan Drake, Treasure Hunter -------------------------------------------------------------------------------------------------------------------
+NATHAN = "Nathan Drake, Treasure Hunter"
+
+
+def nathan_attack(s, nathan, pick, **m):
+    """Alice attacks with Nathan on her turn 3 (green mana in her pool as the trigger resolves) and casts ``pick`` from among the exiled cards if she can."""
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": nathan.id, "target": "p2"}])
+    mana(s, "p1", **m)
+    drive(s, [pick, "Bob"], lambda s: s.state.rules.decision is None and not s.state.zones.get("stack"))
+
+
+@pytest.mark.parametrize("pick", ["Lightning Bolt", "Grizzly Bears"])
+def test_nathan_casts_a_spell_from_among_the_exiled_cards_with_mana_of_any_color(cards, pick):
+    """"Whenever Nathan Drake attacks, exile the top card of each player's library. You may cast a spell from among those cards." (608.2g, paid for) and "You may spend
+    mana as though it were mana of any color to cast spells you don't own": Bob's Lightning Bolt is cast with Alice's green mana, her own Bears ({1}{G}) the plain way;
+    the one not chosen stays in exile (it can't be cast later)."""
+    s = build(cards, [NATHAN, "Grizzly Bears"], ["Lightning Bolt"])
+    nathan = put(s, NATHAN)
+    finish_turn(s)
+    finish_turn(s)
+    stack_top(s, ["Lightning Bolt"], "p2")
+    stack_top(s, ["Grizzly Bears"])
+    nathan_attack(s, nathan, pick, G=2)
+    bolt, bears = card_named(s, "Lightning Bolt", "p2"), card_named(s, "Grizzly Bears")
+    if pick == "Lightning Bolt":
+        assert (s.state.cards[bolt.id].zone, s.state.cards[bears.id].zone) == ("p2:graveyard", "p1:exile")
+    else:
+        assert (s.state.cards[bolt.id].zone, s.state.cards[bears.id].zone) == ("p2:exile", "p1:battlefield")
+    check(s)
+
+
+def test_nathan_cant_pay_for_a_spell_he_owns_with_the_wrong_color(cards):
+    """The static is for "spells you don't own": Alice's own Lightning Bolt ({R}) can't be paid with green mana, so it stays in exile."""
+    s = build(cards, [NATHAN, "Lightning Bolt"], [])
+    nathan = put(s, NATHAN)
+    finish_turn(s)
+    finish_turn(s)
+    stack_top(s, ["Lightning Bolt"])
+    with pytest.raises(ActionError):  # (the Bolt is offered; paying {R} with {G} is refused, so it stays in exile)
+        nathan_attack(s, nathan, "Lightning Bolt", G=2)
+    assert s.state.cards[card_named(s, "Lightning Bolt").id].zone == "p1:exile"
+    check(s)
+
+
+# -- Sanwell, Avenger Ace ----------------------------------------------------------------------------------------------------------------------------
+SANWELL = "Sanwell, Avenger Ace"
+
+
+@pytest.mark.parametrize("attacking, survives", [(True, True), (False, False)])
+def test_sanwell_takes_no_damage_while_an_artifact_creature_you_control_attacks(cards, attacking, survives):
+    """"As long as an artifact creature you control is attacking, prevent all damage that would be dealt to Sanwell": Alice's Lightning Bolt at her own Sanwell (a 2/2) in
+    the declare blockers step is prevented with Frogmite attacking, kills him with no attacker."""
+    s = build(cards, [SANWELL, "Frogmite", "Lightning Bolt"], [])
+    sanwell, frog = put(s, SANWELL), put(s, "Frogmite")
+    finish_turn(s)
+    finish_turn(s)
+    act(s, "p1", type="set_prefs", stops_my_turn=["main1", "declare_blockers", "main2"])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": frog.id, "target": "p2"}] if attacking else [])
+    drive(s, [], lambda s: s.state.turn.phase in ("declare_blockers", "main2") and s.state.rules.decision is None and not s.state.zones.get("stack"))
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=[sanwell.id])
+    settle(s)
+    assert (s.state.cards[sanwell.id].zone == "p1:battlefield") == survives
+    check(s)
+
+
+@pytest.mark.parametrize("pick, cast", [("Frogmite", True), ("Sky-Skiff", True), ("<none>", False)])
+def test_sanwell_exiles_six_and_casts_a_vehicle_or_artifact_creature_from_among_them(cards, pick, cast):
+    """"Whenever Sanwell becomes tapped, exile the top six cards of your library. You may cast a Vehicle or artifact creature spell from among them. Then put the rest on
+    the bottom of your library in a random order." (the cast is paid for, 608.2g: Frogmite {4}, Sky-Skiff {2}); a Bears isn't offered, and a card not cast can't be cast later."""
+    s = build(cards, [SANWELL, "Grizzly Bears", "Frogmite", "Sky-Skiff"], [])
+    sanwell = put(s, SANWELL)
+    finish_turn(s)
+    finish_turn(s)
+    stack_top(s, ["Grizzly Bears", "Frogmite", "Sky-Skiff"])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": sanwell.id, "target": "p2"}])  # (attacking taps him)
+    mana(s, "p1", G=4)
+    offered = []
+    drive_offers = lambda s: (offered.append([o.label for o in s.state.rules.decision.options]) if s.state.rules.decision is not None else None) or (  # noqa: E731
+        s.state.rules.decision is None and not s.state.zones.get("stack"))
+    drive(s, [pick], drive_offers)
+    assert [n for n in ("Frogmite", "Sky-Skiff") if s.state.cards[card_named(s, n).id].zone == "p1:battlefield"] == ([pick] if cast else [])
+    assert not [c for c in s.state.cards.values() if c.zone == "p1:exile"] and s.state.cards[card_named(s, "Grizzly Bears").id].zone == "p1:library"
+    assert not any("Grizzly Bears" in o for options in offered for o in options)
+    check(s)
+
+
+# -- shapes the promoted cards share (cards whose other lines are already read) ------------------------------------------------------------------------
+def play_out(s, declines=(), picks=(), limit=40):
+    """Resolve everything; each decision is answered with its first option (the one whose label has a word of ``picks`` if any), but the "Don't …" option for a player in
+    ``declines``."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            no = next((o for o in d.options if o.label.startswith("Don't")), None) if d.player in declines else None
+            want = next((o for p in picks for o in d.options if p in o.label), None)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[(no or want or d.options[0]).id][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
+
+
+@pytest.mark.parametrize("bob_discards", [True, False])
+def test_borderland_explorer_each_player_who_discarded_searches_for_a_basic_land_into_their_hand(cards, bob_discards):
+    """"each player may discard a card. Each player who discarded a card this way may search their library for a basic land card, reveal it, put it into their hand, then
+    shuffle": "their hand" is the searcher's own (701.23)."""
+    s = build(cards, ["Borderland Explorer", "Grizzly Bears"], ["Lightning Bolt"])
+    explorer, bears, bolt = to_hand(s, "Borderland Explorer"), to_hand(s, "Grizzly Bears"), to_hand(s, "Lightning Bolt", "p2")
+    mana(s, "p1", G=2)
+    act(s, "p1", type="cast_spell", card_id=explorer.id)
+    play_out(s, declines=() if bob_discards else ("p2",))
+    lands = lambda pid: sorted(s.state.cards[c].name for c in s.state.zones[f"{pid}:hand"])  # noqa: E731
+    assert s.state.cards[bears.id].zone == "p1:graveyard" and lands("p1") == ["Forest"]
+    if bob_discards:
+        assert s.state.cards[bolt.id].zone == "p2:graveyard" and lands("p2") == ["Island"]
+    else:
+        assert s.state.cards[bolt.id].zone == "p2:hand" and lands("p2") == ["Lightning Bolt"]
+    check(s)
+
+
+def test_warping_wurm_grows_as_it_phases_in(cards):
+    """Phasing in is an event (702.26a): "Whenever this creature phases in, put a +1/+1 counter on it." It phases in before Alice untaps."""
+    s = build(cards, ["Warping Wurm"], [])
+    wurm = put(s, "Warping Wurm")
+    act(s, "p1", type="phase_shift", card_ids=[wurm.id], out=True)
+    assert s.state.cards[wurm.id].zone == "p1:phased"
+    finish_turn(s)
+    to_main1(s, 3)
+    assert s.state.cards[wurm.id].zone in ("p1:battlefield", "p1:phased") and s.state.cards[wurm.id].counters.get("+1/+1", 0) == 1
+    check(s)
+
+
+@pytest.mark.parametrize("pick, hero, draws", [("Masked Meower", True, 0), ("<none>", False, 1)])
+def test_origin_of_the_avengers_chapter_ii_puts_a_hero_or_draws(cards, pick, hero, draws):
+    """II - "You may put a Hero creature card with mana value 3 or less from your hand onto the battlefield. If you don't, draw a card." (the Saga's lore counter, 714.2c)."""
+    s = build(cards, ["Origin of the Avengers", "Masked Meower"], [])
+    saga, meower = to_hand(s, "Origin of the Avengers"), to_hand(s, "Masked Meower")
+    mana(s, "p1", W=1, G=1)
+    act(s, "p1", type="cast_spell", card_id=saga.id)
+    drive(s, [], lambda s: s.state.rules.decision is None and not s.state.zones.get("stack"))
+    finish_turn(s)
+    library = len(s.state.zones["p1:library"])
+    drive(s, [pick], lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None and not s.state.zones.get("stack"))
+    assert (s.state.cards[meower.id].zone == "p1:battlefield") == hero
+    assert library - len(s.state.zones["p1:library"]) == draws + 1  # (the turn's own draw, and the Saga's if the Hero wasn't put)
+    check(s)
+
+
+def test_shimmering_efreet_phases_a_creature_out_as_it_phases_in(cards):
+    s = build(cards, ["Shimmering Efreet"], ["Grizzly Bears"])
+    efreet, bears = put(s, "Shimmering Efreet"), put(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="phase_shift", card_ids=[efreet.id], out=True)
+    finish_turn(s)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "upkeep")
+    play_out(s, picks=("Grizzly Bears",))
+    assert s.state.cards[efreet.id].zone == "p1:battlefield" and s.state.cards[bears.id].zone == "p2:phased"
+    check(s)
+
+
+@pytest.mark.parametrize("pay", ["Grizzly Bears", "Soldier", "Ice Cream Kitty"])
+def test_ice_cream_kitty_sacrifices_another_creature_or_token(cards, pay):
+    """"{2}, Sacrifice another creature or token: Draw a card. Activate only as a sorcery." - not itself (another)."""
+    s = build(cards, ["Ice Cream Kitty", "Grizzly Bears", "Raise the Alarm"], [])
+    kitty, bears = put(s, "Ice Cream Kitty"), put(s, "Grizzly Bears")
+    mana(s, "p1", W=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Raise the Alarm").id)
+    settle(s)
+    token = next(c for c in s.state.cards.values() if c.name == "Soldier" and c.zone == "p1:battlefield")
+    victim = {"Grizzly Bears": bears, "Soldier": token, "Ice Cream Kitty": kitty}[pay]
+    library = len(s.state.zones["p1:library"])
+    mana(s, "p1", G=2)
+    cost = [{"component": 1, "cards": [victim.id]}]
+    if pay == "Ice Cream Kitty":
+        with pytest.raises(ActionError):
+            act(s, "p1", type="activate_ability", card_id=kitty.id, ability=ability(s, kitty, "Draw a card"), cost_choices=cost)
+        return
+    act(s, "p1", type="activate_ability", card_id=kitty.id, ability=ability(s, kitty, "Draw a card"), cost_choices=cost)
+    settle(s)
+    assert victim.id not in on_battlefield_ids(s) and library - len(s.state.zones["p1:library"]) == 1
+    check(s)

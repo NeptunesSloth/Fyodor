@@ -1,0 +1,78 @@
+[
+ {
+  "name": "Iroh, Tea Master",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{W}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Citizen Ally",
+  "oracle_text": "When Iroh enters, create a Food token.\nAt the beginning of combat on your turn, you may have target opponent gain control of target permanent you control. When you do, create a 1/1 white Ally creature token. Put a +1/+1 counter on that token for each permanent you own that your opponents control.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Food"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Soul Seizer // Ghastly Haunting",
+  "layout": "transform",
+  "mana_cost": "{3}{U}{U} // ",
+  "cmc": 5.0,
+  "type_line": "Creature — Spirit // Enchantment — Aura",
+  "oracle_text": "Flying\nWhen this creature deals combat damage to a player, you may transform it. If you do, attach it to target creature that player controls.\n//\nEnchant creature\nYou control enchanted creature.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying",
+   "Transform",
+   "Enchant"
+  ],
+  "power": "1",
+  "toughness": "3",
+  "card_faces": [
+   {
+    "name": "Soul Seizer",
+    "mana_cost": "{3}{U}{U}",
+    "type_line": "Creature — Spirit",
+    "oracle_text": "Flying\nWhen this creature deals combat damage to a player, you may transform it. If you do, attach it to target creature that player controls.",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/f/5/f500cb95-d5ea-4cf2-920a-f1df45a9059b.jpg?1783940842",
+     "normal": "https://cards.scryfall.io/normal/front/f/5/f500cb95-d5ea-4cf2-920a-f1df45a9059b.jpg?1783940842",
+     "large": "https://cards.scryfall.io/large/front/f/5/f500cb95-d5ea-4cf2-920a-f1df45a9059b.jpg?1783940842",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/f/5/f500cb95-d5ea-4cf2-920a-f1df45a9059b.jpg?1783940842"
+    }
+   },
+   {
+    "name": "Ghastly Haunting",
+    "mana_cost": "",
+    "type_line": "Enchantment — Aura",
+    "oracle_text": "Enchant creature\nYou control enchanted creature.",
+    "colors": [
+     "U"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/f/5/f500cb95-d5ea-4cf2-920a-f1df45a9059b.jpg?1783940842",
+     "normal": "https://cards.scryfall.io/normal/back/f/5/f500cb95-d5ea-4cf2-920a-f1df45a9059b.jpg?1783940842",
+     "large": "https://cards.scryfall.io/large/back/f/5/f500cb95-d5ea-4cf2-920a-f1df45a9059b.jpg?1783940842",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/f/5/f500cb95-d5ea-4cf2-920a-f1df45a9059b.jpg?1783940842"
+    }
+   }
+  ]
+ }
+]

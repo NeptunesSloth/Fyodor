@@ -34,10 +34,12 @@ PER_PLAYER = "per_player"
 # What the recipient's own possessions are called in the phrase ("that player controls", "they control",
 # "their hand", "that player's life total") → the words the value grammar reads for "you".
 _RELATIVE: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"\b(?:that player|they) controls?\b"), "you control"),
+    (re.compile(r"\b(?:that (?:player|opponent)|they) controls?\b"), "you control"),
+    (re.compile(r"\b(?:that player|they) (?:has|have)\b"), "you have"),  # (wave 30N: "for each poison counter they have")
     (re.compile(r"\b(?:that player's|their) hand\b"), "your hand"),
     (re.compile(r"\b(?:that player's|their) life total\b"), "your life total"),
     (re.compile(r"\b(?:that player's|their) graveyard\b"), "your graveyard"),
+    (re.compile(r"\blife (?:they|that player) (lost|gained) this turn$"), r"life you \1 this turn"),  # (wave 50C: "the amount of life they lost this turn", Astarion)
     (re.compile(r"\battacking (?:them|that player)$"), "attacking you"),  # (wave 17D: the creatures attacking that player, not their planeswalkers)
 )
 
@@ -74,5 +76,5 @@ def evaluate(plan: Any, ctx: dict[str, Any], v: dict[str, Any]) -> int:
 
 
 # "Target creature deals damage to itself equal to its power." / "… deals damage equal to its power to itself."
-SELF_DAMAGE = re.compile(r"(?P<s>.+?) deals damage (?:to itself equal to (?P<a>its power|its toughness)|"
-                         r"equal to (?P<b>its power|its toughness) to itself)")
+SELF_DAMAGE = re.compile(r"(?P<s>.+?) deals (?:damage (?:to itself equal to (?P<a>its power|its toughness)|"
+                         r"equal to (?P<b>its power|its toughness) to itself)|(?P<c>\d+) damage to itself)")  # (wave 49B: "Target creature deals 6 damage to itself.")

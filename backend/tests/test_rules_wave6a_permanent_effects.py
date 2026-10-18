@@ -62,8 +62,6 @@ FULL = ["Sleep", "Bontu's Last Reckoning", "Frost Breath", "Kefnet's Monument", 
         "Gingerbrute", "Tower of Coireall", "Pym Particles", "Water Wings",
         "Cloudcrest Lake", "Wizard Mentor"]
 STILL_MANUAL = {  # (card, the line that stays manual)
-    "Whelming Wave": "except for Krakens",  # (an exception list: not read)
-    "Doorman": "Until end of turn, target creature can't be blocked by",  # (a leading duration on a restriction: not read)
 }
 
 
@@ -96,9 +94,11 @@ def test_untap_rider_parses_named_objects_only():
     assert scripts.parse_effects("Tap target creature. It doesn't untap during its controller's next untap step.") == (
         [{"do": "tap", "who": "target"}, {"do": "stay_tapped", "who": "target", "during": "controller"}], "creature", False)
     for text in ("Each attacking creature doesn't untap during its controller's next untap step.",
-                 "Creatures target player controls don't untap during that player's next untap step.",
                  "Tap target creature. It doesn't untap during its controller's next two untap steps."):
         assert scripts.parse_effects(text) is None, text
+    # (wave 30M: the mass wording of wave 13E with "that player's": Misstep — the same player's untap step, 502.3)
+    assert scripts.parse_effects("Creatures target player controls don't untap during that player's next untap step.")[0] == [
+        {"do": "stay_tapped", "sel": ['sel:{"types":["Creature"]}'], "who": "target"}]
 
 
 def test_frost_breath_keeps_both_tapped_through_one_untap_step(cards):
@@ -301,9 +301,10 @@ def test_turn_grants_parse():
         [{"do": "restrict", "who": "target", "rules": [f"cant_be_blocked_by:{walls}"]}], "sel:{\"types\":[\"Creature\"]}", False)
     assert scripts.parse_effects("Target creature can't be blocked this turn.")[0] == [
         {"do": "restrict", "who": "target", "rules": ["cant_be_blocked"]}]  # (as before)
-    for text in ("Target creature gains flying and can't be blocked this turn.",  # (a grant with no duration)
-                 "Target creature can't be blocked this combat."):
-        assert scripts.parse_effects(text) is None, text
+    assert scripts.parse_effects("Target creature gains flying and can't be blocked this turn.") is None  # (a grant with no duration)
+    # (wave 30P: "this combat" is read since, ending with the combat: tests/test_rules_wave30p_combat.py)
+    assert scripts.parse_effects("Target creature can't be blocked this combat.")[0] == [
+        {"do": "restrict", "who": "target", "rules": ["cant_be_blocked"], "duration": "end_of_combat"}]
 
 
 def test_gingerbrute_can_be_blocked_only_by_creatures_with_haste(cards):

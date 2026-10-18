@@ -23,7 +23,9 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 TRIGGER = "exerted_self"
-_EXERT = re.compile(r"^You may exert (?:~|this creature) as it attacks\. When you do, (?P<body>.+)$")
+# (static_other, wave 36B: a named character's "as he / she attacks" reads "as ~ attacks" once the pronoun is the card, Themberchaud)
+_EXERT = re.compile(r"^(?P<once>If (?:~|this creature) hasn't been exerted this turn, y|Y)ou may exert (?:~|this creature|it) as (?:it|~) attacks\. When you do, (?P<body>.+)$")
+# (wave 43B: "If this creature hasn't been exerted this turn, you may exert it as it attacks." - Combat Celebrant: not offered a second time in the turn's additional combat)
 
 
 def definition(text: str, ch: Characteristics, index: int) -> dict[str, Any] | None:
@@ -37,7 +39,7 @@ def definition(text: str, ch: Characteristics, index: int) -> dict[str, Any] | N
     d = scripts.define(probe, ch)
     if d is None or d.get("kind") != "triggered" or d.get("trigger") != "attacks_self":
         return None
-    return {**d, "trigger": TRIGGER}
+    return {**d, "trigger": TRIGGER, **({"once_a_turn": True} if m["once"] != "Y" else {})}
 
 
 def _exertable(plan: Plan, card: CardInstance) -> bool:
@@ -46,9 +48,17 @@ def _exertable(plan: Plan, card: CardInstance) -> bool:
     return not plan.manual(card) and bool(triggers.abilities(plan, plan.ch(card), TRIGGER))
 
 
+def _already_exerted(plan: Plan, card: CardInstance) -> bool:
+    """-- most-played cards (wave 43B) -- "If this creature hasn't been exerted this turn, you may exert it as it attacks.": it was (an exert cost, an earlier attack) this turn."""
+    from app.rules import triggers
+
+    return any(d.get("once_a_turn") for _, d in triggers.abilities(plan, plan.ch(card), TRIGGER)) \
+        and plan.rules.exerted_turn.get(plan.oid(card)) == plan.state.turn.number
+
+
 def ask(plan: Plan, attackers: list[CardInstance]) -> bool:
     """508.1g: ask the attacking player which of the attackers that may be exerted they exert (True: asked)."""
-    able = [c for c in attackers if _exertable(plan, c)]
+    able = [c for c in attackers if _exertable(plan, c) and not _already_exerted(plan, c)]
     if not able:
         return False
     decide(plan, player=plan.active, kind="choose_cards",
@@ -65,6 +75,7 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     exerted = [c for c in attackers if c.id in chosen and c.zone.endswith(":battlefield")]
     for card in exerted:  # 701.43a
         plan.rules.exerted[plan.oid(card)] = card.controller
+        plan.rules.exerted_turn[plan.oid(card)] = plan.state.turn.number
         plan.note(f"{plan.name(card.controller)} exerted {card.name or 'it'} as it attacked", [card.id])
     from app.rules import (
         enlist,  # -- casting extras (wave 18E) -- 702.154a: asked after exert, before the attack triggers (508.1m)

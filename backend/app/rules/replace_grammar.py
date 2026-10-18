@@ -311,6 +311,58 @@ def _loss(text: str) -> Definition | None:
     return _static("life_loss", match, {"do": "mul", "n": 2})
 
 
+# -- life floor (wave 35C) -- "Damage that would reduce your life total to less than 1 reduces it to 1 instead." (Fortune Thief, Ali from Cairo,
+# Sustaining Spirit), "If you control a creature, damage that would …" (Worship, Serra the Benevolent's emblem). 120.3a: the damage dealt stays what it was;
+# only the life it makes the player lose is replaced (the Gatherer rulings: lifelink and "deals damage" triggers see all of it, "lose life" and paying life
+# bypass it, and nothing applies to a player already below 1 life). Event ``life_loss`` of damage (``damage``: True), op ``floor``.
+_FLOOR = re.compile(r"^(?:If (?P<cond>[^,]+), d|D)amage that would reduce your life total to less than 1 reduces it to 1 instead\.$")
+
+
+def _floor(text: str) -> Definition | None:
+    m = _FLOOR.match(text)
+    if not m:
+        return None
+    match: dict[str, Any] = {"who": "you", "damage": True}
+    if m["cond"]:
+        from app.rules import conditions
+
+        cond = conditions.parse(m["cond"])
+        if cond is None or conditions.needs_event(cond) or conditions.objects_in(cond):
+            return None  # (a condition of the game as the damage would be dealt: you control a creature)
+        match["if"] = cond
+    return _static("life_loss", match, {"do": "floor"})
+
+
+# -- keyword actions (wave 35C) -- 614.1a, 701.22 / 701.44 / 701.50: "If you would scry a number of cards, draw that many cards instead." (Eligeth),
+# "If a creature you control would explore, instead it explores, then it explores again." (Topography Tracker), "… instead you scry 1, then that creature
+# explores." (Twists and Turns), "If a creature you control would connive, instead you draw a card, then that creature connives." (Leader, Super-Genius).
+# The action is the event (``scry`` / ``explore`` / ``connive``); op ``draw`` takes its place, ``again`` does it twice, ``before`` puts instructions
+# in front of it. What the replacement makes carries it as applied (614.5), so two Trackers explore four times and two Leaders draw twice.
+_ACTION = re.compile(r"^If a creature you control would (?P<verb>explore|connive), instead (?P<body>.+), then (?:that creature|it) (?P=verb)s(?P<again> again)?\.$")
+
+
+def _keyword_action(text: str) -> Definition | None:
+    if text == "If you would scry a number of cards, draw that many cards instead.":
+        return _static("scry", {"who": "you"}, {"do": "draw"})
+    if text == "If you would scry a number of cards, scry that many cards plus one instead.":  # -- keyword actions (wave 50G) -- Kenessos, Priest of Thassa
+        return _static("scry", {"who": "you"}, {"do": "plus"})
+    if text == "If you would proliferate, proliferate twice instead.":  # -- keyword actions (wave 50F) -- Tekuthal, Inquiry Dominus: two proliferates, neither replaced again by this effect (614.5)
+        return _static("proliferate", {"who": "you"}, {"do": "again"})
+    m = _ACTION.match(text)
+    if not m:
+        return None
+    if m["body"] == "it explores" and m["again"] and m["verb"] == "explore":
+        return _static("explore", {"who": "you"}, {"do": "again"})
+    if m["again"]:
+        return None
+    from app.rules import draw_bodies
+
+    effects = draw_bodies.parse(m["body"]) if m["verb"] in ("explore", "connive") else None
+    if not effects or any(e["do"] not in ("draw", "scry") or e.get("who", "you") != "you" for e in effects):
+        return None
+    return _static(m["verb"], {"who": "you"}, {"do": "before", "effects": effects})
+
+
 # -- damage (120.4b, 614.1a, 615.10) ----------------------------------------------------------------
 _DAMAGE = re.compile(r"^If (?P<src>.+?) would deal (?:(?P<min>\d+) or more )?(?P<kind>combat |noncombat )?damage(?: to (?P<to>.+?))?, (?P<rest>.+)\.$")  # (min: wave 20B)
 _BACK = (r"(?: to (?:that permanent or player|that player or permanent|that player|that creature|that permanent|"
@@ -347,6 +399,24 @@ def _source(phrase: str) -> dict[str, Any] | None:
         return {"self": True}
     if phrase in ("equipped creature", "enchanted creature"):
         return {"attached": True}
+    if (fresh := re.fullmatch(r"(?P<src>.+?) that entered this turn", phrase)) is not None:
+        # -- counters (wave 44C) -- "a creature you control that entered this turn" (Neriv, Heart of the Storm): the source entered the battlefield this turn (608.2h: as it last existed)
+        inner = _source(fresh["src"])
+        return None if inner is None or "alts" in inner else {**inner, "entered": True}
+    if (kind := re.fullmatch(r"(?P<src>.+?) of the chosen type", phrase)) is not None:
+        # -- instead (wave 51C) -- "sources you control of the chosen type" (Collective Inferno): the creature type its permanent chose as it entered (614.12a; replace._source_matches)
+        inner = _source(kind["src"])
+        return None if inner is None or "alts" in inner else {**inner, "chosen_type": True}
+    if (counted := re.fullmatch(r"(?P<src>.+?) with (?:a|one or more) (?:(?P<kind>\+1/\+1|-1/-1) )?counters? on (?:it|them)", phrase)) is not None:
+        # -- counters (wave 41A) -- "a creature you control with a counter on it" (Raphael, the Muscle): the source has a counter of any kind on it as it would deal the damage
+        # (wave 51C: of that kind, "with a +1/+1 counter on it", Uncivil Unrest)
+        inner = _source(counted["src"])
+        return None if inner is None or "alts" in inner else {**inner, **({"has_counter": counted["kind"]} if counted["kind"] else {"has_counters": True})}
+    if (par := re.fullmatch(r"(?P<src>.+?) with an? (?P<par>odd|even) mana value", phrase)) is not None:
+        # -- cant restrictions (wave 46A) -- "a source you control with an odd mana value" (Obosh, the Preypiercer): the source's mana value as it would deal the damage
+        # (an X spell on the stack counts its X, any other object has X as 0: 202.3e)
+        inner = _source(par["src"])
+        return None if inner is None or "alts" in inner else {**inner, "mv_parity": par["par"]}
     # -- as long as (wave 9B) -- "a Lizard, Mouse, Otter, or Raccoon you control" (Valley Flamecaller): sources of any of the
     # creature types; "a red instant or sorcery spell you control or a red planeswalker you control" (Pyromancer's Gauntlet):
     # either description (609.7c), each with its own controller
@@ -438,6 +508,8 @@ def _recipient(phrase: str | None) -> dict[str, Any] | None:
     if m:
         out["players"] = players[m["p"]]
         phrase = m["o"]
+        if phrase in ("battle", "planeswalker"):  # -- commanders (wave 50C) -- "a player or battle" (Rankle and Torbran): the bare noun after "or"
+            phrase = f"a {phrase}"
     obj = _object(phrase)
     if obj is None:
         return None
@@ -456,7 +528,7 @@ _DAMAGE_TO = re.compile(r"^If (?P<kind>combat |noncombat )?damage would be dealt
 _DAMAGE_BE = re.compile(r"^If (?P<to>.+?) would be dealt (?P<kind>combat |noncombat )?damage(?P<cond> while [^,]+)?, (?P<rest>.+)$")
 _CONDS: dict[str, dict[str, Any]] = {" while it has a +1/+1 counter on it": {"counter": "+1/+1"},
                                      " while you're the monarch": {"monarch": True}}
-_RIDER = re.compile(r"^prevent that damage(?:\. | and )(?P<rider>.+?)\.?$")
+_RIDER = re.compile(r"^prevent that damage(?:\. | and |, )(?P<rider>.+?)\.?$")  # (wave 42A: ", remove that many … and create that many …", Sekki)
 
 
 def _prevention_rider(rest: str, it: str | None) -> Definition | None:
@@ -489,7 +561,69 @@ def _damage_to(text: str) -> Definition | None:
     return _static("damage", match, {"do": "prevent_all", "prevention": True, "rider": rider}) if rider else None
 
 
+# -- damage bodies (wave 35C) -- 614.1a: "If damage would be dealt to this creature, put that many +1/+1 counters on it instead." (Phytohydra; -1/-1:
+# Lichenthrope), "If damage would be dealt to you, put that many depletion counters on this enchantment instead." (Force Bubble), "If damage would be dealt
+# to a player, that player exiles that many cards from the top of their library instead." (Crumbling Sanctuary), "If a source you control would deal noncombat
+# damage to a creature an opponent controls, put that many -1/-1 counters on that creature instead." (Soul-Scar Mage), "If Szadek would deal combat damage
+# to a player, instead put that many +1/+1 counters on Szadek and that player mills that many cards." The damage is never dealt (614.6: nothing that needs it
+# triggers or happens: no lifelink, no "deals damage"); the instructions count it ("that many": the damage as the replacement applies, 616.1 after any
+# doubling) and happen once the rest of the batch has been dealt — the prevention riders' machinery (615.5, app/rules/source_shields.py), op ``body``.
+_BODY_TO = re.compile(r"^If (?P<kind>combat |noncombat )?damage would be dealt to (?P<to>[^,]+?), (?P<rest>.+)\.$")
+_BODY_FROM = re.compile(r"^If (?P<src>[^,]+?) would deal (?P<kind>combat |noncombat )?damage to (?P<to>[^,]+?), (?P<rest>.+)\.$")
+_EXILE_THEIRS = re.compile(r"^that player exiles that many cards from the top of their library$")
+
+
+def _damage_body(text: str) -> Definition | None:
+    from app.rules import source_shields
+
+    m = _BODY_TO.match(text)
+    src: dict[str, Any] | None = {}
+    if m is None and (m := _BODY_FROM.match(text)) is not None:
+        src = _source(m["src"])
+    if m is None or src is None:
+        return None
+    rest = m["rest"]
+    if rest.startswith("instead "):
+        rest = rest[len("instead "):]
+    elif rest.endswith(" instead"):
+        rest = rest[: -len(" instead")]
+    else:
+        return None
+    to = _recipient(m["to"].replace("this creature", "~").replace("this permanent", "~"))
+    if to is None or "instead" in rest or not (to.get("objects") or to.get("players")) or (to.get("players") and to.get("objects")):
+        return None  # (a recipient we read, one kind of it: "you or a creature …" would need the rider to say which)
+    players = bool(to.get("players"))
+    rest = _EXILE_THEIRS.sub("exile the top that many cards of that player's library", rest)
+    it = None if players else "self" if to["objects"].get("self") else "to"
+    effects = source_shields.rider_body(rest, it, to_player=players and to["players"] == "any")
+    if not effects:
+        return None
+    match: dict[str, Any] = {"source": src, "to": to}
+    if m["kind"]:
+        match["combat"] = m["kind"] == "combat "
+    return _static("damage", match, {"do": "body", "rider": {"effects": effects, "if": False}})
+
+
+_MAX_SPEED_IF = "As long as you have max speed, if "
+
+
 def _damage(text: str) -> Definition | None:
+    if text.startswith(_MAX_SPEED_IF):  # -- damage sized by a count (wave 34D) -- 702.178a "As long as you have max speed, if a source you control would deal
+        # damage to an opponent …, it deals that much damage plus 1 instead." (Far Fortune): the same replacement, in force only at max speed
+        d = _damage_plain("If " + text[len(_MAX_SPEED_IF):])
+        return None if d is None else {**d, "match": {**d["match"], "max_speed": True}}
+    return _damage_plain(text)
+
+
+def _damage_plain(text: str) -> Definition | None:
+    # -- counters (wave 41A) -- "Double all damage that creatures you control with counters on them would deal." (Raphael, the Muscle) is "If a creature you control with a
+    # counter on it would deal damage to a permanent or player, it deals double that damage instead." (every recipient there is)
+    if (dbl := re.fullmatch(r"Double all damage that (?P<src>creatures|creature sources|sources) (?P<ctl>you control|an opponent controls)(?P<with> with counters on them)?(?P<chosen> of the chosen type)? would deal\.", text)) is not None:
+        noun = "source" if dbl["src"] == "sources" else "creature"  # (wave 44C: "creature sources", Absorbing Man and Titania)
+        text = (f"If a {noun} {dbl['ctl']}{' with a counter on it' if dbl['with'] else ''}{dbl['chosen'] or ''} would deal damage to a permanent or player, "
+                "it deals double that damage instead.")
+    if text == "Double all damage ~ would deal.":  # -- commanders (wave 47A) -- Wolverine, Best There Is: "If ~ would deal damage to a permanent or player, it deals double that damage instead." (every recipient there is)
+        text = "If ~ would deal damage to a permanent or player, it deals double that damage instead."
     if (d := _damage_to(text)) is not None:
         return d
     m = _DAMAGE.match(text)
@@ -543,13 +677,18 @@ def _damage(text: str) -> Definition | None:
 # (-- review (wave 6R) -- lazy items: greedy ones swallowed "your opponents control" into the last item, so in "Creatures
 # and nonbasic lands your opponents control enter tapped." (Thalia, Heretic Cathar) only the lands were the opponents')
 _ENTER_TAPPED = re.compile(r"^(?P<what>[A-Z][a-z]+?(?:, [a-z ]+?)*,? (?:and [a-z ]+? )?|[A-Z][A-Za-z -]+? )"  # (wave 21A: "Non-Phyrexian creatures")
-                           r"(?P<ctrl>your opponents control |you control |an opponent controls )?enter tapped\.$")
+                           r"(?P<ctrl>your opponents control |you control |an opponent controls )?enter (?P<un>un)?tapped\.$")  # (wave 45A: "enter untapped")
 
 
 def _enters_tapped(text: str) -> Definition | None:
     """"Creatures your opponents control enter tapped.", "Artifacts, creatures, and lands your
     opponents control enter tapped.", "Permanents enter tapped." — each item a group of the
     permanent as it would exist on the battlefield (614.12), under the player it would enter under."""
+    # -- commander sweep (wave 49B) -- "As long as ~ is tapped, other permanents enter tapped." (Archelos): the same replacement while the source is (un)tapped
+    # (611.3a; "other" is vacuous: the source isn't on the battlefield as it would enter itself, 614.12 and its ruling 2020-11-10)
+    held = re.fullmatch(r"As long as ~ is (un)?tapped, other (permanents enter (?:un)?tapped\.)", text)
+    if held is not None and (own := _enters_tapped(held[2].capitalize())) is not None:
+        return {**own, "conditions": [{"static": "self", "test": "untapped" if held[1] else "tapped"}]}
     m = _ENTER_TAPPED.match(text)
     if not m:
         return None
@@ -563,7 +702,9 @@ def _enters_tapped(text: str) -> Definition | None:
         if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.other:
             return None
         keys.append(sel.key())
-    return {"kind": "static", "static": "enters_tapped_others", "who": keys, "effects": []} if keys else None
+    # -- most-played cards II (wave 45A) -- "Lands you control enter untapped." (Horizon Explorer, The Wandering Minstrel), "Gates you control enter untapped." (Gond Gate): the same
+    # replacement effect the other way (614.1d; replacements.entry_plan: it wins over a "tapped" the entering permanent would get)
+    return {"kind": "static", "static": "enters_untapped_others" if m["un"] else "enters_tapped_others", "who": keys, "effects": []} if keys else None
 
 
 # -- counters (wave 5H) -- "Each other creature you control enters with an additional +1/+1 counter on it." (Renata,
@@ -575,7 +716,8 @@ def _enters_tapped(text: str) -> Definition | None:
 # permanents already there give it (a creature entering with Renata doesn't get one: ruling).
 _ENTER_EXTRA = re.compile(
     r"^(?:Each (?P<one>.+?) enters|(?P<many>[A-Z].+?) enter) with (?:(?P<n>an|one|two|three|four|five) additional "
-    r"(?P<k>\+1/\+1|loyalty) counters?|a number of additional (?P<k2>\+1/\+1|loyalty) counters) on (?:it|them)"
+    r"(?P<k>\+1/\+1|loyalty|flying|deathtouch|haste|hexproof|indestructible|lifelink|menace|reach|shadow|trample|vigilance) counters?"  # (33C: Tayam's keyword counter, 122.1b)
+    r"|a number of additional (?P<k2>\+1/\+1|loyalty) counters) on (?:it|them)"
     r"(?: for each (?P<each>.+?)| equal to (?P<eq>~'s|this creature's) (?P<stat>power|toughness))?\.$")
 
 
@@ -621,7 +763,7 @@ def _mill(text: str) -> Definition | None:
     return _static("mill", {"who": who}, {"do": "add", "n": n}) if n else None
 
 
-PARSERS = (_tokens, _counters, _draw, _draw_count, _life, _loss, _mill, _damage, _enters_tapped, _enter_extra)
+PARSERS = (_tokens, _counters, _draw, _draw_count, _life, _loss, _floor, _keyword_action, _mill, _damage, _damage_body, _enters_tapped, _enter_extra)
 
 
 def parse(text: str) -> Definition | None:

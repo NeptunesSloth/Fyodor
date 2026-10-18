@@ -51,7 +51,7 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
                   ach: Characteristics, info: CardInfo | None = None) -> str | None:
     if not blocker.zone.endswith(":battlefield") or not bch.is_creature:
         return "Only creatures on the battlefield can block"
-    if blocker.tapped:
+    if blocker.tapped and "block_tapped" not in scripts.statics(bch):  # (wave 42A: Masako, "can block as though it were untapped", 509.1a)
         return f"{bch.name} is tapped"
     if {"cant_block", "cant_attack_or_block"} & scripts.statics(bch):
         return f"{bch.name} can't block"
@@ -221,6 +221,9 @@ def _phrase(arg: str) -> str:
             text += "s"
         if sel.with_keywords:
             text += " with " + " and ".join(sel.with_keywords)
+        for x in sel.extras:  # (wave 45D's either-keyword selector)
+            if x.startswith("any_kw:"):
+                text += " with " + " or ".join(x[7:].split(","))
         if sel.without_keywords:
             text += " without " + " and ".join(sel.without_keywords)
         for what, op, n in sel.compare:
@@ -377,6 +380,12 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
     # -- combat (wave 5C) -- 508.1h-j: the total cost to attack, locked in, then paid (mana abilities allowed meanwhile);
     # creatures declared as attackers are tapped before it's paid (508.1f), so they don't tap for it
     tax = combat_rules.attack_cost(plan, declared)
+    life = combat_rules.attack_life(plan, declared)  # -- life attack costs (wave 49D) -- 508.1h: paid with the mana (508.1j); 119.4: only with the life to pay it
+    if life:
+        from app.rules import life_lock
+
+        if plan.state.players[plan.actor].life < life or life_lock.pay_problem(plan.state, plan.info, plan.actor, life) is not None:
+            raise ActionError(f"Attacking costs {life} life (508.1h): {plan.name(plan.actor)} can't pay it")
     if tax:
         from app.rules import casting
 
@@ -389,6 +398,11 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         if casting.payment_step(plan, a, cost, "attacking", exclude=exclude):  # type: ignore[arg-type]
             return  # (the declaration is made again once it's paid; cancelling asks for attackers again)
         casting.pay(plan, plan.actor, cost, f"paid {cost.text()} to attack", sources=a.sources, exclude=exclude)
+    if life:
+        from app.rules import replace as _replace_life
+
+        _replace_life.lose_life(plan, [(plan.actor, life)], actor=plan.actor)
+        plan.note(f"{plan.name(plan.actor)} paid {life} life to attack")
     # -- end combat (wave 5C) --
     r.decision = None
     if not a.attackers:
@@ -397,7 +411,7 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
     else:
         to_tap = [x.card_id for x in a.attackers if "vigilance" not in plan.ch(plan.state.cards[x.card_id]).keywords]
         if to_tap:
-            plan.do({"type": "tap", "card_ids": to_tap, "tapped": True})
+            plan.do({"type": "tap", "card_ids": to_tap, "tapped": True, "declared": True})
         by_target: dict[str, list[str]] = {}
         for decl in a.attackers:
             by_target.setdefault(decl.target, []).append(decl.card_id)
@@ -555,7 +569,7 @@ def _controls_more(state: GameState, info: CardInfo | None, sel: str, a: str, b:
 
 def attack_forbidden(plan: Plan, ch: Characteristics, target: str) -> bool:
     """-- attached events (wave 4L) -- 508.1c: "can't attack you [or planeswalkers you control]" (rules
-    ``cant_attack_player:<player>`` / ``cant_attack_player_pw:<player>``, "you" being the static's controller); -- static_other sweep
+    ``cant_attack_player:<player>`` / ``cant_attack_player_pw:<player>`` / ``cant_attack_player_perm:<player>`` (wave 32B), "you" being the static's controller); -- static_other sweep
     (wave 21A) -- "can't attack unless / if defending player …" (``cant_attack_unless_def:<fact>`` / ``cant_attack_if_def:<fact>``)."""
     for rule in ch.imposed:
         name, _, who = rule.partition(":")
@@ -564,12 +578,16 @@ def attack_forbidden(plan: Plan, ch: Characteristics, target: str) -> bool:
             if defender in plan.state.players and _defender_fact(plan, who, defender) == (name == "cant_attack_if_def"):
                 return True
             continue
-        if name not in ("cant_attack_player", "cant_attack_player_pw"):
+        if name not in ("cant_attack_player", "cant_attack_player_pw", "cant_attack_player_perm"):
             continue
         if target == who:
             return True
         card = plan.state.cards.get(target)
         if name == "cant_attack_player_pw" and card is not None and card.controller == who                 and "Planeswalker" in plan.ch(card).types:
+            return True
+        # -- attack restrictions (wave 32B) -- "can't attack you or permanents you control": a planeswalker or a battle (506.3) the player controls
+        # (the battle's controller, 110.2 — not its protector)
+        if name == "cant_attack_player_perm" and card is not None and card.controller == who:
             return True
     return False
 
@@ -606,8 +624,8 @@ def ask_next_blocker(plan: Plan) -> None:
         pid = r.blockers_pending[0]
         attackers = [c for c in attackers_on(state) if defender_of(state, c.attacking) == pid]
         blockers = [state.cards[cid] for cid in state.zones.get(zone_key(pid, "battlefield"), [])
-                    if state.cards[cid].controller == pid and not state.cards[cid].tapped
-                    and plan.ch(state.cards[cid]).is_creature]
+                    if state.cards[cid].controller == pid and plan.ch(state.cards[cid]).is_creature
+                    and (not state.cards[cid].tapped or "block_tapped" in scripts.statics(plan.ch(state.cards[cid])))]  # (wave 42A: Masako)
         if not attackers or not blockers:
             r.blockers_pending.pop(0)
             continue
@@ -647,6 +665,9 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         if problem:
             raise ActionError(problem)
         per_attacker[decl.attacker_id] = per_attacker.get(decl.attacker_id, 0) + 1
+    cap = r.block_caps.get(plan.actor)  # -- commander sweep (wave 49B) -- 509.1b: "Each opponent can't block with more than one creature this combat." (Mirri)
+    if cap is not None and len(used) > cap:
+        raise ActionError(f"You can't block with more than {cap} creature{'s' if cap != 1 else ''} this combat")
     for aid, n in per_attacker.items():
         ach = plan.ch(plan.state.cards[aid])
         least = min_blockers(ach)
@@ -655,6 +676,11 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
                               + (" (menace)" if "menace" in ach.keywords else ""))
         if "max_one_blocker" in scripts.statics(ach) and n > 1:
             raise ActionError(f"{ach.name} can't be blocked by more than one creature")
+        # -- commanders (wave 47A) -- 509.1b, Tromokratis (2014-02-01): "can't be blocked unless all creatures defending player controls block it" — every creature the
+        # declaring player controls, a tapped one included, which can't then (so it can't be blocked). ponytail: a "must be blocked if able" on it isn't reconciled
+        if "block_by_all" in scripts.statics(ach) and n < sum(1 for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller == plan.actor
+                                                     and plan.ch(c).is_creature):
+            raise ActionError(f"{ach.name} can't be blocked unless all creatures you control block it")
     if len(used) == 1:  # 506.5: blocking alone (one creature declared as a blocker, however many attackers it blocks)
         lone = plan.state.cards[a.blocks[0].blocker_id]
         if "cant_block_alone" in scripts.statics(plan.ch(lone)):
@@ -676,7 +702,8 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         plan.do({"type": "block", "card_id": decl.blocker_id, "attacker_id": decl.attacker_id, "also": decl.blocker_id in done})
         done.add(decl.blocker_id)
     r.blocked = list(dict.fromkeys([*r.blocked, *per_attacker]))
-    note_block(plan.state, [plan.oid(plan.state.cards[b]) for b in dict.fromkeys(x.blocker_id for x in a.blocks)])  # (wave 27A)
+    note_block(plan.state, [plan.oid(plan.state.cards[b]) for b in dict.fromkeys(x.blocker_id for x in a.blocks)],  # (wave 27A)
+               [(plan.oid(plan.state.cards[x.blocker_id]), plan.oid(plan.state.cards[x.attacker_id])) for x in a.blocks])  # (wave 31D)
     if a.blocks:
         from app.rules import triggers  # triggers → plan; imported late
 
@@ -747,7 +774,10 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
             if could(b, x, joined=joined(b, x)):
                 return f"{b.name} blocks {x.name} this turn if able"
     for x in att:
-        if x.id in per_attacker or "must_be_blocked" not in scripts.statics(plan.ch(x)):
+        # -- counters (wave 44C) -- 509.1c: "~ must be blocked by two or more creatures if able" (Gorm the Great): blocked by one is short while another creature could join it
+        two = "must_be_blocked_two" in scripts.statics(plan.ch(x))
+        have = per_attacker.get(x.id, 0)
+        if (have and not two) or have >= 2 or not ("must_be_blocked" in scripts.statics(plan.ch(x)) or two):
             continue
         # creatures free to block it: idle ones, and ones blocking an attacker that needn't be blocked
         # (-- review (wave 7R) -- 509.1c: not one whose own requirement that block obeys: "blocks each combat if able" or
@@ -761,9 +791,9 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
         free = idle + spare + [state.cards[d.blocker_id] for d in a.blocks
                                if state.cards[d.blocker_id] not in spare
                                and "must_be_blocked" not in scripts.statics(plan.ch(state.cards[d.attacker_id])) and not obeying(d)]
-        able = [b for b in free if could(b, x, joined=len(free))]
-        if len(able) >= min_blockers(plan.ch(x)):
-            return f"{x.name} must be blocked if able"
+        able = [b for b in free if x.id not in used.get(b.id, []) and could(b, x, joined=len(free))]  # (wave 44C: not one already blocking it)
+        if len(able) >= (1 if have else min_blockers(plan.ch(x))):
+            return f"{x.name} must be blocked {'by two or more creatures ' if have else ''}if able"
     return None
 
 
@@ -811,7 +841,11 @@ def _assigns(card: CardInstance, ch: Characteristics) -> int | None:
     creature assigns combat damage equal to its toughness rather than its power", Doran: the rule assign_toughness)."""
     if "assign_none" in ch.imposed:  # -- no combat damage (wave 19E) -- "assigns no combat damage this turn"
         return 0
-    return toughness(card, ch) if "assign_toughness" in ch.imposed else power(card, ch)
+    if "assign_toughness" in ch.imposed:
+        return toughness(card, ch)
+    # -- counters (wave 44C) -- 510.1a: "assigns combat damage as though its power were positive" (Loot, the Anomaly): only the amount assigned changes, not its power; a toughness-based assignment wins
+    p = power(card, ch)
+    return abs(p) if p is not None and "assign_abs_power" in ch.imposed else p
 # -- end damage wordings (wave 6B) --
 
 
@@ -1053,7 +1087,11 @@ def deal_combat_damage(plan: Plan, rnd: Round, shield_order: list[str] | None = 
     if hit_players:
         from app.rules import triggers  # triggers → plan; imported late
 
-        triggers.dealt_combat_damage_to_player(plan, list({c.id: c for c in hit_players}.values()))
+        hit: dict[str, list[str]] = {}  # (wave 43A: the players each hit, for a trigger multiplier: Felix Five-Boots)
+        for src, tgt, n in dealt:
+            if tgt in plan.state.players and n > 0 and src in plan.state.cards and tgt not in hit.setdefault(src, []):
+                hit[src].append(tgt)
+        triggers.dealt_combat_damage_to_player(plan, list({c.id: c for c in hit_players}.values()), hit)
     monarch = plan.state.table.monarch
     # (-- review 29D -- 725.2: combat damage dealt to the monarch, whether or not it made them lose life: 119.8, 120.3a)
     if monarch and any(tgt == monarch and n > 0 for _src, tgt, n in dealt):
@@ -1077,8 +1115,10 @@ def end_combat(plan: Plan) -> None:
         for card in list(plan.state.cards.values()):
             for marker in [m for m in card.effects if m.text == "this combat"]:
                 plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=plan.active)
+    r.replacements = [x for x in r.replacements if x.get("until") != "end_of_combat"]  # -- one-shot shields (wave 35A) -- "this combat"
     r.blocked = []
     r.block_split = {}
     r.assign_unblocked = {}
+    r.block_caps = {}  # (wave 49B) "this combat"
     r.no_attackers = False
     r.combat_round = ""

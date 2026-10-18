@@ -42,9 +42,18 @@ def _target(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 LOSS = re.compile(r"(^|\. )Take an extra turn after this one\. At the beginning of that turn's end step, you lose the game\.")
 
 
+# -- power-up (wave 50J) -- "Take an extra turn after this one. During that turn, power-up abilities can't be activated." (Kang the Conqueror): a rule of that turn, from the turn
+# number it will have (take; read by restrictions)
+NO_POWER_UP = re.compile(r"(^|\. )Take an extra turn after this one\. During that turn, power-up abilities can't be activated\.")
+
+
 def one_sentence(body: str) -> str:
     """The two sentences read as one clause (the sentence split would part them)."""
-    return LOSS.sub(r"\1Take an extra turn after this one with a loss at its end step.", body)
+    return NO_POWER_UP.sub(r"\1Take an extra turn after this one with no power-up abilities.", LOSS.sub(r"\1Take an extra turn after this one with a loss at its end step.", body))
+
+
+def _you_no_power_up(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "extra_turn", "who": "you", "n": 1, "no_power_up": True}], None
 
 
 def _you_then_lose(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
@@ -53,6 +62,7 @@ def _you_then_lose(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
     (re.compile(r"^take an extra turn after this one with a loss at its end step$", re.I), _you_then_lose),
+    (re.compile(r"^take an extra turn after this one with no power-up abilities$", re.I), _you_no_power_up),
     (re.compile(rf"^(?:take|you take) {_COUNT} after this one$"), _you),
     (re.compile(rf"^target player takes {_COUNT} after this one$"), _target),
 ]
@@ -66,7 +76,8 @@ def extra_turn(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     for pid in _players(plan, ctx, e["who"]):
         n = int(e.get("n") or 1)
         for _ in range(n):
-            plan.rules.extra_turns.append({"player": pid, "label": name, **({"lose": True} if e.get("then_lose") else {})})
+            plan.rules.extra_turns.append({"player": pid, "label": name, **({"lose": True} if e.get("then_lose") else {}),
+                                           **({"no_power_up": True} if e.get("no_power_up") else {})})
         plan.note(f"{plan.name(pid)} will take {'an' if n == 1 else n} extra turn{'s' if n > 1 else ''} after this one "
                   f"({name}, 500.7)", actor=ctx["controller"])
     return True
@@ -83,11 +94,13 @@ def take(plan: Plan) -> str | None:
         pid = str(rec["player"])
         if pid not in plan.live():
             continue
-        label = skips.take(plan, pid, "turn")
+        label = skips.take(plan, pid, "turn") or skips._static(plan, pid, "extra_turn")  # (wave 51G: a permanent that skips extra turns, 614.10)
         if label is not None:
             plan.note(f"{plan.name(pid)} skips their extra turn ({label}, 614.10)", actor=plan.active)
             continue
         plan.note(f"{plan.name(pid)} takes an extra turn ({rec.get('label') or 'an effect'}, 500.7)", actor=plan.active)
+        if rec.get("no_power_up"):  # (wave 50J: that turn is the next one)
+            r.no_power_up_turns.append(plan.state.turn.number + 1)
         if rec.get("lose"):  # (created between the turns: "a later turn" is that one, delayed._step_due)
             plan.rules.delayed.append(DelayedTrigger(
                 id=secrets.token_hex(4), controller=pid, name=str(rec.get("label") or ""), when={"kind": "step", "step": "end", "whose": "next_turn"},

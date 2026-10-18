@@ -274,7 +274,7 @@ def test_a_siege_enters_with_defense_counters_and_a_protector_chosen_among_oppon
 def test_attacking_a_siege_its_protector_blocks_and_defeat_exiles_it(cards):
     """310.9c-d: the protector is the defending player for the battle; 120.3h: combat damage
     removes defense counters; 310.12b: the last one removed, it's exiled and may be cast
-    transformed (by hand); 704.5v waited for that trigger."""
+    transformed (declined here); 704.5v waited for that trigger."""
     from app.game.factory import PlayerSetup, new_game
     from app.game.session import GameSession
     from tests.game_helpers import deck, turn_on
@@ -310,16 +310,16 @@ def test_attacking_a_siege_its_protector_blocks_and_defeat_exiles_it(cards):
     act(s, "p3", type="declare_blockers", blocks=[])
     for _ in range(12):  # (the two triggers: their controller orders them)
         d = decision(s)
-        if d is not None and d.kind == "manual_resolution":
+        if d is not None and d.resume.get("step") == "suspend_cast":
             break
         if d is not None:
             act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:max(d.min_choices, 1)]
                 if d.kind != "order" else [o.id for o in d.options])
         else:
             act(s, s.state.rules.priority, type="pass_priority")
-    assert decision(s).resume["step"] == "siege_cast"
-    assert s.state.cards[siege.id].zone == "p1:exile"  # exiled; its controller casts it transformed by hand
-    answer(s, "done")
+    assert decision(s).resume["step"] == "suspend_cast"
+    assert s.state.cards[siege.id].zone == "p1:exile"  # exiled; its controller may cast it transformed (wave 45B)
+    answer(s, "no")
     assert s.state.cards[siege.id].zone == "p1:exile" and not s.state.rules.decision
     pass_until_stack_empty(s)
     assert len(s.state.zones["p1:hand"]) == hand + 1  # "deals combat damage to a player or battle" (120.3h)

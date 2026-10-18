@@ -14,8 +14,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from app.game.rules_state import DecisionOption
 from app.game.state import zone_key
 from app.rules import context
+from app.rules.plan import decide
 
 if TYPE_CHECKING:
     from app.rules.plan import Plan
@@ -29,7 +31,12 @@ def hand_to_bottom(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     players = _players(plan, ctx, e["who"])
     pid = players[0] if players else None
     hand = list(plan.state.zones.get(zone_key(pid, "hand"), [])) if pid is not None else []
-    context.bind_amount(ctx, e["bind_amount"], len(hand))
+    if e.get("any_number") and hand and pid is not None:  # -- wheel (wave 51B) -- "Put any number of cards from your hand on the bottom of your library, then draw that many cards plus one." (Valakut Awakening): their choice, private (101.4a)
+        decide(plan, player=pid, kind="choose_cards", prompt="Put any number of cards from your hand on the bottom of your library",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
+               min_choices=0, max_choices=len(hand), resume={"step": "hand_pick", "ctx": ctx, "e": e})
+        return False
+    context.bind_amount(ctx, e["bind_amount"], int(e.get("plus", 0)) if e.get("any_number") else len(hand))  # (nothing in hand to choose: "that many cards plus one" is one)
     if not hand or pid is None:
         return True
     plan.note(f"{plan.name(pid)} puts the {len(hand)} card{'s' if len(hand) != 1 else ''} in their hand on the bottom of their library", actor=pid)
@@ -40,4 +47,20 @@ def hand_to_bottom(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
+def resume_pick(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import _ask_order, continue_effects
+
+    ctx, pid = d.resume["ctx"], d.player
+    context.bind_amount(ctx, d.resume["e"]["bind_amount"], len(chosen) + int(d.resume["e"].get("plus", 0)))  # ("that many cards plus one": the draw's amount)
+    if chosen:
+        plan.note(f"{plan.name(pid)} puts {len(chosen)} card{'s' if len(chosen) != 1 else ''} from their hand on the bottom of their library", actor=pid)
+    if len(chosen) > 1:  # 401.4: they order them
+        _ask_order(plan, ctx, pid, pid, chosen, "bottom")
+        return
+    if chosen:
+        plan.do({"type": "move", "card_ids": chosen, "to": {"player": pid, "zone": "library"}, "position": "bottom"}, actor=pid)
+    continue_effects(plan, ctx)
+
+
 PRIMITIVES = {"hand_to_bottom": hand_to_bottom}
+RESUME = {"hand_pick": resume_pick}

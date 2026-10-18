@@ -137,7 +137,7 @@ def _object_refs(ctx: Context, name: str, *, was: bool = False) -> list[ObjectRe
     if name == EVENT:
         raw = event.get("objects") or []
     elif name == EVENT_NEW:
-        raw = event.get("new_objects") or []
+        raw = event.get("new_objects") or (event.get("objects") if event.get("kind") == "discard" else None) or []  # (wave 51C: a discarded card is already the new object in the graveyard, 701.9a)
     elif name == EVENT_OTHER:  # -- damage wordings (wave 6B) -- the creature on the other side of a block
         raw = [event["other"]] if event.get("other") else []
     else:
@@ -173,22 +173,32 @@ def snapshot(plan: Plan, ref: ObjectRef) -> ObjectSnapshot | None:
     return plan.rules.lki.get(ref.object_id) or ref.snapshot
 
 
-def info(plan: Plan, ctx: Context, name: str) -> tuple[CardInstance, Characteristics] | None:
-    """The first object a binding names, for reading its characteristics: as it is while it's
-    still that object where it was, else as it last existed (608.2h)."""
+def infos(plan: Plan, ctx: Context, name: str) -> list[tuple[CardInstance, Characteristics]]:
+    """Every object a binding names, for reading its characteristics: each as it is while it's still that object where it was, else as it
+    last existed (608.2h). -- event batches (wave 34C) -- "the greatest power among them": a "one or more" trigger's whole batch."""
     from app.rules.triggers import _snapshot_card  # (triggers imports effects, which imports this)
 
+    out: list[tuple[CardInstance, Characteristics]] = []
     for ref in _object_refs(ctx, name, was=True):
         card = _same(plan, ref)
         if card is not None:
-            return card, plan.ch(card)
+            out.append((card, plan.ch(card)))
+            continue
         snap = snapshot(plan, ref)
         if snap is not None:
-            return _snapshot_card(plan, snap)
+            out.append(_snapshot_card(plan, snap))
+            continue
         card = plan.state.cards.get(ref.card)
         if card is not None:  # no last known information is kept for a card that was in a graveyard
-            return card, plan.ch(card)  # or exile: it had its printed characteristics there, as now
-    return None
+            out.append((card, plan.ch(card)))  # or exile: it had its printed characteristics there, as now
+    return out
+
+
+def info(plan: Plan, ctx: Context, name: str) -> tuple[CardInstance, Characteristics] | None:
+    """The first object a binding names, for reading its characteristics: as it is while it's
+    still that object where it was, else as it last existed (608.2h)."""
+    found = infos(plan, ctx, name)
+    return found[0] if found else None
 
 
 def players(plan: Plan, ctx: Context, name: str) -> list[str]:
@@ -232,8 +242,10 @@ def succeeded(ctx: Context, name: str) -> bool:
 
 
 def probe_ok(plan: Any, ctx: Context, name: str) -> bool:
-    """Did the probed instruction ("did": name, app/rules/effects.py) do something? A move: an object (a new one, 400.7) is in the
-    zone asked for. (A draw binds "did" as a payment when it is done, 118.12: effects._drawing.)"""
+    """Did the player do the probed instruction ("did": name, app/rules/effects.py)? 118.12: "If you do" checks that they chose to pay
+    or started to pay it, "regardless of what events actually occurred", so a move counts when it took an object (one still there,
+    400.7), wherever it ended up: a token that is gone, a commander sent to the command zone (903.9b, 118.11). (A draw binds "did" as a
+    payment when it is done, 118.12: effects._drawing.)"""
     b = (ctx.get("refs") or {}).get(name) or {}
     if b.get("kind") != "probe":
         return False
@@ -243,19 +255,18 @@ def probe_ok(plan: Any, ctx: Context, name: str) -> bool:
     if "left" in b:
         return any((card := plan.state.cards.get(cid)) is None or plan.oid(card) != oid or not card.zone.endswith(":battlefield")
                    for cid, oid in b["left"].items())
+    if "control" in b:  # -- commanders (wave 50C) -- a permanent that is still that object has another controller than before (effects.gain_control)
+        return any((card := plan.state.cards.get(cid)) is not None and plan.oid(card) == oid and card.controller != was
+                   for cid, (oid, was) in b["control"].items())
     if "counters" in b:
         return any((card := plan.state.cards.get(cid)) is not None and plan.oid(card) == oid
                    and card.counters.get(b["counter"], 0) < n for cid, (oid, n) in b["counters"].items())
-    if "counters_up" in b:  # -- if you do (wave 15C) -- counters were put on it
+    if "counters_up" in b:  # -- if you do (wave 15C) -- a reflexive "When you do" (603.12): counters were put on it (effects._did_counters_up)
         return any((card := plan.state.cards.get(cid)) is not None and plan.oid(card) == oid
                    and card.counters.get(b["counter"], 0) > n for cid, (oid, n) in b["counters_up"].items())
     if "hands_down" in b:
         return any(len(plan.state.zones.get(f"{p}:hand", [])) < n for p, n in b["hands_down"].items())
-    for cid, oid in b["cards"].items():
-        card = plan.state.cards.get(cid)
-        if card is not None and card.zone.split(":")[-1] == b["to"] and plan.oid(card) != oid:
-            return True
-    return False
+    return bool(b["cards"])  # (the objects taken before the move, effects._did / _picked: "to", the zone asked for, is not read)
 
 
 def flag(ctx: Context, name: str) -> bool:

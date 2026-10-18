@@ -317,7 +317,7 @@ def test_object_wordings(text, expected):
 
 
 @pytest.mark.parametrize("text", [
-    "it's tapped",  # (physical state of an object other than the source: never read from last known information)
+    # ("it's tapped": read since wave 38A as the bound object's present state, 608.2c, never from last known information)
     "it's a creature you control",
     "it's the second time",
 ])
@@ -2204,8 +2204,7 @@ def test_you_may_exile_a_creature_and_if_you_do_it_returns_at_the_next_end_step(
     ("You may draw a card. If you don't, discard a card.", None),  # (no such "If you don't" without a payment)
     ("You may draw a card. If you do, you may discard a card.", None),  # (a second choice)
     ("You may draw a card. If you do, discard a card. You gain 1 life.", None),  # (a third sentence would be optional too)
-    ("You may draw X cards. If you do, discard a card.", None),  # (a count that could be zero)
-])
+])  # ("You may draw X cards. If you do, …": read since wave 30G — 118.12: chosen, even when the count is zero; the Champion of Wits ruling)
 def test_optional_then_if_you_do_forms_that_are_not_read(text, it):
     assert scripts.parse_effects(text, it=it) is None
 
@@ -2267,9 +2266,10 @@ def test_the_turn_log_survives_a_reload_in_the_middle_of_the_turn(cards):
     assert life(t) == 46  # 40 - 2 + 8 (a creature died this turn, as the reloaded game remembers)
     replay_matches(t)
 
-# -- "If you do" reads what the optional action actually did (608.2c; 903.9b; 121.2) ---------------------------
-def test_if_you_do_after_a_bounced_commander_goes_to_the_command_zone_does_nothing(cards):
-    """Niambi: the commander went to the command zone instead of the hand (903.9b): nothing was returned, so no life."""
+# -- "If you do" reads whether the player started the optional action (118.12; 903.9b; 121.2) --------------------
+def test_if_you_do_after_a_bounced_commander_goes_to_the_command_zone_still_gains_life(cards):
+    """Niambi: the commander went to the command zone instead of the hand (903.9b), but the player chose to return it: "If you do" is
+    true (118.12, the Dermoplasm + Gather Specimens example), and the life is the commander's mana value as it last existed (608.2h)."""
     s = build(cards, "Niambi, Esteemed Speaker")
     krenko = find(s.state, "Krenko, Mob Boss", "p1")
     act(s, "p1", type="move", card_ids=[krenko.id], to={"player": "p1", "zone": "battlefield"})
@@ -2285,7 +2285,7 @@ def test_if_you_do_after_a_bounced_commander_goes_to_the_command_zone_does_nothi
     mana(s, W=1, U=1)
     act(s, "p1", type="cast_spell", card_id=niambi.id)
     answer_may(s, "yes")
-    assert s.state.cards[krenko.id].zone == "p1:command" and life(s) == 40
+    assert s.state.cards[krenko.id].zone == "p1:command" and life(s) == 44  # (Krenko, Mob Boss: mana value 4)
     replay_matches(s)
 
 

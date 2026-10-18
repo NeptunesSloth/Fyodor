@@ -49,7 +49,14 @@ _STATIC_YOU = re.compile(r"Skip your (?P<what>untap step|upkeep step|draw step)\
 _STATIC_ALL = re.compile(r"(?:Players skip their (?P<a>untap|upkeep|draw) steps|Each player skips their (?P<b>untap|upkeep|draw) step)\.")
 
 
+# -- most-played cards IV (wave 51G) -- "If an opponent would begin an extra turn, that player skips that turn instead." (Stranglehold), "If a player would begin an extra turn, …"
+# (Ugin's Nexus): a replacement of the extra turn as it would begin (614.10, 500.7), read by extra_turns.take
+_STATIC_EXTRA = re.compile(r"If (?P<w>a player|an opponent) would begin an extra turn, that player skips that turn instead\.")
+
+
 def static_definition(text: str) -> Definition | None:
+    if (e := _STATIC_EXTRA.fullmatch(text.strip())) is not None:
+        return {"kind": "static", "static": "skip", "what": "extra_turn", "who": "each" if e["w"] == "a player" else "opponents", "effects": []}
     m = _STATIC_YOU.fullmatch(text.strip())
     if m:
         return {"kind": "static", "static": "skip", "what": _WHAT[m["what"]], "who": "you", "effects": []}
@@ -121,7 +128,7 @@ def _static(plan: Plan, player: str, what: str) -> str | None:
         skip = conditional_lines(ch)  # (a leveler's / Class's level lines: the level isn't tracked)
         for i, d in scripts.definitions(ch).items():
             if i not in skip and d.get("kind") == "static" and d.get("static") == "skip" and d.get("what") == what \
-                    and (d.get("who") == "each" or c.controller == player):
+                    and (d.get("who") == "each" or (c.controller != player if d.get("who") == "opponents" else c.controller == player)):
                 return plan.ch(c).name or c.name or "a permanent"
     return None
 

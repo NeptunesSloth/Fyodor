@@ -61,7 +61,7 @@ def mergeable(plan: Plan, card: CardInstance) -> bool:
 def can_mutate(plan: Plan, player: str, card: CardInstance, ch: Characteristics) -> bool:
     """702.140a: is there a creature this card could be cast mutating onto, as ``player`` casts it now?"""
     return card.owner == player and card.copy_of is None and not card.is_token and _plain(plan, card) \
-        and bool(T.legal_targets(plan, MUTATE_TARGET, player, ch, card.id))
+        and bool(T.legal_targets(plan, MUTATE_TARGET, player, T.as_spell(ch), card.id))  # (review 41: a spell targets, 115.2)
 
 
 def note_cast(plan: Plan, card: CardInstance) -> None:
@@ -122,7 +122,7 @@ def resolve(plan: Plan, top: CardInstance, controller: str) -> bool:
     target = r.aura_targets.get(top.id)
     ch = plan.ch(top)
     host = plan.state.cards.get(target.id) if target is not None else None
-    if target is None or host is None or not T.still_legal(plan, MUTATE_TARGET, controller, target, ch, top.id):
+    if target is None or host is None or not T.still_legal(plan, MUTATE_TARGET, controller, target, T.as_spell(ch), top.id):
         r.mutating = [o for o in r.mutating if o != plan.oid(top)]
         r.aura_targets.pop(top.id, None)
         plan.note(f"{ch.name} ceases to be a mutating creature spell: its target is illegal", [top.id])

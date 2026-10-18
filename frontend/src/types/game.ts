@@ -349,6 +349,7 @@ export interface RulesPrefs {
   mana_sources: Record<string, "prefer" | "save">;
   auto_resolve_own_triggers: "off" | "safe" | "on";
   auto_order_identical_triggers: boolean;
+  ask_graveyard_order: boolean;
   hold_priority: boolean;
   full_control: boolean;
   force_stop: boolean;
@@ -362,9 +363,10 @@ export interface RulesHints {
   playable_lands?: string[];
   castable?: string[];
   free_castable?: string[]; // a permission lets you cast these without paying their mana costs
-  alt_castable?: Record<string, { id: string; label: string }[]>; // alternative costs (118.9): card id → costs it can be cast for now
+  alt_castable?: Record<string, { id: string; label: string; x?: boolean }[]>; // alternative costs (118.9): card id → costs it can be cast for now (x: the cost has {X}, 107.3a)
   optional_costs?: Record<string, { id: string; label: string }[]>; // optional additional costs (Defiler of Vigor): card id → sources
   x_cast?: string[]; // castable cards of yours that ask for X when cast (107.3a); the server validates the range (min 0)
+  x_kicker?: string[]; // castable cards of yours whose kicker cost has {X}: only a kicked cast asks for it (107.3a, wave 43D)
   activatable?: { card_id: string; ability: number; x?: boolean }[]; // x: the activation asks for X (107.3k)
   miracle?: string[]; // cards of yours you may reveal for miracle now (702.94a)
 }
@@ -528,4 +530,6 @@ export interface CardStats {
   halves?: { name: string; mana_cost: string }[];
   /** Abilities granted by other permanents (numbered from 100). */
   abilities?: { index: number; text: string; kind: string }[];
+  /** -- licids (wave 50A) -- 116.2c: the cost you may pay (a special action) to end the effect you have on this permanent ("You may pay {W} to end this effect"). */
+  end_cost?: string;
 }

@@ -52,12 +52,17 @@ ENCHANT_SELECTORS = {
     "opponent": "opponent",
 }
 PLAYER_SELECTORS = {"player", "opponent"}
+# -- reanimation Auras (wave 51F) -- "Enchant creature card in a graveyard" (Animate Dead: the Aura spell targets that card, 303.4a, 115.1b) and, once its enters
+# trigger swaps it, "enchant creature put onto the battlefield with this Aura" (only what that Aura put there: ``RulesState.aura_links``, app/rules/reanimate_auras.py)
+GRAVE = 'sel:{"card":true,"types":["Creature"],"zones":["graveyard"]}'
+PUT_WITH = "put_with"
+_PUT_WITH = re.compile(r"^creature put onto the battlefield with .+$", re.IGNORECASE)
 
 _ENCHANT = re.compile(r"^enchant (?P<what>.+?)\.?$", re.IGNORECASE)
 # -- equip (wave 15E) -- 702.6a "Equip [cost]", "Equip [quality] [cost]" (702.6b: only a creature with that quality) and
 # "Equip—[non-mana cost]": the cost, the target selector and the ability's own trailing sentences ("Activate only once each
 # turn.", "This ability costs {3} less to activate if …")
-EQUIP = re.compile(r"^equip(?: (?P<q>[A-Za-z][A-Za-z' -]*?))? (?P<cost>(?:\{[^}]+\})+)(?P<tail>(?:\. .+|\.)?)$|"
+EQUIP = re.compile(r"^equip(?: (?P<q>[A-Za-z][A-Za-z' -]*?))? (?P<cost>(?:\{[^}]+\})+(?: or (?:\{[^}]+\})+)?)(?P<tail>(?:\. .+|\.)?)$|"
                    r"^equip—(?P<cost2>[^.]+)(?P<tail2>\..*)?$", re.IGNORECASE)
 
 
@@ -82,6 +87,10 @@ def enchant_selector_of(line: str) -> str | None:
     what = m["what"].strip().replace("’", "'")
     if what.lower() in ENCHANT_SELECTORS:
         return ENCHANT_SELECTORS[what.lower()]
+    if what.lower() == "creature card in a graveyard":  # -- reanimation Auras (wave 51F) --
+        return GRAVE
+    if _PUT_WITH.match(what):
+        return PUT_WITH
     # -- keywords (wave 15E) -- 702.5a: any object description the selector grammar reads ("Enchant tapped creature",
     # "Enchant red or green creature", "Enchant Forest or Plains", "Enchant artifact an opponent controls")
     from app.rules import selectors
@@ -117,6 +126,13 @@ def _equip_target(q: str | None) -> str | None:
     return None
 
 
+def equip_sides(cost: str) -> list[str]:
+    """-- cast keywords (wave 43D) -- 702.6a: an equip cost written "{2} or {B}" or "Pay {3} or discard a card" is a choice of the cost to pay as the ability
+    is activated (601.2b): its sides, each a cost on its own ("Pay {3}" is "{3}"); one side for any other cost."""
+    sides = [p.strip() for p in re.split(r" or (?![^{]*\})", cost.strip())]
+    return [re.sub(r"^[Pp]ay ((?:\{[^}]+\})+)$", r"\1", p[:1].upper() + p[1:]) for p in sides] if len(sides) > 1 else [cost.strip()]
+
+
 def equip_info(line: str, name: str = "") -> tuple[str, str, str] | None:
     """(cost, target selector, trailing sentences) of an equip line the engine carries out, or None."""
     from app.rules import cost_changes, restrictions
@@ -128,8 +144,10 @@ def equip_info(line: str, name: str = "") -> tuple[str, str, str] | None:
     cost, tail = (m["cost"], m["tail"]) if m["cost"] else (m["cost2"].strip(), m["tail2"] or "")
     tail = tail.strip().lstrip(".").strip()
     target = _equip_target(m["q"] if m["cost"] else None)
-    if target is None or (not m["cost"] and parse_ability_cost(cost, card_name=name).unsupported):
+    if target is None or (not m["cost"] and any(parse_ability_cost(side, card_name=name).unsupported for side in equip_sides(cost))):
         return None
+    if len(equip_sides(cost)) > 1 and tail:
+        return None  # (a choice of costs with a trailing sentence about the cost: not read)
     if tail:
         text = f"{cost}: Attach ~ to target creature you control. Activate only as a sorcery. {tail}"
         if restrictions.parse(text) is None or cost_changes.ability_change(text) is None:
@@ -195,6 +213,11 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
             return f"{plan.name(host)} has protection from it ({shield})"
         return None
     card = plan.state.cards.get(host)
+    if card is not None and card.zone.endswith(":graveyard") and kind == "aura" and enchant_selector(sch) == GRAVE:
+        # -- reanimation Auras (wave 51F) -- 303.4a: a creature card in a graveyard; protection and hexproof don't function there (Animate Dead's ruling 2016-06-08)
+        from app.rules import selectors
+
+        return None if selectors.matches(plan, selectors.from_key(GRAVE), card, plan.ch(card), you, source.id) else f"it can't enchant {card.name}"
     if card is None or not card.zone.endswith(":battlefield"):
         return "it's not on the battlefield"
     hch = plan.ch(card)
@@ -208,6 +231,11 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
         selector = enchant_selector(sch)
         if selector is None:
             return "unknown"
+        if selector == PUT_WITH:  # -- reanimation Auras (wave 51F) -- only a creature this Aura put onto the battlefield, still that object (400.7)
+            ok = hch.is_creature and plan.oid(card) in plan.rules.aura_links.get(plan.oid(source), ())
+            return None if ok else f"it can only enchant a creature it put onto the battlefield, not {hch.name or 'that'}"
+        if selector == GRAVE:
+            return f"it can't enchant {hch.name or 'that'}"  # (a creature card in a graveyard, not a permanent)
         if selector.startswith("sel:"):  # (wave 15E) a described host, judged for the Aura's controller
             from app.rules import selectors
 
@@ -231,9 +259,15 @@ def legal_hosts(plan: Plan, source: CardInstance, controller: str | None = None)
     """Everything ``source`` could be attached to right now (no targeting involved)."""
     out = [p for p in plan.live() if host_problem(plan, source, p, controller) is None]
     for c in plan.state.cards.values():
-        if c.zone.endswith(":battlefield") and c.id != source.id and host_problem(plan, source, c.id, controller) is None:
+        if c.zone.endswith((":battlefield", ":graveyard")) and c.id != source.id and host_problem(plan, source, c.id, controller) is None:  # (wave 51F: a graveyard)
             out.append(c.id)
     return out
+
+
+def enchanted_cards(plan: Plan, source: CardInstance) -> list[str]:
+    """-- reanimation Auras (wave 51F) -- the creature cards in a graveyard ``source`` enchants: ``attach`` recorded each as the object it was (400.7)."""
+    return [cid for oid in plan.rules.aura_links.get(plan.oid(source), ()) if (cid := oid.rsplit(".", 1)[0]) in plan.state.cards
+            and plan.oid(cid) == oid and plan.state.cards[cid].zone.endswith(":graveyard")]
 
 
 def attach(plan: Plan, source: str, host: str, actor: str) -> bool:
@@ -241,6 +275,10 @@ def attach(plan: Plan, source: str, host: str, actor: str) -> bool:
     card = plan.state.cards.get(source)
     if card is None or host_problem(plan, card, host) is not None:
         return False
+    if host in plan.state.cards and plan.state.cards[host].zone.endswith(":graveyard"):  # -- reanimation Auras (wave 51F) -- 303.4a: it enchants a card in a graveyard
+        plan.rules.aura_links[plan.oid(card)] = [plan.oid(host)]
+        plan.note(f"{card.name} enchants {plan.state.cards[host].name} in a graveyard", [card.id, host])
+        return True
     if card.attached_to == host or card.attached_player == host:
         return True  # already there: nothing happens (701.3b)
     plan.do({"type": "attach", "card_ids": [source], "to": host}, actor=actor)
@@ -286,7 +324,11 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
             replacements.ask_entry_choice(plan, entries, i, ctx, shuffle)
             return False
         # -- enter as copy (wave 5F) -- as it will enter: a permanent entering as a copy of an Aura is one (707.5, 303.4f)
-        if attach_kind(plan.ch(card) if copying.entering_as_copy(plan, card) else chars.of(card, plan.info)) != "aura" \
+        # (-- attached events (wave 40B) -- 712.14a: a double-faced card put onto the battlefield transformed enters with its back face up, so it is an Aura
+        # only if that face is: "return this card to the battlefield transformed" for Skin Invasion (a creature on the back) is no Aura entering)
+        data = plan.info.get(card.card_id) if entry.get("transformed") and card.card_id and card.token is None else None
+        as_face = chars.printed_from_data(data, 0 if card.face else 1) if data is not None else None
+        if attach_kind(as_face or (plan.ch(card) if copying.entering_as_copy(plan, card) else chars.of(card, plan.info))) != "aura" \
                 or entry.get("host"):
             continue
         hosts = _hosts_on_entering(plan, card, entry["player"])

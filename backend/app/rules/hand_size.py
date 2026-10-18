@@ -30,8 +30,8 @@ MAX_HAND_SIZE = 7  # 402.2
 
 MODIFIES = "max_hand_size"
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
-            "eleven": 11, "twelve": 12}
-_SET = re.compile(r"^Your maximum hand size is (?P<n>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\.$")
+            "eleven": 11, "twelve": 12, "twenty": 20}  # (wave 51C: Twenty-Toed Toad)
+_SET = re.compile(r"^Your maximum hand size is (?P<n>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|\d+)\.$")
 _CHANGE = re.compile(r"^(?P<who>Your|Each opponent's) maximum hand size is (?P<dir>reduced|increased) by "
                      r"(?P<n>one|two|three|four|five|six|seven|eight|nine|ten|\d+)\.$")
 
@@ -40,6 +40,8 @@ def static_definition(text: str) -> dict[str, Any] | None:
     t = text.strip()
     if t == "You have no maximum hand size.":
         return {"kind": "static", "static": NO_MAXIMUM, "effects": []}
+    if t == "You have no maximum hand size and don't lose the game for having 0 or less life.":  # -- most-played cards III (wave 46C) -- Marina Vendrell's Grimoire (game_result.zero_life_ok)
+        return {"kind": "static", "static": NO_MAXIMUM, "zero_life": True, "effects": []}
     if t == "Players have no maximum hand size.":  # -- static statics (wave 10B) --
         return {"kind": "static", "static": NO_MAXIMUM, "who": "each", "effects": []}
     if (s := _SET.match(t)) is not None:

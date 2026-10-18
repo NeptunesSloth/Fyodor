@@ -42,7 +42,7 @@ from dataclasses import dataclass
 from functools import cache
 from typing import Any
 
-from app.game.rules_state import DecisionOption, DungeonMark, Event, emit
+from app.game.rules_state import DecisionOption, DungeonMark, Event, TurnFact, emit, turn_log_now
 from app.game.state import CardInstance, TokenDef, zone_key
 from app.rules.plan import Plan, decide
 
@@ -61,13 +61,22 @@ def status(plan: Plan, you: str, kind: str) -> bool:
         return monarch != you
     if kind == "not_initiative":
         return table.initiative != you
+    if kind == "initiative_attack":  # -- initiative (wave 45B) -- 726.1, 506.2: you have it, or a creature you control is attacking the player who does
+        return table.initiative == you or (table.initiative is not None and any(
+            c.controller == you and c.attacking is not None and c.attacking.kind == "player" and c.attacking.id == table.initiative
+            for c in plan.state.cards.values() if c.zone.endswith(":battlefield")))
     if kind == "completed_dungeon":  # 309.7
         r = plan.state.rules
         return bool(r is not None and r.completed_dungeons.get(you))
+    if kind.startswith("completed:"):  # -- dungeons (wave 45B) -- 309.7: that dungeon, by name
+        r = plan.state.rules
+        return r is not None and kind[len("completed:"):] in r.completed_dungeons.get(you, [])
     if kind in ("day", "night"):  # 731.1
         return table.day_night == kind
     if kind == "neither_day_nor_night":
         return table.day_night is None
+    if kind == "enduring_story":  # -- storied (wave 45D) -- 702.195b
+        return you in plan.rules.enduring_story
     if kind in ("ring_bearer", "no_ring_bearer"):  # -- trigger other (wave 25B) -- 701.54e: a creature on the battlefield under their control
         return (_bearer_card(plan, you) is not None) == (kind == "ring_bearer")
     return False
@@ -86,6 +95,13 @@ def _add_trigger(plan: Plan, controller: str, name: str, effects: list[dict[str,
 
 
 # -- rad counters (728) -----------------------------------------------------------------------------
+def static_definition(text: str) -> dict[str, Any] | None:
+    """-- counters (wave 44C) -- 728.1a: "You gain life rather than lose life from radiation." (Strong, the Brutish Thespian)."""
+    if text == "Each opponent can't venture into the dungeon more than once each turn.":  # -- dungeons (wave 45B) -- 701.49, 701.49d, 101.2: Keen-Eared Sentry
+        return {"kind": "static", "static": "venture_limit", "effects": []}
+    return {"kind": "static", "static": "rad_gain", "effects": []} if text == "You gain life rather than lose life from radiation." else None
+
+
 def rad_trigger(plan: Plan) -> None:
     """728.1: at the beginning of the active player's precombat main phase (505.1a: the first main
     phase), if they have one or more rad counters."""
@@ -113,8 +129,13 @@ def rad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     nonland = sum(1 for cid in milled if cid in plan.state.cards and plan.state.cards[cid].zone == zone_key(pid, "graveyard")
                   and not plan.ch(plan.state.cards[cid]).is_land)
     if nonland:
+        from app.rules import cast_limits
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-        _replace_life.lose_life(plan, [(pid, nonland)], actor=pid)  # (728.1a: life lost "from radiation")
+
+        # -- counters (wave 44C) -- 728.1a, 614.1: "You gain life rather than lose life from radiation." (Strong, the Brutish Thespian): the loss is replaced by a gain of the
+        # same amount, applied after the other "would lose life" replacements (the player chooses the order, 616.1: the better one for them)
+        gains = any(src.controller == pid for src, _ in cast_limits._statics(plan.state, plan.info, "rad_gain"))
+        _replace_life.lose_life(plan, [(pid, nonland)], actor=pid, as_gain=gains)  # (728.1a: life lost "from radiation")
         plan.do({"type": "resource", "player": pid, "key": "rad", "delta": -min(nonland, n)}, actor=pid)
     return True
 
@@ -221,6 +242,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
     if e.counter == "roll_die" and e.player:  # -- dice (wave 24B) -- one die (706.2): its result, the natural result, the size, the turn's count
         return [("roll_die", None, None, e.player, {"amount": e.amount, "natural": e.natural, "sides": e.sides, "nth": e.nth,
                                                     "actor": e.player})]
+    if e.counter == "coin_flip" and e.player:  # -- coin events (wave 45C) -- 705.2: the flipper won (1) or lost (0) a flip (rules/coin_flips.py)
+        return [("coin_flip", None, None, e.player, {"won": bool(e.amount), "actor": e.player})]
     if e.counter == "crime" and e.player:  # -- crimes (wave 6D) -- 700.13
         return [("commit_crime", None, None, e.player, {})]
     if e.counter in ("monstrous", "renowned") and e.card in plan.state.cards:  # -- becomes monstrous (wave 6D) --
@@ -233,6 +256,19 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
             ch = plan.ch(card)
             return [("transform", card, ch, card.controller, {"oid": e.object_id, "face_name": ch.name})]
+        return []
+    if e.counter == "destroyed" and e.card:  # -- destroy events (wave 45C) -- 701.8: the permanent as it last existed on the battlefield (603.10a)
+        from app.rules import triggers
+
+        got = triggers._object_then(plan, e.card, e.object_id)
+        if got is None:
+            return []
+        return [("destroyed", got[0], got[1], got[0].controller,
+                 {"oid": e.object_id, "snap": None if triggers._live(plan, got[0]) else plan.rules.lki.get(e.object_id or "")})]
+    if e.counter == "control" and e.card in plan.state.cards:  # -- control events (wave 45C) -- 603.10d: ``player`` gained control of it from ``was``
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
+            return [("control_change", card, plan.ch(card), e.player, {"oid": e.object_id, "was": e.from_zone})]
         return []
     if e.counter == "mutated" and e.card in plan.state.cards:  # -- merged permanents (wave 18D) -- 702.140d: a spell merged with it
         card = plan.state.cards[e.card]
@@ -253,6 +289,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         return [("fully_unlock", None, None, e.player, {})]
     if e.counter == "counters_spell" and e.player:  # -- counter events (wave 19C) -- the controller of the spell or ability that countered it
         return [("counters_spell", None, None, e.player, {})]
+    if e.counter == "search_library" and e.player:  # -- most-played cards (wave 43B) -- 701.23: a player searched their own library (effects._ask_search)
+        return [("search_library", None, None, e.player, {})]
     if e.counter == "proliferate" and e.player:  # -- trigger tail (wave 15B) -- 701.34a
         return [("proliferate", None, None, e.player, {})]
     if e.counter in ("forage", "collect_evidence") and e.player:  # -- if you do (wave 26C) -- 701.61, 701.59 (cost_payment.pay)
@@ -261,6 +299,11 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         card = plan.state.cards[e.card]
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
             return [("connive", card, plan.ch(card), card.controller, {"oid": e.object_id})]
+        return []
+    if e.counter == "phase_in" and e.card in plan.state.cards:  # -- trigger other (wave 50G) -- 702.26a: the permanent that phased in (no zone change, 702.26d)
+        card = plan.state.cards[e.card]
+        if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
+            return [("phase_in", card, plan.ch(card), card.controller, {"oid": e.object_id})]
         return []
     if e.counter == "explore" and e.card in plan.state.cards:  # -- trigger tail (wave 15B) -- 701.44a: the creature that explored
         card = plan.state.cards[e.card]
@@ -360,9 +403,8 @@ _ROOM_EFFECTS: dict[tuple[str, str], list[dict[str, Any]]] = {
 # with them, app/rules/replacements.py)
 _THRONE = ("Reveal the top ten cards of your library. Put a creature card from among them onto the battlefield. It gains "
            "hexproof until your next turn. Then shuffle.")
-# Room abilities left to the players (a decision to resolve them by hand), and why: goad (701.15) is a
-# combat requirement the engine doesn't enforce.
-_BY_HAND = {("Undercity", "Arena")}
+# (-- dungeons (wave 45B) -- no room is left to the players now: Undercity's Arena, "Goad target creature.", is the goad keyword action,
+# 701.15, enforced as a combat requirement by app/rules/combat_rules.py.)
 
 
 def room(dungeon: str, name: str) -> Room:
@@ -375,8 +417,6 @@ def room_definition(dungeon: str, name: str) -> dict[str, Any] | None:
     definition, or None when the players resolve it by hand."""
     from app.rules import scripts
 
-    if (dungeon, name) in _BY_HAND:
-        return None
     effects = _ROOM_EFFECTS.get((dungeon, name))
     if effects is not None:
         return {"kind": "triggered", "trigger": "room", "effects": effects, "optional": False, "target": None}
@@ -414,8 +454,21 @@ def venture(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return all(_venture_one(plan, ctx, e, pid) for pid in players)  # (False: a choice is open; its resume ventures the rest)
 
 
+def _venture_barred(plan: Plan, pid: str) -> bool:
+    """-- dungeons (wave 45B) -- "Each opponent can't venture into the dungeon more than once each turn." (Keen-Eared Sentry): 101.2, and 701.49d (venturing
+    into Undercity is a variant of venturing into the dungeon). The ventures ``pid`` made this turn are the turn log's."""
+    from app.rules import cast_limits
+
+    log = plan.rules.turn_log
+    return log.turn == plan.state.turn.number and any(f.kind == "venture" and f.player == pid for f in log.facts) and any(
+        src.controller != pid for src, _ in cast_limits._statics(plan.state, plan.info, "venture_limit"))
+
+
 def _venture_one(plan: Plan, ctx: Context, e: dict[str, Any], pid: str) -> bool:
     r = plan.rules
+    if _venture_barred(plan, pid):
+        plan.note(f"{plan.name(pid)} can't venture into the dungeon more than once each turn")
+        return True
     into = e.get("into", "dungeon")
     mark = r.dungeons.get(pid)
     if mark is not None and not room(mark.dungeon, mark.room).leads:
@@ -464,6 +517,8 @@ def _enter(plan: Plan, pid: str, dungeon: str, name: str) -> None:
     r = plan.rules
     first = pid not in r.dungeons
     r.dungeons[pid] = DungeonMark(dungeon=dungeon, room=name)
+    if (log := turn_log_now(plan.state)) is not None:  # (-- dungeons (wave 45B) -- a venture this turn: _venture_barred)
+        log.facts.append(TurnFact(kind="venture", player=pid))
     plan.note(f"{plan.name(pid)} " + (f"ventured into {dungeon}: {name}" if first else f"moved into {name} ({dungeon})"))
     definition = room_definition(dungeon, name)
     index = [x.name for x in DUNGEONS[dungeon]].index(name)
@@ -945,8 +1000,7 @@ def unautomated(definition: dict[str, Any]) -> str | None:
             wants.add("undercity")
     for into in sorted(wants):
         if not venture_automated(into):
-            return "a dungeon room is resolved by hand (" + ", ".join(
-                f"{d}: {n}" for d, n in sorted(_BY_HAND) if (d == UNDERCITY) == (into == "undercity")) + ")"
+            return "a dungeon room is resolved by hand"
     return None
 
 
@@ -989,6 +1043,8 @@ def emblem_text_ok(text: str) -> bool:
     for d in scripts.definitions(ch).values():
         if d.get("kind") == "static":
             if d.get("static") == "no_max_hand":  # -- ability words (wave 20C) -- "You have no maximum hand size." (hand_size.maximum reads emblems)
+                continue
+            if d.get("static") == "replace" and d.get("event") == "life_loss":  # -- life floor (wave 35C) -- Serra the Benevolent's emblem (replace.static_candidates)
                 continue
             if d.get("static") != "grant" or zone_static(d) or d.get("also"):
                 return False
@@ -1034,11 +1090,36 @@ def ascend_permanents(plan: Plan) -> bool:
     """Any time (checked with the state-based actions): the players with an ascend permanent and ten permanents get the blessing."""
     happened = False
     for pid in plan.live():
-        if not city_blessing_due(plan, pid):
-            continue
-        if any(c.controller == pid and c.zone.endswith(":battlefield") and not plan.manual(c) and any(
-                ab.kind == "keywords" and "ascend" in ab.keywords for ab in plan.ch(c).abilities)
-               for c in plan.state.cards.values()):
+        if ascend_permanent_due(plan, pid):
             get_city_blessing(plan, pid)
             happened = True
     return happened
+
+
+# -- storied (wave 45D) -- 702.195: the enduring story designation
+def storied_permanents(plan: Plan) -> bool:
+    """702.195a: any time a player controls a permanent with storied and three or more permanents that are artifacts, Sagas
+    and/or legendary, they get the enduring story designation for the rest of the game (702.195b: no other rules meaning).
+    (-- review 39 -- the keyword as the permanent has it now, 613: one that lost all its abilities has no storied.)"""
+    happened = False
+    for pid in plan.live():
+        if pid in plan.rules.enduring_story:
+            continue
+        mine = [c for c in plan.state.cards.values() if c.controller == pid and c.zone.endswith(":battlefield") and not plan.manual(c)]
+        if not any("storied" in plan.ch(c).keywords for c in mine):
+            continue
+        n = sum(1 for c in mine if (ch := plan.ch(c)).supertypes & {"Legendary"} or ch.types & {"Artifact"} or "Saga" in ch.subtypes)
+        if n >= 3:
+            plan.rules.enduring_story.append(pid)
+            plan.note(f"{plan.name(pid)} has an enduring story")
+            happened = True
+    return happened
+
+
+def ascend_permanent_due(plan: Plan, pid: str) -> bool:
+    """-- most-played cards II (wave 45A) -- 702.131b: ten permanents and a permanent with ascend: the blessing is theirs at once ("any time"), also in the middle of a
+    resolution before the state-based actions are checked (Ocelot Pride's ruling 2024-06-07: its Cat as the tenth permanent gives it before the ability checks)."""
+    return city_blessing_due(plan, pid) and any(
+        c.controller == pid and c.zone.endswith(":battlefield") and not plan.manual(c) and any(
+            ab.kind == "keywords" and "ascend" in ab.keywords for ab in plan.ch(c).abilities)
+        for c in plan.state.cards.values())

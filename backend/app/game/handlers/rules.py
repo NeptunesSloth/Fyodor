@@ -105,7 +105,12 @@ def rules_damage(state: GameState, a: A.RulesDamage) -> None:
     # damage is dealt simultaneously (one event batch).
     for d in a.dealt:
         emit(state, "damage", object_id=d.target_object, card=d.target if d.target in state.cards else None,
-             player=d.target if d.target in state.players else None, source=d.source, amount=d.amount, combat=a.combat)
+             player=d.target if d.target in state.players else None, source=d.source, amount=d.amount, combat=a.combat,
+             excess=d.excess)
+        if d.amount > 0 and d.source and state.rules is not None:  # -- as long as (wave 35D) -- 120.3: "hasn't dealt (combat) damage yet"
+            for mark in (d.source, d.source + "+combat" if a.combat else ""):
+                if mark and mark not in state.rules.dealt_damage:
+                    state.rules.dealt_damage.append(mark)
     hurt = []
     for cid, n in a.creatures.items():
         card = ops.card(state, cid)

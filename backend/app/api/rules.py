@@ -80,10 +80,11 @@ def pod_inventory_markdown(services: ServicesDep) -> PlainTextResponse:
 
 
 @router.get("/games/{game_id}/rules/scenario", dependencies=[Depends(require_local)])
-def export_scenario(game_id: str, services: ServicesDep,
-                    intents: Annotated[int, Query(ge=1, le=20)] = 1) -> JSONResponse:
+async def export_scenario(game_id: str, services: ServicesDep,
+                          intents: Annotated[int, Query(ge=1, le=20)] = 1) -> JSONResponse:
     """EXPORT RULES SCENARIO (developer tool, host computer only): the last ``intents`` rules
     intents with the table just before them, redacted, ready to become a regression test."""
+    # (-- sync endpoints (wave 30B) -- on the event loop, between actions: it replays the live history, which trimming re-bases in steps)
     if not services.settings.dev_tools:
         raise HTTPException(403, "Developer tools are off (start Fyodor with FYODOR_DEV_TOOLS=1)")
     room = services.hub.get(game_id)

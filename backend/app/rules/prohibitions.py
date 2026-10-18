@@ -42,13 +42,19 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 Definition = dict[str, Any]
-KINDS = ("cant_enter", "cant_counters", "cant_pay", "cant_cause_sacrifice", "cant_search")
+KINDS = ("cant_enter", "cant_counters", "cant_play_lands", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap", "cant_target", "cant_play_gy_lands")
+# -- cant restrictions (wave 50G) -- 115.2: "Cards in graveyards can't be the targets of spells or abilities." (Dennick, Pious Apprentice), "Lands on the battlefield and land
+# cards in graveyards can't be the targets of spells or abilities your opponents control." (Tomik, Distinguished Advokist): whose spells and abilities, and which objects
+_UNTARGETABLE = re.compile(r"^(?P<what>[a-z ]+?) can't be the targets of spells or abilities(?P<opp> your opponents control)?$")
 
 _ENTER = re.compile(r"^(?P<what>(?:nonland )?(?:permanent|creature) cards) in (?P<zones>graveyards|libraries|graveyards and libraries) "
                     r"can't enter the battlefield$")
 _ZONES = {"graveyards": ("graveyard",), "libraries": ("library",), "graveyards and libraries": ("graveyard", "library")}
 _COUNTERS = re.compile(r"^counters can't be put on (?P<sel>[a-z, ]+)$")
 _SELF_COUNTERS = "~ can't have counters put on it"
+# -- most-played cards III (wave 46C) -- "Creatures your opponents control can't have +1/+1 counters put on them." (Blightbeetle), "Creatures you control can't have -1/-1
+# counters put on them." (Melira, Sylvok Outcast): a prohibition of one kind of counter (614.17), like "Counters can't be put on …" for the permanents the selector names
+_KIND_COUNTERS = re.compile(r"^(?P<sel>(?:creatures|permanents) (?:you control|your opponents control)) can't have (?P<counter>[+-]\d+/[+-]\d+) counters put on them$")
 _SEARCH_STATICS = {"players can't search libraries": "each", "your opponents can't search libraries": "opponents",
                    "spells and abilities your opponents control can't cause their controller to search their library": "caused"}
 # "Players can't pay life or sacrifice creatures to cast spells or activate abilities." (Angel of Jubilation, Yasharn), "Players can't pay life to
@@ -72,6 +78,12 @@ def static_definition(text: str) -> Definition | None:
         if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.extras or sel.other:
             return None
         return {"kind": "static", "static": "cant_counters", "sel": sel.key(), "effects": []}
+    m = _KIND_COUNTERS.fullmatch(t)
+    if m is not None:
+        sel = selectors.parse(m["sel"])
+        if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.extras or sel.other:
+            return None
+        return {"kind": "static", "static": "cant_counters", "sel": sel.key(), "counter": m["counter"], "effects": []}
     m = _PAY.fullmatch(t)
     if m is not None:
         sel = selectors.parse(m["sac"]) if m["sac"] else None
@@ -79,6 +91,22 @@ def static_definition(text: str) -> Definition | None:
             return None
         return {"kind": "static", "static": "cant_pay", "sac": sel.key() if sel else None,
                 "mana": m["act"] == " or activate abilities", "effects": []}
+    if t == "if an opponent would search a library, that player searches the top four cards of that library instead":
+        # -- most-played cards (wave 43B) -- 614.1a, 701.23 (Aven Mindcensor): the search sees only the top four cards; the whole library is shuffled afterwards if the text says so
+        return {"kind": "static", "static": "search_top", "n": 4, "effects": []}
+    m = re.fullmatch(r"(?P<who>each opponent|each player) can't draw more than one card each turn", t)
+    if m:  # -- most-played cards (wave 43B) -- 101.2: Narset, Parter of Veils; Spirit of the Labyrinth; Leovold (see ``draw_allowed``)
+        return {"kind": "static", "static": "draw_cap", "who": "opponents" if m["who"] == "each opponent" else "each", "n": 1, "effects": []}
+    m = _UNTARGETABLE.fullmatch(t)
+    if m:
+        sels = [selectors.parse(re.sub(r" on the battlefield$", "", part)) for part in m["what"].split(" and ")]
+        if any(x is None or x.player is not None or x.controller or x.owner or x.zone_owner or x.zones not in (("battlefield",), ("graveyard",)) for x in sels):
+            return None
+        return {"kind": "static", "static": "cant_target", "sels": [x.key() for x in sels if x is not None], "opponents": bool(m["opp"]), "effects": []}
+    if t == "your opponents can't play land cards from graveyards":  # -- cant restrictions (wave 50G) -- 305.1, 115.2 (Tomik): read by engine.land_play_problem
+        return {"kind": "static", "static": "cant_play_gy_lands", "effects": []}
+    if t == "players can't draw cards":  # -- cant restrictions (wave 50G) -- 121.2, 101.2: no draw at all (Maralen of the Mornsong, Omen Machine) is "can't draw more than 0 cards each turn" (see ``draw_left``)
+        return {"kind": "static", "static": "draw_cap", "who": "each", "n": 0, "effects": []}
     if t in _SEARCH_STATICS:  # (Mindlock Orb, Stranglehold, Ashiok, Dream Render)
         return {"kind": "static", "static": "cant_search", "who": _SEARCH_STATICS[t], "effects": []}
     if t == "spells and abilities your opponents control can't cause you to sacrifice permanents":  # (Sigarda, Tajuru Preserver)
@@ -89,6 +117,10 @@ def static_definition(text: str) -> Definition | None:
         return {"kind": "static", "static": "cant_counters", "sel": None, "effects": []}
     if t == "players can't get counters":  # (122.1: a player gets counters; poison, energy, experience, rad)
         return {"kind": "static", "static": "cant_counters", "sel": None, "players": True, "effects": []}
+    if t == "you can't get poison counters":  # -- commanders (wave 50C) -- 614.17, 122.1: Melira, Sylvok Outcast (infect damage to its controller still isn't dealt as life loss, 120.3b)
+        return {"kind": "static", "static": "cant_counters", "sel": None, "players": True, "who": "you", "counter": "poison", "effects": []}
+    if t == "you can't play lands":  # -- most-played cards III (wave 46C) -- 305.1: its controller can't play a land (Aggressive Mining); read by engine.land_play_problem
+        return {"kind": "static", "static": "cant_play_lands", "effects": []}
     return None
 
 
@@ -119,14 +151,16 @@ def cant_enter(plan: Plan, card: CardInstance, controller: str) -> tuple[str, bo
     return None
 
 
-def cant_get_counters(plan: Plan) -> str | None:
-    """The permanent saying players can't get counters (614.17), or None."""
-    return next((_label(src) for src, d in _statics(plan, "cant_counters") if d.get("players")), None)
+def cant_get_counters(plan: Plan, player: str | None = None, kind: str | None = None) -> str | None:
+    """The permanent saying players can't get counters (614.17), or None. -- commanders (wave 50C) -- a line about its controller only ("You can't get
+    poison counters.") and one kind of counter bars ``player`` getting that kind only."""
+    return next((_label(src) for src, d in _statics(plan, "cant_counters") if d.get("players")
+                 and (d.get("who") != "you" or src.controller == player) and d.get("counter") in (None, kind)), None)
 
 
-def cant_counters(plan: Plan, card_id: str, entering_for: str | None) -> str | None:
+def cant_counters(plan: Plan, card_id: str, entering_for: str | None, counter: str | None = None) -> str | None:
     """The permanent saying counters can't be put on this card (614.17), or None. ``entering_for``: the controller it is entering
-    under (it isn't on the battlefield yet: only other permanents' lines are read)."""
+    under (it isn't on the battlefield yet: only other permanents' lines are read). ``counter``: the kind put (a line about one kind, wave 46C, bars that kind only)."""
     found = _statics(plan, "cant_counters")
     card = plan.state.cards.get(card_id)
     if card is None or not found and entering_for is None:
@@ -141,7 +175,7 @@ def cant_counters(plan: Plan, card_id: str, entering_for: str | None) -> str | N
         if any(self_text(ab.text, ch.name).rstrip(".") == _SELF_COUNTERS for ab in ch.abilities):
             return _label(card)
     for src, d in found:
-        if d.get("players"):
+        if d.get("players") or (d.get("counter") and d["counter"] != counter):
             continue
         if d["sel"] is None:
             if src.id == card_id and entering_for is None:
@@ -168,6 +202,48 @@ def cant_search(plan: Plan, searcher: str, by: str, library: str | None = None) 
     return "an effect" if any(x["what"] == "search" and x["player"] == searcher and x["turn"] == turn for x in plan.rules.results) else None
 
 
+def search_depth(plan: Plan, searcher: str) -> int | None:
+    """-- most-played cards (wave 43B) -- 614.1a, 701.23: how many cards from the top of a library ``searcher`` may search (None: all of it): an opponent of the
+    controller of "If an opponent would search a library, that player searches the top four cards of that library instead" (Aven Mindcensor). The cards
+    outside the top are not seen and cannot be found, however they could be identified; the library is shuffled afterwards as the text says."""
+    depths = [int(d["n"]) for src, d in _statics(plan, "search_top") if src.controller != searcher]
+    return min(depths) if depths else None
+
+
+def draw_left(plan: Plan, player: str) -> tuple[int, int] | None:
+    """-- most-played cards (wave 43B) -- 101.2, 121.2: with "Each opponent can't draw more than one card each turn" (Narset, Parter of Veils) in play, how many more
+    cards ``player`` may draw this turn and the limit (None: no limit): the limit less what they drew already this turn (the cards drawn before the permanent came
+    count, the rulings). -- review 37 -- read one draw at a time (replace.draw_cards): a draw not allowed isn't made, so no replacement effect sees it; one a replacement
+    effect replaced was not drawn and doesn't count (Narset and Leovold rulings: "if an opponent's first draw is replaced … Narset won't stop the next draw")."""
+    caps = [int(d["n"]) for src, d in _statics(plan, "draw_cap") if d["who"] == "each" or src.controller != player]
+    if not caps:
+        return None
+    from app.game.rules_state import turn_log_now
+
+    log = turn_log_now(plan.state)
+    return max(0, min(caps) - (log.drew.get(player, 0) if log is not None else 0)), min(caps)
+
+
+def untargetable(plan: Plan, chooser: str, card: CardInstance) -> bool:
+    """-- cant restrictions (wave 50G) -- 115.2: may ``chooser`` (who controls the spell or ability that targets) not target this card or permanent because of a "can't be the
+    target of spells or abilities [your opponents control]" static (Dennick, Tomik): of the player it says it for, "your opponents" being everyone but its controller."""
+    found = _statics(plan, "cant_target")
+    ch = plan.ch(card) if found else None
+    return ch is not None and any(
+        not (d["opponents"] and chooser == src.controller)
+        and any(selectors.matches(plan, selectors.from_key(k), card, ch, src.controller, src.id) for k in d["sels"]) for src, d in found)
+
+
+def note_search(plan: Plan, searcher: str, owner: str) -> None:
+    """-- most-played cards (wave 43B) -- 701.23: ``searcher`` searches their own library (even when nothing is found): the event "Whenever an opponent
+    searches their library" (Archivist of Oghma, Wan Shi Tong, Ob Nixilis, Unshackled) reads; a search of another player's library is not "their library"
+    (the rulings), a search the searcher can't make (cant_search) never starts."""
+    from app.game.rules_state import emit
+
+    if searcher == owner:
+        emit(plan.state, "designation", counter="search_library", player=searcher)
+
+
 _SEARCH_EFFECT = re.compile(r"^players can't search libraries this turn$")
 
 
@@ -175,7 +251,31 @@ def _build_search(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "cant_search_turn", "who": "each_player"}], None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_SEARCH_EFFECT, _build_search)]
+# -- most-played cards (wave 43B) -- 101.2, 701.6, 611.2a: "Spells you control can't be countered this turn." (Veil of Summer), "Creature spells you cast this turn can't
+# be countered." (Domri, Anarch of Bolas): every such spell of that player for the rest of the turn, those already on the stack too (the rulings)
+_UNCOUNTERABLE_EFFECT = re.compile(r"^(?:(?P<sel>[\w ,'-]+?) )?spells you (?:control|cast)(?P<mid> this turn)? can't be countered(?P<end> this turn)?$")
+
+
+def _build_uncounterable(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import permissions
+    from app.rules.scripts import _NoMatch
+
+    key = permissions.spell_filter(m["sel"]) if m["sel"] else None
+    if bool(m["mid"]) == bool(m["end"]) or (m["sel"] and key is None):
+        raise _NoMatch
+    return [{"do": "uncounterable_turn", "filter": key}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_SEARCH_EFFECT, _build_search), (_UNCOUNTERABLE_EFFECT, _build_uncounterable)]
+
+
+def uncounterable_turn(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The spells ``ctx["controller"]`` controls (matching the filter) can't be countered until the turn ends (permissions.spell_uncounterable reads it)."""
+    r = plan.rules
+    turn = plan.state.turn.number
+    r.results = [x for x in r.results if x["turn"] == turn]
+    r.results.append({"player": ctx["controller"], "what": "uncounterable", "turn": turn, "filter": e.get("filter")})
+    return True
 
 
 def cant_search_turn(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -191,7 +291,33 @@ def cant_search_turn(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool
     return True
 
 
-PRIMITIVES = {"cant_search_turn": cant_search_turn}
+def uncounterable_next(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"The next [creature] spell you cast this turn can't be countered.": waits for that spell (``bind_next_uncounterable``, as it is cast)."""
+    r = plan.rules
+    turn = plan.state.turn.number
+    r.results = [x for x in r.results if x["turn"] == turn]
+    r.results.append({"player": ctx["controller"], "what": "uncounterable_next", "turn": turn, "filter": e.get("filter")})
+    return True
+
+
+def bind_next_uncounterable(plan: Plan, card: Any, player: str) -> None:
+    """A spell was just cast by ``player`` (601.2a): every waiting "next spell … can't be countered" of theirs that fits it now belongs to this very spell (400.7: a new
+    object later is another spell), and is used up."""
+    from app.rules import permissions
+
+    r = plan.rules
+    turn = plan.state.turn.number
+    waiting = [x for x in r.results if x.get("what") == "uncounterable_next" and x["turn"] == turn and x["player"] == player]
+    if not waiting:
+        return
+    ch = plan.ch(card)
+    oid = r.object_id(card.id)
+    for x in waiting:
+        if not x.get("filter") or permissions.spell_matches(plan.state, player, card, ch, x["filter"], plan.info):
+            x["what"], x["oid"] = "uncounterable", oid
+
+
+PRIMITIVES = {"cant_search_turn": cant_search_turn, "uncounterable_turn": uncounterable_turn, "uncounterable_next": uncounterable_next}
 
 
 def cant_cause_sacrifice(plan: Plan, victim: str, by: str) -> str | None:

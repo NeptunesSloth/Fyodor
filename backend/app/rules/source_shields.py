@@ -181,7 +181,7 @@ def _turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], None]:
 _NEXT_N = re.compile(r"prevent the next (?P<n>\d+|one|two|three|four|five|X) damage that would be dealt (?P<early>this turn )?to "
                      r"(?P<to>you|any target|target player or planeswalker|~|this creature|enchanted creature|"
                      r"each creature you control|each creature and each player|any number of targets, divided as you choose|"
-                     r"target (?P<sel>[a-z ]+?))(?P<late> this turn)?")
+                     r"target (?P<sel>[A-Za-z ]+?))(?P<late> this turn)?")  # (wave 50E: a creature type is capitalised: "target Cleric or Wizard creature", Wandering Mage)
 
 
 def _next_n(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
@@ -196,8 +196,6 @@ def _next_n(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
             return [{"do": "prevent", "who": "target", "n": {"divided": 0}}], language._divided("any number of targets", "damage", n)
         except language._Fail:
             raise scripts._NoMatch from None
-    if isinstance(n, dict):
-        raise scripts._NoMatch  # (X only divided: elsewhere the amount is not read yet)
     if to in ("you", "enchanted creature", "~", "this creature"):
         return [{"do": "prevent", "who": {"you": "you", "enchanted creature": "host"}.get(to, "self"), "n": n}], None
     if to == "any target":
@@ -283,6 +281,94 @@ def _redirect_src(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "source_shield", "props": props, "once": True, "to": origin, "redirect": end}], target
 
 
+# -- one-shot shields (wave 35A) -- 615.8 / 609.7: "The next time {a source of your choice | this creature | target creature | an instant or
+# sorcery spell | a creature of the chosen type} would deal [combat] damage [to {you | an opponent | this creature | …}] this turn,
+# {prevent that damage | prevent half that damage, rounded down | that damage is dealt to … instead | it deals that damage to … instead}"
+# and "The next time damage would be dealt to {this creature [and/or you]} this turn, that damage is dealt to any target instead".
+# * The source is bound as the effect resolves, as the object it is then (400.7): a chosen one (609.7a), the creature the ability
+#   is of, or the target; a class of sources ("an instant or sorcery spell", "a creature of the chosen type": read from the chosen
+#   type as it deals damage, like the chosen color) is no object at all.
+# * "The next time" is one TIME damage is dealt (Gatherer rulings of Mirrorwood Treefolk, Glarecaster: "the redirection will apply to
+#   both chunks of damage" when several sources, or you and the creature, are dealt damage at the same time): every damage event of
+#   that batch it applies to is prevented / redirected, then it is used up (``batch`` in the op: replace._damage_applies); one that
+#   prevents nothing is not used up (609.7b). It lasts this turn, or this combat (``until``: combat.end_combat).
+# * A shield for a creature of the chosen type and the redirections to "that source's controller" / "its controller" read who the
+#   source is as the damage would be dealt (614.9, replace.redirect_target).
+# Refused: "all but 1" (Forcefield: an unblocked creature of your choice), choices by an opponent (Nova Pentacle), "any player may
+# pay" (Rhystic Circle), a reflexive "When damage is prevented this way" (603.12) and an additional damage event (Eye for an Eye).
+_SHIELD_SRC = (r"(?P<src>this creature|~|(?:a|an) (?:(?P<props>[a-z ]+?) )?source of your choice|target creature|"
+               r"target attacking creature|an instant or sorcery spell|a creature of the chosen type)")
+_SHIELD_TO = (r"(?P<to>you|an opponent|(?:this creature|~) and/or you|this creature|~|one or more players)")
+_SHIELD_ACT = (r"(?P<act>prevent that damage|prevent half that damage, rounded down|that damage is dealt to (?P<dest>this creature|~|you|"
+               r"any target|that source's controller) instead|(?:that source|it|that creature|that spell) deals that damage to "
+               r"(?P<dest2>target creature|itself|its controller|you) instead)")
+_SHIELD_WHEN = r"(?P<when>this turn|this combat)"
+_NEXT_DEALT = re.compile(r"the next time " + _SHIELD_SRC + r" would deal (?P<cb>combat )?damage(?: to " + _SHIELD_TO + r")? " + _SHIELD_WHEN
+                         + ", " + _SHIELD_ACT)
+_NEXT_TAKEN = re.compile(r"the next time damage would be dealt to (?P<to>(?:this creature|~) and/or you|this creature|~) " + _SHIELD_WHEN
+                         + ", " + _SHIELD_ACT)
+_SHIELD_TOS = {"you": "you", "an opponent": "opponent", "this creature and/or you": "self_you", "~ and/or you": "self_you", "this creature": "self", "~": "self",
+               "one or more players": "any_player", None: None}
+_SHIELD_ENDS = {"this creature": "self", "~": "self", "you": "you", "any target": "target", "that source's controller": "src_ctrl",
+                "target creature": "target", "itself": "src", "its controller": "src_ctrl"}
+
+
+def _shield_creature(phrase: str) -> Any:
+    """The selector key of "target creature" / "target attacking creature" (a creature, 120.1), or no match."""
+    from app.rules import scripts, selectors
+
+    sel = selectors.parse(phrase[len("target "):])
+    if sel is None or sel.zones != ("battlefield",) or sel.player is not None or sel.card or "Creature" not in sel.types:
+        raise scripts._NoMatch
+    return sel.key()
+
+
+def _next_dealt(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import scripts
+
+    g = m.groupdict()
+    src, target = g["src"], None
+    e: dict[str, Any] = {"do": "source_shield", "props": {}, "once": True, "to": _SHIELD_TOS[g.get("to")]}
+    if src in ("this creature", "~"):
+        e["src"] = "self"
+    elif src.startswith("target"):
+        e["src"], target = "target", _shield_creature(src)
+    elif src == "an instant or sorcery spell":
+        e["src"], e["props"] = "class", {"spell": True, "types": ["Instant", "Sorcery"]}
+    elif src == "a creature of the chosen type":
+        e["src"], e["props"] = "class", {"types": ["Creature"], "chosen_type": True}
+    else:
+        props = _props(g["props"])
+        if props is None:
+            raise scripts._NoMatch
+        e["props"] = props
+    if g["cb"]:
+        e["combat"] = True
+    if g["when"] == "this combat":
+        e["until"] = "end_of_combat"
+    dest = g["dest"] or g["dest2"]
+    if g["act"].startswith("prevent half"):
+        e["half"] = True
+    elif dest:
+        e["redirect"] = _SHIELD_ENDS[dest]
+        if dest in ("any target", "target creature"):
+            if target is not None:
+                raise scripts._NoMatch  # (two targets: not read)
+            target = scripts.SELECTORS[dest]
+    return [e], target
+
+
+def _next_taken(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import scripts
+
+    dest = m["dest"] or m["dest2"]
+    if not dest or dest == "src" or m["act"].startswith("prevent"):
+        raise scripts._NoMatch  # (a shield on a recipient with no source named: only a redirection to a target is read)
+    target = scripts.SELECTORS[dest] if dest in ("any target", "target creature") else None
+    return [{"do": "source_shield", "props": {}, "once": True, "src": "any", "to": _SHIELD_TOS[m["to"]], "redirect": _SHIELD_ENDS[dest],
+             **({"until": "end_of_combat"} if m["when"] == "this combat" else {})}], target
+
+
 # (registered first in app/rules/scripts.py EFFECTS: "prevent all damage that would be dealt …" is the
 # generic "prevent all" template's, which refuses the "source of your choice" wording)
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
@@ -295,6 +381,8 @@ TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
     (re.compile("^" + _REDIR_N.pattern + "$"), _redirect_n),
     (re.compile("^" + _REDIR_ALL.pattern + "$"), _redirect_all),
     (re.compile("^" + _REDIR_SRC.pattern + "$"), _redirect_src),
+    (re.compile("^" + _NEXT_DEALT.pattern + "$"), _next_dealt),  # (wave 35A)
+    (re.compile("^" + _NEXT_TAKEN.pattern + "$"), _next_taken),
 ]
 THE_DAMAGE = "the damage can't be prevented"  # (a sentence about the damage of the sentence before it)
 
@@ -328,7 +416,21 @@ _REDIRECT = re.compile(r"All damage that would be dealt to (?P<to>you|you and ot
                        r"is dealt to (?P<new>enchanted creature|equipped creature|~|its controller) instead\.")
 
 
+# -- redirection statics (wave 50E) -- 614.9: "As long as this creature is untapped, all combat damage that would be dealt to you by unblocked creatures is dealt to this creature instead."
+# (Weathered Bodyguards; Veteran Bodyguard without "combat"; the rulings: not a blocked creature's trample damage), "... by artifacts ..." (Martyrs of Korlis): only while the holder is
+# untapped (replace._damage_applies ``untapped``), and only for damage from sources of that kind (``sel``: the source as it is, an unblocked attacker, 509.1h)
+_REDIRECT_BY = re.compile(r"As long as ~ is untapped, all (?P<combat>combat )?damage that would be dealt to you by (?P<by>unblocked creatures|artifacts) is dealt to ~ instead\.")
+
+
 def redirect_definition(text: str) -> Definition | None:
+    if (b := _REDIRECT_BY.fullmatch(text.strip())) is not None:
+        from app.rules import selectors
+
+        sel = selectors.parse(b["by"])
+        assert sel is not None
+        return {"kind": "static", "static": "replace", "event": "damage", "op": {"do": "redirect", "to": "self"}, "effects": [],
+                "match": {"to": {"players": "you"}, "untapped": True, **({"combat": True} if b["combat"] else {}),
+                          "source": {"sel": sel.key()} if b["by"] == "unblocked creatures" else {"types": ["Artifact"]}}}
     m = _REDIRECT.fullmatch(text.strip())
     if m is None:
         return None
@@ -359,6 +461,16 @@ def redirect_target(plan: Plan, c: Any, ev: dict[str, Any]) -> str | None:
     new: str | None
     if into == "pid":  # -- prevention riders (wave 17A) -- a record of a resolved effect: the player / permanent it named
         new = c.op["pid"]
+    elif into == "src_ctrl":  # -- one-shot shields (wave 35A) -- "that damage is dealt to that source's controller instead": as it is now
+        new = (ev.get("src") or {}).get("controller")
+        if new is None or new not in plan.live():
+            return None
+        return new  # (the source's controller may be the recipient: the effect still applies and is used up, 614.9)
+    elif into == "src":  # "that creature deals that damage to itself instead" (Shield Dancer): the source, while it is that object here
+        source = plan.state.cards.get(ev.get("source_card") or "")
+        if source is None or not source.zone.endswith(":battlefield") or plan.oid(source) != ev.get("source_oid"):
+            return None
+        new = source.id
     elif into == "oid":
         new = next((x.id for x in plan.state.cards.values() if x.zone.endswith(":battlefield") and plan.oid(x) == c.op["oid"]), None)
     else:
@@ -544,6 +656,11 @@ def choosable(plan: Plan, props: dict[str, Any]) -> list[tuple[str, list[str], s
 
 
 def _describe(e: dict[str, Any]) -> str:
+    if e.get("src") or e.get("combat") or e.get("half"):  # -- one-shot shields (wave 35A) --
+        what = {"self": "this creature", "target": "the target creature"}.get(e.get("src") or "", "the source")
+        return (f"the next time {what} would deal {'combat ' if e.get('combat') else ''}damage, "
+                + ("that damage is dealt to something else instead" if e.get("redirect") else
+                   "prevent half that damage, rounded down" if e.get("half") else "prevent that damage"))
     kind = " or ".join(w for w, v in {**_COLORS, **_TYPES}.items()
                        if v in (e["props"].get("colors") or []) + (e["props"].get("types") or []))
     what = f"{'an' if kind[:1] in 'aeiou' and kind else 'a'} {kind + ' ' if kind else ''}source"
@@ -551,7 +668,7 @@ def _describe(e: dict[str, Any]) -> str:
     to = {"you": "you ", "host": "the enchanted creature ", "self": "this creature ", None: ""}.get(
         where, "the target " if where else "")
     if e.get("once"):
-        return f"the next time {what} of your choice would deal damage to {to}this turn, " + (
+        return f"the next time {what} of your choice would deal damage {'to ' + to if to else ''}this turn, " + (
             "that damage is dealt to something else instead" if e.get("redirect") else "prevent that damage")
     return f"prevent all damage {what} of your choice would deal {'to ' + to if to else ''}this turn"
 
@@ -572,6 +689,18 @@ def source_shield(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         e = {**e, "props": {"colors": [color]}}
     if _recipient(plan, ctx, e) is None:  # (-- prevention riders (wave 17A) -- the target it protects is gone: 608.2b)
         plan.note(f"{plan.name(pid)}: nothing is left for the effect to protect", actor=pid)
+        return True
+    if e.get("src"):  # -- one-shot shields (wave 35A) -- 609.7a: this creature / the target, as it is now (400.7), or sources of a class / any
+        from app.rules import effects
+
+        if e["src"] in ("class", "any"):
+            _record(plan, ctx, e, None, "")
+            return True
+        mine = effects._cards(plan, ctx, e["src"])
+        if not mine:
+            plan.note(f"{plan.name(pid)}: the source is gone, so the effect does nothing", actor=pid)
+            return True
+        _record(plan, ctx, e, [plan.oid(mine[0])], _label(plan, mine[0], plan.oid(mine[0]))[0])  # (a face-down target is not named)
         return True
     options = choosable(plan, e.get("props") or {})
     if not options:
@@ -648,22 +777,35 @@ _WHO_OK = frozenset({"you", "self", "each_opponent", "each_player"})
 _COLORS_BY_WORD = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
 
 
-def rider_body(body: str, it: str | None = None) -> list[dict[str, Any]] | None:
+def rider_body(body: str, it: str | None = None, *, to_player: bool = False, prevented: bool = False) -> list[dict[str, Any]] | None:
     """The effects of a rider sentence (first letter lower-cased, no final period), or None (not read). ``it``: what "it" /
-    "him" / "her" mean in a static's rider: "self" (the permanent itself) or "to" (the creature the damage was dealt to)."""
+    "him" / "her" mean in a static's rider: "self" (the permanent itself) or "to" (the creature the damage was dealt to).
+    ``to_player`` (-- damage bodies (wave 35C) --): "that player" is the player the damage would be dealt to (the replaced damage's). ``prevented``: the
+    sentence follows "If damage is prevented this way", so its "that many" is the damage prevented (review 39)."""
     from app.rules import scripts
 
+    # -- static_other (wave 42A) -- 615.5: "prevent that damage, remove that many +1/+1 counters from Sekki, and create that many 1/1 colorless Spirit creature
+    # tokens" (Sekki, Seasons' Guide): several additional effects, each read on its own and done in that order, each by the damage prevented
+    pieces = re.split(r", and (?=create that many |remove that many |put that many )", body)
+    if len(pieces) > 1:
+        found_pieces = [rider_body(piece, it, to_player=to_player, prevented=prevented) for piece in pieces]
+        return None if any(f is None for f in found_pieces) else [e for f in found_pieces if f for e in f]
     text, target = body, None
     if it:
         text = re.sub(r"\b(?:it|him|her)\b", "this creature" if it == "self" else "that creature", text)
     lead = re.match(r"^for each 1 damage prevented this way, (?P<rest>.+)$", text)
     if lead:
         text = f"{lead['rest']} for each 1 damage prevented this way"
-    for phrase, surrogate, name in _ANAPHORS:
+    for phrase, surrogate, name in (*_ANAPHORS, *((("that player", "target player", "to_player"),) if to_player else ())):
         if phrase in text:
             if target is not None:
                 return None
             text, target = text.replace(phrase, surrogate), (surrogate, name)
+    text = re.sub(r"^exile cards from the top of your library equal to the damage prevented this way$",  # (wave 35A: Bone Mask)
+                  "exile the top X cards of your library", text)
+    # -- review 39 -- "that many" / "that much" is the damage the effect applied to, so damage that can't be prevented still counts (615.12; rulings:
+    # Polukranos 2020-01-24, Jared Carthalion True Heir 2020-11-10, Gloom Surgeon 2012-05-01), unlike "the damage prevented this way" (Phyrexian Hydra)
+    that = re.search(r"\bthat (?:many|much)\b", text) is not None and "prevented this way" not in text and not prevented
     text = re.sub(r"\bthat much (damage|life)\b", r"X \1", text)
     text = re.sub(r"\bthat many\b", "X", text)
     if re.search(r"\bX\b", text):
@@ -676,15 +818,19 @@ def rider_body(body: str, it: str | None = None) -> list[dict[str, Any]] | None:
     if found is None:
         return None
     effects, spec, optional = found
-    if optional or spec != ({"from_ctrl": "player", "to": 'sel:{"types":["Creature"]}'}[target[1]] if target else None):
+    if that:
+        effects = json.loads(json.dumps(effects).replace('{"ref_amount": "prevented"}', '{"ref_amount": "that_damage"}'))
+    if optional or spec != ({"from_ctrl": "player", "to": 'sel:{"types":["Creature"]}', "to_player": "player"}[target[1]] if target else None):
         return None
     out = []
     for e in effects:
         if e.get("do") not in RIDER_DOS or e.get("optional") or e.get("may"):
             return None
         who = e.get("who")
+        if e.get("player") == "target" and target is not None and target[1] == "to_player":  # (a library: "the top X cards of that player's library")
+            e = {**e, "player": "ref:to"}
         if who == "target" and target is not None:
-            e = {**e, "who": f"ref:{target[1]}"}
+            e = {**e, "who": f"ref:{'to' if target[1] == 'to_player' else target[1]}"}
         elif who is not None and who not in _WHO_OK and e.get("do") != "create_token":
             return None
         out.append(e)
@@ -706,7 +852,7 @@ def rider(text: str, effects: list[dict[str, Any]]) -> bool | None:
     scope = last.get("scope") or {}
     receives = last["do"] == "prevent" or (last["do"] == "prevent_all" and not any(k.startswith("by_") for k in scope)
                                            and any(k.startswith("to_") for k in scope))
-    found = rider_body(body)
+    found = rider_body(body, prevented=m is not None)
     if found is None or (not receives and "ref:to" in json.dumps(found)):  # ("that creature": the one the damage was dealt to)
         return False
     cols = [_COLORS_BY_WORD[m["col"].split()[1]]] if m and m["col"] else []
@@ -726,6 +872,7 @@ def run_rider(plan: Plan, r: dict[str, Any]) -> None:
     ctx: Context = {"controller": r["by"], "source_card": r["card"], "source_object": r["oid"], "name": r["name"],
                     "effects": rider_["effects"], "next": 0, "stack_id": ""}
     context.bind_amount(ctx, "prevented", n)
+    context.bind_amount(ctx, "that_damage", int(r.get("of", n)))  # (review 39: the damage it applied to, prevented or not)
     to = ev["target"]
     if to in plan.state.players:
         context.bind_players(ctx, "to", [to])
@@ -747,6 +894,13 @@ def _recipient(plan: Plan, ctx: Context, e: dict[str, Any]) -> dict[str, Any] | 
         return {}
     if to == "you":
         return {"players": "you"}
+    if to in ("opponent", "any_player"):  # -- one-shot shields (wave 35A) -- "to an opponent", "to one or more players"
+        return {"players": "opponent" if to == "opponent" else "any"}
+    if to == "self_you":  # "this creature and/or you": each end it still has (it may have left; you are always there)
+        from app.rules import effects
+
+        mine = effects._cards(plan, ctx, "self")
+        return {"players": "you", **({"objects": {"oids": [plan.oid(mine[0])]}} if mine else {})}
     if to in ("you_perms", "you_creatures"):
         from app.rules import selectors
 
@@ -795,22 +949,26 @@ def redirect_damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-def _record(plan: Plan, ctx: Context, e: dict[str, Any], oids: list[str], label: str) -> None:
+def _record(plan: Plan, ctx: Context, e: dict[str, Any], oids: list[str] | None, label: str) -> None:
     from app.rules import replace
 
     pid = ctx["controller"]
-    match: dict[str, Any] = {"source": {"oids": list(oids), **(e.get("props") or {})}, "to": _recipient(plan, ctx, e)}
-    op: dict[str, Any] = {"do": "prevent_all", "prevention": True, **({"once": True} if e.get("once") else {}),
+    # (wave 35A: oids None: a class of sources, only its properties; "batch": one time damage is dealt covers every event of the batch)
+    match: dict[str, Any] = {"source": {**({"oids": list(oids)} if oids is not None else {}), **(e.get("props") or {})},
+                             "to": _recipient(plan, ctx, e), **({"combat": True} if e.get("combat") else {})}
+    op: dict[str, Any] = {"do": "prevent_half_down" if e.get("half") else "prevent_all", "prevention": True,
+                          **({"once": True, "batch": True} if e.get("once") else {}),
                           **({"rider": e["rider"]} if e.get("rider") else {})}  # (wave 17A) 615.5
     if e.get("redirect"):  # (-- prevention riders (wave 17A) -- 614.9: "that damage is dealt to … instead")
-        dest = _destination(plan, ctx, e["redirect"])
+        dest = {"to": e["redirect"]} if e["redirect"] in ("src", "src_ctrl") else _destination(plan, ctx, e["redirect"])
         if dest is None:
             plan.note(f"{plan.name(pid)}: nothing is left for the damage to be dealt to", actor=pid)
             return
-        op = {"do": "redirect", "once": True, **dest}
+        op = {"do": "redirect", "once": True, "batch": True, **dest}
     replace.add_record(plan, event="damage", match=match, op=op, controller=pid, source=ctx.get("source_object"),
-                       source_card=ctx.get("source_card"), label=ctx.get("name") or "a prevention effect")
-    plan.note(f"{plan.name(pid)} chose {label}: {_describe(e)}", actor=pid)
+                       source_card=ctx.get("source_card"), label=ctx.get("name") or "a prevention effect",
+                       **({"until": e["until"]} if e.get("until") else {}))
+    plan.note(f"{plan.name(pid)} chose {label}: {_describe(e)}" if label else f"{plan.name(pid)}: {_describe(e)}", actor=pid)
 
 
 def resume_source_shield(plan: Plan, d: Any, chosen: list[str]) -> None:

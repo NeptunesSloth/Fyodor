@@ -14,6 +14,7 @@ and the effect subject "the chosen player" (``who: "chosen_player"``, effects._p
 from __future__ import annotations
 
 import json
+import re
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -43,7 +44,9 @@ def chooses_player(ch: Characteristics) -> bool:
 #   is evaluated for another object) and never on a card without that one enters choice.
 # * a "Choose a creature type." instruction earlier in the same resolution (Kindred Dominance, Bloodline Bidding) —
 #   bind_effects puts the answer into the instructions after it as the choice is made (effects.resume_choose_value).
-_SOURCE_KEYS = frozenset({"who", "sel", "spell", "obj", "what"})
+RULE_PREFIX = "cant_be_blocked_by:"
+_CHOSEN_COLOR_LINE = re.compile(r"(?:Protection|Hexproof) from the chosen color")
+_SOURCE_KEYS = frozenset({"who", "sel", "spell", "obj", "what", "source"})  # (wave 43A: "source": a trigger multiplier's sources — Roaming Throne, read against its own choice)
 
 
 def _uses(node: Any, key: str = "") -> list[tuple[str, str]]:
@@ -54,6 +57,8 @@ def _uses(node: Any, key: str = "") -> list[tuple[str, str]]:
         return [u for k, v in node.items() for u in _uses(v, k)]
     if isinstance(node, list):
         return [u for v in node for u in _uses(v, key)]
+    if isinstance(node, str) and node.startswith(RULE_PREFIX):  # -- chosen type (wave 50J) -- "can't be blocked by creatures of the chosen color": the rule carries the selector
+        node = node[len(RULE_PREFIX):]
     if isinstance(node, str) and node.startswith(selectors.PREFIX) and "chosen_" in node:
         sel = selectors.from_key(node)
         what = selectors.chosen_what(sel)
@@ -70,7 +75,7 @@ def _enters_choices(ch: Characteristics) -> list[str]:
 
     texts = [self_text(ab.text, ch.name) for ab in ch.abilities]
     named = [e["what"] for t in texts if (d := card_names.enters_choice(t)) is not None for e in d["effects"] if card_names.is_choice(e["what"])]
-    return [m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None] + ["card name" for _ in named]
+    return ["card type" if m["what"].startswith(("card type", "artifact, ")) else "number" if m["what"].startswith("number") else "abilities" if m["what"].startswith("two abilities") else "creature type" if m["what"][:1].isupper() else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None] + ["card name" for _ in named]  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
 
 
 def _kind(what: str | None) -> str | None:
@@ -86,14 +91,17 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     if d.get("chosen_type") and _enters_choices(ch).count("basic land type" if d["chosen_type"] == "land" else "creature type") != 1:
         return False  # (wave 11E: "~ is the chosen type in addition to its other types" needs that one choice)
 
+    if d.get("chosen_keywords") and _enters_choices(ch).count("abilities") != 1:
+        return False  # (wave 49B: "Humans you control have each of the chosen abilities." needs that one choice, Greymond)
+
     dumped = json.dumps(d)
     if "Protection from the chosen color" in dumped and d.get("static") == "grant":  # -- attached events (wave 25D) -- an Aura's static: its own enters choice
         return _enters_choices(ch).count("color") == 1
-    if "Protection from the chosen color" in dumped:  # -- chosen type (wave 20E) -- only in the instructions after a "Choose a color." of this resolution
+    if _CHOSEN_COLOR_LINE.search(dumped):  # -- chosen type (wave 20E) -- only in the instructions after a "Choose a color." of this resolution (wave 50J: and hexproof from it)
         effects = d.get("effects") or []
         picks = [i for i, e in enumerate(effects) if e.get("do") == "choose_value" and e.get("what") == "color" and not e.get("remember")]
-        if len(picks) != 1 or any("Protection from the chosen color" in json.dumps(e) for e in effects[: picks[0]]) \
-                or "Protection from the chosen color" in json.dumps({k: v for k, v in d.items() if k != "effects"}):
+        if len(picks) != 1 or any(_CHOSEN_COLOR_LINE.search(json.dumps(e)) for e in effects[: picks[0]]) \
+                or _CHOSEN_COLOR_LINE.search(json.dumps({k: v for k, v in d.items() if k != "effects"})):
             return False
     if ('"hand": "chosen"' in dumped or '\\"controller\\":\\"chosen\\"' in dumped or '\\"zone_owner\\":\\"chosen\\"' in dumped) \
             and not chooses_player(ch):
@@ -132,12 +140,16 @@ def bind_effects(effects: list[dict[str, Any]], what: str, value: str) -> list[d
             return {k: walk(v) for k, v in node.items()}
         if isinstance(node, list):
             return [walk(v) for v in node]
+        if isinstance(node, str) and node.startswith(RULE_PREFIX) and "chosen_" in node:  # (wave 50J: a restriction's rule carries its selector)
+            return RULE_PREFIX + walk(node[len(RULE_PREFIX):])
         if isinstance(node, str) and node.startswith(selectors.PREFIX) and "chosen_" in node:
             sel = selectors.from_key(node)
             if selectors.chosen_what(sel) == what and (bound := selectors.bind_chosen(sel, value)) is not None:
                 return bound.key()
         if node == "Protection from the chosen color" and what == "color":  # (wave 20E: protection_grants.CHOSEN_LINE)
             return f"Protection from {value.lower()}"
+        if node == "Hexproof from the chosen color" and what == "color":  # (wave 50J: protection_grants.CHOSEN_HEXPROOF)
+            return f"Hexproof from {value.lower()}"
         return node
 
     return [walk(e) for e in effects]
@@ -174,3 +186,36 @@ def player_of(plan: Plan, card_id: str, object_id: str | None = None) -> str | N
         return pid if pid in plan.state.players and plan.state.players[pid].name == shown else None
     named = [p for p, player in plan.state.players.items() if player.name == shown]  # (an older save: a name only)
     return named[0] if len(named) == 1 else None
+
+
+# -- linked words (wave 33B) --------------------------------------------------------------------------------------------
+# 607.2f: "As this enchantment enters, choose Khans or Dragons." is a choice between words that have no rules meaning; the abilities
+# printed after it ("• Khans — …", ``AbilityText.linked``, app/rules/oracle.py) are linked to it and each refers only to a choice involving
+# its own word. The choice is made as it enters (614.12a), by its controller, and belongs to that object (400.7): ``RulesState.chosen_words``
+# (object id -> word, what the rules read; ``copying.with_level`` puts it in ``Characteristics.word``) and the permanent's public ``choices``
+# entry ("Chosen word: Khans", the display). An object with no recorded word has none of the linked abilities (a token copy is asked as it enters, wave 34A:
+# replacements.token_choices; one made by a site that can't pause is left to the players, copying.token_copy).
+WORDS = "word: "  # the entering choice's name: "word: Khans or Dragons"
+WORD_LABEL = "Chosen word"
+ENTERS_WORDS = re.compile(r"^As ~ enters, choose (?P<a>[A-Z][\w'’-]*) or (?P<b>[A-Z][\w'’-]*)\.$")
+
+
+def words_header(text: str, ch: Characteristics) -> dict[str, Any] | None:
+    """The entering choice of "As ~ enters, choose A or B." when the object has exactly one linked ability for each word."""
+    m = ENTERS_WORDS.match(text)
+    if m is None or sorted(a.linked for a in ch.abilities if a.linked) != sorted((m["a"], m["b"])):
+        return None
+    return {"kind": "replacement", "replacement": "enters_choice",
+            "effects": [{"do": "choose_value", "who": "you", "what": f"{WORDS}{m['a']} or {m['b']}", "remember": True}]}
+
+
+def words(what: str) -> list[str] | None:
+    return what[len(WORDS):].split(" or ") if what.startswith(WORDS) else None
+
+
+def record_word(plan: Plan, card_id: str, word: str) -> None:
+    """Remember the word this object chose (its object id now)."""
+    r = plan.rules
+    on_field = {plan.oid(c) for c in plan.state.cards.values() if c.zone.endswith(":battlefield")}
+    r.chosen_words = {oid: w for oid, w in r.chosen_words.items() if oid in on_field or oid in r.lki}  # (400.7)
+    r.chosen_words[plan.oid(card_id)] = word

@@ -52,7 +52,7 @@ def test_templates(name, type_line, text, expected):
 
 @pytest.mark.parametrize("text", [
     "Destroy target creature of the chosen type.",  # a selector the engine doesn't know: never guessed
-    "Whenever players finish voting, you gain 1 life.",  # a trigger event the engine doesn't model yet
+    # ("Whenever players finish voting" is an event since wave 48D)
     "When this creature enters, draw a card for each foo you control.",
     "Counter target spell.",
     "When this creature enters, if you control the most creatures, draw a card.",  # (a condition not read yet)
@@ -71,7 +71,7 @@ def test_generic_grammar_now_reads_these():
 def test_a_spell_is_automated_only_as_a_whole():
     opt = ch("Opt", "Instant", "Scry 1.\nDraw a card.")
     assert [e["do"] for e in scripts.spell_definition(opt)["effects"]] == ["scry", "draw"]
-    half = ch("Half", "Instant", "Draw a card.\nTarget player chooses a card name.")
+    half = ch("Half", "Instant", "Draw a card.\nDraw a card for each foo you control.")
     assert scripts.spell_definition(half) is None  # one manual line: the whole spell is resolved by hand
 
 

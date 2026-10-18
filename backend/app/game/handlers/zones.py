@@ -72,7 +72,8 @@ def move(state: GameState, a: A.Move) -> None:
                 x, y = a.x + i * 18, a.y + i * 18
         if c.zone.endswith(":command") and dest == STACK and c.commander_key:
             commander_casts.append(c)
-        ops.move_card(state, c, dest, index=index, position=a.position, x=x, y=y, face_down=a.face_down, rest=a.rest_zone)
+        ops.move_card(state, c, dest, index=index, position=a.position, x=x, y=y, face_down=a.face_down, rest=a.rest_zone,
+                      keep_counters=c.id in (a.keep_counters or ()))
         if dest == STACK and sources[c.id] != STACK and a.actor in state.players:
             c.controller = a.actor  # -- refused look/cast-free (wave 3R5) -- 601.2a: the player who casts a spell controls it
         if (a.tapped or c.id in tapped) and ops.zone_name(dest) == "battlefield" and c.id in state.cards:
@@ -106,9 +107,10 @@ def move(state: GameState, a: A.Move) -> None:
     for (src, dest), group_cards in by_route.items():
         if src == dest and ops.zone_name(dest) != "library":
             continue  # reordering within hand / battlefield is not worth a log line
-        if ops.zone_name(dest) == "library" and len(group_cards) > 1 and all(who_saw.get(c.id) == {ALL} for c in group_cards):
+        if ops.zone_name(dest) == "library" and len(group_cards) > 1:
             # -- review (wave 29B) -- 401.4: the order of cards put into a library together isn't revealed ("in a random order", "in any
-            # order"): public cards are listed by name, not in the order they went in
+            # order"): the cards are listed by name, not in the order they went in (-- review 30 -- to the players who looked at them too:
+            # a random order is no one's; a hidden card is only counted, so its place in the list says nothing)
             group_cards = sorted(group_cards, key=lambda c: (c.name or "", c.id))
         verb = _verb(src, dest, a.position)
         parts = [pname(state, a.actor), text(f" {verb} "), group(state, group_cards, who_saw)]

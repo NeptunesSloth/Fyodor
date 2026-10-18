@@ -270,7 +270,8 @@ def _create_room(services: Services, session: GameSession, mode: str, password: 
 
 
 @router.get("/games")
-def list_games(request: Request, services: ServicesDep) -> list[dict[str, Any]]:
+async def list_games(request: Request, services: ServicesDep) -> list[dict[str, Any]]:
+    # (-- sync endpoints (wave 30B) -- on the event loop, see game_summary)
     local = is_local_request(request)
     return [r.summary() for r in services.hub.rooms.values() if local or r.mode == "lan"]
 
@@ -311,7 +312,9 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
 
 
 @router.get("/games/{game_id}")
-def game_summary(game_id: str, services: ServicesDep) -> dict[str, Any]:
+async def game_summary(game_id: str, services: ServicesDep) -> dict[str, Any]:
+    # -- sync endpoints (wave 30B) -- on the event loop like GET /view (review 29A): actions change the table there with no await in
+    # between, so a read on the loop sees whole tables; on the threadpool it iterates the room's connections while a socket joins or leaves
     room = _room(services, game_id)
     return room.summary()
 
@@ -502,9 +505,10 @@ class AskIn(BaseModel):
 
 
 @router.post("/games/{game_id}/assistant")
-def ask_assistant(game_id: str, body: AskIn, request: Request, services: ServicesDep,
-                  x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+async def ask_assistant(game_id: str, body: AskIn, request: Request, services: ServicesDep,
+                        x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
     """Ask the optional local rules assistant. It sees only the asking player's view."""
+    # (-- sync endpoints (wave 30B) -- the view is built on the event loop, between actions, as GET /view's is; the model call blocks: threadpool)
     if services.assistant is None:
         raise HTTPException(404, "The rules assistant is disabled (set FYODOR_ASSISTANT_URL to enable it)")
     room = _room(services, game_id)
@@ -513,7 +517,7 @@ def ask_assistant(game_id: str, body: AskIn, request: Request, services: Service
         viewer = room.session.state.turn.active_player
     context = build_context(services.hub.view(room, viewer), services.cards)
     try:
-        answer = services.assistant.ask(clean_text(body.question, 1000, multiline=True), context)
+        answer = await run_in_threadpool(services.assistant.ask, clean_text(body.question, 1000, multiline=True), context)
     except AssistantUnavailable as exc:
         raise HTTPException(503, str(exc)) from exc
     return {"answer": answer}
@@ -1097,10 +1101,11 @@ async def restore_snapshot(game_id: str, snapshot_id: str, request: Request, ser
 
 
 @router.get("/games/{game_id}/history")
-def game_history(game_id: str, request: Request, services: ServicesDep,
-                 viewer: Annotated[str | None, Query(max_length=32)] = None,
-                 x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+async def game_history(game_id: str, request: Request, services: ServicesDep,
+                       viewer: Annotated[str | None, Query(max_length=32)] = None,
+                       x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
     """Recorded actions with the log lines this viewer may read (for disputes and debugging)."""
+    # (-- sync endpoints (wave 30B) -- on the event loop, between actions: a live view and the history's trim, see game_summary)
     room = _room(services, game_id)
     v, _ = _seated(room, request, x_seat_token, viewer)
     history = room.session.history
@@ -1119,10 +1124,11 @@ def game_history(game_id: str, request: Request, services: ServicesDep,
 
 
 @router.get("/games/{game_id}/history/{position}")
-def history_view(game_id: str, position: int, request: Request, services: ServicesDep,
-                 viewer: Annotated[str | None, Query(max_length=32)] = None,
-                 x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+async def history_view(game_id: str, position: int, request: Request, services: ServicesDep,
+                       viewer: Annotated[str | None, Query(max_length=32)] = None,
+                       x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
     """The table as it was after ``position`` actions, as this viewer could see it then."""
+    # (-- sync endpoints (wave 30B) -- on the event loop: it replays the live history, which trimming re-bases in several steps)
     room = _room(services, game_id)
     v, _ = _seated(room, request, x_seat_token, viewer)
     try:

@@ -229,6 +229,10 @@ def test_hostage_taker_casts_the_creature_with_any_mana_and_it_returns_if_the_ta
     from app.rules.casting import castable
 
     assert not castable(s.state, "p2", s.state.cards[viper.id], cards)  # (Bob, the owner, has no such permission)
+    from app.rules import view  # (review 30: offered on Alice's table, though it sits in Bob's exile)
+
+    mana(s, C=2)
+    assert viper.id in view.hints(s.state, "p1", cards).get("castable", []) and viper.id not in view.hints(s.state, "p2", cards).get("castable", [])
     roundtrip(s)
     # the taker leaves before the creature is cast: it returns to the battlefield, and the permission was for the exiled object
     act(s, "p1", type="set_damage", card_ids=[taker.id], value=3)

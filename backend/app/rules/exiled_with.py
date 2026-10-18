@@ -12,8 +12,8 @@ only to cards in exile that the first put there. Researched against CR 2026-09-2
   well-known Oblivion Ring sequence, 607.2a + 603.10a). A copy of the object is a different object with its own record.
 * The referring ability's ``who: "exiled_with"`` finds those cards while each is still the object that was exiled
   (400.7: one that left exile and came back is a new object).
-* Read only when the object has exactly one other printed ability that exiles and both are understood: anything else
-  (two exiling abilities, an exiling ability the grammar doesn't read, "the exiled card's owner …") stays manual.
+* Read only when every other printed ability that exiles is understood (wave 30H: two exiling abilities feed one set, Rona's and Circu's
+  rulings): anything else (an exiling ability the grammar doesn't read, "the exiled card's owner …") stays manual.
 """
 
 from __future__ import annotations
@@ -97,7 +97,7 @@ def _graveyard(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # -- copied abilities (wave 18F) -- imprint (607.2a): "you may exile an instant card with mana value 2 or less from your hand" (the cost of
 # an optional payment, public once in exile: 406.3), and "you may copy the exiled card" (707.12: the copy is made in exile, may be cast
 # while this resolves; one not cast ceases to exist, 707.10a - so a copy not taken and a copy not cast are the same)
-_IMPRINT = re.compile(r"^you may exile (?P<what>(?:an?|one) (?:[\w\-]+ )*card(?: with mana value \d+ or less)?) from your hand$")
+_IMPRINT = re.compile(r"^you may exile (?P<what>(?:an?|one) (?:[\w\-]+,? )*card(?: with mana value \d+ or less)?) from your hand$")  # (wave 51B: "a nonartifact, nonland card", Chrome Mox)
 _COPY = re.compile(rf"^(?:you may )?copy {_THE}$")
 
 
@@ -115,15 +115,52 @@ def _copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "copy_cards", "who": _who(m)}], None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_HAND, _hand), (_GRAVEYARD, _graveyard), (_COPY, _copy)]
+# -- activated other (wave 42C) -- "Put a creature card exiled with ~ onto the battlefield under your control." (Sisters of Stone Death, Yggdrasil, Rebirth Engine): ONE of the linked
+# cards, chosen by the ability's controller as it resolves (608.2d; nothing is targeted). Only the battlefield (a card exiled face down would be named by the choice)
+_PICK = re.compile(r"^(?:return|put) an? (?:(?P<spec>[\w\-]+) )?card exiled with (?:it|~) (?:to|onto) the battlefield(?P<tapped> tapped)? under your control$")
+
+
+def _pick(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    if (own := _off(m)) is not None:
+        return own
+    return [{"do": "return_choice", "who": _who(m), "n": 1, "upto": False, "random": False, "label": f"{m['spec']} card" if m["spec"] else "card",
+             "to": "battlefield", "tapped": bool(m["tapped"]), "under": "you"}], None
+
+
+# -- cost reductions paid with objects (wave 47C) -- "choose a card at random exiled with Gorex and put that card into its owner's hand": the table picks one of the linked cards (recorded
+# as the move, so a replay is the same; return_choice's ``random``)
+_PICK_RANDOM = re.compile(r"^choose a card at random exiled with (?:it|~) and put (?:that card|it) into its owner's hand$")
+
+
+def _pick_random(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    if (own := _off(m)) is not None:
+        return own
+    return [{"do": "return_choice", "who": WHO, "n": 1, "upto": False, "random": True, "label": "card", "to": "hand"}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_HAND, _hand), (_GRAVEYARD, _graveyard), (_COPY, _copy), (_PICK, _pick), (_PICK_RANDOM, _pick_random)]
+
+# -- linked casting (wave 30H) -- 607.2a, 608.2g: in an ability that only refers to what another exiled, "cast a spell from among cards exiled with ~
+# [without paying its mana cost]" casts from the linked cards (the ones ``linked_cards`` binds, as "them"), as this ability resolves
+_AMONG = re.compile(r"\bfrom among (?:the )?cards exiled with (?:it\b|~)")
+_ANY_CARDS = re.compile(r"\b([Cc]ast any number of) cards exiled with (?:it\b|~) (without paying their mana costs)")
+
+
+_CAST_A_CARD = re.compile(r"\b([Cc]ast) a card exiled with (?:it\b|~)")  # -- activation words (wave 48C) -- Krang & Shredder: what is cast from exile is a spell
+
+
+def among(body: str) -> str:
+    """The sentence(s) of a linked-referring ability with "cards exiled with ~" read as "them" (see the free-cast grammar, permissions.FREE_AMONG)."""
+    return _ANY_CARDS.sub(r"\1 spells from among them \2", _AMONG.sub("from among them", _CAST_A_CARD.sub(r"\1 a spell from among cards exiled with ~", body)))
 
 
 def _exiles(d: dict[str, Any] | None) -> bool:
     # (-- champion (wave 12B) -- also a payment: "sacrifice it unless you exile another Merfolk you control", recorded by
     # optional_payment._pay)
-    return d is not None and any(e.get("do") in ("exile", "exile_top", "exile_until") or e.get("exile") or _picks_to_exile(e)
-                                 or (e.get("do") == "optional_payment" and str(e.get("cost")).startswith("Exile "))
-                                 for e in d.get("effects") or [])
+    return d is not None and (d.get("static") == "exile_instead" or (d.get("static") == "own_optional" and d.get("optional") == "reduce" and d["cost"].startswith("Exile "))
+                              or any(  # (-- linked exile (wave 30H) -- 607.2b: a replacement effect that exiles; -- cost reductions paid with objects (wave 47C) -- 607.2q: a cost that exiles)
+        e.get("do") in ("exile", "exile_top", "exile_until") or e.get("exile") or _picks_to_exile(e)
+        or (e.get("do") == "optional_payment" and str(e.get("cost")).startswith("Exile ")) for e in d.get("effects") or []))
 
 
 def _picks_to_exile(e: dict[str, Any]) -> bool:
@@ -150,6 +187,9 @@ def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     refers = WHO in json.dumps(d, default=str) or "linked_cards" in json.dumps(d, default=str)
+    if "samename_exiled_with" in json.dumps(d, default=str) and ability.kind == "activated":
+        return None  # -- same name (wave 32A) -- "Counter target spell with the same name as a card exiled with this creature" (Mindreaver) sacrifices the source
+        # as a cost: its target is judged on resolution against the cards of an object that is gone (selectors._same_name_now reads a source that stays)
     others = [ab for ab in ch.abilities if ab.index != ability.index and ab.kind in ("triggered", "activated")]
     if refers and _exiles(d):  # -- review (wave 6R) -- its own exiled card (see _off_now)
         if _off_now():
@@ -160,19 +200,23 @@ def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
         finally:
             _STATE.off = False
     if refers:
-        exiling = [ab for ab in others if re.search(r"\bexile\b", ab.text, re.IGNORECASE)]
+        exiling = [ab for ab in others if re.search(r"\bexiles?\b", ab.text, re.IGNORECASE)]  # (-- linked casting (wave 30H) -- "each player exiles the top X cards": Jeleva)
+        exiling += [ab for ab in ch.abilities if ab.index != ability.index and ab.kind == "static"  # (607.2b: a replacement effect that exiles)
+                    and (scripts.define(ab, ch) or {}).get("static") in ("exile_instead", "own_optional") and _exiles(scripts.define(ab, ch))]  # (wave 47C: 607.2q, Gorex's cost)
         from app.rules import hideaway
 
         if hideaway.exiles(ch):  # -- hideaway (wave 29D) -- 702.75a: the keyword is the exiling ability (and the only one: 607.2a)
             return None if exiling else hideaway.each(d)
-        if len(exiling) != 1 or not _exiles(scripts.define(exiling[0], ch)):
+        if not exiling or not all(_exiles(scripts.define(ab, ch)) for ab in exiling):  # (-- linked exile (wave 30H) -- every exiling ability feeds the set, and each must be read: Rona's ruling)
             return None
         return d
-    if ability.kind not in ("triggered", "activated") or not _exiles(d):
+    if ability.kind not in ("triggered", "activated", "static") or not _exiles(d):
         return d
     referring = [ab for ab in ch.abilities if ab.index != ability.index and _REFERS.search(scripts.self_text(ab.text, ch.name))]
     if not referring:
         return d
+    if d.get("static") == "exile_instead":  # -- linked exile (wave 30H) -- 607.2b: the replacement effect is the exiling half; replacements.py records what it exiles
+        return {**d, "link": True}
     return {**d, "effects": [{**e, "link": True} if e.get("do") in ("exile", "exile_top", "exile_until") or e.get("exile") or _picks_to_exile(e) else e
                                      for e in d["effects"]]}
 

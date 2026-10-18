@@ -10,10 +10,13 @@
 * **"For each <permanent>, create a token that's a copy of that <permanent>"** (Second Harvest, Rhys
   the Redeemed, Multiversal Incursion, Clone Legion, Parallel Evolution "its controller creates"):
   one copy of each object the phrase names as the instruction resolves, all created at once (one
-  instruction: ``copying.token_copy`` over every object, one creation batch).
+  instruction: ``copying.token_copy`` over every object, one creation batch). -- token copies (wave 31C) -- also "… a copy of it"
+  (Saheeli, the Gifted) and "for each other nonland permanent you control" (other than the source: Oko, the Ringleader); "Those tokens gain
+  haste. Exile those tokens at the beginning of the next end step." name all of them (``_Introducer.number`` is open for a group).
 
-Refused (left manual, unknown wording): "Populate X times", "Populate. The token enters tapped and
-attacking." (Ghired), "for each of them" in a "one or more" trigger (Kambal), a phrase with a target
+"Populate. The token enters tapped and attacking." (Ghired, wave 46A) is "populate tapped and attacking": the copy is created attacking (508.4).
+
+Refused (left manual, unknown wording): "Populate X times", "for each of them" in a "one or more" trigger (Kambal), a phrase with a target
 the copy text doesn't name.
 """
 
@@ -35,7 +38,7 @@ CREATURE_TOKENS_KEY = 'sel:{"controller":"you","token":true,"types":["Creature"]
 # the noun "that …" names, and the card type each object counted must have for it to fit
 _NOUNS = {"permanent": None, "creature": "Creature", "artifact": "Artifact", "enchantment": "Enchantment", "token": None}
 FOR_EACH = re.compile(r"for each (?P<what>[^,]+), (?:(?P<their>its controller creates)|create) (?:a|one) (?P<tapped>tapped )?"
-                      r"token that's a copy of that (?P<noun>permanent|creature|artifact|enchantment|token)"
+                      r"token that's a copy of (?:that (?P<noun>permanent|creature|artifact|enchantment|token)|it)"  # (wave 31C: "of it", Saheeli, the Gifted)
                       r"(?:, except (?P<exc>.+))?")
 
 
@@ -48,13 +51,13 @@ def parse_for_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
     tm = re.fullmatch(r"(?P<sel>.+?) target player controls", what)
     if tm is not None:  # (Clone Legion: "each creature target player controls")
         what, target = tm["sel"] + " on the battlefield", "player"
-    if what.startswith(("other ", "another ")) or " target " in f" {what} ":
+    if what.startswith("another ") or " target " in f" {what} ":
         return None
     sel = selectors.parse(what.removesuffix(" on the battlefield") if what.endswith(" on the battlefield") else what)
-    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.ability is not None \
-            or sel.other or sel.extras:
-        return None
-    need = _NOUNS[m["noun"]]
+    # (-- most-played cards II (wave 45A) -- "for each token you control that entered this turn" (Ocelot Pride): read of this turn's log, selectors.candidates)
+    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.ability is not None or set(sel.extras) - {"entered_this_turn"}:
+        return None  # (wave 31C: "for each other nonland permanent you control" — other than the source, ``selectors.candidates``: Oko, the Ringleader)
+    need = _NOUNS[m["noun"]] if m["noun"] else None
     if need is not None and sel.types != (need,):
         return None  # ("that creature" must be what each counted object is)
     if m["noun"] == "token" and sel.token is not True:
@@ -89,21 +92,22 @@ def populate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         plan.note("Populate: no creature token to copy (701.36b)", actor=pid)
         return True
     if len(mine) == 1:
-        return _copy(plan, ctx, mine[0])
+        return _copy(plan, ctx, mine[0], bool(e.get("attacking")))
     decide(plan, player=pid, kind="choose_cards", prompt="Populate: choose a creature token you control to copy",
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Token", card_id=c) for c in mine],
-           resume={"step": "populate_choose", "ctx": ctx})
+           resume={"step": "populate_choose", "ctx": ctx, "attacking": bool(e.get("attacking"))})
     return False
 
 
-def _copy(plan: Plan, ctx: Context, cid: str) -> bool:
+def _copy(plan: Plan, ctx: Context, cid: str, attacking: bool = False) -> bool:
     """The copy, as the instruction being resolved: it takes populate's place in the resolution (a
     616.1 order prompt then runs this copy again, not the choice)."""
     from app.rules import copying
 
-    e = {"do": "token_copy", "n": 1, "who": f"object:{plan.oid(cid)}"}
     k = int(ctx.get("next") or 0) - 1
     effects = list(ctx.get("effects") or [])
+    # (-- cant restrictions (wave 46A) -- "Populate. The token enters tapped and attacking." (Ghired): 508.4, the copy's controller chooses what it attacks)
+    e = {"do": "token_copy", "n": 1, "who": f"object:{plan.oid(cid)}", **({"attacking": True, "tapped": True} if attacking else {})}
     if 0 <= k < len(effects) and effects[k].get("do") == "populate":
         effects[k] = e
         ctx["effects"] = effects
@@ -119,11 +123,21 @@ def resume_populate(plan: Plan, d: Any, chosen: list[str]) -> None:
     if card is None or not card.zone.endswith(":battlefield") or not selectors.matches(
             plan, selectors.from_key(CREATURE_TOKENS_KEY), card, plan.ch(card), d.player, ctx.get("source_card")):
         raise ActionError("Choose a creature token you control")
-    if _copy(plan, ctx, card.id):
+    if _copy(plan, ctx, card.id, bool(d.resume.get("attacking"))):
         effects.continue_effects(plan, ctx)
 
 
 # -- a copy of an object that left the battlefield (608.2h, 111.12) -----------------------------------
+def gone_refs(plan: Plan, ctx: Context, who: str) -> list[Any]:
+    """The objects "event" / "ref:<name>" names that were on the battlefield and are no longer that object there (400.7)."""
+    from app.rules import context
+
+    if who != "event" and (not who.startswith(context.PREFIX) or "|" in who):
+        return []
+    name = context.EVENT if who == "event" else who[len(context.PREFIX):]
+    return [r for r in context._object_refs(ctx, name, was=True) if (r.zone or "").endswith("battlefield") and context._same(plan, r) is None]
+
+
 def left_battlefield(plan: Plan, ctx: Context, who: str, their: bool) -> list[tuple[Any, str]]:
     """"Create a token that's a copy of it / of ~" when "it" (the trigger's object) or the source left the
     battlefield before the instruction: 608.2h — the effect uses the object's last known information, its
@@ -132,10 +146,10 @@ def left_battlefield(plan: Plan, ctx: Context, who: str, their: bool) -> list[tu
     from app.rules import context, copying
 
     snaps: list[Any] = []
-    if who == "event":
-        for ref in context._object_refs(ctx, context.EVENT, was=True):
-            if (ref.zone or "").endswith("battlefield") and context._same(plan, ref) is None:
-                snaps.append(context.snapshot(plan, ref))
+    if who == "event" or who.startswith(context.PREFIX):  # -- review 32 -- or what an earlier instruction moved off the battlefield ("Exile
+        # target creature. … create a token that's a copy of it", Kaya, Intangible Slayer; Identity Thief): as it last existed there (608.2h)
+        for ref in gone_refs(plan, ctx, who):
+            snaps.append(context.snapshot(plan, ref))
     elif who == "self":
         oid = ctx.get("source_object")
         src = plan.state.cards.get(ctx.get("source_card") or "")
@@ -165,6 +179,11 @@ def left_battlefield(plan: Plan, ctx: Context, who: str, their: bool) -> list[tu
         recipe = snap.copy_recipe.model_copy(deep=True) if snap.copy_recipe is not None else None
         if recipe is None and snap.printing and plan.info.get(snap.printing) is not None:
             recipe = CopyRecipe(printing=snap.printing, face=snap.face, source=name[:200])
+        if recipe is None and snap.is_token and not snap.printing and snap.token_type_line:  # -- review 32 -- a token's copiable values:
+            # what the effect that created it defined (707.2, 111.3; copying.base_recipe), as it last existed
+            recipe = CopyRecipe(token={"name": snap.name, "power": snap.token_power, "toughness": snap.token_toughness,
+                                       "colors": list(snap.token_colors), "type_line": snap.token_type_line, "text": snap.text,
+                                       "mana_cost": snap.token_mana_cost}, source=name[:200])
         if recipe is None:
             out.append((f"a copy of {name} as it last existed (608.2h: its text isn't recorded)", ""))
             continue

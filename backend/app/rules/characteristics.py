@@ -13,7 +13,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 
 from app.game.state import CardInstance
-from app.rules import read_pass
+from app.rules import levelers, read_pass
 from app.rules.oracle import AbilityText, parse_abilities
 
 SUPERTYPES = frozenset({"Basic", "Legendary", "Snow", "World", "Ongoing", "Elite", "Host"})
@@ -48,8 +48,10 @@ class Characteristics:
     oracle_id: str | None = None
     face_down: bool = False
     is_ability: bool = False  # an ability object on the stack
+    is_spell: bool = False  # -- cant (wave 49C) -- the source of a targeting is a spell (115.2: "can't be the target of spells"); set by targets.source_of(spell=True)
     # Derived by app.rules.layers (never printed): current power/toughness, keywords gained/lost.
     pt: tuple[int, int] | None = None
+    base_pt: tuple[int, int] | None = None  # -- base power (wave 30J) -- 208.4b: after layers 7a and 7b, before counters and 7c's modifications
     granted: frozenset[str] = frozenset()
     lost: frozenset[str] = frozenset()
     # Rules imposed on it: by resolved effects ("can't block this turn"), by other objects (an
@@ -61,6 +63,7 @@ class Characteristics:
     imposed: frozenset[str] = frozenset()
     level: int | None = None  # -- Class (wave 16A) -- 716.2b: the permanent's class level (None: not read for a permanent, all sections)
     doors: frozenset[int] | None = None  # -- Rooms (wave 18G) -- 709.5: the halves (1 left, 2 right) that count; a Room's abilities are sectioned by door
+    word: str | None = None  # -- linked words (wave 33B) -- 607.2f: the word the object chose as it entered ("" none; None: not read, every linked ability)
 
     @property
     def is_land(self) -> bool:
@@ -241,7 +244,8 @@ def _build(data: dict[str, Any], src: dict[str, Any], text: str) -> Characterist
     supertypes, types, subtypes = parse_type_line(type_line)
     cost = str(src.get("mana_cost") or (data.get("mana_cost") if src is data else "") or "")
     colors = src.get("colors") if src.get("colors") is not None else data.get("colors")
-    abilities = with_intrinsic_mana(parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"})), subtypes)
+    station = levelers.station_creature(text) is not None  # -- Station (wave 46D) -- 721.2c: its power/toughness box is the station symbol's
+    abilities = with_intrinsic_mana(parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"}), pt=(src.get("power"), src.get("toughness"))), subtypes)
     return Characteristics(
         name=str(src.get("name") or data.get("name") or ""),
         supertypes=supertypes,
@@ -251,8 +255,8 @@ def _build(data: dict[str, Any], src: dict[str, Any], text: str) -> Characterist
         mana_value=mana_value(cost),
         colors=frozenset() if _devoid(abilities) else frozenset("WUBRG") if all_colors(abilities, str(src.get("name") or data.get("name") or ""))
         else frozenset(colors or []),
-        power=src.get("power"),
-        toughness=src.get("toughness"),
+        power=None if station else src.get("power"),
+        toughness=None if station else src.get("toughness"),
         loyalty=src.get("loyalty"),
         defense=src.get("defense"),
         oracle_text=text,
@@ -321,11 +325,12 @@ def printed_from_data(data: dict[str, Any], face: int = 0) -> Characteristics:
 
 
 def transformable(card: CardInstance, info: CardInfo) -> bool:
-    """-- transform (wave 11A) -- 701.27a, 712.9: a card that can transform or convert: a nonmodal double-faced card
-    (modal and meld cards, 712.4c, and the other layouts are left out), whose other face is a permanent face (712.10)."""
+    """-- transform (wave 11A) -- 701.27a, 712.9: a card that can transform or convert: a double-faced card that isn't a meld card
+    (712.4c; review 30b: a modal one too, 712.9 of CR 2026-09-25 — Gwen Stacy's ruling of 2025-09-19, "This is a change from previous
+    rules"), whose other face is a permanent face (712.10)."""
     data = info.get(card.card_id) if card.card_id and card.token is None and not card.is_token else None
     faces = (data or {}).get("faces") or []
-    if data is None or data.get("layout") != "transform" or len(faces) < 2:
+    if data is None or data.get("layout") not in ("transform", "modal_dfc") or len(faces) < 2:
         return False
     return not {"Instant", "Sorcery"} & set(parse_type_line(str(faces[0 if card.face else 1].get("type_line") or ""))[1])
 
@@ -385,6 +390,15 @@ def as_cast(card: CardInstance, info: CardInfo, face: int | None, fused: bool = 
 
 def of(card: CardInstance, info: CardInfo) -> Characteristics:
     """Current characteristics of a card instance (printed layer; see module docstring)."""
+    ch = _of_kept(card, info)
+    if "Case" in ch.subtypes and card.zone.endswith(":battlefield") and "Solved" not in card.choices:  # -- Case (wave 51C) -- 719.3c: "Solved — [ability]" works only while it is solved (719.3b, the designation is not copiable)
+        kept = tuple(a for a in ch.abilities if not a.text.startswith("Solved — "))
+        if len(kept) != len(ch.abilities):
+            return replace(ch, abilities=kept)
+    return ch
+
+
+def _of_kept(card: CardInstance, info: CardInfo) -> Characteristics:
     sc = read_pass.for_info(info)
     if sc is not None and sc.state.cards.get(card.id) is card:  # -- hints speed (wave 29A) -- a card of the table a read-only pass is over: looked up once
         kept = sc.printed.get(id(card))
@@ -438,6 +452,7 @@ def _of(card: CardInstance, info: CardInfo) -> Characteristics:
         return Characteristics(
             name=t.name, supertypes=supertypes, types=types, subtypes=changeling(subtypes, abilities, t.name),
             colors=frozenset() if _devoid(abilities) else frozenset(t.colors), power=t.power, toughness=t.toughness, oracle_text=t.text, abilities=abilities,
+            mana_cost=t.mana_cost, mana_value=mana_value(t.mana_cost),  # (wave 49D: 111.3, 202.3)
         )
     data = info.get(card.card_id) if card.card_id else None
     if data is None:
