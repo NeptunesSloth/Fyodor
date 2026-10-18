@@ -27,7 +27,16 @@ def _bottom(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "bottom_to_graveyard", "who": "target" if m["t"] else "you"}], "player" if m["t"] else None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_EDGE, _edge), (_BOTTOM, _bottom)]
+# -- mana (wave 52D) -- 106.4: "Double the amount of each type of unspent mana you have." (Doubling Cube) adds, for each type in the pool, as much again. The mana it adds is
+# plain: the cube's ability puts no restriction on it, and what was restricted stays so (106.6).
+_DOUBLE = re.compile(r"^(?i:double the amount of each type of unspent mana you have)$")
+
+
+def _double(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "double_mana"}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_EDGE, _edge), (_BOTTOM, _bottom), (_DOUBLE, _double)]
 RECORDING: dict[str, str | None] = {"exile_edge": "exiled", "bottom_to_graveyard": None}  # (scripts._RECORDING and _MOVERS: what a later "it" names)
 
 CHOSEN = {"bottom_to_graveyard": "n"}  # (scripts._CHOSEN: one card, whoever puts it, so a player target still names the card as "it")
@@ -59,4 +68,15 @@ def bottom_to_graveyard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"exile_edge": exile_edge, "bottom_to_graveyard": bottom_to_graveyard}
+def double_mana(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from collections import Counter
+
+    from app.rules.effects import _put_mana
+
+    me = ctx["controller"]
+    pool = plan.state.players[me]
+    have = Counter(pool.mana) + Counter(u.sym for u in pool.mana_units)
+    return _put_mana(plan, ctx, me, [sym for sym, n in have.items() for _ in range(n)])
+
+
+PRIMITIVES = {"exile_edge": exile_edge, "bottom_to_graveyard": bottom_to_graveyard, "double_mana": double_mana}

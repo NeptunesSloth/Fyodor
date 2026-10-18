@@ -18,10 +18,10 @@ from app.rules import coverage
 from app.rules.plan import Plan
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, next_turn, settle
-from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand, zone_of
+from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, to_hand, zone_of
 from tests.wave52d_kit import open_repo
 
-NAMES = ["Folio of Fancies", "Overgrown Arch", "Patron of the Orochi", "Cauldron of Souls", "Silent Gravestone", "Phyrexian Furnace", "Grenzo, Dungeon Warden", "Cellar Door",
+NAMES = ["Doubling Cube", "Tainted Sigil", "Assembly-Worker", "Witch Engine", "Skyship Weatherlight", "Folio of Fancies", "Overgrown Arch", "Patron of the Orochi", "Cauldron of Souls", "Silent Gravestone", "Phyrexian Furnace", "Grenzo, Dungeon Warden", "Cellar Door",
          "Druidic Satchel"]
 
 
@@ -282,4 +282,81 @@ def test_satchel_gains_two_life_for_a_noncreature_nonland_card(cards):
     activate(s, "p1", satchel)
     settle(s)
     assert life(s) == before + 2
+    check(s)
+
+
+# ---- Doubling Cube ------------------------------------------------------------------------------------------------------------------------------
+def test_doubling_cube_doubles_each_type_of_unspent_mana_left_after_paying(cards):
+    s = build(cards, ["Doubling Cube"])
+    cube = put(s, "Doubling Cube")
+    mana(s, "p1", R=4, G=2)  # {3} of it pays for the ability: R=3 and G=0 are left... the payer takes what it likes, so only the total is checked
+    activate(s, "p1", cube)
+    settle(s)
+    pool = s.state.players["p1"].mana
+    assert sum(pool.values()) == 6  # 6 - 3 paid = 3 left, doubled
+    check(s)
+
+
+# ---- Tainted Sigil ------------------------------------------------------------------------------------------------------------------------------
+def test_tainted_sigil_gains_the_life_every_player_lost_this_turn(cards):
+    s = build(cards, ["Tainted Sigil", "Lightning Bolt", "Lightning Bolt"])
+    sigil = put(s, "Tainted Sigil")
+    bolts = [c for c in s.state.cards.values() if c.name == "Lightning Bolt" and c.owner == "p1"]
+    for bolt, target in zip(bolts, ("p2", "p1"), strict=True):
+        act(s, "p1", type="move", card_ids=[bolt.id], to={"zone": "hand"})
+        mana(s, "p1", R=1)
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[target])
+        settle(s)
+    before = life(s)  # 40 - 3
+    assert before == 37 and life(s, "p2") == 37
+    activate(s, "p1", sigil)
+    settle(s)
+    assert life(s) == 43 and zone_of(s, "Tainted Sigil") == "p1:graveyard"  # 3 + 3 lost
+    check(s)
+
+
+# ---- Assembly-Worker (the name is also the creature type) ----------------------------------------------------------------------------------------------
+def test_assembly_worker_pumps_an_assembly_worker_creature(cards):
+    s = build(cards, ["Assembly-Worker"])
+    worker = put(s, "Assembly-Worker")
+    next_turn(s)
+    assert pt(s, "Assembly-Worker") == (2, 2)
+    activate(s, "p1", worker, targets=[worker.id])
+    settle(s)
+    assert pt(s, "Assembly-Worker") == (3, 3)
+    check(s)
+
+
+def test_assembly_worker_cannot_target_another_kind_of_creature(cards):
+    s = build(cards, ["Assembly-Worker", "Llanowar Elves"])
+    worker, elves = put(s, "Assembly-Worker"), put(s, "Llanowar Elves")
+    next_turn(s)
+    with pytest.raises(ActionError):
+        activate(s, "p1", worker, targets=[elves.id])
+
+
+# ---- Witch Engine -------------------------------------------------------------------------------------------------------------------------------
+def test_witch_engine_adds_the_mana_then_the_opponent_gains_control(cards):
+    s = build(cards, ["Witch Engine"])
+    engine = put(s, "Witch Engine")
+    next_turn(s)
+    activate(s, "p1", engine, targets=["p2"])  # it has a target: not a mana ability, it uses the stack (605.1a)
+    settle(s)
+    assert s.state.players["p1"].mana == {"B": 4} and s.state.cards[engine.id].controller == "p2"
+    check(s)
+
+
+# ---- Skyship Weatherlight -----------------------------------------------------------------------------------------------------------------------
+def test_weatherlight_returns_one_of_its_exiled_cards_to_hand(cards):
+    s = build(cards, ["Skyship Weatherlight", "Llanowar Elves"])
+    mana(s, "p1", C=5)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Skyship Weatherlight").id)
+    settle(s)  # it enters: search for any number of artifact and/or creature cards, exile them, then shuffle
+    exiled = list(s.state.zones["p1:exile"])
+    assert [s.state.cards[c].name for c in exiled] == ["Llanowar Elves"]
+    next_turn(s)
+    mana(s, "p1", C=4)
+    activate(s, "p1", card_named(s, "Skyship Weatherlight"), "random")
+    settle(s)
+    assert s.state.cards[exiled[0]].zone == "p1:hand" or "Llanowar Elves" in hand(s)
     check(s)

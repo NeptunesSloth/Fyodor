@@ -39,7 +39,7 @@ _UNDER = (r"under (?:(?P<you>your) control|(?:its|their) owner(?:'s|s') control"
 _BATTLEFIELD = re.compile(rf"^(?:return|put) {_THE} (?:to|onto) the battlefield(?P<tapped> tapped)? {_UNDER}$")
 _HAND = re.compile(rf"^(?:return|put) {_THE} (?:to|into) (?:its|their) owner(?:'s|s') hands?$")  # (wave 20D: "Put all cards exiled with ~ into their owners' hands.")
 _GRAVEYARD = re.compile(rf"^put {_THE} into (?:its|their) owner(?:'s|s') graveyards?$")  # (Currency Converter, Valakut Exploration)
-_REFERS = re.compile(r"\bthe exiled cards?\b|\bcards? exiled with (?:it\b|~)")  # (wave 17D: "~" has no word boundary after it)
+_REFERS = re.compile(r"\bthe exiled cards?\b|\bcards? exiled with (?:it\b|~)|\bthat was exiled with (?:it\b|~)")  # (wave 17D: "~" has no word boundary after it)
 
 
 # -- review (wave 6R) -- "Exile target creature. Return the exiled card to the battlefield under its owner's control at the

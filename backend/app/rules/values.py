@@ -571,6 +571,8 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "opp_lost"}
     if re.fullmatch(r"(?:the )?(?:total )?damage dealt to your opponents this turn", what):
         return {"turn_history": "opp_damage"}
+    if re.fullmatch(r"(?:the )?total (?:amount of )?life lost by all players this turn", what):  # -- activated other (wave 52D) -- Tainted Sigil: every player's loss together (119.3)
+        return {"turn_history": "all_lost"}
     if re.fullmatch(r"(?:the )?(?:total )?(?:amount of )?(?:1 )?damage dealt to you this turn", what):  # -- this-turn history (wave 50E) -- 120.3: "gain life equal to the damage dealt to you this turn" (Simulacrum), "for each 1 damage dealt to you this turn" (Discordant Spirit)
         return {"turn_history": "damage_to_you"}
     if re.fullmatch(r"opponents? you(?:'ve| have)? attacked(?: this turn)?", what):  # -- this-turn state (wave 33D) -- Rose: 508.6, players you declared attackers against
