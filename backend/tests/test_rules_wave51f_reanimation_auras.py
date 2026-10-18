@@ -244,7 +244,7 @@ def test_a_creature_that_asks_a_question_as_it_enters_is_still_enchanted(cards):
 
 def test_a_clone_returned_as_a_copy_is_still_enchanted(cards):
     s, ad = game(cards, "Animate Dead", theirs=["Clone", "Grizzly Bears"])
-    clone, bears = bury(s, "Clone", "p2"), put(s, "Grizzly Bears", "p2")
+    clone, _ = bury(s, "Clone", "p2"), put(s, "Grizzly Bears", "p2")
     cast_on(s, ad, clone)
     settle(s)  # "You may have Clone enter as a copy of any creature on the battlefield" (614.12a): answered with its first option
     assert s.state.cards[clone.id].zone == "p1:battlefield" and s.state.cards[ad.id].attached_to == clone.id and zone_of(s, "Animate Dead") == "p1:battlefield"

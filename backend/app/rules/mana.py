@@ -241,6 +241,9 @@ PLAYED_LAND = ("@played_land",)
 _STATUS_INSTEAD = re.compile(r"^If you(?: have the (?P<i>initiative)|'ve completed a (?P<d>dungeon)), (?P<add>add .+) instead$")
 # -- opening hand (wave 18C) -- "If Gemstone Caverns has a luck counter on it, instead add one mana of any color." (122.1: the
 # source's own counters, checked as the ability resolves, 605.3a): ``instead_if`` holds ("@counter", <kind>)
+# -- most-played cards (wave 51F) -- "If this creature has a +1/+1 counter on it, add three mana of that type instead." (Incubation Druid, 605.3a): the type picked for the
+# first sentence, three times; ``instead_if`` holds ("@counter", <kind>) and ``instead`` ("LANDS", "LANDS", "LANDS") (casting._resolve_options)
+_OWN_COUNTER_TRIPLE = re.compile(r"^If (?:~|this [a-z]+) has an? (?P<k>\+1/\+1) counter on it, add three mana of that type instead$")
 _OWN_COUNTER_INSTEAD = re.compile(r"^If (?:~|this [a-z]+|[A-Z][\w',-]*(?: (?:of |the |[A-Z])[\w',-]*)*) has an? (?P<k>[a-z]+) counter on "
                                   r"it, instead (?P<add>add .+)$")
 # -- kicked / instead (wave 4G) -- "If you control four or more creatures, add {G}{G} instead." (Leafkin Druid); "If you
@@ -451,6 +454,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             marker = ("@power", ci.group("p")) if ci.group("p") else \
                 ("@count", _COUNT_TYPES[ci.group("what").rstrip("s")], str(_NUM[ci.group(1)]))
             instead_if, instead = (marker,), more
+        elif (ot := _OWN_COUNTER_TRIPLE.fullmatch(s)) and not instead and options == (("LANDS",),):  # -- most-played cards (wave 51F) --
+            instead_if, instead = (("@counter", ot["k"]),), (("LANDS",) * 3,)
         elif (oc := _OWN_COUNTER_INSTEAD.fullmatch(s)) and not instead and len(options) == 1:  # -- opening hand (wave 18C) --
             more = _effect_options("A" + oc.group("add")[1:], identity)
             if more is None or not all(more):

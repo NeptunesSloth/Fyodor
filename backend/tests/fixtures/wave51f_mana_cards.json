@@ -1,0 +1,42 @@
+[
+ {
+  "name": "Incubation Druid",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Elf Druid",
+  "oracle_text": "{T}: Add one mana of any type that a land you control could produce. If this creature has a +1/+1 counter on it, add three mana of that type instead.\n{3}{G}{G}: Adapt 3. (If this creature has no +1/+1 counters on it, put three +1/+1 counters on it.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Adapt"
+  ],
+  "power": "0",
+  "toughness": "2"
+ },
+ {
+  "name": "Kitchen Finks",
+  "layout": "normal",
+  "mana_cost": "{1}{G/W}{G/W}",
+  "cmc": 3.0,
+  "type_line": "Creature — Ouphe",
+  "oracle_text": "When this creature enters, you gain 2 life.\nPersist (When this creature dies, if it had no -1/-1 counters on it, return it to the battlefield under its owner's control with a -1/-1 counter on it.)",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Persist"
+  ],
+  "power": "3",
+  "toughness": "2"
+ }
+]

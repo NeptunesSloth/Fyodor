@@ -220,8 +220,11 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
         held = state.table.initiative == card.controller if ab.instead_if[0][1] == "initiative" \
             else bool(state.rules is not None and state.rules.completed_dungeons.get(card.controller))
         return ab.instead if held else ab.options
+    chosen_options = ab.options
     if ab.instead_if and ab.instead_if[0][:1] == ("@counter",):  # -- opening hand (wave 18C) -- the source's own counter (122.1)
-        return ab.instead if card.counters.get(ab.instead_if[0][1], 0) > 0 else ab.options
+        chosen_options = ab.instead if card.counters.get(ab.instead_if[0][1], 0) > 0 else ab.options
+        if ("LANDS",) not in (o[:1] for o in chosen_options):  # (-- most-played cards (wave 51F) -- Incubation Druid's types are resolved below)
+            return chosen_options
     if ab.instead_if and ab.instead_if[0][:1] in (("@count",), ("@power",)):  # -- kicked / instead (wave 4G) --
         return ab.instead if _controls_for_instead(state, card.controller, ab.instead_if[0], info) else ab.options
     if ab.instead_if and ab.instead_if[0][:1] == ("@named",):  # -- named permanents (wave 35C) -- Tower Worker: a creature with each name
@@ -241,7 +244,7 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
         n = _mana_count(state, card, ab.count, info)
         return tuple(opt * n for opt in ab.options) if n > 0 else ()
     out: list[tuple[str, ...]] = []
-    for opt in ab.options:
+    for opt in chosen_options:
         if "CHOSEN" in opt:
             color = _chosen_color(card)
             if color is None:
@@ -259,8 +262,8 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
             seen = {col for o in (rs.exiled_with.get(rs.object_id(card.id), []) if rs is not None else []) if (c := state.cards.get(o.rsplit(".", 1)[0])) is not None
                     and c.zone.endswith(":exile") and rs is not None and rs.object_id(c.id) == o for col in derive(state, c, chars.of(c, info), info).colors}
             out += [(m,) for m in M.COLORS if m in seen]
-        elif opt == ("LANDS",):
-            out += [(m,) for m in M.ALL_MANA if m in _land_mana(state, [card.controller], info, skip=card.id)]
+        elif set(opt) == {"LANDS"}:  # (-- most-played cards (wave 51F) -- "three mana of that type": the same type, n times)
+            out += [(m,) * len(opt) for m in M.ALL_MANA if m in _land_mana(state, [card.controller], info, skip=card.id)]
         elif opt[0].startswith("LANDS:"):  # -- mana (wave 19E) -- any color / type a (basic / Gate) land you control could produce
             _, kind, only = opt[0].split(":")
             produced = _land_mana(state, [card.controller], info, skip=card.id, only=only)
