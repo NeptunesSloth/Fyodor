@@ -252,6 +252,13 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
 
             own = derive(state, card, chars.of(card, info), info).colors
             out += [(m,) for m in M.COLORS if m in own]
+        elif opt == ("EXILED_COLORS",):  # -- imprint (wave 51B) -- 607.2a, 106.1b: the colors now (613) of the cards its linked ability exiled and that are still there (400.7); a colorless one gives no mana
+            from app.rules.layers import derive
+
+            rs = state.rules
+            seen = {col for o in (rs.exiled_with.get(rs.object_id(card.id), []) if rs is not None else []) if (c := state.cards.get(o.rsplit(".", 1)[0])) is not None
+                    and c.zone.endswith(":exile") and rs is not None and rs.object_id(c.id) == o for col in derive(state, c, chars.of(c, info), info).colors}
+            out += [(m,) for m in M.COLORS if m in seen]
         elif opt == ("LANDS",):
             out += [(m,) for m in M.ALL_MANA if m in _land_mana(state, [card.controller], info, skip=card.id)]
         elif opt[0].startswith("LANDS:"):  # -- mana (wave 19E) -- any color / type a (basic / Gate) land you control could produce
@@ -2835,7 +2842,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.rules.flashback.append(plan.oid(card))  # 702.34a: exiled instead of going anywhere else (702.133a, 702.180a)
     if grant is not None and grant.exile_gy and (grant.exile_gy == "all" or ch.is_instant_or_sorcery):  # -- cast from graveyard (wave 19C) -- 614.1a
         plan.rules.exile_if_graveyard.append(plan.oid(card))
-    if grant is not None and grant.enters:  # -- cast permissions (wave 30Q) -- "If you cast a spell this way, that artifact enters tapped / with a finality counter on it"
+    if grant is not None and grant.enters and (grant.enters.get("only") is None or grant.enters["only"] in ch.types):  # -- cast permissions (wave 30Q; wave 51D: "If you cast a creature spell this way") -- "If you cast a spell this way, that artifact enters tapped / with a finality counter on it"
         plan.rules.cast_enters[plan.oid(card)] = grant.enters  # (applied as it enters: engine.resolve_top; a countered spell never does, and a new object is a new id, 400.7)
     if a.x_value is not None or tags:
         info: dict[str, Any] = {"type": "set_stack_info", "card_id": card.id}

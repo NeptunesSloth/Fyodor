@@ -894,6 +894,7 @@ class Permission(BaseModel):
     exile_gy: Literal["", "all", "is"] = ""
     exile_own: bool = False
     sorcery: bool = False
+    enters: dict[str, Any] | None = None  # -- if you do (wave 51D) -- "You may play target … card from your graveyard this turn. If you do, it enters tapped." (the Grant's ``enters``, 614.1c)
     # -- trigger other (wave 25B) -- airbend 701.65a: the card may be cast only by paying this rather than its mana cost (an alternative
     # cost, 118.9), for as long as it remains exiled (the permission follows the object, 400.7h)
     alt_mana: str = ""

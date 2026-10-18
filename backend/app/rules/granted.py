@@ -99,6 +99,7 @@ def quote(text: str) -> str | None:
     # (a comma just before the closing quotation mark belongs to the sentence around it: "…, each creature,")
     t = re.sub(r"(^|: |\. )~", r"\1This permanent", text.strip().rstrip(",;")).replace("~", "this permanent")
     t = re.sub(r"^((?:When|Whenever) )this token( dies\b)", r"\1this permanent\2", t)  # -- token copies (wave 31C) -- "When this token dies, draw a card." (Jaxis): the object that has it
+    t = re.sub(r"\bwith '([^']+)'", r'with "\1"', t)  # -- saga grants (wave 51B) -- Urza's Saga: a token's quoted ability inside a quoted ability uses single quotes (113.10)
     if not t or "‹granter" in t:  # (wave 18F: a granter is bound only by a static grant, layers.py — a resolved effect's isn't)
         return None
     if not t.endswith((".", "!", "?")):

@@ -139,11 +139,18 @@ def target_group(phrase: str) -> dict[str, Any] | None:
     dm = _DIFFERENT.fullmatch(rest)  # (wave 3R4) "… target creature cards with different names …" (201.2, 202.3)
     if dm is not None:
         rest = dm["a"] + (dm["b"] or "")
+    rm = _SHARES.fullmatch(rest) or _CONTROLLERS.fullmatch(rest)  # -- group relations (wave 51A) -- "two target creatures that share a creature type" / "… controlled by different players" (601.2c)
+    if rm is not None:
+        if (m["n"] or m["upto"] or m["range"]) not in ("two", "2", "one or two"):
+            raise _Fail  # ponytail: pairs only; for more targets, what a relation that stops holding on resolution makes illegal (608.2b) is unsettled
+        rest = rm["a"] + (rm["b"] or "")
     what, constraints = ("any", {}) if rest == "targets" else _group_constraints(_target_key(rest))
     if total is not None:
         constraints = {**constraints, "total": total}  # (checked by targets.choose_groups)
     if dm is not None:
         constraints = {**constraints, "different": "name" if dm["k"] == "names" else "mana_value"}
+    if rm is not None:
+        constraints = {**constraints, **({"shares": rm["k"] + "_type"} if "k" in rm.groupdict() else {"controllers": "different"})}
     if m["other"]:  # "up to two other target creatures": other than the source, or than an earlier target
         if rest == "targets":
             what, constraints = "", {"another": "any"}  # ("each of up to two other targets": than the earlier one)
@@ -185,6 +192,8 @@ def target_group(phrase: str) -> dict[str, Any] | None:
 _TOTAL = re.compile(r"(?P<a>.+?) with total (?P<stat>mana value|power) (?P<n>\d+|X) or less(?P<b> .+)?")  # (wave 3R4; 34C: X, the one announced)
 _TOTAL_STATS = {"mana value": "mana_value", "power": "power"}
 _DIFFERENT = re.compile(r"(?P<a>.+?) with different (?P<k>names|mana values)(?P<b> .+)?")  # (wave 3R4)
+_SHARES = re.compile(r"(?P<a>.+?) that share an? (?P<k>creature|card|permanent) type(?P<b> .+)?")  # (wave 51A) 205.2, 205.3m
+_CONTROLLERS = re.compile(r"(?P<a>.+?) controlled by different players(?P<b> .+)?")  # (wave 51A)
 
 
 def _group_constraints(key: str) -> tuple[str, dict[str, Any]]:
@@ -1371,8 +1380,13 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
             e["optional"] = optional or q.startswith(("up to", "any number"))
             e["n"] = 99 if q in ("any number of", "all") else _amount(q[6:] if q.startswith("up to ") else q)
             if m["sel"]:
-                historic = bool(re.match(r"historic (?!.* or )", m["sel"]))  # (700.6: artifact, legendary or Saga; "a historic card")
-                parsed = selectors.parse(m["sel"][9:] if historic else m["sel"])
+                sel_text = m["sel"]
+                if tm := re.fullmatch(r"(.+?) with total mana value (\d+) or less", sel_text):  # -- total mana value (wave 51A) -- "up to two creature cards with total mana
+                    if e["n"] < 2:  # value 6 or less from among them" (Michelangelo's Technique): checked as they're picked (effects.resume_pick_looked)
+                        raise _Fail
+                    sel_text, e["total_mv"] = tm[1], int(tm[2])
+                historic = bool(re.match(r"historic (?!.* or )", sel_text))  # (700.6: artifact, legendary or Saga; "a historic card")
+                parsed = selectors.parse(sel_text[9:] if historic else sel_text)
                 if parsed is None or parsed.player is not None:
                     raise _Fail
                 if historic:
@@ -1579,9 +1593,10 @@ def _parse(text: str) -> tuple[Effects, Any]:
                 raise _Fail  # ("… and draw a card, where X is …": which half X belongs to isn't read)
             return [_bind_x(e, rider[1]) for e in (*left[0], *right[0])], left[1] if left[1] is not None else right[1]
     # -- players ------------------------------------------------------------------------------
-    m = re.fullmatch(rf"(?P<s>its controller|that creature's controller|that player) may draw (?P<n>{AMT}) cards?", text)
+    m = re.fullmatch(rf"(?P<s>its controller|that creature's controller|that player) may draw (?:up to (?P<up>{AMT})|(?P<n>{AMT})) cards?", text)
     if m and rider is None:  # -- triggers (wave 19B) -- "its controller may draw a card": that player decides on resolution (608.2d)
-        return [{"do": "draw", "who": PLAYER_GROUPS[m["s"]], "n": _amount(m["n"]), "may": True}], None
+        # (-- delayed draws (wave 51B) -- "may draw up to two cards" (Arcane Denial): that player chooses how many, 0 to N, as it resolves)
+        return [{"do": "draw", "who": PLAYER_GROUPS[m["s"]], "n": _amount(m["up"] or m["n"]), **({"upto": True} if m["up"] else {"may": True})}], None
     m = re.fullmatch(_SUBJ + rf"draws? (?:(?P<n>{AMT}) (?:additional )?cards?|cards equal to (?P<stat>.+))", text)
     if m:
         who, target = _subject(m)
@@ -1999,7 +2014,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # cards in your graveyard that were put there from anywhere this turn." (Garna), "return to the battlefield target creature card in your
     # graveyard that …" (Moira) say what "Return all … to your hand" / "return target … to the battlefield" do
     text = re.sub(r"^(?P<may>you may )?return to (?P<d>your hand|the battlefield) (?P<o>(?:all|target|up to \w+ target|another target|each) "
-                  r"(?!.* (?:under|tapped|attacking|face down|with|attached)\b).+)$", lambda m: f"{m['may'] or ''}return {m['o']} to {m['d']}", text)
+                  r"(?!.* (?:under|tapped|attacking|face down|with(?! (?:equal or )?lesser\b)|attached)\b).+)$", lambda m: f"{m['may'] or ''}return {m['o']} to {m['d']}", text)
     found = reanimation_forms(text)  # -- reanimation (wave 3R) --
     if found is not None:
         return found
@@ -3864,6 +3879,11 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         dm = _DIFFERENT.fullmatch(what)  # -- refused zones/sized (wave 3R4) -- "… cards with different names"
         if dm is not None:
             what, different = dm["a"] + (dm["b"] or ""), "name" if dm["k"] == "names" else "mana_value"
+        tm = re.fullmatch(r"(.+?) with total mana value (\d+) or less", what)  # -- total mana value (wave 51A) -- "any number of artifact creature cards with total mana value 6 or less" (Technomancer)
+        if tm is not None:
+            if not (c["any"] or c["upto"]):
+                return None
+            what = tm[1]
         words = re.sub(r"\bcards\b", "card", what)
         sel = selectors.parse(f"{words} from {c['z']}")
         if sel is None:
@@ -3878,7 +3898,7 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
             return None
         return [{**effect, "do": "return_choice", "sel": sel.key(), "n": n, "upto": bool(c["upto"] or c["any"] or may),
                  "random": bool(c["rand"]), "label": words, **({"optional": True} if may else {}),
-                 **({"different": different} if different else {})}], _one(host_group)
+                 **({"different": different} if different else {}), **({"total_mv": int(tm[2])} if tm is not None else {})}], _one(host_group)
     if not put and not (not hand and (m["atk"] or m["atk2"] or m["host"] or m["ck2"] or m["add1"])):  # (ck2/add1: wave 4M)  # (wave 3R4: "… tapped and attacking", "… attached to" read here)
         return None  # ("return target …" / "return all …": the grammar below)
     try:
@@ -3973,6 +3993,8 @@ def control_forms(text: str) -> tuple[Effects, Any] | None:
             return None
         if kind != "target":  # "Target opponent gains control of this creature / of all other permanents you control"
             return [{"do": "gain_control", "who": _who(kind, key), "to": "target", **dur}], pgroup
+        if group is not None and set(group) == {"what", "min", "max", "another"}:  # -- if you do (wave 51D) -- "Target opponent gains control of another target permanent you control." (Stiltzkin): the first target is a player, so "another" is than the source (as reconfigure's, 702.151a), which the selector already says (``other``)
+            group = {k: v for k, v in group.items() if k != "another"}
         if group is None or not simple(group):
             return None
         return [{"do": "gain_control", "who": "target:1", "to": "target:0", **dur}], [pgroup, group]
@@ -3992,7 +4014,7 @@ def _exchange(phrase: str) -> tuple[Effects, Any] | None:
     both = _control_object(phrase)
     if both is not None:  # "two target creatures": one group of exactly two (701.12a: both or nothing)
         group = both[2]
-        if both[0] != "target" or group is None or (group["min"], group["max"]) != (2, 2) or "another" in group:
+        if both[0] != "target" or group is None or (group["min"], group["max"]) != (2, 2):  # (wave 51A: "two other target creatures", other than the source, is read as for any group)
             return None
         return [{"do": "exchange_control", "who": "target"}], group
     left, sep, right = phrase.partition(" and target ")
