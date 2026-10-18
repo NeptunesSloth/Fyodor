@@ -3200,6 +3200,9 @@ PRIMITIVES["win_if_library"] = _looking.win_if_library  # -- refused look/cast-f
 from app.rules import reveal_hand as _reveal_hand  # noqa: E402, I001  -- if you do (wave 10C) -- (a leaf module)
 
 PRIMITIVES["reveal_hand_cards"] = _reveal_hand.reveal_hand_cards
+from app.rules import wishes as _wishes  # noqa: E402, I001  -- wishes (wave 52C) -- cards from outside the game (a leaf module)
+
+PRIMITIVES["wish"] = _wishes.wish
 
 
 def only_if(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

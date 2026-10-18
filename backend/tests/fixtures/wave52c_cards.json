@@ -486,5 +486,196 @@
    "B"
   ],
   "keywords": []
+ },
+ {
+  "name": "Burning Wish",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "You may reveal a sorcery card you own from outside the game and put it into your hand. Exile Burning Wish.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Living Wish",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "You may reveal a creature or land card you own from outside the game and put it into your hand. Exile Living Wish.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Cunning Wish",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "You may reveal an instant card you own from outside the game and put it into your hand. Exile Cunning Wish.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Glittering Wish",
+  "layout": "normal",
+  "mana_cost": "{G}{W}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "You may reveal a multicolored card you own from outside the game and put it into your hand. Exile Glittering Wish.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Golden Wish",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Sorcery",
+  "oracle_text": "You may reveal an artifact or enchantment card you own from outside the game and put it into your hand. Exile Golden Wish.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Death Wish",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "You may put a card you own from outside the game into your hand. You lose half your life, rounded up. Exile Death Wish.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Coax from the Blind Eternities",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "You may reveal an Eldrazi card you own from outside the game or choose a face-up Eldrazi card you own in exile. Put that card into your hand.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Karn, the Great Creator",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Karn",
+  "oracle_text": "Activated abilities of artifacts your opponents control can't be activated.\n+1: Until your next turn, up to one target noncreature artifact becomes an artifact creature with power and toughness each equal to its mana value.\n−2: You may reveal an artifact card you own from outside the game or choose a face-up artifact card you own in exile. Put that card into your hand.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "loyalty": "5"
+ },
+ {
+  "name": "Vivien, Arkbow Ranger",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{G}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Vivien",
+  "oracle_text": "+1: Distribute two +1/+1 counters among up to two target creatures. They gain trample until end of turn.\n−3: Target creature you control deals damage equal to its power to target creature or planeswalker.\n−5: You may reveal a creature card you own from outside the game and put it into your hand.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "loyalty": "4"
+ },
+ {
+  "name": "North Wind Avatar",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{U}{R}",
+  "cmc": 5.0,
+  "type_line": "Creature — Dragon Spirit Avatar",
+  "oracle_text": "Flying\nWhen this creature enters, if you cast it, you may put a card you own from outside the game into your hand.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Fae of Wishes // Granted",
+  "layout": "adventure",
+  "mana_cost": "{1}{U} // {3}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature — Faerie Wizard // Sorcery — Adventure",
+  "oracle_text": "Flying\n{1}{U}, Discard two cards: Return this creature to its owner's hand.\n//\nYou may reveal a noncreature card you own from outside the game and put it into your hand.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "1",
+  "toughness": "4",
+  "card_faces": [
+   {
+    "name": "Fae of Wishes",
+    "mana_cost": "{1}{U}",
+    "type_line": "Creature — Faerie Wizard",
+    "oracle_text": "Flying\n{1}{U}, Discard two cards: Return this creature to its owner's hand.",
+    "power": "1",
+    "toughness": "4"
+   },
+   {
+    "name": "Granted",
+    "mana_cost": "{3}{U}",
+    "type_line": "Sorcery — Adventure",
+    "oracle_text": "You may reveal a noncreature card you own from outside the game and put it into your hand."
+   }
+  ]
  }
 ]
