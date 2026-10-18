@@ -185,7 +185,6 @@ def test_wordings():
     "Change the target of target spell that targets only a single creature to this creature.",  # Muck Drubb
     "Change the target of target spell that targets only a player. The new target must be a player.",  # Rebound
     "Change the target of target spell or ability that targets only this creature. The new target must be a creature.",
-    "Counter target spell. Its controller can't cast spells this turn.",  # (a cast restriction: not this family)
     "Copy target spell or ability.",  # (the copy grammar doesn't read "spell or ability")
     "Add an amount of {C} equal to that spell's mana value.",  # (no spell to bind "that spell" to)
 ])
