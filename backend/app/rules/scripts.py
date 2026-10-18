@@ -687,8 +687,8 @@ class _Introducer:
                 self.number = 1  # -- damage sized by a count (wave 20A) -- "until you reveal a nonland card. … that card's mana value": the one found
         if self.do == "destroy_all":
             self.number = 2
-        if self.do == "choose_random":  # -- random choices (wave 47B) -- "Choose an opponent at random. … that player": a player, no object
-            self.player, self.objects = True, False
+        if self.do == "choose_random" or (self.do == "choose_value" and e.get("what") in ("opponent", "player")):  # -- random choices (wave 47B) -- "Choose an opponent at random. … that
+            self.player, self.objects = True, False  # player": a player, no object; -- player-relative selectors (wave 53A) -- and "Choose an opponent. That player …"
         if self.do == "choose_value" and str(e.get("what", "")).endswith("card name"):  # -- card names (wave 49C) -- a name is no object: "Choose a card name, then reveal a card at random from your hand. If it has …" (Cursed Scroll)
             self.objects = False
         if self.do == "damage" and g is None and who in ("you", "each_player", "each_opponent", "each_other_opponent", "event_player", "that_player",
@@ -974,7 +974,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             for pkey in ("player", "library"):  # (-- player-relative selectors (wave 53A) -- "search that player's library for …" (Thada Adel, Sadistic Sacrament): a library is named like a player)
                 if e.get(pkey) == "that_player":  # -- static wordings (wave 6E) -- "that player exiles the top card of
                     intro = find(lambda i: i.player, index)  # their library": whose library, bound like "who" below
-                    if intro is not None and intro.do == "choose_random":  # -- random choices (wave 47B) -- "Choose an opponent at random. … attacks that player"
+                    if intro is not None and intro.do in ("choose_random", "choose_value"):  # -- random choices (wave 47B) -- "Choose an opponent at random. … attacks that player"
                         e[pkey] = "ref:" + bound(intro)
                     elif intro is not None:
                         if event_player:
@@ -1064,7 +1064,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     return None
             elif who == "that_player":
                 intro = find(lambda i: i.player, index)
-                if intro is not None and intro.do == "choose_random":  # -- random choices (wave 47B) -- "Choose an opponent at random. … that player"
+                if intro is not None and intro.do in ("choose_random", "choose_value"):  # -- random choices (wave 47B) -- "Choose an opponent at random. … that player"; -- player-relative selectors (wave 53A) -- or "Choose an opponent."
                     e["who"] = "ref:" + bound(intro)
                 elif intro is not None:
                     if event_player:
@@ -2505,6 +2505,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     from app.rules import controller_each, counter_riders, this_way_words  # -- if you do (wave 52A) --
 
     body = this_way_words.rewrite_excess(this_way_words.rewrite(counter_riders.rewrite(controller_each.rewrite(body))))
+    body = _player_choices.rewrite(body)  # -- player-relative selectors (wave 53A) -- "… not chosen this way" (app/rules/player_choices.py)
     if (cb := counter_riders.counterbalance(body, it)) is not None:
         return cb
     from app.rules import sacrifice_return  # -- if you do (wave 52A) --
@@ -2767,7 +2768,8 @@ _THAT_PLAYER = re.compile(r"(?<=target creature an opponent controls\. )That pla
 # "Each player returns all black and all red creature cards from their graveyard to the battlefield." (Balthor the Defiled), "… all creature cards from their graveyard
 # to their hand." (Empty the Catacombs): a card in a graveyard is in its owner's, so every player returning their own is every such card returned under its owner's
 # control / to its owner's hand (400.3), "black and all red" the cards that are black or red
-_EACH_RETURNS = re.compile(r"(?<![\w'])[Ee]ach player returns all (?P<x>[a-z]+(?: and all [a-z]+)?(?: [a-z]+)?) cards from their graveyard to (?P<d>the battlefield|their hand)\b")
+_EACH_RETURNS = re.compile(r"(?<![\w'])[Ee]ach player returns (?:all|each) (?P<x>[a-z]+(?: and all [a-z]+)?(?: [a-z]+)?) cards? from their graveyard to (?P<d>the battlefield|their hand)"
+                           r"(?P<w> with an additional [+-]\d+/[+-]\d+ counter on it)?\b")  # (-- player-relative selectors (wave 53A) -- "each creature card … with an additional -1/-1 counter on it": Pyrrhic Revival)
 _OWNER_SHUFFLES = re.compile(r"(^\s*|\. )~'s owner shuffles (?:him|her|it|~) into their library and draws (\w+ cards?)\b")
 
 
@@ -2785,7 +2787,7 @@ def _split_tails(body: str, event_player: bool) -> str:
     body = _YOU_ADD.sub(r"Add \1", body)  # "You add {R}." (Red Death, Shipwrecker) is "Add {R}."
     body = re.sub(r"\bthat player reveals the chosen card, puts it on the bottom", "that player reveals and puts it on the bottom", body)  # (wave 44A: Vendilion Clique, language._PLAYER_LIBRARY)
     body = _EACH_RETURNS.sub(lambda m: f"Return all {m['x'].replace(' and all ', ' or ')} cards from all graveyards to "
-                             + ("the battlefield under their owners' control" if m["d"] == "the battlefield" else "their owners' hands"), body)
+                             + ("the battlefield under their owners' control" if m["d"] == "the battlefield" else "their owners' hands") + (m["w"] or ""), body)
     # "Goad target creature an opponent controls. That player draws a card.": the opponent named is the creature's controller (no event names a player here)
     return body if event_player else _THAT_PLAYER.sub("Its controller", body)  # (a trigger whose event names a player keeps "that player" for it)
 
@@ -7302,6 +7304,8 @@ _RECORDING.update({"edict": "sacrificed", "player_chooses": None, "choose_from_h
                    "reveal_hand": None, "choose_value": None})
 _MOVERS.update({"edict", "player_chooses", "choose_from_hand", "discard_named"})
 _CHOSEN.update({"edict": "n", "player_chooses": "n", "choose_from_hand": "n"})
+_RECORDING["destroy_random"] = "destroyed"  # -- player-relative selectors (wave 53A) -- "Destroy one of them chosen at random." (player_choices.destroy_random)
+_MOVERS.add("destroy_random")
 
 
 # -- temporary grants & riders (agent G: app/rules/language.py "temporary grants & riders") ----------

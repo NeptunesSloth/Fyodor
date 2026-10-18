@@ -4094,7 +4094,8 @@ def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
     shown = plan.name(value) if e["what"] in ("opponent", "player") else value
     plan.note(f"{plan.name(d.player)} chooses {shown} ({e['what']})", actor=d.player)
     if e.get("as"):
-        context.refs(ctx)[e["as"]] = {"kind": "choice", "what": e["what"], "value": value}
+        context.refs(ctx)[e["as"]] = {"kind": "choice", "what": e["what"], "value": value,
+                                      **({"players": [value]} if e["what"] in ("opponent", "player") else {})}  # (-- player-relative selectors (wave 53A) -- "Choose an opponent. That player …")
     if not e.get("remember") and (e["what"] in ("creature type", "color", "odd or even") or card_names.is_choice(e["what"])):  # -- chosen type (wave 4J) --
         from app.rules import chosen as picked
 
@@ -4893,6 +4894,9 @@ from app.rules import decayed as _decayed  # noqa: E402, I001  (702.147: decayed
 
 PRIMITIVES.update(_decayed.PRIMITIVES)
 # -- end token & pump wordings (wave 6C) --
+from app.rules import player_choices as _player_choices  # noqa: E402, I001  -- player-relative selectors (wave 53A) --
+
+PRIMITIVES.update(_player_choices.PRIMITIVES)
 
 # -- token copies & attach on entry (wave 5J) -- "attach it to target creature you control" (app/rules/attach_entry.py),
 # populate and "for each …, create a token that's a copy of that …" (app/rules/populate.py)

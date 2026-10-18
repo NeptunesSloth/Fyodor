@@ -72,6 +72,11 @@ WHEN = {
     # (Phytotitan): the next upkeep of the player who owns the card the clause moves (fixed as the delayed trigger is created)
     "its owner's next upkeep": {"kind": "step", "step": "upkeep", "whose": "owner"},
     "their next upkeep": {"kind": "step", "step": "upkeep", "whose": "owner"},
+    # -- player-relative selectors (wave 53A) -- "Return that card to the battlefield under its owner's control at the beginning of that player's next end step." (The Eternal Wanderer):
+    # the owner of the card the clause moves, as for the upkeep
+    "that player's next end step": {"kind": "step", "step": "end", "whose": "owner"},
+    "its owner's next end step": {"kind": "step", "step": "end", "whose": "owner"},
+    "their next end step": {"kind": "step", "step": "end", "whose": "owner"},
     # -- stack interaction (wave 5B) -- Mana Drain: the next main phase (precombat or postcombat, 505.1) of a turn of
     # yours to begin; a later one this turn if you're in your precombat main phase or combat now (engine: main1 / main2)
     "your next main phase": {"kind": "step", "step": "main", "whose": "you"},

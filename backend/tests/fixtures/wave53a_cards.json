@@ -631,5 +631,113 @@
    "B"
   ],
   "keywords": []
+ },
+ {
+  "name": "The Eternal Wanderer",
+  "layout": "normal",
+  "mana_cost": "{4}{W}{W}",
+  "cmc": 6.0,
+  "type_line": "Legendary Planeswalker",
+  "oracle_text": "No more than one creature can attack The Eternal Wanderer each combat.\n+1: Exile up to one target artifact or creature. Return that card to the battlefield under its owner's control at the beginning of that player's next end step.\n0: Create a 2/2 white Samurai creature token with double strike.\n−4: For each player, choose a creature that player controls. Each player sacrifices all creatures they control not chosen this way.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "loyalty": "5"
+ },
+ {
+  "name": "Chaos Defiler",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{R}",
+  "cmc": 5.0,
+  "type_line": "Artifact Creature — Demon Construct",
+  "oracle_text": "Trample\nBattle Cannon — When this creature enters or dies, for each opponent, choose a nonland permanent that player controls. Destroy one of them chosen at random.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Battle Cannon",
+   "Trample"
+  ],
+  "power": "5",
+  "toughness": "4"
+ },
+ {
+  "name": "Underworld Cerberus",
+  "layout": "normal",
+  "mana_cost": "{3}{B}{R}",
+  "cmc": 5.0,
+  "type_line": "Creature — Dog",
+  "oracle_text": "This creature can't be blocked except by three or more creatures.\nCards in graveyards can't be the targets of spells or abilities.\nWhen this creature dies, exile it and each player returns all creature cards from their graveyard to their hand.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Pyrrhic Revival",
+  "layout": "normal",
+  "mana_cost": "{3}{W/B}{W/B}{W/B}",
+  "cmc": 6.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player returns each creature card from their graveyard to the battlefield with an additional -1/-1 counter on it.",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Ill-Gotten Gains",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Exile Ill-Gotten Gains. Each player discards their hand, then returns up to three cards from their graveyard to their hand.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Skullwinder",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Snake",
+  "oracle_text": "Deathtouch\nWhen this creature enters, return target card from your graveyard to your hand, then choose an opponent. That player returns a card from their graveyard to their hand.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Deathtouch"
+  ],
+  "power": "1",
+  "toughness": "3"
  }
 ]
