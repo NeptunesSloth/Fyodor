@@ -749,7 +749,7 @@ def _token_or_sel(phrase: str) -> selectors.Selector | None:
         return selectors.parse(phrase) or _kinds_you_control(phrase)
     base = selectors.parse(((m["a"] or "") + ((m["rest"] or "").strip() or ("permanents" if m["t"] == "tokens" else "permanent"))
                             + (m["tail"] or "")).strip())
-    return selectors.replace(base, token=True) if base is not None else None
+    return selectors.replace(base, token=True) if base is not None else selectors.parse(phrase) if "token" in phrase else None  # (wave 51C: "a noncreature token", Bloodroot Apothecary)
 
 
 def _kinds_you_control(phrase: str) -> selectors.Selector | None:

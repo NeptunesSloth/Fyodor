@@ -24,7 +24,7 @@ from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import pick, until_asked
-from tests.test_rules_wave34b_activated import attack, next_turn, stops, to_phase
+from tests.test_rules_wave34b_activated import activate, attack, next_turn, stops, to_phase
 from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave51c_cards.json").read_text("utf-8"))
@@ -42,7 +42,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer"])
+@pytest.mark.parametrize("name", ["Stubborn Denial", "Visions of Beyond", "Twenty-Toed Toad", "Render Silent", "Void Winnower", "Desecrate Reality", "Gyruda, Doom of Depths", "Stitch Together", "Everybody Lives!", "Uncivil Unrest", "Collective Inferno", "Loading Zone", "Generous Plunderer", "Bloodroot Apothecary", "Urabrask's Forge"])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -408,4 +408,41 @@ def test_generous_plunderer_hits_defending_player_for_their_artifacts(cards, art
     assert theirs >= artifacts and mine in (0, 1)
     to_phase(s, "main2")
     assert life(s, "p2") == 40 - theirs - pt(s, "Generous Plunderer")[0]  # (the trigger's damage, then its combat damage)
+    check(s)
+
+
+# -- Bloodroot Apothecary ----------------------------------------------------------------------------------------------------------------------
+def test_bloodroot_apothecary_poisons_an_opponent_sacrificing_a_noncreature_token_only(cards):
+    s = build(cards, ["Bloodroot Apothecary"])
+    mana(s, G=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Bloodroot Apothecary").id)
+    settle(s)  # (Alice and Bob each create a Treasure)
+    treasure = lambda pid: next(c for c in s.state.cards.values() if c.name == "Treasure" and c.zone == f"{pid}:battlefield")  # noqa: E731
+    activate(s, "p1", treasure("p1"))
+    settle(s)
+    assert s.state.players["p2"].resources["poison"] == 0 and s.state.players["p1"].resources["poison"] == 0  # (her own sacrifice)
+    stops(s)
+    act(s, "p1", type="pass_priority")  # (Bob gets priority in the same step)
+    assert s.state.rules.priority == "p2"
+    activate(s, "p2", treasure("p2"))
+    settle(s)
+    assert s.state.players["p2"].resources["poison"] == 2
+    check(s)
+
+
+# -- Urabrask's Forge --------------------------------------------------------------------------------------------------------------------------
+def test_urabrasks_forge_makes_a_token_as_big_as_its_oil_and_sacrifices_it_at_the_end_step(cards):
+    s = build(cards, ["Urabrask's Forge"])
+    forge = put(s, "Urabrask's Forge")
+    next_turn(s)
+    stops(s)
+    to_phase(s, "begin_combat")
+    settle(s)  # (the oil counter, then the token with trample and haste)
+    token = next(c for c in s.state.cards.values() if c.name == "Phyrexian Horror" and c.zone == "p1:battlefield")
+    assert s.state.cards[forge.id].counters["oil"] == 2 and pt(s, "Phyrexian Horror") == (2, 1)  # (the first combat, turn 1, gave the first counter and a token that is long gone)
+    assert sum(1 for c in s.state.cards.values() if c.name == "Phyrexian Horror" and c.zone == "p1:battlefield") == 1
+    to_phase(s, "end")
+    settle(s)
+    assert token.id not in s.state.cards  # (sacrificed at the beginning of the next end step: a token ceases to exist)
+    assert s.state.cards[forge.id].counters["oil"] == 2
     check(s)
