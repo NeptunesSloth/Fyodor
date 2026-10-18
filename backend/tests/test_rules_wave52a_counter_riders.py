@@ -15,11 +15,11 @@ import pytest
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_suspend import until
-from tests.test_rules_wave34b_activated import settle
-from tests.wave9c_kit import build, card_named, check, life, mana, reloaded, to_hand, zone_of
+from tests.test_rules_wave34b_activated import settle, to_phase
+from tests.wave9c_kit import build, card_named, check, life, mana, put, reloaded, to_hand, zone_of
 from tests.wave52a_kit import open_repo
 
-DELAY, DRAGON = "Delay", "Transcendent Dragon"
+DELAY, DRAGON, BALANCE = "Delay", "Transcendent Dragon", "Counterbalance"
 
 
 @pytest.fixture()
@@ -27,7 +27,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [DELAY, DRAGON])
+@pytest.mark.parametrize("name", [DELAY, DRAGON, BALANCE])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -121,3 +121,40 @@ def test_transcendent_dragon_a_spell_that_cant_be_countered_is_not_cast_again(ca
     check(s)
 
 
+
+
+# -- Counterbalance ----------------------------------------------------------------------------------------------------------------------
+def balanced(cards, top, answer):
+    """Alice has Counterbalance and ``top`` on top of her library; Bob casts Grizzly Bears (mana value 2) on his turn; Alice answers the question whether to reveal."""
+    s = build(cards, [BALANCE, "Grizzly Bears", "Hill Giant"], ["Grizzly Bears"])
+    put(s, BALANCE)
+    act(s, "p1", type="move", card_ids=[card_named(s, top).id], to={"player": "p1", "zone": "library"}, position="top")
+    to_phase(s, "main1", turn=2)
+    bears = to_hand(s, "Grizzly Bears", "p2")
+    mana(s, "p2", G=1, C=1)
+    act(s, "p2", type="cast_spell", card_id=bears.id)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1"  # "you may reveal": her choice
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[answer])
+    settle(s)
+    return s
+
+
+def test_counterbalance_counters_a_spell_with_the_same_mana_value_as_the_revealed_card(cards):
+    s = balanced(cards, "Grizzly Bears", "yes")  # revealed: mana value 2, the spell's too
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard"
+    assert zone_of(s, "Grizzly Bears") == "p1:library"  # (revealing leaves it on top: 701.20a)
+    assert s.state.zones["p1:library"][0] == card_named(s, "Grizzly Bears").id
+    check(s)
+
+
+def test_counterbalance_a_different_mana_value_lets_the_spell_resolve(cards):
+    s = balanced(cards, "Hill Giant", "yes")  # revealed: mana value 4
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:battlefield"
+    check(s)
+
+
+def test_counterbalance_declined_reveals_nothing_and_counters_nothing(cards):
+    s = balanced(cards, "Grizzly Bears", "no")
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:battlefield"
+    check(s)

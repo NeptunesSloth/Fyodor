@@ -2412,6 +2412,8 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     from app.rules import controller_each, counter_riders  # -- if you do (wave 52A) --
 
     body = counter_riders.rewrite(controller_each.rewrite(body))
+    if (cb := counter_riders.counterbalance(body, it)) is not None:
+        return cb
     # -- damage wordings (wave 51B) -- "Then each player creates X Treasure tokens and this enchantment deals X damage to each player, where X is the number of descent counters on this
     # enchantment." (Descent into Avernus): two instructions in order (608.2c), the same X for both (nothing between them changes the counters)
     body = re.sub(r"\b(each player creates X [A-Z][a-z]+ tokens?) and ((?:this \w+|~) deals) X damage to (each player), where X is ([^.]+)\.",

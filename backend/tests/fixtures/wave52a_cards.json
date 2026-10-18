@@ -251,5 +251,20 @@
   "keywords": [],
   "power": "2",
   "toughness": "2"
+ },
+ {
+  "name": "Counterbalance",
+  "layout": "normal",
+  "mana_cost": "{U}{U}",
+  "cmc": 2.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Whenever an opponent casts a spell, you may reveal the top card of your library. If you do, counter that spell if it has the same mana value as the revealed card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
  }
 ]
