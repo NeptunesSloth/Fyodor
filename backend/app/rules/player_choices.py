@@ -124,6 +124,8 @@ _NOT_CHOSEN = re.compile(r"(For each (?:player|opponent), (?:you )?choose an? (?
 
 
 def rewrite(body: str) -> str:
+    if re.search(r"\b[Ee]xile the top \w+ cards of (?:that|target) player's library\b", body):
+        body = re.sub(r"\b(put an? (?:[a-z ]+? )?card) from among them onto the battlefield", r"\1 from among the exiled cards onto the battlefield", body)
     # "exile it and each player returns all creature cards from their graveyard to their hand" (Underworld Cerberus): two instructions, two subjects (608.2c)
     body = re.sub(r"(^|[.,] )([Ee])xile it and (each player returns )", lambda m: f"{m[1]}{m[2]}xile it. {m[3].capitalize()}", body)
     # "Each player discards their hand, then returns up to three cards from their graveyard to their hand." (Ill-Gotten Gains): the discard first, then the choice (608.2c)
@@ -230,7 +232,9 @@ TEMPLATES.append((_FROM_EXILE, _from_exile))
 
 # "…, then put a creature card from among them onto the battlefield under your control." (Lord of the Void) after "exile the top seven cards of that player's library": the controller
 # chooses (608.2d) among the cards that instruction exiled (public, face up: 406.3), the one chosen entering under their control
-_FROM_AMONG = re.compile(r"^(?:then )?put (?P<q>an?|up to one) (?P<sel>[a-z ]+?) card from among them onto the battlefield(?P<tapped> tapped)?(?: under your control)?$")
+# (worded "from among the exiled cards" by ``rewrite`` after an "exile the top …" in the same ability: "from among them" after a look or a reveal is the older reading's, a template
+# that matches it takes the sentence from that reading)
+_FROM_AMONG = re.compile(r"^(?:then )?put (?P<q>an?|up to one) (?P<sel>[a-z ]+?) card from among the exiled cards onto the battlefield(?P<tapped> tapped)?(?: under your control)?$")
 
 
 def _from_among(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:

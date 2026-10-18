@@ -72,15 +72,12 @@ def _target(kind: str | None) -> str | None:
 
 # "Exile all cards from target player's hand and graveyard." / "… noncreature, nonland cards from that player's hand and graveyard."; a graveyard alone with a one-word
 # kind is graveyard_exile's (wave 15C)
-_EXILE = re.compile(rf"^exile all {_SEL} from {_P} (?P<z>hand|graveyard|hand and graveyard)$")
+# (a "<kind> cards" from a target player's graveyard alone is graveyard_exile's (wave 15C): not matched here - a template that raises _NoMatch ends the whole parse, it does not hand over)
+_EXILE = re.compile(rf"^exile all (?![a-z]+ cards from (?:target player's|target opponent's) graveyard$){_SEL} from {_P} (?P<z>hand|graveyard|hand and graveyard)$")
 
 
 def _exile(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    from app.rules.scripts import _NoMatch
-
     ref, kind = _WHO[m["p"]]
-    if m["z"] == "graveyard" and m["p"] != "that player's" and re.fullmatch(r"(?:[a-z]+ )?cards", m["sel"]):
-        raise _NoMatch  # (graveyard_exile's)
     return [{"do": "exile", "who": key(_ZONES[m["z"]], ref, _selector(m["sel"]))}], _target(kind)
 
 
