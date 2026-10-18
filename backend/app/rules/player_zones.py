@@ -85,10 +85,12 @@ def _exile(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 # "Target player exiles all land cards from their graveyard." (Mudhole): the same set, named by the subject
-_EXILES = re.compile(rf"^(?P<p>target player|target opponent) exiles all {_SEL} from their (?P<z>hand|graveyard|hand and graveyard)$")
+_EXILES = re.compile(rf"^(?P<p>target player|target opponent|that player) exiles all {_SEL} from their (?P<z>hand|graveyard|hand and graveyard)$")
 
 
 def _exiles(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    if m["p"] == "that player":  # (Strategic Betrayal: the player the sentence before named; scripts.resolve_it binds the reference)
+        return [{"do": "exile", "who": key(_ZONES[m["z"]], "that_player", _selector(m["sel"]))}], None
     return [{"do": "exile", "who": key(_ZONES[m["z"]], "target", _selector(m["sel"]))}], _target(m["p"].split()[1])
 
 

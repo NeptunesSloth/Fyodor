@@ -5374,6 +5374,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     # -- trigger other (wave 44B) -- 508.3e, 508.5: "Whenever one or more Warriors you control attack a player, target creature that player controls
                     # becomes a Coward" is one trigger for each player attacked, and "that player" is that one (the event's defended player, defending.py)
                     body = re.sub(r"\bthat player\b", "defending player", body)
+                if (trigger == "attacks_self" or cond is not None and cond.get("event") == "attack" and cond.get("subject") in ("self", "host") and not cond.get("aggregate")) \
+                        and re.search(r"\bdefending player\b.*\bthat player\b", body) and not re.search(r"\b(?:target (?:player|opponent)|an opponent|each opponent|another player|each player)\b", body):
+                    # -- player-relative selectors (wave 53A) -- 508.5: "if defending player controls no Walls, it deals 2 damage to each creature without flying that player controls" (Siege
+                    # Dragon): the player named is the only one there is, so "that player" is the defending player
+                    body = re.sub(r"\bthat player\b", "defending player", body)
                 if cond is not None and cond.get("event") == "you_attack":  # -- trigger sweep (wave 27B; review: an attack's own event only) --
                     body = re.sub(r"\b([Tt]hat|[Tt]he) attacking player\b", "that player", body)  # the event's player: the attacker (508.1)
                     # -- trailing & intervening ifs (wave 38A) -- "Whenever an opponent attacks, if they attacked you and/or a planeswalker you control, …"

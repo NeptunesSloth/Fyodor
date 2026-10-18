@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from app.rules import coverage
 from app.rules.plan import Plan
 from tests.game_helpers import act
@@ -24,7 +25,7 @@ from tests.wave53a_kit import open_repo, table, until_asked
 
 BEARS, GIANT, ANGEL, GRAIL = "Grizzly Bears", "Hill Giant", "Serra Angel", "Sol Grail"
 NAMES = ["Breach the Multiverse", "Exhume", "Crypt Champion", "Fall of the Thran", "Dredge the Mire", "Scrounge", "Enslaved Horror", "The Eternal Wanderer", "Chaos Defiler",
-         "Underworld Cerberus", "Pyrrhic Revival", "Ill-Gotten Gains", "Skullwinder", "Patriarch's Bidding", "Orzhov Advokist"]
+         "Underworld Cerberus", "Pyrrhic Revival", "Ill-Gotten Gains", "Skullwinder", "Patriarch's Bidding", "Orzhov Advokist", "Afterlife from the Loam", "Strategic Betrayal"]
 
 
 @pytest.fixture()
@@ -359,4 +360,65 @@ def test_orzhov_advokist_the_players_who_put_counters_cannot_attack_you_until_yo
     goes(s, 6, "p3")  # Carol's turn: she put no counters
     declare(s, "p3", (cgiant, "p1"))
     assert s.state.cards[cgiant.id].attacking is not None
+    check(s)
+
+
+# -- Afterlife from the Loam ------------------------------------------------------------------------------------------------------------
+def test_afterlife_from_the_loam_a_target_in_each_graveyard_all_come_back_to_you_as_zombies(cards):
+    """601.2c: a target group for each player, each limited to that player's own graveyard ("that player's graveyard"); every creature card chosen is put onto the battlefield under your
+    control and is a Zombie in addition to its other types (613.1d)."""
+    s = table(cards, ["Afterlife from the Loam", GIANT], [BEARS, ANGEL], [GRAIL])
+    giant, bears, angel = to_gy(s, GIANT, "p1"), to_gy(s, BEARS, "p2"), to_gy(s, ANGEL, "p2")
+    grail = to_gy(s, GRAIL, "p3")  # (not a creature card: Carol's group has no target)
+    to_hand(s, "Afterlife from the Loam")
+    mana(s, "p1", B=3, C=5)
+    with pytest.raises(ActionError):  # Bob's group can't take Alice's own card
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Afterlife from the Loam").id, targets=[giant.id, giant.id], target_counts=[1, 1, 0])
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Afterlife from the Loam").id, targets=[giant.id, angel.id], target_counts=[1, 1, 0])
+    settle(s)
+    assert where(s, giant) == ("p1:battlefield", "p1") and where(s, angel) == ("p1:battlefield", "p1") and s.state.cards[angel.id].owner == "p2"
+    assert s.state.cards[bears.id].zone == "p2:graveyard" and s.state.cards[grail.id].zone == "p3:graveyard"
+    plan = Plan(s.state, "p1", s.cards, None)
+    assert all("Zombie" in plan.ch(s.state.cards[c.id]).subtypes for c in (giant, angel))
+    check(s)
+
+
+def test_afterlife_from_the_loam_may_choose_nothing(cards):
+    s = table(cards, ["Afterlife from the Loam"], [BEARS], [])
+    bears = to_gy(s, BEARS, "p2")
+    to_hand(s, "Afterlife from the Loam")
+    mana(s, "p1", B=3, C=5)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Afterlife from the Loam").id, targets=[], target_counts=[0, 0, 0])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p2:graveyard"
+    check(s)
+
+
+# -- Strategic Betrayal -----------------------------------------------------------------------------------------------------------------
+def test_strategic_betrayal_the_opponent_picks_the_creature_and_loses_the_whole_graveyard(cards):
+    """701.21a-style choice by the target opponent (they pick the creature), 406.3 / 608.2c: then every card of that opponent's graveyard, and only theirs, is exiled."""
+    s = table(cards, ["Strategic Betrayal"], [BEARS, ANGEL, GIANT, GRAIL], [GRAIL])
+    bears, angel = put(s, BEARS, "p2"), put(s, ANGEL, "p2")
+    giant, grail = to_gy(s, GIANT, "p2"), to_gy(s, GRAIL, "p2")
+    carols = to_gy(s, GRAIL, "p3")
+    to_hand(s, "Strategic Betrayal")
+    mana(s, "p1", B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Strategic Betrayal").id, targets=["p2"])
+    d = answer(s, bears, "p2")  # Bob chooses: not Alice
+    assert {o.id for o in d.options} == {bears.id, angel.id}
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p2:exile" and s.state.cards[angel.id].zone == "p2:battlefield"
+    assert s.state.cards[giant.id].zone == "p2:exile" and s.state.cards[grail.id].zone == "p2:exile"
+    assert s.state.cards[carols.id].zone == "p3:graveyard"
+    check(s)
+
+
+def test_strategic_betrayal_with_no_creature_the_graveyard_is_still_exiled(cards):
+    s = table(cards, ["Strategic Betrayal"], [GIANT], [])
+    giant = to_gy(s, GIANT, "p2")
+    to_hand(s, "Strategic Betrayal")
+    mana(s, "p1", B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Strategic Betrayal").id, targets=["p2"])
+    settle(s)
+    assert s.state.cards[giant.id].zone == "p2:exile"
     check(s)

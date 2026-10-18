@@ -25,7 +25,7 @@ from tests.wave53a_kit import alice_next, open_repo, table, unseen_by, until_ask
 
 BEARS, GIANT, ANGEL, GRAIL, BOLT = "Grizzly Bears", "Hill Giant", "Serra Angel", "Sol Grail", "Lightning Bolt"
 NAMES = ["Grasping Tentacles", "Realmbreaker, the Invasion Tree", "Oblivion Sower", "Silent-Blade Oni", "Lord of the Void", "Ashling, the Extinguisher", "Myrkul's Edict",
-         "Sail into the West", "Intellectual Offering", "Down for Repairs", "Windgrace's Judgment", "Dark Salvation", "The Black Gate", "Disciple of Perdition"]
+         "Sail into the West", "Intellectual Offering", "Down for Repairs", "Windgrace's Judgment", "Dark Salvation", "The Black Gate", "Disciple of Perdition", "Siege Dragon", "The Fall of Kroog"]
 
 
 @pytest.fixture()
@@ -436,4 +436,53 @@ def test_the_black_gate_tied_players_are_all_offered(cards):
     activate(s, "p1", gate, contains="Choose a player", targets=[mine.id])
     d = until_asked(s)
     assert {o.id for o in d.options} == {"p1", "p2", "p3"}  # all at 40
+    check(s)
+
+
+# -- Siege Dragon -----------------------------------------------------------------------------------------------------------------------
+def test_siege_dragon_damages_the_creatures_without_flying_of_the_defending_player_only(cards):
+    """508.5: "defending player" and the "that player" after it are the one player the Dragon attacks: Bob's creatures without flying take 2, Carol's do not."""
+    s = table(cards, ["Siege Dragon"], [BEARS, ANGEL], [BEARS])
+    stops(s)
+    dragon = put(s, "Siege Dragon")
+    bears, angel, carols = put(s, BEARS, "p2"), put(s, ANGEL, "p2"), put(s, BEARS, "p3")
+    alice_next(s)
+    attack(s, dragon)
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p2:graveyard" and s.state.cards[angel.id].zone == "p2:battlefield"  # (flying: not damaged)
+    assert s.state.cards[carols.id].zone == "p3:battlefield" and not s.state.cards[angel.id].damage
+    check(s)
+
+
+def test_siege_dragon_with_a_wall_the_defending_player_is_not_damaged(cards):
+    """603.4: the intervening "if defending player controls no Walls" is checked as it triggers: a Wall of Bob's stops the whole ability."""
+    s = table(cards, ["Siege Dragon"], [BEARS, "Wall of Stone"], [])
+    stops(s)
+    dragon = put(s, "Siege Dragon")
+    bears = put(s, BEARS, "p2")
+    put(s, "Wall of Stone", "p2")
+    alice_next(s)
+    attack(s, dragon)
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p2:battlefield" and not s.state.cards[bears.id].damage
+    check(s)
+
+
+# -- The Fall of Kroog ------------------------------------------------------------------------------------------------------------------
+def test_the_fall_of_kroog_the_land_and_the_damage_belong_to_the_opponent_chosen_first(cards):
+    """115.1, 601.2c: "Choose target opponent" is the first target; "target land that player controls" is a second one, legal only for that player's lands; the damage goes to that
+    player and to the creatures they control (608.2c), and to nobody else."""
+    s = table(cards, ["The Fall of Kroog"], [BEARS], [BEARS])
+    bbears, cbears = put(s, BEARS, "p2"), put(s, BEARS, "p3")
+    bisland, cisland = put(s, "Island", "p2"), put(s, "Island", "p3")
+    to_hand(s, "The Fall of Kroog")
+    mana(s, "p1", R=2, C=4)
+    with pytest.raises(ActionError):  # Carol's land is not Bob's
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "The Fall of Kroog").id, targets=["p2", cisland.id], target_counts=[1, 1])
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "The Fall of Kroog").id, targets=["p2", bisland.id], target_counts=[1, 1])
+    settle(s)
+    assert s.state.cards[bisland.id].zone == "p2:graveyard" and s.state.cards[cisland.id].zone == "p3:battlefield"
+    assert s.state.players["p2"].life == 37 and s.state.players["p3"].life == 40
+    assert s.state.cards[bbears.id].zone == "p2:battlefield" and s.state.cards[bbears.id].damage == 1  # (a 2/2 takes 1)
+    assert s.state.cards[cbears.id].zone == "p3:battlefield" and not s.state.cards[cbears.id].damage
     check(s)

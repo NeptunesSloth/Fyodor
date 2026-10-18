@@ -109,21 +109,6 @@
   "keywords": []
  },
  {
-  "name": "The Fall of Kroog",
-  "layout": "normal",
-  "mana_cost": "{4}{R}{R}",
-  "cmc": 6.0,
-  "type_line": "Sorcery",
-  "oracle_text": "Choose target opponent. Destroy target land that player controls. The Fall of Kroog deals 3 damage to that player and 1 damage to each creature they control.",
-  "colors": [
-   "R"
-  ],
-  "color_identity": [
-   "R"
-  ],
-  "keywords": []
- },
- {
   "name": "Hill Giant",
   "layout": "normal",
   "mana_cost": "{3}{R}",
@@ -1014,5 +999,90 @@
   "keywords": [],
   "power": "1",
   "toughness": "4"
+ },
+ {
+  "name": "Afterlife from the Loam",
+  "layout": "normal",
+  "mana_cost": "{5}{B}{B}{B}",
+  "cmc": 8.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Delve (Each card you exile from your graveyard while casting this spell pays for {1}.)\nFor each player, choose up to one target creature card in that player's graveyard. Put those cards onto the battlefield under your control. They're Zombies in addition to their other types.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Delve"
+  ]
+ },
+ {
+  "name": "Strategic Betrayal",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target opponent exiles a creature they control and their graveyard.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Siege Dragon",
+  "layout": "normal",
+  "mana_cost": "{5}{R}{R}",
+  "cmc": 7.0,
+  "type_line": "Creature — Dragon",
+  "oracle_text": "Flying\nWhen this creature enters, destroy all Walls your opponents control.\nWhenever this creature attacks, if defending player controls no Walls, it deals 2 damage to each creature without flying that player controls.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Wall of Stone",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Wall",
+  "oracle_text": "Defender (This creature can't attack.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Defender"
+  ],
+  "power": "0",
+  "toughness": "8"
+ },
+ {
+  "name": "The Fall of Kroog",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Choose target opponent. Destroy target land that player controls. The Fall of Kroog deals 3 damage to that player and 1 damage to each creature they control.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
  }
 ]

@@ -124,6 +124,17 @@ def rewrite(body: str) -> str:
     body = re.sub(r"\bFor any number of opponents, (destroy|exile) target ([a-z ]+?) that player controls\b", r"For each opponent, \1 up to one target \2 that player controls", body)
     body = re.sub(r"(\b[Ee]ach player may put \w+ [+-]\d+/[+-]\d+ counters? on a creature they control)\. If a player does, creatures that player controls (can't attack you or planeswalkers you control until your next turn)",
                   r"\1 and creatures a player who did controls \2", body)
+    # "For each player, choose up to one target creature card in that player's graveyard. Put those cards onto the battlefield under your control. They're Zombies in addition to their
+    # other types." (Afterlife from the Loam): a target for each player (601.2c, per_opponent), each put onto the battlefield under your control (the cards enter at the same time as far
+    # as any trigger can tell, 603.6a), and each one a Zombie
+    body = re.sub(r"\bFor each player, choose up to one target (creature card) in that player's graveyard\. Put those cards onto the battlefield under your control\. "
+                  r"They're (Zombies) in addition to their other types\.",
+                  lambda m: f"For each player, put up to one target {m[1]} from that player's graveyard onto the battlefield under your control. It's a Zombie in addition to its other types.", body)
+    # "Target opponent exiles a creature they control and their graveyard." (Strategic Betrayal): the creature they choose (an edict, 701.21a), then every card of their graveyard
+    body = re.sub(r"\b(Target (?:opponent|player)) exiles (an? [a-z]+ they control) and their graveyard\b", r"\1 exiles \2. That player exiles all cards from their graveyard", body)
+    # "~ deals 3 damage to that player and 1 damage to each creature they control." (The Fall of Kroog): the player a target named, then the creatures that player controls (two damage
+    # instructions, 608.2c: only a trigger that batches the damage of one instruction could tell them from one event)
+    body = re.sub(r"(~) deals (\d+) damage to that player and (\d+) damage to each creature they control", r"\1 deals \2 damage to that player. \1 deals \3 damage to each creature that player controls", body)
     # "Target player creates X 2/2 black Zombie creature tokens, then up to one target creature gets -1/-1 until end of turn for each Zombie that player controls." (Dark Salvation): two
     # instructions of two targets (608.2c): the second is its own sentence
     body = re.sub(r"\b((?:[Tt]arget (?:player|opponent)|[Tt]hat player) creates [^.,]+? tokens?), then ((?:up to one )?target creature (?:gets|gains|deals))",
