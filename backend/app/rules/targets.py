@@ -334,13 +334,14 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
             out.counts.append(1)
         if g >= len(out.counts) and hi == 0:  # -- kicked / instead (wave 4G) -- a group the spell doesn't require (601.2c)
             out.counts.append(0)
+        room = relation_room(plan, spec, options)  # (wave 51A) how many of the options can be chosen together
         if g >= len(out.counts):
-            if len(options) < lo or hi < lo:
+            if room < lo or hi < lo:
                 raise ActionError(f"{what} has no legal target" if not options else f"{what} doesn't have enough legal targets")
             if lo == 0 and not options:
                 out.counts.append(0)  # "up to one target …" with nothing to target: zero targets (115.6)
             else:
-                out.ask = ("group", g, options, lo, min(hi, len(options)))
+                out.ask = ("group", g, options, lo, min(hi, room))
                 out.capped = allowed if allowed > hi and len(options) > hi else 0  # (said in the prompt: ask_targets)
                 return out
         count = out.counts[g]
@@ -360,6 +361,8 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
         if spec.get("total") and _total(plan, chosen, spec["total"][0]) > limit:  # -- refused zones/sized (wave 3R4)
             stat = spec["total"][0].replace("_", " ")  # -- "with total mana value 3 or less": checked as they're chosen (601.2c)
             raise BadPick(f"Those targets have a total {stat} over {limit}")
+        if not relation_ok(plan, spec, [ref(plan, t) for t in chosen]):  # -- group relations (wave 51A) -- "that share a creature type" / "controlled by different players" (601.2c)
+            raise BadPick("Those targets must share a " + spec["shares"].replace("_", " ") if spec.get("shares") else "Those targets must be controlled by different players")
         if spec.get("different") and not _different(plan, chosen, spec["different"]):  # -- refused zones/sized (wave 3R4)
             raise BadPick(f"Those targets must have different {'names' if spec['different'] == 'name' else 'mana values'}")
         out.groups.append(chosen)
@@ -383,6 +386,43 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
     if given:
         raise BadPick("That division doesn't match the targets")
     return out
+
+
+# -- group relations (wave 51A) -- 601.2c: a restriction on the targets together ("two target creatures that share a creature type", "… controlled by different
+# players"); 608.2b: judged again as the spell resolves, a target that left counted as it last existed (608.2h; rulings: Return from Extinction, Run Away Together)
+def _facts(plan: Plan, t: TargetRef) -> tuple[Characteristics, str] | None:
+    card = plan.state.cards.get(t.id)
+    if card is not None and (t.object_id is None or plan.oid(card) == t.object_id):
+        return plan.ch(card), card.controller
+    from app.rules.triggers import _snapshot_card
+
+    snap = plan.rules.lki.get(t.object_id or "")
+    return None if snap is None else (_snapshot_card(plan, snap)[1], snap.controller)
+
+
+def _kinds(ch: Characteristics, kind: str) -> frozenset[str]:
+    from app.rules.characteristics import PERMANENT_TYPES
+    from app.rules.creature_types import CREATURE_TYPES
+
+    return ch.subtypes & CREATURE_TYPES if kind == "creature_type" else ch.types & PERMANENT_TYPES if kind == "permanent_type" else ch.types
+
+
+def relation_ok(plan: Plan, spec: dict[str, Any], refs: list[TargetRef]) -> bool:
+    facts = [f for t in refs if (f := _facts(plan, t))]
+    if spec.get("shares") and len(facts) > 1 and not frozenset.intersection(*(_kinds(ch, spec["shares"]) for ch, _ in facts)):
+        return False
+    return not spec.get("controllers") or len({c for _, c in facts}) == len(facts)
+
+
+def relation_room(plan: Plan, spec: dict[str, Any], options: list[str]) -> int:
+    """How many of the legal ``options`` can be chosen together under the group's relation (all of them without one)."""
+    if not (spec.get("shares") or spec.get("controllers")):
+        return len(options)
+    facts = [f for t in options if (f := _facts(plan, ref(plan, t)))]
+    if spec.get("controllers"):
+        return len({c for _, c in facts})
+    kinds = [_kinds(ch, spec["shares"]) for ch, _ in facts]
+    return max([1 if kinds else 0, *(sum(k in ks for ks in kinds) for k in frozenset().union(*kinds))])
 
 
 def _total(plan: Plan, chosen: list[str], stat: str) -> int:
