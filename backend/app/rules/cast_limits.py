@@ -453,6 +453,20 @@ def _effect_flash(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "flash_permission", "filter": key, **({"until": "next_turn"} if m["lead"] == "until your next turn" else {})}], None
 
 
+# -- chosen filters (wave 53B) -- "The next spell of the chosen type you cast this turn can be cast as though it had flash." (Progenitor's Icon): 601.3b, a flash permission for
+# the next spell of the creature type its source chose as it entered, bound now (the choice is public and stays the source's, 614.12a); cast_limits.flash_permission
+EFFECT_NEXT_FLASH = re.compile(r"^the next spell of the chosen type you cast this turn can be cast as though it had flash$")
+
+
+def _effect_next_flash(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import selectors
+
+    sel = selectors.parse("spells of the chosen type")
+    if sel is None:
+        raise ValueError("selector")
+    return [{"do": "flash_permission", "spell": sel.key(), "next": True}], None
+
+
 def _template(rx: re.Pattern[str], fn: Any) -> tuple[re.Pattern[str], Any]:
     def run(m: re.Match[str]) -> Any:
         from app.rules.scripts import _NoMatch
@@ -471,7 +485,7 @@ def _player_templates() -> list[tuple[re.Pattern[str], Any]]:
     return [*player_shields.TEMPLATES, *life_lock.TEMPLATES]  # (-- can't lose life (wave 29D) --)
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [_template(EFFECT_CAST, _effect_cast), *_player_templates()]
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [_template(EFFECT_CAST, _effect_cast), _template(EFFECT_NEXT_FLASH, _effect_next_flash), *_player_templates()]
 
 
 def flash_sentence(text: str) -> list[dict[str, Any]] | None:
@@ -513,10 +527,20 @@ def flash_permission(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     pid = ctx["controller"]
     label = ctx.get("name") or "An effect"
-    plan.rules.permissions.append(Permission(id=secrets.token_hex(4), player=pid, cast=True, zone="any", filter=e.get("filter"),
+    key, nth = e.get("filter"), None
+    if e.get("spell"):  # -- chosen filters (wave 53B) -- "the next spell of the chosen type": the type read from the source now, the spells cast so far counted (cast_limits.EFFECT_NEXT_FLASH)
+        from app.rules import selectors
+        from app.rules.cost_changes import casts_so_far
+
+        value = selectors.source_choice(plan, ctx.get("source_card"), "creature type")
+        bound = selectors.bind_chosen(selectors.from_key(e["spell"]), value) if value else None
+        if bound is None:
+            return True  # (no type chosen: nothing is granted)
+        key, nth = bound.key(), casts_so_far(plan.state, plan.info, pid, bound.key())
+    plan.rules.permissions.append(Permission(id=secrets.token_hex(4), player=pid, cast=True, zone="any", filter=key, nth=nth,
                                              flash=True, until=e.get("until", "end_of_turn"), turn=plan.state.turn.number,
                                              source=ctx.get("source_object"), label=f"{label}: as though it had flash"))
-    plan.note(f"{plan.name(pid)} may cast {_spells_words(e.get('filter'), None)} {'until their next turn' if e.get('until') else 'this turn'} "
+    plan.note(f"{plan.name(pid)} may cast {_spells_words(key, None)} {'until their next turn' if e.get('until') else 'this turn'} "
               f"as though they had flash ({label})",
               actor=pid)
     return True

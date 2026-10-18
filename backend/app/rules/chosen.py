@@ -342,12 +342,15 @@ def rewrite(body: str) -> str:
     if len(re.findall(r"[Tt]arget (?:player|opponent)", body)) == 1:  # "Search that player's graveyard, hand, and library …": the one player this spell targets (Thought Hemorrhage; name_search reads the target)
         body = body.replace("Search that player's graveyard, hand, and library for", "Search the targeted player's graveyard, hand, and library for")
     body = re.sub(r", and (you lose \w+ life) for each of the exiled cards", r". \1 for each card exiled this way", body)  # (Spoils of the Vault: the cards the exile before it moved)
+    body = re.sub(r"(This creature gains hexproof from that color until end of turn) and (can't be blocked by creatures of that color this turn)", r"\1. This creature \2", body)  # (Sungold Sentinel: two instructions of the one creature)
     body = re.sub(r"\bput all of them with (?:that|the chosen) name into\b", "put all cards with the chosen name revealed this way into", body)  # (Desperate Research: the top seven just revealed)
     body = re.sub(r"\b(It gets) an additional (?=[+-]\d)", r"\1 ", body)  # (Growth Cycle: a second pump of the same creature, 611.2a: they add up)
     m = _CHOOSE_SENTENCE.search(body)
     if m is None:
         return body
     tail = _THAT.sub(r"of the chosen \1", body[m.end():])
+    if m["what"] == "color":  # (wave 53B: "gains hexproof from that color until end of turn", Sungold Sentinel, Skrelv)
+        tail = re.sub(r"\b(hexproof|protection) from that color\b", r"\1 from the chosen color", tail)
     if m["what"].startswith("number"):  # "that many creatures", "mana value equal to that number" / "to the number": the chosen number
         tail = re.sub(r"\b(?:that many|that number|the number(?! of\b))", "the chosen number", tail)
     return body[: m.end()] + tail

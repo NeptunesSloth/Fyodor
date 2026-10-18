@@ -909,6 +909,9 @@ class Permission(BaseModel):
     # -- trigger other (wave 51E) -- "During any turn you attacked with a token, you may play that card.": a condition (conditions grammar) the turn must meet, read
     # whenever the card is played or cast; ``source`` is the object whose ability granted it
     when: dict[str, Any] | None = None
+    # -- chosen filters (wave 53B) -- "The next spell of the chosen type you cast this turn can be cast as though it had flash.": the spells of ``filter`` cast this turn when it was granted;
+    # it applies only while no more have been cast (the next one uses it up, 601.2i)
+    nth: int | None = None
 
 
 class CostModifier(BaseModel):

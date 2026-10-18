@@ -2004,6 +2004,22 @@ def _tap_their_all(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": m["v"], "who": f"controlled:target|{sel.key()}"}], SELECTORS[f"target {m['pl']}"]
 
 
+# -- chosen filters (wave 53B) -- "Tap all untapped permanents of the chosen type target player controls, or untap all tapped permanents of that type that player controls."
+# (Turnabout): the caster picks one of the two as it resolves (608.2d, resolution_choice.pick_one); each reads that player's permanents then (608.2c), the chosen type
+# bound into both by chosen.bind_effects
+@effect(r"tap all untapped permanents of the chosen type target (?P<pl>player|opponent) controls, or untap all tapped permanents of (?:that|the chosen) type that (?:player|opponent) controls")
+def _tap_or_untap_their_chosen(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import selectors
+
+    options = []
+    for verb, state in (("tap", "untapped"), ("untap", "tapped")):
+        sel = selectors.parse(f"{state} permanents of the chosen type")
+        if sel is None:
+            raise _NoMatch
+        options.append({"label": verb.capitalize(), "effects": [{"do": verb, "who": f"controlled:target|{sel.key()}"}]})
+    return [{"do": "pick_one", "options": options}], SELECTORS[f"target {m['pl']}"]
+
+
 # -- counters sweep (wave 19D) -- "Put a -1/-1 counter on each creature target player controls." (Contagion Engine, Meadowboon): the
 # creatures that player controls as it resolves (608.2c), the same group form as the tap above
 @effect(r"put {N} (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on each (?P<what>creature|artifact|land|permanent) target (?P<pl>player|opponent) controls")

@@ -567,16 +567,20 @@ def _ordinal_definition(o: re.Match[str]) -> dict[str, Any] | None:
             **({"flash_perm": cast_limits.flash_def(key, first=True)} if o["flash"] else {})}  # (read by permissions.grants: 601.3b)
 
 
-def _ordinal_ok(state: GameState, info: CardInfo, player: str, d: dict[str, Any]) -> bool:
-    """Is this the first such spell (none of its kind cast yet this turn) / the second spell (one cast so far)?"""
+def casts_so_far(state: GameState, info: CardInfo, player: str, key: str | None) -> int:
+    """How many spells of the kind ``key`` (None: any) ``player`` has cast this turn (601.2i)."""
     from app.rules import history, selectors
 
     log = history.log_for(view_of(state, player, info))
-    sel = selectors.from_key(d["filter"]) if d.get("filter") else None
-    before = sum(1 for note in log.casts if note.player == player
-                 and (sel is None or history.note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv, x_cost=note.x_cost,
-                                                              keywords=note.keywords, face_down=note.face_down)))
-    return before == d["ordinal"] - 1
+    sel = selectors.from_key(key) if key else None
+    return sum(1 for note in log.casts if note.player == player
+               and (sel is None or history.note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv, x_cost=note.x_cost,
+                                                        keywords=note.keywords, face_down=note.face_down)))
+
+
+def _ordinal_ok(state: GameState, info: CardInfo, player: str, d: dict[str, Any]) -> bool:
+    """Is this the first such spell (none of its kind cast yet this turn) / the second spell (one cast so far)?"""
+    return casts_so_far(state, info, player, d.get("filter")) == d["ordinal"] - 1
 
 
 def first_ok(state: GameState, info: CardInfo, player: str, key: str | None) -> bool:

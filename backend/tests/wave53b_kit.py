@@ -31,6 +31,7 @@ PROBES = [
     probe("Probe Goblin", "Creature — Goblin", "R", pt=("1", "1")),
     probe("Probe Knight", "Creature — Human Knight", "W", pt=("3", "3"), cost="{2}{W}", cmc=3),
     probe("Probe Bolt", "Instant", "R", cost="{R}"),
+    probe("Probe Gain", "Instant", "R", text="You gain 1 life.", cost="{R}"),
     probe("Probe Relic", "Artifact"),
     probe("Probe Rock", "Artifact Creature — Golem", "", pt=("2", "2"), cost="{2}", cmc=2),
     probe("Probe Land", "Land", cost="", cmc=0),

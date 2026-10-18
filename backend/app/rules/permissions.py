@@ -694,8 +694,8 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         # permanent's own mana cost (702.193a), on the generic component (118.7a)
         return {"kind": "static", "static": "ability_cost_modifier", "delta": -int(m["n"]), "filter": pu.key(), "who": "you", "floor": False, "power_up": True, "effects": []}
     m = ABILITY_COST.fullmatch(tt)
-    if m and m["sel"] == "sources with the chosen name" and not m["nomana"]:
-        return None  # -- chosen filters (wave 53B) -- one that taxes a named source's mana abilities too (Skyseer's Chariot) stays manual
+    if m and (m["sel"] == "sources with the chosen name") != bool(m["nomana"]):
+        return None  # -- chosen filters (wave 53B) -- one that taxes a named source's mana abilities too (Skyseer's Chariot) stays manual, and "unless they're mana abilities" is read only for a named source (Suppression Field's loyalty abilities stay untested)
     if m:  # -- costs (wave 3$) -- the source permanent is matched at the cost, relative to the ability's controller
         key = None
         if m["sel"] == "sources with the chosen name":  # -- chosen filters (wave 53B) -- 201.2 / 709.4a: any source with the permanent's chosen name, in any zone it can be activated from
@@ -1236,6 +1236,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue
         if p.filter and verb == "cast" and not spell_matches(state, player, card, ch, p.filter, info):
             continue
+        if p.nth is not None and cost_changes.casts_so_far(state, info, player, p.filter) != p.nth:
+            continue  # -- chosen filters (wave 53B) -- "the next spell of the kind": a spell of the kind was cast since (601.2i)
         zone_ok = p.object_id is not None or p.zone != "any"  # (a flash-only permission grants no zone)
         out.append(Grant("permission", p.label, zone_ok=zone_ok, free=p.free, flash=p.flash, permission=p.id, spend=p.spend,
                          sorcery=p.sorcery, alt_mana=p.alt_mana, enters=p.enters,  # (wave 51D: "If you do, it enters tapped", Jorn)

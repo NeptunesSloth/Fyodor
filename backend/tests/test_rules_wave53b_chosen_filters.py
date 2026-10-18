@@ -1161,3 +1161,99 @@ def test_curse_of_silence_lets_you_sacrifice_it_to_draw_when_the_enchanted_playe
     answer(s, "pay")
     assert s.state.cards[curse.id].zone == "p1:graveyard" and len(s.state.zones["p1:hand"]) == hand + 1
     check(s)
+
+
+# ---- a card type chosen, then tap or untap its permanents of that type (step 15): 608.2c-d, 701.26 ----------------------------------
+def turnabout(s, kind, option):
+    mana(s, "p1", U=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Turnabout").id, targets=["p2"])
+    answer(s, kind, option)
+
+
+def tapped(s, name, pid="p2"):
+    return s.state.cards[card_named(s, name, pid).id].tapped
+
+
+def test_turnabout_taps_only_the_untapped_permanents_of_the_chosen_type(cards):
+    s = build(cards, ["Turnabout"], ["Probe Elf", "Probe Relic", "Probe Goblin"])
+    assert coverage.of_card_data(cards.resolve("Turnabout")).level == "FULL"
+    for n in ("Probe Elf", "Probe Relic", "Probe Goblin"):
+        on_field(s, n, "p2")
+    turnabout(s, "Creature", "0")
+    assert (tapped(s, "Probe Elf"), tapped(s, "Probe Goblin"), tapped(s, "Probe Relic")) == (True, True, False)  # (an artifact, not a creature)
+    check(s)
+
+
+def test_turnabout_untaps_only_the_tapped_permanents_of_the_chosen_type(cards):
+    s = build(cards, ["Turnabout", "Probe Relic"], ["Probe Elf", "Probe Relic", "Probe Gem"])
+    for n in ("Probe Elf", "Probe Relic", "Probe Gem"):
+        c = on_field(s, n, "p2")[0]
+        act(s, "p2", type="tap", card_ids=[c.id], tapped=True)
+    mine = on_field(s, "Probe Relic")[0]
+    act(s, "p1", type="tap", card_ids=[mine.id], tapped=True)
+    turnabout(s, "Artifact", "1")
+    assert (tapped(s, "Probe Relic"), tapped(s, "Probe Gem"), tapped(s, "Probe Elf")) == (False, False, True)
+    assert s.state.cards[mine.id].tapped  # (only the permanents of the targeted player)
+    check(s)
+
+
+# ---- the next spell of the chosen type, cast with flash (step 16): 601.3b, 601.2i ----------------------------------
+def flash_icon(s):
+    """Progenitor's Icon in play choosing Elf, its flash ability used, and Alice's own Probe Gain on the stack (so only flash lets her cast a creature)."""
+    icon = enter(s, "Progenitor's Icon", "Elf", C=3)
+    act(s, "p1", type="activate_ability", card_id=icon.id, ability=2)
+    answer(s)
+    act(s, "p1", type="set_prefs", hold_priority=True)  # (Alice keeps priority after casting: the spell stays on the stack)
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Probe Gain").id)
+
+
+def test_progenitors_icon_lets_the_next_spell_of_the_chosen_type_be_cast_with_flash(cards):
+    s = build(cards, ["Progenitor's Icon", "Probe Gain", "Probe Elf", "Probe Elf Two", "Probe Goblin"])
+    assert coverage.of_card_data(cards.resolve("Progenitor's Icon")).level == "FULL"
+    flash_icon(s)
+    assert can_cast(s, "Probe Goblin", C=1) is not None  # (not of the chosen type)
+    assert can_cast(s, "Probe Elf", C=1) is None  # an Elf spell with a spell on the stack: flash
+    assert can_cast(s, "Probe Elf Two", G=1, C=1) is not None  # the permission was for the next one only
+    check(s)
+
+
+def test_progenitors_icon_is_used_up_by_the_next_spell_of_the_type_even_cast_without_flash(cards):
+    s = build(cards, ["Progenitor's Icon", "Probe Gain", "Probe Elf", "Probe Elf Two"])
+    icon = enter(s, "Progenitor's Icon", "Elf", C=3)
+    act(s, "p1", type="activate_ability", card_id=icon.id, ability=2)
+    answer(s)
+    enter(s, "Probe Elf", C=1)  # the next Elf spell: at sorcery speed it needed no flash, and it was the one
+    act(s, "p1", type="set_prefs", hold_priority=True)
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Probe Gain").id)
+    assert s.state.zones.get("stack")
+    assert can_cast(s, "Probe Elf Two", G=1, C=1) is not None
+    check(s)
+
+
+# ---- hexproof from the chosen color and evasion from creatures of it (step 17): 702.11d, 509.1b ----------------------------------
+def test_sungold_sentinel_gains_hexproof_from_the_color_and_cant_be_blocked_by_creatures_of_it(cards):
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Sungold Sentinel", "Probe Elf", "Probe Elf Two"], ["Probe Goblin", "Probe Elf"])
+    assert coverage.of_card_data(cards.resolve("Sungold Sentinel")).level == "FULL"
+    sentinel = put(s, "Sungold Sentinel")
+    s.state.rules.controlled_since[sentinel.id].turn = 0
+    put(s, "Probe Elf")
+    goblin, elf = put(s, "Probe Goblin", "p2"), put(s, "Probe Elf", "p2")
+    mana(s, "p1", W=1, C=1)
+    with pytest.raises(ActionError):  # Coven: only two different powers (3 and 1)
+        act(s, "p1", type="activate_ability", card_id=sentinel.id, ability=1)
+    put(s, "Probe Elf Two")  # (powers 3, 1 and 2: three different)
+    act(s, "p1", type="activate_ability", card_id=sentinel.id, ability=1)
+    answer(s, "Red")
+    got = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[sentinel.id])
+    assert any(a.text.lower().startswith("hexproof from red") for a in got.abilities)
+    act(s, "p1", type="pass_priority")  # → combat
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": sentinel.id, "target": "p2"}])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers")
+    with pytest.raises(ActionError):  # (a red creature can't block it)
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": goblin.id, "attacker_id": sentinel.id}])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": elf.id, "attacker_id": sentinel.id}])  # a green one can
+    check(s)
