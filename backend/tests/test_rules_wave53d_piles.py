@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from app.rules import coverage
@@ -313,4 +315,72 @@ def test_jace_architect_of_thought_an_opponent_separates_you_choose_one_pile_for
     resolve(s)
     assert s.state.cards[top[1].id].zone == "p1:hand" and s.state.cards[top[2].id].zone == "p1:hand"
     assert s.state.zones["p1:library"][-1] == top[0].id
+    check(s)
+
+
+# -- piles of exiled cards, face down and face up -----------------------------------------------------------------------------
+NEGOTIATIONS, PERFORMANCE = "Hostile Negotiations", "Abstract Performance"
+SIX = ["Llanowar Elves", "Grizzly Bears", "Young Wolf", "Dregscape Zombie", "Mulldrifter", "Elvish Visionary"]
+
+
+def test_the_face_down_pile_cards_are_full(cards):
+    for name in (NEGOTIATIONS, PERFORMANCE):
+        assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def test_hostile_negotiations_the_opponent_chooses_between_a_face_up_pile_and_a_pile_he_cannot_see(cards):
+    s = table(cards, [NEGOTIATIONS, *SIX], players=2)
+    top = stack_top(s, SIX)
+    to_hand(s, NEGOTIATIONS)
+    mana(s, "p1", B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, NEGOTIATIONS).id)
+    life0 = s.state.players["p1"].life
+    resolve(s)
+    bob = json.dumps(s.view("p2"))
+    assert not any(n in bob for n in SIX)  # two face-down piles of three: Bob cannot see a single card
+    assert all(s.state.cards[c.id].zone == "p1:exile" and s.state.cards[c.id].face_down for c in top)
+    alice = json.dumps(s.view("p1"))
+    assert all(n in alice for n in SIX)  # Alice looked at the cards of both piles (701.20e)
+    d = s.state.rules.decision
+    assert d.player == "p1" and {o.label.split(":")[0] for o in d.options} == {"Pile 1", "Pile 2"}  # turn a pile of her choice face up
+    pile(s, "p1", 1)
+    bob = json.dumps(s.view("p2"))
+    assert all(n in bob for n in SIX[:3]) and not any(n in bob for n in SIX[3:])  # the first pile is public now, the second is not
+    d = s.state.rules.decision
+    assert d.player == "p2" and [o.label for o in d.options] == ["Pile 1: Llanowar Elves, Grizzly Bears, Young Wolf", "Pile 2: 3 cards, face down"]
+    assert not any(n in d.prompt + "".join(o.label for o in d.options) for n in SIX[3:])
+    pile(s, "p2", 2)  # Bob picks the pile he cannot see: it goes to Alice's hand, the face-up pile to her graveyard
+    resolve(s)
+    assert {s.state.cards[c.id].zone for c in top[3:]} == {"p1:hand"} and {s.state.cards[c.id].zone for c in top[:3]} == {"p1:graveyard"}
+    assert s.state.players["p1"].life == life0 - 3
+    assert not any(n in log(s, "p2") for n in SIX[3:])  # the cards that went to her hand were never named
+    check(s)
+
+
+def test_abstract_performance_the_other_pile_is_looked_at_cast_free_and_the_rest_taken(cards):
+    down = ["Lightning Bolt", "Grizzly Bears", "Young Wolf", "Dregscape Zombie"]
+    up = ["Llanowar Elves", "Mulldrifter", "Elvish Visionary", "Soul Warden"]
+    s = table(cards, [PERFORMANCE, *down, *up], players=2)
+    top = stack_top(s, [*down, *up])
+    to_hand(s, PERFORMANCE)
+    mana(s, "p1", U=1, C=5)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, PERFORMANCE).id)
+    life_bob = s.state.players["p2"].life
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p2" and d.options[0].label == "Pile 1: 4 cards, face down" and "Llanowar Elves" in d.options[1].label  # the face-up pile is named
+    assert not any(n in json.dumps(s.view("p2")) for n in down) and not any(n in json.dumps(s.view("p1")) for n in down)  # nobody has looked at the face-down pile
+    pile(s, "p2", 2)  # the face-up pile to Alice's graveyard
+    assert all(s.state.cards[c.id].zone == "p1:graveyard" for c in top[4:])
+    d = s.state.rules.decision  # she looked at the other pile; she may cast a spell from among its cards without paying its mana cost
+    assert d.player == "p1" and any(n in json.dumps(s.view("p1")) for n in down)
+    assert not any(n in json.dumps(s.view("p2")) for n in down)  # (still unseen by Bob)
+    bolt = top[0]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.id == bolt.id or o.label.startswith("Lightning")][:1])
+    while s.state.rules.decision is not None:
+        d = s.state.rules.decision
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.id in ("p2", "yes")][:1] or [d.options[0].id])
+    resolve(s)
+    assert s.state.players["p2"].life == life_bob - 3  # the Bolt, cast free from exile
+    assert {s.state.cards[c.id].zone for c in top[1:4]} == {"p1:hand"}  # the rest into her hand
     check(s)

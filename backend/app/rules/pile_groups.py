@@ -28,8 +28,15 @@ exiled cards are facedown piles': 18A, 53D face-down.)
   battlefield (their owners' control) / battlefield_you (under your control), bottom (the bottom of the library, in the order the controller picks: 401.4;
   always the last step), pick_hand (the controller picks one card of the pile for their hand; the rest of that pile join the next step).
 
+* Piles of exiled cards, face down or face up (``pile_exile``: "Exile the top three cards of your library in a face-down pile", Hostile Negotiations,
+  Abstract Performance): a face-down pile is exiled unseen (406.3a: not even its owner looks at it until told to), its cards are known to nobody; "look at the cards
+  in each pile" shows them to the controller alone (701.20e, ``pile_look``); "turn a pile of your choice face up" is the controller's choice (``pile_turn_up``). The
+  chooser of a pile sees a face-down pile only as a number of cards (it is never named in a decision or the log); a face-down pile put into a graveyard is face
+  up there. The groups of such piles are made, not separated (``src`` "made"): ``pile_deal`` only chooses.
+
 State (``ctx["pile"]``, in the resolution context of the pending decision: saved, replayed; old saves have none): ``groups`` ({"owner", "cards", "piles",
-"pick"}), ``stage`` / ``g`` (where it is), ``opponent`` (the one named), ``steps`` (what is left to do).
+"pick", "down"}), ``stage`` / ``g`` (where it is), ``opponent`` (the one named), ``steps`` (what is left to do); ``ctx["pile_set"]``: the exiled piles
+made so far, by name ({"cards", "down"}).
 """
 
 from __future__ import annotations
@@ -82,10 +89,37 @@ def bind(body: str, parse: Any, split_sentences: Any) -> Found | None:
         return None
     sentences[0] = sentences[0][:1].upper() + sentences[0][1:]  # (a trigger's body: "reveal the top five cards …")
     first = sentences[0]
+    if first.startswith(("Exile the top three cards of your library in a face-down", "Exile the top four cards of your library in a face-down")):
+        return _down_piles(sentences, parse)
     if _SEPARATE.match(first):
         return _permanents(sentences)
     if _REVEAL.match(first) or _EXILE.match(first):
         return _cards(sentences, parse)
+    return None
+
+
+_NEGOTIATIONS = ("Exile the top three cards of your library in a face-down pile, then exile the top three cards of your library in another face-down pile.",
+                 "Look at the cards in each pile, then turn a pile of your choice face up.", "An opponent chooses one of those piles.",
+                 "Put that pile into your hand and the other into your graveyard.", "You lose 3 life.")
+_PERFORMANCE = ("Exile the top four cards of your library in a face-down pile, then exile the top four cards of your library in a face-up pile.",
+                "An opponent chooses one of those piles.", "Put that pile into your graveyard.", "Look at the cards in the other pile.",
+                "You may cast a spell from among them without paying its mana cost.", "Put the rest into your hand.")
+
+
+def _down_piles(sentences: list[str], parse: Any) -> Found | None:
+    """Hostile Negotiations (two face-down piles, you look at both and turn one face up, an opponent chooses: hand and graveyard) and Abstract Performance (a face-down
+    and a face-up pile, an opponent chooses: graveyard; you look at the other, may cast a spell from it free, the rest to your hand)."""
+    made = {"a": "ref:pa", "b": "ref:pb"}
+    if tuple(sentences) == _NEGOTIATIONS and (lose := parse(_NEGOTIATIONS[4])) is not None:
+        return [{"do": "pile_exile", "n": 3, "down": True, "as": "pa"}, {"do": "pile_exile", "n": 3, "down": True, "as": "pb"}, {"do": "pile_look", **made},
+                {"do": "pile_turn_up", **made}, {"do": "pile_deal", "src": "made", **made, "split": "you", "pick": "opponent", "n": 2, "chosen": "hand", "other": "graveyard",
+                                                 "say": "cards"}, *lose[0]], None, False
+    if tuple(sentences) == _PERFORMANCE and (cast := parse("Exile the top four cards of your library. You may cast a spell from among them without paying its mana cost. "
+                                                          "Put the rest into your hand.")) is not None and len(cast[0]) == 3:
+        free, rest = ({**x, "who": "ref:po"} for x in cast[0][1:])
+        return [{"do": "pile_exile", "n": 4, "down": True, "as": "pa"}, {"do": "pile_exile", "n": 4, "down": False, "as": "pb"},
+                {"do": "pile_deal", "src": "made", **made, "split": "you", "pick": "opponent", "n": 2, "chosen": "graveyard", "other": "look", "say": "cards", "as": "po"},
+                free, rest], None, False
     return None
 
 
@@ -161,12 +195,24 @@ def _names(plan: Plan, cards: list[str]) -> str:
     return ", ".join(plan.state.cards[c].name or "a card" for c in cards) or "no cards"
 
 
+def _pile_text(plan: Plan, ctx: Context, grp: dict[str, Any], i: int, viewer: str) -> str:
+    """A pile as ``viewer`` may see it: its cards, or only how many if it is face down and they are not its controller (they have looked at it, or been told to)."""
+    pile = grp["piles"][i]
+    if (grp.get("down") or [])[i:i + 1] == [True] and viewer != ctx["controller"]:
+        return f"{len(pile)} card{'s' if len(pile) != 1 else ''}, face down"
+    return _names(plan, pile)
+
+
 def _group_cards(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[dict[str, Any]]:
     """The groups to separate: one for each player whose permanents / cards a selector names, or one of the controller's revealed / bound cards."""
     from app.rules import context, selectors
     from app.rules.effects import _looked, _players
 
     me = ctx["controller"]
+    if e.get("src") == "made":  # piles an earlier instruction exiled (face down or up): nothing to separate
+        made = [ctx["pile_set"][e[k][len(context.PREFIX):]] for k in ("a", "b") if e.get(k)]
+        return [{"owner": me, "cards": [c for m in made for c in m["cards"]], "piles": [[c for c in m["cards"] if c in plan.state.cards] for m in made],
+                 "down": [m["down"] for m in made]}]
     if e.get("src") == "looked":
         return [{"owner": me, "cards": _looked(plan, ctx)[1], "piles": []}]
     if e.get("src"):
@@ -210,7 +256,7 @@ def _run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     while st["stage"] == "split" and st["g"] < len(groups):
         grp = groups[st["g"]]
         cards = [c for c in grp["cards"] if c in plan.state.cards]
-        if not cards:
+        if not cards or len(grp["piles"]) >= n:  # (nothing to separate, or the piles were made already)
             st["g"] += 1
             continue
         split_by = ctx["controller"] if e["split"] == "you" else grp["owner"] if e["split"] == "owner" else _opponent(plan, ctx, e)
@@ -255,7 +301,7 @@ def _run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             continue
         decide(plan, player=chooser, kind="choose_one",
                prompt=f"{ctx.get('name') or 'Piles'}: choose one of {plan.name(grp['owner']) + chr(39) + 's ' if e.get('who') else 'the '}piles",
-               options=[DecisionOption(id=str(i + 1), label=f"Pile {i + 1}: {_names(plan, p)}") for i, p in enumerate(grp["piles"])],
+               options=[DecisionOption(id=str(i + 1), label=f"Pile {i + 1}: {_pile_text(plan, ctx, grp, i, chooser)}") for i in range(len(grp["piles"]))],
                resume={"step": "pile_pick", "ctx": ctx, "e": e, "rest": [], "picked": []})
         return False
     return _apply(plan, ctx, e)
@@ -290,7 +336,9 @@ def resume_pick(plan: Plan, d: Any, chosen: list[str]) -> None:
     st = ctx["pile"]
     grp = st["groups"][st["g"]]
     grp["pick"] = int(chosen[0]) - 1 if chosen else 0
-    plan.note(f"{plan.name(d.player)} chooses pile {grp['pick'] + 1}: {_names(plan, grp['piles'][grp['pick']])}", grp["piles"][grp["pick"]], actor=d.player)
+    down = (grp.get("down") or [])[grp["pick"]:][:1] == [True]  # (a face-down pile is not named: nobody has seen it)
+    plan.note(f"{plan.name(d.player)} chooses pile {grp['pick'] + 1}" + ("" if down else f": {_names(plan, grp['piles'][grp['pick']])}"),
+              [] if down else grp["piles"][grp["pick"]], actor=d.player)
     st["g"] += 1
     if _run(plan, ctx, e):
         continue_effects(plan, ctx)
@@ -302,7 +350,7 @@ def _apply(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     groups = st["groups"]
     chosen = [c for g in groups if g.get("pick") is not None for c in g["piles"][g["pick"]]]
     other = [c for g in groups if g.get("pick") is not None for i, p in enumerate(g["piles"]) if i != g["pick"] for c in p]
-    st["steps"] = [[op, cards] for op, cards in ((e.get("chosen"), chosen), (e.get("other"), other)) if op]
+    st["steps"] = [[op, cards, which == "other"] for which, op, cards in (("chosen", e.get("chosen"), chosen), ("other", e.get("other"), other)) if op]  # (the ``as`` is the other pile's)
     return _steps(plan, ctx, e)
 
 
@@ -311,7 +359,7 @@ def _steps(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     st = ctx["pile"]
     while st["steps"]:
-        op, cards = st["steps"].pop(0)
+        op, cards, bind = st["steps"].pop(0)
         cards = [c for c in cards if c in plan.state.cards]
         if not cards:
             continue
@@ -323,7 +371,7 @@ def _steps(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if op == "bottom":  # always the last step: the order is the controller's private choice (401.4), then the resolution goes on
             del ctx["pile"]
             return _bottom(plan, ctx, cards)
-        _do(plan, ctx, e, op, cards)
+        _do(plan, ctx, e, op, cards, bind)
     del ctx["pile"]
     return True
 
@@ -335,7 +383,7 @@ def resume_card(plan: Plan, d: Any, chosen: list[str]) -> None:
     st = ctx["pile"]
     cards = [c for c in d.resume["cards"] if c in plan.state.cards]
     picked = [c for c in cards if c in chosen] or cards[:1]  # (the chooser left the game: the first)
-    _do(plan, ctx, e, "hand", picked)
+    _do(plan, ctx, e, "hand", picked, False)
     if st["steps"]:
         st["steps"][0][1] = [*st["steps"][0][1], *(c for c in cards if c not in picked)]
     if _steps(plan, ctx, e):
@@ -353,8 +401,8 @@ def _bottom(plan: Plan, ctx: Context, cards: list[str]) -> bool:
     return False
 
 
-def _do(plan: Plan, ctx: Context, e: dict[str, Any], op: str, cards: list[str]) -> None:
-    from app.rules import effects
+def _do(plan: Plan, ctx: Context, e: dict[str, Any], op: str, cards: list[str], bind: bool) -> None:
+    from app.rules import context, effects
 
     if op == "sacrifice":
         effects._sacrifice_cards(plan, cards, ctx["controller"], ctx)  # 701.21a: by each one's controller, all at once
@@ -364,11 +412,80 @@ def _do(plan: Plan, ctx: Context, e: dict[str, Any], op: str, cards: list[str]) 
         effects.exile_cards(plan, ctx, {}, cards)
     elif op == "tap":
         plan.do({"type": "tap", "card_ids": cards, "tapped": True}, actor=ctx["controller"])
+    elif op == "look":  # "Look at the cards in the other pile": the face-down ones are shown to the controller alone (701.20e); they stay where they are
+        from app.game.visibility import can_see
+
+        unseen = [c for c in cards if not can_see(plan.state, plan.state.cards[c], ctx["controller"])]
+        if unseen:
+            plan.do({"type": "reveal", "card_ids": unseen, "to": [ctx["controller"]]}, actor=ctx["controller"])
+        if bind and e.get("as"):
+            context.bind_objects(plan, ctx, e["as"], cards)
     else:  # the cards return under their owners' control (400.3), or yours; "hand" / "graveyard": their owners'
         to = "battlefield" if op.startswith("battlefield") else op
         effects._return_cards(plan, ctx, {"to": to, **({"under": "you" if op == "battlefield_you" else "owner"} if to == "battlefield" else {}),
-                                          **({"as": e["as"]} if op == "graveyard" and e.get("as") else {})}, cards)
+                                          **({"as": e["as"]} if bind and e.get("as") else {})}, cards)
 
 
-PRIMITIVES = {"pile_deal": pile_deal}
-RESUME = {"pile_split": resume_split, "pile_pick": resume_pick, "pile_opponent": resume_opponent, "pile_card": resume_card}
+# -- piles of exiled cards ----------------------------------------------------------------------------------------------
+_NUMBERS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+
+
+def pile_exile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Exile the top N cards of your library in a face-down / face-up pile": exiled unseen when face down (406.3a), public when face up; the pile is kept by name."""
+    from app.rules import context
+    from app.rules.effects import _library
+
+    pid = ctx["controller"]
+    taken = list(_library(plan, pid)[: int(e["n"])])
+    if taken:
+        plan.do({"type": "mill", "player": pid, "count": len(taken), "to": "exile", "face_down": bool(e["down"]), "blind": bool(e["down"])}, actor=pid)
+    ctx.setdefault("pile_set", {})[e["as"]] = {"cards": taken, "down": bool(e["down"])}
+    context.bind_objects(plan, ctx, e["as"], taken)
+    return True
+
+
+def _made(ctx: Context, e: dict[str, Any]) -> list[dict[str, Any]]:
+    from app.rules import context
+
+    return [ctx["pile_set"][e[k][len(context.PREFIX):]] for k in ("a", "b") if e.get(k)]
+
+
+def pile_look(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Look at the cards in each pile": the face-down cards are shown to the controller alone (701.20e)."""
+    from app.game.visibility import can_see
+
+    me = ctx["controller"]
+    unseen = [c for m in _made(ctx, e) for c in m["cards"] if c in plan.state.cards and not can_see(plan.state, plan.state.cards[c], me)]
+    if unseen:
+        plan.do({"type": "reveal", "card_ids": unseen, "to": [me]}, actor=me)
+    return True
+
+
+def pile_turn_up(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Turn a pile of your choice face up": the controller chooses one of the piles; it is face up (public) from then on."""
+    from app.rules.plan import decide
+
+    made = _made(ctx, e)
+    if not any(m["cards"] for m in made):
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Piles'}: choose a pile to turn face up",
+           options=[DecisionOption(id=str(i + 1), label=f"Pile {i + 1}: {_names(plan, m['cards'])}") for i, m in enumerate(made)],
+           resume={"step": "pile_turn_up", "ctx": ctx, "e": e, "rest": [], "picked": []})
+    return False
+
+
+def resume_turn_up(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    made = _made(ctx, e)
+    pile = made[int(chosen[0]) - 1] if chosen else made[0]
+    cards = [c for c in pile["cards"] if c in plan.state.cards and plan.state.cards[c].face_down]
+    if cards:
+        plan.do({"type": "face_down", "card_ids": cards, "face_down": False}, actor=d.player)
+    pile["down"] = False
+    continue_effects(plan, ctx)
+
+
+PRIMITIVES = {"pile_deal": pile_deal, "pile_exile": pile_exile, "pile_look": pile_look, "pile_turn_up": pile_turn_up}
+RESUME = {"pile_split": resume_split, "pile_pick": resume_pick, "pile_opponent": resume_opponent, "pile_card": resume_card, "pile_turn_up": resume_turn_up}
