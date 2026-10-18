@@ -37,6 +37,7 @@ from app.rules import (
     history,
     merged,  # -- merged permanents (wave 18D) --
     ninjutsu,
+    offering,  # -- offering (wave 51H) --
     per_opponent,  # -- per-opponent targets (wave 23A) --
     permissions,
     read_pass,
@@ -2016,7 +2017,8 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
         return None
     timing = None if sneak else timing_problem(state, player, ch, grant)  # -- keywords (wave 30I) -- 702.190a
     fl = flash_if(ch) if timing else None  # (wave 22F: 601.3b-c, decided once its targets / cost / X are chosen)
-    if fl is not None and ("targets" not in fl or (info is not None and _flash_target_exists(state, player, card, fl["targets"], info))):
+    if fl is not None and ("targets" not in fl or (info is not None and _flash_target_exists(state, player, card, fl["targets"], info))) \
+            and ("offering" not in fl or (not free and info is not None and offering_paid(state, player, card, ch, info))):  # (-- offering (wave 51H) -- 702.48a: only by sacrificing one, never cast free)
         return None  # (review 22F: "if it targets a commander" with no such object to target isn't offered: the target choice would be a dead end)
     return timing
 
@@ -2056,6 +2058,13 @@ def flash_if(ch: Characteristics) -> dict[str, Any] | None:
     """-- casting costs (wave 22F) -- 601.3b-c: the card's own "You may cast this spell as though it had flash if it targets …
     / you pay {2} more / X is 3 or less", which counts only when the spell couldn't be cast now without flash."""
     return next((d["flash_if"] for d in scripts.definitions(ch).values() if d.get("static") == "permission" and d.get("flash_if")), None)
+
+
+def offering_paid(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[M.ManaCost]:
+    """-- offering (wave 51H) -- 702.48a: the mana cost of each permanent ``player`` could sacrifice for the offering of this card ([] when it has none, or nothing to sacrifice)."""
+    part = offering.component(q) if (q := (flash_if(ch) or {}).get("offering")) else None
+    view = permissions._view(state, player, info)
+    return [] if part is None else [M.parse_cost(view.ch(view.state.cards[c]).mana_cost) for c in cost_payment.candidates(view, part, player, card)]
 
 
 def _controls_legendary(state: GameState, player: str, info: CardInfo | None) -> bool:
@@ -2238,10 +2247,12 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
                               targets=_hint_targets(ch), additional=(mode_cost,) if mode_cost is not None else ())  # -- review (Codex) --
             if grant is not None and grant.spend:  # -- as long as (wave 9B) -- 118.14
                 cost = M.spend_as(cost, grant.spend)
-            if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
-                                                                  cost_x="{X}" in ch.mana_cost),
-                       reserve=(extra.life if extra is not None else 0) + (grant_extra.life if grant_extra is not None else 0)):  # (-- hints (wave 30B) -- 119.4: the additional "pay 3 life" first)
-                return True
+            # -- offering (wave 51H) -- 702.48a: sacrificing a [quality] permanent takes its mana cost off (and is the only way at a time a sorcery couldn't be cast)
+            off_only = grant is not None and "offering" in (flash_if(ch) or {}) and timing_problem(state, player, ch, grant) is not None
+            for way in [*(offering.reduce(cost, paid) for paid in offering_paid(state, player, card, ch, info)), *([] if off_only else [cost])]:
+                if can_pay(state, player, way, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player, cost_x="{X}" in ch.mana_cost),
+                           reserve=(extra.life if extra is not None else 0) + (grant_extra.life if grant_extra is not None else 0)):  # (-- hints (wave 30B) -- 119.4: the additional "pay 3 life" first)
+                    return True
     return False
 
 
@@ -2333,8 +2344,9 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
                                             (offer.mana,))
         except ActionError:
             continue
-        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
-                                                              cost_x="{X}" in ch.mana_cost), reserve=offer.life):  # (-- hints (wave 30B) -- 119.4)
+        ways = [offering.reduce(cost, paid) for paid in offering_paid(state, player, card, ch, info)] if offer.kind == "offering" else [cost]  # (-- offering (wave 51H) -- 702.48c)
+        if any(can_pay(state, player, way, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
+                                                                 cost_x="{X}" in ch.mana_cost), reserve=offer.life) for way in ways):  # (-- hints (wave 30B) -- 119.4)
             out.append({"id": offer.source, "label": offer.label})
     return out
 # -- end cost changers (wave 4I) --
@@ -2582,6 +2594,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             additional.append(M.parse_cost(flashing["pay"]))  # ("if you pay {2} more": an additional cost, only at the timing that needs it)
         elif "x_max" in flashing and (a.x_value or 0) > flashing["x_max"]:
             raise ActionError(f"{ch.name} can be cast now only if X is {flashing['x_max']} or less")
+        elif "offering" in flashing and f"{card.id}:offering" not in a.optional_costs:  # -- offering (wave 51H) -- 702.48a: instant timing only by sacrificing one
+            raise ActionError(f"{ch.name} can be cast now only by sacrificing a {flashing['offering']} (offering)")
     else:
         flashing = None
     definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
@@ -2709,6 +2723,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info, player=plan.actor, alternative=alternative,
                       free=free, kicker=a.kicker, additional=tuple(additional), face_down=a.face_down, targets=tuple(t.id for t in chosen),
                       reduce=emerge_reduction + (cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0))  # (wave 47C: "you may sacrifice any number of …")
+    for i, part in enumerate(add_cost.components if add_cost is not None else ()):  # -- offering (wave 51H) -- 702.48a, c: what is sacrificed for it, colors included
+        for sacrificed in add_objects.get(i, []) if part.offering else []:
+            cost = offering.reduce(cost, M.parse_cost(plan.ch(plan.state.cards[sacrificed]).mana_cost))
     cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional if o.mana))  # ("reduces only the amount of green mana")
     cost = M.spend_as(cost, grant.spend) if grant is not None and grant.spend else cost  # -- as long as (wave 9B) -- 118.14
     helper, helper_pays = None, 0  # -- casting extras (wave 18E) -- 702.132a assist: another player pays some generic mana (601.2g-h)
@@ -3505,7 +3522,7 @@ def free_optional_offers(plan: Plan, card: CardInstance, ch: Characteristics) ->
             out.append((f"kicker:{n}", f"Kicker {(kick.cost, kick.second, kick.cost + ' and ' + kick.second)[n - 1]}" if kick.second
                         else kick.text if n == 1 else f"{kick.text}, paid {n} times"))
     for o in cost_changes.optional_offers(plan.state, plan.actor, card, ch, plan.info):
-        if not o.kind:
+        if not o.kind or o.kind == "offering":  # (-- offering (wave 51H) -- 702.48a: a reduction of a cost that is {0} here, and no timing to change)
             continue
         part = cost_changes.keyword_component(o)
         if part is None:  # a gift: an opponent to give it to (702.174a)
