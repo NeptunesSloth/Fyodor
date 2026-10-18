@@ -41,6 +41,7 @@ from app.rules import (
 from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wave 6E) --
 from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
 from app.rules import (  # (this_way: wave 4A)
+    player_relative,  # -- player-relative selectors (wave 53A) --
     restrictions,
     reveal_until_gy,
     selectors,
@@ -891,6 +892,15 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 return "target" if groups is None else f"target:{g}"
         return None
 
+    def target_player(index: int) -> str | None:
+        """-- player-relative selectors (wave 53A) -- "that player" when no player was named before: the controller of the one permanent the instruction before targeted
+        ("Destroy target creature an opponent controls. Each other creature that player controls gets -2/-0"); a trigger's own player is the other reading (event_player)."""
+        if event_player or groups is None:
+            return None
+        named = objects(index, 1, None)
+        g = _group_of(out[named.index]) if named is not None else None
+        return f"tp:{g}" if g is not None and g < len(groups) and player_relative._names_player(groups[g]) else None
+
     def cond_ref(index: int, cond: Any = None) -> Any:
         """The object "it" names in a condition (conditional / instead clauses, wave 1B): what an earlier
         instruction moved, chose or created (its recorded object, 400.7j), a plain target of one
@@ -958,6 +968,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 else:
                     e["player"] = "event_player"
             who = e.get("who")
+            if isinstance(who, str) and player_relative.marks(who) and '"controller":"that_player"' in who and not who.startswith(("controlled:", "graveyard_of:")):
+                who = e["who"] = player_relative.as_controlled(who)  # -- player-relative selectors (wave 53A) -- "each other creature that player controls": bound below like "each creature that player controls"
             if isinstance(who, str) and (who in ("it", "them") or who.startswith(("it:", "them:"))):
                 pronoun, _, verb = who.partition(":")
                 verb, _, flt = verb.partition("|")  # -- resolution memory (wave 22D) -- "them:graveyard|<selector>": only the cards of that kind
@@ -1049,7 +1061,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     # player" is its controller, as it last existed (608.2h) — the same player as "its controller"
                     e["who"] = f"ref:{bound(named)}.controller"
                 else:
-                    e["who"] = "event_player"  # (only a trigger about a player can: _event_refs_ok)
+                    e["who"] = target_player(index) or "event_player"  # (only a trigger about a player can: _event_refs_ok; -- player-relative selectors (wave 53A) -- or the controller of the permanent targeted before)
             elif isinstance(who, str) and who.startswith("controlled:that_player|"):
                 # -- damage sized by a count (wave 4E) -- "each creature that player controls": that player, bound the same way
                 intro = find(lambda i: i.player, index)
@@ -1059,7 +1071,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     g = _group_of(out[intro.index])
                     player = "target" if groups is None else f"target:{g}"
                 else:
-                    player = "event_player"
+                    player = target_player(index) or "event_player"
                 e["who"] = "controlled:" + player + "|" + who.partition("|")[2]
             # -- conditional / instead clauses (wave 1B) --  "If it's a land card, …": the object the pronoun
             # names, read as it is (or as it last existed, 608.2h): a plain target stays "target"
@@ -4016,6 +4028,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
     if not kicked_instead.refs_ok(resolved, groups):
         return None
+    if not player_relative.link(groups, event_player=event_player):
+        return None
     resolved, target = _finish_targets(resolved, groups)
     looked = False
     exiled_at, cast_from_exile = None, False  # -- refused look/cast-free (wave 3R5) --
@@ -5740,7 +5754,8 @@ def _event_refs_ok(d: Definition) -> bool:
         if not (self_trigger or mine or shield):
             return False
     # (-- random choices (wave 47B) -- a reflexive ability that follows "Choose a player at random." binds its own: effects.reflexive ``players_from``)
-    unbound = json.dumps({**d, "effects": [e for e in d.get("effects") or [] if not e.get("players_from")]})
+    unbound = json.dumps({**d, "effects": [e for e in d.get("effects") or [] if not e.get("players_from")],
+                          **({"targets": [g for g in d["targets"] if g.get("of") is None]} if d.get("targets") else {})})  # (-- player-relative selectors (wave 53A) -- a group tied to an earlier group's player is bound as the targets are chosen)
     if '\\"controller\\":\\"that_player\\"' in unbound or '\\"zone_owner\\":\\"that_player\\"' in unbound:
         cond = d.get("cond") if d.get("trigger") == "event" else None
         about_player = step_names_player(d) or (cond is not None and cond["event"] != "multi" and _has_player(cond))
@@ -6155,6 +6170,8 @@ def spell_definition(ch: Characteristics) -> Definition | None:
                 g["distinct_from"] = [offset + d for d in g["distinct_from"]]
             if g.get("graveyard_of") is not None:  # (wave 46B)
                 g["graveyard_of"] += offset
+            if g.get("of") is not None:  # (-- player-relative selectors (wave 53A) -- the group whose player "that player" is)
+                g["of"] += offset
             groups.append(g)
         try:  # (each line's bindings keep their own names: "e0" of line 2 isn't line 1's)
             effects += rename_bindings(_renumber(defs[ab.index]["effects"], index), f"l{ab.index}_")

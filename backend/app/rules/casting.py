@@ -40,6 +40,7 @@ from app.rules import (
     offering,  # -- offering (wave 51H) --
     per_opponent,  # -- per-opponent targets (wave 23A) --
     permissions,
+    player_relative,  # -- player-relative selectors (wave 53A) --
     read_pass,
     restrictions,
     scripts,
@@ -812,7 +813,8 @@ def modal_groups(definition: dict[str, Any], picked: list[int]) -> list[dict[str
     out: list[dict[str, Any]] = []
     for m in modes:
         base = len(out)  # (-- shuffle target cards (wave 46B) -- a mode's "graveyard_of" names a group of its own, numbered from its first)
-        out += [{**g, "graveyard_of": g["graveyard_of"] + base} if g.get("graveyard_of") is not None else g
+        out += [{**g, "graveyard_of": g["graveyard_of"] + base} if g.get("graveyard_of") is not None else
+                {**g, "of": g["of"] + base} if g.get("of") is not None else g  # (-- player-relative selectors (wave 53A) --)
                 for g in m.get("groups") or ([{"what": m["target"]["what"]}] if m["target"] else [])]
     return out
 
@@ -2416,10 +2418,11 @@ def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Character
             from app.rules import kicked_instead
             from app.rules.targets import group_limits
 
-            for spec in kicked_instead.applicable(scripts.target_groups(definition if aura is None else {"target": {"what": aura}}), 0):
+            specs_all = kicked_instead.applicable(scripts.target_groups(definition if aura is None else {"target": {"what": aura}}), 0)
+            for spec in specs_all:
                 lo, hi = (0, 0) if "x_value" in spec or (spec.get("divide") or {}).get("value") is not None \
                     else group_limits(spec, None)  # (X is 0: 107.3b; "up to X" may be none; wave 34D: nor a total counted as it's cast, that may be 0)
-                if hi < lo or len(legal_targets(plan, spec["what"], player, src, card.id)) < lo:
+                if hi < lo or player_relative.room(plan, spec, specs_all, lambda w: legal_targets(plan, w, player, src, card.id)) < lo:  # (-- player-relative selectors (wave 53A) --)
                     return f"{ch.name or 'It'} has no legal target"
         extra = None if manual else costs.spell_additional_cost(ch.abilities)
         if extra is None or any(c.kind in _HAND_PARTS for side in (extra, *extra.either) for c in side.components):

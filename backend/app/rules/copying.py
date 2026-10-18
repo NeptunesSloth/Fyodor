@@ -663,6 +663,13 @@ def _problem(plan: Plan, entry: StackEntry) -> str | None:
             return "those targets must be in a single graveyard"
         if not relation_ok(plan, spec, refs):  # -- group relations (wave 51A) -- 115.7e: the final set must still share a type / have different controllers
             return "those targets must share a type" if spec.get("shares") else "those targets must have different controllers"
+        if spec.get("of") is not None and refs:  # -- player-relative selectors (wave 53A) -- 115.7d: "that player controls" still holds for the new targets of the group it depends on
+            from app.rules import player_relative, targets
+
+            ok = targets.legal_targets(plan, player_relative.bind_what(plan, spec, entry.groups), entry.controller,
+                                       targets.source_of(plan, entry.source_card, entry.kind == "spell"), entry.source_card)
+            if any(t.id not in ok for t in refs):
+                return "those targets must be controlled by the player the earlier target names"
     return None
 
 
@@ -672,7 +679,9 @@ def _options(plan: Plan, entry: StackEntry, pos: Position, controller: str, copy
 
     spec = _spec(entry, pos)
     current = _current(entry, pos)
-    legal = targets.legal_targets(plan, spec.get("what", "any"), controller, targets.source_of(plan, entry.source_card, entry.kind == "spell"),
+    from app.rules import player_relative  # -- player-relative selectors (wave 53A) --
+
+    legal = targets.legal_targets(plan, player_relative.bind_what(plan, spec, entry.groups) if spec.get("of") is not None else spec.get("what", "any"), controller, targets.source_of(plan, entry.source_card, entry.kind == "spell"),
                                   entry.source_card, selectors.attacker_of(entry.event))
     keep = DecisionOption(id="keep", label=f"Keep {targets.label(plan, current.id)}"[:200],
                           card_id=current.id if current.id in plan.state.cards else None)
@@ -698,7 +707,9 @@ def ask_targets(plan: Plan, job: Job, copy_id: str, picks: list[str]) -> bool:
         # (115.3: not twice for this word "target", nor the object an earlier "another target" names)
         others = set(_spec(entry, pos[k]).get("distinct_from") or []) if kind == "group" else set()
         taken = {x for q, x in chosen if q[0] == kind and (q[1] == g or q[1] in others)}
-        options = _options(plan, entry, pos[k], controller, copy_id, taken)
+        so_far = _retargeted(entry, pos[:k], [_current(entry, q) if p == "keep" else targets.ref(plan, p) for p, q in zip(picks, pos, strict=False)]) \
+            if any(sp.get("of") is not None for sp in entry.group_specs) else entry  # (-- player-relative selectors (wave 53A) -- a group that depends on an earlier one is offered what fits the new pick)
+        options = _options(plan, so_far, pos[k], controller, copy_id, taken)
         if len(options) == 1:  # nothing else it could target: it keeps this one
             picks.append("keep")
             continue

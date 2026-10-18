@@ -33,6 +33,7 @@ from app.rules import (
     layers,
     optional_payment,
     permissions,
+    player_relative,  # -- player-relative selectors (wave 53A) --
     protection,
     regeneration,
     replace,  # -- replacement effects stage 2 (wave 2E): the choke points --
@@ -87,6 +88,8 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [p for p in plan.live() if selectors.matches_player(plan, sel, p, me)] if sel.player else []
     if who == "you":
         return [me]
+    if who.startswith(player_relative.TP):  # -- player-relative selectors (wave 53A) -- the player (or the permanent's controller) a target group names
+        return player_relative.players_in(plan, ctx, int(who[len(player_relative.TP):]))
     if who.startswith("player:"):  # -- keywords (wave 15E) -- one named player (ward: the player whose spell or ability targeted)
         return [who[7:]] if who[7:] in plan.live() else []
     if who == "each_player":
@@ -753,8 +756,10 @@ def _controlled_by(plan: Plan, ctx: Context, who: str) -> list[str]:
     if players == "target:0" and not ctx.get("groups"):
         players = "target"  # (one target group: the spell's plain target)
     owners = set(_players(plan, ctx, players))
-    return [c for c in selectors.candidates(plan, selectors.from_key(key), ctx["controller"], ctx.get("source_card"))
-            if plan.state.cards[c].controller in owners]
+    sel = selectors.from_key(key)
+    skip = {t["id"] for t in player_relative.other_than(ctx, players, sel)}  # (-- player-relative selectors (wave 53A) -- "each other creature that player controls")
+    return [c for c in selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card"))
+            if plan.state.cards[c].controller in owners and c not in skip]
 # -- end damage sized by a count (wave 4E) --
 
 
@@ -930,7 +935,8 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # read through the selector's "player:<id>" controller, so a creature that comes under their control later this turn is affected too
         players, _, key = who[len("controlled:"):].partition("|")
         for pid in _players(plan, ctx, "target" if players == "target:0" and not ctx.get("groups") else players):
-            mine = selectors.replace(selectors.from_key(key), controller=f"player:{pid}").key()
+            sel = selectors.from_key(key)
+            mine = selectors.replace(sel, controller=f"player:{pid}", extras=(*sel.extras, *(f"not_oid:{t['object_id']}" for t in player_relative.other_than(ctx, players, sel)))).key()  # (-- player-relative selectors (wave 53A) -- "Other creatures that player controls can't block": other than the target)
             made = layers.add_effect(plan, affected=[], layer="6", source=ctx.get("source_object"), controller=ctx["controller"],
                                      imposes=tuple(e["rules"]), label=", ".join(e["rules"]), who=mine, source_card=ctx.get("source_card"),
                                      duration="end_of_next_turn" if duration == "their_turn" else duration)
@@ -3551,7 +3557,8 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
         for refs, gspec in zip(entry.groups, entry.group_specs, strict=False):
             # an illegal target keeps its place (None), so the division stays as announced (115.7f)
             together = relation_ok(plan, gspec, refs)  # (wave 51A) "that share a creature type": no longer so, all of the group's targets are illegal (608.2b; Shifting Loyalties ruling)
-            groups.append([t.model_dump() if together and still_legal(plan, gspec["what"], entry.controller, t, src, entry.source_card, attacker)
+            what = player_relative.bind_what(plan, gspec, entry.groups)  # (-- player-relative selectors (wave 53A) -- "that player controls": the player group ``of`` names, as it last was)
+            groups.append([t.model_dump() if together and still_legal(plan, what, entry.controller, t, src, entry.source_card, attacker)
                            else None for t in refs])
         chosen = sum(len(refs) for refs in entry.groups)
         if chosen and not any(t for g in groups for t in g):
