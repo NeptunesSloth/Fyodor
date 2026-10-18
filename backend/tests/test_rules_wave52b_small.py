@@ -17,12 +17,15 @@ from app.game.session import GameSession
 from app.rules import coverage
 from tests.game_helpers import act, deck, enable
 from tests.test_rules_conditionals import pick, token_of, until_asked
-from tests.test_rules_wave12a_counters_keywords import answer, rolls
+from tests.test_rules_wave12a_counters_keywords import answer, rolls  # noqa: I001
+from tests.test_rules_wave33b_modal import cast as cast_choosing
+from tests.test_rules_wave34b_activated import next_turn, to_phase
 from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, to_hand, zone_of
 from tests.wave52b_kit import open_repo, settle
 
 LURKER, TUSKER, VALAKUT, CANOPY = "Drownyard Lurker", "Warped Tusker", "Valakut, the Molten Pinnacle", "Roiling Canopy"
 PAN, BOOSTERS, GOBLINS, PULSE, GARDEN = "Field-Tested Frying Pan", "Auxiliary Boosters", "Swarming Goblins", "Case of the Crimson Pulse", "Case of the Trampled Garden"
+SIEGE = "Frontier Siege"
 
 
 @pytest.fixture()
@@ -30,7 +33,7 @@ def cards(settings):
     yield from open_repo(settings)
 
 
-@pytest.mark.parametrize("name", [LURKER, TUSKER, VALAKUT, CANOPY, PAN, BOOSTERS, GOBLINS, PULSE, GARDEN])
+@pytest.mark.parametrize("name", [LURKER, TUSKER, VALAKUT, CANOPY, PAN, BOOSTERS, GOBLINS, PULSE, GARDEN, SIEGE])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
@@ -192,4 +195,117 @@ def test_swarming_goblins_table_of_those_tokens(cards, monkeypatch, die, made):
     act(s, "p1", type="cast_spell", card_id=c.id)
     answer(s)
     assert len([x for x in s.state.cards.values() if x.name == "Goblin" and x.is_token and x.zone == "p1:battlefield"]) == made
+    check(s)
+
+
+# -- Frontier Siege ---------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize(("word", "mana_added"), [("Khans", 2), ("Dragons", 0)])
+def test_frontier_siege_khans_adds_mana_at_each_of_your_main_phases(cards, word, mana_added):
+    s = build(cards, [SIEGE], [])
+    to_hand(s, SIEGE)
+    mana(s, G=1, C=3)
+    cast_choosing(s, SIEGE, prefer=(word,))
+    assert zone_of(s, SIEGE) == "p1:battlefield"
+    next_turn(s)  # the precombat main phase of Alice's next turn
+    settle(s)
+    assert s.state.players["p1"].mana.get("G", 0) == mana_added
+    to_phase(s, "main2")
+    settle(s)
+    assert s.state.players["p1"].mana.get("G", 0) == mana_added  # (the first main phase's mana emptied with the phase, 500.5)
+    check(s)
+
+
+# -- Hammerhead Tyrant / Mana Echoes / Seasoned Dungeoneer / Sandstone Oracle, Slithermuse ------------------------------------------------------
+TYRANT, ECHOES, DUNGEONEER, ORACLE, MUSE = "Hammerhead Tyrant", "Mana Echoes", "Seasoned Dungeoneer", "Sandstone Oracle", "Slithermuse"
+
+
+@pytest.mark.parametrize("name", [TYRANT, ECHOES, DUNGEONEER, ORACLE, MUSE])
+def test_the_second_batch_is_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def test_hammerhead_tyrant_bounces_only_a_permanent_not_costlier_than_the_spell(cards):
+    # 202.3: "mana value less than or equal to that spell's mana value" (the spell on the stack, X counted: 202.3e)
+    s = build(cards, [TYRANT, "Lightning Bolt"], ["Llanowar Elves", "Grizzly Bears"])
+    put(s, TYRANT)
+    put(s, "Llanowar Elves", "p2")  # mana value 1
+    put(s, "Grizzly Bears", "p2")  # mana value 2
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    d = until_asked(s)
+    assert d is not None and {o.id for o in d.options} == {card_named(s, "Llanowar Elves", "p2").id}  # (the Bears cost 2: more than the Bolt's 1)
+    pick(s, card_named(s, "Llanowar Elves", "p2").id)
+    settle(s)
+    assert zone_of(s, "Llanowar Elves", "p2") == "p2:hand" and zone_of(s, "Grizzly Bears", "p2") == "p2:battlefield"
+    check(s)
+
+
+@pytest.mark.parametrize(("others", "amount"), [(0, 1), (2, 3)])
+def test_mana_echoes_counts_the_creatures_sharing_a_type_with_the_one_that_entered(cards, others, amount):
+    # the entering Elf Druid counts itself and every Elf you control; a Goblin doesn't
+    s = build(cards, [ECHOES, "Llanowar Elves"], [])
+    put(s, ECHOES)
+    for i in range(others):
+        token_of(s, "p1", f"Elf {i}", "Creature — Elf Warrior", "1/1")
+    token_of(s, "p1", "Goblin", "Creature — Goblin", "1/1")
+    elves = to_hand(s, "Llanowar Elves")
+    mana(s, G=1)
+    act(s, "p1", type="cast_spell", card_id=elves.id)
+    settle(s, "yes")
+    assert s.state.players["p1"].mana.get("C", 0) == amount
+    check(s)
+
+
+def test_seasoned_dungeoneer_explores_the_attacking_rogue(cards):
+    s = build(cards, [DUNGEONEER], [])
+    rogue = token_of(s, "p1", "Pickpocket", "Token Creature — Human Rogue", "2/2")
+    put(s, DUNGEONEER)
+    next_turn(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": rogue.id, "target": "p2"}])
+    hand = len(s.state.zones["p1:hand"])
+    top = s.state.zones["p1:library"][0]
+    answer(s)
+    assert s.state.cards[top].zone == "p1:hand" and len(s.state.zones["p1:hand"]) == hand + 1  # (a Forest on top: a land card goes to the hand, 701.44a)
+    assert s.state.cards[rogue.id].counters.get("+1/+1", 0) == 0
+    check(s)
+
+
+# -- Sandstone Oracle / Slithermuse -----------------------------------------------------------------------------------------------------------
+def test_sandstone_oracle_draws_the_difference_when_the_opponent_has_more_cards(cards):
+    s = build(cards, [ORACLE], [])
+    oracle = to_hand(s, ORACLE)
+    for _ in range(3):  # Bob: 7 cards in hand + 3
+        act(s, "p2", type="move", card_ids=[s.state.zones["p2:library"][0]], to={"zone": "hand"})
+    mana(s, C=7)
+    act(s, "p1", type="cast_spell", card_id=oracle.id)
+    mine_before, theirs = len(s.state.zones["p1:hand"]) - 1, len(s.state.zones["p2:hand"])
+    answer(s)
+    assert len(s.state.zones["p1:hand"]) == mine_before + (theirs - mine_before)  # equal now
+    assert len(s.state.zones["p1:hand"]) == len(s.state.zones["p2:hand"])
+    check(s)
+
+
+def test_sandstone_oracle_draws_nothing_when_the_opponent_has_no_more(cards):
+    s = build(cards, [ORACLE], [])
+    oracle = to_hand(s, ORACLE)
+    mana(s, C=7)
+    act(s, "p1", type="cast_spell", card_id=oracle.id)
+    mine = len(s.state.zones["p1:hand"])
+    answer(s)
+    assert len(s.state.zones["p1:hand"]) == mine
+    check(s)
+
+
+def test_slithermuse_draws_the_difference_as_it_leaves(cards):
+    s = build(cards, [MUSE], [])
+    put(s, MUSE)
+    for _ in range(4):
+        act(s, "p2", type="move", card_ids=[s.state.zones["p2:library"][0]], to={"zone": "hand"})
+    act(s, "p1", type="set_damage", card_ids=[card_named(s, MUSE).id], value=20)  # lethal damage: it dies (704.5g)
+    act(s, s.state.rules.priority or "p1", type="pass_priority")
+    answer(s)
+    assert zone_of(s, MUSE) == "p1:graveyard"
+    assert len(s.state.zones["p1:hand"]) == len(s.state.zones["p2:hand"])
     check(s)

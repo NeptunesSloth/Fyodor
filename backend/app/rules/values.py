@@ -793,6 +793,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         if who is None and ctx.get("unknown_choice_raises"):
             raise NoChosenPlayer
         return len(plan.state.zones.get(f"{who}:hand", [])) if who in plan.live() else 0
+    if "hand" in v and str(v["hand"]).startswith("ref:"):  # -- trigger other (wave 52B) -- "that player" an earlier "choose an opponent" bound (a hand's size is public, 402.3)
+        from app.rules import context
+
+        return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in context.players(plan, ctx, v["hand"][4:]))
     if "hand" in v and v["hand"] == "all":  # (wave 19F) every player's hand, a public count
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in plan.live())
     if "hand" in v and v["hand"] == "opponent_max":  # (wave 42A) the opponent with the most cards in hand: that many (0 with no opponent)

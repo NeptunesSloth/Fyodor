@@ -1639,6 +1639,7 @@ def at_step_generic(plan: Plan) -> None:
     abilities for this step, when it's the right player's step."""
     phase = plan.state.turn.phase
     prefix = f"step:{phase}:"
+    prefixes = (prefix, "step:main:") if phase in ("main1", "main2") else (prefix,)  # -- trigger other (wave 52B) -- "each of your main phases" (Frontier Siege)
     ap = plan.active
     for card in list(plan.state.cards.values()):
         gy = card.zone.endswith(":graveyard")  # -- refused zones/sized (wave 3R4) -- (113.6m)
@@ -1649,11 +1650,11 @@ def at_step_generic(plan: Plan) -> None:
             continue
         ch = plan.ch(card)
         for i, d in scripts.definitions(ch).items():
-            if d["kind"] != "triggered" or not str(d["trigger"]).startswith(prefix):
+            if d["kind"] != "triggered" or not str(d["trigger"]).startswith(prefixes):
                 continue
             if graveyard_ability(d) != gy or (cz and d.get("if") not in COMMAND_IFS):
                 continue
-            if _whose_step(plan, card, d["trigger"][len(prefix):], ap):
+            if _whose_step(plan, card, d["trigger"].rsplit(":", 1)[-1], ap):
                 _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
                      index=i, definition=d, event=_step_event(plan, card, d))
 

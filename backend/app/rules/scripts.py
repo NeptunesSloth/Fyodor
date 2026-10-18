@@ -114,7 +114,7 @@ TRIGGERS = [
     # 503.1a / 504 / 505 / 507 / 513: "At the beginning of [whose] [step]" (generic: see step_trigger)
     (re.compile(r"^At the beginning of (?:(?:each of )?(?P<whose>your|each|each player's|each opponent's|each other player's|the|enchanted player's|the chosen player's) "
                 r"(?P<step>upkeep|draw step|end step|first main phase|precombat main phase|second main phase|"
-                r"postcombat main phases?)|the (?P<hstep>upkeep|draw step|end step) of enchanted (?:creature|permanent|land|artifact|"
+                r"postcombat main phases?|main phases)|the (?P<hstep>upkeep|draw step|end step) of enchanted (?:creature|permanent|land|artifact|"
                 r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's|each player's) turn|(?P<each_combat>each combat)), "
                 r"(?P<body>.+)$"), "step"),
     # -- combat history (wave 31D) -- 511.2: "At end of combat, …" triggers as the end of combat step begins (a permanent's step trigger)
@@ -136,7 +136,8 @@ TRIGGERS = [
 
 STEPS = {"upkeep": "upkeep", "draw step": "draw", "end step": "end", "first main phase": "main1",
          "precombat main phase": "main1", "second main phase": "main2", "postcombat main phase": "main2",
-         "postcombat main phases": "main2"}  # (-- triggers (wave 30J) -- "each of your postcombat main phases": 505.1a, every main phase but the first, additional ones included)
+         "postcombat main phases": "main2",
+         "main phases": "main"}  # (-- trigger other (wave 52B) -- "each of your main phases" (Frontier Siege): the precombat and every postcombat main phase, 505.1; triggers.at_step_generic)  # (-- triggers (wave 30J) -- "each of your postcombat main phases": 505.1a, every main phase but the first, additional ones included)
 WHOSE = {"your": "you", "each": "each", "each player's": "each", "the": "each", "each opponent's": "opponent", "each other player's": "opponent",  # (wave 51G: every other player is an opponent in Commander, 102.2: Well of Ideas)
          "enchanted player's": "enchanted_player",
          "the chosen player's": "chosen_player"}  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
@@ -1103,6 +1104,12 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     return None
             if e.get("src") == "it" and e.get("do") == "attach_to" and (made := objects(index, 1, None)) is not None and made.do == "create_token":
                 e["src"] = "ref:" + bound(made)  # -- attached events (wave 25D) -- "Create a … Equipment token … Attach it to ~.": the token just made (400.7j)
+            elif e.get("src") == "it" and e.get("do") == "explore" and (found := objects(index, 1, None)) is not None:
+                # -- trigger other (wave 52B) -- "Target attacking Rogue gains protection from creatures until end of turn. It explores." (Seasoned Dungeoneer): the object an
+                # earlier instruction chose or moved explores (701.44a: its controller reveals), as "It connives" does
+                g = _group_of(out[found.index])
+                del e["src"]
+                e["who"] = "ref:" + bound(found) if found.do in _MOVERS or g is None else "target" if groups is None else f"target:{g}"
             elif e.get("src") == "it":
                 if any(i.index < index and out[i.index].get("who") == "host" for i in intros):
                     return None  # ("tap enchanted creature. It deals …": the host, not the source)
@@ -2411,6 +2418,9 @@ def _clause(text: str, may_ok: bool = False) -> tuple[list[dict[str, Any]], Any]
     return None
 
 
+_CHOOSE_COMPARE = re.compile(r"^choose an opponent\. If that player has more cards in hand than you, draw cards equal to the difference\.$")
+
+
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
     found = _parse_effects_plain(body, it, event_player=event_player)
     if found is None and re.search(r"\bbecomes?\b", body):  # -- activated sweep (wave 26C) -- "gets +3/+3 and becomes a Bear Berserker" (predicates.py)
@@ -2430,6 +2440,8 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
 
     body = body.replace(" your team controls", " you control")  # -- static_other (wave 49C) -- 102.4: outside a team game "your team" is "you" (Combo Attack, Dwarven Lightsmith)
     body = _licids.rewrite(body)  # -- licids (wave 50A) --
+    if _CHOOSE_COMPARE.match(body) is not None:  # -- trigger other (wave 52B) -- Sandstone Oracle, Slithermuse: 608.2d, the controller chooses the opponent as this resolves (no target); a hand's size is public (402.3)
+        return [{"do": "choose_opponent", "as": "copp"}, {"do": "draw", "who": "you", "n": {"minus": [{"hand": "ref:copp"}, {"hand": "you"}]}}], None, False  # (107.1b: "more … than you" is a positive difference, else nothing is drawn)
     # -- damage wordings (wave 51B) -- "Then each player creates X Treasure tokens and this enchantment deals X damage to each player, where X is the number of descent counters on this
     # enchantment." (Descent into Avernus): two instructions in order (608.2c), the same X for both (nothing between them changes the counters)
     body = re.sub(r"\b(each player creates X [A-Z][a-z]+ tokens?) and ((?:this \w+|~) deals) X damage to (each player), where X is ([^.]+)\.",
@@ -4701,8 +4713,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         # -- most-played cards (wave 43B) -- "…for each other attacking creature that shares a creature type with it" (Shared Animosity): "it" is the creature the trigger
         # is about when the effect acts on that creature; with the source itself as "it" (a self trigger, an activated ability) the source's types are compared
         cond_ = d.get("cond") or {}
-        if d.get("kind") == "triggered" and d.get("trigger") == "event" and cond_.get("subject") == "sel" and not cond_.get("aggregate"):
-            d = {**d, "effects": [json.loads(json.dumps(e, default=str).replace("shares_type_source", "shares_type_event")) if e.get("who") == "event" else e
+        if d.get("kind") == "triggered" and (d.get("trigger") == "event" and cond_.get("subject") == "sel" and not cond_.get("aggregate")
+                                              or d.get("trigger") == "enters_other"):
+            d = {**d, "effects": [json.loads(json.dumps(e, default=str).replace("shares_type_source", "shares_type_event")) if e.get("who") == "event" or (
+                "shares_type_source" in json.dumps(e.get("n"), default=str)) else e  # (-- trigger other (wave 52B) -- a count "for each creature you control that shares a creature type with it" (Mana Echoes): "it" is the entering creature too)
                                   for e in d.get("effects") or []]}
         # (-- counters (wave 44C -- "Whenever you cast a spell that shares a creature type with this creature" (Folk Hero's grant): the spell is matched with the watcher as its source)
         if "shares_type_source" in json.dumps(d, default=str) and not (
