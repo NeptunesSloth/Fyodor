@@ -25,7 +25,7 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle
 from tests.test_rules_wave50i_modal_modes import until_decision
-from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_of
+from tests.wave9c_kit import build, card_named, check, mana, pt, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave51a_cards.json").read_text("utf-8"))
 KNOWN = {c["name"] for c in fixture_cards()}
@@ -265,6 +265,55 @@ def test_michelangelo_s_technique_puts_up_to_two_creatures_with_total_mana_value
     settle(s)
     assert zone_of(s, "Frogmite") == zone_of(s, "Grizzly Bears") == "p1:battlefield" and zone_of(s, "Foundry Inspector") == "p1:library"
     assert inspector.id not in str(s.view("p2")["rules"].get("decision"))  # (the cards looked at stay private)
+    check(s)
+
+
+# --- "pay {cost} any number of times": the payer chooses how many (118.3), "that many" is it ---------------------------------------------
+
+
+def adversary(cards, name, pool, **have):
+    s = build(cards, [name, "Grizzly Bears"], [], forests=30)
+    put(s, "Grizzly Bears")
+    to_hand(s, name)
+    mana(s, **pool)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, name).id)
+    return s, until_decision(s)
+
+
+def test_intrepid_adversary_pays_two_times_for_two_valor_counters(cards):
+    s, d = adversary(cards, "Intrepid Adversary", {"W": 5})  # 2 for the cast, 3 left: {1}{W} once (a second time would need 4)
+    assert d is not None and "how many times" in d.prompt and [o.id for o in d.options] == ["x:1", "decline"]
+    s, d = adversary(cards, "Intrepid Adversary", {"W": 6})  # 2 for the cast, 4 left: {1}{W} twice
+    assert [o.id for o in d.options][:3] == ["x:1", "x:2", "decline"] and "Pay {1}{W} 2 times (X = 2)" in {o.label for o in d.options}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["x:2"])
+    settle(s)
+    adv = s.state.cards[card_named(s, "Intrepid Adversary").id]
+    assert adv.counters.get("valor") == 2 and pt(s, "Grizzly Bears") == (4, 4) and pt(s, "Intrepid Adversary") == (5, 3)  # +1/+1 for each valor counter
+    assert s.state.players["p1"].mana.get("W", 0) == 0
+    check(s)
+
+
+def test_intrepid_adversary_declined_or_unaffordable_puts_no_counter(cards):
+    s, d = adversary(cards, "Intrepid Adversary", {"W": 6})
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["decline"])
+    settle(s)
+    assert s.state.cards[card_named(s, "Intrepid Adversary").id].counters.get("valor", 0) == 0
+    check(s)
+    s, d = adversary(cards, "Intrepid Adversary", {"W": 2})  # nothing left to pay with: not asked
+    assert d is None or "how many times" not in d.prompt
+    settle(s)
+    assert s.state.cards[card_named(s, "Intrepid Adversary").id].counters.get("valor", 0) == 0
+    check(s)
+
+
+def test_tainted_adversary_counters_and_twice_that_many_zombies(cards):
+    s, d = adversary(cards, "Tainted Adversary", {"B": 8})  # 2 for the cast, 6 left: {2}{B} twice
+    assert [o.id for o in d.options][:3] == ["x:1", "x:2", "decline"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["x:2"])
+    settle(s)
+    assert s.state.cards[card_named(s, "Tainted Adversary").id].counters.get("+1/+1") == 2
+    zombies = [c for c in s.state.cards.values() if c.token and c.token.name == "Zombie" and c.controller == "p1"]
+    assert len(zombies) == 4
     check(s)
 
 
