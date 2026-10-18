@@ -26,8 +26,12 @@ _REVEAL = re.compile(rf"you may reveal (?P<what>{_WHAT}) you own from outside th
 _PUT = re.compile(r"you may put a card you own from outside the game into your hand")
 
 
-def sentence(texts: list[str], i: int, text: str) -> tuple[list[dict[str, Any]], int] | None:
-    """(the effects, the sentences read) for a wish at sentence ``i`` (``text``: it, first letter lowered), or None."""
+def sentence(texts: list[str], i: int, text: str, paid: str | None = None) -> tuple[list[dict[str, Any]], int] | None:
+    """(the effects, the sentences read) for a wish at sentence ``i`` (``text``: it, first letter lowered), or None. ``paid``: the latest optional
+    payment, which "If you don't, you may reveal …" is gated on (-- review 52 -- Learn, 701.48a)."""
+    if paid and text.startswith("if you don't, "):
+        got = sentence(texts, i, text[len("if you don't, "):])
+        return ([{"do": "only_if", "cond": {"succeeded": paid, "negate": True}, "skip": len(got[0])}, *got[0]], got[1]) if got else None
     if _PUT.fullmatch(text):
         return [{"do": "wish", "sel": selectors.parse("card").key(), "reveal": False}], 1  # type: ignore[union-attr]
     m = _REVEAL.fullmatch(text)

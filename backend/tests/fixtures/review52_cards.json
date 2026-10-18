@@ -1,0 +1,212 @@
+[
+ {
+  "name": "Lorcan, Warlock Collector",
+  "layout": "normal",
+  "mana_cost": "{5}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Legendary Creature — Devil",
+  "oracle_text": "Flying\nWhenever a creature card is put into an opponent's graveyard from anywhere, you may pay life equal to its mana value. If you do, put it onto the battlefield under your control. It's a Warlock in addition to its other types.\nIf a Warlock you control would die, exile it instead.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Murder",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Destroy target creature.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Embodiment of Agonies",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature — Demon",
+  "oracle_text": "Flying, deathtouch\nThis creature enters with a +1/+1 counter on it for each different mana cost among nonland cards in your graveyard. (For example, {2}{B} and {1}{B}{B} are different mana costs.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Deathtouch",
+   "Flying"
+  ],
+  "power": "0",
+  "toughness": "0"
+ },
+ {
+  "name": "Ral's Outburst",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{R}",
+  "cmc": 4.0,
+  "type_line": "Instant",
+  "oracle_text": "Ral's Outburst deals 3 damage to any target. Look at the top two cards of your library. Put one of them into your hand and the other into your graveyard.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Overgrown Arch",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Plant Wall",
+  "oracle_text": "Defender\n{T}: You gain 1 life.\n{2}, Sacrifice this creature: Learn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Learn",
+   "Defender"
+  ],
+  "power": "0",
+  "toughness": "4"
+ },
+ {
+  "name": "Environmental Sciences",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Sorcery — Lesson",
+  "oracle_text": "Search your library for a basic land card, reveal it, put it into your hand, then shuffle. You gain 2 life.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Tainted Sigil",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{B}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "{T}, Sacrifice this artifact: You gain life equal to the total life lost by all players this turn. (Damage causes loss of life.)",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Nessian Wilds Ravager",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Creature — Hydra",
+  "oracle_text": "Tribute 6 (As this creature enters, an opponent of your choice may put six +1/+1 counters on it.)\nWhen this creature enters, if tribute wasn't paid, you may have this creature fight another target creature. (Each deals damage equal to its power to the other.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Fight",
+   "Tribute"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Temur War Shaman",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Creature — Human Shaman",
+  "oracle_text": "When this creature enters, manifest the top card of your library. (Put that card onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)\nWhenever a permanent you control is turned face up, if it's a creature, you may have it fight target creature you don't control.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Manifest",
+   "Fight"
+  ],
+  "power": "4",
+  "toughness": "5"
+ },
+ {
+  "name": "Grizzly Bears",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Creature — Bear",
+  "oracle_text": "",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Hill Giant",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature — Giant",
+  "oracle_text": "",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Paroxysm",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, that player reveals the top card of their library. If that card is a land card, destroy that creature. Otherwise, it gets +3/+3 until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Enchant"
+  ]
+ }
+]

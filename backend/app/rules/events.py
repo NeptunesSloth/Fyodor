@@ -516,10 +516,10 @@ def _parse(c: str) -> Condition | None:
     m = re.fullmatch(r"(?P<p>you|an opponent|a player) (?P<rest>[^,]+(?:, [^,]+)+), or (?P<last>(?!and ).+)", c)
     if m:
         listed = [_parse(f"{m['p']} {part}") for part in (*m["rest"].split(", "), m["last"])]
-        if any(x is None or x.get("aggregate") or x["event"] in ("either", "multi") or x.get("subject") != "player" or x.get("player") != _PLAYERS[m["p"]] for x in listed) \
-                or len({x["event"] for x in listed if x}) != len(listed):
-            return None
-        return {"event": "either", "subject": "player", "player": _PLAYERS[m["p"]], "conds": [x for x in listed if x]}
+        # (-- review 52 -- no list of actions: fall through, "put counters on a Goblin, Orc, or Army you control", The Great Goblin)
+        if not any(x is None or x.get("aggregate") or x["event"] in ("either", "multi") or x.get("subject") != "player" or x.get("player") != _PLAYERS[m["p"]] for x in listed) \
+                and len({x["event"] for x in listed if x}) == len(listed):
+            return {"event": "either", "subject": "player", "player": _PLAYERS[m["p"]], "conds": [x for x in listed if x]}
     # -- history (wave 22E) -- "Whenever this creature attacks, blocks, or becomes the target of a spell": a list of verbs for one
     # subject, each its own event (603.2c); every part must read on its own with that subject
     m = re.fullmatch(r"(?P<s>~|this creature|this permanent) (?P<rest>[^,]+(?:, [^,]+)+), or (?P<last>.+)", c)

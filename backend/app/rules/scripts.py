@@ -974,11 +974,13 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                             and antecedent in ("event", "self") and out[intro.index].get("who") == antecedent:
                         intro = None  # (the "instead" branch's "it" is the base branch's own: the trigger's object, not something the base recorded)
                     elif intro is not None and pronoun == "it" and not verb and in_alt_branch(index) and closed_gate(intro.index, index) and intro.do in _MOVERS \
+                            and e.get("do") in _MOVERS \
                             and (judged := next((g for g in out[:index] if g.get("do") == "only_if" and g.get("bind") and any(
                                 a.get("do") == "only_if" and (a.get("cond") or {}).get("flag") == g["bind"] for a in out[:index])), None)) is not None \
                             and (base_ref := re.fullmatch(r"ref:e(\d+)", str((judged.get("cond") or {}).get("object", "")))) is not None:
                         # -- trigger other (wave 52B) -- "Choose a card at random in your graveyard. If it's a creature card, return it to the battlefield. Otherwise, return it to your
                         # hand." (Deadbridge Chant): the "Otherwise" branch's "it" is the card the condition judged (608.2c: only one branch happens), not what the other branch moved
+                        # (-- review 52 -- a move of it only: "If that card is a land card, destroy that creature. Otherwise, it gets +3/+3" (Paroxysm) pumps the creature, no card)
                         intro = next((x for x in intros if x.index == int(base_ref[1])), intro)
                 if e.get("do") in ("grant_play", "free_cast", "look_exiled", "plotted") and (
                         intro is None or (intro.do not in _MOVERS and not _exiles_countered(out[intro.index]))):
@@ -2586,10 +2588,10 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     from app.rules import trigger_words  # -- triggers (wave 5D) -- "create a number of … equal to …"
 
     body = _dice.plain(trigger_words.plain_amounts(_dice.rewrite(body)))  # (rewrite: a results table, wave 16B)
-    # -- static_other sweep (wave 16B) -- 701.48a: "Learn." means "You may reveal a Lesson card you own from outside the game and put it
-    # into your hand. If you don't, you may discard a card. If you do, draw a card." A game here has no cards outside it (no sideboard is
-    # modelled: the decks are the games'), so the reveal never has a Lesson to show and the rest is the rummage
-    body = re.sub(r"(^\s*|\. )[Ll]earn\.", r"\1You may discard a card. If you do, draw a card.", body)  # (wave 52D: a leading space, an activated ability's body)
+    # -- static_other sweep (wave 16B) -- 701.48a: "Learn." means "You may discard a card. If you do, draw a card. If you didn't discard a card, you may reveal
+    # a Lesson card you own from outside the game and put it into your hand." (-- review 52 -- outside the game is the sideboard, as for the Wishes: wishes.py)
+    body = re.sub(r"(^\s*|\. )[Ll]earn\.", r"\1You may discard a card. If you do, draw a card. If you don't, you may reveal a Lesson card you own from outside the game "
+                  r"and put it into your hand.", body)  # (wave 52D: a leading space, an activated ability's body)
     body = _extra_turns.one_sentence(body)  # -- static_other sweep (wave 19A) -- Final Fortune
     # -- tutor (wave 20D) -- the same search spelled as sentences: "Search your library for two cards[ and reveal them]. Put one into your hand
     # and the other into your graveyard. Then shuffle." (Final Parting, Fork in the Road), "… for a white card, …, and a green card. Reveal
@@ -3518,7 +3520,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             pay_untap as _pay_untap,  # -- if you do (wave 25C) -- "that player may choose any number of tapped … and pay {2} for each …"
         )
 
-        if (wished := wishes.sentence(texts, i, text)) is not None:
+        if (wished := wishes.sentence(texts, i, text, _last_payment(effects))) is not None:
             effects += wished[0]
             skip_to = i + wished[1]
             continue

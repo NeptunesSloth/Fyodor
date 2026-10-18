@@ -1021,8 +1021,9 @@ def _distinct(plan: Plan, ctx: dict[str, Any], kind: str, key: str) -> int:
             if "Planeswalker" in ch.types:
                 found |= ch.subtypes & selectors.PLANESWALKER_TYPES
         elif kind == "mana_costs":  # -- counters (wave 52D) -- 202.1b: no mana cost is no cost to pay, not a cost of its own (a nonland card with none, a suspend-only card: not counted)
-            if ch.mana_cost:
-                found.add(ch.mana_cost)
+            if ch.mana_cost:  # (-- review 52 -- 709.4b: a split card's cost is its halves combined, "{1}{R} // {1}{U}" is "{2}{U}{R}"; the symbols, not their order)
+                syms = re.findall(r"\{([^}]+)\}", ch.mana_cost)
+                found.add(f"{sum(int(x) for x in syms if x.isdigit())}|{sorted(x for x in syms if not x.isdigit())}")
         elif kind == "mana_values":  # -- as long as (wave 20B) -- "five or more mana values among cards in your graveyard" (202.3)
             found.add(str(int(ch.mana_value)))
         elif kind == "powers":  # "creatures with different powers" (conditions.py): how many distinct values
