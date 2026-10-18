@@ -112,7 +112,7 @@ TRIGGERS = [
     (re.compile(r"^Whenever (?P<filter>another creature you control|a creature you control|another nontoken creature you control|"
                 r"a nontoken creature you control|another creature|a creature) enters, (?P<body>.+)$"), "enters_other"),
     # 503.1a / 504 / 505 / 507 / 513: "At the beginning of [whose] [step]" (generic: see step_trigger)
-    (re.compile(r"^At the beginning of (?:(?:each of )?(?P<whose>your|each|each player's|each opponent's|the|enchanted player's|the chosen player's) "
+    (re.compile(r"^At the beginning of (?:(?:each of )?(?P<whose>your|each|each player's|each opponent's|each other player's|the|enchanted player's|the chosen player's) "
                 r"(?P<step>upkeep|draw step|end step|first main phase|precombat main phase|second main phase|"
                 r"postcombat main phases?)|the (?P<hstep>upkeep|draw step|end step) of enchanted (?:creature|permanent|land|artifact|"
                 r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's|each player's) turn|(?P<each_combat>each combat)), "
@@ -137,7 +137,7 @@ TRIGGERS = [
 STEPS = {"upkeep": "upkeep", "draw step": "draw", "end step": "end", "first main phase": "main1",
          "precombat main phase": "main1", "second main phase": "main2", "postcombat main phase": "main2",
          "postcombat main phases": "main2"}  # (-- triggers (wave 30J) -- "each of your postcombat main phases": 505.1a, every main phase but the first, additional ones included)
-WHOSE = {"your": "you", "each": "each", "each player's": "each", "the": "each", "each opponent's": "opponent",
+WHOSE = {"your": "you", "each": "each", "each player's": "each", "the": "each", "each opponent's": "opponent", "each other player's": "opponent",  # (wave 51G: every other player is an opponent in Commander, 102.2: Well of Ideas)
          "enchanted player's": "enchanted_player",
          "the chosen player's": "chosen_player"}  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
 
@@ -2849,7 +2849,7 @@ def _bind_x_conditions(effects: list[dict[str, Any]], value: Any) -> list[dict[s
             for e in effects]
 
 
-_X_TARGET_VALUES = where_bound.ALLOWED | {"this_way"}  # (wave 28D: known as a trigger is put on the stack, 603.3d)
+_X_TARGET_VALUES = where_bound.ALLOWED | {"this_way", "opponents"}  # (wave 28D: known as a trigger is put on the stack, 603.3d)
 
 
 def _x_target_counts(found: tuple[list[dict[str, Any]], Any, bool], value: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
@@ -3215,6 +3215,16 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
     body = re.sub(r"\b([Rr]eturn|[Dd]estroy|[Ee]xile) all creatures( to their owners' hands)? except for ([A-Z][a-z]+(?:(?:, and |, | and )[A-Z][a-z]+)*)\b",
                   lambda m: f"{m[1]} all {' '.join('non-' + _singular(w) for w in re.split(r', and |, | and ', m[3]))} creatures{m[2] or ''}", body)
+    # -- most-played cards IV (wave 51G) -- "Destroy all creatures and planeswalkers except for commanders." (Slash the Ranks), "Destroy all other permanents except for lands and
+    # tokens." (Elspeth Tirel): the objects that are none of those, "all noncommander creatures and planeswalkers" / "all other nonland nontoken permanents"; "Return to their owners'
+    # hands all creatures with …" (Engulf the Shore) is "Return all creatures with … to their owners' hands"
+    body = re.sub(r"\b(Destroy all) (creatures and planeswalkers) except for commanders\b", r"\1 noncommander \2", body)
+    body = re.sub(r"\b(Destroy all other) permanents except for lands and tokens\b", r"\1 nonland nontoken permanents", body)
+    body = re.sub(r"\bReturn to their owners' hands (all creatures with [^.]+)\.", r"Return \1 to their owners' hands.", body)
+    # "Each player loses 1 life, discards a card, sacrifices a creature of their choice, then sacrifices a land of their choice." (Smallpox, Death Cloud): every player does each
+    # instruction in turn, as four sentences say (608.2c); "half"/"third" chains keep their own reading (Fraying Omnipotence's "Round up each time")
+    body = re.sub(r"\bEach player ((?:loses|discards|sacrifices) [^.,]+(?:, (?:then )?(?:loses|discards|sacrifices) [^.,]+){2,})\.(?! Round)",
+                  lambda m: m[0] if re.search(r"\b(?:half|third)\b", m[1]) else ". ".join("Each player " + x for x in re.split(r", (?:then )?", m[1])) + ".", body)
     # -- activated other (wave 44D) -- "Destroy all creatures except for ~. Those creatures can't be regenerated." (Mageta the Lion): all the others, the source being the only one
     # left out, as "Destroy all other creatures. They can't be regenerated." says
     body = re.sub(r"\b([Dd]estroy all) (creatures|artifacts|enchantments|lands) except for ~\. Those \2 can't be regenerated\.", r"\1 other \2. They can't be regenerated.", body)
@@ -4164,7 +4174,7 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
     return {"do": "optional_payment", "who": payer, "cost": cost, "bind": bind, **sized, **({"needs": needs} if needs else {})}
 
 
-_THAT_PLAYER_MAY = re.compile(r"^(?:that|that attacking) player may (?P<v>create|draw|put|discard|sacrifice|exile|return|add|gain|lose|mill) (?P<rest>.+)$")
+_THAT_PLAYER_MAY = re.compile(r"^(?:(?:that|that attacking) player|(?P<c>its controller)) may (?P<v>create|draw|put|discard|sacrifice|exile|return|add|gain|lose|mill) (?P<rest>.+)$")  # (wave 51G: "its controller may create …", Brood Sliver)
 
 
 def _that_player_may(text: str, effects: list[dict[str, Any]], groups: list[dict[str, Any]], parse_clause: Any) -> list[dict[str, Any]] | None:
@@ -4175,11 +4185,12 @@ def _that_player_may(text: str, effects: list[dict[str, Any]], groups: list[dict
     if m is None:
         return None
     verb = _THEY_VERBS.get(m["v"], m["v"] + "s")
-    found = parse_clause(f"that player {verb} {m['rest']}.")  # (the effects of a clause with no target and no "may" of its own)
+    who = "its controller" if m["c"] else "that player"
+    found = parse_clause(f"{who} {verb} {m['rest']}.")  # (the effects of a clause with no target and no "may" of its own)
     if not found:
         return None
     bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
-    return [{"do": "optional_payment", "who": "that_player", "ask": f"{m['v']} {m['rest']}", "cost": "", "bind": bind},
+    return [{"do": "optional_payment", "who": "it.controller" if m["c"] else "that_player", "ask": f"{m['v']} {m['rest']}", "cost": "", "bind": bind},
             {"do": "only_if", "cond": {"succeeded": bind}, "skip": len(found)}, *found]
 
 
@@ -4805,6 +4816,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     from app.rules import (
         merged,  # -- merged permanents (wave 18D) -- meld wordings carry card names with commas
+        reanimate_auras,  # -- reanimation Auras (wave 51F) -- Animate Dead, Dance of the Dead, Necromancy: the whole enters trigger
     )
 
     text = self_text(merged.protect(ability.text), ch.name)
@@ -4823,6 +4835,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # -- trigger other (wave 51C) -- "…, they lose 1 life and you put a -1/-1 counter on up to one target creature they control." (Persistent Constrictor): the second instruction is the
     # controller's own, about the player the trigger names
     text = re.sub(r"(, they lose \d+ life) and you put (an? [^.,]+? counters? on (?:up to one )?target [^.,]+?) they control\.$", r"\1. Put \2 that player controls.", text)
+    if (reanimating := reanimate_auras.define(text, ch)) is not None:
+        return reanimating
+    if ability.kind == "activated":  # -- most-played cards (wave 51F) -- 106.6: Throne of Eldraine's payment restriction is read by casting.ability_cost (its mana is paid as colored mana)
+        text = text.removesuffix(" Spend only mana of the chosen color to activate this ability.")
     # -- token copies (wave 31C) -- a plural name's own "they" / "them" (The Notary Hobbits: "When ~ enter, if they're not a token, create two tokens that are copies of them")
     text = re.sub(r"^(When ~ enter, if )they're( not a token, create [^.]+? cop(?:y|ies) of )them\b", r"\1it's\2it", text)
     # -- counters (wave 41A) -- a plural name's own "them" after its own event ("Whenever Tui and La become untapped, put a +1/+1 counter on them."): the one object
@@ -5605,7 +5621,7 @@ def _event_refs_ok(d: Definition) -> bool:
 
     skip = watches.deferred_event_effects(effects)
     effects = [e for i, e in enumerate(effects) if i not in skip]
-    wants_player = any(e.get("who") in ("event_player", "each_other_opponent", "each_other_than_event")
+    wants_player = any(e.get("who") in ("event_player", "each_other_opponent", "each_other_than_event", "event_opponents")
                        or str(e.get("who")).startswith("controlled:event_player|") for e in effects) or '"for_player": "event"' in raw \
         or any(e.get("player") == "event_player" or e.get("by") == "event_player" for e in effects)  # (wave 4E; "player": wave 6E; 25D: "by")
     wants_amount = any(_wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t", "mv", "max"))  # ("mv": a free cast's limit, wave 3R5; wave 26A "max": "search … for that many cards")
@@ -7900,7 +7916,7 @@ def _reflex_sacrificed(rest: str, it: str | None) -> dict[str, Any] | None:
 def _makes_one_token(e: dict[str, Any]) -> bool:
     """The creation of one token for its controller ("Create a 2/1 … token."): not several (whether "When you do" triggers once for them or once
     for each is not settled by the rulings: Faebloom Trick says once, Ajani's says once for each token a Doubling Season makes)."""
-    return e["do"] == "create_token" and e.get("n") == 1 and e.get("who") == "you" and not e.get("more") and not e.get("per_controller")
+    return e["do"] == "create_token" and isinstance(e.get("n"), int) and e["n"] >= 1 and e.get("who") == "you" and not e.get("more") and not e.get("per_controller")  # (wave 51G: several, Faebloom Trick)
 
 
 def _reflex_created(rest: str, made: dict[str, Any]) -> dict[str, Any] | None:
@@ -7914,8 +7930,12 @@ def _reflex_created(rest: str, made: dict[str, Any]) -> dict[str, Any] | None:
     parsed = parse_effects(body[:1].upper() + body[1:], "event")
     if parsed is None or not parsed[0] or "event_amount" in json.dumps(parsed, default=str):
         return None  # ("that many" of one token each: nothing to count)
+    many = made["n"] != 1  # -- most-played cards IV (wave 51G) -- "Create two 1/1 blue Faerie creature tokens with flying. When you do, tap target creature an opponent controls." (Faebloom Trick, ruling 2024-11-08): it
+    # triggers once when the tokens are created, not for each; "it" / "that token" would be which of them, so B names none
+    if many and re.search(r'"(?:ref:|event)|"it"', json.dumps(parsed, default=str)):
+        return None
     named = {"named": made["token"]["name"]}  # (only the tokens this instruction asked for: Chatterfang's extra Squirrels aren't "this way", the Ajani ruling)
-    return {"do": "reflexive", "cond": {"value": {"this_way": "created", "of": None, **named}, "op": ">=", "n": 1}, "lki": "cond_ref", "each": True,
+    return {"do": "reflexive", "cond": {"value": {"this_way": "created", "of": None, **named}, "op": ">=", "n": 1}, "lki": "cond_ref", "each": not many,
             "ability": {"kind": "triggered", "trigger": "reflexive", "effects": parsed[0], "optional": parsed[2], **target_fields(parsed[1])}}
 
 

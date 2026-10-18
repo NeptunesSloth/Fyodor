@@ -37,6 +37,7 @@ from app.rules import (
     history,
     merged,  # -- merged permanents (wave 18D) --
     ninjutsu,
+    offering,  # -- offering (wave 51H) --
     per_opponent,  # -- per-opponent targets (wave 23A) --
     permissions,
     read_pass,
@@ -142,6 +143,17 @@ def _with_chosen_type(spend: str, creature_type: str) -> str:
                 if alt.pop("chosen", False):
                     alt["subtypes"] = sorted({*alt.get("subtypes", []), creature_type})
     return "q:" + json.dumps(spec, sort_keys=True)
+
+
+def _with_chosen_color(spend: str, color: str) -> str:
+    """-- most-played cards (wave 51F) -- "monocolored spells of that color" (Throne of Eldraine): the color chosen as the permanent entered, as the letter spells must be."""
+    import json
+
+    spec = json.loads(spend[2:])
+    for alt in spec["cast"] if isinstance(spec.get("cast"), list) else []:
+        if alt.pop("chosen_color", False):
+            alt["mono_color"] = color
+    return "q:" + json.dumps(spec, sort_keys=True)
 # -- end refused copy/mana (wave 3R3) --
 
 
@@ -220,8 +232,11 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
         held = state.table.initiative == card.controller if ab.instead_if[0][1] == "initiative" \
             else bool(state.rules is not None and state.rules.completed_dungeons.get(card.controller))
         return ab.instead if held else ab.options
+    chosen_options = ab.options
     if ab.instead_if and ab.instead_if[0][:1] == ("@counter",):  # -- opening hand (wave 18C) -- the source's own counter (122.1)
-        return ab.instead if card.counters.get(ab.instead_if[0][1], 0) > 0 else ab.options
+        chosen_options = ab.instead if card.counters.get(ab.instead_if[0][1], 0) > 0 else ab.options
+        if ("LANDS",) not in (o[:1] for o in chosen_options):  # (-- most-played cards (wave 51F) -- Incubation Druid's types are resolved below)
+            return chosen_options
     if ab.instead_if and ab.instead_if[0][:1] in (("@count",), ("@power",)):  # -- kicked / instead (wave 4G) --
         return ab.instead if _controls_for_instead(state, card.controller, ab.instead_if[0], info) else ab.options
     if ab.instead_if and ab.instead_if[0][:1] == ("@named",):  # -- named permanents (wave 35C) -- Tower Worker: a creature with each name
@@ -241,7 +256,7 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
         n = _mana_count(state, card, ab.count, info)
         return tuple(opt * n for opt in ab.options) if n > 0 else ()
     out: list[tuple[str, ...]] = []
-    for opt in ab.options:
+    for opt in chosen_options:
         if "CHOSEN" in opt:
             color = _chosen_color(card)
             if color is None:
@@ -259,8 +274,8 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
             seen = {col for o in (rs.exiled_with.get(rs.object_id(card.id), []) if rs is not None else []) if (c := state.cards.get(o.rsplit(".", 1)[0])) is not None
                     and c.zone.endswith(":exile") and rs is not None and rs.object_id(c.id) == o for col in derive(state, c, chars.of(c, info), info).colors}
             out += [(m,) for m in M.COLORS if m in seen]
-        elif opt == ("LANDS",):
-            out += [(m,) for m in M.ALL_MANA if m in _land_mana(state, [card.controller], info, skip=card.id)]
+        elif set(opt) == {"LANDS"}:  # (-- most-played cards (wave 51F) -- "three mana of that type": the same type, n times)
+            out += [(m,) * len(opt) for m in M.ALL_MANA if m in _land_mana(state, [card.controller], info, skip=card.id)]
         elif opt[0].startswith("LANDS:"):  # -- mana (wave 19E) -- any color / type a (basic / Gate) land you control could produce
             _, kind, only = opt[0].split(":")
             produced = _land_mana(state, [card.controller], info, skip=card.id, only=only)
@@ -389,6 +404,11 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
             if chosen is None:
                 continue
             parsed = replace(parsed, spend_only=_with_chosen_type(parsed.spend_only, chosen))
+        if parsed.spend_only is not None and parsed.spend_only.startswith("q:") and '"chosen_color": true' in parsed.spend_only:
+            color = _chosen_color(card)  # -- most-played cards (wave 51F) -- "monocolored spells of that color": nothing chosen, nothing to spend it on
+            if color is None:
+                continue
+            parsed = replace(parsed, spend_only=_with_chosen_color(parsed.spend_only, color))
         cond = parsed.condition or ""
         if cond.startswith(("control:", "count:")) and \
                 not _controls(state, card.controller, cond[len("control:"):] if cond.startswith("control:") else cond, info):
@@ -485,7 +505,7 @@ def spend_allowed(kind: str | None, purpose: Purpose | None) -> bool:
             return True
         side, ch = ("cast", spell) if spell is not None else ("ability", source)
         allowed = spec.get(side)
-        if ch is None or allowed is None or any(a.get("chosen") for a in allowed if isinstance(allowed, list)):
+        if ch is None or allowed is None or any(a.get("chosen") or a.get("chosen_color") for a in allowed if isinstance(allowed, list)):
             return False
         return allowed == "any" or any(M.spend_alt_matches(a, ch) and (side == "ability" or _cast_origin_ok(a, purpose))
                                        for a in allowed)
@@ -2016,7 +2036,8 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
         return None
     timing = None if sneak else timing_problem(state, player, ch, grant)  # -- keywords (wave 30I) -- 702.190a
     fl = flash_if(ch) if timing else None  # (wave 22F: 601.3b-c, decided once its targets / cost / X are chosen)
-    if fl is not None and ("targets" not in fl or (info is not None and _flash_target_exists(state, player, card, fl["targets"], info))):
+    if fl is not None and ("targets" not in fl or (info is not None and _flash_target_exists(state, player, card, fl["targets"], info))) \
+            and ("offering" not in fl or (not free and info is not None and offering_paid(state, player, card, ch, info))):  # (-- offering (wave 51H) -- 702.48a: only by sacrificing one, never cast free)
         return None  # (review 22F: "if it targets a commander" with no such object to target isn't offered: the target choice would be a dead end)
     return timing
 
@@ -2056,6 +2077,13 @@ def flash_if(ch: Characteristics) -> dict[str, Any] | None:
     """-- casting costs (wave 22F) -- 601.3b-c: the card's own "You may cast this spell as though it had flash if it targets …
     / you pay {2} more / X is 3 or less", which counts only when the spell couldn't be cast now without flash."""
     return next((d["flash_if"] for d in scripts.definitions(ch).values() if d.get("static") == "permission" and d.get("flash_if")), None)
+
+
+def offering_paid(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[M.ManaCost]:
+    """-- offering (wave 51H) -- 702.48a: the mana cost of each permanent ``player`` could sacrifice for the offering of this card ([] when it has none, or nothing to sacrifice)."""
+    part = offering.component(q) if (q := (flash_if(ch) or {}).get("offering")) else None
+    view = permissions._view(state, player, info)
+    return [] if part is None else [M.parse_cost(view.ch(view.state.cards[c]).mana_cost) for c in cost_payment.candidates(view, part, player, card)]
 
 
 def _controls_legendary(state: GameState, player: str, info: CardInfo | None) -> bool:
@@ -2238,10 +2266,12 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
                               targets=_hint_targets(ch), additional=(mode_cost,) if mode_cost is not None else ())  # -- review (Codex) --
             if grant is not None and grant.spend:  # -- as long as (wave 9B) -- 118.14
                 cost = M.spend_as(cost, grant.spend)
-            if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
-                                                                  cost_x="{X}" in ch.mana_cost),
-                       reserve=(extra.life if extra is not None else 0) + (grant_extra.life if grant_extra is not None else 0)):  # (-- hints (wave 30B) -- 119.4: the additional "pay 3 life" first)
-                return True
+            # -- offering (wave 51H) -- 702.48a: sacrificing a [quality] permanent takes its mana cost off (and is the only way at a time a sorcery couldn't be cast)
+            off_only = grant is not None and "offering" in (flash_if(ch) or {}) and timing_problem(state, player, ch, grant) is not None
+            for way in [*(offering.reduce(cost, paid) for paid in offering_paid(state, player, card, ch, info)), *([] if off_only else [cost])]:
+                if can_pay(state, player, way, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player, cost_x="{X}" in ch.mana_cost),
+                           reserve=(extra.life if extra is not None else 0) + (grant_extra.life if grant_extra is not None else 0)):  # (-- hints (wave 30B) -- 119.4: the additional "pay 3 life" first)
+                    return True
     return False
 
 
@@ -2333,8 +2363,9 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
                                             (offer.mana,))
         except ActionError:
             continue
-        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
-                                                              cost_x="{X}" in ch.mana_cost), reserve=offer.life):  # (-- hints (wave 30B) -- 119.4)
+        ways = [offering.reduce(cost, paid) for paid in offering_paid(state, player, card, ch, info)] if offer.kind == "offering" else [cost]  # (-- offering (wave 51H) -- 702.48c)
+        if any(can_pay(state, player, way, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
+                                                                 cost_x="{X}" in ch.mana_cost), reserve=offer.life) for way in ways):  # (-- hints (wave 30B) -- 119.4)
             out.append({"id": offer.source, "label": offer.label})
     return out
 # -- end cost changers (wave 4I) --
@@ -2589,6 +2620,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             additional.append(M.parse_cost(flashing["pay"]))  # ("if you pay {2} more": an additional cost, only at the timing that needs it)
         elif "x_max" in flashing and (a.x_value or 0) > flashing["x_max"]:
             raise ActionError(f"{ch.name} can be cast now only if X is {flashing['x_max']} or less")
+        elif "offering" in flashing and f"{card.id}:offering" not in a.optional_costs:  # -- offering (wave 51H) -- 702.48a: instant timing only by sacrificing one
+            raise ActionError(f"{ch.name} can be cast now only by sacrificing a {flashing['offering']} (offering)")
     else:
         flashing = None
     definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
@@ -2716,6 +2749,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info, player=plan.actor, alternative=alternative,
                       free=free, kicker=a.kicker, additional=tuple(additional), face_down=a.face_down, targets=tuple(t.id for t in chosen),
                       reduce=emerge_reduction + (cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0))  # (wave 47C: "you may sacrifice any number of …")
+    for i, part in enumerate(add_cost.components if add_cost is not None else ()):  # -- offering (wave 51H) -- 702.48a, c: what is sacrificed for it, colors included
+        for sacrificed in add_objects.get(i, []) if part.offering else []:
+            cost = offering.reduce(cost, M.parse_cost(plan.ch(plan.state.cards[sacrificed]).mana_cost))
     cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional if o.mana))  # ("reduces only the amount of green mana")
     cost = M.spend_as(cost, grant.spend) if grant is not None and grant.spend else cost  # -- as long as (wave 9B) -- 118.14
     helper, helper_pays = None, 0  # -- casting extras (wave 18E) -- 702.132a assist: another player pays some generic mana (601.2g-h)
@@ -3512,7 +3548,7 @@ def free_optional_offers(plan: Plan, card: CardInstance, ch: Characteristics) ->
             out.append((f"kicker:{n}", f"Kicker {(kick.cost, kick.second, kick.cost + ' and ' + kick.second)[n - 1]}" if kick.second
                         else kick.text if n == 1 else f"{kick.text}, paid {n} times"))
     for o in cost_changes.optional_offers(plan.state, plan.actor, card, ch, plan.info):
-        if not o.kind:
+        if not o.kind or o.kind == "offering":  # (-- offering (wave 51H) -- 702.48a: a reduction of a cost that is {0} here, and no timing to change)
             continue
         part = cost_changes.keyword_component(o)
         if part is None:  # a gift: an opponent to give it to (702.174a)
@@ -4073,6 +4109,9 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
 
 
 # -- other activated abilities (they use the stack) -----------------------------------------
+SPEND_CHOSEN = "Spend only mana of the chosen color to activate this ability."
+
+
 def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState | None = None,
                  card: CardInstance | None = None, info: CardInfo | None = None, target: str | None = None) -> AbilityCost:
     cost = parse_ability_cost(ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
@@ -4097,6 +4136,14 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
 
         if cost.mana and (mode := cast_limits.ability_spend_mode(state, card.controller, card, ch, info)):
             cost = replace(cost, mana=M.spend_as(M.parse_cost(cost.mana), mode).text())
+        if SPEND_CHOSEN in ability.text and cost.mana:  # -- most-played cards (wave 51F) -- "Spend only mana of the chosen color to activate this ability" (Throne of Eldraine, 106.6)
+            # is every generic mana of the cost as colored mana of that color: only mana of it pays (after the any-color mode above, which cannot undo it)
+            # ponytail: K'rrik's "{B} … pay 2 life" would read these as {B} symbols when black is chosen
+            m, color = M.parse_cost(cost.mana), _chosen_color(card)
+            if color is None or m.hybrid or m.phyrexian or m.x or any(c != color for c in m.colored):
+                cost = replace(cost, unsupported=(*cost.unsupported, "mana of the chosen color"))
+            else:
+                cost = replace(cost, mana=M.ManaCost(0, (*m.colored, *(color,) * m.generic)).text())
     # -- reanimation (wave 3R) -- 113.6m: "{1}{B}: Return this card from your graveyard to the battlefield" moves the
     # card out of the graveyard, so the ability works only there
     # (review 40: anywhere in the effect, "Exile five target cards from an opponent's graveyard. Return this card from your graveyard to your hand." on

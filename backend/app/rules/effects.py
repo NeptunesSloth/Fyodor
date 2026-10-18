@@ -123,6 +123,9 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who == "each_other_opponent":  # -- sized amounts (wave 3D) -- the opponents besides the player the trigger event was about
         named = set(context.players(plan, ctx, context.EVENT))
         return [p for p in plan.live() if p != me and p not in named]
+    if who == "event_opponents":  # -- player groups (wave 51G) -- "each of that player's opponents" (102.2): the other players, the controller among them when it isn't that player
+        named = set(context.players(plan, ctx, context.EVENT))
+        return [p for p in plan.live() if p not in named] if len(named) == 1 else []
     if who == "event_player":  # "that player": the one the trigger event was about (who drew, was dealt damage …)
         return context.players(plan, ctx, context.EVENT)
     if who == "source_owner":  # -- review 33 -- "~'s owner": the source card's owner, wherever it is now (108.3; a card shuffled into a
@@ -3229,6 +3232,9 @@ PRIMITIVES.update(_tempting.PRIMITIVES)
 from app.rules import friend_foe as _friend_foe  # noqa: E402, I001  -- friend or foe (wave 18C) --
 
 PRIMITIVES.update(_friend_foe.PRIMITIVES)
+from app.rules import reanimate_auras as _reanimate_auras  # noqa: E402, I001  -- reanimation Auras (wave 51F) --
+
+PRIMITIVES.update(_reanimate_auras.PRIMITIVES)
 from app.rules import parley as _parley  # noqa: E402  -- parley (wave 9C) --
 
 PRIMITIVES.update({"parley_reveal": _parley.reveal, "parley_repeat": _parley.repeat})
@@ -4216,7 +4222,7 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         affected = [plan.oid(c) for c in group]  # locked in now (611.2c)
         p = _animate_value(plan, ctx, e.get("p"), group[0])
         t = _animate_value(plan, ctx, e.get("t"), group[0])
-        label = _become_label(e, p, t)
+        label = e.get("label") or _become_label(e, p, t)  # (-- reanimation Auras (wave 51F) -- ``label``: its own words)
         common: dict[str, Any] = {"affected": affected, "source": ctx.get("source_object"), "controller": ctx["controller"],
                                   "duration": duration, "label": f"{label} ({name})" if name else label}
         made: list[str] = []

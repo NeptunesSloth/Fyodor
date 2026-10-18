@@ -70,7 +70,7 @@ def parse(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
     if m["n"]:  # (a number, or X: "where X is …", defined once and read as the card is chosen)
         from app.rules import language
 
-        value = int(m["n"]) if m["n"].isdigit() else language.x_definition(m["xdef"] or "") if m["xdef"] else None
+        value = int(m["n"]) if m["n"].isdigit() else language.x_definition(m["xdef"] or "") if m["xdef"] else {"x": 1}  # (wave 51G: no "where X is": the X of the spell, 107.3, Mind into Matter)
         if value is None:
             return None
         effect["mv"] = ["<=", value]

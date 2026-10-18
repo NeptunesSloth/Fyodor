@@ -199,15 +199,20 @@ _SELF_IF_FIRST = re.compile(rf"^if (?P<cond>[^,]+), (?P<rest>(?:this spell|~) co
 _SELF_TURN_FIRST = re.compile(rf"^during your turn, (?P<rest>(?:this spell|~) costs {_SELF_SYMBOLS} less to cast)$")  # (wave 49A) Discontinuity
 
 
+_BELOW_START = "if your life total is less than your starting life total, this spell costs {X} less to cast, where X is the difference"
+
+
 def is_self(t: str) -> bool:
     """Is this line the spell's own cost change ("This spell costs …", "If …, this spell costs {6} less to cast")?"""
-    return bool(SELF_SENTENCE.fullmatch(t) or _SELF_IF_FIRST.fullmatch(t) or _SELF_TURN_FIRST.fullmatch(t))
+    return bool(SELF_SENTENCE.fullmatch(t) or _SELF_IF_FIRST.fullmatch(t) or _SELF_TURN_FIRST.fullmatch(t) or t == _BELOW_START)
 
 
 def self_change(t: str) -> Change | None:
     """"This spell costs {X} less to cast, where X is the total power of creatures you control." (Ghalta) → change.
     "If an opponent controls seven or more lands, this spell costs {6} less to cast." (Avatar of Fury) reads as the
     same sentence with its condition last."""
+    if t == _BELOW_START:  # -- most-played cards IV (wave 51G) -- Shadow of Mortality
+        return {"dir": -1, "value": {"below_start": 1}, "cond": conditions.parse("your life total is less than your starting life total")}
     first = _SELF_IF_FIRST.fullmatch(t)
     if first:
         t = f"{first['rest']} if {first['cond']}"
@@ -712,6 +717,10 @@ def keyword_component(o: Optional) -> Any:
         return C.CostComponent(C.SACRIFICE, amount=1, selector=Selector(either=either).key(), text="Sacrifice an artifact, enchantment, or token")
     if o.kind in ("evidence", "behold", "blight"):  # -- casting costs (wave 22F) --
         return own_cost(o.text)
+    if o.kind == "offering":  # -- offering (wave 51H) -- 702.48a: "you may sacrifice a [quality] permanent"
+        from app.rules import offering
+
+        return offering.component(o.text)
     if o.kind == "reduce":  # -- cost reductions paid with objects (wave 47C) --
         return C.any_number_part(o.text, o.n)
     if o.kind == "casualty":  # -- casting extras (wave 18E) -- 702.153a: "you may sacrifice a creature with power N or greater"
@@ -762,6 +771,8 @@ def optional_offers(state: GameState, player: str, card: CardInstance, ch: Chara
     if gift.offered(ch):  # -- gift (wave 23D) -- 702.174a: "As an additional cost to cast this spell, you may choose an opponent."
         out.append(Optional(f"{card.id}:gift", "Gift: promise an opponent a gift", 0, "", "gift"))
     for d in permissions._definitions(ch).values():  # -- casting costs (wave 22F) -- collect evidence / behold on the spell itself
+        if d.get("static") == "permission" and (quality := (d.get("flash_if") or {}).get("offering")):  # -- offering (wave 51H) -- 702.48a
+            out.append(Optional(f"{card.id}:offering", f"{quality} offering: sacrifice {'an' if quality[0] in 'AEIOU' else 'a'} {quality}", 0, "", "offering", 0, quality))
         if d.get("static") == "own_optional":
             label = f"This spell costs {{{d['n']}}} less for each: {d['cost'][0].lower() + d['cost'][1:]}" if d["optional"] == "reduce" else f"{d['cost']} (additional cost)"
             out.append(Optional(f"{card.id}:{d['optional']}", label, 0, "", d["optional"], d.get("n", 0), d["cost"]))

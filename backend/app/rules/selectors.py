@@ -597,6 +597,18 @@ def _less_than_x(s: Selector, m: re.Match[str]) -> Selector:  # (107.3f: the X o
 OWN_GRAVEYARD = "own_gy"  # -- most-played modal spells (wave 50I) -- the number of cards in the graveyard of the controller of the object tested
 
 
+YOUR_HAND = "your_hand"  # -- most-played cards IV (wave 51G) -- the number of cards in the hand of the player the ability or static belongs to (402.3: a public count)
+
+
+def _your_hand(s: Selector, m: re.Match[str]) -> Selector:  # (Ensnaring Bridge)
+    return replace(s, compare=(*s.compare, ({"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]],
+                                            {"less than or equal to": "<=", "less than": "<", "greater than or equal to": ">=", "greater than": ">"}[m["op"]], YOUR_HAND)))
+
+
+_SUFFIXES.insert(0, (re.compile(r"(?:,)? with (?P<what>power|toughness|mana value) (?P<op>less than or equal to|less than|greater than or equal to|greater than) the number of cards in your hand$"),
+                     _your_hand))  # (first: "in your hand" is also the zone suffix)
+
+
 @_suffix(r"with (?P<what>mana value|power|toughness) less than or equal to the number of cards in its controller's graveyard")  # (Drown in the Loch)
 def _own_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, ({"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]], "<=", OWN_GRAVEYARD)))
@@ -1264,6 +1276,8 @@ def _prefix(s: Selector, word: str) -> Selector | None:
         return replace(s, extras=(*s.extras, low))
     if low in ("face-down", "face-up"):  # -- keyword actions & face-down (wave 3F) -- 708: "face-down creatures you control"
         return replace(s, extras=(*s.extras, low.replace("-", "_")))
+    if low in ("noncommander", "non-commander"):  # -- most-played cards IV (wave 51G) -- "all noncommander creatures and planeswalkers" (Slash the Ranks): any player's commander is left out (903.3)
+        return replace(s, extras=(*s.extras, "not_commander"))
     if low.startswith("non"):
         rest = word[4:] if word[3:4] == "-" else word[3:]
         if rest.lower() in COLORS:
@@ -1931,6 +1945,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if ref_value is None:
                 return False
             n = ref_value
+        elif n == YOUR_HAND:  # (wave 51G)
+            n = len(plan.state.zones.get(f"{you}:hand", []))
         elif n == OWN_GRAVEYARD:  # (wave 50I) its controller's graveyard, as it is when checked (608.2b: again as the spell resolves)
             n = len(plan.state.zones.get(f"{card.controller}:graveyard", []))
         elif isinstance(n, str) and n.startswith(COUNT_STAT):  # -- control change (wave 20E) --
@@ -1990,6 +2006,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 c.attached_to == card.id and "Aura" in plan.ch(c).subtypes and c.controller == card.controller
                 for c in plan.state.cards.values())):
             return False
+        if extra == "not_commander" and card.commander_key is not None:
+            return False  # (wave 51G)
         if extra in _NOT_EXTRAS and matches(plan, Selector(zones=sel.zones, card=sel.card, extras=(extra[4:],)), card, ch, you, source):
             return False  # (wave 15A)
         # (700.6; set only by the look-and-distribute grammar: "a historic card from among them")

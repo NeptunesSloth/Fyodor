@@ -178,6 +178,8 @@ def _attachment(plan: Plan, card: CardInstance, ch: Characteristics, out: Found)
                 out.unbestow.append(card)
             return
         if host is None:
+            if any(attachments.host_problem(plan, card, cid, sba=True) is None for cid in attachments.enchanted_cards(plan, card)):
+                return  # -- reanimation Auras (wave 51F) -- 303.4a: it enchants a creature card in a graveyard (still one, still that object)
             out.dying.append((card, "an Aura attached to nothing"))
             return
         problem = attachments.host_problem(plan, card, host, sba=True)

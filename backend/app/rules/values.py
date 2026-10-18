@@ -7,7 +7,7 @@ A value is an int (a literal) or a dict:
 * ``{"x": 1}`` — the X the spell or ability was cast / activated with (107.3);
 * ``{"count": "<selector key>"}`` — the number of objects (or players) matching a selector;
 * ``{"hand": "you" | "target" | "opponent_max"}`` — the number of cards in a player's hand (opponent_max, wave 42A: the largest hand among your opponents);
-* ``{"opponents": 1}`` — the number of opponents still in the game;
+* ``{"opponents": 1}`` — the number of opponents still in the game; ``{"players_lost": 1}`` — the players who have lost the game, ``{"lowest_life": 1}`` — the lowest life total among the players, ``{"below_start": 1}`` — how far your life total is below the starting one, ``{"greater": [a, b]}`` — the larger of two values (wave 51G);
 * ``{"power": "self" | "target" | "it" | "event" | "ref:<b>"}`` / ``{"toughness": …}`` /
   ``{"mana_value": …}`` — of an object (as it is, or as it last existed: 608.2h);
 * ``{"counters": kind | None, "on": "self" | "target" | …}`` — counters of a kind (None: of all
@@ -220,6 +220,10 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     if p == "the amount of life you gained":  # -- event batches (wave 34C) -- "Whenever you gain life, …": the event's amount (scripts._event_refs_ok: only a life-gain trigger has one)
         return {"event_amount": 1}
     p = re.sub(r"\b(counters?) (?:it|he|she|they) had on (it|them)$", r"\1 on \2", p)  # -- event batches (wave 34C) -- "the number of counters it had on it" (Felisa): as it last existed (608.2h)
+    g = re.fullmatch(r"(?P<a>\d+|the .+?) or (?P<b>the .+?), whichever is greater", p)  # -- most-played cards IV (wave 51G) -- "the number of Zombies you control or the number of Zombie cards in your graveyard, whichever is greater" (Prophet of the Scarab): the larger count
+    if g:
+        a, b = (int(g["a"]) if g["a"].isdigit() else _parse_count(g["a"], it=it)), _parse_count(g["b"], it=it)
+        return None if a is None or b is None else {"greater": [a, b]}
     m = _COUNT.match(p)
     what = m["what"] if m else p
     if what.lower() == "x":
@@ -292,6 +296,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"hand": "opponent_max"}  # -- static_other (wave 42A) -- Adamaro: the largest hand among your opponents (a count of cards, public: 402.3)
     if what in ("opponents you have", "opponent you have", "your opponents", "opponent", "opponents"):
         return {"opponents": 1}
+    if what in ("player who has lost the game", "players who have lost the game"):  # -- most-played cards IV (wave 51G) -- Rampant Frogantua: the seats no longer in the game (800.4)
+        return {"players_lost": 1}
     if what in ("cards exiled with ~", "cards exiled with it", "card exiled with ~", "card exiled with it"):
         return {"exiled_with": 1}  # -- resolution memory (wave 22D) -- 607.2a: the cards the linked ability exiled and that are still there
     if what == "opponent you attacked with a creature this combat":  # -- casting extras (wave 18E) -- melee 702.121a
@@ -763,6 +769,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return context.amount(ctx, v["ref_amount"])
     if "event_count" in v:  # how many objects the "one or more" batch had
         return max(0, int((ctx.get("event") or {}).get("count") or 0))
+    if "greater" in v:  # (wave 51G)
+        return max(evaluate(plan, ctx, x) for x in v["greater"])
     if "diff" in v:  # -- most-played cards II (wave 45A) -- "the difference between A and B": how far apart, never negative
         return abs(evaluate(plan, ctx, v["diff"][0]) - evaluate(plan, ctx, v["diff"][1]))
     if "minus" in v:  # -- refused zones/sized (wave 3R4) -- 107.1b: a negative result is 0
@@ -794,6 +802,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sum(len(plan.state.zones.get(f"{p}:library", [])) for p in players if p in plan.live())
     if "opponents" in v:
         return sum(1 for p in plan.live() if p != you)
+    if "lowest_life" in v:  # -- most-played cards IV (wave 51G) -- the lowest life total among the players still in the game (Repay in Kind)
+        return min(plan.state.players[p].life for p in plan.live())
+    if "below_start" in v:  # -- most-played cards IV (wave 51G) -- "the difference" between the starting life total and a lower life total (119.1, 903.7), Shadow of Mortality
+        return max(0, plan.state.settings.starting_life - plan.state.players[you].life)
+    if "players_lost" in v:  # (wave 51G)
+        return len(plan.state.seat_order) - len(plan.live())
     if "players_attacked" in v:  # -- if you do (wave 40A) -- 506.2, 506.6: a player is "being attacked" when a creature attacks that player (the ruling of Commander Liara Portyr, 2022-06-10: a planeswalker attacked alone does not count its controller)
         return len({c.attacking.id for c in plan.state.cards.values()
                     if c.attacking is not None and c.attacking.kind == "player" and c.zone.endswith(":battlefield") and c.attacking.id in plan.live()})

@@ -523,6 +523,15 @@ def _finish_entries(plan: Plan, ctx: dict[str, Any] | None, shuffle: str | None)
     if shuffle:
         plan.do({"type": "shuffle", "player": shuffle, "zone": "library"}, actor=shuffle)
     if ctx is not None:
+        # -- reanimation Auras (wave 51F) -- 400.7j: the effect that paused for an entry choice names what it put onto the battlefield ("as"): rebind it to the
+        # objects they became, as the unpaused path does (effects._moved), so "attach this Aura to it" finds the creature
+        from app.game.rules_state import ObjectRef
+        from app.rules import context
+
+        paused = ctx["effects"][ctx["next"] - 1] if ctx.get("next") else {}
+        bound = (ctx.get("refs") or {}).get(paused.get("as") or "")
+        if bound and bound.get("kind") == "objects" and "was" not in bound:
+            context.bind_moved(plan, ctx, paused["as"], [ObjectRef.model_validate(o) for o in bound["objects"]])
         continue_effects(plan, ctx)
 
 

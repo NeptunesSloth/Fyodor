@@ -39,7 +39,7 @@ from app.game.rules_state import CostModifier, Permission, TopReveal
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.game.visibility import can_see
 from app.rules import characteristics as chars
-from app.rules import cost_changes, costs, delayed, land_plays, selectors
+from app.rules import cost_changes, costs, delayed, land_plays, offering, selectors
 from app.rules import mana as M
 from app.rules.characteristics import CardInfo, Characteristics
 
@@ -540,6 +540,8 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     if extra is not None:
         ok = costs.parse_additional_cost(extra) is not None
         return {"kind": "static", "static": "additional_cost", "cost": extra, "effects": []} if ok else None
+    if kind == "static" and (off := offering.definition(t)) is not None:  # -- offering (wave 51H) -- 702.48a
+        return off
     if SELF_FLASH_SAC.fullmatch(t):  # -- flash auras (wave 46B) --
         return {"kind": "static", "static": "permission", "zone": "any", "once": False, "flash": True, "self": True, "play": False,
                 "cast": True, "filter": None, "flash_sac": True, "effects": []}

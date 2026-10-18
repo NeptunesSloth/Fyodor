@@ -464,6 +464,8 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         if n is None:
             return None
         return {"value": {"x": 1}, "op": "==" if not m["cmp"] else ("<=" if m["cmp"] in ("less", "fewer") else ">="), "n": n}
+    if t in ("you have the most life or are tied for most life", "you have the most life or you're tied for most life"):  # -- most-played cards IV (wave 51G) -- Preacher of the Schism: no opponent has more life than you (every other player is an opponent in Commander, 102.2)
+        return {"versus": {"value": {"life": "you"}, "op": "<=", "every": True}}
     m = _NO_MORE_LIFE.fullmatch(t)  # -- if you do (wave 21C) -- "no opponent has more life than that player" (Alliance commanders)
     if m:  # 603.4: every opponent of the controller has at most that player's life (that player may be one of them)
         return {"versus": {"value": {"life": "you"}, "op": "<=", "every": True, "ref": _AS[m["who"]]}}
@@ -1713,6 +1715,8 @@ def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
         return card is not None and card.zone == f"{card.owner}:graveyard" and plan.oid(card) == ctx.get("source_object")
     if test == "solved":  # -- Case (wave 51C) -- 719.3b: the designation is the permanent's "Solved" choice, gone when it leaves the battlefield (400.7)
         return card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object") and "Solved" in card.choices
+    if test == "on_battlefield":  # -- reanimation Auras (wave 51F) -- 603.4: "if it's on the battlefield" as the ability resolves: still that object (400.7)
+        return card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object")
     if test == "in_command":  # -- trailing & intervening ifs (wave 38A) -- still that object, in the command zone (400.7): a commander cast in response is a new object
         return card is not None and card.zone.endswith(":command") and plan.oid(card) == ctx.get("source_object")
     if test == "command_or_battlefield":  # -- trigger other (wave 25B) -- eminence: 113.6b, the zones the ability names (still that object, 400.7)

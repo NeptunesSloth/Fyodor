@@ -60,7 +60,7 @@ def refs_ok(cond: dict[str, Any], effects: list[dict[str, Any]]) -> bool:
     text = json.dumps(effects)
     if any(e.get("who") == "event_spell" for e in effects) and not (cond["event"] == "cast" and cond["subject"] == "player"):
         return False
-    wants_player = any(e.get("who") in ("event_player", "each_other_opponent", "each_other_than_event") for e in effects)
+    wants_player = any(e.get("who") in ("event_player", "each_other_opponent", "each_other_than_event", "event_opponents") for e in effects)
     wants_amount = any(scripts._wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t", "mv"))
     if wants_player and not scripts._has_player(cond):
         return False
