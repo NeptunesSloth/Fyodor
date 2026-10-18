@@ -100,5 +100,22 @@
   "colors": [],
   "color_identity": [],
   "keywords": []
+ },
+ {
+  "name": "Tainted Sigil",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{B}",
+  "cmc": 3.0,
+  "type_line": "Artifact",
+  "oracle_text": "{T}, Sacrifice this artifact: You gain life equal to the total life lost by all players this turn. (Damage causes loss of life.)",
+  "colors": [
+   "B",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "W"
+  ],
+  "keywords": []
  }
 ]

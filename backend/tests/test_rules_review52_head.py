@@ -13,7 +13,9 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from app.game.factory import PlayerSetup, new_game
+from app.game.session import GameSession
+from tests.game_helpers import act, deck, enable
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "review52_cards.json").read_text("utf-8"))
@@ -101,4 +103,24 @@ def test_overgrown_arch_learn_rummage_taken_asks_for_no_lesson(cards):
     s, lesson, asked = learned(cards, discard=True)
     assert s.state.cards[lesson.id].zone == "p1:sideboard" and zone_of(s, "Grizzly Bears") == "p1:graveyard"
     assert not any("outside the game" in p for p in asked)
+    check(s)
+
+
+# -- 102.1: Tainted Sigil's "the total life lost by all players this turn": a player who has left the game is no player (as "your opponents lost" reads it)
+def test_tainted_sigil_leaves_out_a_player_who_left_the_game(cards):
+    decks = [deck(cards, "Krenko, Mob Boss", [(1, "Tainted Sigil"), (2, "Lightning Bolt"), (9, "Mountain")]),
+             *(deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")]) for _ in range(2))]
+    s = GameSession(enable(new_game([PlayerSetup(n, cards=d) for n, d in zip(("Alice", "Bob", "Carol"), decks, strict=True)], shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    sigil = put(s, "Tainted Sigil")
+    for bolt, target in zip([c for c in s.state.cards.values() if c.name == "Lightning Bolt"], ("p3", "p2"), strict=True):
+        act(s, "p1", type="move", card_ids=[bolt.id], to={"zone": "hand"})
+        mana(s, "p1", R=1)
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[target])
+        settle(s)
+        if target == "p3":
+            act(s, "p3", type="concede")
+    act(s, "p1", type="activate_ability", card_id=sigil.id, ability=0)
+    settle(s)
+    assert s.state.players["p1"].life == 43  # Bob's 3; Carol has left
     check(s)
