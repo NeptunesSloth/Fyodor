@@ -119,8 +119,10 @@ def move_card(
     y: float | None = None,
     face_down: bool | None = None,
     rest: str | None = None,
+    keep_counters: bool = False,
 ) -> bool:
-    """Move a card between zones, carrying knowledge along. Returns False if it ceased to exist."""
+    """Move a card between zones, carrying knowledge along. Returns False if it ceased to exist. ``keep_counters``: -- counters (wave 51E) --
+    its counters stay on it (Skullbriar's "Counters remain on ~ as it moves to any zone other than a player's hand or library")."""
     source = c.zone
     src_zone, dst_zone = zone_name(source), zone_name(dest)
     if c.merged and src_zone in ("battlefield", "phased") and dst_zone not in ("battlefield", "phased", STACK) and source != dest:
@@ -199,13 +201,13 @@ def move_card(
             c.unblock()
             c.flipped = False
             if src_zone == "battlefield":
-                c.counters = {}
+                c.counters = c.counters if keep_counters else {}
                 for other in state.cards.values():
                     if other.blocks(c.id):
                         other.unblock(c.id)
                     if other.attacking and other.attacking.kind == "card" and other.attacking.id == c.id:
                         other.attacking = None
-        if src_zone not in ("battlefield", "phased"):  # (review 24C) 122.2: counters never follow a card to another zone either
+        if src_zone not in ("battlefield", "phased") and not keep_counters:  # (review 24C) 122.2: counters never follow a card to another zone either
             c.counters = {}  # (time counters on a commander that went from exile to the command zone, 903.9a; a suspended card returned to the hand)
     if dst_zone in HIDDEN_ZONES or src_zone in HIDDEN_ZONES or (src_zone in ("battlefield", STACK) and dst_zone not in ("battlefield", STACK)):
         c.face = 0  # (-- transform, wave 11A -- 712.8a: off the battlefield and the stack a double-faced card shows its front face)

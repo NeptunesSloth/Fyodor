@@ -139,8 +139,31 @@ def _counters_on_yours(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [choose, {"do": "add_counters", "who": "it", "kind": m["k"], "n": n}], None
 
 
+# -- blight (wave 51E) -- "Each opponent puts a -1/-1 counter on a creature they control." / "Target opponent puts a deathtouch counter on a creature they
+# control.": each of those players chooses their own (101.4, APNAP), then the counters go on what was chosen
+_COUNTERS_ON_THEIRS = re.compile(r"^(?P<s>each player|each opponent|that player|target player|target opponent) puts (?P<n>a|an|one|two|three|four|five) "
+                                 r"(?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?P<a>a|another) (?P<sel>.+?) they control$", re.I)
+
+
+def _counters_on_theirs(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language, values
+
+    if m["k"] in values.UNMODELED_COUNTERS:
+        raise _fail()
+    try:
+        phrase = f"another {m['sel']}" if m["a"] == "another" else m["sel"]
+        sel = language._permanent_sel(phrase)
+        n = language._amount(m["n"])
+        who, group = language._chooser(m["s"])
+    except language._Fail:
+        raise _fail() from None
+    return [{"do": "player_chooses", "who": who, "sel": sel, "n": 1, "label": phrase},
+            {"do": "add_counters", "who": "it", "kind": m["k"], "n": n}], language._one(group)
+
+
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_YOURS, _deferring(_yours)), (_THEIRS, _deferring(_theirs)),
                                                 (_COUNTERS_ON_YOURS, _deferring(_counters_on_yours)),
+                                                (_COUNTERS_ON_THEIRS, _deferring(_counters_on_theirs)),
                                                 (_TWO_TARGETS, _deferring(_two_targets)), (_ALL_AND, _deferring(_all_and)),
                                                 (_SELF_AND, _deferring(_self_and))]
 

@@ -4546,6 +4546,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         d = _enters_self_check(_define(view[0] if view else ability, ch), ch)  # (-- any number as an additional cost (wave 48B) -- "creatures sacrificed this way" of a spell's own cost)
     if view and d is not None:
         d = _granter_bound(d, view[1])
+    if d is not None and "additional cost was paid" in ability.text and not any(re.search(r"you may blight [1-5]\b", a.text) for a in ch.abilities):
+        return None  # -- blight (wave 51E) -- "this spell's additional cost was paid" is read as the blight only for a spell whose optional additional cost is one (another optional cost: manual)
     # -- exiled with (wave 6D) -- 607.2a linked abilities (app/rules/exiled_with.py)
     from app.rules import exiled_with
 
@@ -4787,6 +4789,18 @@ def _conditional_static(ability: AbilityText, ch: Characteristics, text: str) ->
     return None
 
 
+_BLIGHT = re.compile(r"(?<!may )(?<!cost to cast this spell, )\b(?:(?P<who>(?i:(?:each|target) (?:opponent|player)|that player)) blights|blight) (?P<n>[1-5])\b(?! or pay)")
+
+
+def _blight(text: str) -> str:
+    """-- blight (wave 51E) -- 701.68a: "blight N" is "put N -1/-1 counters on a creature you control", "each opponent blights 1" the same for each of them (on
+    one creature each: the ruling of High Perfect Morcant). "You may blight" (an optional payment) and "blight N or pay" (an either cost) stay payments."""
+    def put(m: re.Match[str]) -> str:
+        n = "a -1/-1 counter" if m["n"] == "1" else f"{('', '', 'two', 'three', 'four', 'five')[int(m['n'])]} -1/-1 counters"
+        return f"{m['who']} puts {n} on a creature they control" if m["who"] else f"put {n} on a creature you control"
+    return _BLIGHT.sub(put, text)
+
+
 def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     from app.rules import (
@@ -4839,6 +4853,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                   r"\1, ~ gets \2 until end of turn. ~ gains \3 until end of turn. Each other creature you control that shares a creature type with ~ gets \2 until end of turn. "
                   r"Each other creature you control that shares a creature type with ~ gains \3 until end of turn.", text)
     text = half_x(text) if "half X" in text else text  # -- X arithmetic (wave 34C) -- 107.1a
+    text = _blight(text)  # -- blight (wave 51E) --
     # -- cost reductions paid with objects (wave 47C) -- "Choose target creature with mana value less than X. Search your library for a creature card with the same name as that
     # creature, put it onto the battlefield tapped, then shuffle." (March of Burgeoning Life): the target is the one the search names (115.1, 601.2c)
     text = re.sub(r"^Choose (target [^.]+?)\. (Search your library for a creature card with the same name as) that creature\b", r"\2 \1", text)
@@ -4981,6 +4996,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return {"kind": "static", "static": "boast_twice", "effects": []}  # -- most-played cards (wave 43B) -- 702.142: read by restrictions ``per_turn`` (wave 4H, tested in test_rules_wave4h_activation_costs.py)
     if ability.kind == "static" and text == "Each power-up ability of permanents you control can be activated an additional time.":
         return {"kind": "static", "static": "power_up_again", "effects": []}  # -- power-up (wave 50J) -- read by restrictions ``per_game`` (Wonder Man)
+    if ability.kind == "static" and text == "Counters remain on ~ as it moves to any zone other than a player's hand or library.":
+        return {"kind": "static", "static": "keep_counters", "effects": []}  # -- counters (wave 51E) -- Skullbriar, Me the Immortal: read by replacements.kept_counters as it moves
     if ability.kind == "static" and text == "~ can be your commander.":
         return {"kind": "static", "static": "deckbuilding", "effects": []}  # 903.3a: deck construction only
     # -- static_other sweep (wave 19A) -- 510.1c: "You may have this creature assign its combat damage as though it weren't blocked."
@@ -5833,7 +5850,8 @@ def modal_header(text: str) -> tuple[int, int, bool, dict[str, Any] | None] | No
 
     cond = conditions.parse(m["c"], objects=True)
     if cond is None or set(conditions.objects_in(cond)) - {"self"} or ('"cast"' in json.dumps(cond) and cond not in (
-            {"object": "self", "cast": {"kicked": True}}, {"object": "self", "cast": {"optional": "teamwork"}})):
+            {"object": "self", "cast": {"kicked": True}}, {"object": "self", "cast": {"optional": "teamwork"}},
+            {"object": "self", "cast": {"optional": "blight"}})):  # (-- blight (wave 51E) -- Pyrrhic Strike)
         return None
     both = m["k"] not in ("one or more", "any number")
     # (-- most-played modal spells (wave 50I) -- "If this spell was kicked, choose any number instead." (Inscription of Abundance) reads as "one or more";

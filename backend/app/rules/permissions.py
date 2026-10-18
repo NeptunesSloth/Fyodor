@@ -169,7 +169,7 @@ _UNTILS = "until end of turn|until the end of your next turn|until your next end
 # instruction of the same ability moved (400.7j: found where it went); with no such instruction
 # the ability stays manual. A bare "You may cast that card." (no duration) means "cast it now, as
 # this resolves, ignoring timing" — not a permission that lasts: refused.
-GRANT_THAT = re.compile(rf"^(?:(?P<until>{_UNTILS}), )?you may (?P<verb>play|cast) "
+GRANT_THAT = re.compile(rf"^(?:(?:(?P<until>{_UNTILS})|during any turn you attacked with (?P<watt>[^,]+)), )?you may (?P<verb>play|cast) "  # (wave 51E: watt)
                         r"(?:(?P<upto>up to (?P<upn>one|two|three|four) of ))?(?P<what>that card|those cards|it)(?P<from_ex> from exile)?(?P<this_turn> this turn)?(?P<free> without paying (?:its|their) mana costs?)?"
                         r"(?:, and (?P<spend>mana of any type can be spent to cast (?:that spell|those spells))"  # (wave 25C: Dire Fleet Daredevil)
                         r"| and (?P<spend2>you may spend mana as though it were mana of any (?P<k2>color|type) to cast (?:that spell|those spells)))?$")  # (Hurl Through Hell)
@@ -1026,6 +1026,13 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     if m and (m["d1"] or m["d2"] or m["d3"]):
         return _grant_exiled(m)
     m = GRANT_THAT.fullmatch(text)
+    if m and m["watt"]:  # -- trigger other (wave 51E) -- "During any turn you attacked with a token, you may play that card." (Neyali, Neriv, Goblin Researcher): it stays exiled with a
+        # permission that works in the turns you attacked with such a creature (611.2a: no end but the card leaving exile); the usual timing rules still apply
+        when = _attacked_when(m["watt"])
+        if when is None or m["upto"] or m["from_ex"] or m["this_turn"] or m["free"] or m["spend"] or m["spend2"]:
+            return None
+        return [{"do": "grant_play", "who": "them:card" if m["what"] == "those cards" else "it:card", "play": m["verb"] == "play", "cast": True,
+                 "until": "permanent", "optional": True, "when": when}], None
     if m and m["upto"] and m["what"] != "those cards":
         return None
     if m and m["from_ex"] and bool(m["until"]) == bool(m["this_turn"]):
@@ -1206,6 +1213,12 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue
         if p.until in SOURCE_UNTIL and not source_holds(state, p):
             continue  # (-- durations (wave 30M) -- 611.2b: over, whenever the table was last looked at)
+        if p.when is not None:  # -- trigger other (wave 51E) -- "During any turn you attacked with …": read now; ``source`` is the object the permission came from ("this creature")
+            from app.rules import conditions
+            from app.rules.layers import _view
+
+            if not conditions.holds(_view(state, info), {"controller": player, "source_object": p.source, "source_card": card.id}, p.when):
+                continue
         if p.object_id is not None:
             if p.object_id != oid:
                 continue  # a new object since (400.7): the permission was for the one it was
@@ -1577,6 +1590,20 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
 
 
 # -- effects ---------------------------------------------------------------------------------------
+def _attacked_when(what: str) -> dict[str, Any] | None:
+    """-- trigger other (wave 51E) -- the condition of "During any turn you attacked with <what>": "this creature" (the permission's source), "three or more creatures", or a
+    kind of creature ("a token", "a commander", "a Rogue"), read from the turn's declared attackers (508.1, history._attacked_with)."""
+    from app.rules import selectors
+
+    if what in ("this creature", "~"):
+        return {"history": "attacked_with", "self": True}
+    if (m := re.fullmatch(r"(\w+) or more creatures", what)) is not None:
+        n = {"two": 2, "three": 3, "four": 4, "five": 5}.get(m[1])
+        return {"history": "attackers", "n": n} if n else None
+    sel = selectors.parse(re.sub(r"^an? ", "", what))
+    return {"history": "attacked_with", "sel": sel.key()} if sel is not None and sel.player is None and not sel.card and sel.zones in ((), ("battlefield",)) else None
+
+
 def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """"You may play that card this turn" (the objects an earlier instruction of this ability
     moved — bound by scripts.resolve_it, found where they went: 400.7h/j) or "Until end of turn,
@@ -1617,7 +1644,7 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                                             object_id=plan.oid(card), card=cid, until=e["until"], turn=turn, free=bool(e.get("free")), spend=e.get("spend", ""),
                                             filter=e.get("filter"),  # (-- free cast (wave 40D) -- "noncreature spells from among those cards")
                                             exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")), enters=e.get("enters"),  # (wave 25C; wave 51D: enters)
-                                            source=ctx.get("source_object"), group=group, left=int(e.get("limit") or 0),
+                                            source=ctx.get("source_object"), group=group, left=int(e.get("limit") or 0), when=e.get("when"),  # (wave 51E)
                                             label=f"{ctx.get('name') or 'An effect'}: {verb} it {when}" + (" without paying its mana cost" if e.get("free") else "")))
             plan.note(f"{plan.name(holder)} may {verb} {card.name} {when}", [cid])
         return True
