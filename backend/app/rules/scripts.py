@@ -671,14 +671,14 @@ class _Introducer:
         if g is not None and groups is not None and g < len(groups):
             if _is_player_group(groups[g]):
                 self.player = groups[g]["max"] == 1
-                self.objects = self.objects and (self.do in _CHOSEN or who.startswith(("controlled:", "graveyard_of:")))  # ("target player sacrifices a creature"; wave 25A: "exile all cards from target player's graveyard")
+                self.objects = self.objects and (self.do in _CHOSEN or who.startswith(("controlled:", "graveyard_of:", "zones_of:")))  # ("target player sacrifices a creature"; wave 25A: "exile all cards from target player's graveyard")
             else:
                 self.objects = True  # (a targeted object: "it" is that target, whatever the effect)
             self.number = 1 if groups[g]["max"] == 1 else 2
         elif who.startswith(selectors.PREFIX) or who in ("creatures_you_control", "each_creature", "all",
                                                         "each_player", "each_opponent"):
             self.number = 2  # ("exile all creatures", "each opponent sacrifices …")
-        if who.startswith(("controlled:", "graveyard_of:")):  # (wave 13E: "Tap all creatures target player controls. Those creatures …")
+        if who.startswith(("controlled:", "graveyard_of:", "zones_of:")):  # (wave 13E: "Tap all creatures target player controls. Those creatures …")
             self.number = 2
         if self.do in _CHOSEN:  # ("sacrifice a creature", "create two … tokens"): as many as it says
             n = e.get(_CHOSEN[self.do], 1)
@@ -892,6 +892,21 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 return "target" if groups is None else f"target:{g}"
         return None
 
+    def named_player(index: int) -> str | None:
+        """-- player-relative selectors (wave 53A) -- "that player" after an instruction that read a target player's library or zone ("Look at the top three cards of target
+        player's library, … You may have that player shuffle."): that instruction names the player in ``player`` / ``library``, not in a "who", so it is no introducer; the target
+        group it names is the player. Only one such group (else which?), and not beside a trigger's own player."""
+        if event_player:
+            return None
+        refs: set[str] = {r for e2 in out[:index] for k in ("player", "library") if isinstance(r := e2.get(k), str)}
+        named = {0 if r == "target" else int(r[7:]) for r in refs if r == "target" or r.startswith("target:")}
+        if len(named) != 1:
+            return None
+        g = named.pop()
+        if groups is not None and (g >= len(groups) or not _is_player_group(groups[g])):
+            return None
+        return "target" if groups is None else f"target:{g}"
+
     def target_player(index: int) -> str | None:
         """-- player-relative selectors (wave 53A) -- "that player" when no player was named before: the controller of the one permanent the instruction before targeted
         ("Destroy target creature an opponent controls. Each other creature that player controls gets -2/-0"); a trigger's own player is the other reading (event_player)."""
@@ -965,6 +980,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                         return None
                     g = _group_of(out[intro.index])
                     e["player"] = "target" if groups is None else f"target:{g}"
+                elif (np := named_player(index)) is not None:
+                    e["player"] = np  # (-- player-relative selectors (wave 53A) --)
                 else:
                     e["player"] = "event_player"
             who = e.get("who")
@@ -1053,6 +1070,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                         return None  # the trigger's player or the target player? (manual)
                     g = _group_of(out[intro.index])
                     e["who"] = "target" if groups is None else f"target:{g}"
+                elif (np := named_player(index)) is not None:
+                    e["who"] = np  # (-- player-relative selectors (wave 53A) -- "Look at the top card of target opponent's library. … Then that player shuffles.")
                 elif not event_player and (named := objects(index, 1, None)) is not None \
                         and (tg := _group_of(out[named.index])) is not None and groups is not None and tg < len(groups) \
                         and _opponent_controlled(groups[tg].get("what")):
@@ -1062,8 +1081,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     e["who"] = f"ref:{bound(named)}.controller"
                 else:
                     e["who"] = target_player(index) or "event_player"  # (only a trigger about a player can: _event_refs_ok; -- player-relative selectors (wave 53A) -- or the controller of the permanent targeted before)
-            elif isinstance(who, str) and who.startswith("controlled:that_player|"):
-                # -- damage sized by a count (wave 4E) -- "each creature that player controls": that player, bound the same way
+            elif isinstance(who, str) and re.match(r"(?:controlled:|graveyard_of:|zones_of:[a-z,]+:)that_player(?=\||$)", who):
+                # -- damage sized by a count (wave 4E) -- "each creature that player controls": that player, bound the same way; -- player-relative selectors (wave 53A) -- and the
+                # zones of that player ("Exile all cards from that player's hand and graveyard", "Then exile that player's graveyard")
                 intro = find(lambda i: i.player, index)
                 if intro is not None:
                     if event_player or intro.do == "choose_random":  # (-- random choices (wave 47B) -- the pick's own group isn't read)
@@ -1071,8 +1091,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     g = _group_of(out[intro.index])
                     player = "target" if groups is None else f"target:{g}"
                 else:
-                    player = target_player(index) or "event_player"
-                e["who"] = "controlled:" + player + "|" + who.partition("|")[2]
+                    player = target_player(index) or named_player(index) or "event_player"
+                e["who"] = re.sub(r"that_player(?=\||$)", player, who, count=1)
             # -- conditional / instead clauses (wave 1B) --  "If it's a land card, …": the object the pronoun
             # names, read as it is (or as it last existed, 608.2h): a plain target stays "target"
             if e.get("do") == "only_if" and _cond_has_event(e["cond"]) and antecedent not in ("event", "event_gone", "event_spell", "event_all"):
@@ -1313,12 +1333,12 @@ def _renumber(value: Any, index: list[int] | None) -> Any:
         if k in _TARGET_REFS and isinstance(v, str) and (v == "target" or v.startswith("target:")):
             local = 0 if v == "target" else int(v[7:])
             v = "target" if index is None else f"target:{index[local]}"
-        elif k in _TARGET_REFS and isinstance(v, str) and re.match(r"controlled:target(?::\d+)?\|", v):
+        elif k in _TARGET_REFS and isinstance(v, str) and (zm := re.match(r"(controlled:|graveyard_of:|zones_of:[a-z,]+:)target(?::(\d+))?(?=\||$)", v)):
             # -- static wordings (wave 6E) -- "creatures target player controls": the player is the clause's target too
-            # (only "target" / "target:<k>": "controlled:target_player_or_controller|…" is 6B's player reference)
-            players, _, key = v[len("controlled:"):].partition("|")
-            local = 0 if players == "target" else int(players[7:])
-            v = f"controlled:{'target' if index is None else f'target:{index[local]}'}|{key}"
+            # (only "target" / "target:<k>": "controlled:target_player_or_controller|…" is 6B's player reference); -- player-relative selectors (wave 53A) -- and so is the
+            # player whose graveyard / hand it is ("Exile all cards from target player's hand and graveyard", Identity Crisis)
+            local = int(zm[2] or 0)
+            v = f"{zm[1]}{'target' if index is None else f'target:{index[local]}'}{v[zm.end():]}"
         elif k == "divided" and isinstance(v, int):
             if index is None:
                 raise _NoMatch
@@ -8845,6 +8865,9 @@ _MOVERS.add("bounce_together")
 from app.rules import graveyard_exile as _graveyard_exile  # noqa: E402, I001  -- graveyard exile (wave 4J) --
 
 EFFECTS[:0] = _graveyard_exile.TEMPLATES  # "Exile target player's graveyard." (app/rules/graveyard_exile.py)
+from app.rules import player_zones as _player_zones  # noqa: E402, I001  -- player-relative selectors (wave 53A) --
+
+EFFECTS[:0] = _player_zones.TEMPLATES  # "Exile all cards from target player's hand and graveyard." (app/rules/player_zones.py)
 from app.rules import tap_mana as _tap_mana  # noqa: E402, I001  -- mana riders (wave 5A) --
 
 EFFECTS[:0] = _tap_mana.TEMPLATES  # "Until end of turn, whenever a player taps an Island for mana, …" (High Tide)

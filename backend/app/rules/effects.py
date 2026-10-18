@@ -34,6 +34,7 @@ from app.rules import (
     optional_payment,
     permissions,
     player_relative,  # -- player-relative selectors (wave 53A) --
+    player_zones,
     protection,
     regeneration,
     replace,  # -- replacement effects stage 2 (wave 2E): the choke points --
@@ -164,6 +165,8 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
 
         base, _, key = who.partition("|")
         return this_way.filtered(plan, ctx, _cards(plan, ctx, base), key)
+    if who.startswith(player_zones.PREFIX):  # -- player-relative selectors (wave 53A) -- "all cards from target player's hand and graveyard"
+        return player_zones.cards(plan, ctx, who)
     if who.startswith("controlled:"):  # -- damage sized by a count (wave 4E) -- "each creature that player controls"
         return _controlled_by(plan, ctx, who)
     if who.startswith("graveyard_of:"):  # -- graveyard exile (wave 4J) -- "target player's graveyard": every card in it
@@ -3183,7 +3186,8 @@ def shuffle_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     shuffle": asked."""
     if e.get("optional"):
         pid = ctx["controller"]
-        decide(plan, player=pid, kind="confirm", prompt="Shuffle your library?",
+        named = [p for p in _players(plan, ctx, e["who"]) if p != pid]  # -- player-relative selectors (wave 53A) -- "You may have that player shuffle": the choice is the controller's
+        decide(plan, player=pid, kind="confirm", prompt=f"Have {plan.name(named[0])} shuffle their library?" if named else "Shuffle your library?",
                options=[DecisionOption(id="yes", label="Shuffle"), DecisionOption(id="no", label="Don't shuffle")],
                resume={"step": "shuffle_library", "ctx": ctx, "e": {**e, "optional": False}})
         return False
