@@ -109,7 +109,7 @@ def register() -> None:
         (re.compile(rf"(?:,)? that (?P<v>blocked or (?:was|were) blocked by|blocked|was blocked by|were blocked by) (?:(?P<r>{_REF})|(?P<sel>an? .+?)) "
                     r"this (?P<t>turn|combat)$"), _history),
         (re.compile(r"(?:,)? that (?:was|were) attached to (?P<r>that creature|it)$"), _was_attached),
-        (re.compile(rf"(?:,)? (?:that(?:'s| is| are) )?attached to (?P<r>that creature|it|{_TARGET})$"), _attached),
+        (re.compile(rf"(?<!with a legendary Equipment)(?:,)? (?:that(?:'s| is| are) )?attached to (?P<r>that creature|it|{_TARGET})$"), _attached),  # (Kassandra's older "with a legendary Equipment attached to it" is its own)
     ]
     for pair in reversed(suffixes):
         selectors._SUFFIXES.insert(0, pair)
