@@ -187,3 +187,114 @@ def test_do_or_die_the_creatures_cant_be_regenerated(cards):
     resolve(s)
     assert s.state.cards[abom.id].zone == "p2:graveyard"  # destroyed in spite of the shield (701.19c)
     check(s)
+
+
+# -- piles of cards revealed or exiled ----------------------------------------------------------------------------------
+INTRUDE, TRUTH, SPOILS, PARLEY = "Intrude on the Mind", "Truth or Tale", "Split the Spoils", "Boneyard Parley"
+FIVE = ["Llanowar Elves", "Grizzly Bears", "Young Wolf", "Dregscape Zombie", "Mulldrifter"]
+
+
+def stack_top(s, names, pid="p1"):
+    """The library of ``pid`` with these cards on top, in this order (first = top)."""
+    for n in reversed(names):
+        c = card_named(s, n, pid)
+        act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "library"}, position="top")
+    return [card_named(s, n, pid) for n in names]
+
+
+def test_intrude_on_the_mind_hand_and_graveyard_and_a_thopter_with_a_counter_for_each_card_in_the_graveyard(cards):
+    s = table(cards, [INTRUDE, *FIVE], players=2)
+    top = stack_top(s, FIVE)
+    to_hand(s, INTRUDE)
+    mana(s, "p1", U=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, INTRUDE).id)
+    resolve(s)
+    d = s.state.rules.decision
+    assert d.player == "p1" and {o.label for o in d.options} == set(FIVE)  # the five revealed cards (701.20a: public), Alice separates
+    split(s, "p1", ["Llanowar Elves", "Grizzly Bears"])
+    assert "Alice separates cards into piles: Llanowar Elves, Grizzly Bears / Young Wolf, Dregscape Zombie, Mulldrifter" in log(s, "p2")
+    pile(s, "p2", 1)  # Bob: the first pile goes to Alice's hand, the other to her graveyard
+    resolve(s)
+    assert names_on(s, "p1", "hand")[:0] == [] and {s.state.cards[c.id].zone for c in top[:2]} == {"p1:hand"}
+    assert {s.state.cards[c.id].zone for c in top[2:]} == {"p1:graveyard"}
+    thopter = next(c for c in s.state.cards.values() if c.name == "Thopter")
+    assert s.state.cards[thopter.id].counters == {"+1/+1": 3}  # one counter for each of the three cards put into the graveyard
+    check(s)
+
+
+@pytest.mark.parametrize(("take", "counters"), [(1, 0), (2, 5)])
+def test_intrude_on_the_mind_everything_in_one_pile(cards, take, counters):
+    s = table(cards, [INTRUDE, *FIVE], players=2)
+    stack_top(s, FIVE)
+    to_hand(s, INTRUDE)
+    mana(s, "p1", U=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, INTRUDE).id)
+    resolve(s)
+    split(s, "p1", FIVE)  # everything in one pile, the other empty (ruling 2024-02-02)
+    assert "Pile 2: no cards" in [o.label for o in s.state.rules.decision.options]
+    pile(s, "p2", take)  # the full pile to the hand (no card in the graveyard: a 0/0 Thopter dies), or the empty one (all five in the graveyard)
+    resolve(s)
+    zone = "p1:hand" if take == 1 else "p1:graveyard"
+    assert all(s.state.cards[card_named(s, n).id].zone == zone for n in FIVE)
+    thopters = [c for c in s.state.cards.values() if c.name == "Thopter" and c.zone == "p1:battlefield"]
+    assert (len(thopters) == 1 and thopters[0].counters == {"+1/+1": counters}) if counters else not thopters
+    check(s)
+
+
+def test_truth_or_tale_one_card_of_the_chosen_pile_and_the_rest_on_the_bottom(cards):
+    s = table(cards, [TRUTH, *FIVE], players=2)
+    top = stack_top(s, FIVE)
+    to_hand(s, TRUTH)
+    mana(s, "p1", U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, TRUTH).id)
+    resolve(s)
+    split(s, "p1", ["Llanowar Elves", "Grizzly Bears"])
+    pile(s, "p2", 1)  # Bob: the first pile
+    d = s.state.rules.decision
+    assert d.player == "p1" and {o.label for o in d.options} == {"Llanowar Elves", "Grizzly Bears"}  # Alice picks a card from the chosen pile
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "Grizzly Bears")])
+    d = s.state.rules.decision  # the other four go on the bottom in the order Alice picks (401.4)
+    assert d.kind == "order" and d.player == "p1" and len(d.options) == 4
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+    resolve(s)
+    assert s.state.cards[top[1].id].zone == "p1:hand"
+    library = s.state.zones["p1:library"]
+    assert [library.index(c.id) for c in top if c is not top[1]] and all(library.index(c.id) >= len(library) - 4 for c in top if c is not top[1])
+    check(s)
+
+
+def test_split_the_spoils_exiles_the_targets_and_the_piles_go_to_hand_and_graveyard(cards):
+    s = table(cards, [SPOILS, "Llanowar Elves", "Grizzly Bears", "Young Wolf"], players=2)
+    dead = [card_named(s, n) for n in ("Llanowar Elves", "Grizzly Bears", "Young Wolf")]
+    for c in dead:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+    to_hand(s, SPOILS)
+    mana(s, "p1", G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, SPOILS).id, targets=[c.id for c in dead], target_counts=[3])
+    resolve(s)
+    split(s, "p1", ["Young Wolf"])
+    pile(s, "p2", 2)  # Bob: the pile of Elves and Bears to Alice's hand
+    resolve(s)
+    assert s.state.cards[dead[0].id].zone == "p1:hand" and s.state.cards[dead[1].id].zone == "p1:hand"
+    assert s.state.cards[dead[2].id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_boneyard_parley_an_opponent_separates_and_you_choose_the_pile_you_take(cards):
+    s = table(cards, [PARLEY, "Llanowar Elves", "Grizzly Bears"], ["Young Wolf", "Dregscape Zombie"], players=2)
+    mine = [card_named(s, n) for n in ("Llanowar Elves", "Grizzly Bears")]
+    theirs = [card_named(s, n, "p2") for n in ("Young Wolf", "Dregscape Zombie")]
+    for c in mine + theirs:
+        act(s, c.owner, type="move", card_ids=[c.id], to={"player": c.owner, "zone": "graveyard"})
+    to_hand(s, PARLEY)
+    mana(s, "p1", B=2, C=5)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, PARLEY).id, targets=[c.id for c in mine + theirs], target_counts=[4])
+    resolve(s)
+    assert s.state.rules.decision.player == "p2"  # the opponent separates the cards (they may come from different graveyards)
+    split(s, "p2", ["Llanowar Elves", "Young Wolf"])
+    pile(s, "p1", 1)  # Alice takes the first pile: onto the battlefield under her control; the rest to their owners' graveyards
+    resolve(s)
+    assert s.state.cards[mine[0].id].zone == "p1:battlefield" and s.state.cards[theirs[0].id].zone == "p1:battlefield"
+    assert s.state.cards[theirs[0].id].controller == "p1" and s.state.cards[theirs[0].id].owner == "p2"
+    assert s.state.cards[mine[1].id].zone == "p1:graveyard" and s.state.cards[theirs[1].id].zone == "p2:graveyard"
+    check(s)
