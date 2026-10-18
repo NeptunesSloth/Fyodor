@@ -71,13 +71,13 @@ _LAND_PLURALS = {"Plains": "Plains", "Islands": "Island", "Swamps": "Swamp", "Mo
 
 
 def _definition(subject: str, layer4: dict[str, Any] | None, *, everywhere: dict[str, Any] | None = None, during: bool = False,
-                base: list[int] | None = None, grants: list[str] | None = None, keywords: list[str] | None = None,
+                base: list[int] | None = None, grants: list[str] | None = None, keywords: list[str] | None = None, who_key: str | None = None,
                 **parts: Any) -> dict[str, Any] | None:
     """A layered group static (``group_layers``): its subject (a group on the battlefield) and the parts by layer."""
     from app.rules.statics import UNION, _subject
     from app.rules.statics import _definition as grant
 
-    who, _kind = _subject(re.sub(r"\band all ", "and ", subject), plural=True)
+    who, _kind = (who_key, None) if who_key is not None else _subject(re.sub(r"\band all ", "and ", subject), plural=True)  # (wave 53B: a union of two groups, Rukarumel)
     if who is None or who in ("self", "attached") or who.startswith(UNION):
         return None
     out = {**grant(who, None, [{"static": "your_turn"}] if during else [], base=base, grants=grants, keywords=keywords),
@@ -165,6 +165,9 @@ def _layered(text: str) -> dict[str, Any] | None:
             return None
         return {**found, "conditions": [cond]}
 
+    if text == "Basic lands of the first chosen type are the second chosen type.":  # -- chosen filters (wave 53B) -- Illusionary Terrain: 305.7, the two basic land types its source chose as it entered
+        found = _definition("basic lands of the chosen type", {"set_land_types": ["@land2"]})
+        return found if found is not None and _lands(found) else None
     if (m := _LAND_SET.fullmatch(text)) is not None:  # 305.7: the land types are set (never the card types)
         found = _definition(m["s"], {"set_land_types": [_LAND_PLURALS.get(m["t"], m["t"].rstrip("s") if m["t"] != "Plains" else m["t"])]})
         return found if found is not None and _lands(found) else None
@@ -183,7 +186,7 @@ def _layered(text: str) -> dict[str, Any] | None:
             if everywhere is None:
                 return None
         if m["c"] == "the chosen color":
-            parts: dict[str, Any] = {"chosen_color": True, "add_colors": []} if m["add"] else {}
+            parts: dict[str, Any] = {"chosen_color": True, "add_colors": []} if m["add"] else {"chosen_color": "set", "set_colors": []}  # (wave 53B: Shifting Sky, 105.3)
         else:
             codes = [] if m["c"] == "colorless" else _ALL_COLORS if m["c"] == "all colors" else [_COLOR_CODES[m["c"]]]
             parts = {"add_colors": codes} if m["add"] else {"set_colors": codes}
@@ -195,14 +198,37 @@ def _layered(text: str) -> dict[str, Any] | None:
         from app.rules.layers import LAND_TYPES
 
         return _definition(m["s"], {"add_subtypes": sorted(LAND_TYPES)} if m["k"] == "land" else {"all_creature_types": True})
-    if (m := re.fullmatch(r"(?P<s>Creatures you control|Each creature you control|Lands you control) (?:is|are) the chosen type in addition to "  # (wave 26D)
-                          r"(?:its|their) other (?:creature )?types\.(?P<same> The same is true for [^.]+\.)?", text)) is not None:
-        # 205.1b: the creature type (Xenograft, Arcane Adaptation) or basic land type (Realmwright) its source chose as it entered (614.12a)
-        everywhere = _everywhere(m["s"], m["same"].strip()) if m["same"] else None
+    if (m := re.fullmatch(r"(?P<s>Creatures you control|Each creature you control|Lands you control|Vehicle creatures you control|Slivers you control and nontoken creatures you control) (?:is|are) the chosen (?:creature )?type"  # (wave 26D; wave 53B: Lifecraft Engine, Conspiracy)
+                          r"(?P<add> in addition to (?:its|their) other (?:creature )?types)?\.(?P<same> The same is true for [^.]+\.)?", text)) is not None \
+            and (m["add"] or (m["s"] == "Creatures you control" and m["same"])):
+        # 205.1b: the creature type (Xenograft, Arcane Adaptation) or basic land type (Realmwright) its source chose as it entered (614.12a); -- chosen filters (wave 53B) -- without
+        # "in addition" (Conspiracy, 205.1a) it is the only creature type the creatures, creature spells and creature cards have (group_layers.with_chosen)
+        union = m["s"].startswith("Slivers")  # -- chosen filters (wave 53B) -- Rukarumel, Biologist: the Slivers and the nontoken creatures you control (a token Sliver is the first group's only); the cards and spells it names are all creatures
+        who_key = None
+        if union:
+            from app.rules import selectors
+
+            groups = [selectors.parse("Slivers you control"), selectors.parse("nontoken creatures you control")]
+            if not m["add"] or not all(groups):
+                return None
+            who_key = selectors.Selector(either=tuple(x.key() for x in groups if x is not None), zones=("battlefield",)).key()
+        everywhere = (_SAME_CREATURES if m["same"].strip() == next(iter(_SAME)) else None) if union and m["same"] else \
+            _everywhere(m["s"], m["same"].strip()) if m["same"] else None
         if m["same"] and everywhere is None:
             return None
-        found = _definition(m["s"], {"add_subtypes": [], "chosen_type": "land" if m["s"].startswith("Lands") else "creature"}, everywhere=everywhere)
+        kind = "land" if m["s"].startswith("Lands") else "creature" if m["add"] else "creature_set"
+        found = _definition(m["s"], {"add_subtypes": [], "chosen_type": kind}, everywhere=everywhere, who_key=who_key)
         return {**found, "chosen_type": found["layer4"]["chosen_type"]} if found is not None else None
+    if text == "Each creature card in your graveyard has the chosen creature type in addition to its other types.":  # -- chosen filters (wave 53B) --
+        # Ashes of the Fallen: 205.1b, 611.3: only the creature cards in the controller's graveyard (no battlefield member: the selector names the graveyard)
+        from app.rules import selectors
+        from app.rules.statics import _definition as grant
+
+        who = selectors.parse("creature cards in your graveyard")
+        if who is None:
+            return None
+        return {**grant(who.key(), None, []), "layered": True, "layer4": {"add_subtypes": [], "chosen_type": "creature"}, "chosen_type": "creature",
+                "everywhere": {"own": True, "types": ["Creature"], "not_types": [], "permanent": False, "zones": ["graveyard"]}}
     if (m := re.fullmatch(rf"{_SUBJ} (?:is|are) snow\.", text)) is not None:  # (wave 26D) 205.4: the supertype snow is added (Rimefeather Owl)
         return _definition(m["s"], {"add_supertypes": ["Snow"]})
     if (m := _ANIMATE_MV.fullmatch(text)) is not None:  # Opalescence, March of the Machines: 205.1b ("an artifact creature" keeps the

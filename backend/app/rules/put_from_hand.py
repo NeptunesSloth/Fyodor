@@ -31,7 +31,7 @@ Context = dict[str, Any]
 _PERMANENT_TYPES = frozenset({"Artifact", "Creature", "Enchantment", "Land", "Planeswalker", "Battle"})
 # (-- triggers (wave 19B) -- "any number of creature cards", "a permanent card with mana value less than or equal to the number of lands you
 # control / that damage": the count is read as the card is chosen, 608.2h)
-PATTERN = (r"put (?P<cnt>an?|any number of|up to (?P<upto>\d+|one|two|three|four|five)) (?P<what>[^.]+?) cards?(?P<q> with total power and toughness \d+ or (?:less|greater))?"
+PATTERN = (r"put (?P<cnt>an?|any number of|up to (?P<upto>\d+|one|two|three|four|five)) (?P<what>[^.]+?) cards?(?P<q> with total power and toughness \d+ or (?:less|greater)| of the chosen type)?"  # (wave 53B: "a creature card of the chosen type", Belbe's Portal)
            # -- put from hand (wave 30P) -- "with mana value 3 or less" / "X or less, where X is the number of attacking creatures you control"
            # (Kinscaer Sentry), "less than that creature's mana value" (Arni Metalbrow), "less than or equal to that creature's power" (Minn, Wily Illusionist; wave 44D), "with lesser power" (Shadowfax): the limit is read as the card is chosen
            r"(?: with (?:mana value (?:(?P<op>less than or equal to|less than|equal to) (?P<v>that damage|the number of [^.]+?|that creature's (?:mana value|power))"
@@ -44,7 +44,7 @@ def _selector(what: str, q: str) -> Any:
 
     sel = selectors.parse(f"{what} card{q} from your hand")
     if sel is None or sel.zones != ("hand",) or sel.zone_owner != "you" or sel.player is not None or sel.either \
-            or any(x not in ("historic", "all_types") and not x.startswith("pts:") for x in sel.extras):  # (-- put from hand (wave 19E) -- historic: 700.6; "artifact creature")
+            or any(x not in ("historic", "all_types", "chosen_type") and not x.startswith("pts:") for x in sel.extras):  # (wave 53B: chosen_type, chosen.chosen_value_ok judges the source of the choice)  # (-- put from hand (wave 19E) -- historic: 700.6; "artifact creature")
         return None
     if not sel.types and not sel.subtypes:
         return None  # ("a card": an instant or sorcery can't be put onto the battlefield)

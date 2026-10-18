@@ -663,7 +663,7 @@ class _Introducer:
         self.do = e.get("do")
         self.verb = _verb_of(e)  # (-- resolution memory (wave 22D) -- "Exile a creature you control": what it exiled, not sacrificed)
         self.recording = self.do in _RECORDING  # (can carry a binding: "its controller", "its power")
-        self.objects = self.recording and self.do != "draw"  # (-- if you do (wave 52A) -- a draw records how many it drew, never objects a pronoun could name)
+        self.objects = self.recording and self.do not in ("draw", "reveal_hand")  # (-- if you do (wave 52A) -- a draw records how many it drew, never objects a pronoun could name)
         self.player = False
         self.number: int | None = 1  # 1 (singular), 2 (several), None (unknown)
         g = _group_of(e)
@@ -959,6 +959,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 else:
                     e["player"] = "event_player"
             who = e.get("who")
+            if isinstance(who, str) and who.startswith("sel:") and '"controller":"that_player"' in who:  # -- chosen filters (wave 53B) -- "Then destroy all creatures of that type that player controls." (Tsabo's Decree): the player "that player" names, as "each creature that player controls" does
+                who = e["who"] = "controlled:that_player|" + replace(selectors.from_key(who), controller=None).key()
             if isinstance(who, str) and (who in ("it", "them") or who.startswith(("it:", "them:"))):
                 pronoun, _, verb = who.partition(":")
                 verb, _, flt = verb.partition("|")  # -- resolution memory (wave 22D) -- "them:graveyard|<selector>": only the cards of that kind
@@ -1219,7 +1221,7 @@ def _each_controller_creates(text: str) -> list[dict[str, Any]] | None:
 def _this_way_binding(kinds: tuple[str, ...], at: int, find: Any, bound: Any) -> str | None:
     """-- "this way" outcomes (wave 4A) -- the binding of the latest instruction before ``at`` that did one of
     ``kinds`` ("destroyed", "milled", …: _RECORDING's verbs), marking it to record what it acted on."""
-    found = find(lambda i: (i.objects or i.do == "draw") and i.recording and i.verb in kinds, at)
+    found = find(lambda i: (i.objects or i.do in ("draw", "reveal_hand")) and i.recording and i.verb in kinds, at)  # (wave 53B: reveal_hand, "cards of the chosen type revealed this way")
     return bound(found) if found is not None else None
 
 
@@ -2003,6 +2005,22 @@ def _tap_their_all(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": m["v"], "who": f"controlled:target|{sel.key()}"}], SELECTORS[f"target {m['pl']}"]
 
 
+# -- chosen filters (wave 53B) -- "Tap all untapped permanents of the chosen type target player controls, or untap all tapped permanents of that type that player controls."
+# (Turnabout): the caster picks one of the two as it resolves (608.2d, resolution_choice.pick_one); each reads that player's permanents then (608.2c), the chosen type
+# bound into both by chosen.bind_effects
+@effect(r"tap all untapped permanents of the chosen type target (?P<pl>player|opponent) controls, or untap all tapped permanents of (?:that|the chosen) type that (?:player|opponent) controls")
+def _tap_or_untap_their_chosen(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import selectors
+
+    options = []
+    for verb, state in (("tap", "untapped"), ("untap", "tapped")):
+        sel = selectors.parse(f"{state} permanents of the chosen type")
+        if sel is None:
+            raise _NoMatch
+        options.append({"label": verb.capitalize(), "effects": [{"do": verb, "who": f"controlled:target|{sel.key()}"}]})
+    return [{"do": "pick_one", "options": options}], SELECTORS[f"target {m['pl']}"]
+
+
 # -- counters sweep (wave 19D) -- "Put a -1/-1 counter on each creature target player controls." (Contagion Engine, Meadowboon): the
 # creatures that player controls as it resolves (608.2c), the same group form as the tap above
 @effect(r"put {N} (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on each (?P<what>creature|artifact|land|permanent) target (?P<pl>player|opponent) controls")
@@ -2135,6 +2153,17 @@ _COLOR_LETTER = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "
         r"sixteen|seventeen|eighteen|nineteen|twenty) .+|.+ named .+|.+ that(?:'s| is| are) (?:all colors|colorless|white|blue|black|red|"
         r"green)(?:[ ,].+)?)|for each [^,\"]+, create .+)")
 def _create_tokens_6c(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import token_grammar
+
+    found = token_grammar.parse(m.group(0))
+    if found is None:
+        raise _NoMatch
+    return found, None
+
+
+@_first
+@effect(r"create (?:\d+|a|an|X|x) (?:\d+|X)/(?:\d+|X) creature tokens? of the chosen color and type(?:, where [xX] is [^\"]+)?")
+def _create_chosen_token(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:  # -- chosen filters (wave 53B) -- Riptide Replicator, Volrath's Laboratory: the color and creature type the source chose as it entered
     from app.rules import token_grammar
 
     found = token_grammar.parse(m.group(0))
@@ -3457,7 +3486,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                   r"\1 \2. That player puts that card onto the battlefield. Shuffle that library.", body)
     if "until you reveal " in body:
         body = re.sub(r"(until you reveal [^.]*?)\. If you do, put ", r"\1. Put ", body) if "ou may reveal cards" in body else body
-        body = re.sub(r"(?:, then| and) shuffle (?:the rest|all other cards revealed this way) into your library", ", then shuffle", body)
+        body = re.sub(r"(?:, then| and) shuffle (?:the rest(?: of the revealed cards)?|all other cards revealed this way) into your library", ", then shuffle", body)  # (wave 53B: Kindred Summons)
     from app.rules import watches  # -- turn watches (wave 7D) --
 
     body = block_events.rewrite(watches.join_choose(watches.join_retarget(body)))  # (-- turn-long triggers (wave 33A) --; wave 53C: "When one or more Equipment become attached …")
@@ -3466,7 +3495,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         # "other" may be relative to the event's player — not read there
         # (not where the grammar reads it already: an edict, language.EDICT_OTHERS; "during each other player's …")
         body = re.sub(r"\b([Ee])ach other player\b(?! sacrifices)(?!'s)", lambda m: f"{m[1]}ach opponent", body)
-    body = _choose_then(body)  # -- if you do (wave 6F) --
+    body = _chosen.rewrite(_choose_then(body))  # -- if you do (wave 6F) -- (-- chosen filters (wave 53B) -- "Choose a card type, then …", "of that type")
     # -- if you do (wave 40A) -- "If it's a land card, you may put it onto the battlefield tapped. If you didn't put a card onto the battlefield this way, create …"
     # (Rulik Mons), "You may put … into your hand. If you put no cards into your hand this way, …" (Nashi): the instruction "this way" names is the optional one
     # just before, so the question is the one "If you don't" asks (the pick records whether it moved a card, effects._picked; 608.2c)
@@ -3880,6 +3909,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 inner = _conditional_inner(cond_m["rest"])
             else:
                 inner = _conditional_inner(cond_m["rest"], cond) if cond is not None else None
+            from app.rules import cast_limits as _cl
+
+            if inner is None and cond is not None and (free_rest := _cl.free_sentence(cond_m["rest"])) is not None:
+                inner = (free_rest, None)  # -- chosen filters (wave 53B) -- "If you won five flips this way, you may cast spells from your hand this turn without paying their mana costs." (a permission, not a choice)
             if inner is None and cond is not None and cond_m["rest"].startswith("you may ") and i == len(texts) - 1 and effects:
                 # -- transform (wave 20F) -- "Then if you have seven or more cards in your graveyard, you may transform ~." at the end of
                 # the ability (608.2c): the gate, then the controller's choice for the rest (unless_pays.may_rest, 603.5)
@@ -3909,7 +3942,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         # -- cast limits (wave 5E) -- "You may cast spells this turn as though they had flash."
         from app.rules import cast_limits
 
-        if (flash := cast_limits.flash_sentence(text)) is not None:  # (a permission, not a choice made on resolution)
+        if (flash := cast_limits.flash_sentence(text) or cast_limits.free_sentence(text)) is not None:  # (a permission, not a choice made on resolution; wave 53B: free casts from hand)
             effects += flash
             continue
         if (extra_land := _land_plays.sentence(text)) is not None:  # -- one-shot extra land plays (wave 8A) -- 305.2 (a permission)
@@ -4636,7 +4669,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     view = _granter_view(ability) if "‹granter" in ability.text else None
     with _exiled_with.reading(ability, self_text(ability.text, ch.name)), this_way.paid_by(
             spell_additional_cost(ch.abilities) if ability.kind == "spell" or ability.text.startswith("When you cast this spell, ") else parse_ability_cost(ability.cost, card_name=ch.name) if ability.kind == "activated" and ability.cost else None):  # -- resolution memory (wave 22D) -- 607.2a: "the exiled card's owner …"
-        d = _enters_self_check(_define(view[0] if view else ability, ch), ch)  # (-- any number as an additional cost (wave 48B) -- "creatures sacrificed this way" of a spell's own cost)
+        d = _chosen.remember_name(_enters_self_check(_define(view[0] if view else ability, ch), ch), self_text(ability.text, ch.name))  # (-- any number as an additional cost (wave 48B) -- "creatures sacrificed this way" of a spell's own cost)  (wave 53B: a trigger's card name, kept)
     if view and d is not None:
         d = _granter_bound(d, view[1])
     if d is not None and "additional cost was paid" in ability.text and not any(re.search(r"you may blight [1-5]\b", a.text) for a in ch.abilities):
@@ -4801,6 +4834,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # player" in one resolution — Haunt the Network — is another choice: not read as this)
     if d is not None and _chosen.WHO in json.dumps(d, default=str) and not _chosen.chooses_player(ch):
         return None
+    if d is not None:
+        d = _chosen.retag(d, ch)  # -- chosen filters (wave 53B) -- "of the chosen type" after a card type choice
     if d is not None and not _chosen.chosen_value_ok(d, ch):  # -- chosen type (wave 4J) -- "of the chosen type / color"
         return None
     # -- discover (wave 9A) -- the free cast ends the resolution (effects.resume_suspend_cast): nothing may follow it
@@ -6106,6 +6141,14 @@ def own_card_event_ability(d: Definition | None) -> bool:
 
 def spell_definition(ch: Characteristics) -> Definition | None:
     """A whole instant/sorcery as one definition, if every line is automated (else None)."""
+    whole = _spell_definition(ch)
+    if whole is None or not whole.get("modes"):
+        return whole
+    whole = _chosen.retag(whole, ch)  # -- chosen filters (wave 53B) -- a modal spell's modes are judged one by one: the lines of a mode aren't a definition of their own (define), so "Choose artifact or enchantment. Destroy all permanents of the chosen type." there is read here
+    return whole if _chosen.chosen_value_ok(whole, ch) else None
+
+
+def _spell_definition(ch: Characteristics) -> Definition | None:
     if not ch.is_instant_or_sorcery:
         return None
     # (-- static_other sweep (wave 16B) -- a hand ability on the card — reinforce 702.77a, "{cost}, Discard this card: …" — is not
@@ -6325,6 +6368,13 @@ def _enters_self_check(d: Definition | None, ch: Characteristics) -> Definition 
     counted (614.12: replacements._counter_amount, ``not_yet_entered``)."""
     from app.rules import selectors
 
+    if d is not None and d.get("counters") is not None and "self_sels" in d["counters"]:  # -- chosen filters (wave 53B) -- "enters with a counter for each creature you control of the chosen type": a creature entering might count itself (unsettled, as above), so only a card that can't be in the group is read
+        inner = dict(d["counters"])
+        for k in inner.pop("self_sels"):
+            s = selectors.from_key(k)
+            if set(s.types) & ch.types or set(s.subtypes) & ch.subtypes:
+                return None
+        return {**d, "counters": inner}
     if d is None or "self_sels" not in d:
         return d
     d = dict(d)
@@ -6480,6 +6530,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     if (esc := re.fullmatch(r"(~ enters with (?P<n>\w+) (?P<k>[+-]\d+/[+-]\d+) counters on it)\. It escapes with (?P<e>\w+) (?P=k) counters on it instead\.", text)) is not None \
             and (base := define_replacement(ability, esc[1] + ".")) is not None and base.get("replacement") == "enters_with_counters" and (escaped := {**NUMBERS, "eleven": 11, "twelve": 12}.get(esc["e"])) is not None:
         return {**base, "escaped_n": escaped}
+    if (combo := _chosen.enters_with_choice(text, lambda t: define_replacement(ability, t))) is not None:  # -- chosen filters (wave 53B) -- Banner of Kinship
+        return combo
     text = re.sub(r"^~ enters tapped if it's not your turn\.$", "~ enters tapped unless it's your turn.", text)  # (wave 19A: Eddymurk Crab)
     from app.rules import (
         counters52d,  # -- counters (wave 52D) -- 708.11: "As ~ is turned face up, put five +1/+1 counters on it."
@@ -7321,6 +7373,7 @@ from app.rules import name_search as _name_search  # noqa: E402  (a leaf module)
 
 _choice_template(_name_search.PATTERN, _name_search.build)  # (wave 11D)
 _choice_template(_name_search.NAMED_PATTERN, _name_search.build_named)  # (wave 22B: card names)
+_choice_template(_chosen.DISCARD_PATTERN, _chosen.build_discard)  # (wave 53B: Brain Pry)
 from app.rules import drawn_toll as _drawn_toll  # noqa: E402  (a leaf module)
 
 _choice_template(_drawn_toll.PATTERN, _drawn_toll.build)  # (wave 18G)
@@ -7328,7 +7381,7 @@ from app.rules import time_travel as _time_travel  # noqa: E402  (a leaf module)
 
 _choice_template(_time_travel.PATTERN, _time_travel.build)  # (wave 25A: 701.56a)
 _RECORDING.update({"edict": "sacrificed", "player_chooses": None, "choose_from_hand": None, "discard_named": "discarded",
-                   "reveal_hand": None, "choose_value": None})
+                   "reveal_hand": "revealed", "choose_value": None})  # (wave 53B: reveal_hand "revealed" for "each card of the chosen type revealed this way": this_way; never an object a pronoun names, _Introducer)
 _MOVERS.update({"edict", "player_chooses", "choose_from_hand", "discard_named"})
 _CHOSEN.update({"edict": "n", "player_chooses": "n", "choose_from_hand": "n"})
 
@@ -8047,6 +8100,8 @@ def _verb_of(e: dict[str, Any]) -> str | None:
     """The verb "… <verb> this way" names for an instruction (_RECORDING; a move to exile by another name is an exile)."""
     if (e["do"] == "sacrifice_choice" and e.get("exile")) or (e["do"] == "discard" and e.get("to") == "exile"):
         return "exiled"
+    if e["do"] in ("pick_looked", "rest_looked") and e.get("to") == "exile":
+        return "exiled"  # -- chosen filters (wave 53B) -- "Exile all other cards revealed this way. You lose 1 life for each card exiled this way." (Spoils of the Vault)
     if e["do"] in ("pick_looked", "rest_looked") and e.get("to") in ("hand", "graveyard"):
         return "put_" + e["to"]  # -- if you do (wave 44A) -- "for each card put into your graveyard / you put into your hand this way" after a look (Dihada, Blex)
     return _RECORDING.get(e["do"])

@@ -96,6 +96,16 @@ def piece(text: str, extra: dict[str, Any]) -> bool | list[int] | None:
     if text in ("is every creature type", "is all creature types"):  # (205.3m: "all creature types")
         _layer4(extra)["all_creature_types"] = True
         return True
+    if text == "is the chosen type":  # -- chosen filters (wave 53B) -- "Enchanted land is the chosen type." (Phantasmal Terrain): the basic land type its Aura chose as it entered, 305.7
+        if "set_land_types" in _layer4(extra):
+            return False
+        _layer4(extra)["set_land_types"] = ["@land"]
+        return True
+    if text == "is the chosen color":  # (Shimmerwilds Growth) 105.3: its colors become the one its Aura chose as it entered
+        if "set_colors" in extra:
+            return False
+        extra["set_colors"] = ["@color"]
+        return True
     m = re.fullmatch(r"is (?P<c>white|blue|black|red|green|colorless)", text)
     if m:  # layer 5: "Enchanted creature gets +3/+1 and is black." (105.3: its colors become that)
         if "set_colors" in extra:
@@ -204,6 +214,8 @@ def consistent(extra: dict[str, Any], kind: str | None) -> bool:
         return True
     if extra.pop("_animate", False):
         return kind in ("land", "artifact") and set(extra) <= {"layer4", "set_colors"} and not lose_types  # (wave 27A: Ensoul Artifact)
+    if set(extra) == {"set_colors"} and extra["set_colors"] == ["@color"]:  # -- chosen filters (wave 53B) -- "Enchanted land is the chosen color." (Shimmerwilds Growth): 105.3, 613.1e: any permanent has a color
+        return True
     layer4 = extra.get("layer4") or {}
     if "set_land_types" in layer4:  # -- land types set (wave 12D) -- only an Aura's "Enchanted land is a Swamp." on its own
         return kind == "land" and set(extra) == {"layer4"} and set(layer4) == {"set_land_types"} and not lose_types

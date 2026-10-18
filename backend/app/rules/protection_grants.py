@@ -35,7 +35,7 @@ _GAIN = re.compile(r"^(?P<o>.+?) gains? (?:(?P<kw>[a-z]+(?: strike)?(?:(?:, and 
 COLORS = ["White", "Blue", "Black", "Red", "Green"]
 CHOSEN_LINE = "Protection from the chosen color"
 CHOSEN_HEXPROOF = "Hexproof from the chosen color"  # (wave 50J)
-_TOXIC_HEXPROOF = re.compile(r"^(?P<o>.+?) gains? toxic (?P<n>\d+) and hexproof from that color until end of turn$")  # Skrelv, Defector Mite (702.164 toxic, 702.11d)
+_TOXIC_HEXPROOF = re.compile(r"^(?P<o>.+?) gains? toxic (?P<n>\d+) and hexproof from (?:that|the chosen) color until end of turn$")  # Skrelv, Defector Mite (702.164 toxic, 702.11d)
 CHOICES: dict[str, list[str]] = {
     "the color of your choice": COLORS,
     "colorless or from the color of your choice": ["Colorless", *COLORS],
@@ -62,6 +62,13 @@ def clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     """The effect sentence "<object> gains protection from <quality> until end of turn", or None when it isn't one
     (``language._Fail`` when it is one this grammar refuses)."""
     m = _GAIN.fullmatch(text)
+    if m is None and (hp := re.fullmatch(r"(?P<o>.+?) gains? hexproof from the chosen color until end of turn", text)) is not None:  # -- chosen filters (wave 53B) -- Sungold Sentinel: 702.11d, the color just chosen
+        from app.rules import language as L
+
+        kind, key, group = L.ref(hp["o"])
+        if kind == "players":
+            raise L._Fail
+        return [{"do": "grant", "who": L._who(kind, key), "keywords": [], "abilities": [CHOSEN_HEXPROOF]}], L._one(group)
     if m is None and (th := _TOXIC_HEXPROOF.fullmatch(text)) is not None:  # -- chosen type (wave 50J) -- "Choose a color. … gains toxic 1 and hexproof from that color until end of turn." (Skrelv): the color is bound as protection's is
         from app.rules import language as L
 

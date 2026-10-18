@@ -1367,14 +1367,14 @@ def _object_event(c: str) -> Condition | None:
     # (-- counters (wave 41A) -- "a red source you control deals damage to one or more permanents and/or players" (The Red Terror): the source's color as it
     # dealt the damage (105.2), and a recipient that is any permanent or player — every recipient there is, so it is "deals damage" (120.1), once per source for
     # the batch (603.2c))
-    m = re.fullmatch(rf"a(?P<col> white| blue| black| red| green| colorless)? source(?P<ctl> you control| an opponent controls)? deals? (?:(?P<min>\w+) or more )?(?P<c>combat |noncombat )?"
+    m = re.fullmatch(rf"a(?P<col> white| blue| black| red| green| colorless)? source(?P<chosen> of the chosen color)?(?P<ctl> you control| an opponent controls)? deals? (?:(?P<min>\w+) or more )?(?P<c>combat |noncombat )?"
                      rf"damage(?P<to>{_DAMAGE_TO_RE}|(?P<all> to one or more permanents and/or players))", c)
     # (-- trigger damage (wave 39B) -- "a source you control deals noncombat damage to one or more of your opponents" (Molten Lavamancer): once per source
     # for the batch (603.2c; triggers._fire_generic keys it by the source); a threshold over "one or more" recipients isn't read)
     if m and m["to"] != " to one or more creatures" and (m["to"] or not m["min"]) and not (
             m["min"] and m["to"] in (" to one or more players", " to your opponents", " to one or more of your opponents")) and not (m["all"] and m["min"]):
         return {"event": "deal_damage", "subject": "source", "to": "any" if m["all"] else _DAMAGE_TO[m["to"]],
-                **({"color": m["col"].strip()} if m["col"] else {}),
+                **({"color": m["col"].strip()} if m["col"] else {}), **({"chosen_color": True} if m["chosen"] else {}),  # (wave 53B: Circle of Affliction, the color its source chose as it entered)
                 **({"min": _count(m["min"])} if m["min"] else {}), **({"aggregate": True} if m["to"] in _ONE_OR_MORE_TO else {}),
                 "ctl": {" you control": "you", " an opponent controls": "opponent"}.get(m["ctl"] or "", "any"),
                 "combat": {"combat ": True, "noncombat ": False}.get(m["c"] or "")}

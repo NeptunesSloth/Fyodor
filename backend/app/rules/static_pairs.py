@@ -87,6 +87,14 @@ def definition(text: str) -> Definition | None:
         return {**mine, "also": [others]}
     if (kw := _KW_IFS.match(text.strip())) is not None:  # -- most-played cards IV (wave 51G) -- one conditional grant for each "keyword if condition" part
         return _keyword_ifs(kw)
+    # -- chosen filters (wave 53B) -- "Creatures you control of the chosen type get +1/+1. As long as you have the city's blessing, they also have vigilance." (Radiant
+    # Destiny): "they" is the group of the first sentence, so the second is the same group's own conditional static (604.2, 611.3a)
+    grp = re.fullmatch(r"(?P<s>[A-Z][^.,]*? you control of the chosen type) (?P<p>(?:get|have) [^.]+)\. As long as (?P<c>[^,.]+), they also (?P<q>have [^.]+)\.", text.strip())
+    if grp is not None:
+        first, second = statics.parse(f"{grp['s']} {grp['p']}."), statics.parse(f"As long as {grp['c']}, {grp['s']} {grp['q']}.")
+        if first is None or second is None or first.get("also") or first["who"] in ("self", "attached") or first["who"] != second["who"]:
+            return None
+        return {**first, "also": [second]}
     parts = _SENTENCES.split(text.strip())
     if not 2 <= len(parts) <= 3:
         return None

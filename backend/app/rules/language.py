@@ -25,6 +25,7 @@ from typing import Any
 
 from app.game import actions as A
 from app.rules import characteristics as chars
+from app.rules import chosen as _chosen  # -- chosen filters (wave 53B) --
 from app.rules import (  # (this_way: wave 4A; sized_damage: wave 4E; token_grammar: wave 30P)
     selectors,
     sized_damage,
@@ -1444,8 +1445,8 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     # the shuffle (701.24a; effects.shuffle_library with a selector)
     if text == "shuffle all cards from your graveyard into your library":  # (wave 18A: Inverter of Truth — all of it, as "your graveyard")
         return [{"do": "shuffle_library", "who": "you", "zones": ["graveyard"]}], None
-    m = re.fullmatch(r"shuffle all (?P<what>[a-z ]+?) cards? from your graveyard into your library", text)
-    sel = selectors.parse(f"{m['what']} card from your graveyard") if m else None
+    m = re.fullmatch(r"shuffle all (?P<what>[a-z ]+?) cards?(?P<of> of the chosen (?:type|color))? from your graveyard into your library", text)  # (wave 53B: "of the chosen type", Elvish Soultiller)
+    sel = selectors.parse(f"{m['what']} card{m['of'] or ''} from your graveyard") if m else None
     if sel is not None and _graveyard_cards(sel.key()):
         return [{"do": "shuffle_library", "who": "you", "zones": ["graveyard"], "sel": sel.key()}], None
     found_lib = gy_to_library(text)  # -- refused zones/sized (wave 3R4) --
@@ -2975,13 +2976,14 @@ CHOOSE_FROM_HAND_GY = (r"you choose (?:a|an) (?P<sel>.+?) from (?:it or (?:a|an)
 LOOK_HAND = rf"look at (?P<s>{CHOOSER})'s hand(?: and (?P<ch>choose .+))?"  # (Painful Memories, Extortion: "… and choose a card from it")
 # "Target player reveals their hand and discards all nonland cards." (Amnesia, Trapfinder's Trick)
 DISCARD_ALL_REVEALED = (rf"(?P<s>{CHOOSER}) reveals their hand and discards all (?:(?P<sel>.+?) )?cards?"
-                        r"(?P<tail> with (?:(?:the chosen|that) name|that spell's mana value))?")  # (wave 22B: Cabal Therapy, "all cards with that name"; wave 36A: Infernal Kirin)
+                        r"(?P<tail> with (?:(?:the chosen|that) name|that spell's mana value|mana value (?:equal to the chosen number|\d+))| of the chosen (?:color|type))?")  # (wave 22B: Cabal Therapy, "all cards with that name"; wave 36A: Infernal Kirin)
 DISCARD_NAMED = r"(?:that player|they|its owner) discards? (?P<o>that card|those cards|it|them)"
 CHOICE_KINDS = ("color", "creature type", "basic land type", "opponent", "player")
-CHOOSE_VALUE = rf"choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player with the most life or tied for most life|player|odd or even|{_NAME_WHAT})"  # (wave 53C: The Black Gate)  # (wave 50J: odd or even, Thanos)
+CHOOSE_VALUE = rf"choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player with the most life or tied for most life|player|odd or even|{_NAME_WHAT}|{_chosen.TYPE_CHOICE}|{_chosen.NUMBER_CHOICE})"  # (wave 53C: The Black Gate; wave 53B: chosen type and number)  # (wave 50J: odd or even, Thanos)
 CARD_TYPE_FIVE = "artifact, creature, enchantment, instant, or sorcery"  # -- commanders (wave 47A) -- Cloud Key: the five card types it offers
 TYPE_LIST = r"[A-Z][a-z]+(?:, [A-Z][a-z]+)+, or [A-Z][a-z]+"  # -- chosen type (wave 51C) -- "choose Elemental, Elf, Faerie, Giant, Goblin, Kithkin, Merfolk, or Treefolk" (Eclipsed Realms, Dawn-Blessed Pennant)
-ENTERS_CHOICE = re.compile(rf"^As ~ enters, choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|odd or even|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink|{TYPE_LIST})\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key; wave 51C: a short list of creature types)
+_BASIC_PAIR = "(?:Plains|Island|Swamp|Mountain|Forest) or (?:Plains|Island|Swamp|Mountain|Forest)"  # -- chosen filters (wave 53B) -- "choose Island or Swamp" (Roots of Life): a basic land type, only those two
+ENTERS_CHOICE = re.compile(rf"^As ~ enters, choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|opponent|player|odd or even|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink|{TYPE_LIST}|{_chosen.TYPE_CHOICE}|{_chosen.NUMBER_CHOICE}|color and a creature type|two basic land types|{_BASIC_PAIR}|{_chosen.PAIRS})\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key; wave 51C: a short list of creature types)
 
 
 # -- choose own (wave 32A) -- "Then you may choose a token you control." (Brudiclad), "Choose a Giant creature you control. It deals damage equal to its
@@ -3230,7 +3232,7 @@ def discard_named(m: re.Match[str]) -> tuple[Effects, Any]:
 
 
 def choose_value(m: re.Match[str]) -> tuple[Effects, Any]:
-    return [{"do": "choose_value", "who": "you", "what": m["what"]}], None
+    return [_chosen.type_choice(m["what"]) or _chosen.number_choice(m["what"]) or {"do": "choose_value", "who": "you", "what": m["what"]}], None  # (-- chosen filters (wave 53B) -- a card type, a number)
 
 
 # -- card names (wave 49C) -- "Target player chooses a card name, then reveals the top card of their library." (Petra Sphinx, Vexing Arcanix): the target player names it as this resolves
@@ -3252,6 +3254,26 @@ def enters_choice(text: str) -> dict[str, Any] | None:
     m = ENTERS_CHOICE.match(text)
     if m is None:
         return None
+    if re.fullmatch(_BASIC_PAIR, m["what"]):  # (wave 53B: the answer is a basic land type; the two words are its options)
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": "basic land type", "options": m["what"].split(" or "), "remember": True}]}
+    if re.fullmatch(_chosen.PAIRS, m["what"]):  # -- chosen filters (wave 53B) -- "choose white Citizen, blue Camarid, …": one answer, a color and its creature type (replacements.after_entry writes both records)
+        from app.rules.creature_types import CREATURE_TYPES
+
+        pairs = re.findall(r"(white|blue|black|red|green) ([A-Z][a-z]+)", m["what"])
+        if not all(k in CREATURE_TYPES for _, k in pairs):
+            return None
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": _chosen.PAIR_WHAT, "options": [f"{c.capitalize()} {k}" for c, k in pairs], "remember": True}]}
+    if m["what"] == "two basic land types":  # -- chosen filters (wave 53B) -- Illusionary Terrain: the first, then the second (each its own public record, 614.12a)
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": "basic land type", "remember": True}, {"do": "choose_value", "who": "you", "what": "second basic land type", "remember": True}]}
+    if m["what"] == "color and a creature type":  # -- chosen filters (wave 53B) -- two answers, each its own public record ("Chosen color", "Chosen creature type"), 614.12a
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": "color", "remember": True}, {"do": "choose_value", "who": "you", "what": "creature type", "remember": True}]}
+    if m["what"] not in ("card type", "card type other than creature or land", CARD_TYPE_FIVE, "number between 1 and 10") \
+            and (picked := _chosen.type_choice(m["what"]) or _chosen.number_choice(m["what"])) is not None:  # -- chosen filters (wave 53B) -- "choose a permanent type", "choose artifact, enchantment, instant, sorcery, or planeswalker", "choose a number"
+        return {"kind": "replacement", "replacement": "enters_choice", "effects": [{**picked, "remember": True}]}
     if m["what"][:1].isupper():  # (wave 51C: the creature types it lists, each a real one; the choice is still "a creature type" for "the chosen type", offered from the list)
         from app.rules.creature_types import CREATURE_TYPES
 

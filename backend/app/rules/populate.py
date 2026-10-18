@@ -55,7 +55,7 @@ def parse_for_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
         return None
     sel = selectors.parse(what.removesuffix(" on the battlefield") if what.endswith(" on the battlefield") else what)
     # (-- most-played cards II (wave 45A) -- "for each token you control that entered this turn" (Ocelot Pride): read of this turn's log, selectors.candidates)
-    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.ability is not None or set(sel.extras) - {"entered_this_turn"}:
+    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.ability is not None or set(sel.extras) - {"entered_this_turn", *selectors.CHOSEN_EXTRAS}:  # (wave 53B: "of the chosen type", Kindred Charge, Renewed Solidarity: chosen.chosen_value_ok judges where the choice comes from)
         return None  # (wave 31C: "for each other nonland permanent you control" — other than the source, ``selectors.candidates``: Oko, the Ringleader)
     need = _NOUNS[m["noun"]] if m["noun"] else None
     if need is not None and sel.types != (need,):

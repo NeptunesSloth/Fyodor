@@ -422,7 +422,15 @@ _REDIRECT = re.compile(r"All damage that would be dealt to (?P<to>you|you and ot
 _REDIRECT_BY = re.compile(r"As long as ~ is untapped, all (?P<combat>combat )?damage that would be dealt to you by (?P<by>unblocked creatures|artifacts) is dealt to ~ instead\.")
 
 
+# -- chosen filters (wave 53B) -- 614.9: "If an instant or sorcery spell of the chosen color would deal damage to you, it deals that damage to its controller instead." (Harsh
+# Judgment): the spell's color as it would deal the damage (105.2), the color its source chose as it entered (614.12a); the new recipient is the spell's controller
+_REDIRECT_SPELL = re.compile(r"If an instant or sorcery spell of the chosen color would deal damage to you, it deals that damage to its controller instead\.")
+
+
 def redirect_definition(text: str) -> Definition | None:
+    if _REDIRECT_SPELL.fullmatch(text.strip()) is not None:
+        return {"kind": "static", "static": "replace", "event": "damage", "op": {"do": "redirect", "to": "src_ctrl"}, "effects": [],
+                "match": {"to": {"players": "you"}, "source": {"spell": True, "chosen_color": True, "types": ["Instant", "Sorcery"]}}}
     if (b := _REDIRECT_BY.fullmatch(text.strip())) is not None:
         from app.rules import selectors
 
@@ -729,6 +737,8 @@ def source_scope(phrase: str) -> dict[str, Any] | None:
         return {"spell": True, "types": ["Instant", "Sorcery"]}
     if p == "sources of the chosen color":  # (Prismatic Ward: the color its permanent chose as it entered, read as damage is dealt)
         return {"chosen_color": True}
+    if p == "sources with the chosen name":  # -- chosen filters (wave 53B) -- 201.2, 709.4a: the name its permanent chose as it entered (614.12a), read as damage is dealt (Gideon's Intervention)
+        return {"chosen_name": True}
     alts = []
     for part in re.split(r"(?<=sources) and (?=\w)|(?<=creatures) and (?=\w)", p):
         m = _SRC.fullmatch(part)

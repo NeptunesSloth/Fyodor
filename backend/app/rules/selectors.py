@@ -567,7 +567,7 @@ def _opp_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "graveyard", "opponent")
 
 
-@_suffix(r"(?:from|in) graveyards")
+@_suffix(r"(?:from|in) (?:graveyards|each graveyard|all graveyards)")  # (wave 53B: "each card named ~ in each graveyard", 400.1: every player's)
 def _graveyards(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "graveyard", None)  # any graveyards (400.1: each player has their own)
 
@@ -1080,8 +1080,8 @@ def _has_counter(card: CardInstance, kind: str) -> bool:
 # creature type. Destroy all creatures that aren't of the chosen type": bind_chosen substitutes that answer).
 # ``matches`` reads the source's record; without a source or a valid record nothing matches (never a guess).
 CHOSEN_EXTRAS = {"chosen_type": "creature type", "chosen_color": "color", "not_chosen_type": "creature type",
-                 "not_chosen_color": "color", "chosen_name": "card name", "chosen_card_type": "card type", "chosen_number": "number",
-                 "chosen_parity_mv": "odd or even", "chosen_parity_power": "odd or even"}  # (wave 50J: the quality chosen as the ability resolves)  # (wave 47A: card type, Umori; wave 49B: number, Talion)  # (-- card names (wave 22B) -- app/rules/card_names.py)
+                 "not_chosen_color": "color", "chosen_name": "card name", "chosen_card_type": "card type", "not_chosen_card_type": "card type", "chosen_land_type": "basic land type", "not_chosen_land_type": "basic land type", "chosen_number": "number",
+                 "chosen_parity_mv": "odd or even", "chosen_parity_power": "odd or even", "chosen_cmp": "number"}  # (wave 50J: the quality chosen as the ability resolves)  # (wave 47A: card type, Umori; wave 49B: number, Talion)  # (-- card names (wave 22B) -- app/rules/card_names.py)
 
 
 # -- extremes (wave 49C) -- 115.1: "creature with the greatest power among creatures on the battlefield" (Topple), "nonland permanent with the lowest mana value" (Culling Scales): one
@@ -1130,6 +1130,18 @@ def _of_chosen_number(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "chosen_number"))
 
 
+_CMP_OPS = {"equal to": "==", "greater than or equal to": ">=", "less than or equal to": "<=", "greater than": ">", "less than": "<"}
+
+
+@_suffix(r"with (?P<what>mana value|power|toughness) (?:(?P<op>equal to|greater than or equal to|less than or equal to|greater than|less than) )?the chosen number")
+def _cmp_chosen_number(s: Selector, m: re.Match[str]) -> Selector:  # -- chosen filters (wave 53B) -- "Destroy all creatures with power greater than or equal to the chosen number." (Expel the Interlopers): the number chosen as the ability resolves (bind_chosen) or as the source entered (_chosen_ok)
+    what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
+    return replace(s, extras=(*s.extras, "chosen_cmp"), compare=(*s.compare, (what, _CMP_OPS[m["op"] or "equal to"], "chosen_n")))
+
+
+BASIC_LAND_TYPES_SEL = ("Plains", "Island", "Swamp", "Mountain", "Forest")
+
+
 def chosen_what(sel: Selector) -> str | None:
     """"creature type" / "color" when the selector reads a chosen value, else None."""
     found = {CHOSEN_EXTRAS[e] for e in sel.extras if e in CHOSEN_EXTRAS}
@@ -1143,6 +1155,8 @@ def bind_chosen(sel: Selector, value: str) -> Selector | None:
     if what == "card name":  # -- card names (wave 22B) -- the answer given earlier in the same resolution
         return replace(sel, extras=(*rest, "name:" + value))
     neg = any(e.startswith("not_") for e in sel.extras if e in CHOSEN_EXTRAS)
+    if what == "number" and "chosen_cmp" in sel.extras:  # -- chosen filters (wave 53B) -- the number just chosen, in the comparison
+        return replace(sel, extras=rest, compare=tuple((w, o, int(value) if n == "chosen_n" else n) for w, o, n in sel.compare)) if value.isdigit() else None
     if what == "odd or even" and value in ("Odd", "Even"):  # -- chosen quality (wave 50J) -- 107.1: zero is even
         return replace(sel, extras=(*rest, f"parity:{'power' if 'chosen_parity_power' in sel.extras else 'mv'}:{value.lower()}"))
     if what == "creature type" and value in CREATURE_TYPES:
@@ -1151,8 +1165,14 @@ def bind_chosen(sel: Selector, value: str) -> Selector | None:
         if neg:
             return replace(sel, extras=rest, not_subtypes=(value,))
         return replace(sel, extras=rest, subtypes=(value,))
+    if what == "basic land type" and value in BASIC_LAND_TYPES_SEL:  # -- chosen filters (wave 53B) -- "a land of the chosen type" (Roots of Life, Shimmer): 305.6, 205.3i
+        if sel.subtypes or sel.not_subtypes or sel.union:
+            return None
+        return replace(sel, extras=rest, not_subtypes=(value,)) if neg else replace(sel, extras=rest, subtypes=(value,))
     if what == "card type" and value in CARD_TYPES.values():  # -- commanders (wave 47A) -- the card type chosen as the source entered (Umori, Stenn)
-        return None if sel.types or sel.not_types else replace(sel, extras=rest, types=(value,))
+        if sel.types or sel.not_types:
+            return None
+        return replace(sel, extras=rest, not_types=(value,)) if neg else replace(sel, extras=rest, types=(value,))  # (wave 53B: "that aren't of the chosen type")
     color = COLORS.get(value.strip().lower())
     if what == "color" and color is not None:
         if sel.colors or sel.not_colors:
@@ -1169,7 +1189,7 @@ def source_choice(plan: Plan, source: str | None, what: str) -> str | None:
     card = plan.state.cards.get(source or "")
     if card is None:
         return None
-    label = {"creature type": "Chosen creature type", "color": "Chosen color", "card name": "Chosen card name", "card type": "Chosen card type", "number": "Chosen number", "odd or even": "Chosen quality"}[what]
+    label = {"creature type": "Chosen creature type", "basic land type": "Chosen basic land type", "color": "Chosen color", "card name": "Chosen card name", "card type": "Chosen card type", "number": "Chosen number", "odd or even": "Chosen quality"}[what]
     value = card.choices.get(label)
     return value.strip() if value else None
 
@@ -1187,6 +1207,8 @@ def _chosen_ok(plan: Plan, sel: Selector, ch: Characteristics, source: str | Non
     if what == "odd or even":  # the quality the source chose as it entered (Gollum, Riddle Master)
         quality = source_choice(plan, source, what)
         return quality in ("Odd", "Even") and _parity_holds(card, ch, "chosen_parity_mv" in sel.extras, quality == "Even")
+    if what == "number" and "chosen_cmp" in sel.extras:
+        return True  # -- chosen filters (wave 53B) -- the comparison itself (matches) already read the number the source chose as it entered
     if what == "number":  # (wave 49B) a spell's mana value, power or toughness is the number the source chose as it entered (a power or toughness of * is no number here)
         from app.rules.stack_interaction import mana_value
 
@@ -1205,6 +1227,8 @@ def _chosen_ok(plan: Plan, sel: Selector, ch: Characteristics, source: str | Non
     if set(bound.not_subtypes) & ch.subtypes:
         return False
     if bound.types and not set(bound.types) & ch.types:  # (wave 47A: a card type)
+        return False
+    if set(bound.not_types) & ch.types:  # (wave 53B: "that aren't of the chosen type")
         return False
     if bound.colors and not set(bound.colors) & ch.colors:
         return False
@@ -2005,6 +2029,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if src is None:
                 return False
             n = values.evaluate(plan, {"controller": you, "source_card": src.id, "source_object": plan.oid(src)}, {"colors_spent": 1})
+        elif n == "chosen_n":  # -- chosen filters (wave 53B) -- the number the source chose as it entered (614.12a); none recorded: nothing matches
+            got = source_choice(plan, source, "number")
+            if got is None or not got.isdigit():
+                return False
+            n = int(got)
         elif n == X_VALUE:  # (107.3f: X is the one chosen for the spell; none known: nothing matches)
             src = plan.state.cards.get(source or "")
             x = src.stack_info.x if src is not None and src.stack_info is not None and src.stack_info.x is not None \

@@ -98,7 +98,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DecisionOption, turn_log_now
 from app.game.state import CardInstance, zone_key
-from app.rules import scripts, selectors, stack_interaction, statics
+from app.rules import card_names, scripts, selectors, stack_interaction, statics  # (card_names: wave 53B)
 
 if TYPE_CHECKING:
     from app.rules.characteristics import Characteristics
@@ -1683,6 +1683,7 @@ def source_info(plan: Plan, card_id: str | None, oid: str | None, ch: Any, contr
     return {"card": card_id, "controller": ctrl, "spell": spell, "entered": soid is not None and any(e.object_id == soid for e in log_for(plan, False).entered),
             "colors": sorted(ch.colors) if ch is not None else [], "types": sorted(ch.types) if ch is not None else [],
             "subtypes": sorted(ch.subtypes) if ch is not None else [],
+            "names": card_names.names_of(ch) if ch is not None else [],  # (wave 53B: "sources with the chosen name", 709.4a)
             "counters": {k: n for k, n in counters.items() if n > 0},  # (wave 51C: the kinds, "with a +1/+1 counter on it", Uncivil Unrest)
             "has_counters": any(n > 0 for n in counters.values()),  # (-- counters (wave 41A) -- "a creature you control with a counter on it", Raphael, the Muscle)
             "mv": None if ch is None else stack_interaction.mana_value(card if spell else None, ch)}  # (-- cant restrictions (wave 46A) -- Obosh: 202.3e)
@@ -1733,6 +1734,12 @@ def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -
 
         color = selectors.COLORS.get((selectors.source_choice(plan, c.source_card, "color") or "").lower())
         if color is None or color not in (src.get("colors") or ()):
+            return False
+    if spec.get("chosen_name"):  # -- chosen filters (wave 53B) -- "sources with the chosen name": its permanent's choice (614.12a), one of the source's names (709.4a)
+        from app.cards.names import normalize_name
+
+        chosen_name = card_names.chosen(plan, c.source_card)
+        if not chosen_name or normalize_name(chosen_name) not in {normalize_name(n) for n in src.get("names") or ()}:
             return False
     if spec.get("chosen_type"):  # -- one-shot shields (wave 35A) -- "a creature of the chosen type" (Circle of Solace): its permanent's choice, 614.12a
         from app.rules import selectors

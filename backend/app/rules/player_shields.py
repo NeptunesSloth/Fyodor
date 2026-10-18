@@ -29,6 +29,7 @@ import re
 import secrets
 from typing import TYPE_CHECKING, Any
 
+from app.rules import chosen as _chosen  # -- chosen filters (wave 53B) --
 from app.rules.characteristics import CardInfo, Characteristics
 
 if TYPE_CHECKING:
@@ -47,7 +48,7 @@ def _lower_first(s: str) -> str:
     return s[:1].lower() + s[1:] if s[:1].isupper() else s
 
 
-_STATIC_PROTECTION = re.compile(r"^you and (?P<perm>permanents you control) have protection from (?P<q>[A-Za-z]+)$")  # (wave 44C: Gor Muldrak, Amphinologist)
+_STATIC_PROTECTION = re.compile(r"^you and (?P<perm>permanents|creatures) you control have protection from (?P<q>the chosen card type|[A-Za-z]+)$")  # (wave 44C: Gor Muldrak, Amphinologist; wave 53B: creatures, and "the chosen card type", Serra's Emissary)
 
 
 def static_definition(text: str) -> Definition | None:
@@ -55,8 +56,8 @@ def static_definition(text: str) -> Definition | None:
     if (p := _STATIC_PROTECTION.fullmatch(t)) is not None:  # -- counters (wave 44C) -- 702.16b: you have protection from that quality, as the permanents do (a layer-6 grant)
         from app.rules import protection, statics
 
-        d = statics.parse(f"Permanents you control have protection from {p['q']}.")
-        if d is None or d.get("static") != "grant" or d.get("conditions") or protection.parse(f"protection from {p['q']}") is None:
+        d = statics.parse(f"{p['perm'].capitalize()} you control have protection from {p['q']}.")
+        if d is None or d.get("static") != "grant" or d.get("conditions") or (protection.parse(f"protection from {p['q']}") is None and f"Protection from {p['q']}" not in _chosen.PROTECTION):
             return None
         return {**d, "player_shield": "protection", "quality": p["q"]}
     m = _STATIC.fullmatch(t)
@@ -221,7 +222,13 @@ def _shields(plan: Plan, player: str) -> list[tuple[str, str | None, str]]:
 
     for src, d in cast_limits._statics(plan.state, plan.info, "grant"):
         if d.get("player_shield") and src.controller == player and statics.conditions_hold(plan, d, source=src, controller=src.controller):  # (wave 35D)
-            out.append((d["player_shield"], d.get("quality"), src.name or "a permanent"))  # (wave 44C: protection has its quality)
+            quality = d.get("quality")
+            if f"Protection from {quality}" in _chosen.PROTECTION:  # -- chosen filters (wave 53B) -- the quality the source chose as it entered; none recorded: no shield
+                line = _chosen.protection_line(f"Protection from {quality}", src.choices)
+                quality = line.removeprefix("Protection from ") if line else None
+                if quality is None:
+                    continue
+            out.append((d["player_shield"], quality, src.name or "a permanent"))  # (wave 44C: protection has its quality)
     return out
 
 

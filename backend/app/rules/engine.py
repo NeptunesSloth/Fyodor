@@ -1120,6 +1120,8 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
     if info is not None and card.zone.endswith(":graveyard") and (barred := next(
             (src for src, _ in cast_limits._statics(state, info, "cant_play_gy_lands") if src.controller != player), None)) is not None:
         return f"{barred.name or 'A permanent'}: you can't play land cards from graveyards"  # -- cant restrictions (wave 50G) -- Tomik, Distinguished Advokist
+    if (why := cast_limits.land_problem(state, player, ch)) is not None:
+        return why  # -- chosen filters (wave 53B) -- Conjurer's Ban: a land with the chosen name can't be played until a turn
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
     from app.rules import land_plays  # -- additional land plays (wave 4J) -- 305.2a
@@ -1225,7 +1227,7 @@ def choose(plan: Plan, a: A.Choose) -> None:
     if d.player != plan.actor:
         raise ActionError(f"It's {plan.name(d.player)}'s decision")
     chosen = list(a.option_ids)
-    valid = {o.id for o in d.options}
+    valid = {o.id for o in d.options if o.group != "seen"}  # (wave 53B: the cards a player looked at, shown beside the options, are not answers)
     if cancelable(d):
         valid.add("cancel")  # (-- cancelling a cast (wave 24D) --)
     from app.rules import card_names  # -- card names (wave 22B) -- 201.4: a typed name answers it

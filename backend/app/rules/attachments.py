@@ -233,7 +233,7 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
     hch = plan.ch(card)
     # -- attached events (wave 25D) -- 702.16n: a protection that "doesn't remove" this Aura / Auras isn't why an Aura falls off as a
     # state-based action (``sba``); it still keeps an Aura from becoming attached (702.16c: review 25D)
-    if protection.protected_from(hch, sch, (lambda k: k == f"self:{source.id}" or (k == "auras" and kind == "aura")) if sba else None):
+    if protection.protected_from(hch, sch, (lambda k: k == f"self:{source.id}" or (k == "auras" and kind == "aura") or (k == f"yours:{source.controller}" and kind in ("aura", "equipment"))) if sba else None):  # (wave 53B: Benevolent Blessing, 702.16n)
         return f"{hch.name} has protection from it"
     if kind == "aura":
         if sch.is_creature:

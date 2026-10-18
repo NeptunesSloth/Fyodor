@@ -1129,6 +1129,12 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
     for t, count, tapped_by_creator in kinds:
         if count <= 0:
             continue
+        if t.get("chosen"):  # -- chosen filters (wave 53B) -- "of the chosen color and type": what its source chose as it entered
+            from app.rules import chosen as _chosen
+
+            if (t := _chosen.chosen_token(plan, source, t)) is None:
+                plan.note(f"{ctx.get('name') or 'The source'} has no color and creature type chosen: no token is created")
+                continue
         # -- X sized by a count (wave 4K) -- "an X/X … token": X as the token is created, its printed P/T from then on (111.3)
         pt = {k: str(values.evaluate(plan, ctx, t[k])) if isinstance(t.get(k), dict) else t.get(k) for k in ("power", "toughness")}
         for pid in (list(each) if each is not None else _players(plan, ctx, e["who"])):
@@ -3946,6 +3952,8 @@ def reveal_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             plan.note(f"{plan.name(pid)} reveals an empty hand", actor=pid)
         revealed += hand
     ctx["revealed"] = revealed
+    if e.get("as") and not e.get("private"):  # -- chosen filters (wave 53B) -- "for each card of the chosen type revealed this way": the cards shown to everyone (701.20a)
+        context.bind_objects(plan, ctx, e["as"], revealed)
     if not ctx.get("hide_queued"):  # (appended in place: the resolver walks the same list)
         ctx["hide_queued"] = True
         ctx["effects"].append({"do": "hide_revealed"})
@@ -4054,10 +4062,16 @@ def discard_named(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     cards = [c for c in named if plan.state.cards[c].zone.endswith(":hand")
              and prohibitions.cant_cause_discard(plan, plan.state.cards[c].owner, ctx["controller"]) is None]
+    if e.get("n"):  # -- chosen filters (wave 53B) -- "discards a card with that name": one of them (701.9a)
+        cards = cards[: e["n"]]
     before = _remember(plan, ctx, e, cards)
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
     _moved(plan, ctx, e, before)
+    if e.get("else_draw") and not cards:  # "If they can't, you draw a card." (Brain Pry)
+        from app.rules import replace
+
+        return replace.draw_cards(plan, [ctx["controller"]], 1, then={"do": "continue", "ctx": ctx}, ctx=ctx)
     return True
 
 
@@ -4066,14 +4080,17 @@ CHOICE_OPTIONS: dict[str, list[str]] = {
     "color": ["White", "Blue", "Black", "Red", "Green"],
     "odd or even": ["Odd", "Even"],  # -- chosen quality (wave 50J) -- 107.1: zero is even
     "basic land type": ["Plains", "Island", "Swamp", "Mountain", "Forest"],
+    "second basic land type": ["Plains", "Island", "Swamp", "Mountain", "Forest"],  # (wave 53B: "choose two basic land types", Illusionary Terrain)
     # -- commanders (wave 47A) -- 205.2a: "As Umori enters, choose a card type." / "… other than creature or land." (Stenn): the card types a spell or a permanent can have
     "card type": ["Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery"],
     "card type other than creature or land": ["Artifact", "Battle", "Enchantment", "Instant", "Kindred", "Planeswalker", "Sorcery"],
+    "card type other than creature": ["Artifact", "Battle", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery"],  # (wave 53B: Arachne, Psionic Weaver)
     "artifact, creature, enchantment, instant, or sorcery": ["Artifact", "Creature", "Enchantment", "Instant", "Sorcery"],  # (Cloud Key)
 }
-CHOICE_LABELS = {"color": "Chosen color", "creature type": "Chosen creature type", "basic land type": "Chosen basic land type",
+CHOICE_LABELS = {"second basic land type": "Chosen second basic land type", "number": "Chosen number", "color": "Chosen color",  # (wave 53B: "Choose a number between 0 and 10": the options in the instruction)
+                 "creature type": "Chosen creature type", "basic land type": "Chosen basic land type",
                  "opponent": "Chosen opponent", "player": "Chosen player", "card type": "Chosen card type",
-                 "card type other than creature or land": "Chosen card type", "artifact, creature, enchantment, instant, or sorcery": "Chosen card type",
+                 "card type other than creature or land": "Chosen card type", "card type other than creature": "Chosen card type", "artifact, creature, enchantment, instant, or sorcery": "Chosen card type",
                  "number between 1 and 10": "Chosen number", "odd or even": "Chosen quality",  # (wave 49B: Talion, the Kindly Lord; wave 50J: Gollum, Riddle Master)
                  "two abilities from among first strike, vigilance, and lifelink": "Chosen abilities"}  # (wave 49B: Greymond, Avacyn's Stalwart)
 CHOICE_LABELS.update(entry_forms.CHOICE_LABELS)  # -- entry forms (wave 5F) -- "a color other than blue"
@@ -4089,6 +4106,10 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
         return copying.entry_options(plan, ctx["controller"], what, ctx.get("source_card"))  # (wave 5F: the entering card)
     if what == "creature type":
         return [DecisionOption(id=t, label=t) for t in sorted(CREATURE_TYPES)]
+    if what == "number":  # -- chosen filters (wave 53B) -- 107.1b-c: any number, offered up to NUMBER_TOP; the instruction's own range narrows it (``options``)
+        from app.rules import chosen as _chosen
+
+        return [DecisionOption(id=str(n), label=str(n)) for n in range(_chosen.NUMBER_TOP + 1)]
     if what == "number between 1 and 10":  # (wave 49B) a number chosen as the permanent enters (614.12a)
         return [DecisionOption(id=str(n), label=str(n)) for n in range(1, 11)]
     if what.startswith("two abilities from among "):  # (wave 49B) every pair of the three (Greymond)
@@ -4164,11 +4185,13 @@ def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
     plan.note(f"{plan.name(d.player)} chooses {shown} ({e['what']})", actor=d.player)
     if e.get("as"):
         context.refs(ctx)[e["as"]] = {"kind": "choice", "what": e["what"], "value": value}
-    if not e.get("remember") and (e["what"] in ("creature type", "color", "odd or even") or card_names.is_choice(e["what"])):  # -- chosen type (wave 4J) --
+    if not e.get("remember") and (e["what"] in ("creature type", "color", "odd or even", "card type", "number") or card_names.is_choice(e["what"])):  # -- chosen type (wave 4J) -- (wave 53B: a card type)
         from app.rules import chosen as picked
 
         what = "card name" if card_names.is_choice(e["what"]) else e["what"]  # (wave 22B)
-        ctx["effects"] = ctx["effects"][: ctx["next"]] + picked.bind_effects(ctx["effects"][ctx["next"]:], what, value)
+        rest = ctx["effects"][ctx["next"]:]
+        cut = next((i for i, x in enumerate(rest) if x.get("do") == "choose_value" and x.get("what") == e["what"] and not x.get("remember")), len(rest))  # (wave 53B: down to the next choice of the same kind: a mode chosen twice, "Choose artifact or enchantment" in Season of Gathering, chooses twice)
+        ctx["effects"] = ctx["effects"][: ctx["next"]] + picked.bind_effects(rest[:cut], what, value) + rest[cut:]
     src = plan.state.cards.get(ctx.get("source_card") or "")
     if e.get("remember") and src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
         plan.do({"type": "set_choice", "card_id": src.id, "key": card_names.LABEL if card_names.is_choice(e["what"]) else CHOICE_LABELS[e["what"]], "value": shown}, actor=d.player)
