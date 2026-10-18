@@ -3409,9 +3409,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (per := _each_controller_creates(text)) is not None:  # -- "this way" outcomes (wave 4A) --
             effects += per
             continue
-        from app.rules import controller_each  # -- if you do (wave 52A) -- its controller draws / cloaks / investigates
+        from app.rules import controller_each, counters_removed  # -- if you do (wave 52A) -- its controller draws / cloaks / investigates; mana for the counters removed this way
 
-        if (per := controller_each.parse(text, _clause, _lower_first(texts[i - 1].rstrip(".")) if i else None)) is not None:
+        if (per := controller_each.parse(text, _clause, _lower_first(texts[i - 1].rstrip(".")) if i else None) or counters_removed.parse(text, effects)) is not None:
             effects += per
             continue
         if (swap := this_way.graveyard_swap(text)) is not None:  # -- if you do (wave 5G) -- Living Death
