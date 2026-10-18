@@ -273,6 +273,8 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         return {"combat_phase": "first"}
     if t in ("it's your main phase", "it is your main phase"):
         return {"main_phase": "yours"}
+    if t in ("it isn't your main phase", "it is not your main phase"):  # -- blight (wave 51E) -- Dose of Dawnglow: any other time, an opponent's main phase included
+        return {"not": {"main_phase": "yours"}}
     if t == "it's the first combat phase of your turn":  # -- trigger other (wave 44D) -- Tifa, Martial Artist: also this player's own turn (500.1)
         return {"combat_phase": "first_yours"}
     if t == "it's combat":  # -- trigger other (wave 44D) -- 506.1: "Whenever you cast a spell during combat" (Zuko): the combat phase, any of its steps
@@ -1772,6 +1774,8 @@ def _cast_how(t: str) -> Condition | None:
         return {"object": "self", "cast": {"kicked": True}}
     if t == "evidence was collected":  # -- casting costs (wave 22F) -- 701.59a: the spell's optional additional cost, announced as it was cast
         return {"object": "self", "cast": {"optional": "evidence"}}
+    if t in ("this spell's additional cost was paid", "its additional cost was paid"):  # -- blight (wave 51E) -- 701.68a: the one optional additional cost a spell prints
+        return {"object": "self", "cast": {"optional": "blight"}}
     if re.fullmatch(r"an? [a-z]+ was beheld", t):  # 701.4a: "If a Dragon was beheld" (the only behold cost on the spell)
         return {"object": "self", "cast": {"optional": "behold"}}
     if t in ("this spell was cast using teamwork", "it was cast using teamwork"):  # -- static_other sweep (wave 17C) -- 702.194b

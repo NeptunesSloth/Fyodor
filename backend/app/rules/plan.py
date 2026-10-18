@@ -99,9 +99,12 @@ class Plan:
         if payload.get("type") in ("move", "mill"):
             # Zone-change replacement effects (614): unearth's "exile it instead", "If ~ would die,
             # exile it instead", Rest in Peace-like statics, madness, 903.9b — app/rules/replacements.py
-            from app.rules.replacements import replace_move  # (replacements → plan for type hints only)
+            from app.rules.replacements import (
+                kept_counters,  # (-- counters (wave 51E) -- Skullbriar)
+                replace_move,  # (replacements → plan for type hints only)
+            )
 
-            payload = graveyard_order.unordered(self, replace_move(self, payload, actor))
+            payload = kept_counters(self, graveyard_order.unordered(self, replace_move(self, payload, actor)))
         if payload.get("type") in ("move", "mill", "put_top_face_down"):
             payload = {**payload, "keep_ids": True}  # (renumber_face_down)
         if payload.get("type") == "rules_sync" and self.renumber_face_down():

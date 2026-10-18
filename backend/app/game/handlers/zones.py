@@ -72,7 +72,8 @@ def move(state: GameState, a: A.Move) -> None:
                 x, y = a.x + i * 18, a.y + i * 18
         if c.zone.endswith(":command") and dest == STACK and c.commander_key:
             commander_casts.append(c)
-        ops.move_card(state, c, dest, index=index, position=a.position, x=x, y=y, face_down=a.face_down, rest=a.rest_zone)
+        ops.move_card(state, c, dest, index=index, position=a.position, x=x, y=y, face_down=a.face_down, rest=a.rest_zone,
+                      keep_counters=c.id in (a.keep_counters or ()))
         if dest == STACK and sources[c.id] != STACK and a.actor in state.players:
             c.controller = a.actor  # -- refused look/cast-free (wave 3R5) -- 601.2a: the player who casts a spell controls it
         if (a.tapped or c.id in tapped) and ops.zone_name(dest) == "battlefield" and c.id in state.cards:

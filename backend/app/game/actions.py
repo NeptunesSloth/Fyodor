@@ -97,6 +97,8 @@ class Move(Base):
     # -- merged permanents (wave 18D) -- 903.9c: a merged or melded commander put into the command zone instead of its owner's hand or
     # library: the zone ("hand" / "library") every card of it that isn't a commander goes to
     rest_zone: Literal["hand", "library"] | None = None
+    # -- counters (wave 51E) -- the cards among them whose counters stay on as they move (Skullbriar: server-built by the rules engine, 122.2)
+    keep_counters: list[Id] | None = Field(default=None, max_length=250)
     r: MoveData | None = None
     keep_ids: bool = False  # server-built: the rules engine renumbers the face-down cards when its intent is complete (Renumber)
 

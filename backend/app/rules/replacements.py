@@ -1199,6 +1199,16 @@ def _commander_instead(plan: Plan, card: CardInstance, dest: str) -> bool | None
     return True if answer == "yes" else False if answer == "no" else None
 
 
+def kept_counters(plan: Plan, payload: dict[str, Any]) -> dict[str, Any]:
+    """-- counters (wave 51E) -- "Counters remain on ~ as it moves to any zone other than a player's hand or library." (Skullbriar, Me the Immortal): its ability
+    works in the zone it moves from (the rulings: not with it lost there, Yixlid Jailer), and the counters aren't put on it again (122.6: no doubling, no trigger)."""
+    if payload.get("type") != "move" or (payload.get("to") or {}).get("zone") in ("hand", "library"):
+        return payload
+    keep = [cid for cid in payload.get("card_ids") or [] if (c := plan.state.cards.get(cid)) is not None and c.counters
+            and any(d.get("static") == "keep_counters" for d in _definitions(plan, c).values())]
+    return {**payload, "keep_counters": keep} if keep else payload
+
+
 def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict[str, Any]:
     """Apply the zone-change replacements to a ``move`` (or ``mill``) step before it happens. Cards
     whose move is replaced are moved separately to where the replacement says; the rest move as
