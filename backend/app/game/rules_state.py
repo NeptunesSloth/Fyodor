@@ -1208,6 +1208,9 @@ class RulesState(BaseModel):
     draws_turn: int = 0
     # Aura spells on the stack -> what they target (303.4a); they enter attached to it (303.4f).
     aura_targets: dict[str, TargetRef] = Field(default_factory=dict)
+    # -- reanimation Auras (wave 51F) -- Aura object id -> the objects it is tied to: the creature card in a graveyard it enchants (303.4a: not a permanent, so not
+    # ``attached_to``), then the creature it put onto the battlefield (Animate Dead, Dance of the Dead, Necromancy; app/rules/reanimate_auras.py)
+    aura_links: dict[str, list[str]] = Field(default_factory=dict)
     # Battles on the battlefield (object id) -> their protector (310.9; app/rules/battles.py).
     protectors: dict[str, str] = Field(default_factory=dict)
     # -- chosen player (wave 4J) -- "As ~ enters, choose an opponent / a player": object id -> the chosen player's id

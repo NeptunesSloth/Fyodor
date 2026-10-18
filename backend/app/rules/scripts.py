@@ -4722,6 +4722,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     )
 
     text = self_text(merged.protect(ability.text), ch.name)
+    from app.rules import reanimate_auras  # -- reanimation Auras (wave 51F) -- Animate Dead, Dance of the Dead, Necromancy: the whole enters trigger
+
+    if (reanimating := reanimate_auras.define(text, ch)) is not None:
+        return reanimating
     # -- token copies (wave 31C) -- a plural name's own "they" / "them" (The Notary Hobbits: "When ~ enter, if they're not a token, create two tokens that are copies of them")
     text = re.sub(r"^(When ~ enter, if )they're( not a token, create [^.]+? cop(?:y|ies) of )them\b", r"\1it's\2it", text)
     # -- counters (wave 41A) -- a plural name's own "them" after its own event ("Whenever Tui and La become untapped, put a +1/+1 counter on them."): the one object
