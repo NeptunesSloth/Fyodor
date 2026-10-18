@@ -3748,10 +3748,13 @@ def _labels(plan: Plan, cards: list[str]) -> str:
     return ", ".join(plan.state.cards[c].name or "a card" for c in cards if c in plan.state.cards)
 
 
-def _controlled(plan: Plan, key: str, pid: str, source: str | None, you: str | None = None) -> list[str]:
+def _controlled(plan: Plan, key: str, pid: str, source: str | None, you: str | None = None, zone: str | None = None) -> list[str]:
     """The permanents ``pid`` controls that match a selector, evaluated for that player (``you``: -- trigger other (wave 39A) -- or for the ability's
-    controller, whose "you" a qualifier like "that dealt combat damage to you this turn" is)."""
+    controller, whose "you" a qualifier like "that dealt combat damage to you this turn" is). ``zone``: -- player-relative selectors (wave 53A) -- the cards
+    ``pid`` owns in that public zone instead ("choose a creature card in that player's graveyard", 404.1)."""
     sel = selectors.from_key(key)
+    if zone is not None:
+        return [c for c in selectors.candidates(plan, sel, you or pid, source) if plan.state.cards[c].owner == pid and plan.state.cards[c].zone == f"{pid}:{zone}"]
     return [c for c in selectors.candidates(plan, sel, you or pid, source)
             if plan.state.cards[c].controller == pid and plan.state.cards[c].zone.endswith(":battlefield")]
 
@@ -3771,7 +3774,7 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
         # -- per-player choices (wave 30K) -- a turn is a player and the kind of permanent chosen (an old save: just the player); "you choose …
         # for each player" (Tragic Arrogance): the ability's controller decides what each player's permanents are
         pid, key = (turn, e["sel"]) if isinstance(turn, str) else turn
-        mine = _controlled(plan, key, pid, ctx.get("source_card"), ctx["controller"] if "dealt_combat_damage_you" in key else None)
+        mine = _controlled(plan, key, pid, ctx.get("source_card"), ctx["controller"] if "dealt_combat_damage_you" in key else None, e.get("zone"))
         if e.get("any"):  # -- per-player choices (wave 31B) -- any permanent the ability's words allow ("a creature you don't control"), whoever controls it
             mine = [c for c in selectors.candidates(plan, selectors.from_key(key), ctx["controller"], ctx.get("source_card"))
                     if plan.state.cards[c].zone.endswith(":battlefield")]

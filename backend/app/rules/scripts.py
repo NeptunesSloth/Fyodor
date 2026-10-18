@@ -8869,6 +8869,10 @@ EFFECTS[:0] = _graveyard_exile.TEMPLATES  # "Exile target player's graveyard." (
 from app.rules import player_zones as _player_zones  # noqa: E402, I001  -- player-relative selectors (wave 53A) --
 
 EFFECTS[:0] = _player_zones.TEMPLATES  # "Exile all cards from target player's hand and graveyard." (app/rules/player_zones.py)
+from app.rules import player_choices as _player_choices  # noqa: E402, I001  -- player-relative selectors (wave 53A) --
+
+EFFECTS[:0] = _player_choices.TEMPLATES  # "For each player, choose a creature card in that player's graveyard." (app/rules/player_choices.py)
+EFFECTS.extend(_player_choices.LATE)
 from app.rules import tap_mana as _tap_mana  # noqa: E402, I001  -- mana riders (wave 5A) --
 
 EFFECTS[:0] = _tap_mana.TEMPLATES  # "Until end of turn, whenever a player taps an Island for mana, …" (High Tide)

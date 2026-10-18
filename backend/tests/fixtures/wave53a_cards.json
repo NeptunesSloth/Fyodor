@@ -141,26 +141,6 @@
   "toughness": "3"
  },
  {
-  "name": "Serra Angel",
-  "layout": "normal",
-  "mana_cost": "{3}{W}{W}",
-  "cmc": 5.0,
-  "type_line": "Creature — Angel",
-  "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
-  "colors": [
-   "W"
-  ],
-  "color_identity": [
-   "W"
-  ],
-  "keywords": [
-   "Flying",
-   "Vigilance"
-  ],
-  "power": "4",
-  "toughness": "4"
- },
- {
   "name": "Goblin Piker",
   "layout": "normal",
   "mana_cost": "{1}{R}",
@@ -495,6 +475,155 @@
   "cmc": 3.0,
   "type_line": "Sorcery",
   "oracle_text": "Target opponent reveals their hand. You choose a nonland card from it. That player discards that card. Destroy up to one target Attraction that player controls. (It's put into their junkyard.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Breach the Multiverse",
+  "layout": "normal",
+  "mana_cost": "{5}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player mills ten cards. For each player, choose a creature or planeswalker card in that player's graveyard. Put those cards onto the battlefield under your control. Then each creature you control becomes a Phyrexian in addition to its other types.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Mill"
+  ]
+ },
+ {
+  "name": "Exhume",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each player puts a creature card from their graveyard onto the battlefield.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Crypt Champion",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Zombie",
+  "oracle_text": "Double strike\nWhen this creature enters, each player puts a creature card with mana value 3 or less from their graveyard onto the battlefield.\nWhen this creature enters, sacrifice it unless {R} was spent to cast it.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Double strike"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Fall of the Thran",
+  "layout": "saga",
+  "mana_cost": "{5}{W}",
+  "cmc": 6.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Destroy all lands.\nII, III — Each player returns two land cards from their graveyard to the battlefield.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Dredge the Mire",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Each opponent chooses a creature card in their graveyard. Put those cards onto the battlefield under your control.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Scrounge",
+  "layout": "normal",
+  "mana_cost": "{2}{B}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target opponent chooses an artifact card in their graveyard. Put that card onto the battlefield under your control.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Enslaved Horror",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Creature — Horror",
+  "oracle_text": "When this creature enters, each other player may return a creature card from their graveyard to the battlefield.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Serra Angel",
+  "layout": "normal",
+  "mana_cost": "{3}{W}{W}",
+  "cmc": 5.0,
+  "type_line": "Creature — Angel",
+  "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Vigilance"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Murder",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Destroy target creature.",
   "colors": [
    "B"
   ],
