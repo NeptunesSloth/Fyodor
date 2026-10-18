@@ -36,6 +36,15 @@ Stand or Fall stays unsupported: its "each defending player" at the beginning of
   chooser of a pile sees a face-down pile only as a number of cards (it is never named in a decision or the log); a face-down pile put into a graveyard is face
   up there. The groups of such piles are made, not separated (``src`` "made"): ``pile_deal`` only chooses.
 
+* More piles (wave 53D): "Exile the top five cards of your library. An opponent separates those cards into two piles. You may play lands and cast spells from one of those piles." (Brilliant
+  Ultimatum: the chosen pile is bound by the ``bind`` step for the free play), "target opponent looks at the top ten cards of your library and separates them into two face-down piles.
+  Exile one of those piles. Search the other pile for a card, put it into your hand, then shuffle the rest of that pile into your library." (Phyrexian Portal: ``src`` "top", ``look``
+  shows them to the separator alone, 701.20e; ``split`` "target"; the search is ``search_hand``: the controller sees the other pile only then), "exile it and the top six cards of
+  your library in a face-down pile … shuffle that pile and put it back on top" (Triumph of Saint Katherine: ``pile_shuffle_back``) and "search your library for seven cards, exile
+  them in a face-down pile, and shuffle that pile" (Parallel Thoughts, Mangara's Tome: ``pile_shuffle``, whose top card ``pile_top_hand`` replaces a draw). A face-down pile is shuffled
+  with the table's shuffle of a pile (the cards get new ids, 406.3: nobody can follow or look at one), and cards moved face down from the library are blind (not even their owner
+  has seen them).
+
 State (``ctx["pile"]``, in the resolution context of the pending decision: saved, replayed; old saves have none): ``groups`` ({"owner", "cards", "piles",
 "pick", "down"}), ``stage`` / ``g`` (where it is), ``opponent`` (the one named), ``steps`` (what is left to do); ``ctx["pile_set"]``: the exiled piles
 made so far, by name ({"cards", "down"}).
@@ -631,6 +640,7 @@ def pile_shuffle(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     table shuffle that re-keys them (406.3: nobody, the searcher included, can tell which is which or look at them), and the linked record keeps them in their new order."""
     from app.rules import context, exiled_with
 
+    note_grouping(plan, ctx)  # (cards exiled "in a face-down pile": a pile-making ability for The Celestial Toymaker, as pile_exile's)
     cards = [c for c in context.objects(plan, ctx, e["who"][len(context.PREFIX):]) if plan.state.cards[c].zone.endswith(":exile") and plan.state.cards[c].face_down]
     shuffled: list[str] = []
     for key in dict.fromkeys(plan.state.cards[c].zone for c in cards):

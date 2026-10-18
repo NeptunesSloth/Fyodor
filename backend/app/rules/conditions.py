@@ -1434,6 +1434,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import group_choice
 
         return group_choice.holds(plan, ctx, cond)
+    if "secret" in cond:  # -- group choices (wave 53D) -- the choice its source made in secret as it entered
+        from app.rules import group_choice
+
+        return group_choice.secret_holds(plan, ctx, cond)
     if "vote" in cond:  # -- voting (wave 18C) -- this resolution's own vote (app/rules/voting.py)
         from app.rules import voting
 

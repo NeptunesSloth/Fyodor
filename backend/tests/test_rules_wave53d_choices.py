@@ -1085,3 +1085,109 @@ def test_foreboding_steamboat_each_player_exiles_two_creatures_and_attacking_put
     resolve(s)
     assert names_on(s, "p2", "graveyard") == ["Soul Warden"] and any(c.name == "Clue" for c in s.state.cards.values() if c.zone == "p1:battlefield")  # and she investigates
     check(s)
+
+
+# -- a secret choice a permanent keeps, shown by a cost (wave 53D; 701.20a, 400.7) ---------------------------------------------------
+LEONIN, KILLER = "Stalking Leonin", "A Killer Among Us"
+
+
+@pytest.mark.parametrize("name", [LEONIN, KILLER])
+def test_the_secret_choice_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+def leonin_table(cards, choose):
+    """Alice casts Stalking Leonin and secretly chooses ``choose``; Bob has Grizzly Bears (and attacks Alice with them on his turn)."""
+    s = table(cards, [LEONIN], ["Grizzly Bears"])
+    bears = put(s, "Grizzly Bears", "p2")
+    if choose is None:
+        put(s, LEONIN)  # (it did not enter by being cast: no enters trigger, no choice)
+    else:
+        cast(s, LEONIN, W=1, C=2)
+        resolve(s)
+        d = s.state.rules.decision
+        assert d.player == "p1" and {o.label for o in d.options} == {"Bob", "Carol"} and "secretly" in d.prompt
+        pick(s, "p1", choose)
+        resolve(s)
+    for viewer, seen in seen_by_others(s, "p1"):  # nothing tells who she chose
+        assert "secret_choices" not in seen and "chose" not in json.dumps(s.view(viewer)["log"]) and "chooses" not in json.dumps(s.view(viewer)["log"]), viewer
+    act(s, "p1", type="set_prefs", response="on")
+    until(s, lambda s: s.state.turn.number == 2 and s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers", limit=300)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p1"}])
+    for _ in range(6):
+        if s.state.rules.priority == "p1":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.rules.priority == "p1" and s.state.turn.active_player == "p2"
+    return s, bears, card_named(s, LEONIN)
+
+
+def test_stalking_leonin_exiles_the_attacker_when_it_is_controlled_by_the_player_chosen_in_secret(cards):
+    s, bears, leonin = leonin_table(cards, "Bob")
+    mana(s, "p1")
+    act(s, "p1", type="activate_ability", card_id=leonin.id, ability=1, targets=[bears.id])  # Reveal the player you chose: Exile target creature that's attacking you …
+    assert "Alice reveals the player they chose for Stalking Leonin: Bob" in log(s, "p3")  # shown to everyone as the cost is paid
+    resolve(s)
+    assert s.state.cards[bears.id].zone == "p2:exile"
+    with pytest.raises(Exception, match="once"):
+        act(s, "p1", type="activate_ability", card_id=leonin.id, ability=1, targets=[bears.id])  # Activate only once
+    check(s)
+
+
+def test_stalking_leonin_does_nothing_to_an_attacker_of_a_player_who_was_not_chosen(cards):
+    s, bears, leonin = leonin_table(cards, "Carol")
+    mana(s, "p1")
+    act(s, "p1", type="activate_ability", card_id=leonin.id, ability=1, targets=[bears.id])
+    resolve(s)
+    assert s.state.cards[bears.id].zone == "p2:battlefield"  # Bob was not the player she chose: nothing happens, and the ability is used up
+    with pytest.raises(Exception, match="once"):
+        act(s, "p1", type="activate_ability", card_id=leonin.id, ability=1, targets=[bears.id])
+    check(s)
+
+
+def test_stalking_leonin_cannot_reveal_a_player_it_never_chose(cards):
+    s, bears, leonin = leonin_table(cards, None)
+    mana(s, "p1")
+    with pytest.raises(Exception, match="didn't choose"):
+        act(s, "p1", type="activate_ability", card_id=leonin.id, ability=1, targets=[bears.id])
+
+
+def killer_table(cards, choose):
+    """Alice casts A Killer Among Us (three 1/1 tokens), secretly chooses a creature type; Bob attacks her with a Human token."""
+    s = table(cards, [KILLER], players=2)
+    cast(s, KILLER, G=1, C=4)
+    resolve(s)
+    assert sorted(c.name for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.token is not None) == ["Goblin", "Human", "Merfolk"]
+    d = s.state.rules.decision
+    assert d.player == "p1" and [o.label for o in d.options] == ["Human", "Merfolk", "Goblin"] and "secretly" in d.prompt
+    pick(s, "p1", choose)
+    resolve(s)
+    for viewer, seen in seen_by_others(s, "p1"):
+        assert "secret_choices" not in seen and "chose" not in json.dumps(s.view(viewer)["log"]), viewer
+    attacker = creature(s, "p2", "Bob Human", "2/2", "Token Creature — Human")
+    act(s, "p1", type="set_prefs", response="on")
+    until(s, lambda s: s.state.turn.number == 2 and s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers", limit=300)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": attacker.id, "target": "p1"}])
+    for _ in range(6):
+        if s.state.rules.priority == "p1":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.rules.priority == "p1"
+    return s, attacker, card_named(s, KILLER)
+
+
+def test_a_killer_among_us_gives_the_attacking_token_counters_and_deathtouch_when_it_is_the_type_chosen_in_secret(cards):
+    s, attacker, killer = killer_table(cards, "Human")
+    act(s, "p1", type="activate_ability", card_id=killer.id, ability=1, targets=[attacker.id])  # Sacrifice this enchantment, Reveal the creature type you chose
+    assert "reveals the creature type they chose for A Killer Among Us: Human" in log(s, "p2") and s.state.cards[killer.id].zone == "p1:graveyard"
+    resolve(s)
+    assert s.state.cards[attacker.id].counters.get("+1/+1") == 3  # a Human, the type she chose
+    check(s)
+
+
+def test_a_killer_among_us_does_nothing_for_a_token_of_another_type_but_it_is_sacrificed(cards):
+    s, attacker, killer = killer_table(cards, "Goblin")
+    act(s, "p1", type="activate_ability", card_id=killer.id, ability=1, targets=[attacker.id])
+    resolve(s)
+    assert s.state.cards[killer.id].zone == "p1:graveyard" and not s.state.cards[attacker.id].counters.get("+1/+1")
+    check(s)

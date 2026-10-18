@@ -43,6 +43,10 @@ _DISCARD = re.compile(rf"^Discard {_N} (?P<what>(?:[\w\-]+ )*cards?)(?P<random> 
 _DISCARD_SELF = re.compile(r"^Discard (?:this card|~)$")  # -- ability words (wave 4F) -- channel (113.6m)
 _REVEAL_SELF = re.compile(r"^Reveal (?:this (?:card|creature)|~) from your hand$")  # -- forecast (wave 24C) -- 702.57a (113.6m: from the hand)
 REVEAL_SELF = "REVEAL_SELF"
+# -- group choices (wave 53D) -- "Reveal the player you chose" (Stalking Leonin), "Reveal the creature type you chose" (A Killer Among Us): the secret choice its controller made as it entered
+# is shown as the cost is paid (cost_payment); without one (it came under your control, or a copy of it) the cost can't be paid
+_REVEAL_SECRET = re.compile(r"^Reveal the (?:player|creature type) you chose$")
+REVEAL_SECRET = "REVEAL_SECRET"
 _EXILE_SELF_GY = re.compile(rf"^Exile {_SELF} from your graveyard$")
 _EXILE_SELF_HAND = re.compile(r"^Exile (?:this card|~) from your hand$")  # -- as long as (wave 37A) -- "{2}, Exile this card from your hand: …" (113.6m: works only from the hand)
 _EXILE_SELF = re.compile(rf"^Exile {_SELF}$")
@@ -85,7 +89,7 @@ WATERBEND = "WATERBEND"
 CRAFT = "CRAFT"
 # -- granted from object (wave 18F) -- "Unattach Heartseeker" (701.3d): the granting Equipment (selectors.GRANTER), moved away from its creature
 UNATTACH = "UNATTACH"
-WAVE_4H_KINDS = frozenset({PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT, COLLECT_EVIDENCE, FORAGE, WATERBEND, CRAFT, UNATTACH})
+WAVE_4H_KINDS = frozenset({PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT, COLLECT_EVIDENCE, FORAGE, WATERBEND, CRAFT, UNATTACH, REVEAL_SECRET})
 ANY_COUNTER = "*"
 
 
@@ -272,6 +276,8 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         return CostComponent("EXILE_FROM_HAND", text=part)
     if _DISCARD_SELF.match(part):  # -- ability words (wave 4F) -- "Discard this card" (701.9a; 113.6m: from the hand)
         return CostComponent(DISCARD, text=part)
+    if _REVEAL_SECRET.match(part):  # -- group choices (wave 53D) --
+        return CostComponent(REVEAL_SECRET, text=part)
     if _REVEAL_SELF.match(part):  # -- forecast (wave 24C) -- revealed to everyone (701.20a), the card stays in the hand
         return CostComponent(REVEAL_SELF, text=part)
     if _EXILE_SELF.match(part):

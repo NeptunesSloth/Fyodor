@@ -31,6 +31,11 @@ State (``ctx["gc"][name]``, in the resolution context of the pending decision: s
 * An auction (``gc_auction``: Thieves' Auction): starting with the controller, in turn order, each player chooses one of the cards exiled by the earlier
   instruction and puts it onto the battlefield tapped under their control, round after round until all are chosen. The choices are public; a card that can't legally
   enter (an Aura with nothing to enchant) can't be picked, stays exiled and may be picked by a later player; the process ends when a whole round picks nothing.
+* A secret choice a permanent keeps (``gc_secret``: "When this creature enters, secretly choose an opponent." Stalking Leonin; "Then secretly choose Human, Merfolk, or Goblin."
+  A Killer Among Us): a private decision of its controller, stored by rules object in ``RulesState.secret_choices`` as [chooser, value] and never shown (nothing is logged, the
+  views have no such field) until the cost "Reveal the player / creature type you chose" is paid (costs.REVEAL_SECRET: it needs the choice of the player activating, so a creature you
+  took, or became a copy of it, can't pay it; a permanent that left and returned is a new object with none, 400.7). The ability's effect then asks ``secret`` conditions
+  ("if it's controlled by the chosen player", "if target attacking creature token is the chosen type").
 * A guessed secret number (``gc_guess``: The Toymaker's Trap): the controller secretly chooses a number from a list minus the numbers this object has
   chosen before (``RulesState.chosen_numbers``, by rules object: a new object, or a second copy, has no memory: ruling 2023-10-13), "an opponent" (chosen as
   the ability resolves, 608.2d) guesses in public, then the number is revealed and recorded. The guess is right or wrong; the wrong and right instructions are
@@ -584,6 +589,52 @@ def lose_mana(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+# -- secret choices a permanent keeps (wave 53D) --
+def secret(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Secretly choose an opponent" / "secretly choose Human, Merfolk, or Goblin": its controller's private choice (a single opponent is the choice already)."""
+    from app.rules.plan import decide
+
+    me = ctx["controller"]
+    if e["what"] == "opponent":
+        values = [p for p in plan.live() if p != me]
+        options = [DecisionOption(id=p, label=plan.name(p)) for p in values]
+    else:
+        values = [w for w in e["opts"]]
+        options = [DecisionOption(id=w, label=w) for w in values]
+    if not values or me not in plan.live():
+        return True
+    if len(values) == 1:
+        _keep_secret(plan, ctx, me, values[0])
+        return True
+    decide(plan, player=me, kind="choose_one", prompt=f"{ctx.get('name') or 'Choose'}: secretly choose {'an opponent' if e['what'] == 'opponent' else ', '.join(values)}",
+           options=options, resume={"step": "gc_secret", "ctx": ctx, "e": e, "rest": [], "picked": []})
+    return False
+
+
+def _keep_secret(plan: Plan, ctx: Context, pid: str, value: str) -> None:
+    plan.rules.secret_choices = {k: v for k, v in plan.rules.secret_choices.items() if k.rsplit(".", 1)[0] in plan.state.cards and plan.oid(k.rsplit(".", 1)[0]) == k}
+    plan.rules.secret_choices[str(ctx.get("source_object") or "")] = [pid, value]
+
+
+def resume_secret(plan: Plan, d: Decision, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    if chosen:  # (none: the chooser left the game, 800.4)
+        _keep_secret(plan, d.resume["ctx"], d.player, chosen[0])  # type: ignore[index]
+    continue_effects(plan, d.resume["ctx"])  # type: ignore[index]
+
+
+def secret_holds(plan: Plan, ctx: Context, cond: dict[str, Any]) -> bool:
+    """``{"secret": {"is": "controller" | "type"}}``: the first target (a permanent) is controlled by the player the source's controller secretly chose / has the
+    creature type they chose. Without a choice (or by a player who isn't the controller now) nothing matches."""
+    c = cond["secret"]
+    entry = plan.rules.secret_choices.get(str(ctx.get("source_object") or ""))
+    target = next((plan.state.cards[t["id"]] for t in (ctx.get("targets") or []) if t["id"] in plan.state.cards), None)
+    if not entry or target is None or entry[0] != ctx["controller"]:
+        return False
+    return str(target.controller) == entry[1] if c["is"] == "controller" else entry[1] in plan.ch(target).subtypes
+
+
 # -- auctions (wave 53D) --
 def auction(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Starting with you, each player chooses one of the exiled cards and puts it onto the battlefield tapped under their control. Repeat this process until all cards
@@ -672,8 +723,8 @@ def exile_linked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 PRIMITIVES = {"gc_choose": choose, "gc_each": each, "gc_extremes": extremes, "gc_bid": bid, "gc_exile_linked": exile_linked, "gc_sweep": sweep,
               "gc_keep_hand": keep_hand, "gc_typed_return": typed_return, "gc_reveal_names": reveal_names, "gc_lowest_creature": lowest_creature,
-              "gc_succession": succession, "gc_lose_mana": lose_mana, "gc_guess": guess, "gc_auction": auction}
-RESUME = {"gc_choose": resume, "gc_bid": resume_bid, "gc_keep": resume_keep, "gc_return": resume_return, "gc_succession": resume_succession, "gc_auction": resume_auction}
+              "gc_succession": succession, "gc_lose_mana": lose_mana, "gc_guess": guess, "gc_auction": auction, "gc_secret": secret}
+RESUME = {"gc_choose": resume, "gc_bid": resume_bid, "gc_keep": resume_keep, "gc_return": resume_return, "gc_succession": resume_succession, "gc_auction": resume_auction, "gc_secret": resume_secret}
 
 
 # -- reading the wording ----------------------------------------------------------------------------------------
@@ -695,8 +746,11 @@ def bind(body: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, An
         from app.rules import pile_groups
 
         return pile_groups.bind(body, parse, split_sentences)
-    if " exiled with " in body:  # -- exiled with (wave 53D) -- 607.2a: "Put a card exiled with it into its owner's graveyard. If you do, investigate." (Foreboding Steamboat)
-        return _linked_graveyard(body.strip(), parse, split_sentences)
+    if ("secretly choose" in body or "chosen player" in body or "is the chosen type" in body) \
+            and (found := _secret_ability(body.strip(), parse, split_sentences)) is not None:  # -- secret choices a permanent keeps (wave 53D) --
+        return found
+    if " exiled with " in body and (found := _linked_graveyard(body.strip(), parse, split_sentences)) is not None:  # -- exiled with (wave 53D) -- 607.2a: "Put a card exiled with it into its owner's graveyard. If you do, investigate." (Foreboding Steamboat)
+        return found
     if _GATE.search(body) is None:
         return None
     text = body.strip()
@@ -1056,3 +1110,25 @@ def _linked_graveyard(text: str, parse: Any, split_sentences: Any) -> tuple[list
             or put[0][0].get("to") != "graveyard" or (clue := parse("Investigate.")) is None or len(clue[0]) != 1:
         return None
     return [{**put[0][0], "did": "rd"}, {"do": "only_if", "cond": {"succeeded": "rd"}, "skip": 1}, clue[0][0]], None, False
+
+
+_LEONIN_USE = "Exile target creature that's attacking you if it's controlled by the chosen player."
+_KILLER_TOKENS = "Create a 1/1 white Human creature token, a 1/1 blue Merfolk creature token, and a 1/1 red Goblin creature token."
+_KILLER_USE = "If target attacking creature token is the chosen type, put three +1/+1 counters on it and it gains deathtouch until end of turn."
+
+
+def _secret_ability(text: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """Stalking Leonin ("secretly choose an opponent"; the reveal ability exiles the attacker if its controller is the chosen player) and A Killer Among Us (three tokens, then
+    "secretly choose Human, Merfolk, or Goblin"; the reveal ability gives a token of the chosen type three counters and deathtouch)."""
+    sentences = split_sentences(text)
+    if sentences:
+        sentences[0] = sentences[0][:1].upper() + sentences[0][1:]  # (a trigger's body)
+    if sentences == ["Secretly choose an opponent."]:
+        return [{"do": "gc_secret", "what": "opponent"}], None, False
+    if sentences == [_KILLER_TOKENS, "Then secretly choose Human, Merfolk, or Goblin."] and (tokens := parse(_KILLER_TOKENS)) is not None:
+        return [*tokens[0], {"do": "gc_secret", "what": "word", "opts": ["Human", "Merfolk", "Goblin"]}], tokens[1], False
+    if sentences == [_LEONIN_USE] and (found := parse("Exile target creature that's attacking you.")) is not None and len(found[0]) == 1:
+        return [{"do": "only_if", "cond": {"secret": {"is": "controller"}}, "skip": 1}, found[0][0]], found[1], False
+    if sentences == [_KILLER_USE] and (found := parse("Put three +1/+1 counters on target attacking creature token. It gains deathtouch until end of turn.")) is not None:
+        return [{"do": "only_if", "cond": {"secret": {"is": "type"}}, "skip": len(found[0])}, *found[0]], found[1], False
+    return None

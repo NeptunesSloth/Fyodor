@@ -447,6 +447,7 @@ def test_triumph_of_saint_katherine_exiles_itself_and_the_top_six_face_down_and_
     below = list(s.state.zones["p1:library"][6:])
     kill(s, tri)
     resolve(s)
+    assert s.state.rules.grouped
     top7 = s.state.zones["p1:library"][:7]
     assert sorted(s.state.cards[c].name for c in top7) == sorted([TRIUMPH, *SIX])  # the pile is on top of the library again...
     assert s.state.zones["p1:library"][7:] == below  # ...and nothing under it moved
@@ -553,7 +554,7 @@ def assert_unseen(s, names, zone="p1:exile"):
 def test_parallel_thoughts_exiles_the_searched_cards_in_a_pile_nobody_can_see_and_its_top_card_replaces_a_draw(cards):
     s = table(cards, [THOUGHTS, *SEVEN], players=2)
     search_pile(s, THOUGHTS, SEVEN, U=2, C=3)
-    assert s.state.rules.decision is None
+    assert s.state.rules.decision is None and s.state.rules.grouped  # (an ability that grouped cards into a pile: the Celestial Toymaker counts it)
     assert_unseen(s, SEVEN)
     lib, hand = len(s.state.zones["p1:library"]), len(s.state.zones["p1:hand"])
     until(s, lambda s: s.state.rules.decision is not None, limit=300)
