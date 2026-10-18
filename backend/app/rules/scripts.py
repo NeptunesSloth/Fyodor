@@ -2606,7 +2606,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     if re.search(r"until you reveal (?:two|three|four|five|six|seven|X) ", body):  # -- look top (wave 51C) -- "Put those land cards onto the battlefield tapped …" after a counted reveal-until: every revealed card of that kind
         body = re.sub(r"\bPut those ([a-z]+ cards) (onto|into) ", r"Put all \1 revealed this way \2 ", body)
     if event_player:  # -- trigger other (wave 51C) -- "each other player" in a trigger about a player is every player but that one
-        body = re.sub(r"\b([Ee]ach) other player\b", r"\1 player other than that player", body)
+        body = re.sub(r"(?<!than )\b([Ee]ach) other player\b(?! sacrifices)", r"\1 player other than that player", body)  # (not "than each other player", a comparison of conditions._MOST: Battle Angels of Tyr; nor the edict, EDICT_OTHERS: Savra)
     if it in ("event", "event_gone"):  # -- either with two actions (wave 51C) -- "you may put that card from a graveyard onto the battlefield under your control" (Tergrid): the trigger's card, which moves only while it is in a graveyard (400.7)
         body = re.sub(r"(?i)\bput (that card|it) from a graveyard onto the battlefield\b", r"put \1 onto the battlefield", body)
     body = _split_tails(body, event_player)  # -- activated other (wave 34B) --
