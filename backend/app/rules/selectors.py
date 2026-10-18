@@ -1564,6 +1564,7 @@ def _parse(phrase: str) -> Selector | None:
                     break
     except ValueError:
         return None
+    text = re.sub(r"^((?:[A-Za-z]+ )?[A-Za-z]+) card or (?:an? )?([A-Za-z]+ card)$", r"\1 or \2", text.strip())  # -- if you do (wave 51D) -- "an artifact creature card or Vehicle card" (Szarekh): the same cards as "artifact creature or Vehicle card" (a supertype in front, "legendary or …", stays unread)
     if any(isinstance(c[2], str) and c[2].startswith((SOURCE_STAT, EVENT_STAT)) for c in s.compare) and (
             (s.zones != ("graveyard",) or not s.card) and (s.zones != ("battlefield",) or s.card)):
         return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source; -- keywords
