@@ -1,0 +1,13 @@
+# Resolved and static linked-play grants
+
+Canonical five: Raphael, Most Attitude; Kayla's Music Box; Muse Vessel; Null Summoner; Rogue Class. Their existing exiling abilities feed exact source-incarnation pools under CR 607.2a. Borrowed scopes remain independent.
+
+Raphael and Kayla's temporary permissions bind the eligible pool when the ability resolves, then use native stored play grants. A later-exiled card does not join an earlier grant. A resolved grant survives the source's departure or control change. Kayla restricts the frozen pool to cards owned by the ability's controller. Raphael permits a single total land play or spell cast across its entire pool; native shared permission groups charge a completed action, preserving normal costs, timing, and land allowances.
+
+Muse Vessel chooses one linked card on resolution without targeting it, using the native return-choice continuation with a choose-only destination. Its exact chosen-object permission survives source removal; the choice can be saved and resumed in a new process. An object that leaves exile and returns cannot use the old permission.
+
+Null Summoner's threshold permission is static. Its current controller's graveyard and live source ability are checked when casting is attempted. Its mana-of-any-type rider uses the native spending rule. Removing the source, losing the ability, or dropping below seven cards ends current casting authority without creating an enduring resolved grant.
+
+Rogue Class's level-three permission is also static and follows its actual current controller and Class level. Its face-down look authority comes from the resolved combat trigger, and remains with the player that trigger authorized. A distinct `linked_face_down` play flag permits the native cast from that linked face-down pool without invoking the static `linked_look` refresh used by cards that explicitly authorize looking now. CR 406.3a turns a card face up as playing it starts; permission to play does not itself grant a continuing right to examine it beforehand. The existing private views remain redacted for an unauthorized new controller. Official Scryfall rulings confirm separate linked pools and native class-level behavior; fetched research is /tmp/fyodor-rogue-class31-rulings.json.
+
+Actual gameplay tests use each canonical card's native exile and permission abilities, native mana payment/casts and Class levels, privacy views, ownership/control changes, shared land/spell limits, source removal, threshold removal/recovery, saved choice replay and fresh-process resume. Maralen, Fae Ascendant's dynamic mana-value/this-turn restriction remains outside this bounded group.

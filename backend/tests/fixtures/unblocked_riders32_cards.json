@@ -1,0 +1,456 @@
+[
+  {
+    "name": "Delif's Cone",
+    "oracle_text": "{T}, Sacrifice this artifact: This turn, when target creature you control attacks and isn't blocked, you may gain life equal to its power. If you do, it assigns no combat damage this turn.",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Delif's Cube",
+    "oracle_text": "{2}, {T}: This turn, when target creature you control attacks and isn't blocked, it assigns no combat damage this turn and you put a cube counter on this artifact.\n{2}, Remove a cube counter from this artifact: Regenerate target creature.",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Regenerate"
+    ]
+  },
+  {
+    "name": "Gaze of Pain",
+    "oracle_text": "Until end of turn, whenever a creature you control attacks and isn't blocked, you may choose to have it deal damage equal to its power to a target creature. If you do, it assigns no combat damage this turn.",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "layout": "normal",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Farrel's Mantle",
+    "oracle_text": "Enchant creature\nWhenever enchanted creature attacks and isn't blocked, its controller may have it deal damage equal to its power plus 2 to another target creature. If that player does, the attacking creature assigns no combat damage this turn.",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "layout": "normal",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Rysorian Badger",
+    "oracle_text": "Whenever this creature attacks and isn't blocked, you may exile up to two target creature cards from defending player's graveyard. If you do, you gain 1 life for each card exiled this way and this creature assigns no combat damage this turn.",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Badger",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Runeclaw Bear",
+    "oracle_text": "",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Memnite",
+    "oracle_text": "",
+    "mana_cost": "{0}",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Giant Growth",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "mana_cost": "{G}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Naturalize",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "mana_cost": "{1}{G}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cloudshift",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "mana_cost": "{W}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Confiscate",
+    "oracle_text": "Enchant permanent\nYou control enchanted permanent.",
+    "mana_cost": "{4}{U}{U}",
+    "type_line": "Enchantment \u2014 Aura",
+    "layout": "normal",
+    "cmc": 6.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Mountain",
+    "oracle_text": "({T}: Add {R}.)",
+    "mana_cost": "",
+    "type_line": "Basic Land \u2014 Mountain",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "mana_cost": "",
+    "type_line": "Basic Land \u2014 Forest",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "mana_cost": "",
+    "type_line": "Basic Land \u2014 Island",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Plains",
+    "oracle_text": "({T}: Add {W}.)",
+    "mana_cost": "",
+    "type_line": "Basic Land \u2014 Plains",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Yore-Tiller Nephilim",
+    "oracle_text": "Whenever this creature attacks, return target creature card from your graveyard to the battlefield tapped and attacking.",
+    "mana_cost": "{W}{U}{B}{R}",
+    "type_line": "Creature \u2014 Nephilim",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "B",
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Laccolith Rig",
+    "oracle_text": "Enchant creature\nWhenever enchanted creature becomes blocked, you may have it deal damage equal to its power to target creature. If you do, the first creature assigns no combat damage this turn.",
+    "mana_cost": "{R}",
+    "type_line": "Enchantment \u2014 Aura",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Act of Aggression",
+    "oracle_text": "({R/P} can be paid with either {R} or 2 life.)\nGain control of target creature an opponent controls until end of turn. Untap that creature. It gains haste until end of turn.",
+    "mana_cost": "{3}{R/P}{R/P}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Erebos, God of the Dead",
+    "oracle_text": "Indestructible\nAs long as your devotion to black is less than five, Erebos isn't a creature. (Each {B} in the mana costs of permanents you control counts toward your devotion to black.)\nYour opponents can't gain life.\n{1}{B}, Pay 2 life: Draw a card.",
+    "mana_cost": "{3}{B}",
+    "type_line": "Legendary Enchantment Creature \u2014 God",
+    "power": "5",
+    "toughness": "7",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Indestructible"
+    ]
+  },
+  {
+    "name": "Tainted Remedy",
+    "oracle_text": "If an opponent would gain life, that player loses that much life instead.",
+    "mana_cost": "{2}{B}",
+    "type_line": "Enchantment",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Swords to Plowshares",
+    "oracle_text": "Exile target creature. Its controller gains life equal to its power.",
+    "mana_cost": "{W}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Baneslayer Angel",
+    "oracle_text": "Flying, first strike, lifelink, protection from Demons and from Dragons",
+    "mana_cost": "{3}{W}{W}",
+    "type_line": "Creature \u2014 Angel",
+    "power": "5",
+    "toughness": "5",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Lifelink",
+      "First strike",
+      "Protection"
+    ]
+  },
+  {
+    "name": "Relentless Assault",
+    "oracle_text": "Untap all creatures that attacked this turn. After this main phase, there is an additional combat phase followed by an additional main phase.",
+    "mana_cost": "{2}{R}{R}",
+    "type_line": "Sorcery",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Boros Charm",
+    "oracle_text": "Choose one \u2014\n\u2022 Boros Charm deals 4 damage to target player or planeswalker.\n\u2022 Permanents you control gain indestructible until end of turn.\n\u2022 Target creature gains double strike until end of turn.",
+    "mana_cost": "{R}{W}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cremate",
+    "oracle_text": "Exile target card from a graveyard.\nDraw a card.",
+    "mana_cost": "{B}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Expedite",
+    "oracle_text": "Target creature gains haste until end of turn.\nDraw a card.",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Kraken Hatchling",
+    "oracle_text": "",
+    "mana_cost": "{U}",
+    "type_line": "Creature \u2014 Kraken",
+    "power": "0",
+    "toughness": "4",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Fervor",
+    "oracle_text": "Creatures you control have haste. (They can attack and {T} as soon as they come under your control.)",
+    "mana_cost": "{2}{R}",
+    "type_line": "Enchantment",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  }
+]

@@ -1,0 +1,809 @@
+[
+  {
+    "name": "Discreet Retreat",
+    "layout": "normal",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant land\nEnchanted land has \"{T}: Add two mana of any one color. Spend this mana only to cast outlaw spells or activate abilities of outlaw sources.\" (Assassins, Mercenaries, Pirates, Rogues, and Warlocks are outlaws.)\nWhenever you cast your first outlaw spell each turn, you draw a card and you lose 1 life.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Creeping Peeper",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Eye",
+    "oracle_text": "{T}: Add {U}. Spend this mana only to cast an enchantment spell, unlock a door, or turn a permanent face up.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Unblinking Observer",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Homunculus",
+    "oracle_text": "{T}: Add {U}. Spend this mana only to pay a disturb cost or cast an instant or sorcery spell.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cultivator Drone",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Eldrazi Drone",
+    "oracle_text": "Devoid (This card has no color.)\n{T}: Add {C}. Spend this mana only to cast a colorless spell, activate an ability of a colorless permanent, or pay a cost that contains {C}. ({C} represents colorless mana.)",
+    "power": "2",
+    "toughness": "3",
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Devoid"
+    ]
+  },
+  {
+    "name": "Tin Street Gossip",
+    "layout": "normal",
+    "mana_cost": "{2}{R}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Lizard Advisor",
+    "oracle_text": "Vigilance\n{T}: Add {R}{G}. Spend this mana only to cast face-down spells or to turn creatures face up.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "G",
+      "R"
+    ],
+    "color_identity": [
+      "G",
+      "R"
+    ],
+    "keywords": [
+      "Vigilance"
+    ]
+  },
+  {
+    "name": "Qarsi Deceiver",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Snake Wizard",
+    "oracle_text": "{T}: Add {C}. Spend this mana only to cast a face-down creature spell, pay a mana cost to turn a manifested creature face up, or pay a morph cost. (A megamorph cost is a morph cost.)",
+    "power": "0",
+    "toughness": "4",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Island",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mountain",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Mountain",
+    "oracle_text": "({T}: Add {R}.)",
+    "colors": [],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Swamp",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Swamp",
+    "oracle_text": "({T}: Add {B}.)",
+    "colors": [],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Plains",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Plains",
+    "oracle_text": "({T}: Add {W}.)",
+    "colors": [],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Willbender",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "Morph {1}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, change the target of target spell or ability with a single target.",
+    "power": "1",
+    "toughness": "2",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Morph"
+    ]
+  },
+  {
+    "name": "Ainok Survivalist",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Dog Shaman",
+    "oracle_text": "Megamorph {1}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its megamorph cost and put a +1/+1 counter on it.)\nWhen this creature is turned face up, destroy target artifact or enchantment an opponent controls.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Megamorph"
+    ]
+  },
+  {
+    "name": "Nervous Gardener",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Dryad",
+    "oracle_text": "Disguise {G} (You may cast this card face down for {3} as a 2/2 creature with ward {2}. Turn it face up any time for its disguise cost.)\nWhen this creature is turned face up, search your library for a land card with a basic land type, reveal it, put it into your hand, then shuffle.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Disguise"
+    ]
+  },
+  {
+    "name": "Gurmag Angler",
+    "layout": "normal",
+    "mana_cost": "{6}{B}",
+    "cmc": 7.0,
+    "type_line": "Creature \u2014 Zombie Fish",
+    "oracle_text": "Delve (Each card you exile from your graveyard while casting this spell pays for {1}.)",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Delve"
+    ]
+  },
+  {
+    "name": "Secret Plans",
+    "layout": "normal",
+    "mana_cost": "{G}{U}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Face-down creatures you control get +0/+1.\nWhenever a permanent you control is turned face up, draw a card.",
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mystic of the Hidden Way",
+    "layout": "normal",
+    "mana_cost": "{4}{U}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Human Monk",
+    "oracle_text": "This creature can't be blocked.\nMorph {2}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    "power": "3",
+    "toughness": "2",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Morph"
+    ]
+  },
+  {
+    "name": "Soul Summons",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Manifest the top card of your library. (Put it onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Manifest"
+    ]
+  },
+  {
+    "name": "Cloudform",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, it becomes an Aura with enchant creature. Manifest the top card of your library and attach this enchantment to it. (To manifest a card, put it onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)\nEnchanted creature has flying and hexproof.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Manifest"
+    ]
+  },
+  {
+    "name": "Scroll of Fate",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Manifest a card from your hand. (Put that card onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Manifest"
+    ]
+  },
+  {
+    "name": "Concealing Curtains // Revealing Eye",
+    "layout": "transform",
+    "mana_cost": "{B} // ",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Wall // Creature \u2014 Eye Horror",
+    "oracle_text": "Defender\n{2}{B}: Transform this creature. Activate only as a sorcery.\n//\nMenace\nWhen this creature transforms into Revealing Eye, target opponent reveals their hand. You may choose a nonland card from it. If you do, that player discards that card, then draws a card.",
+    "power": "0",
+    "toughness": "4",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Transform",
+      "Menace",
+      "Defender"
+    ],
+    "card_faces": [
+      {
+        "name": "Concealing Curtains",
+        "mana_cost": "{B}",
+        "type_line": "Creature \u2014 Wall",
+        "oracle_text": "Defender\n{2}{B}: Transform this creature. Activate only as a sorcery.",
+        "power": "0",
+        "toughness": "4",
+        "colors": [
+          "B"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/3/a/3a000aea-6056-4417-a4b2-19202a1a9192.jpg?1783924258",
+          "normal": "https://cards.scryfall.io/normal/front/3/a/3a000aea-6056-4417-a4b2-19202a1a9192.jpg?1783924258",
+          "large": "https://cards.scryfall.io/large/front/3/a/3a000aea-6056-4417-a4b2-19202a1a9192.jpg?1783924258",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/3/a/3a000aea-6056-4417-a4b2-19202a1a9192.jpg?1783924258"
+        }
+      },
+      {
+        "name": "Revealing Eye",
+        "mana_cost": "",
+        "type_line": "Creature \u2014 Eye Horror",
+        "oracle_text": "Menace\nWhen this creature transforms into Revealing Eye, target opponent reveals their hand. You may choose a nonland card from it. If you do, that player discards that card, then draws a card.",
+        "power": "3",
+        "toughness": "4",
+        "colors": [
+          "B"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/3/a/3a000aea-6056-4417-a4b2-19202a1a9192.jpg?1783924258",
+          "normal": "https://cards.scryfall.io/normal/back/3/a/3a000aea-6056-4417-a4b2-19202a1a9192.jpg?1783924258",
+          "large": "https://cards.scryfall.io/large/back/3/a/3a000aea-6056-4417-a4b2-19202a1a9192.jpg?1783924258",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/3/a/3a000aea-6056-4417-a4b2-19202a1a9192.jpg?1783924258"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Baithook Angler // Hook-Haunt Drifter",
+    "layout": "transform",
+    "mana_cost": "{1}{U} // ",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Peasant // Creature \u2014 Spirit",
+    "oracle_text": "Disturb {1}{U} (You may cast this card from your graveyard transformed for its disturb cost.)\n//\nFlying\nIf Hook-Haunt Drifter would be put into a graveyard from anywhere, exile it instead.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Transform",
+      "Disturb"
+    ],
+    "card_faces": [
+      {
+        "name": "Baithook Angler",
+        "mana_cost": "{1}{U}",
+        "type_line": "Creature \u2014 Human Peasant",
+        "oracle_text": "Disturb {1}{U} (You may cast this card from your graveyard transformed for its disturb cost.)",
+        "power": "2",
+        "toughness": "1",
+        "colors": [
+          "U"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/2/f/2fb7d8bd-2e25-486b-91e7-b7dd777938e2.jpg?1783924462",
+          "normal": "https://cards.scryfall.io/normal/front/2/f/2fb7d8bd-2e25-486b-91e7-b7dd777938e2.jpg?1783924462",
+          "large": "https://cards.scryfall.io/large/front/2/f/2fb7d8bd-2e25-486b-91e7-b7dd777938e2.jpg?1783924462",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/2/f/2fb7d8bd-2e25-486b-91e7-b7dd777938e2.jpg?1783924462"
+        }
+      },
+      {
+        "name": "Hook-Haunt Drifter",
+        "mana_cost": "",
+        "type_line": "Creature \u2014 Spirit",
+        "oracle_text": "Flying\nIf Hook-Haunt Drifter would be put into a graveyard from anywhere, exile it instead.",
+        "power": "1",
+        "toughness": "2",
+        "colors": [
+          "U"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/2/f/2fb7d8bd-2e25-486b-91e7-b7dd777938e2.jpg?1783924462",
+          "normal": "https://cards.scryfall.io/normal/back/2/f/2fb7d8bd-2e25-486b-91e7-b7dd777938e2.jpg?1783924462",
+          "large": "https://cards.scryfall.io/large/back/2/f/2fb7d8bd-2e25-486b-91e7-b7dd777938e2.jpg?1783924462",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/2/f/2fb7d8bd-2e25-486b-91e7-b7dd777938e2.jpg?1783924462"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Mischievous Catgeist // Catlike Curiosity",
+    "layout": "transform",
+    "mana_cost": "{1}{U} // ",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Cat Spirit // Enchantment \u2014 Aura",
+    "oracle_text": "Whenever this creature deals combat damage to a player, draw a card.\nDisturb {2}{U} (You may cast this card from your graveyard transformed for its disturb cost.)\n//\nEnchant creature\nEnchanted creature has \"Whenever this creature deals combat damage to a player, draw a card.\"\nIf Catlike Curiosity would be put into a graveyard from anywhere, exile it instead.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Transform",
+      "Enchant",
+      "Disturb"
+    ],
+    "card_faces": [
+      {
+        "name": "Mischievous Catgeist",
+        "mana_cost": "{1}{U}",
+        "type_line": "Creature \u2014 Cat Spirit",
+        "oracle_text": "Whenever this creature deals combat damage to a player, draw a card.\nDisturb {2}{U} (You may cast this card from your graveyard transformed for its disturb cost.)",
+        "power": "1",
+        "toughness": "1",
+        "colors": [
+          "U"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/9/b/9b3fc117-dc46-46bc-a2e2-3f671f5c2b2e.jpg?1783924277",
+          "normal": "https://cards.scryfall.io/normal/front/9/b/9b3fc117-dc46-46bc-a2e2-3f671f5c2b2e.jpg?1783924277",
+          "large": "https://cards.scryfall.io/large/front/9/b/9b3fc117-dc46-46bc-a2e2-3f671f5c2b2e.jpg?1783924277",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/9/b/9b3fc117-dc46-46bc-a2e2-3f671f5c2b2e.jpg?1783924277"
+        }
+      },
+      {
+        "name": "Catlike Curiosity",
+        "mana_cost": "",
+        "type_line": "Enchantment \u2014 Aura",
+        "oracle_text": "Enchant creature\nEnchanted creature has \"Whenever this creature deals combat damage to a player, draw a card.\"\nIf Catlike Curiosity would be put into a graveyard from anywhere, exile it instead.",
+        "colors": [
+          "U"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/9/b/9b3fc117-dc46-46bc-a2e2-3f671f5c2b2e.jpg?1783924277",
+          "normal": "https://cards.scryfall.io/normal/back/9/b/9b3fc117-dc46-46bc-a2e2-3f671f5c2b2e.jpg?1783924277",
+          "large": "https://cards.scryfall.io/large/back/9/b/9b3fc117-dc46-46bc-a2e2-3f671f5c2b2e.jpg?1783924277",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/9/b/9b3fc117-dc46-46bc-a2e2-3f671f5c2b2e.jpg?1783924277"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Grand Entryway // Elegant Rotunda",
+    "layout": "split",
+    "mana_cost": "{1}{W} // {2}{W}",
+    "cmc": 5.0,
+    "type_line": "Enchantment \u2014 Room // Enchantment \u2014 Room",
+    "oracle_text": "When you unlock this door, create a 1/1 white Glimmer enchantment creature token.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)\n//\nWhen you unlock this door, put a +1/+1 counter on each of up to two target creatures.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Grand Entryway",
+        "mana_cost": "{1}{W}",
+        "type_line": "Enchantment \u2014 Room",
+        "oracle_text": "When you unlock this door, create a 1/1 white Glimmer enchantment creature token.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)"
+      },
+      {
+        "name": "Elegant Rotunda",
+        "mana_cost": "{2}{W}",
+        "type_line": "Enchantment \u2014 Room",
+        "oracle_text": "When you unlock this door, put a +1/+1 counter on each of up to two target creatures.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)"
+      }
+    ]
+  },
+  {
+    "name": "Sol Ring",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Prismite",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "{2}: Add one mana of any color.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Walking Ballista",
+    "layout": "normal",
+    "mana_cost": "{X}{X}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "This creature enters with X +1/+1 counters on it.\n{4}: Put a +1/+1 counter on this creature.\nRemove a +1/+1 counter from this creature: It deals 1 damage to any target.",
+    "power": "0",
+    "toughness": "0",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Forsworn Paladin",
+    "layout": "normal",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Human Knight",
+    "oracle_text": "Menace\n{1}{B}, {T}, Pay 1 life: Create a Treasure token.\n{2}{B}: Target creature gets +2/+0 until end of turn. If mana from a Treasure was spent to activate this ability, that creature also gains deathtouch until end of turn.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Treasure",
+      "Menace"
+    ]
+  },
+  {
+    "name": "Mycosynth Lattice",
+    "layout": "normal",
+    "mana_cost": "{6}",
+    "cmc": 6.0,
+    "type_line": "Artifact",
+    "oracle_text": "All permanents are artifacts in addition to their other types.\nAll cards that aren't on the battlefield, spells, and permanents are colorless.\nPlayers may spend mana as though it were mana of any color.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Thought-Knot Seer",
+    "layout": "normal",
+    "mana_cost": "{3}{C}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Eldrazi",
+    "oracle_text": "({C} represents colorless mana.)\nWhen this creature enters, target opponent reveals their hand. You choose a nonland card from it and exile that card.\nWhen this creature leaves the battlefield, target opponent draws a card.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Sea Gate Wreckage",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "{T}: Add {C}. ({C} represents colorless mana.)\n{2}{C}, {T}: Draw a card. Activate only if you have no cards in hand.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Guul Draz Assassin",
+    "layout": "leveler",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Vampire Assassin",
+    "oracle_text": "Level up {1}{B} ({1}{B}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 2-3\n2/2\n{B}, {T}: Target creature gets -2/-2 until end of turn.\nLEVEL 4+\n4/4\n{B}, {T}: Target creature gets -4/-4 until end of turn.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Level Up"
+    ]
+  },
+  {
+    "name": "Utter Insignificance",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Flash\nEnchant creature\nEnchanted creature loses all abilities and has base power and toughness 1/1.\n{2}{C}: Exile enchanted creature.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant",
+      "Flash"
+    ]
+  },
+  {
+    "name": "Azure Mage",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "{3}{U}: Draw a card.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Opt",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Scry"
+    ]
+  },
+  {
+    "name": "The Enigma Jewel // Locus of Enlightenment",
+    "layout": "transform",
+    "mana_cost": "{U} // ",
+    "cmc": 1.0,
+    "type_line": "Legendary Artifact // Legendary Artifact",
+    "oracle_text": "The Enigma Jewel enters tapped.\n{T}: Add {C}{C}. Spend this mana only to activate abilities.\nCraft with four or more nonlands with activated abilities {8}{U} ({8}{U}, Exile this artifact, Exile the four or more from among other permanents you control and/or cards in your graveyard: Return this card transformed under its owner's control. Craft only as a sorcery.)\n//\nLocus of Enlightenment has each activated ability of the exiled cards used to craft it. You may activate each of those abilities only once each turn.\nWhenever you activate an ability that isn't a mana ability, copy it. You may choose new targets for the copy.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Craft",
+      "Transform"
+    ],
+    "card_faces": [
+      {
+        "name": "The Enigma Jewel",
+        "mana_cost": "{U}",
+        "type_line": "Legendary Artifact",
+        "oracle_text": "The Enigma Jewel enters tapped.\n{T}: Add {C}{C}. Spend this mana only to activate abilities.\nCraft with four or more nonlands with activated abilities {8}{U} ({8}{U}, Exile this artifact, Exile the four or more from among other permanents you control and/or cards in your graveyard: Return this card transformed under its owner's control. Craft only as a sorcery.)",
+        "colors": [
+          "U"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/2/e/2e98970d-06a8-4c91-ba47-4a02c5b949f2.jpg?1783913801",
+          "normal": "https://cards.scryfall.io/normal/front/2/e/2e98970d-06a8-4c91-ba47-4a02c5b949f2.jpg?1783913801",
+          "large": "https://cards.scryfall.io/large/front/2/e/2e98970d-06a8-4c91-ba47-4a02c5b949f2.jpg?1783913801",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/2/e/2e98970d-06a8-4c91-ba47-4a02c5b949f2.jpg?1783913801"
+        }
+      },
+      {
+        "name": "Locus of Enlightenment",
+        "mana_cost": "",
+        "type_line": "Legendary Artifact",
+        "oracle_text": "Locus of Enlightenment has each activated ability of the exiled cards used to craft it. You may activate each of those abilities only once each turn.\nWhenever you activate an ability that isn't a mana ability, copy it. You may choose new targets for the copy.",
+        "colors": [
+          "U"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/2/e/2e98970d-06a8-4c91-ba47-4a02c5b949f2.jpg?1783913801",
+          "normal": "https://cards.scryfall.io/normal/back/2/e/2e98970d-06a8-4c91-ba47-4a02c5b949f2.jpg?1783913801",
+          "large": "https://cards.scryfall.io/large/back/2/e/2e98970d-06a8-4c91-ba47-4a02c5b949f2.jpg?1783913801",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/2/e/2e98970d-06a8-4c91-ba47-4a02c5b949f2.jpg?1783913801"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Museum Nightwatch",
+    "layout": "normal",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Centaur Soldier",
+    "oracle_text": "When this creature dies, create a 2/2 white and blue Detective creature token.\nDisguise {1}{W} (You may cast this card face down for {3} as a 2/2 creature with ward {2}. Turn it face up any time for its disguise cost.)",
+    "power": "3",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Disguise"
+    ]
+  },
+  {
+    "name": "Hollow One",
+    "layout": "normal",
+    "mana_cost": "{5}",
+    "cmc": 5.0,
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "This spell costs {2} less to cast for each card you've cycled or discarded this turn.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    "power": "4",
+    "toughness": "4",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Cycling"
+    ]
+  }
+]

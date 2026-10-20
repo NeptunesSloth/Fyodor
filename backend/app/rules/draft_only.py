@@ -14,17 +14,17 @@ from typing import Any
 _DRAFT = re.compile(
     r"Draft (?:this card|~) face up\."
     r"|Reveal this card as you draft it\b.*"
-    r"|Each player passes the last card from each booster pack to a player who drafted a card named ~\."
+    r"|Each player passes the last card from each booster pack to a player who drafted a card named (?:~|[A-Z][^.]+?)\."
     r"|Immediately after the draft, .*"
     r"|As you draft (?:a|an) .*"
     r"|During the draft, .*"
     r"|Instead of drafting a card from a booster pack, .*"
     r"|As long as this card is face up during the draft, .*"
-    r"|If you removed a creature card with flying from the draft with cards named ~, ~ has flying\. The same is true for .*"
+    r"|If you removed a creature card with flying from the draft with cards named (?:~|[A-Z][^.]+?), ~ has flying\. The same is true for .*"
     # what the draft noted: nothing was noted, so the ability has nothing to refer to (a player, a name, a type): it never applies
-    r"|~ attacks a player you noted for cards named ~ each combat if able\."
-    r"|As long as you control one or more creatures with a name you noted for cards named ~, ~ and those creatures get \+1/\+1 and have lifelink\."
-    r"|Other creatures you control of a type you noted for cards named ~ get \+1/\+1\.")
+    r"|~ attacks a player you noted for cards named (?:~|[A-Z][^.]+?) each combat if able\."
+    r"|As long as you control one or more creatures with a name you noted for cards named (?:~|[A-Z][^.]+?), ~ and those creatures get \+1/\+1 and have lifelink\."
+    r"|Other creatures you control of a type you noted for cards named (?:~|[A-Z][^.]+?) get \+1/\+1\.")
 
 
 def definition(text: str) -> dict[str, Any] | None:

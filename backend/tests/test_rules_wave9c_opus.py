@@ -19,7 +19,7 @@ from app.cards.importer import build_database
 from app.config import Settings
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_conditionals import settle
 from tests.wave9c_kit import build, card_named, check, life, put, to_hand
 
@@ -192,7 +192,7 @@ def test_molten_core_maestro_adds_red_equal_to_its_power_with_five_mana(cards, s
     cast(s, spell)
     assert counters(s, maestro) == 1
     # the counter is put first, so the power counted is 3 (not 2)
-    assert s.state.players["p1"].mana.get("R", 0) == (power if spell == "Big Sorcery" else 0)
+    assert mana_pool(s,"p1").get("R", 0) == (power if spell == "Big Sorcery" else 0)
     check(s)
 
 

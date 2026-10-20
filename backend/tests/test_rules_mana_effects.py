@@ -14,7 +14,7 @@ from app.config import Settings
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act, deck, enable, zone
+from tests.game_helpers import act, deck, enable, mana_pool, zone
 from tests.test_rules_effects import pass_until_stack_empty, rules
 
 REAL = [
@@ -83,7 +83,7 @@ def give(s, **m):
 
 
 def pool(s, pid="p1"):
-    return dict(s.state.players[pid].mana)
+    return mana_pool(s, pid)
 
 
 def cast_and_resolve(s, name, **kw):

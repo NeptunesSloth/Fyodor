@@ -55,7 +55,7 @@ def _objects(plan: Plan, ctx: Context, who: str | list[str]) -> list[str]:
 
 def _counters(plan: Plan, obj: str) -> dict[str, int]:
     have = plan.state.cards[obj].counters if obj in plan.state.cards else plan.state.players[obj].resources
-    return {k: v for k, v in sorted(have.items()) if v > 0}
+    return {k: v for k, v in sorted(have.items()) if v > 0 and (obj in plan.state.cards or k != "speed")}
 
 
 def _label(plan: Plan, obj: str) -> str:
@@ -96,6 +96,9 @@ def _give_kind(plan: Plan, ctx: Context, e: dict[str, Any], kind: str, to: list[
 def _ask_each(plan: Plan, ctx: Context, e: dict[str, Any], found: list[str], to: list[str], picks: dict[str, str]) -> bool:
     """"… put another counter of that kind on it or remove one from it": the controller says which for each kind, in turn; then
     the puts go through at once and the removals pass straight through."""
+    from app.rules import counter_restrictions43
+
+    picks = counter_restrictions43.fixed_counter_choices(plan, found, to, picks)
     left = [k for k in found if k not in picks]
     if left:
         decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Choose'}: {left[0]} counter",
@@ -109,7 +112,9 @@ def _ask_each(plan: Plan, ctx: Context, e: dict[str, Any], found: list[str], to:
         if how == "remove":
             for t in to:
                 if t in plan.state.cards and plan.state.cards[t].counters.get(k, 0) > 0:
-                    plan.do({"type": "counter", "card_ids": [t], "kind": k, "delta": -1}, actor=ctx["controller"])
+                    from app.rules import counter_removal_results
+
+                    counter_removal_results.remove(plan, t, k, 1, by=ctx["controller"])
     return _put(plan, ctx, e, puts)
 
 
@@ -154,8 +159,12 @@ def _ask_amount(plan: Plan, ctx: Context, e: dict[str, Any], have: dict[str, int
         kind = next(k for k in have if k not in got)
         lo, hi = _bounds(have, got, kind, then)
         if lo < hi:
+            from app.rules import group_choice
+
+            options = ([DecisionOption(id=group_choice.NUMBER, label=f"Type a number ≥ {lo}", group="number")]
+                       if e.get('numeric') else [DecisionOption(id=str(i), label=str(i)) for i in range(lo, hi + 1)])
             decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Choose'}: how many {kind} counters?",
-                   options=[DecisionOption(id=str(i), label=str(i)) for i in range(lo, hi + 1)],
+                   options=options,
                    resume={"step": AMOUNTS, "ctx": ctx, "e": e, "have": have, "got": got, "kind": kind, "then": then},
                    source=plan.state.cards.get(ctx.get("source_card") or ""))
             return False
@@ -163,14 +172,24 @@ def _ask_amount(plan: Plan, ctx: Context, e: dict[str, Any], have: dict[str, int
     amounts = {k: n for k, n in got.items() if n > 0}
     plan.note(f"{plan.name(ctx['controller'])} chooses " + (", ".join(f"{n} {k}" for k, n in amounts.items()) or "none"), actor=ctx["controller"])
     if then["do"] == "move":
+        from app.game.rules_state import ObjectRef
         from app.rules import counter_moves
 
-        return counter_moves.finish(plan, ctx, e, then["from"], then["to"], amounts)
-    for obj in then["from"]:  # removing isn't a put (122.6 is about putting), it passes straight through
+        return counter_moves.finish(plan, ctx, e, then["from"], then["to"], amounts,
+                                    source_refs=[ObjectRef.model_validate(ref) for ref in then['source_refs']] if 'source_refs' in then else None,
+                                    destination_ref=ObjectRef.model_validate(then['destination_ref']) if then.get('destination_ref') else None)
+    from app.rules import context, counter_removal_results
+
+    removed = 0
+    for obj in then['from']:
+        expected = (then.get('objects') or {}).get(obj)
+        if expected is not None and (obj not in plan.state.cards or plan.oid(obj) != expected
+                                     or not plan.state.cards[obj].zone.endswith(':battlefield')):
+            continue
         for k, n in amounts.items():
-            if obj in plan.state.cards and plan.state.cards[obj].counters.get(k, 0) > 0:
-                plan.do({"type": "counter", "card_ids": [obj], "kind": k, "delta": -min(n, plan.state.cards[obj].counters[k])},
-                        actor=ctx["controller"])
+            removed += counter_removal_results.remove(plan, obj, k, n, by=ctx['controller'])
+    if e.get('bind'):
+        context.bind_amount(ctx, e['bind'], removed)
     return True
 
 
@@ -194,8 +213,8 @@ def remove_any(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     many, 609.3), the controller choosing the kinds (608.2d); ``kind``: only counters of that kind."""
     from app.rules import effects
 
-    cards = effects._cards(plan, ctx, e["who"])
-    effects._remember(plan, ctx, e, cards)
+    cards = _objects(plan, ctx, e['who'])
+    effects._remember(plan, ctx, e, [c for c in cards if c in plan.state.cards])
     have: dict[str, int] = {}
     for c in cards:
         for k, v in _counters(plan, c).items():
@@ -203,20 +222,28 @@ def remove_any(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                 have[k] = have.get(k, 0) + v
     cap = sum(have.values()) if "n" not in e else min(sum(have.values()), max(0, effects._amount(plan, ctx, e["n"])))
     if not cap:
+        if e.get('bind'):
+            from app.rules import context
+
+            context.bind_amount(ctx, e['bind'], 0)
         return True
-    return ask_amounts(plan, ctx, e, have, {"do": "remove", "from": cards, "cap": cap, "need": 0 if e.get("upto") or "n" not in e else cap})
+    return ask_amounts(plan, ctx, e, have, {'do':'remove', 'from':cards, 'cap':cap,
+                       'objects':{c:plan.oid(c) for c in cards if c in plan.state.cards},
+                       'need':cap if e.get('all') else 0 if e.get('upto') or 'n' not in e else cap})
 
 
 PRIMITIVES = {"counter_kinds": kinds, "remove_any_counters": remove_any}
 RESUME = {STEP: resume, AMOUNTS: resume_amount}
 
 
-_JOIN = re.compile(r"(?P<c>[Cc])hoose a counter on (?P<of>target permanent or player|a permanent you control)\. "
-                   r"(?P<then>Give that permanent or player another counter of that kind|Put a counter of that kind on target permanent you control "
+_JOIN = re.compile(r"(?P<c>[Cc])hoose a counter on (?P<of>target permanent(?: or player)?|a permanent you control)\. "
+                   r"(?P<then>Give that permanent(?: or player)? another counter of that kind|Put a counter of that kind on target permanent you control "
                    r"if it doesn't have a counter of that kind on it)\.")
 
 
 def join(body: str) -> str:
     """"Choose a counter on …. Give … another counter of that kind." — one instruction printed as two sentences (the kind chosen in the
     first is the one the second names, 608.2c), read as "Choose a counter on …, then give …"."""
+    body = re.sub(r'([Cc]hoose a counter on target permanent\.) Put an additional counter of that kind on that permanent\.',
+                  r'\1 Give that permanent another counter of that kind.', body)
     return _JOIN.sub(lambda m: f"{m['c']}hoose a counter on {m['of']}, then {m['then'][0].lower()}{m['then'][1:]}.", body)

@@ -1,0 +1,137 @@
+[
+  {
+    "name": "The Unagi of Kyoshi Island",
+    "oracle_text": "Flash\nWard\u2014Waterbend {4}. (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {4}. They can tap their artifacts and creatures to help. Each one pays for {1}.)\nWhenever an opponent draws their second card each turn, you draw two cards.",
+    "type_line": "Legendary Creature \u2014 Serpent",
+    "mana_cost": "{3}{U}{U}",
+    "power": "5",
+    "toughness": "5",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 5.0,
+    "keywords": [
+      "Ward",
+      "Flash",
+      "Waterbend"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Ornithopter",
+    "oracle_text": "Flying",
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "mana_cost": "{0}",
+    "power": "0",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 0.0,
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Murder",
+    "oracle_text": "Destroy target creature.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{B}{B}",
+    "layout": "normal",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 3.0,
+    "keywords": []
+  },
+  {
+    "name": "Unsummon",
+    "oracle_text": "Return target creature to its owner's hand.",
+    "type_line": "Instant",
+    "mana_cost": "{U}",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Negate",
+    "oracle_text": "Counter target noncreature spell.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{U}",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Plains",
+    "oracle_text": "({T}: Add {W}.)",
+    "type_line": "Basic Land \u2014 Plains",
+    "mana_cost": "",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 0.0,
+    "keywords": []
+  },
+  {
+    "name": "Memnite",
+    "oracle_text": "",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "mana_cost": "{0}",
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 0.0,
+    "keywords": []
+  }
+]

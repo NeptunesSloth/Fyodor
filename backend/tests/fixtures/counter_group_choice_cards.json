@@ -1,0 +1,273 @@
+[
+  {
+    "name": "Slippery Bogbonder",
+    "oracle_text": "Flash\nHexproof\nWhen this creature enters, put a hexproof counter on target creature. Then move any number of counters from among creatures you control onto that creature.",
+    "type_line": "Creature \u2014 Human Druid",
+    "mana_cost": "{3}{G}",
+    "layout": "normal",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "cmc": 4.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Hexproof",
+      "Flash"
+    ]
+  },
+  {
+    "name": "Aetherborn Marauder",
+    "oracle_text": "Flying, lifelink\nWhen this creature enters, move any number of +1/+1 counters from other permanents you control onto this creature.",
+    "type_line": "Creature \u2014 Aetherborn Rogue",
+    "mana_cost": "{3}{B}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "cmc": 4.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying",
+      "Lifelink"
+    ]
+  },
+  {
+    "name": "Galloping Lizrog",
+    "oracle_text": "Trample\nWhen this creature enters, you may remove any number of +1/+1 counters from among creatures you control. If you do, put twice that many +1/+1 counters on this creature.",
+    "type_line": "Creature \u2014 Frog Lizard",
+    "mana_cost": "{3}{G}{U}",
+    "layout": "normal",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "cmc": 5.0,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [
+      "Trample"
+    ]
+  },
+  {
+    "name": "Eventide's Shadow",
+    "oracle_text": "Remove any number of counters from among permanents on the battlefield. You draw cards and lose life equal to the number of counters removed this way.",
+    "type_line": "Sorcery",
+    "mana_cost": "{4}{B}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 5.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sensational Spider-Man",
+    "oracle_text": "Whenever Sensational Spider-Man attacks, tap target creature defending player controls and put a stun counter on it. Then you may remove up to three stun counters from among all permanents. Draw cards equal to the number of stun counters removed this way.",
+    "type_line": "Legendary Creature \u2014 Spider Human Hero",
+    "mana_cost": "{1}{W}{U}",
+    "layout": "normal",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "cmc": 3.0,
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Garnet, Princess of Alexandria",
+    "oracle_text": "Lifelink\nWhenever Garnet attacks, you may remove a lore counter from each of any number of Sagas you control. Put a +1/+1 counter on Garnet for each lore counter removed this way.",
+    "type_line": "Legendary Creature \u2014 Human Noble Cleric",
+    "mana_cost": "{G}{W}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "cmc": 2.0,
+    "colors": [
+      "G",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "keywords": [
+      "Lifelink"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Doubling Season",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{4}{G}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 5.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Solemnity",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{W}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 3.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Hardened Scales",
+    "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{G}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 1.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Vorinclex, Monstrous Raider",
+    "oracle_text": "Trample, haste\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead.\nIf an opponent would put one or more counters on a permanent or player, they put half that many of each of those kinds of counters on that permanent or player instead, rounded down.",
+    "type_line": "Legendary Creature \u2014 Phyrexian Praetor",
+    "mana_cost": "{4}{G}{G}",
+    "layout": "normal",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "cmc": 6.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Haste",
+      "Trample"
+    ]
+  },
+  {
+    "name": "The Birth of Meletis",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 Search your library for a basic Plains card, reveal it, put it into your hand, then shuffle.\nII \u2014 Create a 0/4 colorless Wall artifact creature token with defender.\nIII \u2014 You gain 2 life.",
+    "type_line": "Enchantment \u2014 Saga",
+    "mana_cost": "{1}{W}",
+    "layout": "saga",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 2.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "The Akroan War",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 Gain control of target creature for as long as this Saga remains on the battlefield.\nII \u2014 Until your next turn, creatures your opponents control attack each combat if able.\nIII \u2014 Each tapped creature deals damage to itself equal to its power.",
+    "type_line": "Enchantment \u2014 Saga",
+    "mana_cost": "{3}{R}",
+    "layout": "saga",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 4.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shock",
+    "oracle_text": "Shock deals 2 damage to any target.",
+    "type_line": "Instant",
+    "mana_cost": "{R}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  }
+]

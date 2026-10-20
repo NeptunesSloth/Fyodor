@@ -1,0 +1,13 @@
+# Damage-derived life gain and actual recipients
+
+Canonical Oracle is preserved in `tests/fixtures/drain_life_soul_burn_cards.json`. Drain Life and Soul Burn first deal damage through the existing damage replacement and prevention planner, then derive their life gain from the resulting events. The implementation is opt-in: ordinary damage effects are unchanged.
+
+After replacement ordering has finished, but before committing damage, the effect records each actual recipient's exact object identity, actual damage amount, player life and planeswalker loyalty. It aggregates multiple portions reaching the same object. A creature's toughness is read when the following gain instruction executes, so wither/infect changes it before the cap is evaluated. A creature planeswalker obeys both bounds. Damage redirected by Pariah is capped by the actual recipient, rather than the original targeted player. Prevention contributes no prevented damage.
+
+The capped amount then goes through the ordinary life-gain replacement pipeline. Boon Reflection, Tainted Remedy and restrictions on gaining life still apply. Damage replacement and life-gain replacement choices retain the recorded context, without dealing damage again on resume.
+
+Soul Burn additionally uses `PaymentRecord.x_black_spent`, the black mana actually assigned to its X component. Fixed black costs, convoke, as-though spending and copied costs do not fabricate black mana spent on X. New cast allocation and mana-payment support are implemented in the shared mana/payment engine. A copied Soul Burn spends zero mana and therefore gains zero life from its own effect, while retaining its copied X for damage.
+
+An older save may lack this allocation field. Positive gain is then explicitly left to a manual restoration step, bounded by actual damage, recipient statistics and announced X; the engine does not guess an allocation or silently replace unknown data with zero. This saved manual continuation is eagerly registered and tested in a fresh Python process. Known zero allocations and zero-damage results remain fully automated.
+
+Tests use actual casts and targets for creature toughness, player life, planeswalker loyalty, mixed creature/planeswalker bounds after Flaring Pain, Pariah redirection, Healing Salve prevention, Furnace of Rath, Boon Reflection, Sulfuric Vortex, Tainted Remedy and Reverberate copies. Isolated damage-pipeline tests explicitly inject wither/infect source metadata to verify post-counter toughness; they do not claim those keywords are printed on Drain Life. History/JSON checks cover normal play, replacement-order pauses, and fresh-process gain/manual continuation recovery.

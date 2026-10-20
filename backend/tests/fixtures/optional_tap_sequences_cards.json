@@ -1,0 +1,76 @@
+[
+  {
+    "name": "Toils of Night and Day",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant \u2014 Arcane",
+    "oracle_text": "You may tap or untap target permanent, then you may tap or untap another target permanent.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Vedalken Anatomist",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Phyrexian Vedalken Wizard",
+    "oracle_text": "{2}{U}, {T}: Put a -1/-1 counter on target creature. You may tap or untap that creature.",
+    "power": "1",
+    "toughness": "2",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Hidden Strings",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "You may tap or untap target permanent, then you may tap or untap another target permanent.\nCipher (Then you may exile this spell card encoded on a creature you control. Whenever that creature deals combat damage to a player, its controller may cast a copy of the encoded card without paying its mana cost.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Cipher"
+    ]
+  },
+  {
+    "name": "Telekinetic Bonds",
+    "mana_cost": "{2}{U}{U}{U}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever a player discards a card, you may pay {1}{U}. If you do, you may tap or untap target permanent.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Thrill of Possibility",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "As an additional cost to cast this spell, discard a card.\nDraw two cards.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  }
+]

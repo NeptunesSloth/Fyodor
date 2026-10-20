@@ -47,10 +47,8 @@ def test_coverage_full(cards, name):
 
 
 @pytest.mark.parametrize("text", [
-    "The first spell you cast each turn that mana from a Treasure was spent to cast has cascade.",
     "The first creature spell you cast each turn has cascade.",  # (a filter on the first spell: not read)
     "Spells you cast each turn have cascade.",
-    "Spells you cast have demonstrate.",
 ])
 def test_other_wordings_stay_manual(text):
     assert cast_limits.static_definition(text) is None

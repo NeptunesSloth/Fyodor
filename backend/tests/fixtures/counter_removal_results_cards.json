@@ -1,0 +1,340 @@
+[
+  {
+    "name": "Aether Snap",
+    "oracle_text": "Remove all counters from all permanents and exile all tokens.",
+    "type_line": "Sorcery",
+    "mana_cost": "{3}{B}{B}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 5.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "card_faces": []
+  },
+  {
+    "name": "Give // Take",
+    "oracle_text": "Put three +1/+1 counters on target creature.\nFuse (You may cast one or both halves of this card from your hand.)\n//\nRemove all +1/+1 counters from target creature you control. Draw that many cards.\nFuse (You may cast one or both halves of this card from your hand.)",
+    "type_line": "Sorcery // Sorcery",
+    "mana_cost": "{2}{G} // {2}{U}",
+    "layout": "split",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 6.0,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [
+      "Fuse"
+    ],
+    "card_faces": [
+      {
+        "name": "Give",
+        "mana_cost": "{2}{G}",
+        "type_line": "Sorcery",
+        "oracle_text": "Put three +1/+1 counters on target creature.\nFuse (You may cast one or both halves of this card from your hand.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      },
+      {
+        "name": "Take",
+        "mana_cost": "{2}{U}",
+        "type_line": "Sorcery",
+        "oracle_text": "Remove all +1/+1 counters from target creature you control. Draw that many cards.\nFuse (You may cast one or both halves of this card from your hand.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      }
+    ]
+  },
+  {
+    "name": "Hex Parasite",
+    "oracle_text": "{X}{B/P}: Remove up to X counters from target permanent. For each counter removed this way, this creature gets +1/+0 until end of turn. ({B/P} can be paid with either {B} or 2 life.)",
+    "type_line": "Artifact Creature \u2014 Phyrexian Insect",
+    "mana_cost": "{1}",
+    "layout": "normal",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "cmc": 1.0,
+    "colors": [],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "card_faces": []
+  },
+  {
+    "name": "Mutated Cultist",
+    "oracle_text": "Devoid (This card has no color.)\nWhen you cast this spell, remove all counters from up to one target permanent or opponent. The next spell you cast this turn costs {1} less to cast for each counter removed this way.\nDeathtouch",
+    "type_line": "Creature \u2014 Eldrazi Horror",
+    "mana_cost": "{2}{B}",
+    "layout": "normal",
+    "power": "1",
+    "toughness": "3",
+    "loyalty": null,
+    "cmc": 3.0,
+    "colors": [],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Devoid",
+      "Deathtouch"
+    ],
+    "card_faces": []
+  },
+  {
+    "name": "Price of Betrayal",
+    "oracle_text": "Remove up to five counters from target artifact, creature, planeswalker, or opponent.",
+    "type_line": "Sorcery",
+    "mana_cost": "{B}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 1.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "card_faces": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 1.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "type_line": "Basic Land \u2014 Forest",
+    "mana_cost": "",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Jace Beleren",
+    "oracle_text": "+2: Each player draws a card.\n\u22121: Target player draws a card.\n\u221210: Target player mills twenty cards.",
+    "type_line": "Legendary Planeswalker \u2014 Jace",
+    "mana_cost": "{1}{U}{U}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": "3",
+    "cmc": 3.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Doubling Season",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{4}{G}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 5.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Hardened Scales",
+    "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{G}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 1.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shalai, Voice of Plenty",
+    "oracle_text": "Flying\nYou, planeswalkers you control, and other creatures you control have hexproof.\n{4}{G}{G}: Put a +1/+1 counter on each creature you control.",
+    "type_line": "Legendary Creature \u2014 Angel",
+    "mana_cost": "{3}{W}",
+    "layout": "normal",
+    "power": "3",
+    "toughness": "4",
+    "loyalty": null,
+    "cmc": 4.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Protean Hydra",
+    "oracle_text": "This creature enters with X +1/+1 counters on it.\nIf damage would be dealt to this creature, prevent that damage and remove that many +1/+1 counters from it.\nWhenever a +1/+1 counter is removed from this creature, put two +1/+1 counters on it at the beginning of the next end step.",
+    "type_line": "Creature \u2014 Hydra",
+    "mana_cost": "{X}{G}",
+    "layout": "normal",
+    "power": "0",
+    "toughness": "0",
+    "loyalty": null,
+    "cmc": 1.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shock",
+    "oracle_text": "Shock deals 2 damage to any target.",
+    "type_line": "Instant",
+    "mana_cost": "{R}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Abundance",
+    "oracle_text": "If you would draw a card, you may instead choose land or nonland and reveal cards from the top of your library until you reveal a card of the chosen kind. Put that card into your hand and put all other cards revealed this way on the bottom of your library in any order.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{G}{G}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 4.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Reverberate",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "type_line": "Instant",
+    "mana_cost": "{R}{R}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 2.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Necrotic Ooze",
+    "oracle_text": "As long as this creature is on the battlefield, it has all activated abilities of all creature cards in all graveyards.",
+    "type_line": "Creature \u2014 Ooze",
+    "mana_cost": "{2}{B}{B}",
+    "layout": "normal",
+    "power": "4",
+    "toughness": "3",
+    "loyalty": null,
+    "cmc": 4.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  }
+]

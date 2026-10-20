@@ -255,11 +255,18 @@ def test_look_at_top_may_reveal_matching_rest_random_bottom(cards):
     replay_matches(s)
 
 
-@pytest.mark.parametrize("kind", ["exalted", "decayed"])  # (stun: 122.1d, wave 3F; finality: 122.1h, wave 3R4; flying: wave 5H; shield: 122.1c, lore: 714, wave 7C)
-def test_counters_with_unmodeled_rules_stay_manual(kind):
-    # 122.1b-j: these counters carry rules the engine doesn't apply yet; placing an inert marker
-    # would be wrong automation
-    assert parse_sentence(f"put a {kind} counter on target creature") is None
+@pytest.mark.parametrize("kind", ["exalted", "decayed"])
+def test_triggered_keyword_counters_are_supported(kind):
+    # CR 122.1b: full triggered abilities, exercised in test_rules_triggered_keyword_counters.py.
+    effects, target = parse_sentence(f"put a {kind} counter on target creature")
+    assert effects == [{"do": "add_counters", "who": "target", "kind": kind, "n": 1}]
+    assert target is not None
+
+
+def test_rad_counters_use_player_counter_wording():
+    # CR 122.1i: player rad counters are modeled by designations, not ordinary object counters.
+    assert parse_sentence("put a rad counter on target creature") is None
+    assert parse_sentence("target player gets a rad counter") is not None
 
 
 def _artifact(s, name, text):

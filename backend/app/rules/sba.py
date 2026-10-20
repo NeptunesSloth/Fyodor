@@ -6,7 +6,7 @@ the next time the engine acts, so the sandbox never fights the players mid-edit.
 
 from __future__ import annotations
 
-from app.game.rules_state import Decision, DecisionOption
+from app.game.rules_state import Decision, DecisionOption, ObjectSnapshot, copy_recipe_of, snapshot
 from app.game.state import CardInstance
 from app.rules import attachments, battles
 from app.rules.characteristics import Characteristics
@@ -45,6 +45,8 @@ def power(card: CardInstance, ch: Characteristics) -> int | None:
 
 def check(plan: Plan) -> None:
     """Perform state-based actions until none apply (or one needs a player's decision)."""
+    if plan.rules.draw_reason is not None:
+        return
     for _ in range(MAX_ROUNDS):
         if plan.rules.decision is not None or not _round(plan):
             return
@@ -198,6 +200,29 @@ def _attachment(plan: Plan, card: CardInstance, ch: Characteristics, out: Found)
     # permanent by hand (a sandbox arrangement), so they are left alone (704.5p is partial).
 
 
+def _annihilation_departures(plan: Plan, found: Found) -> tuple[dict[str, ObjectSnapshot], dict[str, list[str]]]:
+    """704.7: departure LKI precedes every simultaneous SBA, including counter cancellation."""
+    cancelling = {c.id for c, _ in found.annihilate}
+    ids = [c.id for c, _ in found.dying if c.id in cancelling]
+    frozen = {plan.oid(cid): snapshot(plan.state, cid) for cid in ids}
+    types = {plan.oid(cid): sorted(plan.ch(plan.state.cards[cid]).types) for cid in ids}
+    derived = plan._battlefield_lki({'card_ids':ids})
+    for oid, snap in frozen.items():
+        snap.copy_recipe = copy_recipe_of(plan.rules, oid)
+        snap.attached = [c.id for c in plan.state.cards.values() if c.attached_to == snap.card]
+        snap.attached_objects = {c.id: plan.oid(c) for c in plan.state.cards.values() if c.attached_to == snap.card}
+        snap.attached_objects_known = True
+        if oid in derived:
+            pt, abilities, keywords, traits, base, goaded = derived[oid]
+            if pt is not None:
+                snap.power, snap.toughness = pt
+            if base is not None:
+                snap.base_power, snap.base_toughness = base
+            snap.abilities, snap.keywords, snap.traits = abilities, keywords, traits
+            snap.goaded = sorted(goaded)
+    return frozen, types
+
+
 def _round(plan: Plan, *, confirmed: bool = False) -> bool:
     """One simultaneous check. Returns True if anything happened."""
     state = plan.state
@@ -208,13 +233,21 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         if offer_616(plan):
             return True
     found = find(plan)
+    from app.rules import regeneration_choices
+
+    destruction = [card.id for card, reason in found.dying if reason in ('lethal damage', 'damage from a deathtouch source')]
+    if not regeneration_choices.prepare(plan, destruction, can_regenerate=True, sba=True):
+        return True
     # -- storied (wave 45D) -- 702.195a, any time: before a permanent that leaves in this very check (legend rule, 0 toughness) is gone (ruling 2026-06-29)
     from app.rules import designations
 
     storied = designations.storied_permanents(plan)
     if found.vanishing:
-        plan.do({"type": "delete_card", "card_ids": [c.id for c in found.vanishing], "force": True},
-                actor=found.vanishing[0].owner)
+        for offset in range(0, len(found.vanishing), 250):
+            # 704.5d/e: a card-copy casting instruction can leave more copies
+            # than one table action's validated card-id capacity.
+            gone = found.vanishing[offset:offset + 250]
+            plan.do({"type": "delete_card", "card_ids": [c.id for c in gone], "force": True}, actor=gone[0].owner)
     if found.visible() and not (confirmed or plan.options.auto_sba):
         # ASSISTED: show what the rules say happens and let the table confirm (or handle it by
         # hand). A declined set isn't asked about again until something changes.
@@ -225,12 +258,17 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
                options=[DecisionOption(id="yes", label="Apply"), DecisionOption(id="no", label="Leave for now")],
                resume={"step": "sba_confirm", "fingerprint": fingerprint})
         return True
+    frozen_departures, frozen_types = _annihilation_departures(plan, found)
     happened = bool(found.vanishing) or storied
     # -- keywords (wave 15E) -- 702.131b: ascend, any time
     happened = designations.ascend_permanents(plan) or happened
     from app.rules import speed  # -- speed (wave 24B) -- 704.5aa
 
     happened = speed.start_engines(plan) or happened
+    if found.losers:
+        from app.rules import life_game_history
+
+        life_game_history.loss_events(plan, [pid for pid, _ in found.losers])
     for pid, reason in found.losers:
         r.lost[pid] = reason
         plan.note(f"{state.players[pid].name} loses the game ({reason})")
@@ -249,6 +287,11 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
             if c.attached_to or c.attached_player:
                 plan.do({"type": "detach", "card_ids": [c.id]}, actor=c.controller)
             bestow.cease(plan, c, "it was unattached")
+        happened = True
+    if found.dying and r.destruction_replacements is not None:
+        survivors = set(regeneration_choices.protect(plan, destruction, plan.actor))
+        found.dying = [(card, reason) for card, reason in found.dying if card.id not in destruction or card.id in survivors]
+        regeneration_choices.finish(plan)
         happened = True
     if found.dying:  # -- keywords (wave 15E) -- 702.89a: lethal damage destroys; umbra armor replaces that
         from app.rules import regeneration
@@ -275,6 +318,11 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
                 kept.append((card, reason))
         found.dying = kept
     if found.dying:
+        from app.rules import prohibitions, sagas
+
+        found.dying = [(card, why) for card, why in found.dying
+                       if why != sagas.SACRIFICE_REASON or not prohibitions.sacrifice_forbidden(plan, card)]
+    if found.dying:
         # All of them die at once: one move, one event batch (704.3), with last known information.
         for card, reason in found.dying:
             plan.note(f"State-based action: {reason} →", [card.id])
@@ -284,6 +332,14 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
 
         triggers.sacrificing(plan, [card.id for card, why in found.dying if why == sagas.SACRIFICE_REASON])
         plan.do({"type": "move", "card_ids": dead, "to": {"zone": "graveyard"}}, actor=found.dying[0][0].controller)
+        # Counter removal events still occurred above. Only the departing objects' LKI
+        # (and history's derived card types) must look back before that same SBA batch.
+        for oid, snap in frozen_departures.items():
+            if oid in r.lki and (snap.card not in state.cards or plan.oid(snap.card) != oid):
+                r.lki[oid] = snap
+                for departure in r.turn_log.left:
+                    if departure.object_id == oid:
+                        departure.types = frozen_types[oid]
         r.deathtouched = [c for c in r.deathtouched if c not in dead]
         happened = True
     if found.losers:

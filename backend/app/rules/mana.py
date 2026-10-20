@@ -13,10 +13,15 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from itertools import combinations_with_replacement
 from typing import Any
 
+from app.rules.mana_requirement_rows import OutputProducer, ProducerFact, RequirementPlan, SpentClass
+from app.rules.mana_requirement_rows import ProducerRequirement as ProducerRequirement
+
+# isort: split
+# Requirement identities must exist before cyclic rule consumers build adapters.
 from app.rules import costs as _costs
 from app.rules import mana_riders as _mana_riders  # -- mana riders (wave 5A) --
 from app.rules import mana_units as _mana_units  # -- mana provenance (wave 18B) --
@@ -44,12 +49,15 @@ class ManaCost:
     phyrexian: tuple[str, ...] = ()  # colours payable with mana or 2 life
     x: int = 0  # number of {X}
     unsupported: tuple[str, ...] = ()  # symbols the engine can't pay (e.g. {S} snow)
+    allocation: RequirementPlan | None = None  # Internal requirement origin before payment-only encodings.
 
     def with_x(self, x: int) -> ManaCost:
-        return ManaCost(self.generic + x * self.x, self.colored, self.hybrid, self.phyrexian, 0, self.unsupported)
+        return ManaCost(self.generic + x * self.x, self.colored, self.hybrid, self.phyrexian, 0, self.unsupported,
+                        replace(self.allocation, generic=self.allocation.generic + x * self.x) if self.allocation else None)
 
     def plus_generic(self, n: int) -> ManaCost:
-        return ManaCost(self.generic + n, self.colored, self.hybrid, self.phyrexian, self.x, self.unsupported)
+        return ManaCost(self.generic + n, self.colored, self.hybrid, self.phyrexian, self.x, self.unsupported,
+                        replace(self.allocation, generic=max(0, self.allocation.generic + n)) if self.allocation else None)
 
     def text(self) -> str:
         parts = [f"{{{self.generic}}}"] if self.generic else []
@@ -62,6 +70,11 @@ class ManaCost:
     @property
     def is_free(self) -> bool:
         return not (self.generic or self.colored or self.hybrid or self.phyrexian or self.x)
+
+
+# Internal cost choice after an as-though permission: any mana type, or two life.
+# This exact sentinel is not a new family of printed Phyrexian symbols.
+ANY_PHYREXIAN = "W/U/B/R/G/C"
 
 
 def parse_cost(text: str | None) -> ManaCost:
@@ -77,7 +90,7 @@ def parse_cost(text: str | None) -> ManaCost:
             x += 1
         elif sym in ALL_MANA or sym == SNOW:  # -- snow mana (wave 7E) -- {S} is a colored requirement of its own (107.4h)
             colored.append(sym)
-        elif sym.endswith("/P") and all(c in COLORS for c in sym[:-2].split("/")):
+        elif sym.endswith("/P") and (sym[:-2] == ANY_PHYREXIAN or all(c in COLORS for c in sym[:-2].split("/"))):
             phyrexian.append(sym[:-2])  # (-- review 38 -- 107.4f: a hybrid Phyrexian {G/W/P} is kept whole, "G/W": {G}, {W} or 2 life)
         elif "/" in sym:
             hybrid.append(tuple(sym.split("/")))
@@ -92,15 +105,33 @@ def parse_cost(text: str | None) -> ManaCost:
 # there). Any color: a colored or all-color hybrid symbol is paid by one mana of any kind (colorless mana is treated as the color,
 # wave 22F); {C} and {2/B}-style symbols are untouched. (Any type: {2/B} becomes one generic.)
 def spend_as(cost: ManaCost, mode: str) -> ManaCost:
+    from app.rules import mana_allocation_masks
+
+    transformed = _spend_as(cost, mode)
+    if mode not in ('type', 'color', 'colorless_color'):
+        return transformed
+    return replace(transformed, allocation=mana_allocation_masks.requirements(cost, mode))
+
+
+def _spend_as(cost: ManaCost, mode: str) -> ManaCost:
+    if mode == 'colorless_color':
+        # Only actual C may substitute for a colored requirement. Allocation and
+        # provenance retain the actual mana type, including restricted units.
+        return ManaCost(cost.generic, tuple(c for c in cost.colored if c not in COLORS),
+                        tuple((c, 'C') for c in cost.colored if c in COLORS) +
+                        tuple(tuple(dict.fromkeys((*h, 'C'))) if any(c in COLORS for c in h) else h for h in cost.hybrid),
+                        tuple('/'.join(dict.fromkeys((*c.split('/'), 'C'))) if any(k in COLORS for k in c.split('/')) else c
+                              for c in cost.phyrexian), cost.x, cost.unsupported)
     if mode == "type":
         return ManaCost(cost.generic + sum(1 for c in cost.colored if c != SNOW) + len(cost.hybrid),  # ({2/B}: one mana pays {B})
-                        tuple(c for c in cost.colored if c == SNOW), (), cost.phyrexian, cost.x, cost.unsupported)
+                        tuple(c for c in cost.colored if c == SNOW), (), (ANY_PHYREXIAN,) * len(cost.phyrexian), cost.x, cost.unsupported)
     if mode == "color":
         # -- casting costs (wave 22F) -- 609.4: colorless mana spent "as though it were mana of any color" is treated as the color
         # needed, so a colored (or all-color hybrid) symbol is paid by any one mana; {C} and {2/B}-style symbols are untouched
         paid = sum(1 for c in cost.colored if c in COLORS) + sum(1 for h in cost.hybrid if all(x in COLORS for x in h))
         return ManaCost(cost.generic + paid, tuple(c for c in cost.colored if c not in COLORS),
-                        tuple(h for h in cost.hybrid if not all(x in COLORS for x in h)), cost.phyrexian, cost.x, cost.unsupported)
+                        tuple(h for h in cost.hybrid if not all(x in COLORS for x in h)),
+                        (ANY_PHYREXIAN,) * len(cost.phyrexian), cost.x, cost.unsupported)
     return cost
 
 
@@ -116,6 +147,8 @@ class ManaAbility:
     tap: bool
     sacrifice_self: bool
     options: tuple[tuple[str, ...], ...]  # each option: the mana it adds, e.g. ("C", "C") or ("R",)
+    reveal_hand: str | None = None  # private optional effect choice; never an automatic source
+    borrowed_link_scope: str | None = None  # separately acquired607.5 exile link; never the donor's record
     extra_cost: str = ""  # other activation costs: mana ("{1}"), "Pay N life", "Remove a … counter …"
     riders: tuple[tuple[str, int], ...] = ()  # ("damage", n) to its controller, ("draw", n)
     spend_only: str | None = None  # "creature", "instant_sorcery", "artifact", "ability", "type:<T>", …
@@ -140,6 +173,17 @@ class ManaAbility:
     # countered": the riders (JSON dicts, mana_units.RIDERS) the mana it adds carries (106.6)
     on_spend: tuple[str, ...] = ()
     spend_text: str = ""  # the restriction sentence, for the pool display
+    delayed_effects: tuple[dict[str, Any], ...] = ()  # Native delayed effects created as this mana ability resolves.
+    immediate_effects: tuple[dict[str, Any], ...] = ()  # Native nonstack resolution, with persistent terminal.
+    from_graveyard: bool = False
+    native_body: bool = False
+    output_producers: tuple[tuple[OutputProducer | None, ...], ...] | None = None
+    generic_allowed: bool = True  # CR106.6: eligibility of actual produced units for generic requirements.
+
+    def __post_init__(self) -> None:
+        if self.output_producers and (len(self.output_producers) != len(self.options)
+                or any(len(profile) != len(option) for profile, option in zip(self.output_producers, self.options, strict=True))):
+            raise ValueError('Every mana output position needs its own producer entry')
 
     @property
     def penalty(self) -> int:
@@ -200,6 +244,7 @@ def _effect_options(effect: str, identity: tuple[str, ...]) -> tuple[tuple[str, 
 _SPEND = [
     (re.compile(r"^Spend this mana only to cast (a |an )?creature spells?$"), "creature"),
     (re.compile(r"^Spend this mana only to cast (an )?instant or sorcery spells?$"), "instant_sorcery"),
+    (re.compile(r"^Spend this mana only to cast an instant or sorcery spell or to gain a Class level$"), "instant_sorcery_or_class_level"),
     (re.compile(r"^Spend this mana only to cast (an )?artifact spells?$"), "artifact"),
     (re.compile(r"^Spend this mana only to activate abilities$"), "ability"),
     (re.compile(r"^Spend this mana only to cast (an )?artifact spells? or activate (an )?abilit(y|ies) of (an )?artifacts?( sources?)?$"),
@@ -304,16 +349,75 @@ def _choice_part(part: str) -> bool:
     found = C.parse_ability_cost(part, card_name="~", anyn=False)
     # -- activated sweep (wave 17B) -- also exerting / untapping the source ({Q}, 107.6) and foraging (701.61a): paid by hand
     return not found.unsupported and bool(found.components) and all(
-        c.kind in (C.EXERT, C.UNTAP, C.FORAGE, C.DISCARD_HAND) or (  # (wave 26C: "Discard your hand", 701.9a: no choice, paid with the rest)
-            (not c.activation_only or (c.x and c.kind == C.TAP_OTHER)) and c.selector is not None  # (X: Hazel, "Tap X untapped tokens")
-            and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD) and not c.random)
+        c.kind in (C.EXERT, C.UNTAP, C.FORAGE, C.DISCARD_HAND, C.COLLECT_EVIDENCE, C.RETURN_PERMANENT, "EXILE_FROM_HAND") or (  # (wave 26C: "Discard your hand", 701.9a: no choice, paid with the rest)
+            (not c.activation_only or c.kind == C.EXILE or (c.x and c.kind in (C.TAP_OTHER, C.SACRIFICE))) and c.selector is not None  # (X: Hazel, "Tap X untapped tokens")
+            and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD, C.EXILE) and not c.random)
+        or (c.kind == C.EXILE_FROM_GRAVEYARD and c.selector is None)
         for c in found.components)
 
 
-def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbility | None:
+def _native_limit(text: str) -> bool:
+    from app.rules import restrictions
+    if text == 'Activate only once each turn':
+        return False  # Retain the existing once_per_turn representation.
+    parsed = restrictions.parse(text + '.') or []
+    return bool(parsed) and all(x['kind'] in ('per_turn', 'sorcery') for x in parsed)
+
+
+def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS, *, card_name: str = "") -> ManaAbility | None:
+    """A fresh Oracle parse has a known original producer, unlike an old saved profile."""
+    parsed = _parse_mana_ability(text, identity, card_name=card_name)
+    return replace(parsed, output_producers=()) if parsed is not None and parsed.output_producers is None else parsed
+
+
+def _parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS, *, card_name: str = "") -> ManaAbility | None:
     """Understand a mana ability. ``identity`` is the controller's commander color identity (for
     Command Tower-style wording). Returns None for wordings the engine doesn't carry out."""
+    from app.rules import mana_allocation_profiles
+
+    if (allocation := mana_allocation_profiles.parse_mana(text, identity, card_name)) is not None:
+        return allocation
+    from app.rules import mana_codie_profiles
+
+    if (codie := mana_codie_profiles.parse_mana(text, identity, card_name)) is not None:
+        return codie
+    from app.rules import mana_foundry_profiles
+
+    if (foundry := mana_foundry_profiles.parse_mana(text, identity, card_name)) is not None:
+        return foundry
+    from app.rules import mana_deity_profiles
+
+    if (deity := mana_deity_profiles.parse_mana(text, identity, card_name)) is not None:
+        return deity
+    from app.rules import mana_crafted_profiles
+
+    if (crafted := mana_crafted_profiles.parse_mana(text, identity, card_name)) is not None:
+        return crafted
+    from app.rules import mana_linked_profiles
+
+    if (linked := mana_linked_profiles.parse_mana(text, identity, card_name)) is not None:
+        return linked
+    from app.rules import mana_resolution_profiles
+
+    if (profile := mana_resolution_profiles.parse_mana(text, identity, card_name)) is not None:
+        return profile
+    from app.rules import contextual_mana_outcomes
+    if (contextual := contextual_mana_outcomes.parse_mana(text, identity, card_name)) is not None:
+        return contextual
+    from app.rules import immediate_mana_resolutions
+
+    if (immediate := immediate_mana_resolutions.parse(text, identity, card_name)) is not None:
+        return immediate
+    from app.rules import reveal_mana
+
+    if (revealed := reveal_mana.parse(text)) is not None:
+        return revealed
     text = _without_ability_word(text.strip())  # -- ability words (wave 4F) --
+    from app.rules import mana_delayed_effects
+
+    delayed_effects: tuple[dict[str, Any], ...] = ()
+    if (delayed_tail := mana_delayed_effects.extract(text)) is not None:
+        text, delayed_effects = delayed_tail
     text = _mana_riders.normalise(text)  # -- mana riders (wave 5A) -- "For each color among …, add …"
     m = _COST_AND_EFFECT.match(text)
     if not m:
@@ -327,6 +431,10 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
     extra: list[str] = []
     removed_kind: str | None = None  # -- if you do (wave 6F) -- "Remove any number of storage counters from this land"
     for part in cost:
+        if card_name:
+            from app.rules.scripts import self_text
+
+            part = self_text(part, card_name)  # CR 201.5: a named self-cost is paid by this source
         if part in ("{T}", "{0}"):
             continue
         if (rk := _removed_mana.cost_kind(part)) is not None and removed_kind is None:  # -- if you do (wave 6F) --
@@ -392,6 +500,10 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
         if not any(k.kind == _costs.SACRIFICE and k.selector is not None for p in extra for k in _costs.parse_ability_cost(p, card_name="~").components):
             return None
         count, options = "sacrificed_mv", ((c.group("sym"),),)
+    elif first == "Add X mana of any one color, where X is 1 plus the exiled creature's mana value":
+        if not any(k.kind == _costs.EXILE and k.selector is not None for p in extra for k in _costs.parse_ability_cost(p, card_name="~").components):
+            return None
+        count, options = "exiled_mv_plus_one", tuple((col,) for col in COLORS)
     elif _X_POWER.fullmatch(first):
         count, options = "power", tuple((col,) for col in COLORS)
     elif c := _X_COUNT.fullmatch(first):  # (wave 4K)
@@ -418,6 +530,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             riders.append(("draw", 1))
         elif (rd := _mana_riders.rider(s)) is not None:  # -- mana riders (wave 5A) -- "You gain 2 life."
             riders.append(rd)
+        elif s.startswith("Activate ") and _native_limit(s):
+            pass  # Native activation preflight/enumeration reads the original restriction.
         elif s == "Activate only once each turn":
             once = True
         elif s == "Activate only as an instant" and chooses:
@@ -486,7 +600,9 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
     return ManaAbility(tap=tap, sacrifice_self=sacrifice, options=options, extra_cost=", ".join(extra),
                        riders=tuple(riders), spend_only=spend_only, once_per_turn=once, condition=condition,
                        count=count, chooses=chooses, instead_if=instead_if, instead=instead, self_counter=self_counter,
-                       from_hand=from_hand, on_spend=tuple(on_spend), spend_text=spend_text)
+                       from_hand=from_hand, on_spend=tuple(on_spend), spend_text=spend_text, delayed_effects=delayed_effects,
+                       from_graveyard=any(c.kind == _costs.EXILE_FROM_GRAVEYARD and c.selector is None
+                                          for c in _costs.parse_ability_cost(", ".join(extra), card_name=card_name).components))
 
 
 @dataclass(frozen=True)
@@ -500,6 +616,16 @@ class Source:
     abilities: tuple[int, ...] = ()
     activation: ManaCost | None = None  # a mana cost to activate (a filter), paid by other sources
     snow: bool = False  # -- snow mana (wave 7E) -- a snow permanent: its mana can pay {S} (107.4h)
+    generic_allowed: tuple[bool, ...] = ()  # Parallel to options; empty preserves unrestricted legacy sources.
+    producer_facts: tuple[tuple[ProducerFact | None, ...], ...] = ()
+    ability_options: tuple[int, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.ability_options and len(self.ability_options) != len(self.options):
+            raise ValueError('Every source option needs its original ability option index')
+        if self.producer_facts and (len(self.producer_facts) != len(self.options)
+                or any(len(profile) != len(option) for profile, option in zip(self.producer_facts, self.options, strict=True))):
+            raise ValueError('Every source output position needs its own producer fact')
 
     @property
     def flexibility(self) -> int:
@@ -518,7 +644,15 @@ class Payment:
     slots: list[tuple[str, tuple[str, ...]]] = field(default_factory=list)
     # -- mana provenance (wave 18B) -- set by ``mana_units.settle``: the source tags of each mana spent, and its riders (source, rider)
     tags: list[list[str]] = field(default_factory=list)
+    snow_spent: dict[str, int] = field(default_factory=dict)  # Actual snow-source mana by color/type.
+    sources: list[str] = field(default_factory=list)  # exact objects that produced mana actually spent
     riders: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
+    filters: list[tuple[str, int, tuple[str, ...], ManaCost]] = field(default_factory=list)  # activate before paying the actual cost
+
+    auxiliary_life: int = 0  # Life paid to activate upstream mana sources, not this final cost.
+    allocation: list[SpentClass] | None = None  # Exact consumed unit classes, absent in legacy/unrestricted payments.
+    selected_options: list[tuple[str, int]] = field(default_factory=list)
+    ability_options: list[tuple[str, int]] = field(default_factory=list)
 
     def delta(self) -> dict[str, int]:
         out = dict(self.produced)
@@ -528,12 +662,12 @@ class Payment:
 
 
 MAX_SEARCH = 20000
-Chosen = list[tuple[Source, tuple[str, ...]]]
+Chosen = list[tuple[Source, int]]
 Found = tuple[dict[str, int], Chosen]
 
 
 def _solve(reqs: list[tuple[str, ...]], generic: int, pool: dict[str, int], sources: list[Source]
-           ) -> tuple[dict[str, int], list[tuple[Source, tuple[str, ...]]]] | None:
+           ) -> Found | None:
     """DFS over coloured/hybrid requirements; generic mana is paid last from whatever is left.
     Returns (units left over after paying, sources tapped with the option used)."""
     budget = [MAX_SEARCH]
@@ -544,10 +678,11 @@ def _solve(reqs: list[tuple[str, ...]], generic: int, pool: dict[str, int], sour
         for src in sorted(remaining, key=lambda s: (s.rank >= 0, not s.preferred, -max(len(o) for o in s.options), s.flexibility, s.rank)):
             if sum(units.values()) >= n:
                 break
-            opt = max(src.options, key=len)
+            oi = max(range(len(src.options)), key=lambda i: len(src.options[i]))
+            opt = src.options[oi]
             for m in opt:
                 units[m] = units.get(m, 0) + 1
-            chosen = [*chosen, (src, opt)]
+            chosen = [*chosen, (src, oi)]
         if sum(units.values()) < n:
             return None
         for _ in range(n):  # spend colourless first, then the most plentiful colour
@@ -563,7 +698,7 @@ def _solve(reqs: list[tuple[str, ...]], generic: int, pool: dict[str, int], sour
             return generic_from(units, remaining, generic + extra_generic, chosen)
         req = reqs[i]
         if req[0].isdigit():  # {2/B}: {B}, or two generic
-            alt = _pay_one(units, remaining, chosen, (req[1],))
+            alt = _pay_one(units, remaining, chosen, req[1:])
             for u2, rem2, ch2 in alt:
                 r = dfs(i + 1, u2, rem2, ch2, extra_generic)
                 if r:
@@ -575,7 +710,40 @@ def _solve(reqs: list[tuple[str, ...]], generic: int, pool: dict[str, int], sour
                 return r
         return None
 
-    return dfs(0, {k: v for k, v in pool.items() if v > 0}, sources, [], 0)
+    if len(reqs) < 256:
+        return dfs(0, {k: v for k, v in pool.items() if v > 0}, sources, [], 0)
+
+    # The number of payable symbols is not a Python call-stack limit. Preserve the same
+    # DFS branch order and budget for large costs using suspended child iterators.
+    State = tuple[int, dict[str, int], list[Source], Chosen, int]
+
+    def children(state: State) -> Iterator[State]:
+        i, units, remaining, chosen, extra_generic = state
+        req = reqs[i]
+        if req[0].isdigit():
+            for u2, rem2, ch2 in _pay_one(units, remaining, chosen, req[1:]):
+                yield i + 1, u2, rem2, ch2, extra_generic
+            yield i + 1, units, remaining, chosen, extra_generic + int(req[0])
+        else:
+            for u2, rem2, ch2 in _pay_one(units, remaining, chosen, req):
+                yield i + 1, u2, rem2, ch2, extra_generic
+
+    pending: list[Iterator[State]] = [iter([(0, {k: v for k, v in pool.items() if v > 0}, sources, [], 0)])]
+    while pending:
+        state = next(pending[-1], None)
+        if state is None:
+            pending.pop()
+            continue
+        budget[0] -= 1
+        if budget[0] < 0:
+            return None
+        i, units, remaining, chosen, extra_generic = state
+        if i == len(reqs):
+            if (found := generic_from(units, remaining, generic + extra_generic, chosen)) is not None:
+                return found
+        else:
+            pending.append(children(state))
+    return None
 
 
 def _pay_one(units: dict[str, int], remaining: list[Source], chosen: Chosen, req: tuple[str, ...]
@@ -587,7 +755,9 @@ def _pay_one(units: dict[str, int], remaining: list[Source], chosen: Chosen, req
             new[color] -= 1
             yield new, remaining, chosen
     for j, src in enumerate(remaining):
-        for opt in src.options:
+        for oi, opt in enumerate(src.options):
+            if req == ('B', '@X') and src.abilities and src.abilities[oi] < 0:
+                continue  # A convoke contribution is not actual black mana spent on X.
             # (-- snow mana (wave 7E) -- {S}: any mana of a snow source, 107.4h)
             wanted = opt[0] if req == (SNOW,) and src.snow and opt else next((c for c in req if c in opt), None)
             if wanted is None:
@@ -596,11 +766,23 @@ def _pay_one(units: dict[str, int], remaining: list[Source], chosen: Chosen, req
             for m in opt:
                 new[m] = new.get(m, 0) + 1
             new[wanted] -= 1
-            yield new, remaining[:j] + remaining[j + 1:], [*chosen, (src, opt)]
+            yield new, remaining[:j] + remaining[j + 1:], [*chosen, (src, oi)]
 
 
 def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: int = 0) -> Payment:
     """Find a payment for ``cost`` (X already fixed). Raises ManaError if there is none."""
+    mixed_snow = any(source.producer_facts and any(
+        (fact is not None and 'Snow' in fact.tags) != source.snow
+        for profile in source.producer_facts for fact in profile) for source in sources)
+    snow_due = SNOW in cost.colored or any(SNOW in symbols for symbols in cost.hybrid)
+    if ((mixed_snow and snow_due)
+            or any(s.generic_allowed and not all(s.generic_allowed) for s in sources)
+            or (cost.allocation is not None and any(row.producer is not None
+                for row in (*cost.allocation.symbols, *cost.allocation.phyrexian)))):
+        from app.rules import mana_allocation_masks
+
+        return mana_allocation_masks.solve(cost, pool,
+            [mana_allocation_masks.MaskedSource(s, s.generic_allowed) for s in sources], life=life).payment
     if cost.unsupported:
         raise ManaError(f"Can't pay {' '.join('{' + s + '}' for s in cost.unsupported)} automatically")
     # (review 18B: mana already in the pool — mana_units' pseudo-sources, rank -1 — before anything is tapped, as the plain pool)
@@ -621,13 +803,17 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
             continue
         left, chosen = found
         payment = Payment(life=life_cost)
-        for src, opt in chosen:
+        for src, oi in chosen:
+            opt = src.options[oi]
+            payment.selected_options.append((src.card_id, oi))
+            if src.ability_options:
+                payment.ability_options.append((src.card_id, src.ability_options[oi]))
             payment.slots.append((src.card_id, opt))
             payment.tapped.append(src.card_id)
             if src.sacrifice:
                 payment.sacrificed.append(src.card_id)
             if src.abilities:
-                payment.used.append((src.card_id, src.abilities[src.options.index(opt)]))
+                payment.used.append((src.card_id, src.abilities[oi]))
             for m in opt:
                 payment.produced[m] = payment.produced.get(m, 0) + 1
         total = {k: v for k, v in pool.items() if v > 0}
@@ -814,7 +1000,16 @@ def parse_spend(sentence: str) -> str | None:
     """A general "Spend this mana only to …" restriction as "q:<json>" (None: not one the payer checks)."""
     import json
 
+    from app.rules import mixed_mana_restrictions
+
     s = sentence.strip().rstrip(".")
+    if s.lower() == "spend this mana only to cast spells with exactly three colors":
+        return "q:" + json.dumps({"cast": [{"color_count": 3}], "ability": None}, sort_keys=True)
+    from app.rules import contextual_mana_outcomes
+    if (contextual := contextual_mana_outcomes.restriction(s)) is not None:
+        return 'q:' + json.dumps(contextual, sort_keys=True)
+    if (mixed := mixed_mana_restrictions.parse(s)) is not None:
+        return 'q:' + json.dumps(mixed, sort_keys=True)
     s, special = _special_split(s)
     if special:
         rest = None if s == "Spend this mana only to" else parse_spend(s)
@@ -862,8 +1057,22 @@ def parse_spend(sentence: str) -> str | None:
 
 def spend_alt_matches(alt: dict[str, Any], ch: Any) -> bool:
     """Does one alternative of a "q:" restriction hold for these characteristics?"""
+    from app.rules.contextual_mana_outcomes import has_foretell
+
+    if alt.get("color_count") is not None and len(ch.colors) != alt["color_count"]:
+        return False
+    if alt.get('foretell') and not has_foretell(ch):
+        return False
+    if alt.get('colored_without_x') and (not ch.colors or '{X}' in ch.mana_cost):
+        return False
     types: frozenset[str] = ch.types
     colors: frozenset[str] = ch.colors
+    if alt.get('on_battlefield') and not ch.on_battlefield:
+        return False
+    if alt.get('face_down') and not ch.face_down:
+        return False
+    if alt.get('any_subtypes') and not set(alt['any_subtypes']).intersection(ch.subtypes):
+        return False
     if any(t not in types for t in alt.get("types") or []):
         return False
     if any(t not in ch.subtypes for t in alt.get("subtypes") or []):

@@ -29,7 +29,7 @@ from app.game.session import GameSession
 from app.rules import oracle, scripts
 from app.rules.characteristics import Characteristics, parse_type_line
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act, deck, turn_on, zone
+from tests.game_helpers import act, deck, mana_pool, turn_on, zone
 from tests.test_rules_attachments import build, ch, mana, named, to_hand, token
 from tests.test_rules_delayed import next_end_step, on_battlefield, reloaded
 from tests.test_rules_effects import pass_until_stack_empty, replay_matches
@@ -436,7 +436,7 @@ def test_a_granted_mana_ability_is_used_by_hand_too(cards):
     pass_until_stack_empty(s)
     (mana_ability,) = grants(s, forest)
     act(s, "p1", type="activate_ability", card_id=forest.id, ability=mana_ability.index, mana_choice="R")
-    assert s.state.players["p1"].mana.get("R") == 1 and s.state.cards[forest.id].tapped
+    assert mana_pool(s).get("R") == 1 and s.state.cards[forest.id].tapped
     replay_matches(s)
 
 
@@ -890,7 +890,7 @@ def test_rain_of_filth_lets_a_land_be_sacrificed_for_mana(cards):
     (g,) = grants(s, forest)
     assert g.kind == "mana" and g.text == "Sacrifice this permanent: Add {B}."
     act(s, "p1", type="activate_ability", card_id=forest.id, ability=g.index)
-    assert s.state.players["p1"].mana.get("B") == 1 and s.state.cards[forest.id].zone == "p1:graveyard"
+    assert mana_pool(s).get("B") == 1 and s.state.cards[forest.id].zone == "p1:graveyard"
     replay_matches(s)
 
 
@@ -945,12 +945,13 @@ def test_mathas_grant_ends_when_the_counter_is_gone(cards):
 
 
 # -- what stays manual (never guessed) ---------------------------------------------------------------------
-@pytest.mark.parametrize("name", ["Hellish Rebuke", "Restless Spire"])  # (Shackles of Treachery: read since wave 34B)
+@pytest.mark.parametrize("name", ["Hellish Rebuke"])
 def test_unreadable_grants_stay_manual(name):
-    """Hellish Rebuke: the quote names the spell that grants it (a name inside a quote is the granter, not
-    the object that gets the ability). Shackles of Treachery: its quote needs a clause the engine doesn't
-    read. Restless Spire: "During your turn, this creature has first strike." is a static ability, which the
-    layer system reads from printed text only — granted by an effect it would silently do nothing."""
+    """The quote names the granting spell rather than the recipient.
+
+    Restless Spire's supported animation and ability-wipe behavior are covered
+    by test_rules_characteristic_recipes39.
+    """
     text = next(c["oracle_text"] for c in EXTRA if c["name"] == name)
     type_line = next(c["type_line"] for c in EXTRA if c["name"] == name)
     sup, types, sub = parse_type_line(type_line)

@@ -1,0 +1,1245 @@
+[
+  {
+    "id": "5915902a-25b4-4e87-939a-2f9ba7552091",
+    "oracle_id": "61fbaaf2-4286-4e9a-b9cb-aa31262b596a",
+    "name": "Jinnie Fay, Jetmir's Second",
+    "layout": "normal",
+    "set_code": "snc",
+    "set_name": "Streets of New Capenna",
+    "collector_number": "378",
+    "rarity": "rare",
+    "mana_cost": "{R/G}{G}{G/W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Elf Druid",
+    "oracle_text": "If you would create one or more tokens, you may instead create that many 2/2 green Cat creature tokens with haste or that many 3/1 green Dog creature tokens with vigilance.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "R",
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-04-29",
+    "artist": "Jack Hughes",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "6736fe71-bd55-4602-b0aa-ece6193048a9",
+        "name": "Dog",
+        "type_line": "Token Creature \u2014 Dog"
+      },
+      {
+        "id": "57bd0b29-0860-4ee3-832a-f62ba7bf4aac",
+        "name": "Cat",
+        "type_line": "Token Creature \u2014 Cat"
+      }
+    ],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "2e390f8e-1dd5-4383-83f5-45f20f18d410",
+    "oracle_id": "9d22960b-babc-4cf3-b228-d32e13bc6014",
+    "name": "Esix, Fractal Bloom",
+    "layout": "normal",
+    "set_code": "mkc",
+    "set_name": "Murders at Karlov Manor Commander",
+    "collector_number": "210",
+    "rarity": "mythic",
+    "mana_cost": "{4}{G}{U}",
+    "cmc": 6.0,
+    "type_line": "Legendary Creature \u2014 Fractal",
+    "oracle_text": "Flying\nThe first time you would create one or more tokens during each of your turns, you may instead choose a creature other than Esix and create that many tokens that are copies of that creature.",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-02-09",
+    "artist": "Chase Stone",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "30016f7d-5150-4ed1-bcd7-323063fa34dd",
+        "name": "Copy",
+        "type_line": "Token"
+      }
+    ],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "9763f489-6b2b-4a19-84a4-1fc602124890",
+    "oracle_id": "df702b0c-e011-497f-ae29-9876efac4a4c",
+    "name": "Moonlit Meditation",
+    "layout": "normal",
+    "set_code": "eoe",
+    "set_name": "Edge of Eternities",
+    "collector_number": "327",
+    "rarity": "rare",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant artifact or creature you control\nThe first time you would create one or more tokens each turn, you may instead create that many tokens that are copies of enchanted permanent.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-08-01",
+    "artist": "Liiga Smilshkalne",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "4b976756-e988-4211-95c2-0e3587118488",
+        "name": "Copy",
+        "type_line": "Token"
+      }
+    ],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "061d765e-df27-406a-9ba0-b51b0cbb65da",
+    "oracle_id": "353db389-b829-4e66-85d5-6018bc87c3e0",
+    "name": "Mirrormind Crown",
+    "layout": "normal",
+    "set_code": "ecl",
+    "set_name": "Lorwyn Eclipsed",
+    "collector_number": "258",
+    "rarity": "rare",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "As long as this Equipment is attached to a creature, the first time you would create one or more tokens each turn, you may instead create that many tokens that are copies of equipped creature.\nEquip {2}",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-01-23",
+    "artist": "Dan Frazier",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "4b976756-e988-4211-95c2-0e3587118488",
+        "name": "Copy",
+        "type_line": "Token"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "00b44e41-828b-4da4-b625-92943b8989ac",
+        "name": "Mirrormind Crown",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "47f0e0b9-d137-46ac-a6e4-13a529e30bb5",
+    "oracle_id": "44ba2aa5-2bf5-4267-ae82-f0daf8f5e3e8",
+    "name": "Fisher's Talent",
+    "layout": "class",
+    "set_code": "blc",
+    "set_name": "Bloomburrow Commander",
+    "collector_number": "36",
+    "rarity": "rare",
+    "mana_cost": "{2}{G}{U}",
+    "cmc": 4.0,
+    "type_line": "Enchantment \u2014 Class",
+    "oracle_text": "(Gain the next level as a sorcery to add its ability.)\nAt the beginning of your upkeep, look at the top card of your library. You may reveal it if it's a land card. Create a 1/1 blue Fish creature token if you revealed it this way. Then draw a card.\n{G}{U}: Level 2\nIf you would create a Fish token, create a 3/3 blue Shark creature token instead.\n{2}{G}{U}: Level 3\nIf you would create a Shark token, create an 8/8 blue Octopus creature token instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-08-02",
+    "artist": "Allen Douglas",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "9fc10475-5eaf-47ea-a45c-3948a632f365",
+        "name": "Octopus",
+        "type_line": "Token Creature \u2014 Octopus"
+      },
+      {
+        "id": "f9424ef2-d271-4929-83e0-12775420bac3",
+        "name": "Shark",
+        "type_line": "Token Creature \u2014 Shark"
+      },
+      {
+        "id": "de0d6700-49f0-4233-97ba-cef7821c30ed",
+        "name": "Fish",
+        "type_line": "Token Creature \u2014 Fish"
+      }
+    ],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "409f9b88-f03e-40b6-9883-68c14c37c0de",
+    "oracle_id": "14c8f55d-d177-4c25-a931-ebeb9e6062a0",
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "268",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "D. J. Cleland-Hura",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "81d3e5c5-6531-48e7-9dd6-2db519dd61b1",
+    "oracle_id": "5b2364d7-a811-4595-a1b4-224c70555ffa",
+    "name": "Raise the Alarm",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "101",
+    "rarity": "common",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Create two 1/1 white Soldier creature tokens.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Slawomir Maniak",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "d093322e-a717-4e2d-8199-fa560792bcf6",
+        "name": "Soldier",
+        "type_line": "Token Creature \u2014 Soldier"
+      }
+    ],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "219f1f03-e882-40ca-8854-1e466e37b8cd",
+    "oracle_id": "d1a60f44-7696-49ee-91fb-cab5b3102962",
+    "name": "Wurmcoil Engine",
+    "layout": "normal",
+    "set_code": "brr",
+    "set_name": "The Brothers' War Retro Artifacts",
+    "collector_number": "63",
+    "rarity": "mythic",
+    "mana_cost": "{6}",
+    "cmc": 6.0,
+    "type_line": "Artifact Creature \u2014 Phyrexian Wurm",
+    "oracle_text": "Deathtouch, lifelink\nWhen this creature dies, create a 3/3 colorless Phyrexian Wurm artifact creature token with deathtouch and a 3/3 colorless Phyrexian Wurm artifact creature token with lifelink.",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Lifelink",
+      "Deathtouch"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-11-18",
+    "artist": "Raymond Swanland",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "a6ee0db9-ac89-4ab6-ac2e-8a7527d9ecbd",
+        "name": "Wurm",
+        "type_line": "Token Artifact Creature \u2014 Wurm"
+      },
+      {
+        "id": "b68e816f-f9ac-435b-ad0b-ceedbe72447a",
+        "name": "Wurm",
+        "type_line": "Token Artifact Creature \u2014 Wurm"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "dcdbecfc-fc37-4327-9469-7139e16f7fbd",
+        "name": "Wurmcoil Engine",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "01033dae-fec1-41f2-b7f2-cc6a43331790",
+    "oracle_id": "84dc94b2-95fb-4d53-aaa2-191cb645639f",
+    "name": "Parallel Lives",
+    "layout": "normal",
+    "set_code": "isd",
+    "set_name": "Innistrad",
+    "collector_number": "199",
+    "rarity": "rare",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2011-09-30",
+    "artist": "Steve Prescott",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "3799ddbf-b90b-440b-8164-162b83e3f290",
+    "oracle_id": "188da0ad-8524-4fb2-915e-1876dc9df89f",
+    "name": "Peregrin Took",
+    "layout": "normal",
+    "set_code": "ltr",
+    "set_name": "The Lord of the Rings: Tales of Middle-earth",
+    "collector_number": "632",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Halfling Citizen",
+    "oracle_text": "If one or more tokens would be created under your control, those tokens plus an additional Food token are created instead. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\nSacrifice three Foods: Draw a card.",
+    "power": "2",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Food"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-11-03",
+    "artist": "Campbell White",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "4a029bdc-92e3-4d85-8af5-e33429a5f017",
+        "name": "Food",
+        "type_line": "Token Artifact \u2014 Food"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "3c8b8eef-d150-4610-8428-d8ea75eeb80a",
+        "name": "Peregrin Took",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "4682012c-d7e0-4257-b538-3de497507464",
+    "oracle_id": "6048fc70-0dcc-4b54-977d-16e240225f82",
+    "name": "Diregraf Ghoul",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "171",
+    "rarity": "uncommon",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Zombie",
+    "oracle_text": "This creature enters tapped.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Dave Kendall",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "80b38b13-fc19-4ffc-8100-249f9eb8cca6",
+    "oracle_id": "35d458fb-dfdb-41e4-92e3-f0fd392e1c69",
+    "name": "Masterwork of Ingenuity",
+    "layout": "normal",
+    "set_code": "afc",
+    "set_name": "Forgotten Realms Commander",
+    "collector_number": "209",
+    "rarity": "rare",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "You may have this Equipment enter as a copy of any Equipment on the battlefield.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-07-23",
+    "artist": "Ulrich Brunin",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "690972a8-72df-4050-a353-16e45589167c",
+    "oracle_id": "452e3f5f-ce17-4682-966b-5cc100210aee",
+    "name": "Bonesplitter",
+    "layout": "normal",
+    "set_code": "cmr",
+    "set_name": "Commander Legends",
+    "collector_number": "458",
+    "rarity": "common",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +2/+0.\nEquip {1}",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-11-20",
+    "artist": "Darrell Riche",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "ac0987b8-755e-42f1-bd6d-1401fecd4171",
+    "oracle_id": "9357de36-f8be-4f49-b2c8-9fe9eaf82b07",
+    "name": "Holy Strength",
+    "layout": "normal",
+    "set_code": "m11",
+    "set_name": "Magic 2011",
+    "collector_number": "16",
+    "rarity": "common",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +1/+2.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2010-07-16",
+    "artist": "Terese Nielsen",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "a865fdc5-955a-4c4a-90c0-342c15fd7bbc",
+    "oracle_id": "9e2adca5-f39c-4a09-bcce-8238ebac2c4a",
+    "name": "Cackling Counterpart",
+    "layout": "normal",
+    "set_code": "inr",
+    "set_name": "Innistrad Remastered",
+    "collector_number": "55",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Create a token that's a copy of target creature you control.\nFlashback {5}{U}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flashback"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-01-24",
+    "artist": "David Rapoza",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "4b976756-e988-4211-95c2-0e3587118488",
+        "name": "Copy",
+        "type_line": "Token"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "29306076-b48b-4dd5-959f-12e7a38b3800",
+        "name": "Cackling Counterpart",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "1e3f2a56-ec54-4983-9f09-aea67becec68",
+    "oracle_id": "0df0503b-25e7-499b-a703-a867f2da790c",
+    "name": "Nature's Revolt",
+    "layout": "normal",
+    "set_code": "7ed",
+    "set_name": "Seventh Edition",
+    "collector_number": "260\u2605",
+    "rarity": "rare",
+    "mana_cost": "{3}{G}{G}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "All lands are 2/2 creatures that are still lands.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2001-04-11",
+    "artist": "Dave Dorman",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "e056b55f-82ed-4fe0-ab0c-bb20fa4a218a",
+    "oracle_id": "f1750962-a87c-49f6-b731-02ae971ac6ea",
+    "name": "Hallowed Fountain",
+    "layout": "normal",
+    "set_code": "ecl",
+    "set_name": "Lorwyn Eclipsed",
+    "collector_number": "265",
+    "rarity": "rare",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land \u2014 Plains Island",
+    "oracle_text": "({T}: Add {W} or {U}.)\nAs this land enters, you may pay 2 life. If you don't, it enters tapped.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-01-23",
+    "artist": "Adam Paquette",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "390c40ba-2464-44ae-8d67-93c72ab3c425",
+    "oracle_id": "bdb3ca68-ec1f-4e16-81cc-d23f8f52c728",
+    "name": "Naturalize",
+    "layout": "normal",
+    "set_code": "m19",
+    "set_name": "Core Set 2019",
+    "collector_number": "190",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-07-13",
+    "artist": "Daniel Ljunggren",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "90cacb16-c18c-44bb-87b9-267da816f51d",
+        "name": "Wingbane Vantasaur",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7d6fc254-dfdc-425c-9795-ef4e10459b70",
+        "name": "You Line Up the Shot",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "1323d548-e2fe-47c5-8df3-f181aed537c5",
+    "oracle_id": "3e1b32a9-27a4-4550-a644-ebe254e1f512",
+    "name": "Clockspinning",
+    "layout": "normal",
+    "set_code": "tsp",
+    "set_name": "Time Spiral",
+    "collector_number": "53",
+    "rarity": "common",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nChoose a counter on target permanent or suspended card. Remove that counter from that permanent or card or put another of those counters on it.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Buyback"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2006-10-06",
+    "artist": "Zoltan Boros & Gabor Szikszai",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "cabd77a6-0913-4522-891d-c8a412a536c2",
+    "oracle_id": "8c1fda45-09f1-4b58-a487-e11c868e1357",
+    "name": "Ainok Strike Leader",
+    "layout": "normal",
+    "set_code": "tdc",
+    "set_name": "Tarkir: Dragonstorm Commander",
+    "collector_number": "11",
+    "rarity": "rare",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Dog Warrior",
+    "oracle_text": "Whenever you attack with this creature and/or your commander, for each opponent, create a 1/1 red Goblin creature token that's tapped and attacking that player.\nSacrifice this creature: Creature tokens you control gain indestructible until end of turn.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-04-11",
+    "artist": "Alexander Mokhov",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "e265ca24-96c0-4654-a8f3-bbffe288970a",
+        "name": "Goblin",
+        "type_line": "Token Creature \u2014 Goblin"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "2d1102e4-447a-4b40-8131-5b36b8979fe0",
+        "name": "Ainok Strike Leader",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "0208a5a9-3a6f-44c5-9e46-24bdf924753c",
+    "oracle_id": "2acb15bd-6c89-4ff3-ab32-beac67e9c88a",
+    "name": "Quina, Qu Gourmet",
+    "layout": "normal",
+    "set_code": "fin",
+    "set_name": "Final Fantasy",
+    "collector_number": "471",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Qu",
+    "oracle_text": "If one or more tokens would be created under your control, those tokens plus a 1/1 green Frog creature token are created instead.\n{2}, Sacrifice a Frog: Put a +1/+1 counter on Quina.",
+    "power": "2",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-06-13",
+    "artist": "Fajareka Setiawan",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "e3c84944-23b8-40d7-9b25-c746b08b4dc4",
+        "name": "Frog",
+        "type_line": "Token Creature \u2014 Frog"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "name": "Clone",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Shapeshifter",
+    "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "power": "0",
+    "toughness": "0",
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Glorious Anthem",
+    "layout": "normal",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures you control get +1/+1.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Crafty Cutpurse",
+    "layout": "normal",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Pirate",
+    "oracle_text": "Flash\nWhen this creature enters, each token that would be created under an opponent's control this turn is created under your control instead.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flash"
+    ]
+  },
+  {
+    "id": "a2daec58-78ed-4da5-b3b0-b04f12b0acbd",
+    "oracle_id": "d04c6375-25dd-4882-b8b3-a3b0d3081f32",
+    "name": "Doppelgang",
+    "layout": "normal",
+    "mana_cost": "{X}{X}{X}{G}{U}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "For each of X target permanents, create X tokens that are copies of that permanent.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": []
+  },
+  {
+    "id": "075f346e-4e2a-4424-b974-fdcf83b3ebfc",
+    "oracle_id": "cc504f00-f177-4def-956d-92a2217438bb",
+    "name": "Three Dog, Galaxy News DJ",
+    "layout": "normal",
+    "set_code": "pip",
+    "set_name": "Fallout",
+    "collector_number": "648",
+    "rarity": "rare",
+    "mana_cost": "{1}{R}{W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Bard",
+    "oracle_text": "Whenever you attack, you may pay {2} and sacrifice an Aura attached to Three Dog. When you sacrifice an Aura this way, for each other attacking creature you control, create a token that's a copy of that Aura attached to that creature.",
+    "power": "1",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-03-08",
+    "artist": "Elizabeth Peir\u00f3",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "78c43047-87f6-4382-874e-02e9628647bd",
+        "name": "Copy",
+        "type_line": "Token"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "93ef2bb3-ecb7-43c6-b4ed-982983c3060d",
+        "name": "Three Dog, Galaxy News DJ",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "28ebab7d-d03d-4473-aa9b-485aebb66433",
+    "oracle_id": "5dc34e93-97e3-434b-9f12-f45c6d556f13",
+    "name": "Rampage of the Clans",
+    "layout": "normal",
+    "set_code": "rna",
+    "set_name": "Ravnica Allegiance",
+    "collector_number": "134",
+    "rarity": "rare",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy all artifacts and enchantments. For each permanent destroyed this way, its controller creates a 3/3 green Centaur creature token.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2019-01-25",
+    "artist": "Sidharth Chaturvedi",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "5fc993a7-a1ce-4403-a0a0-2afc9f9eca42",
+        "name": "Centaur",
+        "type_line": "Token Creature \u2014 Centaur"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "1de30c12-2011-495a-be25-f7a46b23e142",
+    "oracle_id": "38515f89-348b-4cf3-b7bd-1f6fe4ce2fba",
+    "name": "Adeline, Resplendent Cathar",
+    "layout": "normal",
+    "set_code": "tdc",
+    "set_name": "Tarkir: Dragonstorm Commander",
+    "collector_number": "108",
+    "rarity": "rare",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Knight",
+    "oracle_text": "Vigilance\nAdeline's power is equal to the number of creatures you control.\nWhenever you attack, for each opponent, create a 1/1 white Human creature token that's tapped and attacking that player or a planeswalker they control.",
+    "power": "*",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Vigilance"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-04-11",
+    "artist": "Bryan Sola",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "5054bb15-ddd5-4e5e-a9fd-6bdf255f7fd3",
+        "name": "Human",
+        "type_line": "Token Creature \u2014 Human"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "806d4e61-004f-4e52-b2e8-ba11b922cc7d",
+    "oracle_id": "cc2b6e58-2d6f-495e-95f3-9496105c4cba",
+    "name": "Jace Beleren",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "850",
+    "rarity": "mythic",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker \u2014 Jace",
+    "oracle_text": "+2: Each player draws a card.\n\u22121: Target player draws a card.\n\u221210: Target player mills twenty cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "3",
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Aleksi Briclot",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "75db3c02-7a03-4de5-a70e-220777227dd3",
+    "oracle_id": "75fddffb-68f4-4b65-bf3b-4e2ada62a522",
+    "name": "Scion of Calamity",
+    "layout": "normal",
+    "set_code": "lcc",
+    "set_name": "The Lost Caverns of Ixalan Commander",
+    "collector_number": "93",
+    "rarity": "rare",
+    "mana_cost": "{3}{G}{G}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Dinosaur",
+    "oracle_text": "Myriad (Whenever this creature attacks, for each opponent other than defending player, you may create a token copy that's tapped and attacking that player or a planeswalker they control. Exile the tokens at end of combat.)\nWhenever this creature deals combat damage to a player, destroy target artifact or enchantment that player controls.",
+    "power": "5",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Myriad"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-11-17",
+    "artist": "Crystal Sully",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "01c3b739-89b3-4ad8-aab9-76e8f87cf123",
+        "name": "Copy",
+        "type_line": "Token"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "444b75d9-f7c7-4a13-9318-02d7bbd80c9c",
+    "oracle_id": "393ef069-ea6b-4969-b878-d942281cc918",
+    "name": "Exquisite Huntmaster",
+    "layout": "normal",
+    "set_code": "cmr",
+    "set_name": "Commander Legends",
+    "collector_number": "122",
+    "rarity": "common",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Elf Warrior",
+    "oracle_text": "When this creature dies, create a 1/1 green Elf Warrior creature token.\nEncore {4}{B} ({4}{B}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+    "power": "4",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Encore"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-11-20",
+    "artist": "Lie Setiawan",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "9f834ec3-0901-455a-a32d-aa5d3fcdb247",
+        "name": "Copy",
+        "type_line": "Token"
+      },
+      {
+        "id": "ff2aea59-c5f1-4927-8534-2215ef79bec7",
+        "name": "Elf Warrior",
+        "type_line": "Token Creature \u2014 Elf Warrior"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "94fd0c0f-4a6a-47cf-9f50-df0bbf19aae4",
+    "oracle_id": "e9541db2-2874-4307-b896-c403f6d82e68",
+    "name": "Hallowed Moonlight",
+    "layout": "normal",
+    "set_code": "ori",
+    "set_name": "Magic Origins",
+    "collector_number": "16",
+    "rarity": "rare",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, if a creature would enter and it wasn't cast, exile it instead.\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2015-07-17",
+    "artist": "Mike Bierek",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

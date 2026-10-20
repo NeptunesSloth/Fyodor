@@ -83,8 +83,9 @@ Definition = dict[str, Any]
 # (ward {1}, protection from …) aren't granted this way: those lines stay manual. So does flash: it
 # matters to a card in hand (702.8a, 113.6e), where a static of a permanent doesn't apply (611.3b).
 GRANTABLE_KEYWORDS: frozenset[str] = frozenset({
+    "phasing",
     "flying", "first strike", "double strike", "deathtouch", "lifelink", "vigilance", "trample", "haste",
-    "reach", "menace", "indestructible", "hexproof", "defender", "shroud",
+    "reach", "menace", "indestructible", "hexproof", "defender", "shroud", "banding",
     "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk", "desertwalk",
     "snow landwalk", "nonbasic landwalk", "legendary landwalk", "artifact landwalk", "snow plainswalk", "snow islandwalk", "snow swampwalk", "snow mountainwalk", "snow forestwalk",  # (wave 12B: 702.14c variants)
     "shadow", "horsemanship", "fear", "intimidate", "skulk", "wither", "infect",
@@ -98,10 +99,10 @@ TRIGGERED_GRANTS: frozenset[str] = frozenset({"prowess", "exalted", "persist", "
 # -- static grants (wave 15A) -- keywords whose whole meaning is one triggered ability (keyword_triggers.MEANINGS): granted as the
 # line itself (613.1f). Not modular / graft / living weapon / for mirrodin! / ravenous: those have a half that works as the
 # permanent enters (a granted one would miss it).
-MEANING_GRANTS = r"extort|ingest|melee|myriad|exploit|(?:poisonous|frenzy|afterlife|annihilator|afflict|fabricate) \d+"  # (wave 42A: fabricate N, 702.123a: one enters trigger)
+MEANING_GRANTS = r"provoke|absorb \d+|extort|ingest|melee|myriad|exploit|(?:poisonous|frenzy|afterlife|annihilator|afflict|fabricate) \d+"  # (wave 42A: fabricate N, 702.123a: one enters trigger)
 
 ATTACHED_SUBJECTS = {"enchanted creature": "creature", "equipped creature": "creature", "enchanted land": "land",
-                     "enchanted permanent": "permanent", "enchanted artifact": "artifact",
+                     "enchanted permanent": "permanent", "enchanted artifact": "artifact", "enchanted planeswalker": "planeswalker",
                      "enchanted creatures": None}  # (plural: not a template)
 _PT = re.compile(r"^(?P<p>[+−-]\d+)/(?P<t>[+−-]\d+)$")
 _BASE = re.compile(r"^base power and toughness (?P<p>\d+)/(?P<t>\d+)$")
@@ -125,6 +126,38 @@ def _num(word: str) -> int | None:
 def parse(text: str) -> Definition | None:
     """One static ability sentence (the card's own name already written as ~) → definition, or None."""
     t = text.strip().replace("’", "'").replace("“", '"').replace("”", '"')
+    # 609.4: a rule exception, rather than removing any landwalk ability.
+    if t == "Creatures with landwalk abilities can be blocked as though they didn't have those abilities.":
+        t = "Creatures can be blocked as though they didn't have landwalk."
+    spending = " You may spend mana as though it were mana of any color to activate those abilities."
+    if t.endswith(spending):
+        borrowed = parse(t[:-len(spending)])
+        if borrowed is None or not borrowed.get("abilities_of"):
+            return None
+        return {**borrowed, "abilities_of": {**borrowed["abilities_of"], "spend_color": True}}
+    from app.rules import color_comparisons, declaration_groups, keyed_player_bindings
+
+    if (keyed_static := keyed_player_bindings.static(t)) is not None:
+        return keyed_static
+    if (color_static := color_comparisons.static(t)) is not None:
+        return color_static
+
+    if (group := declaration_groups.parse(t)) is not None:
+        return group
+    from app.rules import equipment_animation, harness
+
+    if t.startswith("∞ — "):
+        return harness.infinity(t)
+    if (animation := equipment_animation.definition(t.rstrip("."))) is not None:
+        return animation
+    goaded_blockers = re.fullmatch(r"Goaded (?P<s>creatures(?: you control| your opponents control)?) can't block\.", t)
+    if goaded_blockers is not None:
+        who, kind = _subject(goaded_blockers["s"], plural=True)
+        if who is None:
+            return None
+        # A blocking rule is checked after all continuous effects, so its goad
+        # condition sees both resolved goads and statics, regardless of timestamp.
+        return _definition(who, kind, [], rules=["cant_block_if_goaded"])
     t = t.replace(" your team controls ", " you control ")  # -- static_other sweep (wave 19A) -- 102.4: outside a team game "your team" is you
     # -- attached events (wave 16F) -- "Enchanted permanent can't attack, block, or crew Vehicles. Its activated abilities can't be
     # activated unless they're mana abilities." (Intercessor's Arrest): the two sentences are one static's two rules
@@ -150,12 +183,24 @@ def parse(text: str) -> Definition | None:
     if m:
         inner = parse(m["grant"] + ".")
         return None if inner is None or inner["who"] != "attached" else {**inner, "keeps": "auras" if m["k"] == "Auras" else "yours" if m["k"].startswith("Auras and") else "self"}
-    if not t.endswith(".") and not t.endswith('."'):
+    if not t.endswith(".") and not t.endswith(('."', "'\"")):
         return None
     if re.sub(r'"[^"]*"', "", t).count(". ") or "\n" in t:  # (wave 16F: sentences inside a quoted granted ability are its own)
         return None  # two sentences: one of them says something we'd silently drop
     body = t[:-1] if t.endswith(".") else t
-    if re.fullmatch(r"A deck can have (?:any number of|up to \w+) cards named ~", body):
+    prior_rule = re.fullmatch(r"(?P<subject>~|Enchanted creature) (?P<predicate>.+)", body)
+    if prior_rule:
+        prior = RULES.get(prior_rule["predicate"])
+        if prior is not None and any("last_own" in r for r in prior):
+            who, kind = _subject(prior_rule["subject"])
+            assert who is not None
+            return _definition(who, kind, [], rules=list(prior))
+    # This is a relation to the defending player, not a condition of the permanent's controller.
+    if body.startswith("~ can't be blocked unless defending player "):
+        defender_rule = _rule(body[2:])
+        if defender_rule is not None:
+            return _definition("self", None, [], rules=defender_rule)
+    if re.fullmatch(r"A deck can have (?:any number of|up to \w+) cards named (?:~|[A-Z][^.]+)", body):
         return {"kind": "static", "static": "deck_rule", "effects": []}  # -- static grants (wave 15A) -- 100.2a / 903.5b: deck building only
     cda = parse_cda(body)
     if cda is not None:
@@ -164,6 +209,8 @@ def parse(text: str) -> Definition | None:
     # layer 4 (613.1d, 205.1b), the creature type chosen as it entered (layers._own_layer4 reads it, chosen.chosen_value_ok)
     if body == "~ is the chosen color":  # -- chosen filters (wave 53B) -- Alloy Golem: layer 5 (613.1e), the color it chose as it entered (layers: chosen.resolve_marks)
         return {**_definition("self", None, []), "set_colors": ["@color"]}
+    if body == '~ is the chosen type':
+        return {'kind': 'static', 'static': 'chosen_land_type', 'effects': [], 'chosen_type': 'land'}
     if body == "~ is the chosen type in addition to its other types":
         return {**_definition("self", None, []), "remove_types": [], "add_subtypes": [], "chosen_type": True}
     # -- untap choice (wave 7F) -- 502.3: asked in the untap step (app/rules/untap_choice.py)
@@ -177,7 +224,7 @@ def parse(text: str) -> Definition | None:
     if m:
         fact = None
         if m["sel"]:
-            key = _sel_key(m["sel"], plural=False)
+            key = _permanent_alternatives(m["sel"])
             fact = f"controls:{key}" if key else None
         elif m["more"]:
             key = _sel_key(m["more"])
@@ -232,6 +279,16 @@ def parse(text: str) -> Definition | None:
     m = re.fullmatch(r"Creatures with power (?P<dir>less|greater) than ~'s power can't block it", body)
     if m:
         return _definition("self", None, [], rules=[f"cant_be_blocked_by_power:{m['dir']}"])
+    # Current permanent counts are evaluated when blocks are declared, not when the source enters.
+    counted_blockers = re.fullmatch(r"Creatures with power less than the number of (?P<sel>.+ you control) can't block (?:it|~|this creature)", body)
+    if counted_blockers and (key := _sel_key(counted_blockers["sel"])):
+        counted = selectors.from_key(key)
+        if counted.controller == "you" and not counted.extras:
+            return _definition("self", None, [], rules=[f"cant_be_blocked_by_power_count:@you:{key}"])
+    if body == "Creatures that attacked during their controller's last turn can't attack":
+        who, kind = _subject("Creatures")
+        assert who is not None
+        return _definition(who, kind, [], rules=["cant_attack_if_attacked_last_own_turn"])
     # -- lure (wave 12B) -- "All creatures able to block ~ do so." / "…, and all creatures able to block it do so." (Lure,
     # Nemesis Mask): every creature able to block it must (509.1c) — the rule "lure" on the attacker
     # (-- ability words (wave 46B) -- also after a condition: "Threshold — As long as there are seven or more cards in your graveyard, all creatures able to block this creature do so.")
@@ -401,9 +458,9 @@ def parse(text: str) -> Definition | None:
     if who != "self" and not names_source and any(_mentions(c, ("self", "self_counter", "designation", "self_is", "ring_bearer", "self_attached",
                                                                  "dealt_damage", "was_cast", "blocked_by")) for c in conds):  # (wave 35D)
         return None  # "it's attacking" means the source; a group subject would need "each … that's attacking"
-    # "counters on it": "it" is the source only when the source is the subject ("~ gets …"); for
-    # "Equipped creature gets +1/+1 for each counter on it" it's the equipped creature (not read)
-    it = "self" if who == "self" else None
+    # CR 611.3a: "it" is the subject, so an attached grant reads its host's
+    # counters, never those on the Equipment or Aura itself.
+    it = "self" if who == "self" else "host" if who == "attached" else None
     x_value = values.parse_count(x_phrase, it=it) if x_phrase is not None else None
     if x_value is None and x_phrase is not None and who == "attached":  # -- attached events (wave 25D) -- "where X is the number of … in its controller's graveyard"
         x_value = _controller_count(x_phrase)
@@ -431,15 +488,15 @@ def parse(text: str) -> Definition | None:
         return None
     if x_value is not None and parts["each"] is None:
         return None  # ("where X is …" with no X in the sentence)
-    if who == "self" and not conds and not parts["rules"] and parts["each"] is None and parts["abilities_of"] is None and not any(g in _chosen.PROTECTION for g in parts["grants"]):
+    from app.rules.source_qualities import MARKERS
+
+    if who == "self" and not conds and not parts["rules"] and parts["each"] is None and parts["abilities_of"] is None and not any(g in _chosen.PROTECTION or g in MARKERS or g == "Protection from each color among permanents you control" for g in parts["grants"]):
         return None  # "~ has flying." unconditionally is a keyword line, not a static: not a template (wave 53B: but not "~ has protection from the chosen color", a choice made as it entered)
     if any(_mentions(c, ("self_stat",)) for c in conds) and (who != "self" or not parts["rules"] or extra or parts["p"] or parts["t"] or parts["base"]
                                                               or parts["keywords"] or parts["grants"] or parts["each"] or parts["abilities_of"]):
         return None  # -- static_other (wave 42A) -- the source's own power is known to the rules pass (layers._with_rules) only: a rule of the source, nothing else
-    if "_abilities" in who and (not parts["rules"] or extra or parts["p"] or parts["t"] or parts["base"] or parts["keywords"] or parts["grants"] or parts["each"]
-                                or parts["abilities_of"]):
-        return None  # -- static_other (wave 42A) -- "creatures with no abilities": layer 6 grants of other statics change who has none (613.8), which the subject of a
-        # layer 6-7 grant doesn't wait for (layers._hits reads it before the granted abilities are there): only a rule, judged after every layer, is read
+    if "_abilities" in who and (extra or parts["keywords"] or parts["grants"] or parts["each"] or parts["abilities_of"]):
+        return None  # Ability-sensitive layer-6 grants need dependency handling; pure layer-7 P/T is selected after layer 6.
     if rule_cond and not parts["rules"]:
         return None  # "~ gets +1/+1 if …" isn't how a static grant is worded
     if who != "self" and any(_relative(sel) for r in parts["rules"] for sel in rule_selectors(rule_arg(r)[1])):
@@ -461,7 +518,10 @@ def parse(text: str) -> Definition | None:
         return {**_definition(who, kind, conds, **parts), **layer4[1]}
     if extra:  # -- attached events (wave 4L) --
         return {**_definition(who, kind, conds, **parts), **extra}
-    return _definition(who, kind, conds, **parts)
+    definition = _definition(who, kind, conds, **parts)
+    if "Protection from each of the exiled card's card types" in parts["grants"]:
+        definition["derived_link"] = "exiled_with"
+    return definition
 
 
 # -- conditional statics (wave 4B) ----------------------------------------------------------------------------
@@ -824,8 +884,8 @@ def _subject(subject: str, *, plural: bool = False) -> tuple[str | None, str | N
     sel = selectors.parse(phrase)
     if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card:
         return None, None  # spells ("Creature spells you cast have …") and cards in other zones: not here
-    if "goaded" in sel.extras:  # (review 22E) "Goaded creatures … can't block": a layer-6 grant that depends on the goad (613.8a),
-        return None, None  # which this engine applies by timestamp only - it would miss creatures goaded later: refused
+    if "goaded" in sel.extras:  # Layer-6/7 grants depending on goad still need dependency ordering.
+        return None, None  # Pure blocking restrictions are compiled separately and checked after all layers.
     return sel.key(), None
 
 
@@ -890,9 +950,16 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
     from app.rules import attached_types
 
     extra: dict[str, Any] = {}
+    named = re.search(r" named (?P<name>[A-Z][A-Za-z0-9 ’'\-,]+)$", predicate)
+    if named is not None and re.search(r"\bis an? .+? with base power and toughness \d+/\d+", predicate[:named.start()]):
+        extra["set_name"] = named["name"]
+        predicate = predicate[:named.start()]
+        # A creature description can include a quoted ability without repeating "has".
+        predicate = re.sub(r'(with base power and toughness \d+/\d+) and (?=")', r'\1 and has ', predicate)
     predicate = attached_types.protect(predicate)
     predicate = predicate.replace("instant and sorcery card", "instant or sorcery card")  # -- attached events (wave 20A) -- one noun phrase, not two pieces
-    for piece in _pieces(predicate):
+    # A complete evasion selector can contain commas and conjunctions of its own.
+    for piece in [predicate] if _rule(predicate) is not None else _pieces(predicate):
         piece = piece[3:] if piece.startswith("it can") and verb is None and rules else piece  # (wave 25A: "… as though it didn't have defender and it can't be blocked")
         rule = _rule(piece)
         if rule is not None:
@@ -964,6 +1031,8 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
         q = _QUOTED.match(rest)
         if q:
             text = q["q"] if q["q"][-1] in ".)" else q["q"].rstrip(",") + "."  # (wave 16F: a quote ending a clause has no period of its own; wave 50H: "…draw a card," and is a Rogue: the comma is the list's)
+            if it == "self":
+                text = text.replace("‹granter›", "~")  # a self-grant names the same object as its recipient
             if granted_ability(text) is None:
                 return None
             grants.append(text)
@@ -975,10 +1044,18 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
             # (wave 17C: riot is read from the entering permanent's characteristics as it enters, 614.12: app/rules/riot.py)
             grants.append(rest.capitalize())  # (wave 15A: "have extort", "have afflict 2": their CR meaning, keyword_triggers)
             continue
+        from app.rules.source_qualities import MARKERS
+
+        if rest[0:1].upper() + rest[1:] in MARKERS:
+            grants.append(rest[0].upper() + rest[1:])
+            continue
+        if rest in ("protection from each of its colors", "protection from each color among permanents you control"):
+            grants.append(rest[0].upper() + rest[1:])
+            continue
         if rest == "protection from each color that's not in your commander's color identity":  # -- most-played cards (wave 43B) -- Commander's Plate
             grants.append("Protection from each color not in your commander's color identity")  # (layers writes the colors in: 903.4, the rulings 2020-11-10)
             continue
-        if (chosen_line := {"protection from the chosen color": "Protection from the chosen color", "protection from the chosen card type": "Protection from the chosen card type",
+        if (chosen_line := {"protection from the chosen player": "Protection from the chosen player", "protection from the chosen color": "Protection from the chosen color", "protection from the chosen card type": "Protection from the chosen card type",
                             "protection from creatures of the chosen type": "Protection from creatures of the chosen type"}.get(rest)) is not None:
             # -- attached events (wave 25D) -- the color the Aura's "As ~ enters, choose a color" recorded (wave 53B: or a card type, or a creature type, of the permanent's own choice)
             grants.append(chosen_line)  # (layers writes the answer in; chosen.chosen_value_ok: the one choice)
@@ -1012,9 +1089,12 @@ def keyword_line(rest: str) -> str | None:
     creatures"), or None."""
     from app.rules.coverage import _keyword_supported  # (coverage imports this module through scripts)
 
+    if rest.startswith('hexproof from '):
+        line = rest[0].upper() + rest[1:]
+        return line if _keyword_supported('hexproof from', line) else None
     word = "ward" if rest.startswith("ward—") else rest.split(" ", 1)[0]
     # -- static_other sweep (wave 17C) -- "Ward—Pay 2 life." / "Ward—{2}, Pay 2 life.": a ward cost that isn't just mana (triggers.ward_piece_cost)
-    if not (word in _PARAM_KEYWORDS and re.fullmatch(r"[a-z]+ [\w{}, ]+", rest)) and not re.fullmatch(r"ward—[\w{}, ]+", rest):
+    if not (word in _PARAM_KEYWORDS and re.fullmatch(r"[a-z]+ [\w{}, -]+", rest)) and not re.fullmatch(r"ward—[\w{}, ]+", rest):
         return None
     line = rest[0].upper() + rest[1:]
     return line if _keyword_supported(word, line) else None
@@ -1026,7 +1106,9 @@ def keyword_line(rest: str) -> str | None:
 # (untap), 702.111b-style "except by N or more creatures" is a min_blockers:N rule instead.
 RULES: dict[str, tuple[str, ...]] = {
     "can't block": ("cant_block",),
+    "can't be sacrificed": ("cant_be_sacrificed",),
     "can't attack": ("cant_attack",),
+    "can't be attacked": ("cant_be_attacked",),
     "can't attack or block": ("cant_attack_or_block",),
     "can't be blocked": ("cant_be_blocked",),
     "can't attack alone": ("cant_attack_alone",),
@@ -1078,6 +1160,18 @@ RULES.update({"assigns combat damage as though its power were positive": ("assig
 # Lord Magnus, Quagmire, Undertow …): the attacker's landwalk restriction isn't applied (app/rules/combat.py)
 RULES.update({f"can be blocked as though they didn't have {w}": (f"ignore_landwalk:{w}",)
               for w in ("plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk")})
+# 609.4: these permissions apply only when declaring a block; they grant no keyword.
+RULES.update({"can't attack if it attacked during your last turn": ("cant_attack_if_attacked_last_own_turn",),
+              "doesn't untap during your untap step if it attacked during your last turn": ("doesnt_untap_if_attacked_last_own_turn",),
+              "doesn't untap during its controller's untap step if it attacked during its controller's last turn": ("doesnt_untap_if_attacked_last_own_turn",),
+              "can attack players who attacked you during their last turn as though it didn't have defender": ("attack_despite_defender_last_own:@you",)})
+
+RULES.update({"can block creatures with shadow as though it had shadow": ("block_shadow",),
+              "can block creatures with shadow as though they didn't have shadow": ("block_shadow",),
+              "can block creatures with landwalk abilities as though they didn't have those abilities": ("block_landwalk",),
+              "can be blocked as though they didn't have landwalk": ("ignore_landwalk:all",),
+              "can block Dragons as though it had reach": ("block_dragons_reach",)})
+
 # -- static_other (wave 42A) -- 509.1a: "Tapped creatures you control can block as though they were untapped." (Masako the Humorless): a tapped creature
 # with the rule may be declared as a blocker (app/rules/combat.py ``block_problem``); the rest of its block is as any other
 RULES.update({"can block as though it were untapped": ("block_tapped",), "can block as though they were untapped": ("block_tapped",)})
@@ -1118,6 +1212,11 @@ def _rule(piece: str) -> list[str] | None:
         return ["cant_be_blocked_by_power:greater"]
     if piece == "can't block creatures with power greater than ~'s power":
         return ["cant_block_power:greater"]
+    if piece == "can't block creatures with power equal to or greater than the enchanted creature's toughness":
+        return ["cant_block_power:at_least_toughness"]
+    shared_defender = re.fullmatch(r"can't be blocked unless defending player controls (?P<n>\w+) or more creatures that share a creature type", piece)
+    if shared_defender and (n := _num(shared_defender["n"])):
+        return [f"cant_be_blocked_unless_defender:shared_creature_type:{n}"]
     # (-- review 20A -- Canopy Cover, Shielding Plax: "your opponents" are the opponents of the Aura's / Equipment's controller, who may
     # not control the creature, so it isn't hexproof, 702.11b: whoever controls the source of the targeting may target it unless an
     # opponent of "@you", app/rules/targets.py)
@@ -1173,6 +1272,21 @@ def _defender_fact(cond: str) -> str | None:
     if m and m["k"] in ("rad", "poison", "energy", "experience"):
         return f"counters:{m['k']}"
     return "most:creatures" if cond == "controls the most creatures or is tied for the most" else None
+
+
+def _permanent_alternatives(phrase: str) -> str | None:
+    """A defender can satisfy either of independently specified permanent descriptions."""
+    whole = _sel_key(phrase, plural=False)
+    if whole is not None:
+        return whole
+    parts = re.split(r" or (?:an? )?", phrase)
+    if len(parts) != 2:
+        return None
+    keys = [_sel_key(p, plural=False) for p in parts]
+    if any(k is None for k in keys):
+        return None
+    # Each branch must receive the defending-player binding independently.
+    return "|".join(k for k in keys if k is not None)
 
 
 def _sels(phrase: str) -> str | None:
@@ -1270,6 +1384,12 @@ def _condition(text: str) -> dict[str, Any] | None:
     found = static_conditions.parse(c)
     if found is not None:
         return found
+    # Preserve the two literal names before the generic count-selector parser
+    # can absorb the second clause into the first card's name.
+    if re.search(r" or an? permanent named ", c):
+        named_either = static_conditions.either(c)
+        if named_either is not None:
+            return named_either
     found = conditions.parse(c)
     return found if found is not None else static_conditions.compound(c) or static_conditions.either(c)  # (wave 35D: either)
 
@@ -1300,14 +1420,14 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
     if kind == "self":
         test = cond["test"]
         if test == "attacking":
-            return source.attacking is not None
+            return source.is_attacking
         if test == "attacking_alone":  # 506.5: it's the only attacking creature
-            return source.attacking is not None and sum(
-                1 for c in plan.state.cards.values() if c.attacking is not None and c.zone.endswith(":battlefield")) == 1
+            return source.is_attacking and sum(
+                1 for c in plan.state.cards.values() if c.is_attacking and c.zone.endswith(":battlefield")) == 1
         if test == "blocking":
-            return bool(source.blocking)
+            return source.is_blocking
         if test == "attacking_or_blocking":  # -- as long as (wave 25A) --
-            return source.attacking is not None or bool(source.blocking)
+            return source.is_attacking or source.is_blocking
         if test == "enchanted_or_equipped":  # -- as long as (wave 25A) -- "As long as this creature is enchanted or equipped" (Novice Knight)
             return holds(plan, {"static": "self", "test": "enchanted"}, source=source, controller=controller) or holds(
                 plan, {"static": "self", "test": "equipped"}, source=source, controller=controller)
@@ -1380,6 +1500,8 @@ def applies(plan: Plan, d: Definition, *, source: CardInstance, controller: str,
         if kind == "land" and not ch.is_land:
             return False
         if kind == "artifact" and "Artifact" not in ch.types:
+            return False
+        if kind == "planeswalker" and "Planeswalker" not in ch.types:
             return False
     elif who.startswith(UNION):  # -- static wordings (wave 6E) -- either group
         if not any(card.id == source.id if k == UNION_SELF else selectors.matches(plan, selectors.from_key(k), card, ch, controller, source.id)

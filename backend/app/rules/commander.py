@@ -247,6 +247,12 @@ def can_be_commander(data: dict[str, Any]) -> bool:
         return False
     if "Creature" in type_line or re.search(r"\bVehicle\b", type_line):
         return True
+    from app.rules import outside_battlefield_self
+
+    text = _rules_text(front.get('oracle_text') or data.get('oracle_text'))
+    name = str(front.get('name') or data.get('name') or '')
+    if any(outside_battlefield_self.parse(line, name) is not None for line in text.splitlines()):
+        return True  # 113.6c: its nonbattlefield creature ability works before the game.
     if re.search(r"\bSpacecraft\b", type_line) and front.get("power") is not None and front.get("toughness") is not None:
         return True
     return any(p.kind == "background" for p in pairings(data))

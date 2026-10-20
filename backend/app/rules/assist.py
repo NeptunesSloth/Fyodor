@@ -13,11 +13,13 @@ read to bound their answer — the options they see are theirs alone.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from app.game.errors import ActionError
-from app.game.rules_state import DecisionOption
+from app.game.rules_state import DecisionOption, ObjectRef
 from app.rules import mana as M
+from app.rules import payment_continuations as pc
 
 if TYPE_CHECKING:
     from app.game import actions as A
@@ -32,11 +34,14 @@ def supported(line: str) -> bool:
     return line.strip().rstrip(".").lower() == "assist"
 
 
-def announce(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristics, cost: M.ManaCost) -> Any:
+def announce(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristics, cost: M.ManaCost, *,
+             cost_has_x: bool | None = None) -> Any:
     """→ (helper, generic mana they pay) / (None, 0), or WAITING while a question is open."""
-    from app.rules.casting import Purpose, can_pay
+    from app.rules.casting import Purpose, _spell_reference, can_pay
     from app.rules.plan import decide
 
+    if cost.allocation is not None:
+        cost = M.ManaCost(generic=cost.allocation.generic)  # Assist pays only genuinely generic requirements.
     others = [p for p in plan.live() if p != plan.actor]
     if cost.generic < 1 or not others or a.assist == "":
         return None, 0
@@ -53,7 +58,9 @@ def announce(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristics
     if a.assist_amount is None:
         top = max(k for k in range(cost.generic + 1)
                   if k == 0 or can_pay(plan.state, helper, M.ManaCost(generic=k), plan.info,
-                                       purpose=Purpose(spell=ch, zone=card.zone, player=helper)))
+                                       purpose=Purpose(spell=ch, zone=card.zone, player=helper,
+                                                       selected_cost_has_x=cost_has_x,
+                                                       spell_object=_spell_reference(plan.state, card))))
         if top == 0:
             return None, 0  # (nothing they could pay: no question to ask them)
         decide(plan, player=helper, kind="choose_one",
@@ -64,16 +71,36 @@ def announce(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristics
     return helper, max(0, min(a.assist_amount, cost.generic))
 
 
-def pay(plan: Plan, helper: str, amount: int, card: CardInstance, ch: Characteristics) -> None:
+def pay(plan: Plan, helper: str, amount: int, card: CardInstance, ch: Characteristics, *, then: dict[str, Any],
+        spell_object: ObjectRef | None = None, cost_has_x: bool | None = None) -> None:
     """601.2h: the helper pays the generic mana they offered, from their own sources, with the rest of the cost."""
-    from app.rules.casting import Purpose
-    from app.rules.casting import pay as pay_mana
+    from app.rules.casting import Purpose, pay_then
 
     if amount <= 0:
+        pc.finish(plan, then, None)
         return
-    pay_mana(plan, helper, M.ManaCost(generic=amount), f"paid {amount} to help cast {ch.name or 'a spell'} (assist)",
-             purpose=Purpose(spell=ch, zone=card.zone, player=helper))
-    plan.note(f"{plan.name(helper)} pays {amount} of {ch.name or 'the spell'}'s generic mana (assist)", actor=helper)
+    tail = pc.continuation(plan, "assist_paid", _Assisted(helper, amount, ch.name or "the spell", then))
+    pay_then(plan, helper, M.ManaCost(generic=amount), f"paid {amount} to help cast {ch.name or 'a spell'} (assist)",
+             purpose=Purpose(spell=ch, zone=card.zone, player=helper, spell_object=spell_object, selected_cost_has_x=cost_has_x), then=tail)
+    return
+
+
+@dataclass
+class _Assisted:
+    helper: str
+    amount: int
+    name: str
+    then: dict[str, Any]
+
+
+def _assisted(plan: Plan, frame: _Assisted, payment: M.Payment | None) -> None:
+    from app.rules import replace
+
+    plan.note(f"{plan.name(frame.helper)} pays {frame.amount} of {frame.name}'s generic mana (assist)", actor=frame.helper)
+    replace.run_then(plan, frame.then)
+
+
+pc.register("assist_paid", _Assisted, _assisted)
 
 
 def resume(plan: Plan, d: Any, chosen: list[str]) -> None:

@@ -12,18 +12,33 @@ import re
 from typing import Any
 
 PREFIX = "counter kind: "
-_CHOICE = re.compile(r"^~ enters with your choice of an? (?P<a>[a-z ]+?) counter or an? (?P<b>[a-z ]+?) counter on it\.$")
+_CHOICE = re.compile(r"^~ enters with your choice of (?P<kinds>.+) on it\.$")
+
+
+def kinds_of(text: str) -> list[str] | None:
+    """Only printed keyword-counter alternatives and the explicitly supported +1/+1 kind."""
+    from app.game.rules_state import KEYWORD_COUNTERS
+
+    parts = re.split(r",? or |, ", text)
+    kinds = [re.sub(r" counters?$", "", re.sub(r"^(?:a|an) ", "", part)).strip() for part in parts]
+    if len(kinds) < 2 or len(set(kinds)) != len(kinds) or not set(kinds) <= {*KEYWORD_COUNTERS, '+1/+1'}:
+        return None
+    return kinds
 
 
 def parse(text: str) -> dict[str, Any] | None:
-    """The replacement definition of the wording, or None (a kind that is no keyword counter is not read)."""
-    from app.game.rules_state import KEYWORD_COUNTERS
-
-    m = _CHOICE.match(text)
-    if m is None or m["a"] == m["b"] or not {m["a"], m["b"]} <= KEYWORD_COUNTERS:
+    """An entry replacement chooses one of its printed counter kinds before entering."""
+    if text == "~ enters with your choice of two different counters on it from among menace, deathtouch, and lifelink.":
+        pairs = ["menace + deathtouch", "menace + lifelink", "deathtouch + lifelink"]
+        return {"kind": "replacement", "replacement": "enters_choice", "counter_choice": pairs,
+                "counter_groups": {pair: pair.split(" + ") for pair in pairs},
+                "effects": [{"do": "choose_value", "what": PREFIX + " or ".join(pairs)}]}
+    m = _CHOICE.fullmatch(text)
+    kinds = kinds_of(m['kinds']) if m is not None else None
+    if kinds is None:
         return None
-    return {"kind": "replacement", "replacement": "enters_choice", "counter_choice": [m["a"], m["b"]],
-            "effects": [{"do": "choose_value", "what": f"{PREFIX}{m['a']} or {m['b']}"}]}
+    return {"kind": "replacement", "replacement": "enters_choice", "counter_choice": kinds,
+            "effects": [{"do": "choose_value", "what": PREFIX + ' or '.join(kinds)}]}
 
 
 def options(what: str) -> list[str] | None:
@@ -37,5 +52,6 @@ def entering(definitions: list[dict[str, Any]], choices: dict[str, str] | None) 
         kinds = d.get("counter_choice") or ()
         kind = (choices or {}).get(f"{PREFIX}{' or '.join(kinds)}") if kinds else None
         if kind is not None and kind in kinds:
-            out[kind] = out.get(kind, 0) + 1
+            for selected in d.get("counter_groups", {}).get(kind, [kind]):
+                out[selected] = out.get(selected, 0) + 1
     return out

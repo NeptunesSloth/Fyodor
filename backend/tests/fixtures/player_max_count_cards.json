@@ -1,0 +1,139 @@
+[
+  {
+    "name": "Cavern-Hoard Dragon",
+    "oracle_text": "This spell costs {X} less to cast, where X is the greatest number of artifacts an opponent controls.\nFlying, trample, haste\nWhenever this creature deals combat damage to a player, you create a Treasure token for each artifact that player controls.",
+    "type_line": "Creature \u2014 Dragon",
+    "mana_cost": "{7}{R}{R}",
+    "power": "6",
+    "toughness": "6",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 9.0,
+    "keywords": [
+      "Flying",
+      "Treasure",
+      "Haste",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Investigator's Journal",
+    "oracle_text": "This artifact enters with a number of suspect counters on it equal to the greatest number of creatures a player controls.\n{2}, {T}, Remove a suspect counter from this artifact: Draw a card.\n{2}, Sacrifice this artifact: Draw a card.",
+    "type_line": "Artifact \u2014 Book Clue",
+    "mana_cost": "{2}",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Ornithopter",
+    "oracle_text": "Flying",
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "mana_cost": "{0}",
+    "power": "0",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 0.0,
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Sphere of Resistance",
+    "oracle_text": "Spells cost {1} more to cast.",
+    "type_line": "Artifact",
+    "mana_cost": "{2}",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Solemnity",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{W}",
+    "layout": "normal",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 3.0,
+    "keywords": []
+  },
+  {
+    "name": "Vorinclex, Monstrous Raider",
+    "oracle_text": "Trample, haste\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead.\nIf an opponent would put one or more counters on a permanent or player, they put half that many of each of those kinds of counters on that permanent or player instead, rounded down.",
+    "type_line": "Legendary Creature \u2014 Phyrexian Praetor",
+    "mana_cost": "{4}{G}{G}",
+    "power": "6",
+    "toughness": "6",
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 6.0,
+    "keywords": [
+      "Haste",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Open the Vaults",
+    "oracle_text": "Return all artifact and enchantment cards from all graveyards to the battlefield under their owners' control. (Auras with nothing to enchant remain in graveyards.)",
+    "type_line": "Sorcery",
+    "mana_cost": "{4}{W}{W}",
+    "layout": "normal",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 6.0,
+    "keywords": []
+  }
+]

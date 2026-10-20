@@ -480,9 +480,9 @@ export class TableScene {
         const pos = pending[id] ?? [card.x ?? 20 + (i % 10) * 90, card.y ?? 20 + Math.floor(i / 10) * 130];
         const [lx, lz] = virtualToLocal(pos[0], pos[1]);
         const tapped = (card.tapped ? -Math.PI / 2 : 0) + (card.flipped ? Math.PI : 0) - ((card.rotation ?? 0) * Math.PI) / 180;
-        const lift = card.attacking ? 0.18 : 0;
+        const lift = card.attacking || card.attacking_without_target ? 0.18 : 0;
         this.place(c, seat, lx, lz, 0.004 + i * 0.0035 + lift, tapped);
-        c.tilt = card.attacking ? -0.12 : 0;
+        c.tilt = card.attacking || card.attacking_without_target ? -0.12 : 0;
         const counters = card.counters ? Object.entries(card.counters).filter(([, n]) => n) : [];
         const stats = view.rules?.stats?.[id];
         const pt = stats?.pt ? `${stats.pt[0]}/${stats.pt[1]}` : "";

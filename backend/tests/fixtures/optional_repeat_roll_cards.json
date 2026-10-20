@@ -1,0 +1,194 @@
+[
+  {
+    "name": "Delina, Wild Mage",
+    "oracle_text": "Whenever Delina attacks, choose target creature you control, then roll a d20.\n1\u201414 | Create a tapped and attacking token that's a copy of that creature, except it's not legendary and it has \"At end of combat, exile this token.\"\n15\u201420 | Create one of those tokens. You may roll again.",
+    "type_line": "Legendary Creature \u2014 Elf Shaman",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "power": "3",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Pixie Guide",
+    "oracle_text": "Flying\nGrant an Advantage \u2014 If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.",
+    "type_line": "Creature \u2014 Faerie",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "power": "1",
+    "toughness": "3",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Wyll, Blade of Frontiers",
+    "oracle_text": "If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.\nWhenever you roll one or more dice, put a +1/+1 counter on Wyll.\nChoose a Background (You can have a Background as a second commander.)",
+    "type_line": "Legendary Creature \u2014 Human Warlock",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Choose a background"
+    ]
+  },
+  {
+    "name": "Barbarian Class",
+    "oracle_text": "(Gain the next level as a sorcery to add its ability.)\nIf you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.\n{1}{R}: Level 2\nWhenever you roll one or more dice, target creature you control gets +2/+0 and gains menace until end of turn.\n{2}{R}: Level 3\nCreatures you control have haste.",
+    "type_line": "Enchantment \u2014 Class",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "layout": "class",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Doubling Season",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Torbran, Thane of Red Fell",
+    "oracle_text": "If a red source you control would deal damage to an opponent or a permanent an opponent controls, it deals that much damage plus 2 instead.",
+    "type_line": "Legendary Creature \u2014 Dwarf Noble",
+    "mana_cost": "{1}{R}{R}{R}",
+    "cmc": 4.0,
+    "power": "2",
+    "toughness": "4",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "type_line": "Instant",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Muraganda Petroglyphs",
+    "oracle_text": "Creatures with no abilities get +2/+2.",
+    "type_line": "Enchantment",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Anointed Procession",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "layout": "normal",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cackling Counterpart",
+    "oracle_text": "Create a token that's a copy of target creature you control.\nFlashback {5}{U}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "type_line": "Instant",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flashback"
+    ]
+  }
+]

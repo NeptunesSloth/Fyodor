@@ -29,7 +29,7 @@ from app.cards.repository import CardRepository
 from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_wave34b_activated import activate, next_turn, settle, to_phase
 from tests.wave9c_kit import build, card_named, check, mana, pt, put, to_hand, zone_of
 from tests.wave44c_kit import ch
@@ -129,7 +129,7 @@ def test_ramos_removes_five_counters_for_ten_mana_once_each_turn(cards):
     assert n_counters(s, RAMOS) == 4
     counters(s, RAMOS, n=6)
     activate(s, "p1", ramos, "Remove five")
-    assert n_counters(s, RAMOS) == 5 and s.state.players["p1"].mana == {"W": 2, "U": 2, "B": 2, "R": 2, "G": 2}
+    assert n_counters(s, RAMOS) == 5 and mana_pool(s) == {"W": 2, "U": 2, "B": 2, "R": 2, "G": 2}
     with pytest.raises(ActionError):  # once each turn
         activate(s, "p1", ramos, "Remove five")
     assert n_counters(s, RAMOS) == 5

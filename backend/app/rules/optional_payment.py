@@ -30,12 +30,13 @@ payment; the reflexive ability triggers if it was made (wave 3R1: scripts._refle
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Any
 
 from app.game.errors import ActionError
-from app.game.rules_state import DecisionOption, PaymentRecord
+from app.game.rules_state import DecisionOption, ObjectRef, PaymentRecord
 from app.game.state import CardInstance
-from app.rules import context, cost_payment
+from app.rules import context, cost_payment, mana_units
 from app.rules import costs as C
 from app.rules import mana as M
 from app.rules.costs import AbilityCost
@@ -51,7 +52,7 @@ PAY, DECLINE = "pay", "decline"
 SUPPORTED = frozenset({C.MANA, C.PAY_LIFE, C.PAY_ENERGY, C.SACRIFICE, C.DISCARD, C.EXILE, C.EXILE_FROM_GRAVEYARD,
                        C.REMOVE_COUNTER, C.RETURN_PERMANENT, C.TAP_OTHER, C.PUT_COUNTER, C.DISCARD_HAND,
                        C.MILL, "EXILE_FROM_HAND", C.EXILE_TO_GY,  # (MILL, EXILE_FROM_HAND: wave 8C; EXILE_TO_GY: wave 15C)  # (PUT_COUNTER: wave 6F, blight)
-                       C.FORAGE, C.COLLECT_EVIDENCE, C.BEHOLD, "SOURCE_DAMAGE"})  # (C.BEHOLD: wave 49B)  # (SOURCE_DAMAGE: wave 27A; wave 26C: "you may forage", "you may collect evidence 4": 701.61a, 701.59a)
+                       C.FORAGE, C.COLLECT_EVIDENCE, C.BEHOLD, C.WATERBEND, "SOURCE_DAMAGE"})  # (C.BEHOLD: wave 49B)  # (SOURCE_DAMAGE: wave 27A; wave 26C: "you may forage", "you may collect evidence 4": 701.61a, 701.59a)
 FLEXIBLE = (C.FORAGE, C.COLLECT_EVIDENCE)  # (wave 26C) the cards that pay are chosen as a whole (cost_payment._flexible_options)
 _MANA_ONLY = re.compile(r"^(\{[^}]+\})+$")
 
@@ -64,7 +65,7 @@ def _blight_like(comp: C.CostComponent) -> bool:
     your hand" (every card in it; ``paid_x`` records how many, for "draw that many cards"); -- champion (wave 12B) -- or one chosen
     permanent exiled (702.72a); -- keywords (wave 43C) -- or a counter put on the source itself ("Cumulative upkeep—Put a -1/-1 counter on this
     creature": not on the battlefield, it can't be paid, cost_payment._new_part_problem)."""
-    return comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE) or (comp.kind == C.PUT_COUNTER and comp.alt is None and not comp.x) \
+    return comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE, C.WATERBEND) or (comp.kind == C.PUT_COUNTER and comp.alt is None and not comp.x) \
         or comp.kind == C.DISCARD_HAND or comp.kind == C.MILL \
         or (comp.kind == C.EXILE and comp.selector is not None and comp.amount == 1) \
         or (comp.kind == C.SACRIFICE and comp.alt is not None and comp.selector is not None)  # (wave 8C: mill 701.17b; "another creature or an artifact")
@@ -132,7 +133,7 @@ def _hand_to_bottom() -> AbilityCost | None:
     return AbilityCost(components=(C.CostComponent(HAND_TO_BOTTOM, selector=key, text=_HAND_TO_BOTTOM_TEXT),)) if key else None
 
 
-_EXILE_FROM_HAND = re.compile(r"^Exile (?:a|an|one) (?:[\w\-]+ )*card(?: with mana value \d+ or less)? from your hand$")  # (wave 18F: Isochron Scepter)
+_EXILE_FROM_HAND = re.compile(r"^Exile (?:a|an|one) (?:[\w\-]+ )*card(?: with mana value \d+ or (?:less|greater))? from your hand$")  # (wave 18F: Isochron Scepter)
 # -- if you do (wave 15C) -- "You may reveal a Dinosaur card from your hand. If you do, …" (Priest of the Wakening Sun): revealing is
 # the cost (701.20a: shown to everyone, it stays in the hand); payable only with such a card in hand (118.3)
 REVEAL_FROM_HAND = "REVEAL_FROM_HAND"
@@ -169,6 +170,10 @@ def parse(text: str) -> AbilityCost | None:
         return None
     if any(c.kind not in SUPPORTED for c in cost.components):
         return None
+    if any(c.kind == C.WATERBEND for c in cost.components) and (
+            sum(c.kind == C.WATERBEND for c in cost.components) != 1
+            or any(c.kind not in (C.MANA, C.WATERBEND) for c in cost.components)):
+        return None  # Resolution waterbending: one cost, paid with mana and its own helpers.
     if any(c.kind == C.DISCARD and c.selector is None for c in cost.components):  # -- ability words (wave 4F) --
         return None  # ("discard this card": a cost of an ability that works from the hand, never an optional payment)
     return cost
@@ -209,10 +214,11 @@ def _source(plan: Plan, ctx: Context) -> CardInstance:
 
 def _self_parts(cost: AbilityCost) -> list[C.CostComponent]:
     return [c for c in cost.components if c.selector is None
-            and c.kind in (C.SACRIFICE, C.EXILE, C.EXILE_FROM_GRAVEYARD, C.RETURN_PERMANENT, C.REMOVE_COUNTER)]
+            and c.kind in (C.SACRIFICE, C.EXILE, C.EXILE_FROM_GRAVEYARD, C.RETURN_PERMANENT, C.REMOVE_COUNTER, C.PUT_COUNTER)]
 
 
-def problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: dict[int, list[str]] | None = None) -> str | None:
+def problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: dict[int, list[str]] | None = None,
+            *, cost_has_x: bool | None = None) -> str | None:
     """Why ``payer`` can't pay ``cost`` in full right now, or None. With ``chosen`` (objects
     picked for the parts that need a choice) those picks are validated too."""
     from app.rules import (
@@ -224,13 +230,18 @@ def problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: dic
             or (prohibitions.cant_cause_discard(plan, payer, ctx["controller"]) if parts & {C.DISCARD, C.DISCARD_HAND} else None)):
         return f"{why}: {plan.name(payer)} can't be made to sacrifice or discard by it"
     was, plan.resolution_cost = plan.resolution_cost, True  # (a cost paid as it resolves: Angel of Jubilation doesn't reach it)
+    excluded_before = plan.excluded
+    if ctx.get('resolution_cost_exclusions'):
+        plan.excluded = plan.excluded | _taken(plan, ctx, payer)
     try:
-        return _problem(plan, ctx, cost, payer, chosen)
+        return _problem(plan, ctx, cost, payer, chosen, cost_has_x=cost_has_x)
     finally:
         plan.resolution_cost = was
+        plan.excluded = excluded_before
 
 
-def _problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: dict[int, list[str]] | None) -> str | None:
+def _problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: dict[int, list[str]] | None,
+             *, cost_has_x: bool | None = None) -> str | None:
     from app.rules import casting  # casting imports cost_payment → (not this module)
 
     source = _source(plan, ctx)
@@ -265,13 +276,23 @@ def _problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: di
             usable = [c for c in cost_payment.candidates(plan, comp, payer, source)
                       if c not in cost_payment._reserved(cost, comp, source) and c not in used]
             picks = chosen.get(i, [])
-            if len(picks) != comp.objects or len(set(picks)) != len(picks) or any(c not in usable for c in picks):
+            right_count = len(picks) <= comp.amount if comp.kind == C.WATERBEND else len(picks) == comp.objects
+            if not right_count or len(set(picks)) != len(picks) or any(c not in usable for c in picks):
                 return f"Those can't pay “{comp.text}”"
-            used |= set(picks)
+            if comp.kind != C.PUT_COUNTER:
+                used |= set(picks)
+    if any(c.kind == C.WATERBEND for c in cost.components):
+        from app.rules import waterbend_payments
+
+        return waterbend_payments.problem(plan, payer, source, cost, chosen)
     if cost.mana:
         exclude = cost_payment.excluded(cost, source, chosen or {})
-        if not casting.can_pay(plan.state, payer, M.parse_cost(cost.mana), plan.info, exclude=exclude):
-            return f"{plan.name(payer)} can't pay {cost.mana}"
+        if not casting.can_pay(plan.state, payer, M.parse_cost(cost.mana), plan.info, exclude=exclude,
+                               purpose=casting.Purpose(selected_cost_has_x=cost_has_x)):
+            from app.rules import reveal_mana
+
+            if not reveal_mana.available(plan, payer, exclude):
+                return f"{plan.name(payer)} can't pay {cost.mana}"
     return None
 
 
@@ -322,7 +343,7 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if cost is None or payer is None:
         context.bind_payment(ctx, name, False)
         return True
-    why = problem(plan, ctx, cost, payer)
+    why = problem(plan, ctx, cost, payer, cost_has_x=e.get('cost_has_x'))
     # -- copied abilities (wave 18F) -- imprint, "you may exile an instant card from your hand": a hand is hidden (101.4a), so whether the
     # choice is offered mustn't tell the other players whether there was a card to exile: the payer is asked either way, and a pay
     # that then finds no card is a decline that says nothing about the hand
@@ -332,7 +353,10 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         context.bind_payment(ctx, name, False)
         return True
     source = plan.state.cards.get(ctx.get("source_card") or "")
-    opt: dict[str, Any] = {"cost": text, "bind": name, "payer": payer, "chosen": {}}  # (the concrete cost: wave 4C)
+    opt: dict[str, Any] = {"cost": text, "bind": name, "payer": payer, "chosen": {},
+                           "cost_has_x": e.get('cost_has_x')}  # Preserve before numeric cost serialization.
+    if e.get('link'):
+        opt['link'] = True
     if e.get("needs"):
         opt["needs"] = e["needs"]  # (wave 49D)
     if e.get("defer"):  # -- review (wave 6R) -- paid with the other players' choices (pay_deferred)
@@ -343,7 +367,7 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: {ask[0].lower()}{ask[1:]}?{hint}",
            options=[DecisionOption(id=PAY, label=ask), DecisionOption(id=DECLINE, label="Don't pay")],
            resume=_resume(ctx, opt, cost), source=source,
-           display={"kind": "optional_cost", "cost": _label(cost), "pool": dict(plan.state.players[payer].mana)} if cost.mana else None)
+           display={"kind": "optional_cost", "cost": _label(cost), "pool": mana_units.visible_pool(plan.state, payer)} if cost.mana else None)
     return False
 
 
@@ -351,7 +375,7 @@ def _offer_alternatives(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """-- if you do (wave 6F) -- PAY one of ``alts`` (each offered only while payable in full, 118.3) or DECLINE."""
     name = str(e.get("bind") or "pay0")
     payer = payer_of(plan, ctx, e.get("who", "you"))
-    was, plan.excluded = plan.excluded, _taken(ctx, payer)
+    was, plan.excluded = plan.excluded, _taken(plan, ctx, payer)
     try:
         payable = [(i, text, cost) for i, text in enumerate(e["alts"])
                    if (cost := parse(text)) is not None and payer is not None and problem(plan, ctx, cost, payer) is None]
@@ -373,7 +397,17 @@ def _offer_alternatives(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def _label(cost: AbilityCost) -> str:
-    return ", ".join(c.text for c in cost.components)
+    # Repeated cumulative-upkeep costs need a bounded, readable label even
+    # with many age counters. The payment itself retains every component.
+    bending = [c.text for c in cost.components if c.kind == C.WATERBEND]
+    if bending:
+        return ", ".join(bending)
+    texts = [c.text for c in cost.components]
+    full = ", ".join(texts)
+    if len(full) <= 190:
+        return full
+    return ", ".join(f"{text} ({texts.count(text)} times)" if texts.count(text) > 1 else text
+                     for text in dict.fromkeys(texts))
 
 
 def _self_pays(plan: Plan, payer: str) -> bool:
@@ -419,7 +453,7 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
             options, _ = cost_payment._flexible_options(plan, comp, _source(plan, ctx), d.player, set())
             if len(set(chosen)) != len(chosen) or any(c not in options for c in chosen) or not cost_payment._flexible_ok(plan, comp, chosen):
                 raise ActionError(f"Those cards don't pay “{comp.text}”")
-        elif len(chosen) != r["amount"]:
+        elif not r.get("waterbend") and len(chosen) != r["amount"]:
             raise ActionError(f"Choose {r['amount']}")
         opt = {**opt, "chosen": {**opt["chosen"], str(r["component"]): list(chosen)}}
     elif opt.get("alts") and chosen[0].startswith(f"{PAY}:"):  # -- if you do (wave 6F) -- the cost picked
@@ -438,9 +472,9 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     if _choose_next(plan, ctx, opt, cost):
         if opt.get("defer"):  # -- review (wave 6R) -- chosen now, paid with the others' (101.4)
             _defer(plan, ctx, opt, cost)
+            effects.continue_effects(plan, ctx)
         else:
             _pay(plan, ctx, opt, cost)
-        effects.continue_effects(plan, ctx)
 
 
 # -- review (wave 6R) -- "Each opponent may sacrifice …" (app/rules/each_may.py): 101.4 — each player in turn order
@@ -455,10 +489,16 @@ def defers(text: str | None, alts: list[str] | None = None) -> bool:
     return bool(costs) and all(c is not None and not c.mana for c in costs)
 
 
-def _taken(ctx: Context, payer: str | None) -> frozenset[str]:
+def _taken(plan: Plan, ctx: Context, payer: str | None) -> frozenset[str]:
     """-- cost reductions paid with objects (wave 47C) -- what the payer's earlier choices of this resolution (chosen, not yet paid) already take: Rottenmouth Viper's "previously
     chosen can't be chosen again" (ruling 2024-07-26)."""
-    return frozenset(c for o in (ctx.get("deferred_pay") or {}).values() if o["payer"] == payer for ids in o["chosen"].values() for c in ids)
+    reserved = {c for o in (ctx.get("deferred_pay") or {}).values() if o["payer"] == payer for ids in o["chosen"].values() for c in ids}
+    # A printed cost can exclude an earlier named object rather than its own
+    # ability source. Exact context references expire on a real zone change.
+    for exclusion in ctx.get('resolution_cost_exclusions') or []:
+        if exclusion['payer'] == payer:
+            reserved.update(context.objects(plan, ctx, exclusion['who'].removeprefix(context.PREFIX)))
+    return frozenset(reserved)
 
 
 def _defer(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> None:
@@ -476,30 +516,47 @@ def _sacrifice_only(cost: AbilityCost) -> bool:
             and all(c.kind == C.SACRIFICE and c.selector is not None for c in cost.components))
 
 
+@dataclass
+class DeferredPayments:
+    remaining: list[tuple[dict[str, Any], AbilityCost]]
+    together: list[tuple[dict[str, Any], AbilityCost, list[str]]]
+
+
 def pay_deferred(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """``{"do": "pay_deferred", "binds": [...]}``: pay the payments chosen (in the binds' order); the sacrifices all at
-    once, after the other parts (so a permanent being sacrificed is still there as a card is discarded)."""
+    """Finish chosen payments before resuming; the final sacrifice batch remains simultaneous."""
+    pending = ctx.pop("deferred_pay", None) or {}
+    queued = [(opt, cost) for name in e["binds"] if (opt := pending.get(name)) is not None
+              and (cost := parse(opt["cost"])) is not None]
+    if queued and all(cost.components and all(c.kind == C.DISCARD and c.selector is not None for c in cost.components)
+                      for _, cost in queued):
+        from app.rules import grouped_discard
+
+        grouped_discard.begin(plan, ctx, queued)
+    else:
+        _pay_deferred_remaining(plan, ctx, DeferredPayments(queued, []))
+    return False  # The continuation owns the resolution, even when every payment was synchronous.
+
+
+def _pay_deferred_remaining(plan: Plan, ctx: Context, after: DeferredPayments) -> None:
+    from app.rules import effects
     from app.rules.triggers import sacrificing
 
-    pending = ctx.pop("deferred_pay", None) or {}
-    together: list[tuple[dict[str, Any], AbilityCost, list[str]]] = []
-    for name in e["binds"]:
-        opt = pending.get(name)
-        cost = parse(opt["cost"]) if opt is not None else None
-        if opt is None or cost is None:
-            continue
+    together = after.together
+    for i, (opt, cost) in enumerate(after.remaining):
         if not _sacrifice_only(cost):
-            _pay(plan, ctx, opt, cost)
-            continue
+            _pay(plan, ctx, opt, cost, after=DeferredPayments(after.remaining[i + 1:], together))
+            return
+        name = opt["bind"]
         chosen = {int(k): list(v) for k, v in opt["chosen"].items()}
-        why = problem(plan, ctx, cost, opt["payer"], chosen)
+        why = problem(plan, ctx, cost, opt["payer"], chosen, cost_has_x=opt.get('cost_has_x'))
         if why is not None:
             plan.note(f"{plan.name(opt['payer'])} couldn't pay {_label(cost)} for {ctx.get('name') or 'it'}: {why}")
             context.bind_payment(ctx, name, False)
             continue
         together.append((opt, cost, [c for ids in chosen.values() for c in ids]))
     if not together:
-        return True
+        effects.continue_effects(plan, ctx)
+        return
     gone = [c for _, _, ids in together for c in ids]
     refs = {opt["bind"]: [r for r in (context.ref_of(plan, c) for c in ids) if r is not None] for opt, _, ids in together}
     sacrificing(plan, gone)  # 701.21a: to their owners' graveyards, all at once
@@ -507,7 +564,7 @@ def pay_deferred(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for opt, cost, ids in together:
         plan.note(f"{plan.name(opt['payer'])} paid {_label(cost)} for {ctx.get('name') or 'it'}", [c for c in ids if c in plan.state.cards])
         context.bind_payment(ctx, opt["bind"], True, refs[opt["bind"]])
-    return True
+    effects.continue_effects(plan, ctx)
 
 
 def _choose_next(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> bool:
@@ -516,7 +573,9 @@ def _choose_next(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCos
     payer = opt["payer"]
     source = _source(plan, ctx)
     picked = {int(k): list(v) for k, v in opt["chosen"].items()}
-    used = {c for ids in picked.values() for c in ids} | _taken(ctx, payer)
+    # CR 702.24a: each age counter has its own choice. A permanent can
+    # receive counters repeatedly; it cannot be sacrificed/discarded twice.
+    used = {c for i, ids in picked.items() if cost.components[i].kind != C.PUT_COUNTER for c in ids} | _taken(plan, ctx, payer)
     for i, comp in cost.choices:
         if i in picked:
             continue
@@ -537,12 +596,24 @@ def _choose_next(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCos
                       if c not in cost_payment._reserved(cost, comp, source) and c not in used]
         finally:
             plan.resolution_cost = was
+        if comp.kind == C.WATERBEND:
+            if not usable:
+                opt["chosen"][str(i)] = []
+                continue
+            decide(plan, player=payer, kind="choose_cards",
+                   prompt=f"{ctx.get('name') or 'It'}: tap up to {comp.amount} artifacts and creatures, each paying for {{1}} (none: mana only)",
+                   options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in usable],
+                   min_choices=0, max_choices=min(comp.amount, len(usable)),
+                   resume=_resume(ctx, opt, cost, component=i, amount=None, waterbend=True),
+                   source=plan.state.cards.get(ctx.get("source_card") or ""))
+            return False
         hand = comp.kind == "EXILE_FROM_HAND"  # -- copied abilities (wave 18F) -- always asked, even with one card or none (101.4a): none = decline
         if len(usable) < comp.objects and not hand:  # (objects: one permanent for its counters, wave 6F)
             return True  # (validated again in _pay: it can't be paid any more)
         if len(usable) == comp.objects and not hand:
             picked[i] = usable
-            used |= set(usable)
+            if comp.kind != C.PUT_COUNTER:
+                used |= set(usable)
             opt["chosen"][str(i)] = usable
             continue
         verb = cost_payment._VERBS.get(comp.kind, "use")
@@ -556,7 +627,27 @@ def _choose_next(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCos
     return True
 
 
-def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> None:
+@dataclass
+class OptionalPaymentFrame:
+    ctx: Context
+    opt: dict[str, Any]
+    cost: AbilityCost
+    source: CardInstance
+    paid: list[str]
+    refs: list[ObjectRef]
+    after: DeferredPayments | None = None
+
+
+def _payment_done(plan: Plan, ctx: Context, after: DeferredPayments | None) -> None:
+    from app.rules import effects
+
+    if after is not None:
+        _pay_deferred_remaining(plan, ctx, after)
+    else:
+        effects.continue_effects(plan, ctx)
+
+
+def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost, *, after: DeferredPayments | None = None) -> None:
     """Pay the whole cost at once (601.2h), or nothing: the payer chose to pay, but the table may
     have changed while they were asked (mana abilities), so everything is checked first."""
     from app.rules import casting
@@ -567,32 +658,52 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
     chosen = {int(k): list(v) for k, v in opt["chosen"].items()}
     from app.rules import effects
 
-    why = problem(plan, ctx, cost, payer, chosen)
+    why = problem(plan, ctx, cost, payer, chosen, cost_has_x=opt.get('cost_has_x'))
     if why is None and opt.get("needs") and not effects._cards(plan, ctx, opt["needs"]):  # (wave 49D: it may have moved while the payer tapped mana)
         why = "the card is no longer where it went"
     if why is not None:
         hand = any(c.kind == "EXILE_FROM_HAND" for c in cost.components)  # (wave 18F: no reason given: it would describe a hidden hand)
         plan.note(f"{plan.name(payer)} " + (f"didn't pay {_label(cost)}" if hand else f"couldn't pay {_label(cost)}: {why}") + f" for {label}")
         context.bind_payment(ctx, name, False)
+        _payment_done(plan, ctx, after)
         return
     source = _source(plan, ctx)
-    mana_cost = M.parse_cost(cost.mana) if cost.mana else None
-    if mana_cost is not None and _self_pays(plan, payer) and not casting.pool_covers(plan.state, payer, mana_cost, info=plan.info):
+    from app.rules import waterbend_payments
+
+    mana_cost = waterbend_payments.mana(cost, chosen) if cost.mana else None
+    purpose = casting.Purpose(selected_cost_has_x=opt.get('cost_has_x'))
+    if mana_cost is not None and _self_pays(plan, payer) and not casting.pool_covers(plan.state, payer, mana_cost, purpose=purpose, info=plan.info):
         raise ActionError(f"Tap your mana first: {mana_cost.text()} isn't in your mana pool")
     paid = ([source.id] if _self_parts(cost) else []) + [c for ids in chosen.values() for c in ids]
     refs = [r for r in (context.ref_of(plan, c) for c in dict.fromkeys(paid)) if r is not None]
+    frame = OptionalPaymentFrame(ctx, opt, cost, source.model_copy(deep=True), paid, refs, after)
+    from app.rules import payment_continuations as pc
+
+    then = pc.continuation(plan, "optional_payment", frame)
     if mana_cost is not None:
-        if _self_pays(plan, payer):
-            casting.pay(plan, payer, mana_cost, f"paid {mana_cost.text()} for {label}", sources=[])
-        else:
-            casting.pay(plan, payer, mana_cost, f"paid {mana_cost.text()} for {label}",
-                        exclude=cost_payment.excluded(cost, source, chosen))
+        casting.pay_then(plan, payer, mana_cost, f"paid {opt.get('amount_label') or mana_cost.text()} for {label}", then=then,
+                         sources=[] if _self_pays(plan, payer) else None,
+                         purpose=purpose,
+                         exclude=cost_payment.excluded(cost, source, chosen))
+        return
+    pc.finish(plan, then, None)
+
+
+def _paid(plan: Plan, frame: OptionalPaymentFrame, payment: M.Payment | None) -> None:
+    ctx, opt, cost, source = frame.ctx, frame.opt, frame.cost, frame.source
+    payer, name = opt["payer"], opt["bind"]
+    label = ctx.get("name") or "it"
+    chosen = {int(k): list(v) for k, v in opt["chosen"].items()}
+    paid, refs = frame.paid, frame.refs
     if cost.life:
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
         _replace_life.lose_life(plan, [(payer, cost.life)], actor=payer)
     for kind, n in cost.remove_counters:
-        plan.do({"type": "counter", "card_ids": [source.id], "kind": kind, "delta": -n}, actor=payer)
-    record = PaymentRecord(card=source.id, controller=payer, total_cost=_label(cost))
+        from app.rules import counter_removal_results
+
+        if counter_removal_results.remove(plan, source.id, kind, n, by=payer) != n:
+            raise ActionError("The source counters can no longer pay this cost")
+    record = PaymentRecord(card=source.id, controller=payer, total_cost=opt.get("amount_label") or _label(cost))
     actor, plan.actor = plan.actor, payer  # -- if you do (wave 6F) -- the parts cost_payment pays as "the actor" are the payer's
     try:
         cost_payment.pay(plan, cost, source, chosen, record)
@@ -615,9 +726,17 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
                     actor=payer)
     if any(c.kind == C.DISCARD_HAND for c in cost.components):  # -- if you do (wave 6F) -- "draw that many cards"
         ctx.setdefault("paid_x", {})[name] = len(record.discarded)
-    if any(c.kind in (C.EXILE, "EXILE_FROM_HAND") and c.selector is not None for c in cost.components):  # -- champion (wave 12B) -- 607.2a (wave 18F: imprint)
+    if any((c.kind in (C.EXILE, 'EXILE_FROM_HAND') or opt.get('link') and c.kind == C.EXILE_FROM_GRAVEYARD)
+           and c.selector is not None for c in cost.components):  # -- champion (wave 12B) -- 607.2a (wave 18F: imprint)
         from app.rules import exiled_with
 
         exiled_with.record(plan, ctx, [c for c in paid if c != source.id])
-    plan.note(f"{plan.name(payer)} paid {_label(cost)} for {label}", [c for c in paid if c in plan.state.cards])
+    plan.note(f"{plan.name(payer)} paid {opt.get('amount_label') or _label(cost)} for {label}", [c for c in paid if c in plan.state.cards])
     context.bind_payment(ctx, name, True, refs, context.moved_objects(plan, refs))  # (moved: wave 8C)
+
+    _payment_done(plan, ctx, frame.after)
+
+
+from app.rules import payment_continuations as _payment_continuations  # noqa: E402, I001
+
+_payment_continuations.register("optional_payment", OptionalPaymentFrame, _paid)

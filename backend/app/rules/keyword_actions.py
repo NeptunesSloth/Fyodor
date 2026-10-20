@@ -18,6 +18,7 @@ the Incubator's "{2}: Transform this token." needs transforming, which the engin
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from app.game.rules_state import DecisionOption, copy_recipe_of
@@ -155,18 +156,26 @@ def connive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     n = effects._amount(plan, ctx, e.get("n", 1))
     if n <= 0:
         return True
+    from app.rules import convoke_connive
+
     who = e.get("who", "self")
-    queue: list[Conniver] = [(cid, plan.oid(cid), plan.state.cards[cid].controller) for cid in effects._cards(plan, ctx, who)]
+    if "connivers" in e:
+        return convoke_connive.schedule(plan, ctx, _queue(e["connivers"]), n)
+    if "conniver" in e:
+        queue = _queue([e["conniver"]])
+    elif who == "cost:convoke":
+        queue = convoke_connive.contributors(plan, ctx)
+    else:
+        queue = [(cid, plan.oid(cid), plan.state.cards[cid].controller) for cid in effects._cards(plan, ctx, who)]
     if not queue and who == "self":
         lki = plan.rules.lki.get(ctx.get("source_object") or "")
         if lki is not None:
-            queue = [(None, None, lki.controller)]
-    order = plan.apnap()
-    queue.sort(key=lambda x: order.index(x[2]) if x[2] in order else len(order))
-    if queue and replace.candidates(plan, "connive"):  # -- keyword actions (wave 35C) -- "If a creature you control would connive, …" (Leader, Super-Genius)
-        if len(queue) > 1:  # (each of several conniving permanents is its own event, 701.50c: no card of Commander makes several connive at once)
-            plan.note("A replacement effect of connive may apply to these creatures here, and the engine can't ask: apply it by hand (614.1a)")
-        elif queue[0][0] is not None and (replaced := replace.keyword_replace(plan, ctx, e, "connive", queue[0][2], card=queue[0][0], n=n)) is not None:
+            queue = [(lki.card, ctx.get("source_object"), lki.controller)]
+    if len(queue) > 1:
+        return convoke_connive.schedule(plan, ctx, queue, n)
+    if queue and queue[0][0] is not None and replace.candidates(plan, "connive"):
+        replaced = replace.keyword_replace(plan, ctx, e, "connive", queue[0][2], card=queue[0][0], n=n)
+        if replaced is not None:
             return replaced
     return _connive_next(plan, ctx, queue, n)
 
@@ -181,10 +190,6 @@ def _connive_next(plan: Plan, ctx: Context, queue: list[Conniver], n: int) -> bo
         cid, oid, pid = queue.pop(0)
         if pid not in plan.live():
             continue
-        if cid is not None:  # -- trigger tail (wave 15B) -- "Whenever a creature you control connives" (701.50a)
-            from app.game.rules_state import emit
-
-            emit(plan.state, "designation", counter="connive", card=cid, object_id=oid, player=pid)
         # -- replacement effects stage 2 (wave 2E): the draw through the draw choke point; after a
         # 616.1 choice the conniving goes on from the discard ("connive_after_draw") --
         rest = {"do": "connive_after_draw", "ctx": ctx, "card": cid, "object": oid, "player": pid, "n": n,
@@ -216,15 +221,36 @@ def _connive_discard(plan: Plan, ctx: Context, cid: str | None, oid: str | None,
     card among them — on the conniving permanent, if it is still that object on the battlefield
     (through the counter choke point: False while its controller chooses an order, 616.1)."""
     cards = [c for c in chosen if c in plan.state.cards and plan.state.cards[c].zone == zone_key(pid, "hand")]
-    if not cards:
-        return True
     nonland = sum(1 for c in cards if not plan.ch(plan.state.cards[c]).is_land)
-    plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=pid)
+    if cards:
+        plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=pid)
     card = plan.state.cards.get(cid or "")
     if nonland and card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == oid:
-        rest = {"do": "connive_next", "ctx": ctx, "n": n, "queue": [list(q) for q in queue]}
-        return replace.put_counters(plan, [(card.id, "+1/+1", nonland)], by=pid, then=rest)
+        rest = {"do": "connive_finished", "ctx": ctx, "n": n, "queue": [list(q) for q in queue],
+                "card": cid, "object": oid, "player": pid}
+        if not replace.put_counters(plan, [(card.id, "+1/+1", nonland)], by=pid, then=rest):
+            return False
+    _connive_finished(plan, cid, oid, pid)
     return True
+
+
+def _connive_finished(plan: Plan, cid: str | None, oid: str | None, pid: str) -> None:
+    # CR 701.50f: the permanent connives after the entire process, even if drawing/discarding was impossible.
+    if cid is not None:
+        from app.game.rules_state import emit
+
+        emit(plan.state, "designation", counter="connive", card=cid, object_id=oid, player=pid)
+
+
+def _connive_finished_then(plan: Plan, t: dict[str, Any]) -> None:
+    _connive_finished(plan, t["card"], t["object"], t["player"])
+    _connive_next_then(plan, t)
+
+
+def resume_connive_order(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import convoke_connive
+
+    convoke_connive.resume(plan, d, chosen)
 
 
 def _queue(raw: list[list[Any]]) -> list[Conniver]:
@@ -403,6 +429,10 @@ def suspect(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 # -- Case (wave 51C) -- 719.3b: solved is a designation a permanent has until it leaves the battlefield, kept as the card's public "Solved" choice (reset by every zone change,
 # 400.7; characteristics.of drops the "Solved — [ability]" lines of a Case that doesn't have it, 719.3c)
 def become_solved(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import emit
+
+    emit(plan.state, "case_solved", player=ctx["controller"], actor=ctx["controller"],
+         card=ctx.get("source_card"), object_id=ctx.get("source_object"))
     card = plan.state.cards.get(ctx.get("source_card") or "")
     if card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object") and "Solved" not in card.choices:
         plan.do({"type": "set_choice", "card_id": card.id, "key": "Solved", "value": "Yes"}, actor=ctx["controller"])
@@ -518,8 +548,10 @@ def firebend(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     n = effects._amount(plan, ctx, e.get("n", 0))
     if n <= 0 or plan.state.turn.phase not in (*COMBAT_STEPS, "end_combat"):
         return True  # (an attack trigger resolves during combat; outside it there is nothing to keep)
-    plan.do({"type": "rules_mana", "player": pid, "delta": {"R": n}, "label": f"added {'{R}' * n} (firebending {n})"}, actor=pid)
-    plan.rules.combat_mana[pid] = plan.rules.combat_mana.get(pid, 0) + n
+    from app.rules import kept_mana
+
+    effects._put_mana(plan, ctx, pid, ["R"] * n)
+    kept_mana.keep(plan, ctx, {"until": "end_of_combat"})
     return True
 
 
@@ -584,6 +616,9 @@ def transform(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             continue  # (wave 47D) 701.27f: a delayed triggered ability counts from when it was created
         plan.do({"type": "set_face", "card_id": cid, "face": 1 - min(card.face, 1)}, actor=ctx["controller"])
         now = plan.state.cards[cid]
+        from app.rules import transform_emblems
+
+        transform_emblems.apply(plan, now)
         # -- transform (wave 16F) -- 701.28: "When this creature transforms into …" (the same object, 712.18; designations.facts)
         from app.game.rules_state import emit
 
@@ -618,8 +653,10 @@ def stunned(plan: Plan, card_ids: list[str]) -> list[str]:
 
 def lose_stun(plan: Plan, card_ids: list[str], actor: str | None) -> None:
     """Instead of untapping: one stun counter comes off each (removing counters isn't replaceable)."""
+    from app.rules import counter_removal_results
+
     for cid in card_ids:
-        plan.do({"type": "counter", "card_ids": [cid], "kind": "stun", "delta": -1}, actor=actor)
+        counter_removal_results.remove(plan, cid, "stun", 1, by=actor or plan.actor)
 
 
 def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[str]:
@@ -629,14 +666,14 @@ def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[st
     return [c for c in card_ids if c not in stuck]
 
 
-PRIMITIVES = {"class_level": class_level, "amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
+PRIMITIVES: dict[str, Callable[[Plan, Context, dict[str, Any]], bool]] = {"class_level": class_level, "amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
               "goad": goad, "detain": detain, "suspect": suspect, "become_solved": become_solved, "prepare": prepare, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "empower_jace": empower_jace, "transform": transform, "flip": flip,
               **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
               **token_grammar.PRIMITIVES}
-RESUME = {"amass_choose": resume_amass, "empower_choose": resume_empower, "bolster_choose": resume_bolster, "connive_discard": resume_connive,
+RESUME = {"amass_choose": resume_amass, "empower_choose": resume_empower, "bolster_choose": resume_bolster, "connive_discard": resume_connive, "connive_order": resume_connive_order,
           **facedown.RESUME,  # -- keyword actions & face-down (wave 3F) --
           **token_grammar.RESUME}
 # -- replacement effects stage 2 (wave 2E): where a keyword action goes on after a 616.1 choice --
 replace.THEN.update({"amass_rest": _amass_rest, "connive_after_draw": _connive_after_draw_then,
-                     "connive_next": _connive_next_then})
+                     "connive_next": _connive_next_then, "connive_finished": _connive_finished_then})
 replace.THEN["face_up_done"] = lambda plan, then: None  # -- wave 3F -- (megamorph's counter: the special action is done)

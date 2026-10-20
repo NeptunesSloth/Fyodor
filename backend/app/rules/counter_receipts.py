@@ -1,0 +1,22 @@
+"""Exact counter placements recorded by the native committed counter actions."""
+from __future__ import annotations
+
+from typing import Any
+
+from pydantic import BaseModel
+
+from app.game.rules_state import ObjectRef
+
+
+class CounterPlacement(BaseModel):
+    destination: ObjectRef
+    kind: str
+    amount: int
+
+
+def store(ctx: dict[str, Any], binding: str, placements: list[CounterPlacement]) -> None:
+    ctx.setdefault('counter_put_receipts', {})[binding] = [entry.model_dump(mode='json') for entry in placements]
+
+
+def placements(ctx: dict[str, Any], binding: str) -> list[CounterPlacement]:
+    return [CounterPlacement.model_validate(raw) for raw in ctx.get('counter_put_receipts', {}).get(binding, [])]

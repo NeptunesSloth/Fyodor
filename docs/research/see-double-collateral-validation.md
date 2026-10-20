@@ -1,0 +1,7 @@
+# See Double collateral validation
+
+Display of Power's shared stack-only no-copy marker also completes See Double. No additional runtime implementation is needed: the existing modal header parser already recognizes “Choose one. If an opponent has eight or more cards in their graveyard, you may choose both instead.” It produces an optional min1/max2 override whose native condition tests each opponent's own graveyard. The spell-copy and creature-token modes already use native copy instructions.
+
+The threshold is evaluated while choosing modes during announcement (CR 601.2b, 700.2a), not on resolution. A real Tormod's Crypt activation after announcing both modes removes the qualifying graveyard, but the chosen modes remain unchanged. A player's own eight cards do not qualify, nor do four cards in each of two opponents' graveyards. Any one opponent with eight cards qualifies, and choosing only one mode remains legal.
+
+Canonical gameplay tests cover both modes separately and together, optional both selection, native spell-copy retargeting without changing the original spell, copying an opponent's creature as a token, copying a permanent spell that becomes a token on resolution, and the stack-only no-copy restriction. Display of Power's actual Mizzix's Mastery test separately verifies copying a card with that same restriction from exile and casting it. Paused retarget decisions and all final states round-trip save/load and replay.

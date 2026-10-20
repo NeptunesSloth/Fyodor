@@ -1,0 +1,850 @@
+[
+  {
+    "id": "a3e9c8f7-2232-4a2a-8a00-0a2908bc7543",
+    "oracle_id": "ca405696-8c30-4c01-bf90-11cdf8837942",
+    "name": "Shaman of Forgotten Ways",
+    "layout": "normal",
+    "set_code": "dtk",
+    "set_name": "Dragons of Tarkir",
+    "collector_number": "204",
+    "rarity": "mythic",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Shaman",
+    "oracle_text": "{T}: Add two mana in any combination of colors. Spend this mana only to cast creature spells.\nFormidable \u2014 {9}{G}{G}, {T}: Each player's life total becomes the number of creatures they control. Activate only if creatures you control have total power 8 or greater.",
+    "power": "2",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Formidable"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2015-03-27",
+    "artist": "Tyler Jacobson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "3b9d72a8-8acf-42c6-8adf-cbaecb4a985a",
+    "oracle_id": "158cb888-a115-4d50-a82f-746622f0578e",
+    "name": "Axis of Mortality",
+    "layout": "normal",
+    "set_code": "xln",
+    "set_name": "Ixalan",
+    "collector_number": "3",
+    "rarity": "mythic",
+    "mana_cost": "{4}{W}{W}",
+    "cmc": 6.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, you may have two target players exchange life totals.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-09-29",
+    "artist": "Bastien L. Deharme",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "55c5f0c2-99e6-42b7-aa16-61d5815d060d",
+    "oracle_id": "23ecb4bb-b295-46f5-9fd8-a4c66ce80c23",
+    "name": "Touch of the Eternal",
+    "layout": "normal",
+    "set_code": "m13",
+    "set_name": "Magic 2013",
+    "collector_number": "37",
+    "rarity": "rare",
+    "mana_cost": "{5}{W}{W}",
+    "cmc": 7.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, count the number of permanents you control. Your life total becomes that number.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2012-07-13",
+    "artist": "Christopher Moeller",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "ac6d7d5a-697b-4251-bc18-4dcfe0aa5cc6",
+    "oracle_id": "5554d422-6513-4c7e-866d-9d5f0403fc80",
+    "name": "Psychic Transfer",
+    "layout": "normal",
+    "set_code": "s99",
+    "set_name": "Starter 1999",
+    "collector_number": "46",
+    "rarity": "rare",
+    "mana_cost": "{4}{U}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "If the difference between your life total and target player's life total is 5 or less, exchange life totals with that player.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1999-07-01",
+    "artist": "Dom!",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "c4d3bf26-6003-4699-a26e-b3b5bcd3e8dc",
+    "oracle_id": "b5e0aa12-920d-4700-a287-5ca24933abb1",
+    "name": "Oketra's Last Mercy",
+    "layout": "normal",
+    "set_code": "hou",
+    "set_name": "Hour of Devastation",
+    "collector_number": "18",
+    "rarity": "rare",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Your life total becomes equal to your starting life total. Lands you control don't untap during your next untap step.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-07-14",
+    "artist": "Howard Lyon",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "4f152dd9-2b35-45b2-90fe-8c71d0634226",
+    "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487",
+    "name": "Sol Ring",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "286",
+    "rarity": "uncommon",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Mike Bierek",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "4271f5b2-32ca-4349-9a09-afffbdacf636",
+    "oracle_id": "69d2e5f3-2f4d-4a36-bcd5-181164ecd894",
+    "name": "Thelonite Hermit",
+    "layout": "normal",
+    "set_code": "mkc",
+    "set_name": "Murders at Karlov Manor Commander",
+    "collector_number": "188",
+    "rarity": "rare",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Elf Shaman",
+    "oracle_text": "All Saprolings get +1/+1.\nMorph {3}{G}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, create four 1/1 green Saproling creature tokens.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Morph"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-02-09",
+    "artist": "Chippy",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "f38381fd-e368-46b2-94e9-89c9b182435d",
+        "name": "Saproling",
+        "type_line": "Token Creature \u2014 Saproling"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "5430da88-b72e-4d64-bd3c-b21062cac1c2",
+        "name": "Morph",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "b29a3e7c-4d19-4737-9b58-deb56de26118",
+    "oracle_id": "862af5c4-cb34-4bfa-a7ff-209e103defd6",
+    "name": "Hidden Dragonslayer",
+    "layout": "normal",
+    "set_code": "mkc",
+    "set_name": "Murders at Karlov Manor Commander",
+    "collector_number": "69",
+    "rarity": "rare",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Warrior",
+    "oracle_text": "Lifelink\nMegamorph {2}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its megamorph cost and put a +1/+1 counter on it.)\nWhen this creature is turned face up, destroy target creature with power 4 or greater an opponent controls.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Lifelink",
+      "Megamorph"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-02-09",
+    "artist": "Anastasia Ovchinnikova",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "5430da88-b72e-4d64-bd3c-b21062cac1c2",
+        "name": "Morph",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "baf8f4f2-9f25-4cd2-8d78-1041e134aeac",
+    "oracle_id": "05d24b0c-904a-46b6-b42a-96a4d91a0dd4",
+    "name": "Wastes",
+    "layout": "normal",
+    "set_code": "eoc",
+    "set_name": "Edge of Eternities Commander",
+    "collector_number": "191",
+    "rarity": "common",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land",
+    "oracle_text": "{T}: Add {C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-08-01",
+    "artist": "Raymond Swanland",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "a0764566-617b-45cb-8aad-5a9f606348ae",
+        "name": "Thendar, the Overminer",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "390c40ba-2464-44ae-8d67-93c72ab3c425",
+    "oracle_id": "bdb3ca68-ec1f-4e16-81cc-d23f8f52c728",
+    "name": "Naturalize",
+    "layout": "normal",
+    "set_code": "m19",
+    "set_name": "Core Set 2019",
+    "collector_number": "190",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-07-13",
+    "artist": "Daniel Ljunggren",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "90cacb16-c18c-44bb-87b9-267da816f51d",
+        "name": "Wingbane Vantasaur",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7d6fc254-dfdc-425c-9795-ef4e10459b70",
+        "name": "You Line Up the Shot",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "616d1b20-61c1-4d39-a9b5-ad9fd61699e4",
+    "oracle_id": "b3b00911-ece7-4484-bc36-f211ce72b6cc",
+    "name": "Stifle",
+    "layout": "normal",
+    "set_code": "cns",
+    "set_name": "Conspiracy",
+    "collector_number": "108",
+    "rarity": "rare",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2014-06-06",
+    "artist": "Eric Fortune",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "96570023-a9d6-4536-ac11-f0baad041d7c",
+    "oracle_id": "a8cf1379-0195-4e11-b994-481ef1284245",
+    "name": "Stasis",
+    "layout": "normal",
+    "set_code": "5ed",
+    "set_name": "Fifth Edition",
+    "collector_number": "127",
+    "rarity": "rare",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Players skip their untap steps.\nAt the beginning of your upkeep, sacrifice this enchantment unless you pay {U}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1997-03-24",
+    "artist": "Fay Jones",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "93a0d9ad-31bf-4561-a5b2-f44a12a2c2c2",
+    "oracle_id": "d5b9b75d-4bf0-4328-9bb3-7b260a0c46af",
+    "name": "Savor the Moment",
+    "layout": "normal",
+    "set_code": "shm",
+    "set_name": "Shadowmoor",
+    "collector_number": "50",
+    "rarity": "rare",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Take an extra turn after this one. Skip the untap step of that turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2008-05-02",
+    "artist": "Warren Mahy",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "15221c5b-543c-4f43-a02e-d07e84069f50",
+    "oracle_id": "028bc726-0e86-4c53-9648-625153ae4b01",
+    "name": "Ivory Mask",
+    "layout": "normal",
+    "set_code": "9ed",
+    "set_name": "Ninth Edition",
+    "collector_number": "23\u2605",
+    "rarity": "rare",
+    "mana_cost": "{2}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "You have shroud. (You can't be the target of spells or abilities.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2005-07-29",
+    "artist": "Glen Angus",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "name": "Biorhythm",
+    "mana_cost": "{6}{G}{G}",
+    "cmc": 8.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Each player's life total becomes the number of creatures they control.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Profane Transfusion",
+    "mana_cost": "{6}{B}{B}{B}",
+    "cmc": 9.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Two target players exchange life totals. You create an X/X colorless Horror artifact creature token, where X is the difference between those players' life totals.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Alhammarret's Archive",
+    "mana_cost": "{5}",
+    "cmc": 5.0,
+    "type_line": "Legendary Artifact",
+    "oracle_text": "If you would gain life, you gain twice that much life instead.\nIf you would draw a card except the first one you draw in each of your draw steps, draw two cards instead.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Cleric Class",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Enchantment \u2014 Class",
+    "oracle_text": "(Gain the next level as a sorcery to add its ability.)\nIf you would gain life, you gain that much life plus 1 instead.\n{3}{W}: Level 2\nWhenever you gain life, put a +1/+1 counter on target creature you control.\n{4}{W}: Level 3\nWhen this Class becomes level 3, return target creature card from your graveyard to the battlefield. You gain life equal to that creature's toughness.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Platinum Angel",
+    "mana_cost": "{7}",
+    "cmc": 7.0,
+    "type_line": "Artifact Creature \u2014 Angel",
+    "oracle_text": "Flying\nYou can't lose the game and your opponents can't win the game.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Platinum Emperion",
+    "mana_cost": "{8}",
+    "cmc": 8.0,
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "Your life total can't change. (You can't gain or lose life. You can't pay any amount of life except 0.)",
+    "power": "8",
+    "toughness": "8",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Tainted Remedy",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an opponent would gain life, that player loses that much life instead.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Bloodletter of Aclazotz",
+    "mana_cost": "{1}{B}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Vampire Demon",
+    "oracle_text": "Flying\nIf an opponent would lose life during your turn, they lose twice that much life instead. (Damage causes loss of life.)",
+    "power": "2",
+    "toughness": "4",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Jinnie Fay, Jetmir's Second",
+    "mana_cost": "{R/G}{G}{G/W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Elf Druid",
+    "oracle_text": "If you would create one or more tokens, you may instead create that many 2/2 green Cat creature tokens with haste or that many 3/1 green Dog creature tokens with vigilance.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "G",
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "R",
+      "W"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Blossoming Calm",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "You gain hexproof until your next turn. You gain 2 life.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Rebound"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Gilded Light",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "You gain shroud until end of turn. (You can't be the target of spells or abilities.)\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Cycling"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "March of the Machines",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Each noncreature artifact is an artifact creature with power and toughness each equal to its mana value. (Equipment that's a creature can't equip a creature.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Soul Warden",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Human Cleric",
+    "oracle_text": "Whenever another creature enters, you gain 1 life.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Tree of Redemption",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Plant",
+    "oracle_text": "Defender\n{T}: Exchange your life total with this creature's toughness.",
+    "power": "0",
+    "toughness": "13",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Defender"
+    ]
+  },
+  {
+    "name": "Evra, Halcyon Witness",
+    "mana_cost": "{4}{W}{W}",
+    "cmc": 6.0,
+    "type_line": "Legendary Creature \u2014 Avatar",
+    "oracle_text": "Lifelink\n{4}: Exchange your life total with Evra's power.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Lifelink"
+    ]
+  },
+  {
+    "name": "Ajani's Pridemate",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Cat Soldier",
+    "oracle_text": "Whenever you gain life, put a +1/+1 counter on this creature.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "id": "d771fc5d-b9a1-4637-8241-3f54616b64af",
+    "oracle_id": "e6e4a8bd-5c40-4654-8de1-0da9afed90fd",
+    "name": "Regrowth",
+    "layout": "normal",
+    "set_code": "mh1",
+    "set_name": "Modern Horizons",
+    "collector_number": "175",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Return target card from your graveyard to your hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2019-06-14",
+    "artist": "Dan Murayama Scott",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

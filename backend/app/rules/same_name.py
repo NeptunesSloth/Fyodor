@@ -19,22 +19,22 @@ if TYPE_CHECKING:
 
 def names(plan: Plan, ctx: Context, spec: Any) -> set[str]:
     """The (lower-case) names a searched card may have."""
-    from app.rules import context
+    from app.rules import card_names, context
     from app.rules.effects import target_refs
 
     found: list[str] = []
     if spec == "event":
         got = context.info(plan, ctx, context.EVENT)
-        found = [got[1].name] if got is not None and not got[0].face_down else []
+        found = card_names.names_of(got[1]) if got is not None else []
     elif spec == "target":
         for t in target_refs(ctx, "target"):
             card = plan.state.cards.get(t["id"])
             if card is not None and plan.oid(card) == t.get("object_id"):
-                found.append("" if card.face_down else plan.ch(card).name)
+                found.extend(card_names.names_of(plan.ch(card)))
             elif (snap := plan.rules.lki.get(t.get("object_id") or "")) is not None:
-                found.append(snap.name)
+                found.extend(n.strip() for n in snap.name.split(" // ") if n.strip())
     elif isinstance(spec, dict):
         sel = selectors.from_key(spec["sel"])
-        found = [plan.ch(plan.state.cards[c]).name for c in selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card"))
-                 if not plan.state.cards[c].face_down]
+        found = [n for c in selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card"))
+                 for n in card_names.names_of(plan.ch(plan.state.cards[c]))]
     return {n.lower() for n in found if n}

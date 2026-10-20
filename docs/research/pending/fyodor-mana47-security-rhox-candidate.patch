@@ -1,0 +1,102 @@
+--- a/backend/app/rules/mana_requirement_rows.py
++++ b/backend/app/rules/mana_requirement_rows.py
+@@ -8,6 +8,7 @@
+ class ProducerRequirement(StrEnum):
+     CREATURE_PERMANENT = 'creature_permanent'
+     BASIC_LAND = 'basic_land'
++    TREASURE_PERMANENT = 'treasure_permanent'
+
+
+ @dataclass(frozen=True)
+@@ -27,6 +28,8 @@
+         return True
+     if fact is None or fact.zone is None or fact.zone.partition(':')[2] != 'battlefield':
+         return False
++    if requirement is ProducerRequirement.TREASURE_PERMANENT:
++        return 'Treasure' in fact.tags
+     return ('Creature' in fact.tags if requirement is ProducerRequirement.CREATURE_PERMANENT
+             else {'Basic', 'Land'} <= set(fact.tags))
+
+--- a/backend/app/rules/alt_costs.py
++++ b/backend/app/rules/alt_costs.py
+@@ -296,6 +296,7 @@
+     escape: bool = False  # -- escape (wave 5I) -- 702.138a: a cast from the graveyard (app/rules/escape.py)
+     tag: str | None = None  # -- keywords (wave 15E) -- "blitz": cast for its blitz cost (702.152a)
+     flash: bool = False  # Timing permission belongs only to this actual alternative cost.
++    producer_requirement: M.ProducerRequirement | None = None  # Frozen from the actual selected definition.
+
+
+ def sneak_timing(state: GameState, player: str) -> bool:
+@@ -364,7 +365,8 @@
+                 continue
+         alt = parse_cost(d["cost"], x_ok=d.get("tag") in X_KEYWORDS)
+         if alt is not None:
+-            out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}" + (f" ({d['tag']})" if d.get("tag") in ("mutate", "evoke") else ""), alt, tag=d.get("tag")))
++            out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}" + (f" ({d['tag']})" if d.get("tag") in ("mutate", "evoke") else ""), alt, tag=d.get("tag"),
++                             producer_requirement=M.ProducerRequirement(d["producer_requirement"]) if d.get("producer_requirement") else None))
+     given = r.foretell_costs.get(card.id)  # -- hidden exile (wave 18A) -- 702.143d: a foretell cost an effect gave it
+     if given and card.zone == f"{player}:foretell" and card.owner == player and r.foretold.get(card.id, 0) < state.turn.number \
+             and (alt := parse_cost(f"pay {given}")) is not None:
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -1204,7 +1204,7 @@
+     except ActionError as exc:
+         if purpose.producer_requirement is not None:
+             producer = ('creatures on the battlefield' if purpose.producer_requirement is M.ProducerRequirement.CREATURE_PERMANENT
+-                        else 'basic lands')
++                        else 'Treasures' if purpose.producer_requirement is M.ProducerRequirement.TREASURE_PERMANENT else 'basic lands')
+             unknown = bool(state.players[player].mana) or any(unit.production_zone is None
+                 for unit in state.players[player].mana_units)
+             detail = " Mana of unknown origin can't pay this cost." if unknown else ''
+@@ -3151,7 +3151,8 @@
+                                targets=_hint_targets(ch), selected_costs=selected_costs)
+         if any(can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
+                                                                 spell_object=_spell_reference(state, card),
+-                                                                selected_cost_has_x=cost_x, alternative=offer.tag),
++                                                                selected_cost_has_x=cost_x, alternative=offer.tag,
++                                                                producer_requirement=offer.producer_requirement),
+                        reserve=(extra.life if extra is not None else 0) + life_due)
+                for (cost, life_due), cost_x in zip(ways, selected_costs, strict=True)):
+             out.append({"id": offer.key, "label": offer.label, **({"x": True} if (offer.alt.mana_cost.x or getattr(offer.alt, "nonmana_x", False)) else {})})
+@@ -3685,7 +3686,8 @@
+     from_oid = plan.oid(card)  # -- as long as (wave 37A) -- the object it is before it becomes the spell (400.7): "until this card is cast from exile"
+     purpose = Purpose(spell=ch, zone=origin, player=plan.actor, kicked=bool(kicked), x_payment=x_payment,
+                       **{'spell_object': _spell_reference(plan.state, card),
+-                         **(plan.locked_payment_context or {'alternative':alt_offer.tag if alt_offer else None, 'cost_colorless':cost_colorless,
++                         **(plan.locked_payment_context or {'alternative':alt_offer.tag if alt_offer else None,
++                                                          'producer_requirement':alt_offer.producer_requirement if alt_offer else None, 'cost_colorless':cost_colorless,
+                                                           'selected_cost_has_x':prepared[0].selected_cost_has_x})})
+     announced_cost = cost if a.mana_symbols is not None else announce_phyrexian(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=purpose, trusted=was_locked)  # (wave 50B: 601.2b)
+     if announced_cost is None:
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5666,6 +5666,10 @@
+
+     if (mana_followthrough := mana_followthrough_profiles.definition(ability, ch)) is not None:
+         return mana_followthrough
++    from app.rules import mana_security_rhox47
++
++    if (rhox := mana_security_rhox47.definition(ability, ch)) is not None:
++        return rhox
+     from app.rules import mana_producer_profiles45
+
+     if (producer := mana_producer_profiles45.definition(ability, ch)) is not None:
+--- /dev/null
++++ b/backend/app/rules/mana_security_rhox47.py
+@@ -0,0 +1,16 @@
++"""The selected printed Security Rhox alternative carries its own producer rule."""
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, Any
++
++if TYPE_CHECKING:
++    from app.rules.characteristics import AbilityText, Characteristics
++
++TEXT = "You may pay {R}{G} rather than pay this spell's mana cost. Spend only mana produced by Treasures to cast it this way."
++
++
++def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | None:
++    if ability.kind != 'static' or ability.text != TEXT:
++        return None
++    return {'kind': 'static', 'static': 'alt_cost', 'cost': 'pay {R}{G}',
++            'producer_requirement': 'treasure_permanent', 'effects': []}

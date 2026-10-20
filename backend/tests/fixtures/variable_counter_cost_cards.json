@@ -1,0 +1,119 @@
+[
+  {
+    "name": "The Astonishing Ant-Man",
+    "mana_cost": "{G}{U}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Human Scientist Hero",
+    "oracle_text": "Whenever you draw a card, put a +1/+1 counter on The Astonishing Ant-Man.\n{2}{G}, {T}, Remove any number of +1/+1 counters from The Astonishing Ant-Man: Create that many 1/1 green Insect creature tokens.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Geistflame Reservoir",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "Whenever you cast an instant or sorcery spell, put a charge counter on this artifact.\n{1}{R}, {T}, Remove any number of charge counters from this artifact: It deals that much damage to any target.\n{1}{R}, {T}: Exile the top card of your library. You may play that card this turn.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rasputin, the Oneiromancer",
+    "mana_cost": "{1}{W}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Wizard",
+    "oracle_text": "When Rasputin enters, put a dream counter on it for each opponent you have. Each opponent creates a 1/1 red Goblin creature token.\n{T}, Remove one or more dream counters from Rasputin: Add that much {C}.\n{T}, Remove a dream counter from Rasputin: Create a 2/2 white Knight creature token with protection from red.",
+    "power": "4",
+    "toughness": "1",
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Simic Manipulator",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Mutant Wizard",
+    "oracle_text": "Evolve (Whenever a creature you control enters, if that creature has greater power or toughness than this creature, put a +1/+1 counter on this creature.)\n{T}, Remove one or more +1/+1 counters from this creature: Gain control of target creature with power less than or equal to the number of +1/+1 counters removed this way.",
+    "power": "0",
+    "toughness": "1",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Evolve"
+    ]
+  },
+  {
+    "name": "Ooze Flux",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "{1}{G}, Remove one or more +1/+1 counters from among creatures you control: Create an X/X green Ooze creature token, where X is the number of +1/+1 counters removed this way.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Loot, the Pathfinder",
+    "mana_cost": "{2}{G}{U}{R}",
+    "cmc": 5.0,
+    "type_line": "Legendary Creature \u2014 Beast Noble",
+    "oracle_text": "Double strike, vigilance, haste\nExhaust \u2014 {G}, {T}: Add three mana of any one color. (Activate each exhaust ability only once.)\nExhaust \u2014 {U}, {T}: Draw three cards.\nExhaust \u2014 {R}, {T}: Loot deals 3 damage to any target.",
+    "power": "2",
+    "toughness": "4",
+    "colors": [
+      "G",
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "R",
+      "U"
+    ],
+    "keywords": [
+      "Vigilance",
+      "Haste",
+      "Exhaust",
+      "Double strike"
+    ]
+  },
+  {
+    "name": "The Filigree Sylex",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Legendary Artifact",
+    "oracle_text": "{T}: Put an oil counter on The Filigree Sylex.\n{T}, Sacrifice The Filigree Sylex: Destroy each nonland permanent with mana value equal to the number of oil counters on The Filigree Sylex.\n{T}, Remove ten oil counters from among permanents you control and sacrifice The Filigree Sylex: It deals 10 damage to any target.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  }
+]

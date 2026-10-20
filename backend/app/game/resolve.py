@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import secrets
 import time
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from app.game import actions as A
 from app.game import placement
@@ -17,6 +17,9 @@ from app.game.errors import ActionError
 from app.game.handlers import response
 from app.game.state import STACK, GameState, TokenDef, zone_key
 from app.game.views import resolve_placeholder
+
+if TYPE_CHECKING:
+    from app.game.rules_state import ObjectRef
 
 _rng = secrets.SystemRandom()
 
@@ -50,7 +53,7 @@ def _face_type(info: dict[str, Any] | None, face: int) -> str:
 
 
 def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo | None = None, rng: Any = _rng,
-            trusted: bool = False) -> A.Action:
+            trusted: bool = False, shuffle_retained: tuple[ObjectRef, ...] = ()) -> A.Action:
     """Return a copy of ``action`` with server-owned fields filled in."""
     info = cards or NoCardInfo()
     a = action.model_copy(deep=True)
@@ -82,7 +85,13 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
 
     if isinstance(a, A.Shuffle):
         pid = a.player or actor
-        a.r = shuffle_data(len(a.card_ids) if a.card_ids is not None else len(state.zones.get(zone_key(pid, a.zone), [])), rng)
+        pool = list(a.card_ids) if a.card_ids is not None else list(state.zones.get(zone_key(pid, a.zone), []))
+        retained = {ref.card for ref in shuffle_retained if a.zone == 'library' and a.card_ids is None
+                    and state.rules is not None and (card := state.cards.get(ref.card)) is not None
+                    and card.zone == ref.zone == zone_key(pid, 'library') and state.rules.object_id(card.id) == ref.object_id}
+        indices = [index for index, cid in enumerate(pool) if cid in retained]
+        a.r = shuffle_data(len(pool) - len(indices), rng)
+        a.r.retained_indices = indices
     elif isinstance(a, A.Mulligan):
         pid = a.player or actor
         size = len(state.zones.get(zone_key(pid, "library"), [])) + len(state.zones.get(zone_key(pid, "hand"), []))
@@ -236,14 +245,17 @@ def _token_def(spec: A.TokenSpec, info: CardInfo) -> TokenDef:
 
 def _resolve_move(state: GameState, a: A.Move, actor: str, info: CardInfo) -> A.MoveData:
     data = A.MoveData()
-    if a.to.zone != "battlefield" or (a.x is not None and a.y is not None):
+    if (a.to.zone != "battlefield" and not a.routes) or (a.x is not None and a.y is not None):
         return data
     taken: list[tuple[float, float]] = []
     for cid in a.card_ids:
         card = state.cards.get(cid)
         if card is None:
             continue
-        pid = (a.controllers or {}).get(cid) or a.to.player or actor
+        route = (a.routes or {}).get(cid, a.to)
+        if route.zone != "battlefield":
+            continue
+        pid = (a.controllers or {}).get(cid) or route.player or actor
         key = zone_key(pid, "battlefield")
         if card.zone == key:
             continue

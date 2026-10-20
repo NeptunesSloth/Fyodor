@@ -43,15 +43,18 @@ def card_db(settings):
 
 
 def test_ooze_has_a_modal_ability_of_a_graveyard_creature(cards):
-    s = build(cards, p1=("Necrotic Ooze",), p2=("Cankerbloom",))
+    s = build(cards, p1=("Necrotic Ooze", "Sol Ring"), p2=("Cankerbloom",))
     ooze = put(s, "Necrotic Ooze", "battlefield")
     put(s, "Cankerbloom", "graveyard", "p2")
     (ab,) = _borrowed(s, "Necrotic Ooze")  # 613.1f: the Ooze has all activated abilities of Cankerbloom, its modes shown
     assert ab.text == ("{1}, Sacrifice this permanent: Choose one —\n• Destroy target artifact.\n• Destroy target enchantment.\n"
                        "• Proliferate.")
+    ring = put(s, "Sol Ring", "battlefield")
     mana(s, C=1)
-    act(s, "p1", type="activate_ability", card_id=ooze.id, ability=ab.index)
-    assert s.state.cards[ooze.id].zone.endswith(":graveyard")  # (the cost is paid; what it does is done by hand)
+    act(s, "p1", type="activate_ability", card_id=ooze.id, ability=ab.index, modes=[0], targets=[ring.id])
+    assert s.state.cards[ooze.id].zone.endswith(":graveyard")
+    _settle(s)
+    assert s.state.cards[ring.id].zone.endswith(":graveyard")  # native modal resolution, not a manual placeholder
     roundtrip(s)
 
 

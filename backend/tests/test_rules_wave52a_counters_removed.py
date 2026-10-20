@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from app.rules import coverage
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_wave34b_activated import next_turn, settle
 from tests.wave9c_kit import build, check, put, zone_of
 from tests.wave52a_kit import open_repo
@@ -40,7 +40,7 @@ def test_coalition_relic_adds_a_mana_for_each_charge_counter_it_removed(cards):
     next_turn(s)
     settle(s)  # (the first mana choices are the first color offered)
     assert counters(s, relic) == 0
-    assert sum(s.state.players["p1"].mana.values()) == 3  # one mana of any color for each of the three counters
+    assert sum(mana_pool(s).values()) == 3  # one mana of any color for each of the three counters
     check(s)
 
 
@@ -49,7 +49,7 @@ def test_coalition_relic_without_counters_adds_nothing(cards):
     relic = put(s, RELIC)
     next_turn(s)
     settle(s)
-    assert counters(s, relic) == 0 and not s.state.players["p1"].mana
+    assert counters(s, relic) == 0 and not mana_pool(s)
     check(s)
 
 
@@ -60,7 +60,7 @@ def test_ventifact_bottle_taps_and_adds_colorless_for_each_counter(cards):
     next_turn(s)
     settle(s)
     assert counters(s, bottle) == 0 and s.state.cards[bottle.id].tapped
-    assert s.state.players["p1"].mana == {"C": 2}
+    assert mana_pool(s) == {"C": 2}
     check(s)
 
 
@@ -69,7 +69,7 @@ def test_ventifact_bottle_with_no_counter_does_nothing(cards):
     bottle = put(s, BOTTLE)
     next_turn(s)
     settle(s)
-    assert not s.state.cards[bottle.id].tapped and not s.state.players["p1"].mana and zone_of(s, BOTTLE) == "p1:battlefield"
+    assert not s.state.cards[bottle.id].tapped and not mana_pool(s) and zone_of(s, BOTTLE) == "p1:battlefield"
     check(s)
 
 
@@ -84,7 +84,7 @@ def test_bounty_of_the_luxa_with_counters_removes_them_and_adds_mana(cards):
     act(s, "p1", type="counter", card_ids=[b.id], kind="flood", delta=2)
     next_turn(s)
     settle(s)
-    assert counters(s, b, "flood") == 0 and s.state.players["p1"].mana == {"C": 1, "G": 1, "U": 1}  # "Otherwise, add {C}{G}{U}": no new counter, no card
+    assert counters(s, b, "flood") == 0 and mana_pool(s) == {"C": 1, "G": 1, "U": 1}  # "Otherwise, add {C}{G}{U}": no new counter, no card
     assert hand(s) == 1  # (the draw step's card only)
     check(s)
 
@@ -94,6 +94,6 @@ def test_bounty_of_the_luxa_without_counters_puts_one_on_and_draws(cards):
     b = put(s, BOUNTY)
     next_turn(s)
     settle(s)
-    assert counters(s, b, "flood") == 1 and not s.state.players["p1"].mana
+    assert counters(s, b, "flood") == 1 and not mana_pool(s)
     assert hand(s) == 2  # the draw step's card and the one this draws
     check(s)

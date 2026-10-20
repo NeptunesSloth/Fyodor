@@ -1,0 +1,343 @@
+[
+  {
+    "id": "2d90b839-0808-435d-bcf3-aa7af414c44b",
+    "oracle_id": "fc50e254-71bc-46b3-93e6-c6eb820a3473",
+    "name": "Bloatfly Swarm",
+    "layout": "normal",
+    "set_code": "pip",
+    "set_name": "Fallout",
+    "collector_number": "42",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Insect Mutant",
+    "oracle_text": "Flying\nThis creature enters with five +1/+1 counters on it.\nIf damage would be dealt to this creature while it has a +1/+1 counter on it, prevent that damage, remove that many +1/+1 counters from it, then give each player a rad counter for each +1/+1 counter removed this way.",
+    "power": "0",
+    "toughness": "0",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-03-08",
+    "artist": "Igor Krstic",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "0886657d-afb0-4f1f-9af7-960724793077",
+        "name": "Radiation",
+        "component": "combo_piece"
+      },
+      {
+        "id": "c89cd297-f44c-4d17-b714-327b7e382dd3",
+        "name": "Bloatfly Swarm",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "17d154d3-7ae5-43ff-9978-d974285e2c89",
+    "oracle_id": "e3886fe8-9b76-4613-8891-4ec74657c087",
+    "name": "Glorious Anthem",
+    "layout": "normal",
+    "set_code": "m21",
+    "set_name": "Core Set 2021",
+    "collector_number": "21",
+    "rarity": "rare",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures you control get +1/+1.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-07-03",
+    "artist": "Raymond Swanland",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "92613468-205e-488b-930d-11908477e9f8",
+    "oracle_id": "5a3fdf5a-bff8-4896-b288-3f43f9a72d9b",
+    "name": "Vorinclex, Monstrous Raider",
+    "layout": "normal",
+    "set_code": "khm",
+    "set_name": "Kaldheim",
+    "collector_number": "199",
+    "rarity": "mythic",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Legendary Creature \u2014 Phyrexian Praetor",
+    "oracle_text": "Trample, haste\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead.\nIf an opponent would put one or more counters on a permanent or player, they put half that many of each of those kinds of counters on that permanent or player instead, rounded down.",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Haste",
+      "Trample"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-02-05",
+    "artist": "Daarken",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "069cfaa5-bba4-4503-b54e-b98fa9f0a0fc",
+    "oracle_id": "28a52ba1-95da-44e1-8ac5-0dc23c902394",
+    "name": "Healer's Hawk",
+    "layout": "normal",
+    "set_name": "Foundations",
+    "collector_number": "734",
+    "rarity": "common",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Bird",
+    "oracle_text": "Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Lifelink"
+    ],
+    "is_token": null,
+    "released_at": "2026-04-24",
+    "artist": "Milivoj \u0106eran",
+    "faces": [],
+    "set_code": "fdn"
+  },
+  {
+    "id": "7f399983-d70a-4cf3-b76e-bb0c472e7c69",
+    "oracle_id": "a6fc0b0c-9ba2-47f2-ab92-26fd20d0f86d",
+    "name": "Skullcrack",
+    "layout": "normal",
+    "set_name": "Ravnica Remastered",
+    "collector_number": "125",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Players can't gain life this turn. Damage can't be prevented this turn. Skullcrack deals 3 damage to target player or planeswalker.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": null,
+    "released_at": "2024-01-12",
+    "artist": "Dave Kendall",
+    "faces": [],
+    "set_code": "rvr"
+  },
+  {
+    "id": "d7f0e720-3c32-4040-b663-7f99ad5bc810",
+    "oracle_id": "68715465-6cf9-4006-87e9-31f227fe9ed3",
+    "name": "Furnace of Rath",
+    "layout": "normal",
+    "set_name": "Planechase",
+    "collector_number": "55",
+    "rarity": "rare",
+    "mana_cost": "{1}{R}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If a source would deal damage to a permanent or player, it deals double that damage to that permanent or player instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Double"
+    ],
+    "is_token": null,
+    "released_at": "2009-09-04",
+    "artist": "John Matson",
+    "faces": [],
+    "set_code": "hop"
+  },
+  {
+    "id": "9c59d43e-0e07-4601-b6df-178010ea909f",
+    "oracle_id": "4c34a882-3786-4d3c-9ca4-04fa85d5e51b",
+    "name": "Harm's Way",
+    "layout": "normal",
+    "set_name": "Duel Decks: Knights vs. Dragons",
+    "collector_number": "23",
+    "rarity": "uncommon",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "The next 2 damage that a source of your choice would deal to you and/or permanents you control this turn is dealt to any target instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": null,
+    "released_at": "2011-04-01",
+    "artist": "Dan Murayama Scott",
+    "faces": [],
+    "set_code": "ddg"
+  },
+  {
+    "id": "6dc0c976-26d2-40c9-a571-c370e9139d1d",
+    "oracle_id": "6879f5ce-7a1b-4606-bad1-885779b0d456",
+    "name": "Cloudshift",
+    "layout": "normal",
+    "set_name": "Avatar: The Last Airbender Eternal",
+    "collector_number": "152",
+    "rarity": "common",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": null,
+    "released_at": "2025-11-21",
+    "artist": "Devin Elle Kurtz",
+    "faces": [],
+    "set_code": "tle"
+  },
+  {
+    "id": "1cdd8e69-5a71-4933-914e-dfede7b1ac93",
+    "oracle_id": "01546b7d-a233-4176-8843-d732074dc5b6",
+    "name": "Doubling Season",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "283",
+    "rarity": "mythic",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Chuck Lukacs",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0a71fb62-acbd-49f5-842f-0fc9fa48afea",
+    "oracle_id": "f0b4331b-ddd3-4f11-ba16-67c651c8954c",
+    "name": "Solemnity",
+    "layout": "normal",
+    "set_code": "hou",
+    "set_name": "Hour of Devastation",
+    "collector_number": "22",
+    "rarity": "rare",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-07-14",
+    "artist": "Greg Opalinski",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

@@ -71,6 +71,10 @@ def lose_game(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         if game_result.cannot_lose(plan, pid):
             plan.note(f"{plan.name(pid)} would lose the game, but can't")
     losers = [p for p in losers if not game_result.cannot_lose(plan, p)]
+    if losers:
+        from app.rules import life_game_history
+
+        life_game_history.loss_events(plan, losers)
     for pid in losers:
         r.lost[pid] = "an effect"
         plan.note(f"{plan.name(pid)} loses the game (an effect)")

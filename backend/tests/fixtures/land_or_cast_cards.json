@@ -1,0 +1,489 @@
+[
+  {
+    "name": "Omen Machine",
+    "mana_cost": "{6}",
+    "cmc": 6.0,
+    "type_line": "Artifact",
+    "oracle_text": "Players can't draw cards.\nAt the beginning of each player's draw step, that player exiles the top card of their library. If it's a land card, the player puts it onto the battlefield. Otherwise, the player casts it without paying its mana cost if able.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Wild Evocation",
+    "mana_cost": "{5}{R}",
+    "cmc": 6.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of each player's upkeep, that player reveals a card at random from their hand. If it's a land card, the player puts it onto the battlefield. Otherwise, the player casts it without paying its mana cost if able.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Unexpected Results",
+    "mana_cost": "{2}{G}{U}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Shuffle your library, then reveal the top card. If it's a nonland card, you may cast it without paying its mana cost. If it's a land card, you may put it onto the battlefield and return Unexpected Results to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Audacious Swap",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Casualty 2 (As you cast this spell, you may sacrifice a creature with power 2 or greater. When you do, copy this spell and you may choose a new target for the copy.)\nThe owner of target nonenchantment permanent shuffles it into their library, then exiles the top card of their library. If it's a land card, they put it onto the battlefield. Otherwise, they may cast it without paying its mana cost.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Casualty"
+    ],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Rona, Herald of Invasion // Rona, Tolarian Obliterator",
+    "mana_cost": "{1}{U} // ",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Human Wizard // Legendary Creature \u2014 Phyrexian Wizard",
+    "oracle_text": "Whenever you cast a legendary spell, untap Rona.\n{T}: Draw a card, then discard a card.\n{5}{B/P}: Transform Rona. Activate only as a sorcery. ({B/P} can be paid with either {B} or 2 life.)\n//\nTrample\nWhenever a source deals damage to Rona, that source's controller exiles a card from their hand at random. If it's a land card, you may put it onto the battlefield under your control. Otherwise, you may cast it without paying its mana cost.",
+    "power": "1",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [
+      "Transform",
+      "Trample"
+    ],
+    "layout": "transform",
+    "card_faces": [
+      {
+        "name": "Rona, Herald of Invasion",
+        "mana_cost": "{1}{U}",
+        "type_line": "Legendary Creature \u2014 Human Wizard",
+        "oracle_text": "Whenever you cast a legendary spell, untap Rona.\n{T}: Draw a card, then discard a card.\n{5}{B/P}: Transform Rona. Activate only as a sorcery. ({B/P} can be paid with either {B} or 2 life.)",
+        "power": "1",
+        "toughness": "3",
+        "colors": [
+          "U"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/0/f/0f0b2d53-455d-400d-b0d5-e9bf410f8d7e.jpg?1783916731",
+          "normal": "https://cards.scryfall.io/normal/front/0/f/0f0b2d53-455d-400d-b0d5-e9bf410f8d7e.jpg?1783916731",
+          "large": "https://cards.scryfall.io/large/front/0/f/0f0b2d53-455d-400d-b0d5-e9bf410f8d7e.jpg?1783916731",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/0/f/0f0b2d53-455d-400d-b0d5-e9bf410f8d7e.jpg?1783916731"
+        }
+      },
+      {
+        "name": "Rona, Tolarian Obliterator",
+        "mana_cost": "",
+        "type_line": "Legendary Creature \u2014 Phyrexian Wizard",
+        "oracle_text": "Trample\nWhenever a source deals damage to Rona, that source's controller exiles a card from their hand at random. If it's a land card, you may put it onto the battlefield under your control. Otherwise, you may cast it without paying its mana cost.",
+        "power": "5",
+        "toughness": "5",
+        "colors": [
+          "B",
+          "U"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/0/f/0f0b2d53-455d-400d-b0d5-e9bf410f8d7e.jpg?1783916731",
+          "normal": "https://cards.scryfall.io/normal/back/0/f/0f0b2d53-455d-400d-b0d5-e9bf410f8d7e.jpg?1783916731",
+          "large": "https://cards.scryfall.io/large/back/0/f/0f0b2d53-455d-400d-b0d5-e9bf410f8d7e.jpg?1783916731",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/0/f/0f0b2d53-455d-400d-b0d5-e9bf410f8d7e.jpg?1783916731"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Lightning Bolt",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Shivan Devastator",
+    "mana_cost": "{X}{R}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Dragon Hydra",
+    "oracle_text": "Flying, haste\nThis creature enters with X +1/+1 counters on it.",
+    "power": "0",
+    "toughness": "0",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying",
+      "Haste"
+    ],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Sphere of Resistance",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "Spells cost {1} more to cast.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Trinisphere",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "As long as this artifact is untapped, each spell that would cost less than three mana to cast costs three mana to cast. (Additional mana in the cost may be paid with any color of mana or colorless mana. For example, a spell that would cost {1}{B} to cast costs {2}{B} to cast instead.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Sol Ring",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Fling",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nFling deals damage equal to the sacrificed creature's power to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Hallowed Moonlight",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, if a creature would enter and it wasn't cast, exile it instead.\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Dryad Arbor",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land Creature \u2014 Forest Dryad",
+    "oracle_text": "(This land isn't a spell, it's affected by summoning sickness, and it has \"{T}: Add {G}.\")",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Grafdigger's Cage",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "Creature cards in graveyards and libraries can't enter the battlefield.\nPlayers can't cast spells from graveyards or libraries.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Kazandu Mammoth // Kazandu Valley",
+    "mana_cost": "{1}{G}{G} // ",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Elephant // Land",
+    "oracle_text": "Landfall \u2014 Whenever a land you control enters, this creature gets +2/+2 until end of turn.\n//\nThis land enters tapped.\n{T}: Add {G}.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Landfall"
+    ],
+    "layout": "modal_dfc",
+    "card_faces": [
+      {
+        "name": "Kazandu Mammoth",
+        "mana_cost": "{1}{G}{G}",
+        "type_line": "Creature \u2014 Elephant",
+        "oracle_text": "Landfall \u2014 Whenever a land you control enters, this creature gets +2/+2 until end of turn.",
+        "power": "3",
+        "toughness": "3",
+        "colors": [
+          "G"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/0/9/09c8c150-a0d8-4254-9169-7697e9c540da.jpg?1783929291",
+          "normal": "https://cards.scryfall.io/normal/front/0/9/09c8c150-a0d8-4254-9169-7697e9c540da.jpg?1783929291",
+          "large": "https://cards.scryfall.io/large/front/0/9/09c8c150-a0d8-4254-9169-7697e9c540da.jpg?1783929291",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/0/9/09c8c150-a0d8-4254-9169-7697e9c540da.jpg?1783929291"
+        }
+      },
+      {
+        "name": "Kazandu Valley",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "This land enters tapped.\n{T}: Add {G}.",
+        "colors": [],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/0/9/09c8c150-a0d8-4254-9169-7697e9c540da.jpg?1783929291",
+          "normal": "https://cards.scryfall.io/normal/back/0/9/09c8c150-a0d8-4254-9169-7697e9c540da.jpg?1783929291",
+          "large": "https://cards.scryfall.io/large/back/0/9/09c8c150-a0d8-4254-9169-7697e9c540da.jpg?1783929291",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/0/9/09c8c150-a0d8-4254-9169-7697e9c540da.jpg?1783929291"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Disenchant",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Counterspell",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Opt",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Scry"
+    ],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Llanowar Elves",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Abhorrent Oculus",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Eye",
+    "oracle_text": "As an additional cost to cast this spell, exile six cards from your graveyard.\nFlying\nAt the beginning of each opponent's upkeep, manifest dread. (Look at the top two cards of your library. Put one onto the battlefield face down as a 2/2 creature and the other into your graveyard. Turn it face up any time for its mana cost if it's a creature card.)",
+    "power": "5",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Manifest",
+      "Manifest dread"
+    ],
+    "layout": "normal",
+    "card_faces": null
+  }
+]

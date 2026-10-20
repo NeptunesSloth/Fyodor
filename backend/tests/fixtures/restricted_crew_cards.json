@@ -1,0 +1,45 @@
+[
+  {
+    "name": "Luxurious Locomotive",
+    "oracle_text": "Whenever this Vehicle attacks, create a Treasure token for each creature that crewed it this turn. (They're artifacts with \"{T}, Sacrifice this token: Add one mana of any color.\")\nCrew 1. Activate only once each turn. (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)",
+    "type_line": "Artifact \u2014 Vehicle",
+    "mana_cost": "{5}",
+    "power": "6",
+    "toughness": "5",
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal"
+  },
+  {
+    "name": "Llanowar Elves",
+    "oracle_text": "{T}: Add {G}.",
+    "type_line": "Creature \u2014 Elf Druid",
+    "mana_cost": "{G}",
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal"
+  },
+  {
+    "name": "Stifle",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "type_line": "Instant",
+    "mana_cost": "{U}",
+    "layout": "normal"
+  },
+  {
+    "name": "Smuggler's Copter",
+    "oracle_text": "Flying\nWhenever this Vehicle attacks or blocks, you may draw a card. If you do, discard a card.\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)",
+    "type_line": "Artifact \u2014 Vehicle",
+    "mana_cost": "{2}",
+    "power": "3",
+    "toughness": "3",
+    "layout": "normal"
+  }
+]

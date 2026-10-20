@@ -20,7 +20,7 @@ from app.config import Settings
 from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_permissions import build, find, put
 from tests.test_rules_wave5a_mana_riders import roundtrip
 
@@ -102,7 +102,7 @@ def test_mana_reflection_doubles_what_a_tapped_land_makes(cards):
     s = table(cards, "Mana Reflection", "Quiet Bear")
     f = forest(s)
     act(s, "p1", type="activate_ability", card_id=f.id, ability=0)
-    assert s.state.players["p1"].mana == {"G": 2}
+    assert mana_pool(s) == {"G": 2}
     roundtrip(s)
 
 
@@ -117,7 +117,7 @@ def test_nyxbloom_ancient_triples_any_permanent_including_nonlands(cards):
     s = table(cards, "Nyxbloom Ancient", "Triple Idol", "Sol Ring", lands=0)
     sol = put(s, "Sol Ring", "battlefield")
     act(s, "p1", type="activate_ability", card_id=sol.id, ability=0)
-    assert s.state.players["p1"].mana == {"C": 6}  # {C}{C} three times
+    assert mana_pool(s) == {"C": 6}  # {C}{C} three times
     roundtrip(s)
 
 
@@ -125,16 +125,16 @@ def test_virtue_of_strength_triples_basic_lands_only(cards):
     s = table(cards, VIRTUE, "Triple Idol", "Sol Ring")
     sol = put(s, "Sol Ring", "battlefield")
     act(s, "p1", type="activate_ability", card_id=sol.id, ability=0)
-    assert s.state.players["p1"].mana == {"C": 2}  # (not a basic land)
+    assert mana_pool(s) == {"C": 2}  # (not a basic land)
     act(s, "p1", type="activate_ability", card_id=forest(s).id, ability=0)
-    assert s.state.players["p1"].mana == {"C": 2, "G": 3}
+    assert mana_pool(s) == {"C": 2, "G": 3}
     roundtrip(s)
 
 
 def test_contamination_makes_one_black_mana_whatever_the_land_made(cards):
     s = table(cards, "Contamination", "Dark Imp", "Green Cub")
     act(s, "p1", type="activate_ability", card_id=forest(s).id, ability=0)
-    assert s.state.players["p1"].mana == {"B": 1}
+    assert mana_pool(s) == {"B": 1}
     roundtrip(s)
 
 
@@ -154,7 +154,7 @@ def test_ritual_of_subdual_makes_colorless_mana(cards):
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=c.id)
     act(s, "p1", type="activate_ability", card_id=forest(s).id, ability=0)
-    assert s.state.players["p1"].mana == {"C": 1}
+    assert mana_pool(s) == {"C": 1}
     roundtrip(s)
 
 
@@ -182,10 +182,10 @@ def test_gauntlet_of_might_adds_a_red_for_each_mountain_tapped(cards):
     put(s, "Gauntlet of Might", "battlefield")
     mountain = put(s, "Mountain", "battlefield")
     act(s, "p1", type="activate_ability", card_id=mountain.id, ability=0)
-    assert s.state.players["p1"].mana == {"R": 2}
+    assert mana_pool(s) == {"R": 2}
     forest_card = put(s, "Forest", "battlefield")
     act(s, "p1", type="activate_ability", card_id=forest_card.id, ability=0)
-    assert s.state.players["p1"].mana == {"R": 2, "G": 1}
+    assert mana_pool(s) == {"R": 2, "G": 1}
     roundtrip(s)
 
 
@@ -193,5 +193,5 @@ def test_vernal_bloom_doubles_forests(cards):
     s = build(cards, [(1, "Vernal Bloom"), (8, "Forest")])
     put(s, "Vernal Bloom", "battlefield")
     act(s, "p1", type="activate_ability", card_id=put(s, "Forest", "battlefield").id, ability=0)
-    assert s.state.players["p1"].mana == {"G": 2}
+    assert mana_pool(s) == {"G": 2}
     roundtrip(s)

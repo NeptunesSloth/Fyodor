@@ -1,0 +1,509 @@
+[
+  {
+    "name": "Provoke",
+    "oracle_text": "Untap target creature you don't control. That creature blocks this turn if able.\nDraw a card.",
+    "mana_cost": "{1}{G}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Predatory Rampage",
+    "oracle_text": "Creatures you control get +3/+3 until end of turn. Each creature your opponents control blocks this turn if able.",
+    "mana_cost": "{3}{G}{G}",
+    "type_line": "Sorcery",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Academic Dispute",
+    "oracle_text": "Target creature blocks this turn if able. You may have it gain reach until end of turn.\nLearn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.)",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Learn"
+    ]
+  },
+  {
+    "name": "Timely Interference",
+    "oracle_text": "Kicker {1}{R} (You may pay an additional {1}{R} as you cast this spell.)\nTarget creature gets -1/-0 until end of turn. If this spell was kicked, that creature blocks this turn if able.\nDraw a card.",
+    "mana_cost": "{U}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [
+      "Kicker"
+    ]
+  },
+  {
+    "name": "Monstrous Step",
+    "oracle_text": "Target creature gets +7/+7 until end of turn. Up to one other target creature blocks it this turn if able.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    "mana_cost": "{4}{G}",
+    "type_line": "Sorcery",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Cycling"
+    ]
+  },
+  {
+    "name": "Chemister's Trick",
+    "oracle_text": "Target creature you don't control gets -2/-0 until end of turn and attacks this turn if able.\nOverload {3}{U}{R} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+    "mana_cost": "{U}{R}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [
+      "Overload"
+    ]
+  },
+  {
+    "name": "Incite",
+    "oracle_text": "Target creature becomes red until end of turn and attacks this turn if able.",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Auriok Siege Sled",
+    "oracle_text": "{1}: Target artifact creature blocks this creature this turn if able.\n{1}: Target artifact creature can't block this creature this turn.",
+    "mana_cost": "{6}",
+    "type_line": "Artifact Creature \u2014 Juggernaut",
+    "power": "3",
+    "toughness": "5",
+    "layout": "normal",
+    "cmc": 6.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Feral Contest",
+    "oracle_text": "Put a +1/+1 counter on target creature you control. Another target creature blocks it this turn if able.",
+    "mana_cost": "{3}{G}",
+    "type_line": "Sorcery",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Kookus",
+    "oracle_text": "Trample\nAt the beginning of your upkeep, if you don't control a creature named Keeper of Kookus, this creature deals 3 damage to you and attacks this turn if able.\n{R}: This creature gets +1/+0 until end of turn.",
+    "mana_cost": "{3}{R}{R}",
+    "type_line": "Creature \u2014 Djinn",
+    "power": "3",
+    "toughness": "5",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Trample"
+    ]
+  },
+  {
+    "name": "Domineering Will",
+    "oracle_text": "Target player gains control of up to three target nonattacking creatures until end of turn. Untap those creatures. They block this turn if able.",
+    "mana_cost": "{3}{U}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Aggravate",
+    "oracle_text": "Aggravate deals 1 damage to each creature target player controls. Each creature dealt damage this way attacks this turn if able.",
+    "mana_cost": "{3}{R}{R}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Runeclaw Bear",
+    "oracle_text": "",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Memnite",
+    "oracle_text": "",
+    "mana_cost": "{0}",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Giant Growth",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "mana_cost": "{G}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Naturalize",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "mana_cost": "{1}{G}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cloudshift",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "mana_cost": "{W}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Confiscate",
+    "oracle_text": "Enchant permanent\nYou control enchanted permanent.",
+    "mana_cost": "{4}{U}{U}",
+    "type_line": "Enchantment \u2014 Aura",
+    "layout": "normal",
+    "cmc": 6.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Mountain",
+    "oracle_text": "({T}: Add {R}.)",
+    "mana_cost": "",
+    "type_line": "Basic Land \u2014 Mountain",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "mana_cost": "",
+    "type_line": "Basic Land \u2014 Forest",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "mana_cost": "",
+    "type_line": "Basic Land \u2014 Island",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Plains",
+    "oracle_text": "({T}: Add {W}.)",
+    "mana_cost": "",
+    "type_line": "Basic Land \u2014 Plains",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Baneslayer Angel",
+    "oracle_text": "Flying, first strike, lifelink, protection from Demons and from Dragons",
+    "mana_cost": "{3}{W}{W}",
+    "type_line": "Creature \u2014 Angel",
+    "power": "5",
+    "toughness": "5",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Lifelink",
+      "First strike",
+      "Protection"
+    ]
+  },
+  {
+    "name": "Expedite",
+    "oracle_text": "Target creature gains haste until end of turn.\nDraw a card.",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Kraken Hatchling",
+    "oracle_text": "",
+    "mana_cost": "{U}",
+    "type_line": "Creature \u2014 Kraken",
+    "power": "0",
+    "toughness": "4",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Fervor",
+    "oracle_text": "Creatures you control have haste. (They can attack and {T} as soon as they come under your control.)",
+    "mana_cost": "{2}{R}",
+    "type_line": "Enchantment",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Keeper of Kookus",
+    "oracle_text": "{R}: This creature gains protection from red until end of turn.",
+    "mana_cost": "{R}",
+    "type_line": "Creature \u2014 Goblin",
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Silver Knight",
+    "oracle_text": "First strike, protection from red",
+    "mana_cost": "{W}{W}",
+    "type_line": "Creature \u2014 Human Knight",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "First strike",
+      "Protection"
+    ]
+  },
+  {
+    "name": "Ghostly Prison",
+    "oracle_text": "Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.",
+    "mana_cost": "{2}{W}",
+    "type_line": "Enchantment",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Oppressive Rays",
+    "oracle_text": "Enchant creature\nEnchanted creature can't attack or block unless its controller pays {3}.\nActivated abilities of enchanted creature cost {3} more to activate.",
+    "mana_cost": "{W}",
+    "type_line": "Enchantment \u2014 Aura",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Modal requirement harness",
+    "oracle_text": "Choose two \u2014\n\u2022 Target player gains 1 life.\n\u2022 Target creature gets +7/+7 until end of turn. Up to one other target creature blocks it this turn if able.",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  }
+]

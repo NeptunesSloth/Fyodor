@@ -1,0 +1,297 @@
+[
+  {
+    "name": "Brainstealer Dragon",
+    "mana_cost": "{5}{B}{B}",
+    "cmc": 7.0,
+    "type_line": "Creature \u2014 Dragon Horror",
+    "oracle_text": "Flying\nAt the beginning of your end step, exile the top card of each opponent's library. You may play those cards for as long as they remain exiled. If you cast a spell this way, you may spend mana as though it were mana of any color to cast it.\nWhenever a nonland permanent an opponent owns enters the battlefield under your control, they lose life equal to its mana value.",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Lightning Bolt",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Forest",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Island",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Sol Ring",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Mind Stone",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Disenchant",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Counterspell",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Oblivion Ring",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile another target nonland permanent.\nWhen this enchantment leaves the battlefield, return the exiled card to the battlefield under its owner's control.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Containment Priest",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Cleric",
+    "oracle_text": "Flash\nIf a nontoken creature would enter and it wasn't cast, exile it instead.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Valki, God of Lies // Tibalt, Cosmic Impostor",
+    "mana_cost": "{1}{B} // {5}{B}{R}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 God // Legendary Planeswalker \u2014 Tibalt",
+    "oracle_text": "When Valki enters, each opponent reveals their hand. For each opponent, exile a creature card they revealed this way until Valki leaves the battlefield.\n{X}: Choose a creature card exiled with Valki with mana value X. Valki becomes a copy of that card.\n//\nAs Tibalt enters, you get an emblem with \"You may play cards exiled with Tibalt, Cosmic Impostor, and you may spend mana as though it were mana of any color to cast those spells.\"\n+2: Exile the top card of each player's library.\n\u22123: Exile target artifact or creature.\n\u22128: Exile all graveyards. Add {R}{R}{R}.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [],
+    "layout": "modal_dfc",
+    "card_faces": [
+      {
+        "name": "Valki, God of Lies",
+        "mana_cost": "{1}{B}",
+        "type_line": "Legendary Creature \u2014 God",
+        "oracle_text": "When Valki enters, each opponent reveals their hand. For each opponent, exile a creature card they revealed this way until Valki leaves the battlefield.\n{X}: Choose a creature card exiled with Valki with mana value X. Valki becomes a copy of that card.",
+        "power": "2",
+        "toughness": "1",
+        "colors": [
+          "B"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "normal": "https://cards.scryfall.io/normal/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "large": "https://cards.scryfall.io/large/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969"
+        }
+      },
+      {
+        "name": "Tibalt, Cosmic Impostor",
+        "mana_cost": "{5}{B}{R}",
+        "type_line": "Legendary Planeswalker \u2014 Tibalt",
+        "oracle_text": "As Tibalt enters, you get an emblem with \"You may play cards exiled with Tibalt, Cosmic Impostor, and you may spend mana as though it were mana of any color to cast those spells.\"\n+2: Exile the top card of each player's library.\n\u22123: Exile target artifact or creature.\n\u22128: Exile all graveyards. Add {R}{R}{R}.",
+        "loyalty": "5",
+        "colors": [
+          "B",
+          "R"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "normal": "https://cards.scryfall.io/normal/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "large": "https://cards.scryfall.io/large/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Reanimate",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card's mana value.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Spatial Contortion",
+    "mana_cost": "{1}{C}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "({C} represents colorless mana.)\nTarget creature gets +3/-3 until end of turn.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Birgi, God of Storytelling // Harnfel, Horn of Bounty",
+    "mana_cost": "{2}{R} // {4}{R}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 God // Legendary Artifact",
+    "oracle_text": "Whenever you cast a spell, add {R}. Until end of turn, you don't lose this mana as steps and phases end.\nCreatures you control can boast twice during each of your turns rather than once.\n//\nDiscard a card: Exile the top two cards of your library. You may play those cards this turn.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "modal_dfc",
+    "card_faces": [
+      {
+        "name": "Birgi, God of Storytelling",
+        "mana_cost": "{2}{R}",
+        "type_line": "Legendary Creature \u2014 God",
+        "oracle_text": "Whenever you cast a spell, add {R}. Until end of turn, you don't lose this mana as steps and phases end.\nCreatures you control can boast twice during each of your turns rather than once.",
+        "power": "3",
+        "toughness": "3",
+        "colors": [
+          "R"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/2/5/252c0f8a-54d5-461d-84f7-496c42703ff0.jpg?1783928037",
+          "normal": "https://cards.scryfall.io/normal/front/2/5/252c0f8a-54d5-461d-84f7-496c42703ff0.jpg?1783928037",
+          "large": "https://cards.scryfall.io/large/front/2/5/252c0f8a-54d5-461d-84f7-496c42703ff0.jpg?1783928037",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/2/5/252c0f8a-54d5-461d-84f7-496c42703ff0.jpg?1783928037"
+        }
+      },
+      {
+        "name": "Harnfel, Horn of Bounty",
+        "mana_cost": "{4}{R}",
+        "type_line": "Legendary Artifact",
+        "oracle_text": "Discard a card: Exile the top two cards of your library. You may play those cards this turn.",
+        "colors": [
+          "R"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/2/5/252c0f8a-54d5-461d-84f7-496c42703ff0.jpg?1783928037",
+          "normal": "https://cards.scryfall.io/normal/back/2/5/252c0f8a-54d5-461d-84f7-496c42703ff0.jpg?1783928037",
+          "large": "https://cards.scryfall.io/large/back/2/5/252c0f8a-54d5-461d-84f7-496c42703ff0.jpg?1783928037",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/2/5/252c0f8a-54d5-461d-84f7-496c42703ff0.jpg?1783928037"
+        }
+      }
+    ]
+  }
+]

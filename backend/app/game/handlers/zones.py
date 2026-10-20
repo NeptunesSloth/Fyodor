@@ -47,10 +47,13 @@ def move(state: GameState, a: A.Move) -> None:
     dests = [destination(state, a.to.model_copy(update={"player": a.controllers[c.id]})
                          if a.controllers and c.id in a.controllers and a.to.zone == "battlefield" else a.to, c, a.actor)
              for c in moving]
+    if a.routes:
+        dests = [destination(state, a.routes.get(c.id, a.to), c, a.actor) for c in moving]
     tapped = set(a.tapped_ids or ())
     positions = a.r.positions if a.r else {}
     who_saw = {c.id: seers(state, c) for c in moving}
     sources = {c.id: c.zone for c in moving}
+    library_parts = {p.id for c in moving for p in c.merged} | {c.id for c in moving}
     for c, dest in zip(moving, dests, strict=True):  # -- keyword actions & face-down (wave 3F) --
         # 708.9: a face-down permanent leaving the battlefield, or a face-down spell leaving the stack
         # other than for the battlefield, is revealed to all players as it moves (the log names it to all)
@@ -62,7 +65,8 @@ def move(state: GameState, a: A.Move) -> None:
     was_down = {c.id: c.face_down for c in moving}
 
     for i, (c, dest) in enumerate(zip(moving, dests, strict=True)):
-        lib_top = ops.zone_name(dest) == "library" and a.position != "bottom"
+        position = (a.library_positions or {}).get(c.id, a.position)
+        lib_top = ops.zone_name(dest) == "library" and position != "bottom"
         index = a.index + i if a.index is not None else (i if lib_top else None)
         x = y = None
         if ops.zone_name(dest) == "battlefield":
@@ -72,8 +76,11 @@ def move(state: GameState, a: A.Move) -> None:
                 x, y = a.x + i * 18, a.y + i * 18
         if c.zone.endswith(":command") and dest == STACK and c.commander_key:
             commander_casts.append(c)
-        ops.move_card(state, c, dest, index=index, position=a.position, x=x, y=y, face_down=a.face_down, rest=a.rest_zone,
+        ops.move_card(state, c, dest, index=index, position=position, x=x, y=y, face_down=a.face_down, rest=a.rest_zone,
                       keep_counters=c.id in (a.keep_counters or ()))
+        if (a.entry_characteristics and c.id in a.entry_characteristics and c.id in state.cards
+                and c.zone.endswith(":battlefield") and not sources[c.id].endswith(":battlefield") and not c.is_token):
+            c.entry_characteristics = a.entry_characteristics[c.id].model_copy(deep=True)
         if dest == STACK and sources[c.id] != STACK and a.actor in state.players:
             c.controller = a.actor  # -- refused look/cast-free (wave 3R5) -- 601.2a: the player who casts a spell controls it
         if (a.tapped or c.id in tapped) and ops.zone_name(dest) == "battlefield" and c.id in state.cards:
@@ -83,10 +90,24 @@ def move(state: GameState, a: A.Move) -> None:
         if c.face_down and a.face_down:
             c.face_down_kind = a.face_down_kind or ("exile" if ops.zone_name(dest) == "exile" else "generic")
             c.face_down_as = a.face_down_as  # (-- hidden exile (wave 18A) -- 708.2a)
+            if ops.zone_name(dest) == 'exile' and a.blind:
+                c.unseen = True
             if ops.zone_name(dest) == "exile" and a.actor in state.players and a.actor != c.owner:
                 # -- as long as (wave 9B) -- 406.3: a card another player exiles face down is looked at by the one who exiled
                 # it (Gonti, Thief of Sanity), not by its owner: the face-down rule shows an exiled card to its "controller"
                 c.controller = a.actor
+
+    if a.library_order is not None:
+        # Arrange only this event's entering physical cards before tracking observes the event.
+        ordered = list(dict.fromkeys(cid for cid in a.library_order if cid in library_parts))
+        for key, ids in state.zones.items():
+            if not key.endswith(":library"):
+                continue
+            entered = [cid for cid in ordered if cid in ids and cid in state.cards]
+            top = [cid for cid in entered if (a.library_positions or {}).get(cid) == "top"]
+            bottom = [cid for cid in entered if (a.library_positions or {}).get(cid) == "bottom"]
+            selected = set(top + bottom)
+            ids[:] = top + [cid for cid in ids if cid not in selected] + bottom
 
     if not a.keep_ids:  # -- review (face-down ids) -- 406.3: a card that went face down where others see it is a new object
         fresh = renumber_down(state, [(c, sources[c.id], was_down[c.id]) for c in moving])
@@ -101,10 +122,10 @@ def move(state: GameState, a: A.Move) -> None:
             owner.commander_tax[c.commander_key or ""] = owner.commander_tax.get(c.commander_key or "", 0) + 2
 
     # One log line per (source zone, destination) pair keeps multi-card moves readable.
-    by_route: dict[tuple[str, str], list[CardInstance]] = {}
+    by_route: dict[tuple[str, str, str | None], list[CardInstance]] = {}
     for c, dest in zip(moving, dests, strict=True):
-        by_route.setdefault((sources[c.id], dest), []).append(c)
-    for (src, dest), group_cards in by_route.items():
+        by_route.setdefault((sources[c.id], dest, (a.library_positions or {}).get(c.id, a.position)), []).append(c)
+    for (src, dest, log_position), group_cards in by_route.items():
         if src == dest and ops.zone_name(dest) != "library":
             continue  # reordering within hand / battlefield is not worth a log line
         if ops.zone_name(dest) == "library" and len(group_cards) > 1:
@@ -112,7 +133,7 @@ def move(state: GameState, a: A.Move) -> None:
             # order"): the cards are listed by name, not in the order they went in (-- review 30 -- to the players who looked at them too:
             # a random order is no one's; a hidden card is only counted, so its place in the list says nothing)
             group_cards = sorted(group_cards, key=lambda c: (c.name or "", c.id))
-        verb = _verb(src, dest, a.position)
+        verb = _verb(src, dest, log_position)
         parts = [pname(state, a.actor), text(f" {verb} "), group(state, group_cards, who_saw)]
         if verb in ("played", "cast", "discarded"):
             if split_zone(src)[0] != a.actor:
@@ -235,7 +256,17 @@ def shuffle(state: GameState, a: A.Shuffle) -> None:
     if a.r is None:
         raise ActionError("unresolved shuffle")
     key = zone_key(pid, a.zone)
-    rekey_zone(state, key, a.r.perm, a.r.new_ids, a.card_ids)
+    selected = a.card_ids
+    if a.r.retained_indices:
+        pile = state.zone(key)
+        indices = set(a.r.retained_indices)
+        if (a.zone != 'library' or a.card_ids is not None or len(indices) != len(a.r.retained_indices)
+                or any(index < 0 or index >= len(pile) for index in indices)):
+            raise ActionError('The retained library placement does not match this shuffle')
+        selected = [cid for index, cid in enumerate(pile) if index not in indices]
+    rekey_zone(state, key, a.r.perm, a.r.new_ids, selected)
+    if a.zone == "library":
+        emit(state, "library_shuffled", player=pid, actor=a.actor)
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" shuffled {zone_label(state, key, a.actor)}")])
 
 
@@ -320,8 +351,11 @@ def reveal(state: GameState, a: A.Reveal) -> None:
 def hide(state: GameState, a: A.Hide) -> None:
     """End a reveal: the cards become anonymous again for everyone who can't normally see them."""
     targets = ops.cards(state, a.card_ids)
+    if a.viewers is not None:
+        for viewer in a.viewers:
+            ops.player(state, viewer, a.actor)
     for c in targets:
-        c.revealed_to = []
+        c.revealed_to = [] if a.viewers is None else [viewer for viewer in c.revealed_to if viewer not in a.viewers]
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" stopped revealing {len(targets)} card{'s' if len(targets) != 1 else ''}")],
         kind="minor")
 

@@ -119,8 +119,11 @@ def static_definition(text: str) -> Definition | None:
         return {"kind": "static", "static": "cant_counters", "sel": None, "players": True, "effects": []}
     if t == "you can't get poison counters":  # -- commanders (wave 50C) -- 614.17, 122.1: Melira, Sylvok Outcast (infect damage to its controller still isn't dealt as life loss, 120.3b)
         return {"kind": "static", "static": "cant_counters", "sel": None, "players": True, "who": "you", "counter": "poison", "effects": []}
-    if t == "you can't play lands":  # -- most-played cards III (wave 46C) -- 305.1: its controller can't play a land (Aggressive Mining); read by engine.land_play_problem
-        return {"kind": "static", "static": "cant_play_lands", "effects": []}
+    if t == "players can't cycle cards":
+        return {"kind": "static", "static": "cant_cycle", "effects": []}
+    if t in ("you can't play lands", "players can't play lands"):
+        return {"kind": "static", "static": "cant_play_lands", "effects": [],
+                **({"players": True} if t.startswith("players") else {})}
     return None
 
 
@@ -156,6 +159,20 @@ def cant_get_counters(plan: Plan, player: str | None = None, kind: str | None = 
     poison counters.") and one kind of counter bars ``player`` getting that kind only."""
     return next((_label(src) for src, d in _statics(plan, "cant_counters") if d.get("players")
                  and (d.get("who") != "you" or src.controller == player) and d.get("counter") in (None, kind)), None)
+
+
+def cant_remove_counters(plan: Plan, card_id: str, counter: str) -> str | None:
+    """CR101.2/614.17: a live permanent's prohibition on this removal.
+
+    The supported descriptor is kind-specific. In particular Fear's stun
+    restriction does not intersect the +/- counter removals in CR704.5q.
+    Administrative table actions do not call this rules-action guard.
+    """
+    card = plan.state.cards.get(card_id)
+    if card is None or not card.zone.endswith(':battlefield') or not plan.in_game(card):
+        return None
+    return next((_label(src) for src, d in _statics(plan, 'cant_remove_counters')
+                 if d.get('counter') == counter and card.controller != src.controller), None)
 
 
 def cant_counters(plan: Plan, card_id: str, entering_for: str | None, counter: str | None = None) -> str | None:
@@ -341,11 +358,20 @@ def life_banned(state: GameState, info: CardInfo | None, *, mana_ability: bool =
     return next((_label(src) for src, d in cast_limits._statics(state, info, "cant_pay") if d["mana"] or not mana_ability), None)
 
 
+def sacrifice_forbidden(plan: Plan, card: CardInstance) -> bool:
+    """CR 101.2 / 701.21: a permanent's own prohibition covers costs and effects."""
+    from app.rules import scripts
+
+    return "cant_be_sacrificed" in scripts.statics(plan.ch(card))
+
+
 def sacrifice_banned(state: GameState, info: CardInfo | None, card: CardInstance, *, mana_ability: bool = False) -> str | None:
     """The permanent saying ``card`` can't be sacrificed to pay a cost (a creature for Angel of Jubilation)."""
     from app.rules import cast_limits
     from app.rules.plan import Plan
 
+    if info is not None and sacrifice_forbidden(Plan.view(state, card.controller, info), card):
+        return card.name or "This permanent"
     found = [(src, d) for src, d in cast_limits._statics(state, info, "cant_pay") if d["sac"] is not None and (d["mana"] or not mana_ability)]
     if not found or info is None:
         return None

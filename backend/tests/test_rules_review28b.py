@@ -5,8 +5,8 @@ Real Oracle wording (the local card database), replay and save/load for each sce
 * 121.2a / 616.1f / 614.5: Alms Collector's "you and that player each draw a card" are instructions of their own: its controller's draw is
   never dropped when the drawing player's first draw is replaced, and a count replacement not yet applied (Quantum Riddler) may still change
   them — the affected player chooses the order.
-* 605.3a / 121.6: a mana ability's "Draw a card." is a draw like any other (through the draw replacements; it can't pause, so a replacement
-  with instructions of its own is left to the players, and "the next time you would draw" is used up by it).
+* 605.1a / 121.6: Chromatic Sphere's library-moving effect makes it an ordinary activated ability. Its draw resolves on the stack through
+  native draw replacements, including replacement bodies, and a "next time" effect is consumed exactly once.
 * 120.3a / 614.1a: the life a mana ability's damage makes an opponent lose is a life-loss event (Bloodletter of Aclazotz).
 * 702.15e: two lifelink sources' gains are separate events but simultaneous: "while you have 5 or less life" (Phial of Galadriel) reads the
   life total before both.
@@ -99,19 +99,21 @@ def test_alms_collector_and_quantum_riddler_are_ordered_by_the_drawing_player(ca
     roundtrip(s)
 
 
-def test_a_mana_abilitys_draw_goes_through_the_draw_replacements(cards):
+def test_spheres_ordinary_activated_draw_goes_through_draw_replacements(cards):
     s = build(cards, p1=("Chromatic Sphere", "Phial of Galadriel"))
     put(s, "Phial of Galadriel", "battlefield")
     sphere = put(s, "Chromatic Sphere", "battlefield")
     for x in list(zone(s, "hand")):
         act(s, "p1", type="move", card_ids=[x], to={"player": "p1", "zone": "graveyard"})
     mana(s, C=1)
-    act(s, "p1", type="activate_ability", card_id=sphere.id, ability=0, mana_choice="R")
+    act(s, "p1", type="activate_ability", card_id=sphere.id, ability=0)
+    assert s.state.rules.stack  # Respondable ordinary ability (605.1a).
+    settle(s)
     assert len(zone(s, "hand")) == 2  # an empty hand: "draw two cards instead"
     roundtrip(s)
 
 
-def test_a_mana_abilitys_draw_leaves_a_replacement_with_instructions_to_the_players_and_uses_up_the_next_time(cards):
+def test_spheres_draw_runs_words_replacement_body_and_consumes_next_time_once(cards):
     s = build(cards, p1=("Chromatic Sphere", "Words of Worship", "Divination"))
     words = put(s, "Words of Worship", "battlefield")
     sphere = put(s, "Chromatic Sphere", "battlefield")
@@ -119,15 +121,15 @@ def test_a_mana_abilitys_draw_leaves_a_replacement_with_instructions_to_the_play
     act(s, "p1", type="activate_ability", card_id=words.id, ability=0)
     settle(s)
     hand, life = len(zone(s, "hand")), s.state.players["p1"].life
-    act(s, "p1", type="activate_ability", card_id=sphere.id, ability=0, mana_choice="U")
-    texts = ["".join(p.t or "" for p in e.parts) for e in s.state.log[-6:]]
-    assert any("Words of Worship would replace a draw here" in t for t in texts)  # (a mana ability can't pause: by hand, 121.6)
-    assert len(zone(s, "hand")) == hand + 1 and s.state.players["p1"].life == life
+    act(s, "p1", type="activate_ability", card_id=sphere.id, ability=0)
+    assert s.state.rules.stack
+    settle(s)
+    assert len(zone(s, "hand")) == hand and s.state.players["p1"].life == life + 5
     c = put(s, "Divination", "hand")
     mana(s, C=2, U=1)
     act(s, "p1", type="cast_spell", card_id=c.id)
     settle(s)
-    assert s.state.players["p1"].life == life  # "the next time" was that draw: Divination's draws aren't replaced
+    assert s.state.players["p1"].life == life + 5  # "the next time" was that draw: Divination's draws aren't replaced
     roundtrip(s)
 
 

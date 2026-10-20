@@ -21,7 +21,7 @@ from app.rules import coverage
 from app.rules.casting import mana_abilities
 from app.rules.mana import parse_mana_ability
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_effects import mana, pass_until_stack_empty, replay_matches
 from tests.test_rules_permissions import build, find, put
 
@@ -150,10 +150,10 @@ def test_great_henge_adds_two_green_and_gains_two_life(cards):
     talisman = put(s, "Pristine Talisman", "battlefield")
     life = s.state.players["p1"].life
     act(s, "p1", type="activate_ability", card_id=henge.id, ability=1)
-    assert s.state.players["p1"].mana == {"G": 2} and s.state.players["p1"].life == life + 2
+    assert mana_pool(s) == {"G": 2} and s.state.players["p1"].life == life + 2
     assert not s.state.zones.get("stack")  # 605.3b: no stack
     act(s, "p1", type="activate_ability", card_id=talisman.id, ability=0)
-    assert s.state.players["p1"].mana == {"G": 2, "C": 1} and s.state.players["p1"].life == life + 3
+    assert mana_pool(s) == {"G": 2, "C": 1} and s.state.players["p1"].life == life + 3
     roundtrip(s)
 
 
@@ -176,7 +176,7 @@ def test_grove_of_the_burnwillows_each_opponent_gains_one(cards):
     grove = put(s, "Grove of the Burnwillows", "battlefield")
     mine, theirs = s.state.players["p1"].life, s.state.players["p2"].life
     act(s, "p1", type="activate_ability", card_id=grove.id, ability=1, mana_choice="R")
-    assert s.state.players["p1"].mana == {"R": 1}
+    assert mana_pool(s) == {"R": 1}
     assert s.state.players["p2"].life == theirs + 1 and s.state.players["p1"].life == mine
     roundtrip(s)
 
@@ -190,7 +190,7 @@ def test_priest_of_titania_counts_every_elf_on_the_battlefield(cards):
     next_main(s)
     assert options(s, priest)[0].options == (("G", "G", "G"),)  # its own, Alice's other Elf and Bob's (Priest ruling)
     act(s, "p1", type="activate_ability", card_id=priest.id, ability=0)
-    assert s.state.players["p1"].mana == {"G": 3}
+    assert mana_pool(s) == {"G": 3}
     roundtrip(s)
 
 
@@ -202,7 +202,7 @@ def test_cabal_stronghold_counts_basic_swamps_and_pays_its_activation(cards):
     assert options(s, stronghold)[1].options == (("B", "B"),)
     mana(s, G=3)
     act(s, "p1", type="activate_ability", card_id=stronghold.id, ability=1)
-    assert s.state.players["p1"].mana == {"B": 2}
+    assert mana_pool(s) == {"B": 2}
     roundtrip(s)
 
 
@@ -218,7 +218,7 @@ def test_crypt_of_agadeem_counts_black_creature_cards_in_your_graveyard(cards):
     assert options(s, crypt)[2].options == (("B", "B"),)
     mana(s, R=2)
     act(s, "p1", type="activate_ability", card_id=crypt.id, ability=2)
-    assert s.state.players["p1"].mana == {"B": 2}
+    assert mana_pool(s) == {"B": 2}
     roundtrip(s)
 
 
@@ -237,7 +237,7 @@ def test_wirewood_channeler_x_of_one_color(cards):
     next_main(s)
     act(s, "p1", type="activate_ability", card_id=channeler.id, ability=0, mana_choice=None)
     choose(s, "{U}{U}")
-    assert s.state.players["p1"].mana == {"U": 2}
+    assert mana_pool(s) == {"U": 2}
     roundtrip(s)
 
 
@@ -269,7 +269,7 @@ def test_mox_amber_and_plaza_of_heroes_read_legendary_permanents(cards):
     assert options(s, mox)[0].options == (("U",), ("G",))
     assert options(s, plaza)[2].options == (("U",), ("G",))
     act(s, "p1", type="activate_ability", card_id=mox.id, ability=0, mana_choice="U")
-    assert s.state.players["p1"].mana == {"U": 1}
+    assert mana_pool(s) == {"U": 1}
     roundtrip(s)
 
 
@@ -295,7 +295,7 @@ def test_bloom_tender_adds_one_of_each_color_among_your_permanents(cards):
     put(s, "Kydele, Chosen of Kruphix", "battlefield")
     put(s, "Faeburrow Elder", "battlefield")
     act(s, "p1", type="activate_ability", card_id=tender.id, ability=0)
-    assert s.state.players["p1"].mana == {"W": 1, "U": 1, "G": 1}
+    assert mana_pool(s) == {"W": 1, "U": 1, "G": 1}
     roundtrip(s)
 
 
@@ -309,7 +309,7 @@ def test_relic_of_sauron_and_firemind_vessel(cards):
     assert len(found) == 10 and all(a != b for a, b in found)  # two different colors
     act(s, "p1", type="activate_ability", card_id=relic.id, ability=0)
     choose(s, "{B}{R}")
-    assert s.state.players["p1"].mana == {"B": 1, "R": 1}
+    assert mana_pool(s) == {"B": 1, "R": 1}
     roundtrip(s)
 
 
@@ -325,7 +325,7 @@ def test_millikin_uses_the_stack(cards):
     assert len(s.state.zones["p1:library"]) == library - 1  # milled as a cost
     assert s.state.zones.get("stack")  # 605.1a: not a mana ability, so it waits on the stack
     pass_until_stack_empty(s)
-    assert s.state.players["p1"].mana.get("C") == 1
+    assert mana_pool(s).get("C") == 1
     roundtrip(s)
 
 
@@ -355,7 +355,7 @@ def test_mirraris_wake_adds_a_type_the_land_produced(cards):
     act(s, "p1", type="tap", card_ids=[grove.id, temple.id], tapped=True)
     act(s, "p1", type="cast_spell", card_id=bears.id)  # {1}{G}: the one Forest pays it all (605.4a)
     assert s.state.cards[forest.id].tapped and s.state.cards[bears.id].zone != "p1:hand"
-    assert s.state.players["p1"].mana == {}
+    assert mana_pool(s) == {}
     roundtrip(s)
 
 
@@ -369,7 +369,7 @@ def test_mana_flare_gives_each_player_more_and_stacks(cards):
     put(s, "Mirari's Wake", "battlefield")
     assert options(s, forest)[0].options == (("G", "G", "G"),)  # two triggers, each adds one
     act(s, "p1", type="activate_ability", card_id=forest.id, ability=0)
-    assert s.state.players["p1"].mana == {"G": 3}
+    assert mana_pool(s) == {"G": 3}
     roundtrip(s)
 
 
@@ -390,7 +390,7 @@ def test_kinnan_and_badgermole_cub_on_a_mana_creature(cards):
     next_main(s)
     assert options(s, elves)[0].options == (("G", "G", "G"),)
     act(s, "p1", type="activate_ability", card_id=elves.id, ability=0)
-    assert s.state.players["p1"].mana == {"G": 3}
+    assert mana_pool(s) == {"G": 3}
     roundtrip(s)
 
 
@@ -405,7 +405,7 @@ def test_regal_behemoth_only_while_you_are_the_monarch(cards):
     assert set(options(s, forest)[0].options) == {("G", c) for c in "WUBRG"}
     act(s, "p1", type="activate_ability", card_id=forest.id, ability=0)
     choose(s, "{R}{G}")
-    assert s.state.players["p1"].mana == {"R": 1, "G": 1}
+    assert mana_pool(s) == {"R": 1, "G": 1}
     roundtrip(s)
 
 
@@ -546,7 +546,7 @@ def test_simian_spirit_guide_from_the_hand_only(cards):
     guide, other = [c for c in s.state.cards.values() if c.name == "Simian Spirit Guide"]
     act(s, "p1", type="move", card_ids=[guide.id, other.id], to={"player": "p1", "zone": "hand"})
     act(s, "p1", type="activate_ability", card_id=guide.id, ability=0)
-    assert s.state.cards[guide.id].zone == "p1:exile" and s.state.players["p1"].mana == {"R": 1}
+    assert s.state.cards[guide.id].zone == "p1:exile" and mana_pool(s) == {"R": 1}
     assert not s.state.zones.get("stack")  # 605.3b
     # on the battlefield it has no mana ability to use (its cost exiles it from the hand)
     act(s, "p1", type="move", card_ids=[other.id], to={"player": "p1", "zone": "battlefield"})
@@ -567,7 +567,7 @@ def test_the_payer_never_exiles_a_spirit_guide_by_itself(cards):
     act(s, "p1", type="activate_ability", card_id=guide.id, ability=0)
     act(s, "p1", type="cast_spell", card_id=rite.id)  # paid with the Guide's {R}
     pass_until_stack_empty(s)
-    assert s.state.cards[rite.id].zone == "p1:graveyard" and s.state.players["p1"].mana == {"R": 2}
+    assert s.state.cards[rite.id].zone == "p1:graveyard" and mana_pool(s) == {"R": 2}
     roundtrip(s)
 
 
@@ -582,7 +582,7 @@ def test_rite_of_flame_counts_the_others_in_every_graveyard(cards):
     mana(s, R=1)
     act(s, "p1", type="cast_spell", card_id=rite.id)
     pass_until_stack_empty(s)
-    assert s.state.players["p1"].mana == {"R": 4}  # {R}{R}, then one for each of the two in graveyards (not itself)
+    assert mana_pool(s) == {"R": 4}  # {R}{R}, then one for each of the two in graveyards (not itself)
     roundtrip(s)
 
 
@@ -625,7 +625,7 @@ def test_forbidden_orchard_gives_the_target_opponent_a_spirit(cards):
     s = build(cards, [(1, "Forbidden Orchard"), (9, "Forest")])
     orchard = put(s, "Forbidden Orchard", "battlefield")
     act(s, "p1", type="activate_ability", card_id=orchard.id, ability=0, mana_choice="W")
-    assert s.state.players["p1"].mana == {"W": 1}  # the mana first (605.3b); the trigger waits for priority (603.3)
+    assert mana_pool(s) == {"W": 1}  # the mana first (605.3b); the trigger waits for priority (603.3)
     d = s.state.rules.decision
     assert d is not None and [o.id for o in d.options] == ["p2"]  # "target opponent" (115.1)
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])
@@ -655,7 +655,7 @@ def test_zhur_taa_druid_hurts_each_opponent(cards):
     life = s.state.players["p2"].life
     act(s, "p1", type="activate_ability", card_id=druid.id, ability=0)
     pass_until_stack_empty(s)
-    assert s.state.players["p1"].mana == {"G": 1} and s.state.players["p2"].life == life - 1
+    assert mana_pool(s) == {"G": 1} and s.state.players["p2"].life == life - 1
     roundtrip(s)
 
 
@@ -665,7 +665,7 @@ def test_twitching_doll_puts_a_nest_counter_on_itself(cards):
     doll = put(s, "Twitching Doll", "battlefield")
     next_main(s)
     act(s, "p1", type="activate_ability", card_id=doll.id, ability=0, mana_choice="B")
-    assert s.state.players["p1"].mana == {"B": 1} and s.state.cards[doll.id].counters.get("nest") == 1
+    assert mana_pool(s) == {"B": 1} and s.state.cards[doll.id].counters.get("nest") == 1
     roundtrip(s)
 
 
@@ -677,6 +677,6 @@ def test_gemstone_mine_is_sacrificed_with_its_last_counter(cards):
     assert s.state.cards[mine.id].zone == "p1:battlefield" and s.state.cards[mine.id].counters.get("mining") == 1
     act(s, "p1", type="tap", card_ids=[mine.id], tapped=False)
     act(s, "p1", type="activate_ability", card_id=mine.id, ability=1, mana_choice="R")
-    assert s.state.players["p1"].mana == {"U": 1, "R": 1}
+    assert mana_pool(s) == {"U": 1, "R": 1}
     assert s.state.cards[mine.id].zone == "p1:graveyard"  # no mining counters left: sacrificed (701.21a)
     roundtrip(s)

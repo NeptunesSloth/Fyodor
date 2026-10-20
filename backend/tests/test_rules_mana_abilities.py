@@ -3,13 +3,10 @@ the chosen color, life as a cost, "Activate only if you control …", and Reflec
 
 from __future__ import annotations
 
-import pytest
-
-from app.game.errors import ActionError
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.rules.casting import castable
-from tests.game_helpers import act, deck, enable, zone
+from tests.game_helpers import act, deck, enable, mana_pool, zone
 from tests.test_rules_effects import run_until
 
 SPELLS = [(1, "Shivan Reef"), (1, "Sungrass Prairie"), (1, "Ancient Ziggurat"), (1, "Vivid Marsh"), (1, "Sol Grail"),
@@ -111,13 +108,13 @@ def test_activate_only_if_you_control_a_swamp(cards):
     ability = 1  # "{T}: Add {U} or {B}. Activate only if you control a Swamp."
     act(s, "p1", type="move", card_ids=[named(s, "Swamp").id], to={"zone": "battlefield"})
     act(s, "p1", type="activate_ability", card_id=named(s, "Tainted Isle").id, ability=ability, mana_choice="B")
-    assert s.state.players["p1"].mana == {"B": 1}
+    assert mana_pool(s) == {"B": 1}
 
 
 def test_reflecting_pool_copies_your_lands(cards):
     s = table(cards, "Reflecting Pool", "Forest")
     act(s, "p1", type="activate_ability", card_id=named(s, "Reflecting Pool").id, ability=0)
-    assert s.state.players["p1"].mana == {"G": 1}
+    assert mana_pool(s) == {"G": 1}
 
 
 def test_prowess(cards):
@@ -163,13 +160,14 @@ def test_typecycling_finds_that_type_privately(cards):
 def test_gaeas_cradle_counts_creatures(cards):
     s = table(cards, "Gaea's Cradle")
     cradle = named(s, "Gaea's Cradle")
-    with pytest.raises(ActionError):
-        act(s, "p1", type="activate_ability", card_id=cradle.id, ability=0)  # no creatures: no mana to add
+    act(s, "p1", type="activate_ability", card_id=cradle.id, ability=0)  # 605.1a: legal with zero output.
+    assert s.state.cards[cradle.id].tapped and mana_pool(s) == {}
+    act(s, "p1", type="tap", card_ids=[cradle.id], tapped=False)
     for i in range(3):
         act(s, "p1", type="create_token", player="p1", token={"name": f"Elf{i}", "type_line": "Token Creature — Elf",
                                                              "power": "1", "toughness": "1"})
     act(s, "p1", type="activate_ability", card_id=cradle.id, ability=0)
-    assert s.state.players["p1"].mana == {"G": 3}
+    assert mana_pool(s) == {"G": 3}
 
 
 def test_cabal_coffers_counts_swamps(cards):
@@ -177,7 +175,7 @@ def test_cabal_coffers_counts_swamps(cards):
     act(s, "p1", type="create_token", player="p1", token={"name": "Bog", "type_line": "Token Land — Swamp"})
     act(s, "p1", type="activate_ability", card_id=named(s, "Sol Ring").id, ability=0)
     act(s, "p1", type="activate_ability", card_id=named(s, "Cabal Coffers").id, ability=0)
-    assert s.state.players["p1"].mana == {"B": 2}  # {2} paid by Sol Ring; two Swamps
+    assert mana_pool(s) == {"B": 2}  # {2} paid by Sol Ring; two Swamps
 
 
 def test_eldrazi_scion_maker_and_sacrificing_the_scion_for_mana(cards):
@@ -190,5 +188,5 @@ def test_eldrazi_scion_maker_and_sacrificing_the_scion_for_mana(cards):
     scion = next(c for c in s.state.cards.values() if c.name == "Eldrazi Scion")
     assert scion.zone == "p1:battlefield"
     act(s, "p1", type="activate_ability", card_id=scion.id, ability=0)
-    assert s.state.players["p1"].mana == {"C": 1}
+    assert mana_pool(s) == {"C": 1}
     assert scion.id not in s.state.cards or not s.state.cards[scion.id].zone.endswith(":battlefield")

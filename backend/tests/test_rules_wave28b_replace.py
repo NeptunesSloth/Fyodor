@@ -597,10 +597,10 @@ def test_words_of_waste_makes_each_opponent_discard_instead_of_the_draw(cards):
 def test_doc_samson_adds_one_counter_of_each_kind_to_a_permanent_its_controller_puts_them_on(cards):
     from tests.test_rules_attachments import build as tbuild
     from tests.test_rules_attachments import token
-    from tests.test_rules_replacements2 import activate, permanent
+    from tests.test_rules_replacements2 import activate, red_creature
 
     s = tbuild(cards)
-    permanent(s, "p1", "Samson", "Creature", "If you would put one or more counters on a permanent you control, put that many plus one of "
+    red_creature(s, "p1", "Samson", "3/6", "If you would put one or more counters on a permanent you control, put that many plus one of "
               "each of those kinds of counters on that permanent instead.")
     mine, theirs = token(s, "p1", "Bear"), token(s, "p2", "Wolf")
     feeder = token(s, "p1", "Feeder", text="{1}: Put a +1/+1 counter on target creature.")

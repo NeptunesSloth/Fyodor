@@ -47,9 +47,8 @@ def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
-def test_a_count_limited_return_stays_manual(cards):
-    # "Return an enchantment card … for each card revealed this way" needs a choice limited by the count: not read
-    assert coverage.of_card_data(cards.resolve("Rofellos's Gift")).level != "FULL"
+def test_a_count_limited_return_uses_native_revealed_binding(cards):
+    assert coverage.of_card_data(cards.resolve("Rofellos's Gift")).level == "FULL"
 
 
 def token(s, name, pt, pid="p1"):

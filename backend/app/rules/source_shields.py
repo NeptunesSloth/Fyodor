@@ -294,7 +294,7 @@ def _redirect_src(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 #   prevents nothing is not used up (609.7b). It lasts this turn, or this combat (``until``: combat.end_combat).
 # * A shield for a creature of the chosen type and the redirections to "that source's controller" / "its controller" read who the
 #   source is as the damage would be dealt (614.9, replace.redirect_target).
-# Refused: "all but 1" (Forcefield: an unblocked creature of your choice), choices by an opponent (Nova Pentacle), "any player may
+# Forcefield's scoped-prevention builder uses the native prevent_all_but operation. Refused: choices by an opponent (Nova Pentacle), "any player may
 # pay" (Rhystic Circle), a reflexive "When damage is prevented this way" (603.12) and an additional damage event (Eye for an Eye).
 _SHIELD_SRC = (r"(?P<src>this creature|~|(?:a|an) (?:(?P<props>[a-z ]+?) )?source of your choice|target creature|"
                r"target attacking creature|an instant or sorcery spell|a creature of the chosen type)")
@@ -504,21 +504,12 @@ def redirect_target(plan: Plan, c: Any, ev: dict[str, Any]) -> str | None:
 
 def redirect(plan: Plan, c: Any, ev: dict[str, Any]) -> dict[str, Any]:
     """The redirected event: the same damage from the same source to the new recipient; its
-    protection from the source prevents it (702.16e) unless it can't be prevented (615.12)."""
-    from app.rules import protection
-
+    protection and other prevention apply at the new recipient's native replacement frontier."""
     new = redirect_target(plan, c, ev)
     assert new is not None
-    out = {**ev, "target": new, "target_oid": plan.oid(new) if new in plan.state.cards else None}
-    src = plan.state.cards.get(ev.get("source_card") or "")
-    if new in plan.state.cards and src is not None and not ev.get("unpreventable") \
-            and protection.protected_from(plan.ch(plan.state.cards[new]), plan.ch(src)):
-        out["prevented"] = int(ev.get("prevented") or 0) + int(ev["amount"])
-        out["amount"] = 0
-    return out
+    return {**ev, "target": new, "target_oid": plan.oid(new) if new in plan.state.cards else None}
 
 
-# -- 615.12: is this damage event unpreventable? ---------------------------------------------------------
 def _scope_matches(scope: dict[str, Any], ev: dict[str, Any], controller: str, source_oid: str | None) -> bool:
     if scope.get("combat") and not ev.get("combat"):
         return False
@@ -653,6 +644,12 @@ def choosable(plan: Plan, props: dict[str, Any]) -> list[tuple[str, list[str], s
             add(rec.get("source_card"), rec.get("source"))
     out = []
     for oid, (card_id, oids) in found.items():
+        if props.get("choice_controller") is not None:
+            current = plan.state.cards.get(card_id or "")
+            snap = plan.rules.lki.get(oid)
+            controller = current.controller if current is not None and plan.oid(current) == oid else snap.controller if snap is not None else None
+            if controller != props["choice_controller"]:
+                continue
         ch = _ch_of(plan, card_id, oid)
         if props.get("colors") and (ch is None or not set(props["colors"]) & set(ch.colors)):
             continue
@@ -664,6 +661,10 @@ def choosable(plan: Plan, props: dict[str, Any]) -> list[tuple[str, list[str], s
 
 
 def _describe(e: dict[str, Any]) -> str:
+    if e.get("budget") is not None:
+        return f"prevent the next {e['budget']} {'combat ' if e.get('combat') else ''}damage from the chosen source to {e.get('to') or 'any recipient'} this turn"
+    if e.get("cap") is not None:
+        return f"the next time the chosen creature would deal combat damage to you this turn, prevent all but {e['cap']} of that damage"
     if e.get("src") or e.get("combat") or e.get("half"):  # -- one-shot shields (wave 35A) --
         what = {"self": "this creature", "target": "the target creature"}.get(e.get("src") or "", "the source")
         return (f"the next time {what} would deal {'combat ' if e.get('combat') else ''}damage, "
@@ -870,27 +871,49 @@ def rider(text: str, effects: list[dict[str, Any]]) -> bool | None:
     return True
 
 
-def run_rider(plan: Plan, r: dict[str, Any]) -> None:
+def rider_context(plan: Plan, r: dict[str, Any]) -> Context | None:
     """Carry out a prevention effect's additional effect (615.5) after the damage it prevented some of."""
-    from app.rules import context, effects
+    import copy
+
+    from app.game.rules_state import ObjectRef
+    from app.rules import context
 
     rider_, ev, n = r["rider"], r["ev"], int(r["n"])
     if rider_.get("if") and n <= 0:
-        return
+        return None
     if rider_.get("colors") and not set(rider_["colors"]) & set((ev.get("src") or {}).get("colors") or ()):
-        return
-    ctx: Context = {"controller": r["by"], "source_card": r["card"], "source_object": r["oid"], "name": r["name"],
-                    "effects": rider_["effects"], "next": 0, "stack_id": ""}
+        return None
+    ctx: Context = copy.deepcopy(rider_.get("context") or {})
+    ctx.update({"controller": r["by"], "source_card": r["card"], "source_object": r["oid"], "name": r["name"],
+                "effects": rider_["effects"], "next": 0, "stack_id": ""})
+    ctx["prevented_event"] = copy.deepcopy(ev)
     context.bind_amount(ctx, "prevented", n)
     context.bind_amount(ctx, "that_damage", int(r.get("of", n)))  # (review 39: the damage it applied to, prevented or not)
     to = ev["target"]
     if to in plan.state.players:
         context.bind_players(ctx, "to", [to])
     else:
-        context.bind_objects(plan, ctx, "to", [to])
+        oid = ev.get("target_oid") or (plan.oid(to) if to in plan.state.cards else None)
+        if oid:
+            ref = ObjectRef(card=to, object_id=oid, snapshot=plan.rules.lki.get(oid)).model_dump(mode="json")
+            context.refs(ctx)["to"] = {"kind": "objects", "objects": [ref], "was": [ref]}
+    source, soid = ev.get("source_card"), ev.get("source_oid")
+    if source and soid:
+        ref = ObjectRef(card=source, object_id=soid, snapshot=plan.rules.lki.get(soid)).model_dump(mode="json")
+        context.refs(ctx)["prevented_source"] = {"kind": "objects", "objects": [ref], "was": [ref]}
     context.bind_players(ctx, "from_ctrl", [p for p in [(ev.get("src") or {}).get("controller")] if p in plan.live()])
-    for e in rider_["effects"]:
-        effects.PRIMITIVES[e["do"]](plan, ctx, e)
+    return ctx
+
+
+def run_rider(plan: Plan, r: dict[str, Any]) -> None:
+    """Compatibility runner; damage callers migrate to the saved rider queue."""
+    from app.rules import effects
+
+    ctx = rider_context(plan, r)
+    if ctx is not None:
+        ctx["body_done"] = {"do": "noop"}
+        if not effects.run_body(plan, ctx):
+            raise ValueError("Suspending prevention rider requires the saved damage queue")
 
 
 BECOMES = "becomes:"  # (an "oids" entry: the permanent the spell object after it becomes)
@@ -922,7 +945,7 @@ def _recipient(plan: Plan, ctx: Context, e: dict[str, Any]) -> dict[str, Any] | 
     cards = effects._cards(plan, ctx, to)
     if cards:
         return {"objects": {"oids": [plan.oid(cards[0])]}}
-    players = effects._players(plan, ctx, "target") if to == "target" else []
+    players = effects._players(plan, ctx, to) if to == "target" or str(to).startswith("target:") else []
     return {"pids": [players[0]]} if players else None
 
 
@@ -935,7 +958,7 @@ def _destination(plan: Plan, ctx: Context, end: str) -> dict[str, Any] | None:
     cards = effects._cards(plan, ctx, end)
     if cards:
         return {"to": "oid", "oid": plan.oid(cards[0])}
-    players = effects._players(plan, ctx, "target") if end == "target" else []
+    players = effects._players(plan, ctx, end) if end == "target" or end.startswith("target:") else []
     return {"to": "pid", "pid": players[0]} if players else None
 
 
@@ -953,7 +976,8 @@ def redirect_damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     limit = None if e.get("limit") is None else effects._amount(plan, ctx, e["limit"])
     if limit is not None and limit <= 0:
         return True
-    op: dict[str, Any] = {"do": "redirect", **dest, **({"limit": limit} if limit is not None else {})}
+    op: dict[str, Any] = {"do": "redirect", **dest, **({"limit": limit} if limit is not None else {}),
+                          **({"allocate": True} if e.get("allocate") else {})}
     replace.add_record(plan, event="damage", match={"to": origin}, op=op, controller=pid, source=ctx.get("source_object"),
                        source_card=ctx.get("source_card"), label=ctx.get("name") or "a redirection effect")
     return True
@@ -964,17 +988,25 @@ def _record(plan: Plan, ctx: Context, e: dict[str, Any], oids: list[str] | None,
 
     pid = ctx["controller"]
     # (wave 35A: oids None: a class of sources, only its properties; "batch": one time damage is dealt covers every event of the batch)
-    match: dict[str, Any] = {"source": {**({"oids": list(oids)} if oids is not None else {}), **(e.get("props") or {})},
+    match: dict[str, Any] = {"source": {**({"oids": list(oids)} if oids is not None else {}), **(e.get("record_props", e.get("props")) or {})},
                              "to": _recipient(plan, ctx, e), **({"combat": True} if e.get("combat") else {})}
     op: dict[str, Any] = {"do": "prevent_half_down" if e.get("half") else "prevent_all", "prevention": True,
                           **({"once": True, "batch": True} if e.get("once") else {}),
                           **({"rider": e["rider"]} if e.get("rider") else {})}  # (wave 17A) 615.5
+    if e.get("cap") is not None:
+        op = {**op, "do": "prevent_all_but", "n": int(e["cap"])}
+    if e.get("budget") is not None:
+        import secrets
+
+        budget_key = "scoped:" + secrets.token_hex(8)
+        plan.rules.prevention[budget_key] = int(e["budget"])
+        op = {"do": "scoped_shield", "key": budget_key, "prevention": True}
     if e.get("redirect"):  # (-- prevention riders (wave 17A) -- 614.9: "that damage is dealt to … instead")
         dest = {"to": e["redirect"]} if e["redirect"] in ("src", "src_ctrl") else _destination(plan, ctx, e["redirect"])
         if dest is None:
             plan.note(f"{plan.name(pid)}: nothing is left for the damage to be dealt to", actor=pid)
             return
-        op = {"do": "redirect", "once": True, "batch": True, **dest}
+        op = {"do": "redirect", **({"once": True, "batch": True} if e.get("redirect_once", True) else {}), **dest}
     replace.add_record(plan, event="damage", match=match, op=op, controller=pid, source=ctx.get("source_object"),
                        source_card=ctx.get("source_card"), label=ctx.get("name") or "a prevention effect",
                        **({"until": e["until"]} if e.get("until") else {}))

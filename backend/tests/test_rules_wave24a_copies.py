@@ -208,7 +208,6 @@ def test_entering_counters_are_read_only_for_an_object_entering_as_a_copy():
 
 
 @pytest.mark.parametrize("text", [
-    "it enters with a shield counter on it if you control that creature",  # (shield counters aren't automated)
     "it loses all other card types",  # (no type set by the exception: what would remain?)
     "it's a Vehicle artifact with crew 3 and it has frobnicate",
     "if it's a land, it has haste",  # (only creature / planeswalker conditions are read)

@@ -55,7 +55,7 @@ _ATTACHED_STAT = re.compile(r"(?:its|(?:equipped|enchanted) (?:creature|permanen
 # -- static_other (wave 42A) -- "~'s power is 1 or less" (Stature, Technodrome: "her / his / its power", written "~'s" by statics.parse): the source's own power or
 # toughness, 613.4, as the rules pass has it after layer 7 (layers._with_rules), for a rule-only static ("can't be blocked", "can't attack or block")
 _SELF_STAT = re.compile(r"~'s (?P<stat>power|toughness) is (?P<n>\w+) or (?P<cmp>less|greater|more|fewer)")
-_DESIGNATION = re.compile(r"(?:~ is|it's|it is) (?P<is>monstrous|renowned)")
+_DESIGNATION = re.compile(r"(?:~ is|it's|it is) (?P<is>monstrous|renowned|harnessed)")
 _MODIFIED = re.compile(r"(?:~ is|it's|it is) modified")
 _IN_GRAVEYARD = re.compile(r"this card is in your graveyard(?: and (?P<rest>.+))?")
 _OPP_GRAVEYARD = re.compile(r"an opponent has (?P<n>\w+) or more cards in their graveyard")
@@ -410,6 +410,8 @@ def holds(plan: Plan, cond: Condition, *, source: CardInstance, controller: str)
         r = plan.rules
         if r is None or not source.zone.endswith(":battlefield"):
             return False
+        if cond["is"] == "harnessed":
+            return source.choices.get("Harnessed") == "Yes"
         return r.object_id(source.id) in (r.monstrous if cond["is"] == "monstrous" else r.renowned)
     if kind in _HOLDS_35D:
         return _holds_35d(plan, cond, source, controller)

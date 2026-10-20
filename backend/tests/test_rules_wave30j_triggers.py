@@ -26,7 +26,7 @@ from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.rules import coverage, events
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act, deck, enable
+from tests.game_helpers import act, deck, enable, mana_pool
 from tests.test_rules_conditionals import settle, token_of, until
 from tests.wave9c_kit import card_named, check, life, mana, pt, put, to_hand, zone_of
 
@@ -392,7 +392,7 @@ def test_neheb_adds_a_red_mana_for_each_life_your_opponents_lost_this_turn(cards
     to_attack(s, lambda s: [(bear, "p2")])
     bolt(s, "p2")
     through_damage(s, phase="main2")
-    assert life(s, "p2") == 35 and s.state.players["p1"].mana == {"R": 5}
+    assert life(s, "p2") == 35 and mana_pool(s) == {"R": 5}
     check(s)
 
 
@@ -402,7 +402,7 @@ def test_neheb_ignores_the_life_you_lost_yourself(cards):
     bolt(s, "p1")
     assert life(s, "p1") == 37
     next_main2(s)
-    assert s.state.players["p1"].mana == {}
+    assert mana_pool(s) == {}
     check(s)
 
 

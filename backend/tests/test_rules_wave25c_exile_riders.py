@@ -17,7 +17,7 @@ from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.rules import scripts
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act, deck, enable
+from tests.game_helpers import act, deck, enable, mana_pool
 from tests.test_rules_effects import mana, pass_until_stack_empty, replay_matches
 from tests.test_rules_refused_look import choose, decision, find, put, stack_library
 
@@ -211,7 +211,7 @@ def test_chandra_casts_your_bolt_paying_its_cost_and_exiles_it(cards):
     assert [o.id for o in d.options] == [bolt.id]
     choose(s, [bolt.id])
     choose(s, ["p2"], resolve=True)
-    assert s.state.players["p2"].life == 37 and s.state.players["p1"].mana == {}  # its mana cost was paid
+    assert s.state.players["p2"].life == 37 and mana_pool(s, "p1") == {}  # its mana cost was paid
     assert s.state.cards[bolt.id].zone == "p1:exile"
     replay_matches(s)
 
@@ -447,7 +447,7 @@ def test_wildborn_preserver_puts_x_counters_on_itself_for_the_x_paid(cards):
     pass_until_stack_empty(s)
     _answer_x(s, 2)
     assert s.state.cards[preserver.id].counters.get("+1/+1") == 2
-    assert s.state.players["p1"].mana == {}  # {2} was paid
+    assert mana_pool(s, "p1") == {}  # {2} was paid
     replay_matches(s)
 
 
@@ -460,7 +460,7 @@ def test_electro_deals_x_damage_to_the_target_player_when_it_leaves(cards):
     pass_until_stack_empty(s)
     assert s.state.cards[electro.id].zone == "p1:graveyard"
     _answer_x(s, 3, target="p2")
-    assert s.state.players["p2"].life == 37 and s.state.players["p1"].mana == {"R": 1}  # (Electro added {R} when the Bolt was cast; X = 3 was paid)
+    assert s.state.players["p2"].life == 37 and mana_pool(s, "p1") == {"R": 1}  # (Electro added {R} when the Bolt was cast; X = 3 was paid)
     replay_matches(s)
 
 
@@ -588,7 +588,7 @@ def test_chandra_torch_of_defiance_casts_the_exiled_card_or_deals_two_damage(car
     if cast:
         choose(s, [top])
         choose(s, ["p2"], resolve=True)
-        assert s.state.players["p2"].life == 37 and s.state.players["p1"].mana == {}  # the Bolt, paid with its {R}
+        assert s.state.players["p2"].life == 37 and mana_pool(s, "p1") == {}  # the Bolt, paid with its {R}
     else:
         choose(s, [], resolve=True)
         assert s.state.players["p2"].life == 38  # "If you don't": Chandra's 2 damage

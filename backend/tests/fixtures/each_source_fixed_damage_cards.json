@@ -1,0 +1,140 @@
+[
+  {
+    "name": "Sarkhan the Masterless",
+    "oracle_text": "Whenever a creature attacks you or a planeswalker you control, each Dragon you control deals 1 damage to that creature.\n+1: Until end of turn, each planeswalker you control becomes a 4/4 red Dragon creature and gains flying.\n\u22123: Create a 4/4 red Dragon creature token with flying.",
+    "type_line": "Legendary Planeswalker \u2014 Sarkhan",
+    "mana_cost": "{3}{R}{R}",
+    "loyalty": "5",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 5.0,
+    "keywords": []
+  },
+  {
+    "name": "Shivan Dragon",
+    "oracle_text": "Flying\n{R}: This creature gets +1/+0 until end of turn.",
+    "type_line": "Creature \u2014 Dragon",
+    "mana_cost": "{4}{R}{R}",
+    "power": "5",
+    "toughness": "5",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 6.0,
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Dragon Whelp",
+    "oracle_text": "Flying\n{R}: This creature gets +1/+0 until end of turn. If this ability has been activated four or more times this turn, sacrifice this creature at the beginning of the next end step.",
+    "type_line": "Creature \u2014 Dragon",
+    "mana_cost": "{2}{R}{R}",
+    "power": "2",
+    "toughness": "3",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 4.0,
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Murder",
+    "oracle_text": "Destroy target creature.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{B}{B}",
+    "layout": "normal",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 3.0,
+    "keywords": []
+  },
+  {
+    "name": "Basilisk Collar",
+    "oracle_text": "Equipped creature has deathtouch and lifelink. (Any amount of damage it deals to a creature is enough to destroy it. Damage dealt by this creature also causes you to gain that much life.)\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+    "type_line": "Artifact \u2014 Equipment",
+    "mana_cost": "{1}",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 1.0,
+    "keywords": [
+      "Equip"
+    ]
+  },
+  {
+    "name": "Geyadrone Dihada",
+    "oracle_text": "Protection from permanents with corruption counters on them\n+1: Each opponent loses 2 life and you gain 2 life. Put a corruption counter on up to one other target creature or planeswalker.\n\u22123: Gain control of target creature or planeswalker until end of turn. Untap it and put a corruption counter on it. It gains haste until end of turn.\n\u22127: Gain control of each permanent with a corruption counter on it.",
+    "type_line": "Legendary Planeswalker \u2014 Dihada",
+    "mana_cost": "{1}{U}{B}{R}",
+    "loyalty": "4",
+    "layout": "normal",
+    "colors": [
+      "B",
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "R",
+      "U"
+    ],
+    "cmc": 4.0,
+    "keywords": [
+      "Protection"
+    ]
+  },
+  {
+    "name": "Nameless Inversion",
+    "oracle_text": "Changeling (This card is every creature type.)\nTarget creature gets +3/-3 and loses all creature types until end of turn.",
+    "type_line": "Kindred Instant \u2014 Shapeshifter",
+    "mana_cost": "{1}{B}",
+    "layout": "normal",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 2.0,
+    "keywords": [
+      "Changeling"
+    ]
+  }
+]

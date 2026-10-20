@@ -1,0 +1,92 @@
+[
+  {
+    "name": "Combustible Gearhulk",
+    "oracle_text": "First strike\nWhen this creature enters, target opponent may have you draw three cards. If the player doesn't, you mill three cards, then this creature deals damage to that player equal to the total mana value of those cards.",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "mana_cost": "{4}{R}{R}",
+    "power": "6",
+    "toughness": "6",
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal"
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal"
+  },
+  {
+    "name": "Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "type_line": "Basic Land \u2014 Island",
+    "mana_cost": "",
+    "layout": "normal"
+  },
+  {
+    "name": "Rest in Peace",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{1}{W}",
+    "layout": "normal"
+  },
+  {
+    "name": "Blightsteel Colossus",
+    "oracle_text": "Trample, infect, indestructible\nIf Blightsteel Colossus would be put into a graveyard from anywhere, reveal Blightsteel Colossus and shuffle it into its owner's library instead.",
+    "type_line": "Artifact Creature \u2014 Phyrexian Golem",
+    "mana_cost": "{12}",
+    "power": "11",
+    "toughness": "11",
+    "layout": "normal"
+  },
+  {
+    "name": "Walking Ballista",
+    "oracle_text": "This creature enters with X +1/+1 counters on it.\n{4}: Put a +1/+1 counter on this creature.\nRemove a +1/+1 counter from this creature: It deals 1 damage to any target.",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "mana_cost": "{X}{X}",
+    "power": "0",
+    "toughness": "0",
+    "layout": "normal"
+  },
+  {
+    "name": "Fire // Ice",
+    "oracle_text": "Fire deals 2 damage divided as you choose among one or two targets.\n//\nTap target permanent.\nDraw a card.",
+    "type_line": "Instant // Instant",
+    "mana_cost": "{1}{R} // {1}{U}",
+    "layout": "split",
+    "card_faces": [
+      {
+        "name": "Fire",
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant",
+        "oracle_text": "Fire deals 2 damage divided as you choose among one or two targets.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      },
+      {
+        "name": "Ice",
+        "mana_cost": "{1}{U}",
+        "type_line": "Instant",
+        "oracle_text": "Tap target permanent.\nDraw a card.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      }
+    ]
+  }
+]

@@ -1,0 +1,139 @@
+[
+  {
+    "name": "Rohgahh of Kher Keep",
+    "oracle_text": "At the beginning of your upkeep, you may pay {R}{R}{R}. If you don't, tap Rohgahh and all creatures named Kobolds of Kher Keep, then an opponent gains control of them.\nCreatures you control named Kobolds of Kher Keep get +2/+2.",
+    "mana_cost": "{2}{B}{B}{R}{R}",
+    "type_line": "Legendary Creature \u2014 Kobold",
+    "power": "5",
+    "toughness": "5",
+    "layout": "normal",
+    "cmc": 6.0,
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Wirefly Hive",
+    "oracle_text": "{3}, {T}: Flip a coin. If you win the flip, create a 2/2 colorless Insect artifact creature token with flying named Wirefly. If you lose the flip, destroy all permanents named Wirefly.",
+    "mana_cost": "{3}",
+    "type_line": "Artifact",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Kobolds of Kher Keep",
+    "oracle_text": "",
+    "mana_cost": "",
+    "type_line": "Token Creature \u2014 Kobold",
+    "power": "0",
+    "toughness": "1",
+    "layout": "token",
+    "cmc": 0.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Crimson Kobolds",
+    "oracle_text": "",
+    "mana_cost": "{0}",
+    "type_line": "Creature \u2014 Kobold",
+    "power": "0",
+    "toughness": "1",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Clone",
+    "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield.",
+    "mana_cost": "{3}{U}",
+    "type_line": "Creature \u2014 Shapeshifter",
+    "power": "0",
+    "toughness": "0",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "mana_cost": "",
+    "type_line": "Basic Land \u2014 Forest",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mountain",
+    "oracle_text": "({T}: Add {R}.)",
+    "mana_cost": "",
+    "type_line": "Basic Land \u2014 Mountain",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "mana_cost": "",
+    "type_line": "Basic Land \u2014 Island",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  }
+]

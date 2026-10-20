@@ -1,0 +1,1405 @@
+[
+  {
+    "name": "Bucknard's Everfull Purse",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{1}, {T}: Roll a d4 and create a number of Treasure tokens equal to the result. The player to your right gains control of this artifact.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Treasure"
+    ]
+  },
+  {
+    "name": "Chaos Dragon",
+    "layout": "normal",
+    "mana_cost": "{1}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Dragon",
+    "oracle_text": "Flying, haste\nThis creature attacks each combat if able.\nAt the beginning of combat on your turn, each player rolls a d20. If one or more opponents had the highest result, this creature can't attack those players or planeswalkers they control this combat.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying",
+      "Haste"
+    ]
+  },
+  {
+    "name": "Sword of Hours",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Whenever equipped creature attacks, put a +1/+1 counter on it.\nWhenever equipped creature deals combat damage, roll a d12. If the result is greater than the damage dealt or the result is 12, double the number of +1/+1 counters on that creature.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip",
+      "Double"
+    ]
+  },
+  {
+    "name": "Mr. House, President and CEO",
+    "layout": "normal",
+    "mana_cost": "{R}{W}{B}",
+    "cmc": 3.0,
+    "type_line": "Legendary Artifact Creature \u2014 Human",
+    "oracle_text": "Whenever you roll a 4 or higher, create a 3/3 colorless Robot artifact creature token. If you rolled 6 or higher, instead create that token and a Treasure token.\n{4}, {T}: Roll a six-sided die plus an additional six-sided die for each mana from Treasures spent to activate this ability.",
+    "power": "0",
+    "toughness": "4",
+    "colors": [
+      "B",
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "R",
+      "W"
+    ],
+    "keywords": [
+      "Treasure"
+    ]
+  },
+  {
+    "name": "Crystalline Giant",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact Creature \u2014 Giant",
+    "oracle_text": "At the beginning of combat on your turn, choose a kind of counter at random that this creature doesn't have on it from among flying, first strike, deathtouch, hexproof, lifelink, menace, reach, trample, vigilance, and +1/+1. Put a counter of that kind on this creature.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Underdark Rift",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "{T}: Add {C}.\n{5}, {T}, Exile this land: Roll a d10. Put target artifact, creature, or planeswalker into its owner's library just beneath the top X cards of that library, where X is the result. Activate only as a sorcery.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Celebr-8000",
+    "layout": "normal",
+    "mana_cost": "{5}",
+    "cmc": 5.0,
+    "type_line": "Artifact Creature \u2014 Clown Robot",
+    "oracle_text": "At the beginning of combat on your turn, roll two six-sided dice. For each result of 1, this creature gets +1/+1 until end of turn. For each other result, it gains the indicated ability until end of turn. If you rolled doubles, it also gains double strike until end of turn.\n\u2022 2 \u2014 menace\n\u2022 3 \u2014 vigilance\n\u2022 4 \u2014 lifelink\n\u2022 5 \u2014 flying\n\u2022 6 \u2014 indestructible",
+    "power": "3",
+    "toughness": "3",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying",
+      "Lifelink",
+      "Indestructible",
+      "Vigilance",
+      "Menace"
+    ]
+  },
+  {
+    "name": "Ebony Fly",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "This artifact enters tapped.\n{T}: Add {C}.\n{4}: Roll a d6. Until end of turn, you may have this artifact become an X/X Insect artifact creature with flying, where X is the result.\nWhenever this artifact attacks, another target attacking creature gains flying until end of turn.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Critical Hit",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gains double strike until end of turn.\nWhen you roll a natural 20, return this card from your graveyard to your hand. (A natural 20 is a roll that displays 20 on the die.)",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Farideh, Devil's Chosen",
+    "layout": "normal",
+    "mana_cost": "{2}{U}{R}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Tiefling Warlock",
+    "oracle_text": "Dark One's Own Luck \u2014 Whenever you roll one or more dice, Farideh gains flying and menace until end of turn. If any of those results was 10 or higher, draw a card.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Wild Endeavor",
+    "layout": "normal",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Roll two d4 and choose one result. Create a number of 3/3 green Beast creature tokens equal to that result. Then search your library for a number of basic land cards equal to the other result, put them onto the battlefield tapped, then shuffle.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Clowning Around",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Create two 1/1 white Clown Robot artifact creature tokens, then roll a six-sided die. If the result is equal to or less than the number of Robots you control, create a 1/1 white Clown Robot artifact creature token.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Pair o' Dice Lost",
+    "layout": "normal",
+    "mana_cost": "{3}{G}{G}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "Roll two six-sided dice. Return any number of cards with total mana value X or less from your graveyard to your hand, where X is the total of those results. Exile Pair o' Dice Lost.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Slight Malfunction",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose one \u2014\n\u2022 Destroy target artifact.\n\u2022 Roll a six-sided die. When you do, Slight Malfunction deals 1 damage to each of up to X target creatures, where X is the result.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Journey to the Lost City",
+    "layout": "normal",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, exile the top four cards of your library, then roll a d20.\n1\u20149 | You may put a land card from among those cards onto the battlefield.\n10\u201419 | Create a 2/2 green Wolf creature token, then put a +1/+1 counter on it for each creature card among those cards.\n20 | Put all permanent cards exiled with this enchantment onto the battlefield, then sacrifice it.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Bag of Tricks",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{4}{G}, {T}: Roll a d8. Reveal cards from the top of your library until you reveal a creature card with mana value equal to the result. Put that card onto the battlefield and the rest on the bottom of your library in a random order.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Priority Boarding",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever you roll a die, you may reveal the top card of your library. Do this only once each turn. Whenever you reveal a card with mana value less than the result this way, you may exile it. If you do, you may play it this turn.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Tomb Tyrant",
+    "layout": "normal",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Zombie Noble",
+    "oracle_text": "Other Zombies you control get +1/+1.\n{2}{B}, {T}, Sacrifice a creature: Return a Zombie creature card at random from your graveyard to the battlefield. Activate only during your turn and only if there are at least three Zombie creature cards in your graveyard.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sinister Waltz",
+    "layout": "normal",
+    "mana_cost": "{3}{B}{R}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose three target creature cards in your graveyard. Return two of them at random to the battlefield and put the other on the bottom of your library.",
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Capricious Efreet",
+    "layout": "normal",
+    "mana_cost": "{4}{R}{R}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Efreet",
+    "oracle_text": "At the beginning of your upkeep, choose target nonland permanent you control and up to two target nonland permanents you don't control. Destroy one of them at random.",
+    "power": "6",
+    "toughness": "4",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Wild Swing",
+    "layout": "normal",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose three target nonenchantment permanents. Destroy one of them at random.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "id": "78a5d49a-747e-4ec8-a20a-ca917c315774",
+    "oracle_id": "a97c8482-775c-4f11-9872-25b4f9bfcb1a",
+    "name": "Krark's Thumb",
+    "layout": "normal",
+    "set_code": "mrd",
+    "set_name": "Mirrodin",
+    "collector_number": "190",
+    "rarity": "rare",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Legendary Artifact",
+    "oracle_text": "If you would flip a coin, instead flip two coins and ignore one.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2003-10-02",
+    "artist": "Ron Spencer",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "210d07ab-7608-4fda-adb6-562cf194192f",
+    "oracle_id": "03a4b997-4738-41a9-933f-e1f765e3a75a",
+    "name": "Rakdos, the Showstopper",
+    "layout": "normal",
+    "set_code": "clu",
+    "set_name": "Ravnica: Clue Edition",
+    "collector_number": "205",
+    "rarity": "mythic",
+    "mana_cost": "{4}{B}{R}",
+    "cmc": 6.0,
+    "type_line": "Legendary Creature \u2014 Demon",
+    "oracle_text": "Flying, trample\nWhen Rakdos enters, flip a coin for each creature that isn't a Demon, Devil, or Imp. Destroy each creature whose coin comes up tails.",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [
+      "Flying",
+      "Trample"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-02-23",
+    "artist": "Viktor Titov",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "c1654256-25ea-4467-812d-25f32fe65cdd",
+    "oracle_id": "1c50c637-750c-4e31-a69c-915430fc3194",
+    "name": "Plasma Caster",
+    "layout": "normal",
+    "set_code": "pip",
+    "set_name": "Fallout",
+    "collector_number": "64",
+    "rarity": "rare",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +1/+1.\nWhenever equipped creature attacks, you get {E}{E} (two energy counters).\nPay {E}{E}: Choose target creature that's blocking equipped creature. Flip a coin. If you win the flip, exile the chosen creature. Otherwise, this Equipment deals 1 damage to it.\nEquip {2}",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Equip"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-03-08",
+    "artist": "Kekai Kotaki",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "4e934217-04c4-4047-b5e2-183431123825",
+        "name": "Plasma Caster",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2a794202-875f-4397-a8de-9722c8d78448",
+        "name": "Energy Reserve",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "32c1b854-8dbe-454c-b8c4-16abb93bd39b",
+    "oracle_id": "7e6ca948-a66d-46a9-9174-ac7b75d7b348",
+    "name": "Mutalith Vortex Beast",
+    "layout": "normal",
+    "set_code": "40k",
+    "set_name": "Warhammer 40,000 Commander",
+    "collector_number": "134\u2605",
+    "rarity": "rare",
+    "mana_cost": "{4}{U}{R}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Mutant Beast",
+    "oracle_text": "Trample\nWarp Vortex \u2014 When this creature enters, flip a coin for each opponent you have. For each flip you win, draw a card. For each flip you lose, this creature deals 3 damage to that player.",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [
+      "Warp Vortex",
+      "Trample"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-10-07",
+    "artist": "Kekai Kotaki",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "d9b404c0-9ce1-4491-82fd-6dba7e6895cd",
+    "oracle_id": "39a9323d-dddc-42ac-929d-3f4fa7c87567",
+    "name": "Impulsive Maneuvers",
+    "layout": "normal",
+    "set_code": "ody",
+    "set_name": "Odyssey",
+    "collector_number": "197",
+    "rarity": "rare",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever a creature attacks, flip a coin. If you win the flip, the next time that creature would deal combat damage this turn, it deals double that damage instead. If you lose the flip, the next time that creature would deal combat damage this turn, prevent that damage.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Double"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2001-10-01",
+    "artist": "Dave Dorman",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0b09315c-d6ff-4fdb-8774-c6402b45e959",
+    "oracle_id": "1a4c03ab-519a-4840-893a-769dfc5cf161",
+    "name": "Risky Move",
+    "layout": "normal",
+    "set_code": "ons",
+    "set_name": "Onslaught",
+    "collector_number": "223",
+    "rarity": "rare",
+    "mana_cost": "{3}{R}{R}{R}",
+    "cmc": 6.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of each player's upkeep, that player gains control of this enchantment.\nWhen you gain control of this enchantment from another player, choose a creature you control and an opponent. Flip a coin. If you lose the flip, that opponent gains control of that creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2002-10-07",
+    "artist": "Jerry Tiritilli",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "f4245160-274e-4c39-9bcd-c64e9a44dfdb",
+    "oracle_id": "d8328d27-e27f-4c84-8ab5-cabb80a34f54",
+    "name": "Desperate Gambit",
+    "layout": "normal",
+    "set_code": "wth",
+    "set_name": "Weatherlight",
+    "collector_number": "96",
+    "rarity": "uncommon",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose a source you control and flip a coin. If you win the flip, the next time that source would deal damage this turn, it deals double that damage instead. If you lose the flip, the next time it would deal damage this turn, prevent that damage.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Double"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1997-06-09",
+    "artist": "Pete Venters",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "ca75f6e9-5eee-4904-88c0-71ec730a0f23",
+    "oracle_id": "fece632b-d8d5-4d3d-a4a7-643293b67538",
+    "name": "Fighting Chance",
+    "layout": "normal",
+    "set_code": "exo",
+    "set_name": "Exodus",
+    "collector_number": "82",
+    "rarity": "rare",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "For each blocking creature, flip a coin. If you win the flip, prevent all combat damage that would be dealt by that creature this turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1998-06-15",
+    "artist": "Mike Raabe",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "1879b406-c382-47e6-af33-439a164438ae",
+    "oracle_id": "9369f131-3356-4926-9a9f-88a636305bd0",
+    "name": "Goblin Psychopath",
+    "layout": "normal",
+    "set_code": "j22",
+    "set_name": "Jumpstart 2022",
+    "collector_number": "544",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Goblin Mutant",
+    "oracle_text": "Whenever this creature attacks or blocks, flip a coin. If you lose the flip, the next time it would deal combat damage this turn, it deals that damage to you instead.",
+    "power": "5",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-12-02",
+    "artist": "Pete Venters",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "b4e8d779-ef6f-4b09-870e-f1fdeac83e32",
+    "oracle_id": "ec85a375-fe38-4b11-af0e-f2b466181dd7",
+    "name": "Goblin Artisans",
+    "layout": "normal",
+    "set_code": "chr",
+    "set_name": "Chronicles",
+    "collector_number": "48",
+    "rarity": "uncommon",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Goblin Artificer",
+    "oracle_text": "{T}: Flip a coin. If you win the flip, draw a card. If you lose the flip, counter target artifact spell you control that isn't the target of an ability from another creature named Goblin Artisans.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1995-07-01",
+    "artist": "Julie Baroh",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "49a4b0c9-a35b-4b55-ab27-7246bbca0d16",
+    "oracle_id": "8bd33b5c-0777-41ef-9e17-fb30ce69ec25",
+    "name": "Chance Encounter",
+    "layout": "normal",
+    "set_code": "mh2",
+    "set_name": "Modern Horizons 2",
+    "collector_number": "277",
+    "rarity": "rare",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever you win a coin flip, put a luck counter on this enchantment.\nAt the beginning of your upkeep, if this enchantment has ten or more luck counters on it, you win the game.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-06-18",
+    "artist": "Steven Belledin",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "409f9b88-f03e-40b6-9883-68c14c37c0de",
+    "oracle_id": "14c8f55d-d177-4c25-a931-ebeb9e6062a0",
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "268",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "D. J. Cleland-Hura",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "00beba34-54cc-4a30-8424-71a1215647a6",
+    "oracle_id": "7c9c3060-ca9d-4868-84c6-2a95b0fa8885",
+    "name": "Mirror Gallery",
+    "layout": "normal",
+    "set_code": "bok",
+    "set_name": "Betrayers of Kamigawa",
+    "collector_number": "154",
+    "rarity": "rare",
+    "mana_cost": "{5}",
+    "cmc": 5.0,
+    "type_line": "Artifact",
+    "oracle_text": "The \"legend rule\" doesn't apply.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2005-02-04",
+    "artist": "Scott M. Fischer",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0d102241-4463-437f-b2bb-f574d9dbbd1e",
+    "oracle_id": "3efe6ac8-f92e-4108-913b-077e41c0a841",
+    "name": "Lae'zel's Acrobatics",
+    "layout": "normal",
+    "set_code": "clb",
+    "set_name": "Commander Legends: Battle for Baldur's Gate",
+    "collector_number": "30",
+    "rarity": "rare",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile all nontoken creatures you control, then roll a d20.\n1\u20149 | Return those cards to the battlefield under their owner's control at the beginning of the next end step.\n10\u201420 | Return those cards to the battlefield under their owner's control, then exile them again. Return those cards to the battlefield under their owner's control at the beginning of the next end step.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-06-10",
+    "artist": "Tatiana Kirgetova",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "3d8df219-1da0-4311-b9bb-c74b5fa55293",
+    "oracle_id": "8d35cef8-a52d-45fb-8f5f-cccea26826d0",
+    "name": "Wyll's Reversal",
+    "layout": "normal",
+    "set_code": "clb",
+    "set_name": "Commander Legends: Battle for Baldur's Gate",
+    "collector_number": "209",
+    "rarity": "rare",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose target spell or ability with one or more targets. Roll a d20 and add the greatest power among creatures you control.\n1\u201414 | You may choose new targets for that spell or ability.\n15+ | You may choose new targets for that spell or ability. Then copy it. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-06-10",
+    "artist": "Irina Nordsol",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "d9c6401a-e152-4acf-a2ca-75c484f296d5",
+    "oracle_id": "753ead8c-f3f8-42fe-931d-79f5ee3ece54",
+    "name": "Aberrant Mind Sorcerer",
+    "layout": "normal",
+    "set_code": "afr",
+    "set_name": "Adventures in the Forgotten Realms",
+    "collector_number": "44",
+    "rarity": "uncommon",
+    "mana_cost": "{4}{U}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Human Elf Shaman Sorcerer",
+    "oracle_text": "Psionic Spells \u2014 When this creature enters, choose target instant or sorcery card in your graveyard, then roll a d20.\n1\u20149 | You may put that card on top of your library.\n10\u201420 | Return that card to your hand.",
+    "power": "3",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-07-23",
+    "artist": "Lius Lasahido",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "d010948a-d3f8-4ce3-9c9b-6e905a3f7087",
+    "oracle_id": "56fd0752-9fb0-4c05-90e5-c3b268b57c6f",
+    "name": "Cone of Cold",
+    "layout": "normal",
+    "set_code": "clb",
+    "set_name": "Commander Legends: Battle for Baldur's Gate",
+    "collector_number": "61",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Roll a d20.\n1\u20149 | Tap all creatures your opponents control.\n10\u201419 | Tap all creatures your opponents control. Those creatures don't untap during their controllers' next untap steps.\n20 | Tap all creatures your opponents control. Those creatures don't untap during their controllers' next untap steps. Until your next turn, creatures your opponents control enter tapped.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-06-10",
+    "artist": "Kim Sokol",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0445def0-8921-4579-912f-035d9fbce3c0",
+    "oracle_id": "4ba1f2c5-6456-4809-a563-fd5bd311869a",
+    "name": "Valiant Endeavor",
+    "layout": "normal",
+    "set_code": "afc",
+    "set_name": "Forgotten Realms Commander",
+    "collector_number": "13",
+    "rarity": "rare",
+    "mana_cost": "{4}{W}{W}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Roll two d6 and choose one result. Destroy each creature with power greater than or equal to that result. Then create a number of 2/2 white Knight creature tokens with vigilance equal to the other result.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-07-23",
+    "artist": "Antonio Jos\u00e9 Manzanedo",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "258876ae-bdd2-4103-ba76-849907cf181d",
+        "name": "Knight",
+        "type_line": "Token Creature \u2014 Knight"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "801a94c6-3800-4a62-8001-c2c38e62cbdd",
+        "name": "Valiant Endeavor",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "a231a41f-1609-420f-9a9b-3c8358591da1",
+    "oracle_id": "bdb80d7b-672c-4e2a-b93b-9b96721b93f2",
+    "name": "Song of Inspiration",
+    "layout": "normal",
+    "set_code": "afc",
+    "set_name": "Forgotten Realms Commander",
+    "collector_number": "42",
+    "rarity": "rare",
+    "mana_cost": "{3}{G}{G}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose up to two target permanent cards in your graveyard. Roll a d20 and add the total mana value of those cards.\n1\u201414 | Return those cards to your hand.\n15+ | Return those cards to your hand. You gain life equal to their total mana value.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-07-23",
+    "artist": "Lie Setiawan",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "1f5ddcf8-c87b-4a26-b226-8593f517a74a",
+    "oracle_id": "8676f007-bf5f-4312-968c-59f4549f7d51",
+    "name": "Gale's Redirection",
+    "layout": "normal",
+    "set_code": "clb",
+    "set_name": "Commander Legends: Battle for Baldur's Gate",
+    "collector_number": "73",
+    "rarity": "rare",
+    "mana_cost": "{3}{U}{U}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target spell, then roll a d20 and add that spell's mana value.\n1\u201414 | You may cast the exiled card for as long as it remains exiled, and you may spend mana as though it were mana of any color to cast that spell.\n15+ | You may cast the exiled card without paying its mana cost for as long as it remains exiled.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-06-10",
+    "artist": "Yeong-Hao Han",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "6d21fb27-e821-4ce1-8f34-fc5d6c69d779",
+    "oracle_id": "55eb3c21-6834-4c62-8ab9-54b901531fed",
+    "name": "Revivify",
+    "layout": "normal",
+    "set_code": "afc",
+    "set_name": "Forgotten Realms Commander",
+    "collector_number": "10",
+    "rarity": "rare",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Roll a d20 and add the number of creature cards in your graveyard that were put there from the battlefield this turn.\n1\u201414 | Return all creature cards in your graveyard that were put there from the battlefield this turn to your hand.\n15+ | Return those cards from your graveyard to the battlefield.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-07-23",
+    "artist": "Caio Monteiro",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "5151b81b-6d10-40de-9e65-89923e4c03d9",
+    "oracle_id": "a9c58cfe-9630-48fa-84ad-50268eb725ed",
+    "name": "Danse Macabre",
+    "layout": "normal",
+    "set_code": "afc",
+    "set_name": "Forgotten Realms Commander",
+    "collector_number": "22",
+    "rarity": "rare",
+    "mana_cost": "{3}{B}{B}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Each player sacrifices a nontoken creature of their choice. Roll a d20 and add the toughness of the creature you sacrificed this way.\n1\u201414 | Return a creature card put into a graveyard this way to the battlefield under your control.\n15+ | Return up to two creature cards put into graveyards this way to the battlefield under your control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-07-23",
+    "artist": "Randy Vargas",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "e9531098-63ea-4568-81e9-80e00a5f8995",
+    "oracle_id": "43de944b-e630-45f0-bce4-c66803e8b5c1",
+    "name": "Thunderwave",
+    "layout": "normal",
+    "set_code": "clb",
+    "set_name": "Commander Legends: Battle for Baldur's Gate",
+    "collector_number": "201",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Roll a d20.\n1\u20149 | Thunderwave deals 3 damage to each creature.\n10\u201419 | You may choose a creature. Thunderwave deals 3 damage to each creature not chosen this way.\n20 | Thunderwave deals 6 damage to each creature your opponents control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-06-10",
+    "artist": "Durion",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "81f0902a-1bc7-4231-8530-2b0fe28a6030",
+    "oracle_id": "82185e99-903d-4b18-8ff9-fb4f95ff17fc",
+    "name": "Six-Sided Die",
+    "layout": "normal",
+    "set_code": "unf",
+    "set_name": "Unfinity",
+    "collector_number": "92",
+    "rarity": "common",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose target creature. Roll a six-sided die.\n1 \u2014 It has base toughness 1 until end of turn.\n2 \u2014 Put two -1/-1 counters on it.\n3 \u2014 Six-Sided Die deals 3 damage to it and you gain 3 life.\n4 \u2014 It gets -4/-4 until end of turn.\n5 \u2014 Destroy it.\n6 \u2014 Exile it.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-10-07",
+    "artist": "Ben Wootten",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "13281945-47ff-464d-96ef-9b26ef6783fa",
+    "oracle_id": "d870a93a-8399-4004-9b45-2b49b001f165",
+    "name": "Luck Bobblehead",
+    "layout": "normal",
+    "set_code": "pip",
+    "set_name": "Fallout",
+    "collector_number": "135",
+    "rarity": "uncommon",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact \u2014 Bobblehead",
+    "oracle_text": "{T}: Add one mana of any color.\n{1}, {T}: Roll X six-sided dice, where X is the number of Bobbleheads you control. Create a tapped Treasure token for each even result. If you rolled 6 exactly seven times, you win the game.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Treasure"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-03-08",
+    "artist": "\u00d8rjan Ruttenborg Svendsen",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "1d74d012-66ca-4a0c-9e90-e31e96730d4d",
+        "name": "Treasure",
+        "type_line": "Token Artifact \u2014 Treasure"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "54e26cce-e872-47f4-90b2-0739fa98e97c",
+        "name": "Luck Bobblehead",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "d9633151-d704-42a4-b1c6-66446bf48bee",
+    "oracle_id": "6d00e24f-c89f-49fa-869e-d788021aa084",
+    "name": "Iron Mastiff",
+    "layout": "normal",
+    "set_code": "clb",
+    "set_name": "Commander Legends: Battle for Baldur's Gate",
+    "collector_number": "317",
+    "rarity": "uncommon",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact Creature \u2014 Dog",
+    "oracle_text": "Whenever this creature attacks, roll a d20 for each player being attacked and ignore all but the highest roll.\n1\u20149 | This creature deals damage equal to its power to you.\n10\u201419 | This creature deals damage equal to its power to defending player.\n20 | This creature deals damage equal to its power to each opponent.",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-06-10",
+    "artist": "James Paick",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "name": "Pixie Guide",
+    "oracle_text": "Flying\nGrant an Advantage \u2014 If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.",
+    "type_line": "Creature \u2014 Faerie",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "power": "1",
+    "toughness": "3",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Wyll, Blade of Frontiers",
+    "oracle_text": "If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.\nWhenever you roll one or more dice, put a +1/+1 counter on Wyll.\nChoose a Background (You can have a Background as a second commander.)",
+    "type_line": "Legendary Creature \u2014 Human Warlock",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Choose a background"
+    ]
+  },
+  {
+    "name": "Containment Priest",
+    "oracle_text": "Flash\nIf a nontoken creature would enter and it wasn't cast, exile it instead.",
+    "type_line": "Creature \u2014 Human Cleric",
+    "mana_cost": "{1}{W}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flash"
+    ]
+  },
+  {
+    "name": "True-Name Nemesis",
+    "mana_cost": "{1}{U}{U}",
+    "type_line": "Creature \u2014 Merfolk Rogue",
+    "oracle_text": "As this creature enters, choose a player.\nThis creature has protection from the chosen player.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 3.0,
+    "keywords": [],
+    "power": "3",
+    "toughness": "1",
+    "layout": "normal"
+  },
+  {
+    "name": "Tangled Florahedron // Tangled Vale",
+    "layout": "modal_dfc",
+    "mana_cost": "{1}{G} // ",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Elemental // Land",
+    "oracle_text": "{T}: Add {G}.\n//\nThis land enters tapped.\n{T}: Add {G}.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "power": "1",
+    "toughness": "1",
+    "card_faces": [
+      {
+        "object": "card_face",
+        "name": "Tangled Florahedron",
+        "mana_cost": "{1}{G}",
+        "type_line": "Creature \u2014 Elemental",
+        "oracle_text": "{T}: Add {G}.",
+        "power": "1",
+        "toughness": "1",
+        "colors": [
+          "G"
+        ]
+      },
+      {
+        "object": "card_face",
+        "name": "Tangled Vale",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "This land enters tapped.\n{T}: Add {G}.",
+        "colors": []
+      }
+    ]
+  },
+  {
+    "name": "Stone Rain",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Destroy target land.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  }
+]

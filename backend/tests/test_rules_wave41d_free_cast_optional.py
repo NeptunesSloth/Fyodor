@@ -138,12 +138,12 @@ def cascade_gnarlid(cards, forests, found="Gnarlid Pack"):
     return s
 
 
-def test_multikicker_on_a_cascaded_spell_offers_only_the_counts_the_caster_can_pay(cards):
+def test_multikicker_on_a_cascaded_spell_offers_affordable_shortcuts_and_an_exact_other_count(cards):
     """"Multikicker {1}{G} … This creature enters with a +1/+1 counter on it for each time it was kicked." (Gnarlid Pack, found by cascade): four Forests
-    pay it twice and not three times, so ×1 and ×2 are offered; ×2 is paid in full and the creature enters with two counters (702.33c)."""
+    pay it twice and not three times with AUTO, so ×1 and ×2 shortcuts plus Other are offered; ×2 is paid in full and the creature enters with two counters (702.33c)."""
     s = cascade_gnarlid(cards, 4)
     d = question(s)
-    assert d is not None and [o.id for o in d.options] == ["kicker:1", "kicker:2"]
+    assert d is not None and [o.id for o in d.options] == ["kicker:1", "kicker:2", "kicker:other"]
     assert d.options[1].label == "Multikicker {1}{G}, paid 2 times"
     s = reloaded_session(s)
     pick(s, "kicker:2")
@@ -153,12 +153,15 @@ def test_multikicker_on_a_cascaded_spell_offers_only_the_counts_the_caster_can_p
     check(s)
 
 
-def test_multikicker_with_one_forest_short_is_not_offered_and_two_counts_are_refused(cards):
+def test_multikicker_with_one_forest_short_still_offers_other_and_optional_decline(cards):
     s = cascade_gnarlid(cards, 1)
-    assert question(s) is None  # ({1}{G} needs two mana: one Forest is not enough)
+    assert [o.id for o in question(s).options] == ["kicker:other"]  # AUTO cannot pay a shortcut, but SELF may activate further legal sources.
+    pick(s)
+    settle(s)
+    assert pt(s, "Gnarlid Pack") == (2, 2)
     s = cascade_gnarlid(cards, 2)
     d = question(s)
-    assert d is not None and [o.id for o in d.options] == ["kicker:1"]
+    assert d is not None and [o.id for o in d.options] == ["kicker:1", "kicker:other"]
     pick(s)
     settle(s)
     assert pt(s, "Gnarlid Pack") == (2, 2)

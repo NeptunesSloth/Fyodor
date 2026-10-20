@@ -1,0 +1,9 @@
+# Conditional land entry or immediate spell casting
+
+Omen Machine and Wild Evocation use the affected player, Audacious Swap uses the target's owner, and Rona's reverse face uses Rona's trigger controller while taking a random card from the damage source controller's hand. These are separate identities. The native resolution controller stack preserves each identity through choices and resumes. Exact object bindings reject cards that left and returned.
+
+The conditional inspects the card before casting, so a modal double-faced card with a nonland front follows the spell branch. Native free casting handles legal spell faces, mandatory additional costs, X=0, prohibitions, and counterable spells. Entry uses the ordinary permanent-entry replacement pipeline rather than moving and retroactively exiling a permanent.
+
+Unexpected Results offers one optional compound instruction: put the land onto the battlefield and return the spell to its owner's hand. Declining skips both actions. Accepting attempts both in order (CR 608.2c); replacing land entry does not cancel the following return instruction. The native exact stack-source selector permits returning the resolving spell directly from the stack. The 2013 ruling distinguishes declining the land option from accepting it; it does not impose an additional successful-entry condition.
+
+Official rulings consulted: Omen Machine (2011-06-01), Wild Evocation (2010-08-15), Unexpected Results (2013-01-24), Audacious Swap (2022-04-29), Rona (2023-04-14). In particular, Wild Evocation requires spending already floating mana for mandatory additional mana costs, but does not require activating mana abilities to generate it. Canonical gameplay tests prove this boundary: floating colorless mana pays Sphere of Resistance, whereas an untapped Sol Ring with no floating mana permits declining activation and leaves the revealed spell in hand.

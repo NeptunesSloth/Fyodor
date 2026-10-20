@@ -115,6 +115,20 @@ def fixture_cards() -> list[dict[str, Any]]:
              ]),
         TREASURE,
         GOBLIN,
+        # --- Banding browser scenarios (current Oracle text) ---
+        card('Benalish Hero', set_code="tst", number="BAND0",
+             mana_cost='{W}', cmc=1.0, type_line='Creature — Human Soldier',
+             oracle_text="Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)", power='1', toughness='1',
+             colors=['W'], color_identity=['W'], keywords=['Banding']),
+        card('Mesa Pegasus', set_code="tst", number="BAND1",
+             mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Pegasus',
+             oracle_text="Flying; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)", power='1', toughness='1',
+             colors=['W'], color_identity=['W'], keywords=['Flying', 'Banding']),
+        # --- Qualified banding browser scenario (current Oracle text) ---
+        card("Cathedral of Serra", set_code="tst", number="BAND2",
+             mana_cost='', cmc=0.0, type_line='Land',
+             oracle_text='White legendary creatures you control have "bands with other legendary creatures." (Any legendary creatures can attack in a band as long as at least one has "bands with other legendary creatures." Bands are blocked as a group. If at least two legendary creatures you control, one of which has "bands with other legendary creatures," are blocking or being blocked by the same creature, you divide that creature\'s combat damage, not its controller, among any of the creatures it\'s being blocked by or is blocking.)', colors=[], color_identity=[],
+             keywords=[]),
         # --- M16 effect scenarios (current Oracle text) ---
         card("Elvish Visionary", set_code="tst", number="E1", mana_cost="{1}{G}", cmc=2.0, type_line="Creature — Elf Shaman",
              oracle_text="When this creature enters, draw a card.", power="1", toughness="1", colors=["G"], color_identity=["G"]),

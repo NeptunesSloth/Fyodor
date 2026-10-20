@@ -26,7 +26,7 @@ from app.cards.repository import CardRepository
 from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_attachments import token
 from tests.test_rules_conditionals import settle, through_combat, until
 from tests.wave9c_kit import build, card_named, check, life, mana, put, reloaded, to_hand
@@ -91,7 +91,6 @@ def test_wordings(text, expected):
 
 
 @pytest.mark.parametrize("text", [
-    "a creature not named Krenko died this turn",  # (a name is read only as "~": the source's own, 201.2)
     "a source an opponent controlled dealt 5 or more damage this turn",  # (only what you controlled as it dealt it is recorded by source)
     "it's the first time counters have been put on that creature this turn",  # (anchored to its event: only read as the trigger's own "if", scripts._first_time_gate)
 ])
@@ -99,6 +98,25 @@ def test_unread_wordings_are_not_read(text):
     from app.rules import conditions
 
     assert conditions.parse(text, objects=True) is None
+
+
+def test_literal_history_name_does_not_rebind_to_its_differently_named_source(cards):
+    from app.rules import conditions
+    from app.rules.plan import Plan
+
+    s = build(cards, ['Ebondeath, Dracolich', 'Lightning Bolt', 'Lightning Bolt'], forests=20)
+    source = card_named(s, 'Ebondeath, Dracolich')
+    act(s, 'p1', type='move', card_ids=[source.id], to={'zone': 'graveyard'})
+    named = token(s, 'p2', 'Krenko', '2/2')
+    bolt(s, named.id)
+    condition = conditions.parse('a creature not named Krenko died this turn', objects=True)
+    assert condition is not None
+    context = {'controller': 'p1', 'source_card': source.id, 'source_object': s.state.rules.object_id(source.id)}
+    assert not conditions.holds(Plan(s.state, 'p1', cards, None), context, condition)
+    other = token(s, 'p2', 'Bear Token', '2/2')
+    bolt(s, other.id)
+    assert conditions.holds(Plan(s.state, 'p1', cards, None), context, condition)
+    check(s)
 
 
 @pytest.mark.parametrize("text", [
@@ -123,11 +141,11 @@ def test_captain_america_untaps_a_creature_only_the_first_time_it_becomes_tapped
     to_main1(s, 3)  # (both have been under Alice's control since the turn began)
     act(s, "p1", type="activate_ability", card_id=elves.id, ability=0)
     settle(s)
-    assert not tapped(s, elves) and s.state.players["p1"].mana == {"G": 1}  # (the first time this turn: untapped)
+    assert not tapped(s, elves) and mana_pool(s) == {"G": 1}  # (the first time this turn: untapped)
     s = reloaded(s)
     act(s, "p1", type="activate_ability", card_id=elves.id, ability=0)  # the second time this turn
     settle(s)
-    assert tapped(s, elves) and s.state.players["p1"].mana == {"G": 2}
+    assert tapped(s, elves) and mana_pool(s) == {"G": 2}
     check(s)
     finish_turn(s)  # Alice's turn 3 and Bob's turn 4 are over
     to_main1(s, 5)

@@ -184,7 +184,9 @@ def _bind_now(plan: Plan, ctx: Context, effects: list[dict[str, Any]], refs: dic
     for k, e in enumerate(effects):
         e = dict(block_events.bind(plan, ctx, e))  # -- block events (wave 53C) -- "destroy all creatures that blocked or were blocked by it this turn": the creature, as now
         who = e.get("who")
-        if isinstance(who, str) and (who in _BIND_NOW or who.startswith("target:")):
+        exact_union = isinstance(who, str) and who.startswith("union:") and all(
+            part in _BIND_NOW or part.startswith(("target:", "ref:")) for part in who[len("union:"):].split("+"))
+        if isinstance(who, str) and (who in _BIND_NOW or who.startswith("target:") or exact_union):
             name = f"d{len(refs)}_{k}"
             context.bind_objects(plan, {"refs": refs}, name, _cards(plan, ctx, who))
             e["who"] = f"ref:{name}"
@@ -215,6 +217,10 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         context.bind_objects(plan, {"refs": refs}, "watch", watched)
     if when["kind"] == "watch":  # -- turn watches (wave 7D) -- events after this resolution step only (603.7a)
         when["since"] = plan.rules.batch
+        if when.get("recipient_ref"):
+            from app.rules.effects import _players
+
+            when["recipient_players"] = _players(plan, ctx, when.pop("recipient_ref"))
         from app.rules import watches
 
         deferred = watches.bind_x(deferred, int(ctx.get("x") or 0))  # (the X the creating spell was cast with)
@@ -231,8 +237,9 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         id=secrets.token_hex(4), controller=ctx["controller"], source_card=ctx.get("source_card"),
         source_object=ctx.get("source_object"), name=ctx.get("name") or "", when=when,
         effects=_bind_now(plan, ctx, deferred, refs), refs=refs, event=ctx.get("event"), turn=turn,
-        step=plan.state.turn.phase, until_turn=turn if e.get("this_turn") else None, until_combat=bool(e.get("this_combat")), until_player=ctx["controller"] if e.get("next_turn") else None, once=bool(e.get("once", True)),
-        target=e.get("target"))
+        step=plan.state.turn.phase, created_step=plan.rules.step_serial, until_turn=turn if e.get("this_turn") else None, until_combat=bool(e.get("this_combat")), until_player=ctx["controller"] if e.get("next_turn") else None, once=bool(e.get("once", True)),
+        until_end_next_player=ctx["controller"] if e.get("end_of_next_turn") else None,
+        target=e.get("target"), targets=e.get("targets"))
     plan.rules.delayed.append(trigger)
     plan.note(f"{trigger.name or 'A delayed ability'} will trigger {describe_when(when)}")
     return True
@@ -268,7 +275,7 @@ def create_move(plan: Plan, controller: str, card_id: str, oid: str, to: str, na
         effects=[{"do": "delayed_move", "card": card_id, "object": oid, "to": to, **({"sacrifice": True} if sacrifice else {}),
                   **({"by_now": True} if step == "cleanup" else {}),  # (-- flash auras (wave 46B) -- "the controller of the permanent it becomes sacrifices it")
                   **({"warp": True} if warp else {})}],
-        turn=plan.state.turn.number, step=plan.state.turn.phase))
+        turn=plan.state.turn.number, step=plan.state.turn.phase, created_step=plan.rules.step_serial))
 
 
 def create_plain(plan: Plan, controller: str, card_id: str, oid: str, name: str, when: dict[str, Any],
@@ -277,10 +284,12 @@ def create_plain(plan: Plan, controller: str, card_id: str, oid: str, name: str,
     card at the beginning of the next turn's upkeep"): its controller and source as they were (603.7d-e), nothing bound to an object."""
     plan.rules.delayed.append(DelayedTrigger(
         id=secrets.token_hex(4), controller=controller, source_card=card_id, source_object=oid, name=name, when=when, effects=effects,
-        turn=plan.state.turn.number, step=plan.state.turn.phase))
+        turn=plan.state.turn.number, step=plan.state.turn.phase, created_step=plan.rules.step_serial))
 
 
 def describe_when(when: dict[str, Any]) -> str:
+    if when.get('manual_combat_scope'):
+        return 'by hand for its remaining duration (older save: recipient scope unavailable)'
     if when["kind"] == "designation":  # (wave 3E: app/rules/designations.py fires these)
         return "when an opponent becomes the monarch"
     if when["kind"] == "watch":  # -- turn watches (wave 7D) --
@@ -294,6 +303,8 @@ def describe_when(when: dict[str, Any]) -> str:
         return "at end of combat"
     if when.get("tag") is not None:  # (wave 49B)
         return "at the beginning of that combat"
+    if when.get("whose") == "this_turn" and when.get("step") == "begin_combat":
+        return "at the beginning of each combat this turn"
     whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's", "owner": "its owner's next"}[when["whose"]]
     step = {"end": "end step", "main": "main phase", "cleanup": "cleanup step"}.get(when["step"], "upkeep")  # (main: wave 5B)
     return f"at the beginning of {whose} {step}"
@@ -316,14 +327,26 @@ def mark_target(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return _swap_who(effects, "target", WATCH_TARGET)
 
 
+def restore_targets(value: Any) -> Any:
+    """Future delayed targets bind when the trigger is put on the stack, not when created."""
+    if isinstance(value, str) and (value == WATCH_TARGET or value.startswith(WATCH_TARGET + ':')):
+        return 'target' + value[len(WATCH_TARGET):]
+    if isinstance(value, list):
+        return [restore_targets(item) for item in value]
+    if isinstance(value, dict):
+        return {key: restore_targets(item) for key, item in value.items()}
+    return value
+
+
 def _fire(plan: Plan, t: DelayedTrigger, event: TriggerEvent | None) -> PendingTrigger | None:
     from app.rules.triggers import _add
 
     if t.controller not in plan.live():
         return None
     definition = {"kind": "triggered", "trigger": "delayed", "optional": False, "target": t.target,  # (target: wave 25C, a turn watch's own)
+                  **({'targets': t.targets} if t.targets else {}),
                   **({"if": t.when["if"]} if t.when.get("if") else {}),  # (-- turn-long triggers (wave 35B) -- an intervening "if", 603.4: as it triggers; as it resolves is its first effect)
-                  "effects": [{"do": "bind_refs", "refs": t.refs}, *(_swap_who(t.effects, WATCH_TARGET, "target") if t.target else t.effects)]}
+                  "effects": [{"do": "bind_refs", "refs": t.refs}, *(restore_targets(t.effects) if t.target or t.targets else t.effects)]}
     return _add(plan, controller=t.controller, source_card=t.source_card or "", source_object=t.source_object or "",
                 name=t.name, index=7000, definition=definition, event=event)
 
@@ -340,9 +363,15 @@ def _step_due(plan: Plan, t: DelayedTrigger, phase: str) -> bool:
     if t.until_turn is not None and turn > t.until_turn:
         return False  # (its turn is over: "that turn's end step" never came)
     later_turn = turn > t.turn
+    if w.get('next_turn_only') and not later_turn:
+        return False
     created_at = PHASES.index(t.step) if t.step in PHASES else -1
     same_turn_before = turn == t.turn and created_at < PHASES.index(phase) + (phase == "cleanup")  # (-- flash auras (wave 46B) -- made in a cleanup step: due at the one that follows it, 514.3a)
+    if t.created_step is not None:
+        same_turn_before = turn == t.turn and plan.rules.step_serial > t.created_step
     whose = w.get("whose")
+    if whose == "this_turn":  # 603.7b: every future matching step this turn, including extra phases after main2.
+        return turn == t.turn
     if whose == "next":  # the next such step to begin, this turn's if it hasn't yet (500.6)
         return later_turn or same_turn_before
     if whose == "you":
@@ -356,6 +385,9 @@ def at_step(plan: Plan, phase: str) -> None:
     """A step began: delayed triggers waiting for it trigger (500.6, 603.7). They join the
     other step triggers in ``pending_triggers`` and go on the stack in APNAP order (603.3b)."""
     r = plan.rules
+    if phase == "upkeep":
+        r.permissions = [p for p in r.permissions if not (p.until == "next_upkeep" and (p.until_player or p.player) == plan.active
+                          and (p.granted_step is None or r.step_serial > p.granted_step))]
     due = [t for t in r.delayed if _step_due(plan, t, phase)]
     if not due:
         return
@@ -400,14 +432,19 @@ def on_events(plan: Plan, events: list[Event]) -> None:
                                  new_objects=_new_ref(snap.card, e.new_object_id, e.to_zone) + pile_refs(plan, e))  # (review 18D: 730.3c)
             fired.append(t)
             _fire(plan, t, event)
-    if fired:
-        r.delayed = [t for t in r.delayed if t not in fired or not t.once]
+    from app.rules import random_artifact_tables42
+
+    expired = random_artifact_tables42.departed_watchers(plan, events)
+    if fired or expired:
+        r.delayed = [t for t in r.delayed if (t not in fired or not t.once) and t.id not in expired]
 
 
 def cleanup(plan: Plan) -> None:
     """514.2: "this turn" delayed triggers stop watching."""
     turn = plan.state.turn.number
-    plan.rules.delayed = [t for t in plan.rules.delayed if t.until_turn is None or t.until_turn > turn]
+    plan.rules.delayed = [t for t in plan.rules.delayed
+                          if (t.until_turn is None or t.until_turn > turn)
+                          and not (t.until_end_next_player == plan.active and turn > t.turn)]
     # -- end of next turn (wave 32C) -- "Players can't cast … until the end of your next turn" ends in that turn's cleanup (611.2a, 514.2)
     plan.rules.cast_limits = [x for x in plan.rules.cast_limits if not (
         x.get("until") == "end_of_next_turn" and x.get("controller") == plan.active and turn > int(x.get("turn") or 0))]
@@ -459,6 +496,7 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             effect.turn = plan.state.turn.number
             if counter:
                 effect.counter = counter
+                effect.counter_since_batch = plan.rules.batch
             if duration.startswith("source_"):
                 effect.source = ctx.get("source_object")
                 effect.source_card = ctx.get("source_card")
@@ -542,8 +580,18 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     from app.rules import cast_limits  # -- cast limits (wave 5E) -- "until your next turn, … can't cast …"
 
     cast_limits.turn_began(plan, skipped)
+    # CR 800.4m: an "until your next turn" cost effect also ends when a
+    # departed player's next turn would have begun.
+    r.cost_modifiers = [m for m in r.cost_modifiers if not (m.until == "next_turn" and (
+        (m.controller == active and turn > m.turn)
+        or any(m.controller == p and n > m.turn for p, n in skipped or ())))]
+    from app.rules import timed_damage_replacements
+
+    timed_damage_replacements.turn_began(plan, skipped)
     r.delayed = [t for t in r.delayed if t.until_player is None or not ((t.until_player == active and turn > t.turn)  # -- turn-long triggers (wave 50G) -- "until your next turn" watches
                                                                         or any(t.until_player == p and n > t.turn for p, n in skipped or ()))]
+    r.delayed = [t for t in r.delayed if not any(
+        t.until_end_next_player == player and skipped_turn > t.turn for player, skipped_turn in skipped or ())]
     ended = [e for e in r.effects if (e.duration == "next_turn" and e.until_player == active and turn > e.turn)
              or (e.duration in ("next_turn", "end_of_next_turn")  # (-- end of next turn (wave 32C) -- a departed player's turn never gets a cleanup, 800.4m)
                  and any(e.until_player == p and n > e.turn for p, n in skipped or ()))]
@@ -566,12 +614,18 @@ def end_of_next_turn(plan: Plan) -> None:
 def expire(plan: Plan) -> None:
     """611.2b: "for as long as …" effects end as soon as it stops being true (checked after every
     table change: the source left, changed controller or untapped)."""
+    from app.rules import phase_lifetimes43, timed_damage_replacements
+
+    phase_lifetimes43.expire(plan)
+    timed_damage_replacements.expire_source_records(plan)
     r = plan.rules
     ended = [e for e in r.effects if e.duration.startswith("source_")
              and not _source_ok(plan, e.duration, e.source_card, e.source, e.until_player)]
     for e in r.effects:  # -- quoted grants (wave 2D) -- "for as long as it has a … counter on it": per object
         if e.duration == "while_counter":
-            kept = [oid for oid in e.affected if _has_counter(plan, oid, e.counter or "")]
+            lost_last = {ev.object_id for ev in r.events if ev.kind == "counters" and ev.counter == e.counter
+                         and ev.counter_remaining == 0 and ev.batch > e.counter_since_batch}
+            kept = [oid for oid in e.affected if oid not in lost_last and _has_counter(plan, oid, e.counter or "")]
             if not kept:
                 ended.append(e)
             elif len(kept) < len(e.affected):

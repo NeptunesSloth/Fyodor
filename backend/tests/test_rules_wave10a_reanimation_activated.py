@@ -29,22 +29,22 @@ def cards(settings) -> Iterator[CardRepository]:
     repo.close()
 
 
-@pytest.mark.parametrize(("name", "cost", "kind", "text"), [
-    # an X that is not announced with the spell or ability: the target can't be judged against it (107.3f)
+@pytest.mark.parametrize(("name", "cost", "kind", "text", "full"), [
+    # CR 107.3a: activation-cost X is announced; resolution-payment X cannot choose an earlier target.
     ("Chthonian Nightmare", "{1}{B}", "Enchantment",
      "When this enchantment enters, you get {E}{E}{E} (three energy counters).\nPay X {E}, Sacrifice a creature, Return this "
      "enchantment to its owner's hand: Return target creature card with mana value X from your graveyard to the battlefield. "
-     "Activate only as a sorcery."),
+     "Activate only as a sorcery.", True),
     ("Relentless Dead", "{B}{B}", "Creature — Zombie",
      "Menace\nWhen this creature dies, you may pay {B}. If you do, return it to its owner's hand.\nWhen this creature dies, you "
-     "may pay {X}. If you do, return another target Zombie creature card with mana value X from your graveyard to the battlefield."),
+     "may pay {X}. If you do, return another target Zombie creature card with mana value X from your graveyard to the battlefield.", False),
     # ("mana value X" exactly is read for permanents too since wave 17B: test_rules_wave17b_activated.py, Disembowel)
     # a comparison with the source is read for graveyard cards only
 ])
-def test_wordings_that_are_not_read_stay_manual(name, cost, kind, text):
+def test_activation_cost_x_is_supported_but_resolution_payment_x_stays_manual(name, cost, kind, text, full):
     data = card(name, set_code="tst", number="N1", mana_cost=cost, type_line=kind, oracle_text=text,
                 power="2" if "Creature" in kind else None, toughness="2" if "Creature" in kind else None)
-    assert coverage.of_characteristics(printed_from_data(data, 0)).level != "FULL"
+    assert (coverage.of_characteristics(printed_from_data(data, 0)).level == "FULL") is full
 
 
 def test_crop_sigil_needs_four_card_types_in_the_graveyard_then_returns_a_creature_and_a_land(cards):

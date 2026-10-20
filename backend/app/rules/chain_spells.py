@@ -28,6 +28,25 @@ def _copy(bind: str) -> list[dict[str, Any]]:
             {"do": "copy_new_targets", "optional": True}]
 
 
+
+def self_copy_sentence(text: str, effects: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+    """A conditional optional copy of the resolving spell; copies themselves were not cast."""
+    from app.rules import conditions
+
+    m = re.fullmatch(r"if (?P<cond>this spell was cast from (?:a graveyard|your hand)), you may copy this spell and may choose (?:a new target|new targets) for the copy", text)
+    if m is None:
+        return None
+    cond = conditions.parse(m["cond"], objects=True)
+    if cond is None:
+        return None
+    bind = f"pay{sum(e['do'] == 'optional_payment' for e in effects)}"
+    return [{"do": "only_if", "cond": cond, "skip": 4},
+            {"do": "optional_payment", "who": "you", "ask": "copy this spell", "cost": "", "bind": bind},
+            {"do": "only_if", "cond": {"succeeded": bind}, "skip": 2},
+            {"do": "copy_spell", "who": "this_spell"},
+            {"do": "copy_new_targets", "optional": True}]
+
+
 def sentence(texts: list[str], i: int, text: str, effects: list[dict[str, Any]], groups: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
     """The effects of sentence ``i`` (``text``: it, first letter lowered) when it is a chain tail's, or None. Only after instructions that have the spell's one target
     ("that player" / "that permanent's controller" is whoever it names)."""

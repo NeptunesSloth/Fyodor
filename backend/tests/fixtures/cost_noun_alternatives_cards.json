@@ -1,0 +1,49 @@
+[
+  {
+    "name": "Soul Diviner",
+    "mana_cost": "{U}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Zombie Wizard",
+    "oracle_text": "{T}, Remove a counter from an artifact, creature, land, or planeswalker you control: Draw a card.",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Chandra's Regulator",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Legendary Artifact",
+    "oracle_text": "Whenever you activate a loyalty ability of a Chandra planeswalker, you may pay {1}. If you do, copy that ability. You may choose new targets for the copy.\n{1}, {T}, Discard a Mountain card or a red card: Draw a card.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Chandra Nalaar",
+    "mana_cost": "{3}{R}{R}",
+    "cmc": 5.0,
+    "type_line": "Legendary Planeswalker \u2014 Chandra",
+    "oracle_text": "+1: Chandra Nalaar deals 1 damage to target player or planeswalker.\n\u2212X: Chandra Nalaar deals X damage to target creature.\n\u22128: Chandra Nalaar deals 10 damage to target player or planeswalker and each creature that player or that planeswalker's controller controls.",
+    "loyalty": "6",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  }
+]

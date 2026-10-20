@@ -18,7 +18,7 @@ from app.game.session import GameSession
 from app.rules import scripts
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act, deck, enable
+from tests.game_helpers import act, deck, enable, mana_pool
 from tests.test_rules_effects import mana, pass_until_stack_empty, replay_matches
 
 
@@ -559,10 +559,10 @@ def test_fire_sages_firebending_mana_lasts_until_end_of_combat(cards):
     d = rules(s).decision
     assert d is not None and d.kind == "declare_blockers" and s.state.turn.phase == "declare_blockers"
     # the attack trigger added {R}; the declare attackers step ended, and the {R} stayed (702.189a)
-    assert s.state.players["p1"].mana.get("R") == 1 and rules(s).combat_mana == {"p1": 1}
+    assert mana_pool(s).get("R") == 1 and any(r.get("until") == "end_of_combat" and r.get("units") for r in rules(s).kept_mana)
     act(s, "p2", type="declare_blockers", blocks=[])
     assert s.state.turn.phase == "main2"  # (on through damage and end of combat)
-    assert not s.state.players["p1"].mana and not rules(s).combat_mana  # gone as the combat phase ended
+    assert not mana_pool(s) and not rules(s).combat_mana  # gone as the combat phase ended
     replay_matches(s)
 
 

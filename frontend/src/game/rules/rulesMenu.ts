@@ -2,11 +2,11 @@
 import type { MenuItem } from "../../components/ContextMenu";
 import { useCardCache } from "../../state/cardCache";
 import { isVisible, splitZone, type GameCard, type GameView } from "../../types/game";
-import { abilityLines, automationOn, isLand, send, setPrefs } from "./intents";
+import { abilityLines, automationOn, isLand, send, setPrefs, useXPrompt } from "./intents";
 
 /** 702.33a / 702.33c: a "Kicker {cost}" or "Multikicker {cost}" keyword line (mana costs only, as the server pays them). */
 const KICKER = /^(?:(?:multi)?kicker|entwine) (?:\{[^}]+\})+(?: and\/or (?:\{[^}]+\})+)?$|^entwine—|^kicker—/i; // (702.42a entwine: kicker's count 1 is "choose all modes"; wave 43D: "Kicker—Sacrifice a land.", paid by the server)
-/** Multikicker: how many times to pay (a submenu; more is rare enough to do by hand). */
+/** Multikicker quick choices; Other uses the same platform numeric range as X. */
 export const MULTIKICKER_COUNTS = [1, 2, 3, 4, 5, 6];
 
 /** -- Rooms (wave 18G) -- 709.5: a split card whose halves share one Room type line. */
@@ -65,6 +65,7 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     }
   }
   const morph = abilityLines(oracle).find((l) => /^(mega)?morph \{/i.test(l));
+  const disguise = abilityLines(oracle).find((l) => /^disguise \{/i.test(l));
   const evoke = abilityLines(oracle).find((l) => /^evoke \{/i.test(l));
   if (mine && zone === "hand" && evoke) {
     items.push({ label: `Cast with ${evoke}`, onClick: () => void send({ type: "cast_spell", card_id: card.id, evoke: true }) });
@@ -100,7 +101,8 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     } else if (/^multikicker/i.test(kicker)) {
       // 702.33c: any number of times. The server checks the total cost when it's paid.
       items.push({ label: `Cast with ${kicker}`, disabled: !castable,
-        submenu: MULTIKICKER_COUNTS.map((n) => ({ label: `Kicked ×${n}`, onClick: cast(n) })) });
+        submenu: [...MULTIKICKER_COUNTS.map((n) => ({ label: `Kicked ×${n}`, onClick: cast(n) })),
+          { label: "Other count…", onClick: () => useXPrompt.setState({ action: { type: "cast_spell", card_id: card.id }, field: "kicker" }) }] });
     } else {
       items.push({ label: `Cast with ${kicker}`, disabled: !castable, onClick: cast(1) });
     }
@@ -140,11 +142,11 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   if (mine && zone === "battlefield") {
     const lines = abilityLines(oracle);
     lines.forEach((line, i) => {
-      if (/^reconfigure (?:\{[^}]+\})+$/i.test(line)) {
+      if (/^reconfigure(?: (?:\{[^}]+\})+|—.+)\.?$/i.test(line)) {
         const ready = (n: number) => !!hints.activatable?.some((a) => a.card_id === card.id && a.ability === n);
         const [attach, unattach] = [lines.length, lines.length + 1];
-        items.push({ label: `Reconfigure: attach (${line.replace(/^reconfigure /i, "")})`, disabled: !ready(attach), onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: attach }) });
-        items.push({ label: `Reconfigure: unattach (${line.replace(/^reconfigure /i, "")})`, disabled: !ready(unattach), onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: unattach }) });
+        items.push({ label: `Reconfigure: attach (${line.replace(/^reconfigure(?: |—)/i, "").replace(/\.$/, "")})`, disabled: !ready(attach), onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: attach }) });
+        items.push({ label: `Reconfigure: unattach (${line.replace(/^reconfigure(?: |—)/i, "").replace(/\.$/, "")})`, disabled: !ready(unattach), onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: unattach }) });
       } else if (/^craft with /i.test(line)) {
         const ready = !!hints.activatable?.some((a) => a.card_id === card.id && a.ability === i);
         items.push({ label: `Activate: ${line.length > 60 ? line.slice(0, 57) + "…" : line}`, disabled: !ready, onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
@@ -166,8 +168,8 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
         onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
     });
   }
-  if (mine && zone === "hand" && morph) {
-    items.push({ label: "Cast face down (morph, {3})", onClick: () => void send({ type: "cast_spell", card_id: card.id, face_down: true }) });
+  if (mine && zone === "hand" && (morph || disguise)) {
+    items.push({ label: `Cast face down (${morph ? "morph" : "disguise"}, {3})`, onClick: () => void send({ type: "cast_spell", card_id: card.id, face_down: true }) });
   }
   const room = rules.stats?.[card.id];
   if (mine && zone === "battlefield" && room?.doors && room.halves) {
@@ -185,21 +187,34 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   if (zone === "battlefield" && endCost) {
     items.push({ label: `End the effect (${endCost}, special action)`, disabled: !hints.has_priority, onClick: () => void send({ type: "end_effect", card_id: card.id }) });
   }
-  if (mine && zone === "battlefield" && card.face_down && morph) {
-    items.push({ label: `Turn face up (${morph})`, onClick: () => void send({ type: "turn_face_up", card_id: card.id }) });
+  if (mine && zone === "battlefield" && card.face_down) {
+    const ways = rules.stats?.[card.id]?.turn_up;
+    if (ways?.length) {
+      for (const way of ways) items.push({ label: `Turn face up (${way.method === "mana_cost" ? "mana cost" : way.method}, ${way.cost})`,
+        disabled: !hints.has_priority, onClick: () => void send({ type: "turn_face_up", card_id: card.id, method: way.method }) });
+    } else if (morph || disguise) {
+      items.push({ label: `Turn face up (${morph ?? disguise})`, onClick: () => void send({ type: "turn_face_up", card_id: card.id }) });
+    }
   }
   if (mine && zone === "hand") {
     const text = oracle;
     abilityLines(text).forEach((line, i) => {
       // (wave 5A) 113.6m / 605.3a: "Exile this card from your hand: Add {R}." (Simian Spirit Guide)
       // (wave 24C) 702.57a: "Forecast — {1}{U}, Reveal this card from your hand: …" (the server checks the upkeep and once each turn)
-      if (/^(?:(?:basic )?[a-z]+)?cycling \{/i.test(line) || /^suspend (?:\d+|X)\s*[—-]/i.test(line) || /^forecast\s*—/i.test(line)
+      if (/^(?:(?:(?:basic|artifact) )?[a-z]+)?cycling \{/i.test(line) || /^cycling\s*[—-]/i.test(line) || /^suspend (?:\d+|X)\s*[—-]/i.test(line) || /^forecast\s*—/i.test(line)
         || /^Exile this card from your hand: Add /.test(line)
         // (review 24C) 113.6m: any other ability that works from the hand ("{B}, Reveal this card from your hand: …", channel) when the server lists it
         || !!hints.activatable?.some((a) => a.card_id === card.id && a.ability === i)) {
         items.push({ label: line.replace(/\s*\(.*$/, ""), onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
       }
     });
+    // Zone grants use the server's stable ability index and are visible only with the card.
+    for (const ability of rules.stats?.[card.id]?.abilities ?? []) {
+      if (ability.kind === "keywords" && /^(?:(?:(?:basic|artifact) )?[a-z]+)?cycling(?: \{|\s*[—-])/i.test(ability.text)) {
+        items.push({ label: ability.text.replace(/\s*\(.*$/, ""), disabled: !hints.has_priority,
+          onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: ability.index }) });
+      }
+    }
   }
   if (mine && zone === "battlefield") {
     const text = data?.faces?.[card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "";
@@ -207,11 +222,11 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     const abilities = lines
       .map((line, i) => ({ line, i }))
       .filter(({ line }) => /^[^.]*:\s/.test(line) && !/^(Enchant|Equip \{|Cycling)/.test(line) || /: Add /.test(line)
-        || /^Crew \d+$/.test(line) || /^Equip (\{[^}]+\})+$/.test(line));
+        || /^Crew \d+(?:\.|$)/.test(line) || /^Equip(?: |—)/.test(line));
     for (const { line, i } of abilities) {
       // Equip (702.6a) is checked by the server (sorcery speed, a creature you control): offered with priority.
       const ready = hints.activatable?.some((a) => a.card_id === card.id && a.ability === i) || /: Add /.test(line)
-        || (/^Equip \{/.test(line) && !!hints.has_priority);
+        || (/^Equip(?: |—)/.test(line) && !!hints.has_priority);
       items.push({ label: `Activate: ${line.length > 60 ? line.slice(0, 57) + "…" : line}`, disabled: !ready,
         onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
     }

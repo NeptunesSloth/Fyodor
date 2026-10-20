@@ -1,0 +1,92 @@
+[
+  {
+    "id": "6ba0a838-eb60-468d-aa7f-bca4f7764267",
+    "oracle_id": "3089bdd7-87e6-4d0e-ad98-c32e6f861c30",
+    "name": "Hammer of Bogardan",
+    "layout": "normal",
+    "set_code": "pd2",
+    "set_name": "Premium Deck Series: Fire and Lightning",
+    "collector_number": "23",
+    "rarity": "rare",
+    "mana_cost": "{1}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Hammer of Bogardan deals 3 damage to any target.\n{2}{R}{R}{R}: Return this card from your graveyard to your hand. Activate only during your upkeep.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2010-11-19",
+    "artist": "Ron Spencer",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "ba90a2d6-8292-4ff1-91d0-b30ae9775f12",
+    "oracle_id": "a08c599e-ee75-4d2b-ae9b-0987c233dd17",
+    "name": "Repeating Barrage",
+    "layout": "normal",
+    "set_code": "xln",
+    "set_name": "Ixalan",
+    "collector_number": "156",
+    "rarity": "rare",
+    "mana_cost": "{1}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Repeating Barrage deals 3 damage to any target.\nRaid \u2014 {3}{R}{R}: Return this card from your graveyard to your hand. Activate only if you attacked this turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Raid"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-09-29",
+    "artist": "Dan Murayama Scott",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "name": "Trained Armodon",
+    "layout": "normal",
+    "mana_cost": "{1}{G}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Elephant",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  }
+]

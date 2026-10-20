@@ -35,6 +35,11 @@ def they_names_event_player(name: str, cond: dict[str, Any] | None, has_player: 
 
 def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: bool) -> str:
     """The body of a triggered ability with these wordings replaced by the plainer ones (else unchanged)."""
+    if (cond or {}).get('event') == 'enter' or name == 'enters_other':
+        body = re.sub(r"^if ~ has counters on it, put the same number of each kind of counter on that creature\.$",
+                      "if ~ has counters on it, put a copy of ~'s counters on the creature that entered.", body)
+    if (cond or {}).get("owner_antecedent"):
+        body = _THEY.sub(lambda m: f"{m['i'] or ''}its owner {_VERBS[m['v']]}", body)
     if they_names_event_player(name, cond, has_player):
         body = _THEY.sub(lambda m: f"{m['i'] or ''}that player {_VERBS[m['v']]}", body)
         # -- damage wordings (wave 6B) -- "At the beginning of each player's upkeep, ~ deals 1 damage to them."

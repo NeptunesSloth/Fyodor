@@ -22,7 +22,7 @@ from app.cards.repository import CardRepository
 from app.rules import coverage
 from app.rules.casting import mana_abilities
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_wave34b_activated import activate, next_turn, settle
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
 from tests.wave43b_kit import cast
@@ -63,7 +63,7 @@ def test_deep_water_makes_your_lands_produce_blue_until_end_of_turn(cards):
     settle(s)
     assert options(s, "Mountain") == [("U",)] and options(s, "Mountain", "p2") == [("R",)]  # only the lands Alice controls
     act(s, "p1", type="activate_ability", card_id=mountain.id, ability=0)
-    assert s.state.players["p1"].mana == {"U": 1}
+    assert mana_pool(s) == {"U": 1}
     check(s)
     next_turn(s)
     assert options(s, "Mountain") == [("R",)]  # it ended with the turn (514.2)

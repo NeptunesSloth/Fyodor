@@ -81,10 +81,10 @@ def args(ctx: dict[str, Any], rule: str) -> str:
         ev = ctx.get("event") or {}
         attacker = (ev.get("objects") or [None])[0] if ev.get("kind") == "attack" else None
         rule = rule.replace("@it", str(attacker["object_id"]) if attacker else ctx.get("source_object") or "")
-    if "@t1" in rule:
+    if re.search(r"@t\d+", rule):
         from app.rules.effects import target_refs
 
-        rule = rule.replace("@t1", next((str(t.get("object_id")) for t in target_refs(ctx, "target:1")), ""))
+        rule = re.sub(r"@t(?P<n>\d+)", lambda m: next((str(t.get("object_id")) for t in target_refs(ctx, f"target:{m['n']}")), ""), rule)
     return rule
 
 

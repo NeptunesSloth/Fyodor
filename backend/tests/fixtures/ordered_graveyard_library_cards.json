@@ -1,0 +1,40 @@
+[
+  {
+    "name": "Bow of Nylea",
+    "layout": "normal",
+    "mana_cost": "{1}{G}{G}",
+    "cmc": 3.0,
+    "type_line": "Legendary Enchantment Artifact",
+    "oracle_text": "Attacking creatures you control have deathtouch.\n{1}{G}, {T}: Choose one \u2014\n\u2022 Put a +1/+1 counter on target creature.\n\u2022 Bow of Nylea deals 2 damage to target creature with flying.\n\u2022 You gain 3 life.\n\u2022 Put up to four target cards from your graveyard on the bottom of your library in any order.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null
+  },
+  {
+    "name": "Misinformation",
+    "layout": "normal",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Put up to three target cards from an opponent's graveyard on top of their library in any order.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null
+  }
+]

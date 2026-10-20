@@ -1,0 +1,44 @@
+[
+  {
+    "name": "Planar Nexus",
+    "oracle_text": "This land is every nonbasic land type. (Nonbasic land types include Cave, Desert, Gate, Lair, Locus, Mine, Power-Plant, Sphere, Tower, and Urza's.)\n{T}: Add {C}.\n{1}, {T}: Add one mana of any color.",
+    "type_line": "Land",
+    "mana_cost": "",
+    "layout": "normal"
+  },
+  {
+    "name": "Urza's Tower",
+    "oracle_text": "{T}: Add {C}. If you control an Urza's Mine and an Urza's Power-Plant, add {C}{C}{C} instead.",
+    "type_line": "Land \u2014 Urza's Tower",
+    "mana_cost": "",
+    "layout": "normal"
+  },
+  {
+    "name": "Cloudpost",
+    "oracle_text": "This land enters tapped.\n{T}: Add {C} for each Locus on the battlefield.",
+    "type_line": "Land \u2014 Locus",
+    "mana_cost": "",
+    "layout": "normal"
+  },
+  {
+    "name": "Blood Moon",
+    "oracle_text": "Nonbasic lands are Mountains.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{R}",
+    "layout": "normal"
+  },
+  {
+    "name": "Yavimaya, Cradle of Growth",
+    "oracle_text": "Each land is a Forest in addition to its other land types.",
+    "type_line": "Legendary Land",
+    "mana_cost": "",
+    "layout": "normal"
+  },
+  {
+    "name": "Circuitous Route",
+    "oracle_text": "Search your library for up to two basic land cards and/or Gate cards, put them onto the battlefield tapped, then shuffle.",
+    "type_line": "Sorcery",
+    "mana_cost": "{3}{G}",
+    "layout": "normal"
+  }
+]

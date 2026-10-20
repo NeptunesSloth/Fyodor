@@ -126,10 +126,9 @@ def test_a_copy_of_the_token_keeps_the_mana_cost(cards):
     to_hand(s, "Clone")
     mana(s, U=1, C=3)
     act(s, "p1", type="cast_spell", card_id=card_named(s, "Clone").id)
-    settle(s, answer="Tarmogoyf")
+    settle(s, answer=goyf.id)
     clone = s.state.cards[card_named(s, "Clone").id]
-    if ch(s, clone).name != "Tarmogoyf":  # the copy choice names the creature: answer it
-        pytest.skip("the enters-as-a-copy answer is asked differently")
+    assert ch(s, clone).name == "Tarmogoyf"
     assert ch(s, clone).mana_cost == "{1}{G}" and ch(s, goyf).mana_cost == "{1}{G}"
     check(s)
 

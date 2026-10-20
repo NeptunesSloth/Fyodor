@@ -18,7 +18,7 @@ from app.game.state import GameState
 from app.rules import casting, coverage
 from app.rules.oracle import AbilityText
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act, zone
+from tests.game_helpers import act, mana_pool, zone
 from tests.test_rules_conditionals import build, creature, on_field, to_hand
 from tests.test_rules_effects import mana, replay_matches
 
@@ -282,7 +282,7 @@ def test_snow_mana_spent_adds_colorless_for_each_s(cards):
     mana(s, "p1", R=1)
     act(s, "p1", type="cast_spell", card_id=next(c.id for c in s.state.cards.values() if c.name == "Tundra Fumarole"), targets=[target.id])
     settle(s)
-    assert s.state.players["p1"].mana == {"C": 2}  # (the plain {R} isn't from a snow source)
+    assert mana_pool(s) == {"C": 2}  # (the plain {R} isn't from a snow source)
     roundtrip(s)
 
 
@@ -297,7 +297,7 @@ def test_snow_mana_tapped_by_hand_is_remembered(cards):
     mana(s, "p1", R=1, G=1)
     act(s, "p1", type="cast_spell", card_id=next(c.id for c in s.state.cards.values() if c.name == "Tundra Fumarole"), targets=[target.id])
     settle(s)
-    assert s.state.players["p1"].mana == {"C": 1} and s.state.players["p1"].mana_units == []  # (one {S}: the snow Mountain's {R})
+    assert mana_pool(s) == {"C": 1} and all(u.src != s.state.rules.object_id(mountain.id) for u in s.state.players["p1"].mana_units)  # (one {S}: the snow Mountain's {R})
     roundtrip(s)
 
 
@@ -509,7 +509,8 @@ def test_views_show_the_same_pool_to_everyone_and_nothing_hidden(cards):
     views = {v: build_view(s.state, v) for v in ("p1", "p2", SPECTATOR)}
     pools = {v: [p["mana_units"] for p in views[v]["players"] if p["id"] == "p1"][0] for v in views}
     assert pools["p1"] == pools["p2"] == pools[SPECTATOR] and len(pools["p1"]) == 7
-    assert set(pools["p2"][0]) == {"id", "sym", "src", "tags", "only", "note", "riders"}
+    assert set(pools["p2"][0]) == {"id", "sym", "src", "tags", "only", "note", "riders", "generic_allowed"}
+    assert all(u['generic_allowed'] for u in pools['p2'])
     assert secret.name not in json.dumps(views["p2"]) and secret.name not in json.dumps(views[SPECTATOR])  # (the hand stays hidden)
     d = s.state.rules.decision
     assert d is None

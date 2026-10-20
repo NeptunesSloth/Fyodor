@@ -46,8 +46,16 @@ class Characteristics:
     oracle_text: str = ""
     abilities: tuple[AbilityText, ...] = field(default_factory=tuple)
     oracle_id: str | None = None
+    linked_other_face: tuple[AbilityText, ...] = ()  # validation metadata for actual transforming linked abilities
     face_down: bool = False
     is_ability: bool = False  # an ability object on the stack
+    # Public object metadata for protection checks; not copiable values (109.3).
+    object_controller: str | None = None
+    targeting_controller: str | None = None  # ephemeral targeting spell/ability controller (702.16k), not its source controller
+    object_owner: str | None = None
+    on_battlefield: bool = False
+    object_counters: frozenset[str] = frozenset()
+    object_ring_bearer: bool = False  # designation, not copiable values
     is_spell: bool = False  # -- cant (wave 49C) -- the source of a targeting is a spell (115.2: "can't be the target of spells"); set by targets.source_of(spell=True)
     # Derived by app.rules.layers (never printed): current power/toughness, keywords gained/lost.
     pt: tuple[int, int] | None = None
@@ -64,6 +72,7 @@ class Characteristics:
     level: int | None = None  # -- Class (wave 16A) -- 716.2b: the permanent's class level (None: not read for a permanent, all sections)
     doors: frozenset[int] | None = None  # -- Rooms (wave 18G) -- 709.5: the halves (1 left, 2 right) that count; a Room's abilities are sectioned by door
     word: str | None = None  # -- linked words (wave 33B) -- 607.2f: the word the object chose as it entered ("" none; None: not read, every linked ability)
+    flanking_count: int | None = None  # derived: surviving instances after timestamp-ordered loss/grants
 
     @property
     def is_land(self) -> bool:
@@ -87,6 +96,11 @@ class Characteristics:
         return (printed | self.granted) - self.lost
 
     @property
+    def has_abilities(self) -> bool:
+        """Current abilities, including keyword grants/counters and keyword removal (113.10)."""
+        return bool(self.keywords) or any(a.kind != "keywords" or not a.keywords for a in self.abilities)
+
+    @property
     def has_flash(self) -> bool:
         return "flash" in self.keywords
 
@@ -97,7 +111,9 @@ def parse_type_line(type_line: str) -> tuple[frozenset[str], frozenset[str], fro
     words = left.replace("Token", " ").split()
     supertypes = frozenset(w for w in words if w in SUPERTYPES)
     types = frozenset(w for w in words if w in CARD_TYPES)
-    subtypes = frozenset(right.split()) if right else frozenset()
+    # CR 205.3m lists Time Lord as one creature type, including on mixed lines
+    # such as "Time Lord Doctor". All other printed subtypes are single words.
+    subtypes = frozenset(re.findall(r"Time Lord|\S+", right)) if right else frozenset()
     return supertypes, types, subtypes
 
 
@@ -188,6 +204,11 @@ def _from_card_data(data: dict[str, Any], face: int, *, half: bool = False) -> C
     if half and faces and layout in HALVES:
         face = min(face, len(faces) - 1)
         src = faces[face]
+        # Split/adventure face records may omit colors. The aggregate card's
+        # colors are not the selected half's colors (105.2, 709.3a).
+        if src.get('colors') is None:
+            cost = str(src.get('mana_cost') or '')
+            src = {**src, 'colors': src.get('color_indicator') or [c for c in 'WUBRG' if c in cost]}
         text = str(src.get("oracle_text") or "")
         return _build(data, src, text)
     # Split cards and adventures are one object with both halves' text while not on the stack;
@@ -246,7 +267,7 @@ def _build(data: dict[str, Any], src: dict[str, Any], text: str) -> Characterist
     colors = src.get("colors") if src.get("colors") is not None else data.get("colors")
     station = levelers.station_creature(text) is not None  # -- Station (wave 46D) -- 721.2c: its power/toughness box is the station symbol's
     abilities = with_intrinsic_mana(parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"}), pt=(src.get("power"), src.get("toughness"))), subtypes)
-    return Characteristics(
+    return _as_entry_base(Characteristics(
         name=str(src.get("name") or data.get("name") or ""),
         supertypes=supertypes,
         types=types,
@@ -262,7 +283,30 @@ def _build(data: dict[str, Any], src: dict[str, Any], text: str) -> Characterist
         oracle_text=text,
         abilities=abilities,
         oracle_id=data.get("oracle_id"),
-    )
+        linked_other_face=tuple(a for face in (data.get('faces') or []) if face is not src
+                                for a in _linked_face_abilities(face))
+                          if data.get('layout') == 'transform' and src in (data.get('faces') or []) else (),
+    ))
+
+
+def _as_entry_base(ch: Characteristics) -> Characteristics:
+    """208.2b/107.2: the exact as-entry coin form has undefined base values.
+
+    Its chosen form is subsequently applied as a copiable layer-1 exception.
+    This is not a characteristic-defining ability or a battlefield-only pump.
+    """
+    if ch.power == "*" and ch.toughness == "*":
+        from app.rules.copiable_coin_entry import definition
+
+        if any(definition(a.text.replace("this creature", "~")) for a in ch.abilities):
+            return replace(ch, power="0", toughness="0")
+    return ch
+
+
+def _linked_face_abilities(face: dict[str, Any]) -> tuple[AbilityText, ...]:
+    from app.rules import scripts
+
+    return tuple(parse_abilities(scripts.self_text(str(face.get('oracle_text') or ''), str(face.get('name') or ''))))
 
 
 def _devoid(abilities: tuple[AbilityText, ...]) -> bool:
@@ -274,6 +318,14 @@ def changeling(subtypes: frozenset[str], abilities: tuple[AbilityText, ...], nam
     """702.73a: changeling is a characteristic-defining ability, "this object is every creature
     type" — in every zone (CR 205.3m list). -- type statics (wave 5F) -- so is "Mistform Ultimus is every creature
     type (even if this card isn't on the battlefield)." (604.3: a characteristic-defining ability of the object itself)."""
+    # 604.3a / 205.3i: defining this object's land subtypes is also a CDA.
+    from app.rules.oracle import strip_reminders
+
+    if any(a.kind == "static" and strip_reminders(a.text).strip() in
+           ("This land is every nonbasic land type.", f"{name} is every nonbasic land type.") for a in abilities):
+        from app.rules.layers import LAND_TYPES
+
+        return subtypes | (LAND_TYPES - BASIC_LAND_MANA.keys())
     every = f"{name} is every creature type." if name else None
     if any((a.kind == "keywords" and "changeling" in a.keywords) or (a.kind == "static" and a.text == every)
            for a in abilities):
@@ -328,7 +380,8 @@ def transformable(card: CardInstance, info: CardInfo) -> bool:
     """-- transform (wave 11A) -- 701.27a, 712.9: a card that can transform or convert: a double-faced card that isn't a meld card
     (712.4c; review 30b: a modal one too, 712.9 of CR 2026-09-25 — Gwen Stacy's ruling of 2025-09-19, "This is a change from previous
     rules"), whose other face is a permanent face (712.10)."""
-    data = info.get(card.card_id) if card.card_id and card.token is None and not card.is_token else None
+    # 707.8a: card-backed copy tokens of a DFC also physically have two faces.
+    data = info.get(card.card_id) if card.card_id else None
     faces = (data or {}).get("faces") or []
     if data is None or data.get("layout") not in ("transform", "modal_dfc") or len(faces) < 2:
         return False
@@ -385,12 +438,20 @@ def as_cast(card: CardInstance, info: CardInfo, face: int | None, fused: bool = 
         return both
     if data and data.get("faces") and data.get("layout") in HALVES and card.ability is None and not card.token:
         return half_from_data(data, face or 0)
-    return of(card.model_copy(update={"face": face}) if face is not None else card, info)
+    from app.rules import outside_battlefield_self
+
+    return outside_battlefield_self.apply(of(card.model_copy(update={"face": face}) if face is not None else card, info))
+
+
+def provenance(card: CardInstance, ch: Characteristics) -> Characteristics:
+    """Public object identity is not a copiable characteristic (109.4, 702.16k)."""
+    controlled = card.zone == 'stack' or card.zone.endswith(':battlefield')
+    return replace(ch, object_controller=card.controller if controlled else None, object_owner=card.owner)
 
 
 def of(card: CardInstance, info: CardInfo) -> Characteristics:
     """Current characteristics of a card instance (printed layer; see module docstring)."""
-    ch = _of_kept(card, info)
+    ch = provenance(card, _of_kept(card, info))
     if "Case" in ch.subtypes and card.zone.endswith(":battlefield") and "Solved" not in card.choices:  # -- Case (wave 51C) -- 719.3c: "Solved — [ability]" works only while it is solved (719.3b, the designation is not copiable)
         kept = tuple(a for a in ch.abilities if not a.text.startswith("Solved — "))
         if len(kept) != len(ch.abilities):
@@ -449,11 +510,11 @@ def _of(card: CardInstance, info: CardInfo) -> Characteristics:
             t = t.back
         supertypes, types, subtypes = parse_type_line(t.type_line)
         abilities = with_intrinsic_mana(parse_abilities(t.text, spell=bool(types & {"Instant", "Sorcery"})), subtypes)
-        return Characteristics(
+        return _as_entry_base(Characteristics(
             name=t.name, supertypes=supertypes, types=types, subtypes=changeling(subtypes, abilities, t.name),
             colors=frozenset() if _devoid(abilities) else frozenset(t.colors), power=t.power, toughness=t.toughness, oracle_text=t.text, abilities=abilities,
             mana_cost=t.mana_cost, mana_value=mana_value(t.mana_cost),  # (wave 49D: 111.3, 202.3)
-        )
+        ))
     data = info.get(card.card_id) if card.card_id else None
     if data is None:
         # Unknown to the card database (a custom object): typeless, so the engine won't guess.

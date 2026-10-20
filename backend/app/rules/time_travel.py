@@ -91,16 +91,9 @@ def resume_each(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 def _apply(plan: Plan, ctx: Context, me: str, done: list[list[Any]]) -> None:
     """The counters change together; a suspended card that lost its last one has 702.62c's trigger (put on the stack once this resolves)."""
-    from app.rules import replace, triggers
+    from app.rules import replace
     from app.rules.effects import continue_effects
 
-    r = plan.rules
-    for cid, _, delta in done:
-        card = plan.state.cards[cid]
-        if delta < 0 and card.counters.get("time", 0) == 1 and cid in r.suspended and card.zone.endswith(":exile"):
-            triggers._add(plan, controller=card.owner, source_card=cid, source_object=plan.oid(card), name=card.name, index=5300,
-                          definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
-                                      "effects": [{"do": "time_travel_cast", "card": cid}]})
     if done and not replace.put_counters(plan, [(c, k, n) for c, k, n in done], by=me, then={"do": "continue", "ctx": ctx}, ctx=ctx):
         return  # (a replacement order is being asked: the resolution goes on after the answer)
     continue_effects(plan, ctx)

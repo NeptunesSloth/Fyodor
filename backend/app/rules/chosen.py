@@ -48,7 +48,9 @@ def chooses_player(ch: Characteristics) -> bool:
     from app.rules.scripts import self_text
 
     found = [m for ab in ch.abilities if (m := ENTERS_CHOICE.match(self_text(ab.text, ch.name))) is not None]
-    return len(found) == 1 and found[0]["what"] in ("opponent", "player")
+    from app.rules import keyed_player_bindings
+
+    return (len(found) == 1 and found[0]["what"] in ("opponent", "player", "color and an opponent")) or (not found and keyed_player_bindings.remembers_combat(ch))
 
 
 # -- chosen type (wave 4J) ------------------------------------------------------------------------------------------
@@ -116,10 +118,12 @@ def _enters_choices(ch: Characteristics) -> list[str]:
     named += [m["what"] for t in texts if (m := NAME_TRIGGER.match(t)) is not None]  # (wave 53B: "When ~ enters, choose a land card name." — recorded on the permanent as the trigger resolves, Petrified Hamlet)
     pairs = [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and re.fullmatch(PAIRS, m["what"]) for k in ("color", "creature type")]  # (wave 53B: Sarpadian Empires)
     pairs += [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "two basic land types" for k in ("basic land type", "second basic land type")]  # (Illusionary Terrain)
-    singles = ["card type" if m["what"].startswith("card type") or type_choice(m["what"]) is not None else "number" if m["what"].startswith("number") else "abilities" if m["what"].startswith("two abilities") else "basic land type" if re.fullmatch(r"\w+ or \w+", m["what"]) and m["what"][:1].isupper() else "creature type" if m["what"][:1].isupper() else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] not in ("color and a creature type", "two basic land types") and not re.fullmatch(PAIRS, m["what"])]
+    singles = ["card type" if m["what"].startswith("card type") or type_choice(m["what"]) is not None else "number" if m["what"].startswith("number") else "abilities" if m["what"].startswith("two abilities") else "basic land type" if re.fullmatch(r"\w+ or \w+", m["what"]) and m["what"][:1].isupper() else "creature type" if m["what"][:1].isupper() else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] not in ("color and a creature type", "color and an opponent", "two basic land types", "two colors") and not re.fullmatch(PAIRS, m["what"])]
     both = [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "color and a creature type" for k in ("color", "creature type")]  # (wave 53B: "choose a color and a creature type")
+    both += [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "color and an opponent" for k in ("color", "opponent")]
     typed = ["card type" for ab in ch.abilities if self_text(ab.text, ch.name) == "As ~ enters, look at an opponent's hand, then choose a card type other than creature."]  # (wave 53B: Arachne)
-    return singles + both + pairs + typed + ["card name" for _ in named]  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
+    color_pairs = ["color pair" for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "two colors"]
+    return singles + both + pairs + typed + color_pairs + ["card name" for _ in named]  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
 
 
 def _kind(what: str | None) -> str | None:
@@ -136,6 +140,10 @@ def _reflexives(d: dict[str, Any]) -> list[dict[str, Any]]:
 
 def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     """Whether every "of the chosen type / color" in this definition names a choice the engine knows (see above)."""
+    from app.rules import color_comparisons
+
+    if not color_comparisons.linked_ok(d, ch):
+        return False
     if nested := _reflexives(d):  # -- chosen filters (wave 53B) -- 603.12: the reflexive ability is its own run of instructions ("When you do, choose a nonland card name, then …")
         outer = {**d, "effects": [{k: v for k, v in e.items() if k != "ability"} if e.get("do") == "reflexive" else e for e in d["effects"]]}
         return chosen_value_ok(outer, ch) and all(chosen_value_ok(n, ch) for n in nested)
@@ -158,6 +166,8 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     if d.get("counters"):  # -- chosen filters (wave 53B) -- "enters with a counter for each creature you control of the chosen type": counted with the answer of the same line
         return all(w == d["counters_choice"] for _, w in _uses(d["counters"]))
     dumped = json.dumps(d)
+    if '"source_choice_color": true' in dumped and (d.get("kind") == "spell" or _enters_choices(ch).count("color") != 1):
+        return False
     if any(isinstance(e.get("token"), dict) and e["token"].get("chosen") for e in d.get("effects") or []):  # -- chosen filters (wave 53B) -- "a token of the chosen color and type": the source's own entering choices of both
         return d.get("kind") in ("activated", "triggered") and {"color", "creature type"} <= set(_enters_choices(ch)) and _enters_choices(ch).count("color") == 1 and _enters_choices(ch).count("creature type") == 1
     for line, (kind, _) in PROTECTION.items():  # -- attached events (wave 25D) -- an Aura's static: its own enters choice (wave 53B: a card type, a creature type)
@@ -354,10 +364,12 @@ def retag(d: dict[str, Any], ch: Characteristics) -> dict[str, Any]:
         return {**d, "modes": [{k: v for k, v in retag({**m, "kind": d.get("kind")}, ch).items() if k in m} for m in d["modes"]]}
     effects = d.get("effects") or []
     picks = {_kind(e.get("what")) for e in effects if e.get("do") == "choose_value" and not e.get("remember")} | set(_enters_choices(ch))
-    if "card type" in picks and not picks & {"creature type", "basic land type"}:
+    if "card type" in picks and not picks & {"creature type", "basic land type", "land type"}:
         kind = "card"
-    elif "basic land type" in picks and not picks & {"creature type", "card type"}:
+    elif "basic land type" in picks and not picks & {"creature type", "card type", "land type"}:
         kind = "land"  # (wave 53B: "a land of the chosen type", Roots of Life)
+    elif "land type" in picks and not picks & {"creature type", "card type", "basic land type"}:
+        kind = "any_land"
     else:
         return d
     return _walk_keys(d, lambda s: s.replace('"chosen_type"', f'"chosen_{kind}_type"').replace('"not_chosen_type"', f'"not_chosen_{kind}_type"') if "chosen_type" in s else s, skip="ability")  # (a reflexive ability was read on its own)
@@ -399,15 +411,17 @@ def rewrite(body: str) -> str:
 # Protection from a chosen quality, granted by a static ability (702.16a): the granted line names the quality, which the source's own entering choice fills in as the
 # grant is applied (layers; the choice is public, 614.12a). A card type is protected from by its plural name (702.16a: "protection from artifacts"), a creature type as
 # "creatures of that type" ("Elf creatures"); the line stays unwritten (no protection) when the source recorded no choice.
-PROTECTION = {"Protection from the chosen color": ("color", "Chosen color"), "Protection from the chosen card type": ("card type", "Chosen card type"),
+PROTECTION = {"Protection from the chosen player": ("player", "Chosen player"), "Protection from the chosen color": ("color", "Chosen color"), "Protection from the chosen card type": ("card type", "Chosen card type"),
               "Protection from creatures of the chosen type": ("creature type", "Chosen creature type")}
 
 
-def protection_line(text: str, choices: dict[str, str]) -> str | None:
+def protection_line(text: str, choices: dict[str, str], *, player_id: str | None = None) -> str | None:
     """"Protection from the chosen card type" + the source's choices → "Protection from creatures" (None: no usable choice)."""
     from app.rules import protection
 
     kind, label = PROTECTION[text]
+    if kind == 'player':
+        return f'Protection from player {player_id}' if player_id else None
     value = (choices.get(label) or "").strip()
     if kind == "color":
         return f"Protection from {value.lower()}" if value.lower() in protection.COLORS else None
@@ -420,12 +434,23 @@ def protection_line(text: str, choices: dict[str, str]) -> str | None:
 # "As ~ enters, choose a creature type. ~ enters with a fellowship counter on it for each creature you control of the chosen type." (Banner of Kinship): one entering
 # replacement (614.12a, 614.1c): the choice first, then the counters, counted with the answer (replacements.entering_counters binds it).
 _ENTERS_WITH = re.compile(r"^(?P<head>As ~ enters, choose (?:a|an) (?:creature type|color))\. (?P<tail>~ enters with .+)$")
+_ENTERS_LIFE = re.compile(r"^(?P<head>As ~ enters, choose a basic land type)\. Then you may pay (?P<n>\d+) life\. If you don't, it enters tapped\.$")
 
 
 def choice_head(text: str) -> str:
     """The "As ~ enters, choose …" sentence of an entering line, or the line as it is."""
     m = _ENTERS_WITH.match(text)
+    if m is None:
+        m = _ENTERS_LIFE.match(text)
     return m["head"] + "." if m else text
+
+
+def enters_with_life(text: str) -> dict[str, Any] | None:
+    from app.rules import language
+
+    m = _ENTERS_LIFE.fullmatch(text)
+    head = language.enters_choice(m['head'] + '.') if m else None
+    return {**head, 'life': int(m['n']), 'pay_life_or_tapped': True} if head is not None and m else None
 
 
 def enters_with_choice(text: str, define: Any) -> dict[str, Any] | None:

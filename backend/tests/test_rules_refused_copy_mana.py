@@ -143,7 +143,9 @@ def pay(s, pid="p1", **m):
 
 
 def pool(s, pid="p1"):
-    return dict(s.state.players[pid].mana)
+    from tests.game_helpers import mana_pool
+
+    return mana_pool(s, pid)
 
 
 def on_battlefield(s, name, pid="p1"):
@@ -454,7 +456,9 @@ def test_kept_mana_is_spent_last_and_ends_with_the_turn(cards):
     act(s, "p1", type="pass_priority")
     pass_until_stack_empty(s)
     pay(s, C=1)  # one more {C}, not kept
-    assert kept_mana.kept(s.state, "p1") == {"C": 8}
+    kept_ids = kept_mana.kept_units(s.state, "p1")
+    assert kept_mana.kept(s.state, "p1") == {}
+    assert sum(u.sym == "C" for u in s.state.players['p1'].mana_units if u.id in kept_ids) == 8
     s.state.rules.kept_mana[0]["turn"] = s.state.turn.number  # (unchanged: the record is this turn's)
     for _ in range(40):  # to the next turn
         if s.state.turn.number > 1 and s.state.turn.active_player == "p2":

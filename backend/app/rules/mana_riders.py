@@ -92,6 +92,10 @@ _CHOOSE_AMONG = re.compile(r"^(?P<cost>[^:]+): Choose a color of (?:a permanent 
 
 def normalise(text: str) -> str:
     """Bloom Tender's "For each color among permanents you control, add one mana of that color." in the Add form."""
+    from app.rules.activated_copy_effects import NEXT_X
+
+    if NEXT_X + '.' in text:
+        text = text.replace(NEXT_X + '.', NEXT_X.split('. You may')[0] + '.')
     if m := _CHOOSE_AMONG.match(text):
         what = "permanents you control" if "permanent" in text else "cards in your graveyard"
         return f"{m['cost']}: Add one mana of any color among {what}."
@@ -184,6 +188,10 @@ def first_sentence(first: str) -> tuple[str | None, tuple[tuple[str, ...], ...]]
 
 
 def rider(sentence: str) -> tuple[str, int] | None:
+    from app.rules.activated_copy_effects import NEXT_X
+
+    if sentence == NEXT_X.split('. You may')[0]:
+        return 'next_x_copy', 1
     if m := _GAIN.fullmatch(sentence):
         return "gain", _n(m["n"])
     if m := _OPP_GAIN.fullmatch(sentence):
@@ -261,7 +269,14 @@ def after(plan: Plan, card: CardInstance, kind: str, n: int, who: str | None = N
     from app.rules import replace
 
     who = who or card.controller  # (wave 24D: the activating player; 603.7e-style, the card may have left)
-    if kind.startswith("counter:"):  # (an effect of the ability: the counter choke point, 122.6 / 614)
+    if kind == 'next_x_copy':
+        from app.rules import activated_copy_effects, delayed
+
+        ctx: dict[str, Any] = {'kind': 'mana', 'controller': who, 'source_card': card.id,
+               'source_object': plan.oid(card), 'name': plan.ch(card).name,
+               'effects': activated_copy_effects.watch(x=True), 'next': 1}
+        delayed.create(plan, ctx, ctx['effects'][0])
+    elif kind.startswith("counter:"):  # (an effect of the ability: the counter choke point, 122.6 / 614)
         if card.zone.endswith(":battlefield"):
             replace.put_counters(plan, [(card.id, kind.split(":", 1)[1], n)], by=card.controller)
     elif kind.startswith("sac_if_none:"):  # 701.21a: its controller sacrifices it (it's still there, 400.7)
@@ -301,14 +316,25 @@ def activate_from_hand(plan: Plan, card: CardInstance, ch: Any, ability: Any) ->
     from app.rules import mana as M
     from app.rules.casting import commander_identity
 
-    parsed = M.parse_mana_ability(ability.text, commander_identity(plan.state, plan.actor, plan.info))
+    parsed = M.parse_mana_ability(ability.text, commander_identity(plan.state, plan.actor, plan.info), card_name=plan.ch(card).name)
     if parsed is None or not parsed.from_hand or card.owner != plan.actor or len(parsed.options) != 1:
         raise ActionError(f"Fyodor can't carry out “{ability.text}” from your hand yet. Use the table tools.")
     option = parsed.options[0]
+    source_object = plan.oid(card)
+    from dataclasses import asdict
+
+    from app.rules.mana_requirement_rows import OutputProducer, ProducerFact
+    from app.rules.mana_units import tags_of
+
+    producer_before_cost = OutputProducer(source_object, ProducerFact(tuple(tags_of(plan.ch(card))), card.zone))
     plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "exile"}}, actor=plan.actor)
     added: dict[str, int] = {}
     for m in option:
         added[m] = added.get(m, 0) + 1
-    plan.do({"type": "rules_mana", "player": plan.actor, "tap": [], "sacrifice": [], "delta": added, "life": 0,
+    from app.rules import mana_units
+
+    plan.do({"type": "rules_mana", "player": plan.actor, "tap": [], "sacrifice": [],
+             **mana_units.from_context(plan, {"source_card": card.id, "source_object": source_object,
+                 "producer_before_cost": asdict(producer_before_cost)}, added), "life": 0,
              "label": f"exiled {ch.name or 'a card'} from their hand: added {M.symbols(added)}"}, actor=plan.actor)
     emit(plan.state, "mana_added", object_id=None, card=card.id, player=plan.actor, amount=sum(added.values()))

@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
 _OBJECT_SUBJECTS = {"player", "sel"}  # (not "self", "host": a watch has no object of its own to look at)
 _NEXT_CAST_KEYS = {"event", "subject", "player", "spell"}
-_BOUND_EVENTS = {"deal_damage", "deal_combat_damage_player", "attack", "block", "blocked"}
+_BOUND_EVENTS = {"dealt_damage", "deal_damage", "deal_combat_damage_player", "attack", "unblocked", "block", "blocked"}
 _ONE_OR_MORE = {"deal_damage", "deal_combat_damage_player"}  # (wave 33A: "one or more creatures you control deal combat damage to a player")
 
 
@@ -50,9 +50,16 @@ def cond_ok(cond: dict[str, Any] | None, bound: str | None = None) -> bool:
             or (cond.get("aggregate") and (bound or cond["event"] not in _ONE_OR_MORE)) or cond.get("while") \
             or (bound and cond["event"] not in _BOUND_EVENTS):
         return False
-    if cond["event"] in ("multi", "either", "dealt_damage", "you_attack", "unblocked") or cond.get("copy"):
+    if cond["event"] in ("multi", "either") or cond.get("copy"):
         return False
-    return not (cond["event"] == "deal_damage" and cond.get("to", "any") == "any")
+    if cond["event"] == "dealt_damage" and not bound:
+        from app.rules import selectors
+
+        if cond.get("subject") != "sel" or cond.get("sel") != selectors.Selector(types=("Creature",)).key():
+            return False
+    if cond["event"] == "you_attack":
+        return not bound and cond.get("subject") == "player"
+    return bool(bound) or not (cond["event"] == "deal_damage" and cond.get("to", "any") == "any")
 
 
 def refs_ok(cond: dict[str, Any], effects: list[dict[str, Any]]) -> bool:
@@ -87,9 +94,10 @@ def build(cond: dict[str, Any] | None, clause: str, *, once: bool, text: str, bo
         return None
     from app.rules import (
         cast_riders,  # -- cast riders (wave 25C) -- "…, that creature enters with an additional +1/+1 counter on it"
+        unblocked_riders,
     )
 
-    inner = cast_riders.parse(cond, clause) or scripts._clause(clause)
+    inner = (unblocked_riders.clause(clause) if cond.get("event") == "unblocked" else None) or cast_riders.parse(cond, clause) or scripts._clause(clause)
     if inner is None:
         return None
     if bound == "self" and cond.get("other") and ({cond["event"]} if cond["event"] != "multi" else set(cond["events"])) <= {"block", "blocked"}:
@@ -103,6 +111,9 @@ def build(cond: dict[str, Any] | None, clause: str, *, once: bool, text: str, bo
             return None
     # (-- turn-long triggers (wave 33A) -- "that player" is the player the event was about: who was dealt the damage, 603.7c)
     effects = delayed.inner_for_event([{**e, "who": "event_player"} if e.get("who") == "that_player" else e for e in inner[0]])
+    if effects is not None and cond["event"] == "dealt_damage":
+        # Damage creates no new incarnation. A following move names its recipient.
+        effects = [{**e, "who": "event"} if e.get("who") == "event.new" else e for e in effects]
     if effects is None or any(e.get("do") in delayed.UNDEFERRABLE for e in effects) \
             or not refs_ok(cond, effects):
         return None
@@ -117,7 +128,7 @@ def build(cond: dict[str, Any] | None, clause: str, *, once: bool, text: str, bo
 
 
 # -- turn-long triggers (wave 33A) -- the wording of a watch on one object, and of a leading duration (603.7, 611.2a)
-_BOUND_VERB = re.compile(r"(?:deals?|attacks?|blocks?|becomes blocked)\b")
+_BOUND_VERB = re.compile(r"(?:is dealt|deals?|attacks?|blocks?|becomes blocked)\b")
 
 
 def bound_cond(text: str) -> tuple[dict[str, Any], str, Any] | None:
@@ -275,26 +286,49 @@ def on_facts(plan: Plan, facts: list[Any], batch: int, fired_once: dict[Any, Any
     """One event's facts: the watches created before it that it matches trigger (603.7). ``fired_once``: what already triggered in
     these events ("one or more" triggers once per batch, and per player dealt the damage, 603.2c)."""
     r = plan.rules
-    mine = [t for t in r.delayed if t.when.get("kind") == "watch" and (batch < 0 or batch > int(t.when.get("since", 0)))]  # (batch -1: as it happens)
+    mine = [t for t in r.delayed if t.when.get("kind") == "watch" and not t.when.get("manual_combat_scope")
+            and (batch < 0 or batch > int(t.when.get("since", 0)))]  # (batch -1: as it happens)
     if not mine:
         return
-    from app.rules import triggers
+    from app.rules import combat_player_scope43, triggers
 
     fired = []
     for t in mine:
         source = plan.state.cards.get(t.source_card or "")
+        if source is None and (snap := plan.rules.lki.get(t.source_object or "")) is not None:
+            # 603.7d/e: a delayed ability outlives its source, including a resolved
+            # spell copy that ceased to exist (704.5e).
+            source = triggers._snapshot_card(plan, snap)[0]
         if source is None or t.controller not in plan.live():
             continue
         watcher = source.model_copy(update={"controller": t.controller})
         bound = {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []} if t.when.get("bound") else None
         for fact in facts:
+            if "recipient_players" in t.when and fact[4].get("recipient") not in t.when["recipient_players"]:
+                continue
             if bound is not None and fact[4].get("oid") not in bound:
                 continue  # -- turn-long triggers (wave 33A) -- 603.7c, 400.7: the object it was bound to, not a new one
-            if triggers._cond_matches(plan, t.when["cond"], watcher, fact):
-                cond = t.when["cond"]
-                key = (t.id, -7, batch, "" if cond.get("to") in ("players", "opponents") else fact[4].get("recipient") or "")
-                if cond.get("aggregate") and fired_once is not None:
+            cond = combat_player_scope43.restore(plan, t)
+            if bound is not None and cond.get('subject') == 'sel':
+                from app.rules import selectors
+
+                # 603.7c: the bound object is identified by OID, not by the
+                # characteristics/controller it had when the watch was created.
+                cond = {**cond,'sel':selectors.Selector().key()}
+            if combat_player_scope43.verdict(plan, t, watcher, fact, cond):
+                one_event = cond["event"] == "dealt_damage" or (cond["event"] == "deal_damage" and cond.get("to", "any") == "any")
+                per = (fact[4].get("oid") or "") if one_event else "" if cond.get("to") in ("players", "opponents") else fact[4].get("recipient") or ""
+                key = (t.id, -7, batch, per)
+                if (cond.get("aggregate") or one_event) and fired_once is not None:
                     if key in fired_once:
+                        pending = fired_once[key]
+                        if one_event and pending is not None and pending.event is not None:
+                            event = triggers._event(plan, fact, batch)
+                            pending.event.amount += event.amount
+                            pending.event.count += 1
+                            from app.rules import trigger_multipliers
+
+                            trigger_multipliers.joined(plan, pending)
                         continue
                     fired_once[key] = delayed._fire(plan, t, triggers._event(plan, fact, batch))
                 else:
@@ -302,13 +336,15 @@ def on_facts(plan: Plan, facts: list[Any], batch: int, fired_once: dict[Any, Any
                 if t.once:
                     fired.append(t)
                     break
+            if t.when.get('manual_combat_scope'):
+                break
     if fired:
         r.delayed = [t for t in r.delayed if t not in fired]
 
 
 # "When you next cast …, copy that spell. You may choose new targets for the copy." — the second sentence belongs to the
 # deferred ability (it follows the copy it is about: 707.10c), so the two are read as one clause
-_COPY_RETARGET = re.compile(r"(?P<head>\b[Ww]hen you next cast [^.]*? this turn, copy (?:that spell|it)"
+_COPY_RETARGET = re.compile(r"(?P<head>\b[Ww]hen you (?:next cast|cast your next) [^.]*? this turn, copy (?:that spell|it)"
                             r"(?: (?:twice|three times|[xX] times|an additional time)| for each [^.]+?)?)"  # (review 32: Howl of the Horde's raid, Thunderclap Drake)
                             r"\. [Yy]ou may choose new targets for the cop(?:y|ies)\.")
 

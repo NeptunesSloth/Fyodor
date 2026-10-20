@@ -1,0 +1,40 @@
+[
+  {
+    "name": "Myr Battlesphere",
+    "oracle_text": "When this creature enters, create four 1/1 colorless Myr artifact creature tokens.\nWhenever this creature attacks, you may tap X untapped Myr you control. If you do, this creature gets +X/+0 until end of turn and deals X damage to the player or planeswalker it's attacking.",
+    "type_line": "Artifact Creature \u2014 Myr Construct",
+    "mana_cost": "{7}",
+    "power": "4",
+    "toughness": "7"
+  },
+  {
+    "name": "Gold Myr",
+    "oracle_text": "{T}: Add {W}.",
+    "type_line": "Artifact Creature \u2014 Myr",
+    "mana_cost": "{2}",
+    "power": "1",
+    "toughness": "1"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2"
+  },
+  {
+    "name": "Vigilance",
+    "oracle_text": "Enchant creature\nEnchanted creature has vigilance. (Attacking doesn't cause it to tap.)",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{W}"
+  },
+  {
+    "name": "Royal Assassin",
+    "oracle_text": "{T}: Destroy target tapped creature.",
+    "type_line": "Creature \u2014 Human Assassin",
+    "mana_cost": "{1}{B}{B}",
+    "power": "1",
+    "toughness": "1"
+  }
+]

@@ -29,6 +29,10 @@ _A = re.compile(rf"you control an? (?P<kind>[a-z]+) with the greatest (?P<s>{_ST
 
 
 def parse(t: str) -> dict[str, Any] | None:
+    if t == "no other creature has greater power":
+        sel = selectors.parse("creatures")
+        assert sel is not None
+        return {"object": "it", "extreme": {"stat": "power", "sel": sel.key()}}
     m = _THE.fullmatch(t)
     if m and m["s"] == m["s2"]:
         kind = m["kind"]
@@ -46,6 +50,11 @@ def parse(t: str) -> dict[str, Any] | None:
 def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     spec = cond["extreme"]
     found = selectors.candidates(plan, selectors.from_key(spec["sel"]), ctx["controller"], ctx.get("source_card"))
+    if "object" in cond:
+        got = values._object(plan, ctx, cond["object"])
+        own = values._stat_of(got[1], spec["stat"]) if got is not None else None
+        others = [values._stat_of(plan.ch(plan.state.cards[c]), spec["stat"]) for c in found]
+        return own is not None and all(v is None or own >= v for v in others)
     stats = [(plan.state.cards[c].controller, values._stat_of(plan.ch(plan.state.cards[c]), spec["stat"])) for c in found]
     known = [s for _, s in stats if s is not None]
     mine = [s for who, s in stats if who == ctx["controller"] and s is not None]

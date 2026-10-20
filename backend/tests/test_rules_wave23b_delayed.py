@@ -143,7 +143,9 @@ def test_barbed_sextant_adds_mana_and_draws_at_the_next_upkeep(cards):
     act(s, "p1", type="add_mana", player="p1", mana={"C": 1})
     act(s, "p1", type="activate_ability", card_id=sextant.id, ability=0)  # a mana ability: no stack (605.3b)
     act(s, "p1", type="choose", decision_id=rules(s).decision.id, option_ids=["3"])  # {R}
-    assert s.state.players["p1"].mana == {"R": 1}  # ({1} paid with the {C})
+    from tests.game_helpers import mana_pool
+
+    assert mana_pool(s) == {"R": 1}  # ({1} paid with the {C}; known-source mana retains provenance)
     assert s.state.cards[sextant.id].zone.endswith(":graveyard")
     (t,) = rules(s).delayed
     assert t.when == {"kind": "step", "step": "upkeep", "whose": "next_turn"} and t.controller == "p1"

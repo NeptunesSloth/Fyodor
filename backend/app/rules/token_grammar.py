@@ -97,6 +97,9 @@ _SENTENCE = re.compile(
     rf"(?P<attacking> that(?:'s| are) (?P<atapped>tapped and )?attacking{AT})?$")  # (wave 17D: untapped, "that's attacking": Brimaz)
 # (wave 6C) "For each creature your opponents control, create a 4/4 green Phyrexian Beast creature token.": the same
 # instruction as "Create a 4/4 … token for each creature your opponents control." (the count is read as it resolves)
+# CR 111.3, 205.3i: these subtypes are the token's initial characteristics, without the basic supertype.
+_ALL_BASIC_LAND_TOKEN = re.compile(rf"^create (?P<n>{_QTY}) (?P<tapped>tapped )?colorless land tokens? named (?P<name>{_NAME}) "
+                                   r"that (?:is|are) every basic land type$")
 _CHOSEN_TOKEN = re.compile(rf"^create (?P<n>{_QTY}) (?P<pt>(?:\d+|X)/(?:\d+|X)) creature tokens? of the chosen color and type$")
 _EACH_FIRST = re.compile(r"^for each (?P<each>[^,\"]+), create (?P<rest>[^\"]+?(?:\"[^\"]+\")?)$")
 _RIDER = re.compile(r"^(?P<head>.+?)(?: for each (?P<each>[^\"]+)|, where [xX] is (?P<xdef>[^\"]+))$")
@@ -216,6 +219,13 @@ def parse(sentence: str) -> list[Effect] | None:
                 return None
             n, spec = language._bind_x(n, v), language._bind_x(spec, v)
         return [{"do": "create_token", "who": "you", "n": n, "token": spec}]
+    if (land := _ALL_BASIC_LAND_TOKEN.fullmatch(text)) is not None:
+        if each is not None or xdef is not None or half is not None:
+            return None
+        from app.rules.characteristics import BASIC_LAND_MANA
+
+        return [{"do": "create_token", "who": "you", "n": _qty(land["n"]), "tapped": bool(land["tapped"]),
+                 "token": {"name": land["name"], "colors": [], "type_line": "Token Land — " + " ".join(BASIC_LAND_MANA), "text": ""}}]
     m = _SENTENCE.match(text)
     if not m:
         return None
@@ -424,10 +434,11 @@ def attack_options(plan: Plan, ctx: dict[str, Any], pid: str, at: dict[str, Any]
         named = ev.get("defended") or next(iter(ev.get("players") or []), None)
         defenders = [named] if named in defenders else []
     options = [DecisionOption(id=p, label=plan.name(p)) for p in defenders]
-    if at is None:
+    if at is None or at.get("planeswalkers"):
         options += [DecisionOption(id=c.id, label=f"{c.name} ({plan.name(c.controller)})", card_id=c.id)
                     for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller in defenders
                     and plan.in_game(c) and "Planeswalker" in plan.ch(c).types]
+    if at is None:
         options += [DecisionOption(id=b, label=f"{plan.state.cards[b].name or 'Battle'} (battle)", card_id=b)
                     for b in battles.attackable(plan.state, pid, defenders, plan.ch)]
     return options

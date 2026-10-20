@@ -72,10 +72,8 @@ FULL = ["Propaganda", "Ghostly Prison", "Windborn Muse", "Elephant Grass", "Craw
         "Aggravated Assault", "Seize the Day", "Aurelia, the Warleader", "Adeline, Resplendent Cathar",
         "Soaring Lightbringer", "Karlach, Fury of Avernus", "Maze of Ith", "Reconnaissance", "Unnatural Growth", "Bulk Up",
         "Relentless Assault", "Hellkite Charger", "Finest Hour", "Baird, Steward of Argive", "Norn's Annex",
-        "Sphere of Safety"]
-STILL_MANUAL = {
-    "Nahiri, the Unforgiving": "attacks a player each combat",
-}
+        "Sphere of Safety", "Nahiri, the Unforgiving"]
+STILL_MANUAL: dict[str, str] = {}
 
 
 @pytest.fixture()

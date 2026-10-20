@@ -62,10 +62,8 @@ EXTRA = [
 FULL = ["Ior Ruin Expedition", "Jarad, Golgari Lich Lord", "Loch Mare", "Fain, the Broker", "Devoted Druid", "Evershrike's Gift",
         "Grim Hireling", "Secluded Starforge", "Skullmane Baku", "Slate of Ancestry", "Sinister Concoction", "Royal Herbalist",
         "City of Shadows", "Lurking Evil", "War Room", "Usher of the Fallen", "Forensic Researcher", "Camellia, the Seedmiser",
-        "Mold Folk", "Malevolent Noble", "Pride Sovereign", "Steward of Solidarity", "Tarox Bladewing"]
-STILL_MANUAL = {  # (card, the line that stays manual)
-    "Springjack Pasture": "Sacrifice X Goats",  # a mana ability (605): no X announced, no stack
-}
+        "Mold Folk", "Malevolent Noble", "Pride Sovereign", "Steward of Solidarity", "Tarox Bladewing", "Springjack Pasture"]
+
 
 
 @pytest.fixture()
@@ -171,9 +169,9 @@ def test_parsing():
     for text in ("Sacrifice X Goats", "Remove a counter from this creature", "Discard your hand", "Mill a card", "Blight 1"):
         assert parse_ability_cost(text).activation_only and not parse_ability_cost(text).basic
     assert parse_ability_cost("Sacrifice a creature").basic is False and not parse_ability_cost("Sacrifice a creature").activation_only
-    # refused: an "or" between objects, exert, snow mana, "a black and red creature" (wave 26C reads counters from among creatures you control)
-    for text in ("Exert another creature", "Sacrifice a black and red creature",
-                 "Remove a counter from an artifact, creature, land, or planeswalker you control"):
+    assert not parse_ability_cost("Remove a counter from an artifact, creature, land, or planeswalker you control").unsupported
+    # refused: exert, "a black and red creature" (wave 26C reads counters from among creatures you control)
+    for text in ("Exert another creature", "Sacrifice a black and red creature"):
         assert parse_ability_cost(text).unsupported, text
 
 
@@ -196,10 +194,7 @@ def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
-@pytest.mark.parametrize("name", list(STILL_MANUAL))
-def test_still_manual(cards, name):
-    cov = coverage.of_card_data(cards.resolve(name))
-    assert any(not f.supported and STILL_MANUAL[name] in f.label for f in cov.features)
+
 
 
 # -- two parts joined by "and" -----------------------------------------------------------------------

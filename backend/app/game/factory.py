@@ -10,6 +10,7 @@ from typing import Any
 from app.game.resolve import new_id
 from app.game.state import (
     CardInstance,
+    CollectionCard,
     GameSettings,
     GameState,
     PlayerState,
@@ -39,6 +40,7 @@ class PlayerSetup:
     deck_name: str | None = None
     cards: list[DeckCard] = field(default_factory=list)
     color: str | None = None
+    collection: list[CollectionCard] = field(default_factory=list)
 
 
 def new_game(
@@ -58,6 +60,7 @@ def new_game(
     seat_order: list[str] = []
     cards: dict[str, CardInstance] = {}
     zones: dict[str, list[str]] = {}
+    collections: dict[str, list[CollectionCard]] = {}
     commander_count = 0
 
     for index, setup in enumerate(players):
@@ -91,6 +94,16 @@ def new_game(
                     state_players[pid].commander_tax[card.commander_key] = 0
                 cards[cid] = card
                 zones[card.zone].append(cid)
+        # CR 400.11: keep owned imports outside the game, without inflating card/zone scans.
+        # An imported deck's starting cards are already represented on this table.
+        available = {c.oracle_id: c.model_copy(deep=True) for c in setup.collection}
+        for entry in setup.cards:
+            if entry.section in SECTION_ZONES:
+                for owned in available.values():
+                    if owned.name == entry.name:
+                        owned.quantity = max(0, owned.quantity - entry.quantity)
+                        break
+        collections[pid] = [c for c in available.values() if c.quantity > 0]
         if shuffle:
             rng.shuffle(zones[zone_key(pid, "library")])
 
@@ -105,7 +118,8 @@ def new_game(
         seat_order=seat_order,
         cards=cards,
         zones=zones,
-        turn=TurnState(active_player=first),
+        collections=collections,
+        turn=TurnState(active_player=first, starting_life={pid: p.life for pid, p in state_players.items()}),
         hidden_salt=secrets.token_hex(16),
     )
     if settings.mulligan is not None:

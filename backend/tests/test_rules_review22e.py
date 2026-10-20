@@ -52,9 +52,8 @@ def test_first_time_each_turn_reads_an_older_saves_mark_glyph_keeper(cards):
     check(s)
 
 
-def test_a_static_on_goaded_creatures_stays_manual_bothersome_quasit():
-    """613.8a: "Goaded creatures your opponents control can't block" depends on the goad (both layer 6); by timestamp alone it
-    misses a creature goaded after it (found blocking in a probe), so the static is refused."""
+def test_goaded_blocking_restriction_is_checked_after_continuous_effects():
+    """The combat rule reads the final goad state rather than a timestamp-dependent grant."""
     from app.rules import coverage
 
     quasit = card("Bothersome Quasit", set_code="t22e", number="E81", mana_cost="{2}{R}", cmc=3.0, type_line="Creature — Demon",
@@ -62,4 +61,4 @@ def test_a_static_on_goaded_creatures_stays_manual_bothersome_quasit():
                   oracle_text="Menace\nGoaded creatures your opponents control can't block.\nWhenever you cast a noncreature spell, goad "
                               "target creature an opponent controls. (Until your next turn, that creature attacks each combat if able "
                               "and attacks a player other than you if able.)")
-    assert coverage.of_card_data({**quasit, "faces": []}).level != "FULL"
+    assert coverage.of_card_data({**quasit, "faces": []}).level == "FULL"

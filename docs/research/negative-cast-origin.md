@@ -1,0 +1,7 @@
+# Casting from outside a particular player's hand
+
+Ghostly Pilferer says “Whenever an opponent casts a spell from anywhere other than their hand, draw a card.” The negative condition excludes only that caster's own hand. A spell cast from someone else's hand qualifies. “Your hand” instead identifies the controller of the watching ability (CR 109.5); the casting actor can be a different player.
+
+The existing native cast-origin condition now records that distinction explicitly using `from_owner`: `caster` for “their hand,” `you` for “your hand.” The event matcher negates the conjunction of the hand zone and its relevant owner. Known graveyard, library, or exile origins qualify without needing a hand owner. An unidentified hand owner or casting actor cannot prove the negative condition. Positive hand-origin conditions keep their existing owner checks, and older saved conditions without an owner qualifier retain their previous interpretation.
+
+Canonical Mindleech Mass combat gameplay reproduces the previous miss and verifies the correction: player 1 casts player 2's Staggershock from player 2's hand, so player 2's Ghostly Pilferer draws once. Separate actual casts verify that a caster's own hand does not qualify, while flashback from a graveyard and casting from a library do. Parser-and-matcher tests distinguish watcher, caster, and a third player's hand and reject missing origin data. Gameplay tests verify replay/save behavior and preserve the real private hand-look/cast choices.

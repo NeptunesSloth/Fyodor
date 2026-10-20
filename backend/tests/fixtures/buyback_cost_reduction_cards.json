@@ -1,0 +1,53 @@
+[
+  {
+    "name": "Memory Crystal",
+    "oracle_text": "Buyback costs cost {2} less.",
+    "type_line": "Artifact",
+    "mana_cost": "{3}",
+    "layout": "normal"
+  },
+  {
+    "name": "Capsize",
+    "oracle_text": "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nReturn target permanent to its owner's hand.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{U}{U}",
+    "layout": "normal"
+  },
+  {
+    "name": "Whispers of the Muse",
+    "oracle_text": "Buyback {5} (You may pay an additional {5} as you cast this spell. If you do, put this card into your hand as it resolves.)\nDraw a card.",
+    "type_line": "Instant",
+    "mana_cost": "{U}",
+    "layout": "normal"
+  },
+  {
+    "name": "Constant Mists",
+    "oracle_text": "Buyback\u2014Sacrifice a land. (You may sacrifice a land in addition to any other costs as you cast this spell. If you do, put this card into your hand as it resolves.)\nPrevent all combat damage that would be dealt this turn.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{G}",
+    "layout": "normal"
+  },
+  {
+    "name": "Counterspell",
+    "oracle_text": "Counter target spell.",
+    "type_line": "Instant",
+    "mana_cost": "{U}{U}",
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal"
+  },
+  {
+    "name": "Wurmcalling",
+    "oracle_text": "Buyback {2}{G} (You may pay an additional {2}{G} as you cast this spell. If you do, put this card into your hand as it resolves.)\nCreate an X/X green Wurm creature token.",
+    "type_line": "Sorcery",
+    "mana_cost": "{X}{G}",
+    "layout": "normal"
+  }
+]

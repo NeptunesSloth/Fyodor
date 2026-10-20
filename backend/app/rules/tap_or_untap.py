@@ -16,7 +16,7 @@ from app.rules.plan import Plan
 
 Context = dict[str, Any]
 
-_PATTERN = re.compile(r"^tap or untap (?P<o>(?:another )?target .+|enchanted (?:creature|permanent|land)|equipped creature)$")  # (-- attached events (wave 40B) -- 303.4b, 301.5: "You may tap or untap equipped creature.", Sword of the Paruns)
+_PATTERN = re.compile(r"^(?P<may>you may )?tap or untap (?P<o>(?:another )?target .+|enchanted (?:creature|permanent|land)|equipped creature|it|that (?:creature|permanent|artifact|land))$")
 
 
 def _build(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
@@ -27,11 +27,28 @@ def _build(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
         kind, key, group = language.ref(m["o"])
     except language._Fail:
         raise _NoMatch from None
-    if kind == "host":
-        return [{"do": "tap_or_untap", "who": "host"}], None
+    optional = {"optional": True} if m["may"] else {}
+    if kind in ("host", "it"):
+        return [{"do": "tap_or_untap", "who": language._who(kind, key), **optional}], None
     if kind != "target" or group is None or group.get("max") != 1:
         raise _NoMatch
-    return [{"do": "tap_or_untap", "who": language._who(kind, key)}], language._one(group)
+    return [{"do": "tap_or_untap", "who": language._who(kind, key), **optional}], language._one(group)
+
+
+def sequence(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """608.2c–d: two separate optional instructions, with both targets chosen first.
+
+    'Another target' explicitly excludes the first (115.1 / 601.2c), even if its
+    optional action will be declined. Declining the first doesn't skip the second.
+    """
+    from app.rules import language
+
+    if re.fullmatch(r"You may tap or untap target permanent, then you may tap or untap another target permanent\.?", body, re.IGNORECASE) is None:
+        return None
+    _, _, group = language.ref("target permanent")
+    assert group is not None
+    return ([{"do": "tap_or_untap", "who": f"target:{i}", "optional": True} for i in range(2)],
+            [group, {**group, "distinct_from": [0]}], False)
 
 
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_PATTERN, _build)]

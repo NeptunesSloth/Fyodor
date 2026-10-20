@@ -1,0 +1,151 @@
+[
+  {
+    "name": "Catalyst Stone",
+    "oracle_text": "Flashback costs you pay cost {2} less.\nFlashback costs your opponents pay cost {2} more.",
+    "type_line": "Artifact",
+    "mana_cost": "{2}",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Firebolt",
+    "oracle_text": "Firebolt deals 2 damage to any target.\nFlashback {4}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "type_line": "Sorcery",
+    "mana_cost": "{R}",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 1.0,
+    "keywords": [
+      "Flashback"
+    ]
+  },
+  {
+    "name": "Deep Analysis",
+    "oracle_text": "Target player draws two cards.\nFlashback\u2014{1}{U}, Pay 3 life. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "type_line": "Sorcery",
+    "mana_cost": "{3}{U}",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 4.0,
+    "keywords": [
+      "Flashback"
+    ]
+  },
+  {
+    "name": "Lava Dart",
+    "oracle_text": "Lava Dart deals 1 damage to any target.\nFlashback\u2014Sacrifice a Mountain. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "type_line": "Instant",
+    "mana_cost": "{R}",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 1.0,
+    "keywords": [
+      "Flashback"
+    ]
+  },
+  {
+    "name": "Ancient Grudge",
+    "oracle_text": "Destroy target artifact.\nFlashback {G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "type_line": "Instant",
+    "mana_cost": "{1}{R}",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "G",
+      "R"
+    ],
+    "cmc": 2.0,
+    "keywords": [
+      "Flashback"
+    ]
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Mountain",
+    "oracle_text": "({T}: Add {R}.)",
+    "type_line": "Basic Land \u2014 Mountain",
+    "mana_cost": "",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 0.0,
+    "keywords": []
+  },
+  {
+    "name": "Sphere of Resistance",
+    "oracle_text": "Spells cost {1} more to cast.",
+    "type_line": "Artifact",
+    "mana_cost": "{2}",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Snapcaster Mage",
+    "oracle_text": "Flash\nWhen this creature enters, target instant or sorcery card in your graveyard gains flashback until end of turn. The flashback cost is equal to its mana cost. (You may cast that card from your graveyard for its flashback cost. Then exile it.)",
+    "type_line": "Creature \u2014 Human Wizard",
+    "mana_cost": "{1}{U}",
+    "power": "2",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 2.0,
+    "keywords": [
+      "Flash"
+    ]
+  },
+  {
+    "name": "Lightning Bolt",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "type_line": "Instant",
+    "mana_cost": "{R}",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 1.0,
+    "keywords": []
+  }
+]

@@ -28,8 +28,8 @@ if TYPE_CHECKING:
     from app.game.state import CardInstance, GameState
     from app.rules.characteristics import CardInfo, Characteristics
 
-KEYWORDS = ("cycling", "unearth", "miracle", "encore", "dredge", "scavenge", "jump-start")  # (wave 42A: dredge; 44C: scavenge, jump-start)
-_LINE = re.compile(r"^(?:each )?(?P<sel>[A-Za-z][A-Za-z ,'/-]*?) in your (?P<zone>hand|graveyard)(?P<tail> that's [A-Za-z ,/-]+?)? (?:has|have) (?P<kw>" + "|".join((*KEYWORDS, "warp")) + r")"
+KEYWORDS = ("ninjutsu", "cycling", "unearth", "miracle", "encore", "dredge", "scavenge", "jump-start")  # (wave 42A: dredge; 44C: scavenge, jump-start)
+_LINE = re.compile(r"^(?:each )?(?P<sel>[A-Za-z][A-Za-z ,'/-]*?) in (?P<owner>your|each player's) (?P<zone>hand|graveyard)(?P<tail> that's [A-Za-z ,/-]+?)? (?:has|have) (?P<kw>" + "|".join((*KEYWORDS, "warp", r"(?:(?:basic|artifact) )?[a-z]+cycling")) + r")"
                    r"(?: (?P<cost>(?:\{[^}X]+\})+)| (?P<num>\d+)|(?P<eq> ?\. (?:its|the) [a-z]+ cost is equal to its mana cost(?: reduced by (?P<red>\{\d+\}))?)"
                    r"| (?P<mv>\{X\}, where X is its mana value))?$",  # (wave 49B: "encore {X}, where X is its mana value", Sliver Gravemother)
                    re.IGNORECASE)  # (wave 44C: the tail is optional: jump-start has none, 702.133a)
@@ -42,13 +42,18 @@ def define(t: str) -> dict[str, Any] | None:
     m = _LINE.fullmatch(t)
     if m is None:
         return None
-    if m["kw"].lower() == "warp":
+    keyword = m["kw"].lower()
+    all_players = m["owner"].lower() == "each player's"
+    if all_players and not keyword.endswith("cycling"):
+        return None
+    if keyword == "warp":
         return _warp(m)
     phrase = re.sub(r"^(instant|sorcery) and (instant|sorcery) cards?\b", r"\1 or \2 card", re.sub(r"\bcards\b", "card", m["sel"]))  # (wave 44C: "instant and sorcery")
     sel = selectors.parse(f"{phrase} in your {m['zone']}{m['tail'] or ''}")
     if sel is None or sel.player is not None or sel.zones != (m["zone"],) or not sel.card or sel.zone_owner not in (None, "you"):
         return None
-    if m["kw"].lower() not in {"hand": ("cycling", "miracle"), "graveyard": ("unearth", "encore", "dredge", "scavenge", "jump-start")}[m["zone"]]:
+    if keyword not in {"hand": ("cycling", "miracle", "ninjutsu"), "graveyard": ("unearth", "encore", "dredge", "scavenge", "jump-start")}[m["zone"]] and not (
+            m["zone"] == "hand" and keyword.endswith("cycling")):
         return None  # (the zone the keyword works from: 702.29a, 702.49a, 702.94a — the hand; 702.84a, 702.141a, 702.52a, 702.97a, 702.133a — the graveyard)
     if m["kw"].lower() == "jump-start":  # -- static_other (wave 44C) -- 702.133a: no cost of its own, the card's cost is paid and a card is discarded
         return {"kind": "static", "static": "zone_grant", "filter": sel.key(), "keyword": "jump-start", "cost": None, "reduce": 0, "effects": []} \
@@ -59,7 +64,14 @@ def define(t: str) -> dict[str, Any] | None:
         return None
     if (m["num"] is not None) != (m["kw"].lower() == "dredge"):  # (702.52a: "Dredge N", a number and no cost)
         return None
-    return {"kind": "static", "static": "zone_grant", "filter": sel.key(), "keyword": m["kw"].lower(), "cost": m["cost"],
+    if keyword.endswith("cycling"):
+        from app.rules import cycling_costs
+
+        if not m["cost"] or not cycling_costs.parts(f"{keyword} {m['cost']}"):
+            return None
+    if all_players:
+        sel = replace(sel, zone_owner=None)
+    return {"kind": "static", "static": "zone_grant", **({"all_players": True} if all_players else {}), "filter": sel.key(), "keyword": keyword, "cost": m["cost"],
             "reduce": int(m["red"][1:-1]) if m["red"] else 0, "effects": [], **({"num": int(m["num"])} if m["num"] else {}), **({"mv": True} if m["mv"] else {})}
 
 
@@ -131,7 +143,8 @@ def apply(state: GameState, card: CardInstance, ch: Characteristics, info: CardI
     extra: list[Any] = []
     view = None
     for src, d in found:
-        if card.zone != f"{src.controller}:{zone}" or card.owner != src.controller or f"{d['keyword']}" not in KEYWORDS:
+        if (not d.get("all_players") and (card.zone != f"{src.controller}:{zone}" or card.owner != src.controller)
+                or d['keyword'] not in KEYWORDS and not d['keyword'].endswith('cycling')):
             continue
         view = view or Plan.view(state, src.controller, info)
         if not selectors.matches(view, selectors.from_key(d["filter"]), card, ch, src.controller, src.id) or (line := _line(d, ch, card)) is None:

@@ -1,0 +1,149 @@
+[
+  {
+    "name": "Icatian Skirmishers",
+    "oracle_id": "8ddbe82b-7fc9-4b2c-85de-dc747adbb3ca",
+    "mirror": "https://scryfall.com/card/fem/14/icatian-skirmishers?utm_source=api",
+    "rulings": [
+      {
+        "object": "ruling",
+        "oracle_id": "8ddbe82b-7fc9-4b2c-85de-dc747adbb3ca",
+        "source": "wotc",
+        "published_at": "2009-10-01",
+        "comment": "If a creature in combat has banding, its controller assigns damage for creatures blocking or blocked by it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "8ddbe82b-7fc9-4b2c-85de-dc747adbb3ca",
+        "source": "wotc",
+        "published_at": "2008-10-01",
+        "comment": "If a creature with banding attacks, it can team up with any number of other attacking creatures with banding (and up to one nonbanding creature) and attack as a unit called a \"band.\" The band can be blocked by any creature that could block a single creature in the band. Blocking any creature in a band blocks the entire band. If a creature with banding is blocked, the attacking player chooses how the blockers' damage is assigned."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "8ddbe82b-7fc9-4b2c-85de-dc747adbb3ca",
+        "source": "wotc",
+        "published_at": "2008-10-01",
+        "comment": "A maximum of one nonbanding creature can join an attacking band no matter how many creatures with banding are in it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "8ddbe82b-7fc9-4b2c-85de-dc747adbb3ca",
+        "source": "wotc",
+        "published_at": "2008-10-01",
+        "comment": "Creatures in the same band must all attack the same player or planeswalker."
+      }
+    ]
+  },
+  {
+    "name": "Urza's Engine",
+    "oracle_id": "bf6ea878-044b-40a8-a21b-0191a948a69a",
+    "mirror": "https://scryfall.com/card/all/135/urzas-engine?utm_source=api",
+    "rulings": [
+      {
+        "object": "ruling",
+        "oracle_id": "bf6ea878-044b-40a8-a21b-0191a948a69a",
+        "source": "wotc",
+        "published_at": "2009-10-01",
+        "comment": "If a creature in combat has banding, its controller assigns damage for creatures blocking or blocked by it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "bf6ea878-044b-40a8-a21b-0191a948a69a",
+        "source": "wotc",
+        "published_at": "2008-10-01",
+        "comment": "If a creature with banding attacks, it can team up with any number of other attacking creatures with banding (and up to one nonbanding creature) and attack as a unit called a \"band.\" The band can be blocked by any creature that could block a single creature in the band. Blocking any creature in a band blocks the entire band. If a creature with banding is blocked, the attacking player chooses how the blockers' damage is assigned."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "bf6ea878-044b-40a8-a21b-0191a948a69a",
+        "source": "wotc",
+        "published_at": "2008-10-01",
+        "comment": "A maximum of one nonbanding creature can join an attacking band no matter how many creatures with banding are in it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "bf6ea878-044b-40a8-a21b-0191a948a69a",
+        "source": "wotc",
+        "published_at": "2008-10-01",
+        "comment": "Creatures in the same band must all attack the same player or planeswalker."
+      }
+    ]
+  },
+  {
+    "name": "Camel",
+    "oracle_id": "d33b3591-c01f-4ac4-8626-7cbfdabaf90d",
+    "mirror": "https://scryfall.com/card/arn/3/camel?utm_source=api",
+    "rulings": [
+      {
+        "object": "ruling",
+        "oracle_id": "d33b3591-c01f-4ac4-8626-7cbfdabaf90d",
+        "source": "wotc",
+        "published_at": "2009-10-01",
+        "comment": "If a creature in combat has banding, its controller assigns damage for creatures blocking or blocked by it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "d33b3591-c01f-4ac4-8626-7cbfdabaf90d",
+        "source": "wotc",
+        "published_at": "2008-10-01",
+        "comment": "If a creature with banding attacks, it can team up with any number of other attacking creatures with banding (and up to one nonbanding creature) and attack as a unit called a \"band.\" The band can be blocked by any creature that could block a single creature in the band. Blocking any creature in a band blocks the entire band. If a creature with banding is blocked, the attacking player chooses how the blockers' damage is assigned."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "d33b3591-c01f-4ac4-8626-7cbfdabaf90d",
+        "source": "wotc",
+        "published_at": "2008-10-01",
+        "comment": "A maximum of one nonbanding creature can join an attacking band no matter how many creatures with banding are in it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "d33b3591-c01f-4ac4-8626-7cbfdabaf90d",
+        "source": "wotc",
+        "published_at": "2008-10-01",
+        "comment": "Creatures in the same band must all attack the same player or planeswalker."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "d33b3591-c01f-4ac4-8626-7cbfdabaf90d",
+        "source": "wotc",
+        "published_at": "2004-10-04",
+        "comment": "It does prevent damage from animated Deserts in combat."
+      }
+    ]
+  },
+  {
+    "name": "Battering Ram",
+    "oracle_id": "e7b91fba-8d96-4040-95e8-f0023b65c497",
+    "mirror": "https://scryfall.com/card/5ed/353/battering-ram?utm_source=api",
+    "rulings": [
+      {
+        "object": "ruling",
+        "oracle_id": "e7b91fba-8d96-4040-95e8-f0023b65c497",
+        "source": "wotc",
+        "published_at": "2009-10-01",
+        "comment": "If a creature in combat has banding, its controller assigns damage for creatures blocking or blocked by it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e7b91fba-8d96-4040-95e8-f0023b65c497",
+        "source": "wotc",
+        "published_at": "2008-10-01",
+        "comment": "If a creature with banding attacks, it can team up with any number of other attacking creatures with banding (and up to one nonbanding creature) and attack as a unit called a \"band.\" The band can be blocked by any creature that could block a single creature in the band. Blocking any creature in a band blocks the entire band. If a creature with banding is blocked, the attacking player chooses how the blockers' damage is assigned."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e7b91fba-8d96-4040-95e8-f0023b65c497",
+        "source": "wotc",
+        "published_at": "2008-10-01",
+        "comment": "A maximum of one nonbanding creature can join an attacking band no matter how many creatures with banding are in it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e7b91fba-8d96-4040-95e8-f0023b65c497",
+        "source": "wotc",
+        "published_at": "2008-10-01",
+        "comment": "Creatures in the same band must all attack the same player or planeswalker."
+      }
+    ]
+  }
+]

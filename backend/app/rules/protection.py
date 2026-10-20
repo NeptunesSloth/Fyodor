@@ -29,8 +29,13 @@ _LINE = re.compile(r"^protection (from .+)$")
 _PIECE = re.compile(r"\s*(?:,\s*)?(?:and\s+)?from\s+")
 
 
-def _one(word: str) -> Quality | None:
-    word = word.strip().rstrip(".").lower()
+def _one(word: str, recipient: Characteristics | None = None) -> Quality | None:
+    from app.rules import source_qualities
+
+    raw = word.strip().rstrip(".")
+    if (bound := source_qualities.predicate(raw if raw.lower().startswith("card name ") else raw.lower())) is not None:
+        return bound
+    word = raw.lower()
     if word in COLORS:
         c = COLORS[word]
         return lambda ch: c in ch.colors
@@ -42,9 +47,28 @@ def _one(word: str) -> Quality | None:
         return lambda ch: bool(ch.colors)
     if word == "everything":
         return lambda ch: True
+    if player_match := re.fullmatch(r'player[: ]([\w-]+)', word):
+        player = player_match[1]
+        return lambda ch: (ch.targeting_controller or ch.object_controller or ch.object_owner) == player
+
+    if m := re.fullmatch(r"permanents with ([a-z][a-z -]*) counters on them", word):
+        kind = m[1]
+        return lambda ch: ch.on_battlefield and kind in ch.object_counters
+    if word == "creatures your opponents control":
+        player = (recipient.object_controller or recipient.object_owner) if recipient is not None else None
+        return lambda ch: bool(player and "Creature" in ch.types and (controller := ch.object_controller or ch.object_owner)
+                               and controller != player)
+    if word in ("instant spells", "sorcery spells"):
+        kind = "Instant" if word == "instant spells" else "Sorcery"
+        return lambda ch: ch.is_spell and kind in ch.types
+    if m := re.fullmatch(r"creatures controlled by player ([\w-]+)", word):
+        player = m[1]
+        return lambda ch: "Creature" in ch.types and (ch.object_controller or ch.object_owner) == player
     if word in CARD_TYPES:
         t = CARD_TYPES[word]
         return lambda ch: t in ch.types
+    if word == "ring-bearers":
+        return lambda ch: ch.object_ring_bearer
     if word == "colorless":
         return lambda ch: not ch.colors
     # -- keywords (wave 15E) -- "God creatures", "non-Spirit creatures", "legendary creatures", "mana value 3 or greater" (702.16a)
@@ -68,21 +92,23 @@ def _one(word: str) -> Quality | None:
     return None
 
 
-def parse(line: str) -> list[Quality] | None:
+def parse(line: str, recipient: Characteristics | None = None) -> list[Quality] | None:
     """The qualities of one “Protection from …” keyword piece, or None if not understood."""
     m = _LINE.match(line.strip().rstrip(".").lower())
     if not m:
         return None
     words = [w for w in _PIECE.split(m[1]) if w.strip()]
-    out = [_one(w) for w in words]
+    out = [_one(w, recipient) for w in words]
     return [q for q in out if q is not None] if out and all(out) else None
 
 
-def hexproof(line: str) -> list[Quality] | None:
+def hexproof(line: str, recipient: Characteristics | None = None) -> list[Quality] | None:
     """-- keywords (wave 44D) -- the qualities of "hexproof from white and from black" / "… from artifacts, creatures, and enchantments" (702.11d, 702.11f: one
     ability for each quality), or None if one isn't understood."""
     m = re.search(r"hexproof from (.+)$", line.strip().rstrip(".").lower())
-    out = [_one(w) for w in re.split(r",\s*(?:and\s+)?(?:from\s+)?|\s+and\s+(?:from\s+)?", m[1])] if m else []
+    if m and m[1] == "activated and triggered abilities":
+        return [lambda source: source.is_ability]
+    out = [_one(w, recipient) for w in re.split(r",\s*(?:and\s+)?(?:from\s+)?|\s+and\s+(?:from\s+)?", m[1])] if m else []
     return [q for q in out if q is not None] if out and all(out) else None
 
 
@@ -91,7 +117,7 @@ def hexproof_from(ch: Characteristics, source: Characteristics | None) -> bool:
     lose hexproof loses these too (702.11e)."""
     if source is None or "hexproof from" not in ch.keywords or "hexproof" in ch.lost:
         return False
-    return any(q(source) for ab in ch.abilities if ab.kind == "keywords" and "hexproof from" in ab.keywords for q in hexproof(ab.text) or [])
+    return any(q(source) for ab in ch.abilities if ab.kind == "keywords" and "hexproof from" in ab.keywords for q in hexproof(ab.text, ch) or [])
 
 
 def _pieces(line: str) -> list[str]:
@@ -108,7 +134,7 @@ def qualities(ch: Characteristics, exempt: Callable[[str], bool] | None = None) 
     for ab in ch.abilities:
         if ab.kind == "keywords" and "protection" in ab.keywords and not (exempt and ab.keeps and exempt(ab.keeps)):
             for piece in _pieces(ab.text):
-                out += parse(piece) or []
+                out += parse(piece, ch) or []
     return out
 
 

@@ -387,6 +387,8 @@ def drawn(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     before = ((ctx.get("refs") or {}).get(v["ref_count"]) or {}).get("drew") or {}
     now = history.log_for(plan).drew
     each = {p: max(0, n - before.get(p, 0)) for p, n in now.items() if p in plan.live()}
+    if v.get("players") == "you":
+        return each.get(ctx["controller"],0)
     if v.get("players") == "opponent":
         return sum(1 for p, n in each.items() if n and p != ctx["controller"])
     return sum(each.values())

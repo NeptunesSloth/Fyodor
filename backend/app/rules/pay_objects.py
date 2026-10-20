@@ -13,6 +13,9 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import replace
 from typing import Any
 
@@ -23,6 +26,27 @@ _EVENT_LIKE = ("event", "event_gone", "event_spell", "event_all")
 _STAT = r"(?P<stat>power|toughness|mana value)"
 _KIND = r"(?:creature|artifact|permanent|land|enchantment)"
 PLACEHOLDER = "pay_exiled"  # (a copy source "the exiled card": bound to the payment below; refused if left unbound)
+
+_ACTIVATION_EXILE: ContextVar[bool] = ContextVar("activation_exile", default=False)
+
+
+@contextmanager
+def activation_exile(cost: C.AbilityCost | None) -> Iterator[None]:
+    """Read a single chosen card exiled by this activation's own cost (400.7j)."""
+    parts = [c for c in cost.components if c.kind in (C.EXILE, C.EXILE_FROM_GRAVEYARD, "EXILE_FROM_HAND", "EXILE_LIBRARY", C.CRAFT, C.COLLECT_EVIDENCE, C.FORAGE)] if cost else []
+    valid = bool(cost and not cost.unsupported and not cost.either and len(parts) == 1
+                 and parts[0].kind in (C.EXILE_FROM_GRAVEYARD, "EXILE_FROM_HAND") and parts[0].selector is not None
+                 and parts[0].amount == 1 and not (parts[0].x or parts[0].anyn))
+    token = _ACTIVATION_EXILE.set(valid)
+    try:
+        yield
+    finally:
+        _ACTIVATION_EXILE.reset(token)
+
+
+def activation_exiled() -> bool:
+    return _ACTIVATION_EXILE.get()
+
 
 
 def kind(pay: dict[str, Any]) -> str | None:

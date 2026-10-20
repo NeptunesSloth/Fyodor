@@ -1,0 +1,347 @@
+[
+  {
+    "name": "Alexios, Deimos of Kosmos",
+    "oracle_text": "Trample\nAlexios attacks each combat if able, can't be sacrificed, and can't attack its owner.\nAt the beginning of each player's upkeep, that player gains control of Alexios, untaps it, and puts a +1/+1 counter on it. It gains haste until end of turn.",
+    "type_line": "Legendary Creature \u2014 Human Berserker",
+    "mana_cost": "{3}{R}",
+    "layout": "normal",
+    "power": "4",
+    "toughness": "4",
+    "cmc": 4.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Trample"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Diabolic Edict",
+    "oracle_text": "Target player sacrifices a creature of their choice.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{B}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Smallpox",
+    "oracle_text": "Each player loses 1 life, discards a card, sacrifices a creature of their choice, then sacrifices a land of their choice.",
+    "type_line": "Sorcery",
+    "mana_cost": "{B}{B}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "All Is Dust",
+    "oracle_text": "Each player sacrifices all permanents they control that are one or more colors.",
+    "type_line": "Kindred Sorcery \u2014 Eldrazi",
+    "mana_cost": "{7}",
+    "layout": "normal",
+    "cmc": 7.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Ashnod's Altar",
+    "oracle_text": "Sacrifice a creature: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{3}",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Fling",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nFling deals damage equal to the sacrificed creature's power to any target.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{R}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Dress Down",
+    "oracle_text": "Flash\nWhen this enchantment enters, draw a card.\nCreatures lose all abilities.\nAt the beginning of the end step, sacrifice this enchantment.",
+    "type_line": "Enchantment",
+    "mana_cost": "{1}{U}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flash"
+    ]
+  },
+  {
+    "name": "Vorinclex, Monstrous Raider",
+    "oracle_text": "Trample, haste\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead.\nIf an opponent would put one or more counters on a permanent or player, they put half that many of each of those kinds of counters on that permanent or player instead, rounded down.",
+    "type_line": "Legendary Creature \u2014 Phyrexian Praetor",
+    "mana_cost": "{4}{G}{G}",
+    "layout": "normal",
+    "power": "6",
+    "toughness": "6",
+    "cmc": 6.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Haste",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Liquimetal Torque",
+    "oracle_text": "{T}: Add {C}.\n{T}: Target nonland permanent becomes an artifact in addition to its other types until end of turn.",
+    "type_line": "Artifact",
+    "mana_cost": "{2}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Goblin Welder",
+    "oracle_text": "{T}: Choose target artifact a player controls and target artifact card in that player's graveyard. If both targets are still legal as this ability resolves, that player simultaneously sacrifices the artifact and returns the artifact card to the battlefield.",
+    "type_line": "Creature \u2014 Goblin Artificer",
+    "mana_cost": "{R}",
+    "layout": "normal",
+    "power": "1",
+    "toughness": "1",
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Jace Beleren",
+    "oracle_text": "+2: Each player draws a card.\n\u22121: Target player draws a card.\n\u221210: Target player mills twenty cards.",
+    "type_line": "Legendary Planeswalker \u2014 Jace",
+    "mana_cost": "{1}{U}{U}",
+    "layout": "normal",
+    "loyalty": "3",
+    "cmc": 3.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Elder Deep-Fiend",
+    "oracle_text": "Flash\nEmerge {5}{U}{U} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, tap up to four target permanents.",
+    "type_line": "Creature \u2014 Eldrazi Octopus",
+    "mana_cost": "{8}",
+    "layout": "normal",
+    "power": "5",
+    "toughness": "6",
+    "cmc": 8.0,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Emerge",
+      "Flash"
+    ]
+  },
+  {
+    "name": "Assault Suit",
+    "oracle_text": "Equipped creature gets +2/+2, has haste, can't attack you or planeswalkers you control, and can't be sacrificed.\nAt the beginning of each opponent's upkeep, you may have that player gain control of equipped creature until end of turn. If you do, untap it.\nEquip {3}",
+    "type_line": "Artifact \u2014 Equipment",
+    "mana_cost": "{4}",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ]
+  },
+  {
+    "name": "Wild Cantor",
+    "oracle_text": "({R/G} can be paid with either {R} or {G}.)\nSacrifice this creature: Add one mana of any color.",
+    "type_line": "Creature \u2014 Human Druid",
+    "mana_cost": "{R/G}",
+    "layout": "normal",
+    "power": "1",
+    "toughness": "1",
+    "cmc": 1.0,
+    "colors": [
+      "G",
+      "R"
+    ],
+    "color_identity": [
+      "G",
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sakura-Tribe Elder",
+    "oracle_text": "Sacrifice this creature: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+    "type_line": "Creature \u2014 Snake Shaman",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "power": "1",
+    "toughness": "1",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ornithopter",
+    "oracle_text": "Flying",
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "mana_cost": "{0}",
+    "layout": "normal",
+    "power": "0",
+    "toughness": "2",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Urza's Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 This Saga gains \"{T}: Add {C}.\"\nII \u2014 This Saga gains \"{2}, {T}: Create a 0/0 colorless Construct artifact creature token with 'This token gets +1/+1 for each artifact you control.'\"\nIII \u2014 Search your library for an artifact card with mana cost {0} or {1}, put it onto the battlefield, then shuffle.",
+    "type_line": "Enchantment Land \u2014 Urza's Saga",
+    "mana_cost": "",
+    "layout": "saga",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Nissa, Worldwaker",
+    "oracle_text": "+1: Target land you control becomes a 4/4 Elemental creature with trample. It's still a land.\n+1: Untap up to four target Forests.\n\u22127: Search your library for any number of basic land cards, put them onto the battlefield, then shuffle. Those lands become 4/4 Elemental creatures with trample. They're still lands.",
+    "type_line": "Legendary Planeswalker \u2014 Nissa",
+    "mana_cost": "{3}{G}{G}",
+    "layout": "normal",
+    "loyalty": "3",
+    "cmc": 5.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Avalanche Riders",
+    "oracle_text": "Haste\nEcho {3}{R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters, destroy target land.",
+    "type_line": "Creature \u2014 Human Nomad",
+    "mana_cost": "{3}{R}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "cmc": 4.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Haste",
+      "Echo"
+    ]
+  },
+  {
+    "name": "Patron of the Akki",
+    "oracle_text": "Goblin offering (You may cast this spell any time you could cast an instant by sacrificing a Goblin and paying the difference in mana costs between this and the sacrificed Goblin. Mana cost includes color.)\nWhenever Patron of the Akki attacks, creatures you control get +2/+0 until end of turn.",
+    "type_line": "Legendary Creature \u2014 Spirit",
+    "mana_cost": "{4}{R}{R}",
+    "layout": "normal",
+    "power": "5",
+    "toughness": "5",
+    "cmc": 6.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Offering"
+    ]
+  }
+]

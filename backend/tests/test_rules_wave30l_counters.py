@@ -80,8 +80,7 @@ def test_the_promoted_cards_are_full(name):
 def test_the_unread_forms_stay_manual():
     from tests.test_rules_scripts import ch
 
-    for text in (  # a player's counters (poison, energy …) are not read, nor counters taken from a whole group or by "if you do"
-        "Remove up to five counters from target artifact, creature, planeswalker, or opponent.",
+    for text in (  # unsupported conditional and source-group removals remain manual
         "Remove all counters from up to one target permanent or opponent.",
         "Remove a counter from target permanent. If you do, draw a card.",
         "Remove any number of counters from among permanents on the battlefield.",

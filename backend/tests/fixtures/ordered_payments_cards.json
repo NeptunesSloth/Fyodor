@@ -1,0 +1,54 @@
+[
+  {
+    "name": "Ugin, the Spirit Dragon",
+    "mana_cost": "{8}",
+    "cmc": 8.0,
+    "type_line": "Legendary Planeswalker \u2014 Ugin",
+    "oracle_text": "+2: Ugin deals 3 damage to any target.\n\u2212X: Exile each permanent with mana value X or less that's one or more colors.\n\u221210: You gain 7 life, draw seven cards, then put up to seven permanent cards from your hand onto the battlefield.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "power": null,
+    "toughness": null,
+    "loyalty": "7"
+  },
+  {
+    "name": "Lightning Runner",
+    "mana_cost": "{3}{R}{R}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Human Warrior",
+    "oracle_text": "Double strike, haste\nWhenever this creature attacks, you get {E}{E} (two energy counters), then you may pay eight {E}. If you pay, untap all creatures you control, and after this phase, there is an additional combat phase.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Haste",
+      "Double strike"
+    ],
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null
+  },
+  {
+    "name": "Blaster Hulk",
+    "mana_cost": "{6}{R}{R}",
+    "cmc": 8.0,
+    "type_line": "Artifact Creature \u2014 Pirate",
+    "oracle_text": "This spell costs {1} less to cast for each {E} (energy counter) you've paid or lost this turn.\nHaste\nWhenever this creature attacks, you get {E}{E}, then you may pay eight {E}. When you do, this creature deals 8 damage divided as you choose among up to eight targets.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Haste"
+    ],
+    "power": "8",
+    "toughness": "8",
+    "loyalty": null
+  }
+]

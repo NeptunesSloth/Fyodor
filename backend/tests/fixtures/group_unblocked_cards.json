@@ -1,0 +1,230 @@
+[
+  {
+    "name": "Invasion of Ikoria // Zilortha, Apex of Ikoria",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library and/or graveyard for a non-Human creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle.\n//\nReach\nFor each non-Human creature you control, you may have that creature assign its combat damage as though it weren't blocked.",
+    "type_line": "Battle \u2014 Siege // Legendary Creature \u2014 Dinosaur",
+    "mana_cost": "{X}{G}{G} // ",
+    "layout": "transform",
+    "cmc": 2.0,
+    "defense": "6",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Reach",
+      "Transform"
+    ],
+    "card_faces": [
+      {
+        "name": "Invasion of Ikoria",
+        "mana_cost": "{X}{G}{G}",
+        "type_line": "Battle \u2014 Siege",
+        "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library and/or graveyard for a non-Human creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle.",
+        "defense": "6",
+        "colors": [
+          "G"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/5/d/5d59c8f2-f6af-40a6-8dfe-8cc45bf231ce.jpg?1783916974",
+          "normal": "https://cards.scryfall.io/normal/front/5/d/5d59c8f2-f6af-40a6-8dfe-8cc45bf231ce.jpg?1783916974",
+          "large": "https://cards.scryfall.io/large/front/5/d/5d59c8f2-f6af-40a6-8dfe-8cc45bf231ce.jpg?1783916974",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/5/d/5d59c8f2-f6af-40a6-8dfe-8cc45bf231ce.jpg?1783916974"
+        }
+      },
+      {
+        "name": "Zilortha, Apex of Ikoria",
+        "mana_cost": "",
+        "type_line": "Legendary Creature \u2014 Dinosaur",
+        "oracle_text": "Reach\nFor each non-Human creature you control, you may have that creature assign its combat damage as though it weren't blocked.",
+        "power": "8",
+        "toughness": "8",
+        "colors": [
+          "G"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/5/d/5d59c8f2-f6af-40a6-8dfe-8cc45bf231ce.jpg?1783916974",
+          "normal": "https://cards.scryfall.io/normal/back/5/d/5d59c8f2-f6af-40a6-8dfe-8cc45bf231ce.jpg?1783916974",
+          "large": "https://cards.scryfall.io/large/back/5/d/5d59c8f2-f6af-40a6-8dfe-8cc45bf231ce.jpg?1783916974",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/5/d/5d59c8f2-f6af-40a6-8dfe-8cc45bf231ce.jpg?1783916974"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Siege Behemoth",
+    "oracle_text": "Hexproof\nAs long as this creature is attacking, for each creature you control, you may have that creature assign its combat damage as though it weren't blocked.",
+    "type_line": "Creature \u2014 Beast",
+    "mana_cost": "{5}{G}{G}",
+    "layout": "normal",
+    "cmc": 7.0,
+    "power": "7",
+    "toughness": "4",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Hexproof"
+    ]
+  },
+  {
+    "name": "Indomitable Might",
+    "oracle_text": "Flash\nEnchant creature\nEnchanted creature gets +3/+3.\nEnchanted creature's controller may have it assign its combat damage as though it weren't blocked.",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{3}{G}",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant",
+      "Flash"
+    ]
+  },
+  {
+    "name": "Ruxa, Patient Professor",
+    "oracle_text": "Whenever Ruxa enters or attacks, return target creature card with no abilities from your graveyard to your hand.\nCreatures you control with no abilities get +1/+1.\nFor each creature you control with no abilities, you may have that creature assign its combat damage as though it weren't blocked.",
+    "type_line": "Legendary Creature \u2014 Bear Druid",
+    "mana_cost": "{2}{G}{G}",
+    "layout": "normal",
+    "cmc": 4.0,
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Colossal Dreadmaw",
+    "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+    "type_line": "Creature \u2014 Dinosaur",
+    "mana_cost": "{4}{G}{G}",
+    "layout": "normal",
+    "cmc": 6.0,
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ]
+  },
+  {
+    "name": "Elite Vanguard",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Human Soldier",
+    "mana_cost": "{W}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Invisible Stalker",
+    "oracle_text": "Hexproof (This creature can't be the target of spells or abilities your opponents control.)\nThis creature can't be blocked.",
+    "type_line": "Creature \u2014 Human Rogue",
+    "mana_cost": "{1}{U}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Hexproof"
+    ]
+  },
+  {
+    "name": "Mirran Crusader",
+    "oracle_text": "Double strike, protection from black and from green",
+    "type_line": "Creature \u2014 Human Knight",
+    "mana_cost": "{1}{W}{W}",
+    "layout": "normal",
+    "cmc": 3.0,
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Protection",
+      "Double strike"
+    ]
+  },
+  {
+    "name": "Loxodon Warhammer",
+    "oracle_text": "Equipped creature gets +3/+0 and has trample and lifelink.\nEquip {3}",
+    "type_line": "Artifact \u2014 Equipment",
+    "mana_cost": "{3}",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ]
+  },
+  {
+    "name": "Humility",
+    "oracle_text": "All creatures lose all abilities and have base power and toughness 1/1.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{W}{W}",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  }
+]

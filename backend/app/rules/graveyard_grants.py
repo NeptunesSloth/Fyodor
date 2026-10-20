@@ -17,7 +17,7 @@ or a card with an Adventure (two ways to cast it) isn't offered this way (UNVERI
 applies: left to the players).
 
 A flashback the card prints and a granted one are two ways to cast it; the engine offers the
-printed cost first (the player can still choose the granted one by hand).
+player a private choice of the distinct available costs.
 """
 
 from __future__ import annotations
@@ -131,41 +131,37 @@ def grant_graveyard_play(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def flashback_cost(state: GameState, card: CardInstance, ch: Characteristics, info: Any = None) -> str | None:
-    """The flashback cost an effect gave this card (the object it is now, this turn), or None; -- static_other sweep (wave 21A) -- or a
-    static of a permanent its owner controls gave it ("Each instant and sorcery card in your graveyard has flashback", Lier)."""
-    r = state.rules
-    if r is None or not card.zone.endswith(":graveyard"):
-        return None
-    if info is not None and (cost := _static_flashback(state, card, ch, info)) is not None:
-        return cost
-    if not r.graveyard_grants:
-        return None
-    oid = r.object_id(card.id)
-    for g in r.graveyard_grants:
-        if g.get("oid") != oid or g.get("turn") != state.turn.number or not g.get("flashback"):
-            continue
-        cost = g["flashback"]
-        if cost == "mana_cost":
-            if not ch.mana_cost or "//" in ch.mana_cost or _two_ways(card):
-                return None
-            return str(ch.mana_cost)
-        return str(cost)
-    return None
+    """Compatibility reader: the first available granted flashback cost."""
+    return next(iter(flashback_costs(state, card, ch, info)), None)
 
 
-def _static_flashback(state: GameState, card: CardInstance, ch: Characteristics, info: Any) -> str | None:
+def flashback_costs(state: GameState, card: CardInstance, ch: Characteristics, info: Any = None) -> list[str]:
+    """CR 702.34: each currently applicable grant is a separate casting alternative."""
     from app.rules import selectors
     from app.rules.cast_limits import _statics
     from app.rules.plan import Plan
 
-    for src, d in _statics(state, info, "gy_flashback"):
-        if src.controller != card.owner or (d["your_turn"] and state.turn.active_player != card.owner):
-            continue
-        if selectors.matches(Plan.view(state, card.owner, info), selectors.from_key(d["sel"]), card, ch, card.owner):
-            if d.get("cost"):  # -- casting costs (wave 22F) -- "has flashback {1}": the cost the static states
-                return str(d["cost"])
-            return None if not ch.mana_cost or "//" in ch.mana_cost or _two_ways(card) else str(ch.mana_cost)
-    return None
+    r = state.rules
+    if r is None or not card.zone.endswith(":graveyard"):
+        return []
+    found: list[str] = []
+    if info is not None:
+        for src, d in _statics(state, info, "gy_flashback"):
+            if src.controller == card.owner and (not d["your_turn"] or state.turn.active_player == card.owner) and selectors.matches(
+                    Plan.view(state, card.owner, info), selectors.from_key(d["sel"]), card, ch, card.owner):
+                found.append(str(d.get("cost") or "mana_cost"))
+    oid = r.object_id(card.id)
+    found.extend(str(g["flashback"]) for g in r.graveyard_grants
+                 if g.get("oid") == oid and g.get("turn") == state.turn.number and g.get("flashback"))
+    result: list[str] = []
+    for cost in found:
+        if cost == "mana_cost":
+            if not ch.mana_cost or "//" in ch.mana_cost or _two_ways(card):
+                continue
+            cost = str(ch.mana_cost)
+        if cost not in result:
+            result.append(cost)
+    return result
 
 
 def _two_ways(card: CardInstance) -> bool:

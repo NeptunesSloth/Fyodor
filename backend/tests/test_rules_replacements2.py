@@ -711,9 +711,9 @@ def test_a_choice_in_the_draw_step_then_the_step_goes_on(cards):
 # Everything else must go through app/rules/replace.py. A removal (negative delta) isn't replaceable.
 _REPLACEABLE = {"counter", "resource", "create_token", "draw", "life", "rules_damage"}
 _ALLOWED = {
+    ("replacements.py", "mark_exiled_counters"): "Validated prepared replacements mark cards already in exile before riders; these are not permanent/player counters",
     # outside wave 2E's ownership, to be rerouted at integration (UNVERIFIED how the lead reroutes them):
     ("casting.py", "activate_to_stack"): "a loyalty ability's cost (606.4: a cost, not an effect; agent A's region)",
-    ("casting.py", "suspend"): "time counters on a card in exile (not a permanent: no counter replacement applies)",
     ("recursion.py", "spell_self_move"): "wave 7C: a spell's time counters as it exiles itself (a card in exile, as above)",
     ("replacements.py", "move_instead"): "wave 50J: the counter an exiling replacement puts on the card it exiled (Rayami: a card in exile, not a permanent)",
     ("replacements.py", "replace_move"): "wave 50J: the same, for the batch path",
@@ -804,10 +804,7 @@ def test_wordings_that_stay_manual():
         "or that many 3/1 green Dog creature tokens with vigilance.",
         # (a rider after prevention, 615.5, is automated since wave 17A: tests/test_rules_wave17a_prevention.py)
         # ("would lose life" doubling is automated since wave 28B: tests/test_rules_wave28b_replace.py) / "can't" (614.17, 119.8) /
-        # a draw replaced by a choice of land or nonland (Abundance)
-        "If you would draw a card, you may instead choose land or nonland and reveal cards from the top of your library "
-        "until you reveal a card of the chosen kind. Put that card into your hand and put all other cards revealed this "
-        "way on the bottom of your library in any order.",
+        # Abundance's optional land/nonland replacement is automated: tests/test_rules_abundance.py.
         # (Kalitas: exile and a token is automated since wave 22C: tests/test_rules_wave22c_zones.py)
         "If a nontoken creature an opponent controls would die, instead exile that card and create a 2/2 black Zombie "
         "creature token and draw a card.",

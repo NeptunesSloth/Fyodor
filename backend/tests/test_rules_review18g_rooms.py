@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from pathlib import Path
 
 import pytest
 
+from app.config import load_settings
 from app.game.errors import ActionError
 from app.rules import scripts
 from app.rules.plan import Plan
@@ -19,7 +19,7 @@ from tests.test_rules_conditionals import build, on_field, settle, to_hand
 from tests.test_rules_effects import mana
 from tests.test_rules_wave15d_activated import roundtrip
 
-REAL_DB = Path("/home/user/Fyodor/data/cards.sqlite")
+REAL_DB = load_settings().cards_db_path
 NAMES = ["Grand Entryway // Elegant Rotunda", "Mirror Room // Fractured Realm", "Funeral Room // Awakening Hall",
          "Copy Enchantment", "Akroma's Vengeance", "Grizzly Bears", "Restricted Office // Lecture Hall",
          "Roaring Furnace // Steaming Sauna"]

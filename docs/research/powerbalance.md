@@ -1,0 +1,11 @@
+# Powerbalance
+
+Powerbalance reuses native optional top-card reveal and immediate free casting. The reveal confirmation happens before the player sees the card. Revealing binds that exact library incarnation; declining binds nothing. Casting uses the bound card and compares each possible spell face's mana value with the triggering spell's actual mana value. It does not compare only the card's characteristics in the library. A land face cannot be played.
+
+Native event references preserve the triggering spell's stack characteristics, including announced X, even if that spell was countered before the trigger resolves. Adventures and modal double-faced spells are evaluated per spell face. A spell cast for free uses X=0; a spell without a mana cost can be cast through this alternative cost. Costs added by Trinisphere still must be paid. The permission lasts only during this resolution and leaves no later casting permission.
+
+Free casting now accepts an opt-in exact_refs guard, enabled by this effect. Both choosing the free spell and resuming its target/cost announcement recheck the original bound object. A physical card that left and returned to the library cannot substitute for the revealed incarnation. Existing free-cast callers retain their existing behavior.
+
+The native hide_revealed effect accepts an explicit refs/zone option to finish a reveal of the exact card still in its library. Its established hand cleanup remains the default. The explicit cleanup neither moves the uncast card nor erases independent continuous top-reveal effects such as Future Sight; the public historical reveal remains in the log.
+
+Twenty-two canonical gameplay cases cover reveal/cast decline, mismatch and lands, no mana cost, X=0, actual Adventure and modal faces, countered-spell X last known information, original controller/source departure, changed library top before resolution, empty library, stale incarnations at choice and target announcement, Trinisphere payment/refusal, and independent continuous reveal. Fixtures copy all metadata and complete faces for fifteen actual Oracle cards. Persistent choices check replay and JSON save/load. Existing free-cast, play-face, and hand-reveal regressions verify default behavior.

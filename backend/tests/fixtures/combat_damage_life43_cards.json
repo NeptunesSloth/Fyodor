@@ -1,0 +1,90 @@
+[
+  {
+    "name": "Souls of the Faultless",
+    "mana_cost": "{W}{B}{B}",
+    "type_line": "Creature \u2014 Spirit",
+    "oracle_text": "Defender (This creature can't attack.)\nWhenever this creature is dealt combat damage, you gain that much life and attacking player loses that much life.",
+    "power": "0",
+    "toughness": "4",
+    "colors": [
+      "B",
+      "W"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ]
+  },
+  {
+    "name": "High Alert",
+    "mana_cost": "{1}{W}{U}",
+    "type_line": "Enchantment",
+    "oracle_text": "Each creature you control assigns combat damage equal to its toughness rather than its power.\nCreatures you control can attack as though they didn't have defender.\n{2}{W}{U}: Untap target creature.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U",
+      "W"
+    ]
+  },
+  {
+    "name": "Alhammarret's Archive",
+    "mana_cost": "{5}",
+    "type_line": "Legendary Artifact",
+    "oracle_text": "If you would gain life, you gain twice that much life instead.\nIf you would draw a card except the first one you draw in each of your draw steps, draw two cards instead.",
+    "power": null,
+    "toughness": null,
+    "colors": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ]
+  },
+  {
+    "name": "Runeclaw Bear",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ]
+  },
+  {
+    "name": "Gaseous Form",
+    "mana_cost": "{2}{U}",
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nPrevent all combat damage that would be dealt to and dealt by enchanted creature.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ]
+  },
+  {
+    "name": "Act of Aggression",
+    "mana_cost": "{3}{R/P}{R/P}",
+    "type_line": "Instant",
+    "oracle_text": "({R/P} can be paid with either {R} or 2 life.)\nGain control of target creature an opponent controls until end of turn. Untap that creature. It gains haste until end of turn.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ]
+  }
+]

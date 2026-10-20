@@ -20,7 +20,7 @@ from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_attachments import token
 from tests.test_rules_conditionals import settle as settle_stack
 from tests.test_rules_conditionals import through_combat, until
@@ -67,7 +67,7 @@ def test_the_turn_trigger_cards_are_full(name):
 
 
 @pytest.mark.parametrize("text", [
-    "Until end of turn, whenever target creature deals damage, you gain that much life.",  # (damage to several recipients at once: one event)
+    "Until end of turn, whenever target creature deals damage to one or more permanents, you gain that much life.",  # (that recipient class is unsupported)
     "Until end of turn, whenever a creature an opponent controls is dealt damage, destroy it.",
     "Whenever one or more creatures you control deal combat damage to a player this turn, draw that many cards.",  # (one trigger, many amounts)
     "Until end of turn, whenever a creature you control deals combat damage to a player, destroy it.",  # ("it" moved: no such object for this event)
@@ -351,7 +351,7 @@ def test_the_mirari_conjecture_chapter_three_copies_each_instant_or_sorcery_that
     to_hand(s, "Dark Ritual")
     mana(s, B=1)
     cast(s, "Dark Ritual")
-    assert s.state.players["p1"].mana.get("B") == 6  # (the Ritual's BBB and its copy's)
+    assert mana_pool(s).get("B") == 6  # (the Ritual's BBB and its copy's)
     check(s)
     until(s, lambda s: s.state.turn.number == 7 and s.state.turn.phase == "main1")
     assert watches(s) == []

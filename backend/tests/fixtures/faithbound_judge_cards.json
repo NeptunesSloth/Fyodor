@@ -1,0 +1,103 @@
+[
+  {
+    "name": "Faithbound Judge // Sinner's Judgment",
+    "oracle_text": "Defender, flying, vigilance\nAt the beginning of your upkeep, if this creature has two or fewer judgment counters on it, put a judgment counter on it.\nAs long as this creature has three or more judgment counters on it, it can attack as though it didn't have defender.\nDisturb {5}{W}{W}\n//\nEnchant player\nAt the beginning of your upkeep, put a judgment counter on this Aura. Then if there are three or more judgment counters on it, enchanted player loses the game.\nIf Sinner's Judgment would be put into a graveyard from anywhere, exile it instead.",
+    "type_line": "Creature \u2014 Spirit Soldier // Enchantment \u2014 Aura Curse",
+    "mana_cost": "{1}{W}{W} // ",
+    "layout": "transform",
+    "cmc": 3.0,
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Vigilance",
+      "Transform",
+      "Enchant",
+      "Defender",
+      "Disturb"
+    ],
+    "card_faces": [
+      {
+        "name": "Faithbound Judge",
+        "mana_cost": "{1}{W}{W}",
+        "type_line": "Creature \u2014 Spirit Soldier",
+        "oracle_text": "Defender, flying, vigilance\nAt the beginning of your upkeep, if this creature has two or fewer judgment counters on it, put a judgment counter on it.\nAs long as this creature has three or more judgment counters on it, it can attack as though it didn't have defender.\nDisturb {5}{W}{W}",
+        "power": "4",
+        "toughness": "4",
+        "colors": [
+          "W"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/0/d/0d8fa256-3535-4c46-bc3c-dcee457519ab.jpg?1783924314",
+          "normal": "https://cards.scryfall.io/normal/front/0/d/0d8fa256-3535-4c46-bc3c-dcee457519ab.jpg?1783924314",
+          "large": "https://cards.scryfall.io/large/front/0/d/0d8fa256-3535-4c46-bc3c-dcee457519ab.jpg?1783924314",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/0/d/0d8fa256-3535-4c46-bc3c-dcee457519ab.jpg?1783924314"
+        }
+      },
+      {
+        "name": "Sinner's Judgment",
+        "mana_cost": "",
+        "type_line": "Enchantment \u2014 Aura Curse",
+        "oracle_text": "Enchant player\nAt the beginning of your upkeep, put a judgment counter on this Aura. Then if there are three or more judgment counters on it, enchanted player loses the game.\nIf Sinner's Judgment would be put into a graveyard from anywhere, exile it instead.",
+        "colors": [
+          "W"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/0/d/0d8fa256-3535-4c46-bc3c-dcee457519ab.jpg?1783924314",
+          "normal": "https://cards.scryfall.io/normal/back/0/d/0d8fa256-3535-4c46-bc3c-dcee457519ab.jpg?1783924314",
+          "large": "https://cards.scryfall.io/large/back/0/d/0d8fa256-3535-4c46-bc3c-dcee457519ab.jpg?1783924314",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/0/d/0d8fa256-3535-4c46-bc3c-dcee457519ab.jpg?1783924314"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Murder",
+    "oracle_text": "Destroy target creature.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{B}{B}",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Disenchant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{W}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Plains",
+    "oracle_text": "({T}: Add {W}.)",
+    "type_line": "Basic Land \u2014 Plains",
+    "mana_cost": "",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  }
+]

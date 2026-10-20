@@ -1,0 +1,138 @@
+[
+  {
+    "name": "Baleful Mastery",
+    "oracle_text": "You may pay {1}{B} rather than pay this spell's mana cost.\nIf the {1}{B} cost was paid, an opponent draws a card.\nExile target creature or planeswalker.",
+    "type_line": "Instant",
+    "mana_cost": "{3}{B}",
+    "layout": "normal",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 4.0,
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Counterspell",
+    "oracle_text": "Counter target spell.",
+    "type_line": "Instant",
+    "mana_cost": "{U}{U}",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Omniscience",
+    "oracle_text": "You may cast spells from your hand without paying their mana costs.",
+    "type_line": "Enchantment",
+    "mana_cost": "{7}{U}{U}{U}",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 10.0,
+    "keywords": []
+  },
+  {
+    "name": "Narset, Parter of Veils",
+    "oracle_text": "Each opponent can't draw more than one card each turn.\n\u22122: Look at the top four cards of your library. You may reveal a noncreature, nonland card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+    "type_line": "Legendary Planeswalker \u2014 Narset",
+    "mana_cost": "{1}{U}{U}",
+    "layout": "normal",
+    "loyalty": "5",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 3.0,
+    "keywords": []
+  },
+  {
+    "name": "Veilstone Amulet",
+    "oracle_text": "Whenever you cast a spell, creatures you control can't be the targets of spells or abilities your opponents control this turn.",
+    "type_line": "Artifact",
+    "mana_cost": "{3}",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 3.0,
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "type_line": "Instant",
+    "mana_cost": "{R}",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Notion Thief",
+    "oracle_text": "Flash\nIf an opponent would draw a card except the first one they draw in each of their draw steps, instead that player skips that draw and you draw a card.",
+    "type_line": "Creature \u2014 Human Rogue",
+    "mana_cost": "{2}{U}{B}",
+    "layout": "normal",
+    "power": "3",
+    "toughness": "1",
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "cmc": 4.0,
+    "keywords": [
+      "Flash"
+    ]
+  },
+  {
+    "name": "Witchbane Orb",
+    "oracle_text": "When this artifact enters, destroy all Curses attached to you.\nYou have hexproof. (You can't be the target of spells or abilities your opponents control, including Aura spells.)",
+    "type_line": "Artifact",
+    "mana_cost": "{4}",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 4.0,
+    "keywords": []
+  }
+]

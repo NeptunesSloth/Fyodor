@@ -15,7 +15,7 @@ import pytest
 from app.game.errors import ActionError
 from app.rules import optional_payment
 from app.rules.scripts import parse_effects
-from tests.game_helpers import act, zone
+from tests.game_helpers import act, mana_pool, zone
 from tests.test_rules_attachments import build, named, token
 from tests.test_rules_costs_components import artifact, choose, decision, life, mana, use
 from tests.test_rules_effects import pass_until_stack_empty, replay_matches
@@ -154,7 +154,7 @@ def test_payment_impossible_when_answered_pays_nothing(cards):
     use(s, relic)
     pay_prompt(s)
     act(s, "p1", type="activate_ability", card_id=trinket.id, ability=0)  # (a mana ability, while paying)
-    assert trinket.id not in s.state.cards and s.state.players["p1"].mana == {"C": 1}
+    assert trinket.id not in s.state.cards and mana_pool(s) == {"C": 1}
     table = dump(s)
     choose(s, ["pay"])
     assert dump(s) == table and len(hand(s)) == before and decision(s) is None

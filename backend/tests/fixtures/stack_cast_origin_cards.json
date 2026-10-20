@@ -1,0 +1,56 @@
+[
+  {
+    "name": "Wash Away",
+    "oracle_text": "Cleave {1}{U}{U} (You may cast this spell for its cleave cost. If you do, remove the words in square brackets.)\nCounter target spell [that wasn't cast from its owner's hand].",
+    "type_line": "Instant",
+    "mana_cost": "{U}",
+    "layout": "normal"
+  },
+  {
+    "name": "Lightning Bolt",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "type_line": "Instant",
+    "mana_cost": "{R}",
+    "layout": "normal"
+  },
+  {
+    "name": "Twincast",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "type_line": "Instant",
+    "mana_cost": "{U}{U}",
+    "layout": "normal"
+  },
+  {
+    "name": "Future Sight",
+    "oracle_text": "Play with the top card of your library revealed.\nYou may play lands and cast spells from the top of your library.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{U}{U}{U}",
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal"
+  },
+  {
+    "name": "Snapcaster Mage",
+    "oracle_text": "Flash\nWhen this creature enters, target instant or sorcery card in your graveyard gains flashback until end of turn. The flashback cost is equal to its mana cost. (You may cast that card from your graveyard for its flashback cost. Then exile it.)",
+    "type_line": "Creature \u2014 Human Wizard",
+    "mana_cost": "{1}{U}",
+    "power": "2",
+    "toughness": "1",
+    "layout": "normal"
+  },
+  {
+    "name": "Narset, Parter of Veils",
+    "oracle_text": "Each opponent can't draw more than one card each turn.\n\u22122: Look at the top four cards of your library. You may reveal a noncreature, nonland card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+    "type_line": "Legendary Planeswalker \u2014 Narset",
+    "mana_cost": "{1}{U}{U}",
+    "loyalty": "5",
+    "layout": "normal"
+  }
+]

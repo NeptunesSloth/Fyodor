@@ -1,0 +1,253 @@
+"""Typed opponent-delegated target announcement before native activation costs.
+
+The exact definition opts into this announcement path after whole-card proof.
+Target legality always belongs to the original ability controller; selecting a
+target grants the opponent neither cancellation nor payment authority.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING, Any
+
+from pydantic import TypeAdapter
+
+from app.game import actions as A
+from app.game.errors import ActionError
+from app.game.rules_state import DecisionOption
+
+if TYPE_CHECKING:
+    from app.rules.plan import Plan
+
+OPPONENT = 'delegated_target_opponent'
+CREATURE = 'delegated_target_creature'
+TEXT = "{3}, {T}: The next time a source of your choice would deal damage to you this turn, that damage is dealt to target creature of an opponent's choice instead."
+
+
+def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    if ability.kind != 'activated' or ability.text != TEXT:
+        return None
+    return {'kind': 'activated', 'cost': ability.cost, 'target': {'what': 'creature'},
+            'delegated_target': 'opponent', 'effects': [
+                {'do': 'source_shield', 'props': {}, 'to': 'you', 'once': True, 'redirect': 'target'}]}
+
+
+@dataclass
+class Announcement:
+    actor: str
+    source_card: str
+    source_object: str
+    ability: int
+    text: str
+    intent: dict[str, Any]
+    name: str
+    definition: dict[str, Any]
+    mode: str = 'opponent'
+    opponent: str | None = None
+    first: dict[str, Any] | None = None
+
+
+_FRAME = TypeAdapter(Announcement)
+
+
+def _mode(definition_: dict[str, Any]) -> str | None:
+    marker = definition_.get('delegated_target')
+    if marker == 'opponent':
+        return 'opponent'
+    if marker == {'kind': 'target_controller', 'of': 0, 'group': 1}:
+        from app.rules import scripts
+
+        specs = scripts.target_groups(definition_)
+        if len(specs) == 2 and all(s.get('min', 1) == s.get('max', 1) == 1
+                                   and set(s) <= {'what', 'min', 'max'} and s.get('what') for s in specs):
+            return 'target_controller'
+    return None
+
+
+def handles(definition_: dict[str, Any]) -> bool:
+    return _mode(definition_) is not None
+
+
+def _resume(step: str, frame: Announcement, *, invalid: bool = False) -> dict[str, Any]:
+    return {'step': step, 'frame': _FRAME.dump_python(frame, mode='json'),
+            'intent': frame.intent, **({'invalid': True} if invalid else {})}
+
+
+def _source(plan: Plan, frame: Announcement) -> tuple[Any, Any, Any]:
+    if frame.actor not in plan.live():
+        raise ActionError('The original activator has left the game')
+    card = plan.state.cards.get(frame.source_card)
+    if card is None or plan.oid(card) != frame.source_object or card.controller != frame.actor:
+        raise ActionError('The original activating object has changed')
+    ch = plan.ch(card)
+    ability = next((a for a in ch.abilities if a.index == frame.ability and a.text == frame.text), None)
+    if ability is None or ability.kind != 'activated' or not handles(frame.definition):
+        raise ActionError('The original activated ability has changed')
+    return card, ch, ability
+
+
+def _legal(plan: Plan, frame: Announcement, *, first: bool = False) -> list[str]:
+    from app.rules import scripts, targets
+
+    _source(plan, frame)
+    source = targets.source_of(plan, frame.source_card, object_id=frame.source_object)
+    selector = scripts.target_groups(frame.definition)[0 if first else 1]['what'] if frame.mode == 'target_controller' else 'creature'
+    return targets.legal_targets(plan, selector, frame.actor, source, frame.source_card, source_object=frame.source_object)
+
+
+def announce(plan: Plan, action: A.CastSpell | A.ActivateAbility, definition_: dict[str, Any], what: str) -> Any:
+    from app.rules.plan import decide
+
+    if not isinstance(action, A.ActivateAbility):
+        raise ActionError('Delegated target announcement is only available to this activated ability')
+    mode = _mode(definition_)
+    if mode is None:
+        raise ActionError('Unsupported delegated target announcement')
+    if action.targets and (mode == 'opponent' or len(action.targets) != 1):
+        raise ActionError('The chosen opponent must select this ability’s target')
+    card = plan.state.cards[action.card_id]
+    ch = plan.ch(card)
+    ability = next((a for a in ch.abilities if a.index == action.ability), None)
+    if ability is None or ability.kind != 'activated':
+        raise ActionError('This ability has no supported delegated target announcement')
+    frame = Announcement(plan.actor, card.id, plan.oid(card), action.ability, ability.text,
+                         action.model_dump(mode='json', exclude={'r', 'actor', 'ts'}), what, definition_, mode)
+    if not _legal(plan, frame, first=mode == 'target_controller') or not _legal(plan, frame):
+        raise ActionError(f'{what} has no legal target')
+    if mode == 'target_controller':
+        if action.targets:
+            _first_target(plan, frame, action.targets[0])
+        else:
+            from app.rules import casting
+
+            decide(plan, player=frame.actor, kind='choose_one', prompt=f'Choose the first target for {what}',
+                   options=[DecisionOption(id=cid, label=casting.target_label(plan, cid), card_id=cid)
+                            for cid in _legal(plan, frame, first=True)], resume=_resume(OPPONENT, frame))
+        return None
+    opponents = [pid for pid in plan.live() if pid != frame.actor]
+    if not opponents:
+        raise ActionError('There is no opponent to select the target')
+    decide(plan, player=frame.actor, kind='choose_one', prompt=f'Choose an opponent to select the target for {what}',
+           options=[DecisionOption(id=pid, label=plan.name(pid)) for pid in opponents], resume=_resume(OPPONENT, frame))
+    return None
+
+
+def _first_target(plan: Plan, frame: Announcement, cid: str) -> None:
+    from app.rules import casting
+
+    if cid not in _legal(plan, frame, first=True):
+        raise ActionError('The first target is not legal for the original activator')
+    first = casting.target_ref(plan, cid).model_dump(mode='json')
+    frame = replace(frame, first=first, opponent=plan.state.cards[cid].controller)
+    _creature_choice(plan, frame)
+
+
+def _creature_choice(plan: Plan, frame: Announcement) -> None:
+    from app.rules import casting
+    from app.rules.plan import decide
+
+    try:
+        legal = _legal(plan, frame)
+        if frame.first is not None:
+            cid = frame.first['id']
+            if (cid not in _legal(plan, frame, first=True)
+                    or plan.oid(cid) != frame.first.get('object_id')):
+                raise ActionError('The original first target is no longer legal')
+    except ActionError as exc:
+        _invalid(plan, frame, str(exc))
+        return
+    if not legal or frame.opponent not in plan.live():
+        _invalid(plan, frame, 'The original ability has no legal target or choosing player')
+        return
+    assert frame.opponent is not None
+    decide(plan, player=frame.opponent, kind='choose_one', prompt=f'Choose a creature target for {frame.name}',
+           options=[DecisionOption(id=cid, label=casting.target_label(plan, cid), card_id=cid) for cid in legal],
+           resume=_resume(CREATURE, frame))
+
+
+def _invalid(plan: Plan, frame: Announcement, message: str) -> None:
+    from app.rules.plan import decide
+
+    if frame.actor not in plan.live():
+        plan.rules.priority = next(iter(plan.live()), None)
+        return
+    decide(plan, player=frame.actor, kind='choose_one', prompt=f'{message}. Cancel the original announcement.',
+           options=[], resume=_resume(OPPONENT, frame, invalid=True))
+
+
+def resume_opponent(plan: Plan, decision: Any, chosen: list[str]) -> None:
+    from app.rules import casting
+
+    frame = _FRAME.validate_python(decision.resume['frame'])
+    if decision.player != frame.actor:
+        raise ActionError('Only the original activator may choose the opponent or cancel')
+    if casting.cancelled(plan, decision, chosen):
+        return
+    if decision.resume.get('invalid'):
+        raise ActionError('Only the original activator may cancel this invalid announcement')
+    if frame.mode == 'target_controller':
+        if len(chosen) != 1:
+            raise ActionError('Choose one first target')
+        try:
+            _first_target(plan, frame, chosen[0])
+        except ActionError as exc:
+            _invalid(plan, frame, str(exc))
+        return
+    if len(chosen) != 1 or chosen[0] == frame.actor or chosen[0] not in plan.live():
+        raise ActionError('Choose an opponent still in the game')
+    frame = replace(frame, opponent=chosen[0])
+    _creature_choice(plan, frame)
+
+
+def resume_creature(plan: Plan, decision: Any, chosen: list[str]) -> None:
+    from app.rules import casting
+
+    frame = _FRAME.validate_python(decision.resume['frame'])
+    if decision.player != frame.opponent or plan.actor != frame.opponent:
+        raise ActionError('Only the chosen opponent may select the target')
+    try:
+        card, ch, ability = _source(plan, frame)
+        legal = _legal(plan, frame)
+        if frame.first is not None and (frame.first['id'] not in _legal(plan, frame, first=True)
+                                       or plan.oid(frame.first['id']) != frame.first.get('object_id')):
+            raise ActionError('The original first target is no longer legal')
+    except ActionError as exc:
+        _invalid(plan, frame, str(exc))
+        return
+    if len(chosen) != 1 or chosen[0] not in legal:
+        _invalid(plan, frame, 'The selected target is no longer legal')
+        return
+    definition_ = {k: v for k, v in frame.definition.items() if k != 'delegated_target'}
+    combined = ([frame.first['id']] if frame.first else []) + list(chosen)
+    intent = A.ActivateAbility.model_validate({**frame.intent, 'targets': combined, 'actor': frame.actor,
+                                             **({'target_counts': [1, 1]} if frame.first else {})})
+    actor, reserved = plan.actor, plan.reserved_life
+    plan.actor = frame.actor
+    plan.rules.priority, plan.rules.passed = frame.actor, []
+    try:
+        from app.rules import cost_payment
+
+        cost = casting.ability_cost(ch, ability, state=plan.state, card=card, info=plan.info, target=combined[0])
+        problem = casting.ability_problem(plan.state, frame.actor, card, ch, ability, cost, plan=plan)
+        problem = problem or cost_payment.problem(plan, cost, card, frame.actor, intent.x_value)
+        if problem:
+            _invalid(plan, frame, problem)
+            return
+        # An unaffordable automatic/explicit payment must not strand the
+        # opponent at a payer-owned announcement. This is the ordinary pure
+        # payment finder; self-payment remains free to open its native prompt.
+        if intent.sources is not None or casting.payment_mode(plan, frame.actor) != 'self':
+            from app.rules import mana
+
+            try:
+                casting.find_payment(plan.state, frame.actor, mana.parse_cost(cost.mana), plan.info,
+                                     sources=intent.sources, exclude=cost_payment.excluded(cost, card, {}),
+                                     purpose=casting.Purpose(ability_of=ch), reserve=plan.reserved_life)
+            except ActionError as exc:
+                _invalid(plan, frame, str(exc))
+                return
+        casting.activate_to_stack(plan, card, ch, ability, intent, definition=definition_)
+    finally:
+        plan.actor, plan.reserved_life = actor, reserved
+
+
+RESUME = {OPPONENT: resume_opponent, CREATURE: resume_creature}

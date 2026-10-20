@@ -9,7 +9,7 @@ import pytest
 from app.game.errors import ActionError
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
-from tests.game_helpers import act, deck, enable, zone
+from tests.game_helpers import act, deck, enable, mana_pool, zone
 
 
 def build(cards, lands=2):
@@ -48,7 +48,7 @@ def test_casting_never_taps_lands_it_asks_you_to_tap(cards):
     act(s, "p1", type="activate_ability", card_id=forests[1], ability=0)  # … and the second: it's cast
     assert s.state.cards[bears.id].zone in ("stack", "p1:battlefield")
     assert all(s.state.cards[f].tapped for f in forests)
-    assert s.state.players["p1"].mana == {}
+    assert mana_pool(s) == {}
 
 
 def test_cancel_leaves_everything(cards):
@@ -57,7 +57,7 @@ def test_cancel_leaves_everything(cards):
     act(s, "p1", type="activate_ability", card_id=forests[0], ability=0)
     d = s.state.rules.decision
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["cancel"])
-    assert s.state.cards[bears.id].zone == "p1:hand" and s.state.players["p1"].mana == {"G": 1}
+    assert s.state.cards[bears.id].zone == "p1:hand" and mana_pool(s) == {"G": 1}
     assert not s.state.cards[forests[1]].tapped
 
 
@@ -104,7 +104,7 @@ def test_echo_is_paid_from_the_mana_you_tap(cards):
     for f in forests:
         act(s, "p1", type="activate_ability", card_id=f, ability=0)  # tapping is allowed during the prompt
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
-    assert s.state.cards[troll.id].zone == "p1:battlefield" and s.state.players["p1"].mana == {}
+    assert s.state.cards[troll.id].zone == "p1:battlefield" and mana_pool(s) == {}
 
 
 def test_convoke_by_tapping_your_creatures(cards):

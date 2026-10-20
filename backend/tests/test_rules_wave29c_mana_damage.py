@@ -1,12 +1,14 @@
 """Wave 29C: the damage a mana ability deals ("{T}: Add {U} or {R}. This land deals 1 damage to you.") is damage like any other (CR 120, 605.3b:
 a mana ability resolves immediately, as it is activated): replacement effects (614: Furnace of Rath's "double that damage") and prevention
 effects (615: Urza's Armor, a "next 2 damage" shield) change it, and the life it makes the player lose goes through the life-loss replacements
-(120.3a). A mana ability can't pause for a choice (605.3a), so when two effects both apply and their order matters (616.1), the engine applies
-neither's guess and says in the log that the players must apply them by hand — it never skips an effect without saying.
+(120.3a). The live mana-payment continuation saves replacement choices (616.1) without granting priority or replaying the activation.
+Immediate prevention riders finish before the pending spell is committed.
 
 Real Oracle text; each scenario replays the history and survives a save/load round trip."""
 
 from __future__ import annotations
+
+import pytest
 
 from tests.game_helpers import act
 from tests.test_rules_effects import replay_matches
@@ -63,14 +65,28 @@ def test_a_shield_is_used_up_by_the_damage_of_a_mana_ability(cards):
     check(s)
 
 
-def test_two_effects_whose_order_matters_are_left_to_the_players_not_skipped(cards):
+def _first(s, name):
+    d = s.state.rules.decision
+    source = next(c for c in s.state.cards.values() if c.name == name and c.zone.endswith(":battlefield"))
+    prefix = f"s:{source.id}."
+    answer = next(k for k, value in d.resume['map'].items() if value.startswith(prefix))
+    act(s, 'p1', type='choose', decision_id=d.id, option_ids=[answer])
+
+
+@pytest.mark.parametrize('first,life', [("Urza's Armor", 40), ('Furnace of Rath', 39)])
+def test_two_damage_effects_pause_mana_payment_for_native_order(cards, first, life):
     s = table(cards, "Shivan Reef")
     permanent(s, "p1", "Urza's Armor", "Artifact", URZAS_ARMOR)
     permanent(s, "p2", "Furnace of Rath", "Enchantment", FURNACE_OF_RATH)
     bolt_from_the_reef(s)
-    assert s.state.rules.decision is None  # (605.3a: nothing could be asked)
-    text = log_text(s)
-    assert "Urza's Armor" in text and "Furnace of Rath" in text and "apply them by hand" in text  # said, with both names (616.1)
+    assert s.state.rules.decision is not None
+    assert s.state.players['p1'].life == 40 and s.state.players['p2'].life == 40
+    assert s.state.rules.spells_this_turn('p1', s.state.turn.number) == 0
+    s = reloaded(s)
+    _first(s, first)
+    assert s.state.players['p1'].life == life
+    assert s.state.players['p2'].life == 34
+    assert s.state.rules.decision is None
     check(s)
 
 
@@ -116,15 +132,19 @@ def test_deflecting_palm_against_a_pain_land(cards):
     check(s)
 
 
-def test_a_prevention_rider_that_would_need_a_choice_in_a_mana_ability_is_left_to_the_players(cards):
+@pytest.mark.parametrize('first,life', [('Boon Reflection', 43), ('Angel of Vitality', 44)])
+def test_prevention_rider_choice_resumes_real_mana_payment(cards, first, life):
     s = table(cards, "Shivan Reef")
     permanent(s, "p1", "Purity", "Enchantment", PURITY)
     permanent(s, "p1", "Boon Reflection", "Enchantment", BOON_REFLECTION)
     permanent(s, "p1", "Angel of Vitality", "Enchantment", ANGEL_OF_VITALITY)
     bolt_from_the_reef(s)
-    assert s.state.rules.decision is None  # (605.3a: nothing could be asked mid-payment)
-    assert s.state.players["p2"].life == 37  # (the cast went on: the payment wasn't interrupted)
-    assert s.state.players["p1"].life == 41  # (the 1 life gained as it is: the players apply the two replacements)
-    text = log_text(s)
-    assert "Boon Reflection" in text and "Angel of Vitality" in text and "apply them by hand" in text  # (said, naming both: 616.1)
+    assert s.state.rules.decision is not None
+    assert s.state.players['p1'].life == 40 and s.state.players['p2'].life == 40
+    assert s.state.rules.spells_this_turn('p1', s.state.turn.number) == 0
+    s = reloaded(s)
+    _first(s, first)
+    assert s.state.rules.decision is None
+    assert s.state.players['p1'].life == life
+    assert s.state.players['p2'].life == 37
     check(s)

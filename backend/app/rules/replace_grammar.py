@@ -112,6 +112,8 @@ _DOUBLING_SEASON = re.compile(r"^If an effect would put one or more counters on 
                               r"those counters on that permanent instead\.$")
 _PLAYER_COUNTERS = re.compile(r"^If you would get one or more counters, you get that many plus one of each of those "
                               r"kinds of counters instead\.$")
+_ENERGY_COUNTERS = re.compile(r"^If you would get one or more \{E\}, you get "
+                             r"(?P<how>that many plus one|twice that many) \{E\} instead\.$")
 
 
 # -- counter putters (wave 22C) -- "If you / an opponent would put one or more counters on …" (Vorinclex, Lae'zel): the
@@ -144,6 +146,11 @@ def _putter(m: re.Match[str]) -> Definition | None:
 
 
 def _counters(text: str) -> Definition | None:
+    # CR 107.14, 614.1a: energy symbols denote energy counters, not every counter kind.
+    if m := _ENERGY_COUNTERS.fullmatch(text):
+        return _static("player_counters", {"who": "you", "counter": "energy"},
+                       {"do": "mul" if m["how"] == "twice that many" else "add",
+                        "n": 2 if m["how"] == "twice that many" else 1})
     m = _PUTTER.match(text)
     if m:
         return _putter(m)
@@ -500,6 +507,8 @@ def _source(phrase: str) -> dict[str, Any] | None:
 def _recipient(phrase: str | None) -> dict[str, Any] | None:
     """What the damage would be dealt to: players ("you", "an opponent", "a player") and/or
     permanents (a selector, "~", what it's attached to); None: any recipient."""
+    if phrase == "the chosen player or a permanent they control":
+        return {"chosen_player_or_controlled": True}
     if phrase is None or phrase in ("a permanent or player", "a player or permanent", "any target"):
         return {}
     players = {"you": "you", "an opponent": "opponent", "a player": "any"}
@@ -610,6 +619,14 @@ _MAX_SPEED_IF = "As long as you have max speed, if "
 
 
 def _damage(text: str) -> Definition | None:
+    banded = re.fullmatch(r"As long as ~ is attacking, prevent all damage (?P<kind>[A-Z][a-z]+s) would deal to ~ and to creatures banded with ~\.", text)
+    if banded is not None:
+        sel = selectors.parse(banded["kind"])
+        if sel is None or len(sel.subtypes) != 1 or sel.types or sel.extras:
+            return None
+        return _static("damage", {"attacking": True, "source": {"subtypes": list(sel.subtypes)},
+                                  "to": {"objects": {"band_of_source": True}}},
+                       {"do": "prevent_all", "prevention": True})
     if text.startswith(_MAX_SPEED_IF):  # -- damage sized by a count (wave 34D) -- 702.178a "As long as you have max speed, if a source you control would deal
         # damage to an opponent …, it deals that much damage plus 1 instead." (Far Fortune): the same replacement, in force only at max speed
         d = _damage_plain("If " + text[len(_MAX_SPEED_IF):])
@@ -618,6 +635,16 @@ def _damage(text: str) -> Definition | None:
 
 
 def _damage_plain(text: str) -> Definition | None:
+    floor = re.fullmatch(r"If (?P<src>.+?) would deal an amount of (?P<kind>combat |noncombat )?damage less than "
+                         r"(?P<value>~'s (?P<stat>power|toughness)) to (?P<to>.+?), that source deals damage equal to (?P=value) instead\.", text)
+    if floor is not None:
+        src, to = _source(floor["src"]), _recipient(floor["to"])
+        if src is None or to is None:
+            return None
+        floor_value = {floor["stat"]: "self"}
+        return _static("damage", {"source": src, "to": to, "below_value": floor_value,
+                                  **({"combat": floor["kind"] == "combat "} if floor["kind"] else {})},
+                       {"do": "set_value", "value": floor_value})
     # -- counters (wave 41A) -- "Double all damage that creatures you control with counters on them would deal." (Raphael, the Muscle) is "If a creature you control with a
     # counter on it would deal damage to a permanent or player, it deals double that damage instead." (every recipient there is)
     if (dbl := re.fullmatch(r"Double all damage that (?P<src>creatures|creature sources|sources) (?P<ctl>you control|an opponent controls)(?P<with> with counters on them)?(?P<chosen> of the chosen type)? would deal\.", text)) is not None:
@@ -688,6 +715,8 @@ def _enters_tapped(text: str) -> Definition | None:
     permanent as it would exist on the battlefield (614.12), under the player it would enter under."""
     # -- commander sweep (wave 49B) -- "As long as ~ is tapped, other permanents enter tapped." (Archelos): the same replacement while the source is (un)tapped
     # (611.3a; "other" is vacuous: the source isn't on the battlefield as it would enter itself, 614.12 and its ruling 2020-11-10)
+    if text == "Each creature without mana value of the chosen quality enters tapped.":
+        text = "Creatures without mana value of the chosen quality enter tapped."
     held = re.fullmatch(r"As long as ~ is (un)?tapped, other (permanents enter (?:un)?tapped\.)", text)
     if held is not None and (own := _enters_tapped(held[2].capitalize())) is not None:
         return {**own, "conditions": [{"static": "self", "test": "untapped" if held[1] else "tapped"}]}
@@ -724,6 +753,17 @@ _ENTER_EXTRA = re.compile(
 
 
 def _enter_extra(text: str) -> Definition | None:
+    # Thunderous Velocipede: both branches describe one entry replacement,
+    # whose amount uses the entering permanent's characteristics (614.12).
+    threshold = re.fullmatch(
+        r"(.+?) if its mana value is (\d+) or less\. Otherwise, it enters with "
+        r"(one|two|three|four|five) additional \+1/\+1 counters? on it\.", text)
+    if threshold:
+        base = _enter_extra(threshold[1] + ".")
+        if base is None or base["match"].get("counter") != "+1/+1" or base["op"]["n"] != 1:
+            return None
+        base["op"]["times"] = {"entering_mana_value": int(threshold[2]), "otherwise": _num(threshold[3])}
+        return base
     m = _ENTER_EXTRA.match(text)
     if not m or bool(m["k2"]) != bool(m["eq"]):  # ("a number of" goes with "equal to", and only it)
         return None
@@ -738,7 +778,7 @@ def _enter_extra(text: str) -> Definition | None:
     elif m["each"]:
         from app.rules import values  # (values → selectors: no cycle back here)
 
-        each = m["each"]
+        each = re.sub(r' spent to cast them$', ' spent to cast it', m['each'])
         already = re.fullmatch(r"(?P<w>.+) you already control", each)
         times = values.parse_count(f"{already['w']} you control" if already else each)
         if not isinstance(times, dict) or (already and "count" not in times):

@@ -22,7 +22,7 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_conditionals import creature, pick, until_asked
 from tests.test_rules_wave12a_counters_keywords import answer
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
@@ -277,7 +277,7 @@ def test_a_planet_land_gains_its_mana_ability_at_twelve(cards):
     index = next(a.index for a in ch_of(s, "Evendo, Waking Haven").abilities if a.index >= 100)
     mana(s, G=1)
     act(s, "p1", type="activate_ability", card_id=card_named(s, "Evendo, Waking Haven").id, ability=index)
-    assert s.state.players["p1"].mana == {"G": 2}  # ({G} paid, {G} for each of the two creatures)
+    assert mana_pool(s) == {"G": 2}  # ({G} paid, {G} for each of the two creatures)
     check(s)
 
 
@@ -431,6 +431,6 @@ def test_the_eternity_elevator_adds_mana_equal_to_its_counters_at_twenty(cards):
     d = s.state.rules.decision
     if d is not None:  # (the color: one choice for all of it, 605.3a)
         pick(s, d.options[0].id)
-    pool = s.state.players["p1"].mana
+    pool = mana_pool(s)
     assert sum(pool.values()) == 21 and len([k for k, v in pool.items() if v]) == 1
     check(s)

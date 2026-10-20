@@ -1,0 +1,7 @@
+# Upkeep reveal consequences
+
+Paroxysm uses the native enchanted-host-controller upkeep event, which captures the original host object and the player whose upkeep began. A mandatory one-card reveal stays in that player's library. A land destroys the original host; otherwise a native +3/+3 effect lasts through the turn. Leaving the battlefield does not cancel the Aura's already-triggered ability. A host that changes controller is still the same object; a host that leaves and returns is not.
+
+Shapeshifter's Marrow reveals the opponent's top card and, for a creature card, freezes its native copiable recipe before the native graveyard move. The recipe is applied only to the original source object on the battlefield. Graveyard replacement effects do not discard the captured recipe. Copiable values retain characteristic-defining abilities: a revealed Lhurgoyf changes its power when it subsequently enters the graveyard, rather than copying its formerly derived numbers. Becoming a copy does not enter the battlefield and loses Marrow's printed upkeep ability.
+
+Canonical Wizards rulings from 2004-10-04 and 2007-05-01 confirm mandatory Paroxysm behavior and Marrow's unchanged noncreature branch, permanent copy, and independent already-triggered instances. Tests cover both actual outcomes, controller changes, source/host object identity, graveyard replacement, dynamic copied characteristics, and fresh-process resumes.

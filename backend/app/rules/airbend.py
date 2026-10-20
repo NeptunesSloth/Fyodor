@@ -25,13 +25,30 @@ Context = dict[str, Any]
 ALT_COST = "{2}"  # 701.65a
 
 
+def complement(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """A chosen optional target is protected from the following untargeted airbend."""
+    from app.rules import language, scripts, selectors
+
+    lead = 'Choose up to one target creature, then airbend all other creatures.'
+    if not body.startswith(lead):
+        return None
+    tail = body[len(lead):].strip()
+    rest = scripts.parse_effects(tail) if tail else ([], None, False)
+    group = language.target_group('up to one target creature')
+    sel = selectors.parse('creatures')
+    if rest is None or rest[1] is not None or rest[2] or group is None or sel is None:
+        return None
+    return [{'do': 'airbend', 'who': sel.key(), 'exclude_target': 'target:0'}, *rest[0]], [group], False
+
+
 def airbend(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules.effects import _cards, exile_cards
 
     # (permissions of cards that have since left exile are spent for good, 400.7h: dropped, so the list doesn't grow)
     plan.rules.permissions = [p for p in plan.rules.permissions if not p.alt_mana or (
         p.card in plan.state.cards and plan.oid(plan.state.cards[p.card]) == p.object_id)]
-    cards = [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    excluded = set(_cards(plan, ctx, e['exclude_target'])) if e.get('exclude_target') else set()
+    cards = [c for c in _cards(plan, ctx, e["who"]) if c not in excluded and plan.state.cards[c].zone.endswith(":battlefield")]
     if not cards:
         return True
     exile_cards(plan, ctx, e, cards)

@@ -15,7 +15,7 @@
 Refused (manual, with the reason): Sheltering Ancient (a +1/+1 counter on a creature of an opponent's for each age counter: payable only while one exists, 118.3), Jotun Grunt
 (a graveyard chosen for each age counter), Thought Lash / Karplusan Minotaur / Herald of Leshrac (the cost is a library exile, a coin flip and a control change, and each card has
 other lines unread), Hibernation's End / Heart of Bogardan / Balduvian Fallen ("whenever you pay / a player doesn't pay its cumulative upkeep" has no event), The Unagi of Kyoshi
-Island ("Ward—Waterbend {4}": tapping permanents to help pay is a casting-time choice), Minthara ("ward {X}" granted by a static ability). Banding stays manual (see the report).
+Island ("Ward—Waterbend {4}": tapping permanents to help pay is a casting-time choice), Minthara ("ward {X}" granted by a static ability). Ordinary banding is covered by test_rules_banding.py; bands-with-other forms remain manual.
 """
 
 from __future__ import annotations

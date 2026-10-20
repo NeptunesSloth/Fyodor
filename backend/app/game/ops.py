@@ -95,7 +95,19 @@ def is_ephemeral(c: CardInstance) -> bool:
     return c.is_token or c.ability is not None
 
 
+def lose_attack_target(state: GameState, card: CardInstance) -> None:
+    """506.4c: attacking a departed/removed permanent still permits blocking."""
+    rules = state.rules
+    defender = (rules.protectors.get(rules.object_id(card.id)) if rules is not None else None) or card.controller
+    for other in state.cards.values():
+        if other.attacking and other.attacking.kind == "card" and other.attacking.id == card.id:
+            other.attacking = None
+            other.attacking_without_target = defender
+            other.attack_defender_lost = True
+
+
 def delete(state: GameState, c: CardInstance) -> None:
+    lose_attack_target(state, c)
     remove_from_zone(state, c)
     del state.cards[c.id]
     for other in state.cards.values():
@@ -150,6 +162,10 @@ def move_card(
                 c.face_down_kind = c.face_down_as = None
         return True
 
+    if src_zone == STACK and state.rules is not None:
+        oid = state.rules.object_id(c.id)
+        state.rules.bottom_if_graveyard = [saved for saved in state.rules.bottom_if_graveyard if saved != oid]
+
     # (-- review (wave 14R) -- a phased-out permanent changing controller, 702.26d: the same object, as on the battlefield)
     same_object = src_zone == dst_zone and src_zone in ("battlefield", "phased")
     if is_ephemeral(c) and dst_zone not in ("battlefield", "phased", STACK):
@@ -157,6 +173,8 @@ def move_card(
         delete(state, c)
         return False
 
+    if src_zone == "battlefield":
+        lose_attack_target(state, c)
     remove_from_zone(state, c)
     insert(state, c, dest, index=index, position=position)
     if src_zone == "battlefield" and dst_zone != "battlefield":
@@ -180,6 +198,7 @@ def move_card(
         # A control change (another player's battlefield) is not a zone change: the permanent
         # stays the same object with its damage, counters and tapped state. It leaves combat.
         c.attacking = None
+        c.attacking_without_target = None
         c.unblock()
         for other in state.cards.values():
             if other.blocks(c.id):
@@ -188,6 +207,8 @@ def move_card(
                 other.attacking = None
     else:
         # A card that changes zones becomes a new object: manual markers don't follow it.
+        c.entry_characteristics = None
+        c.embalmed = False
         c.effects = []
         c.damage = 0
         c.choices = {}
@@ -198,6 +219,8 @@ def move_card(
         if src_zone == "battlefield" or dst_zone == "battlefield":
             c.tapped = False
             c.attacking = None
+            c.attacking_without_target = None
+            c.attack_defender_lost = False
             c.unblock()
             c.flipped = False
             if src_zone == "battlefield":
@@ -301,7 +324,7 @@ def seen_move(source: str, dest: str, was_down: bool) -> bool:
 # player could write the old id there and read the new one back), and what speaks of the card as it was (400.7: the source of a copy,
 # of a token, of an ability on the stack or of mana in a pool is that old object; following it to the face-down card would name it)
 _KEEP: dict[type, frozenset[str]] = {
-    CardInstance: frozenset({"name", "note", "counters", "effects", "choices", "stack_info", "exile_group", "face_down_as", "token",
+    CardInstance: frozenset({"borrow_identity", "name", "note", "counters", "effects", "choices", "stack_info", "exile_group", "face_down_as", "token",
                              "token_source", "copy_of", "ability"}),
     MergedPart: frozenset({"name", "token", "copy_of"}),
     Arrow: frozenset({"label"}),
@@ -328,6 +351,9 @@ def renumber(state: GameState, ids: Iterable[str]) -> dict[str, str]:
         mapping[old] = new
     if not mapping:
         return mapping
+    for old in mapping:
+        if state.cards[old].borrow_identity is None:
+            state.cards[old].borrow_identity = old
     for field in ("cards", "zones", "views", "arrows", "response", "table", "players", "rules", "auto_pass", "pregame", "turn"):
         rewrite(getattr(state, field), mapping)
     for new in mapping.values():

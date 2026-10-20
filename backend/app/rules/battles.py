@@ -92,6 +92,10 @@ def set_protector(plan: Plan, card: CardInstance, who: str) -> None:
     r = plan.rules
     on_battlefield = {r.object_id(c.id) for c in plan.state.cards.values() if c.zone.endswith(":battlefield")}
     r.protectors = {oid: p for oid, p in r.protectors.items() if oid in on_battlefield}  # (gone objects: 400.7)
+    if (old := r.protectors.get(plan.oid(card))) is not None and old != who:
+        affected = [c.id for c in plan.state.cards.values() if c.attacking is not None and c.attacking.kind == "card" and c.attacking.id == card.id]
+        if affected:
+            plan.do({"type": "attack", "card_ids": affected, "target": None, "attacking_without_target": old})
     r.protectors[plan.oid(card)] = who
     plan.do({"type": "set_choice", "card_id": card.id, "key": "Protector", "value": plan.name(who)}, actor=card.controller)
 

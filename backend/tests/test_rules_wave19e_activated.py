@@ -15,7 +15,7 @@ from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.rules import coverage
 from tests.fixtures.cards import fixture_cards
-from tests.game_helpers import act, deck, turn_on, zone
+from tests.game_helpers import act, deck, mana_pool, turn_on, zone
 from tests.test_rules_attachments import ch
 from tests.test_rules_copy import _card, hold, life, named, on_stack, pay, resolve_top, to_hand
 from tests.test_rules_effects import pass_until_stack_empty, replay_matches
@@ -362,10 +362,12 @@ def test_mana_of_a_color_a_basic_or_any_land_could_produce(cards):
     included (Krenko's red); no land at all: no mana (106.7)."""
     s = table(cards, ["Star Compass", "Forest", "Command Tower"], [])
     act(s, "p1", type="activate_ability", card_id=named(s, "Star Compass").id, ability=1)
-    assert s.state.players["p1"].mana == {"G": 1}
+    assert mana_pool(s) == {"G": 1}
+    assert all(u.src == s.state.rules.object_id(named(s, "Star Compass").id)
+               and u.only is None and u.generic_allowed for u in s.state.players['p1'].mana_units)
     s = table(cards, ["Harvester Druid", "Command Tower"], [])
     act(s, "p1", type="activate_ability", card_id=named(s, "Harvester Druid").id, ability=0)
-    assert s.state.players["p1"].mana == {"R": 1}
+    assert mana_pool(s) == {"R": 1}
     replay_matches(s)
 
 

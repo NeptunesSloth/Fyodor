@@ -10,7 +10,7 @@ from app.game.session import GameSession
 from app.game.state import GameState
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act, deck, enable, zone
+from tests.game_helpers import act, deck, enable, mana_pool, zone
 from tests.test_rules_conditionals import creature, life, on_field, pick, settle, to_hand, until_asked
 from tests.test_rules_effects import mana, replay_matches
 
@@ -173,7 +173,7 @@ def test_grand_abolisher_doesnt_stop_a_spirit_guide_in_the_hand(cards):
     act(s, "p2", type="set_prefs", full_control=True)
     bob_gets_priority(s)
     act(s, "p2", type="activate_ability", card_id=guide.id, ability=0)
-    assert s.state.cards[guide.id].zone == "p2:exile" and s.state.players["p2"].mana.get("R") == 1
+    assert s.state.cards[guide.id].zone == "p2:exile" and mana_pool(s, "p2").get("R") == 1
     roundtrip(s)
 
 

@@ -701,10 +701,9 @@ def test_gavel_of_the_righteous_equips_by_removing_a_counter_or_paying_three(car
     check(s)
 
 
-def test_warriors_blades_stays_manual_its_equip_cost_depends_on_the_target(cards):
-    """"This ability costs {1} less to activate for each +1/+1 counter on the creature it targets": an activation cost read against its target (601.2f
-    comes after 601.2c) isn't computed (cost_changes.ability_change): refused, not guessed."""
-    assert coverage.of_card_data(cards.resolve("Warrior's Blades")).level == "PARTIAL"
+def test_warriors_blades_target_dependent_equip_cost_is_automated(cards):
+    """CR 601.2c, 601.2f: the announced target determines the counter-based equip reduction."""
+    assert coverage.of_card_data(cards.resolve("Warrior's Blades")).level == "FULL"
 
 
 # ---- flashback with parts sized by X or by a count (702.34a, 107.3a, 701.4a) --------------------------------------------------------------------

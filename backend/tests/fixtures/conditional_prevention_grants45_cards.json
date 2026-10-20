@@ -1,0 +1,40 @@
+[
+  {
+    "name": "Woolly Razorback",
+    "mana_cost": "{2}{W}{W}",
+    "type_line": "Creature \u2014 Boar Beast",
+    "oracle_text": "This creature enters with three ice counters on it.\nAs long as this creature has an ice counter on it, prevent all combat damage it would deal and it has defender.\nWhenever this creature blocks, remove an ice counter from it.",
+    "power": "7",
+    "toughness": "7",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ]
+  },
+  {
+    "name": "Armament of Nyx",
+    "mana_cost": "{2}{W}",
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature has double strike as long as it's an enchantment. Otherwise, prevent all damage that would be dealt by enchanted creature. (A creature with double strike deals both first-strike and regular combat damage.)",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ]
+  },
+  {
+    "name": "Old Fat Spider Can't See Me",
+    "mana_cost": "{2}{U}",
+    "type_line": "Enchantment \u2014 Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after IV.)\nI \u2014 Target creature you control gains hexproof for as long as this Saga remains on the battlefield.\nII \u2014 Prevent all damage that would be dealt by up to one target creature for as long as this Saga remains on the battlefield.\nIII, IV \u2014 Draw a card.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ]
+  }
+]

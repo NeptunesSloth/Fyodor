@@ -47,7 +47,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
 
   return (
     <div
-      className={`table-card ${selected ? "selected" : ""} ${card.attacking ? "attacking" : ""} ${card.blocking ? "blocking" : ""} ${legal}`}
+      className={`table-card ${selected ? "selected" : ""} ${card.attacking || card.attacking_without_target ? "attacking" : ""} ${card.blocking || card.blocking_without_attacker ? "blocking" : ""} ${legal}`}
       data-card-id={id}
       data-tapped={card.tapped ? "" : undefined}
       style={{ left, top, width, zIndex: z, transform: rotation ? `rotate(${rotation}deg)` : undefined }}
@@ -84,8 +84,8 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
         {card.face_down && card.face_down_kind && card.face_down_kind !== "generic" && (
           <span className="mark fd" title={`${FACE_DOWN_LABEL[card.face_down_kind]} (face down)`}>{FACE_DOWN_LABEL[card.face_down_kind].toUpperCase()}</span>
         )}
-        {card.attacking && <span className="mark atk" title="Attacking">⚔</span>}
-        {card.blocking && <span className="mark blk" title="Blocking">⛨</span>}
+        {(card.attacking || card.attacking_without_target) && <span className="mark atk" title="Attacking">⚔</span>}
+        {(card.blocking || card.blocking_without_attacker) && <span className="mark blk" title="Blocking">⛨</span>}
         {card.locked && <span className="mark lock" title="Locked in place">🔒</span>}
         {visible && card.choices && Object.keys(card.choices).length > 0 && (
           <span className="mark choice" title={Object.entries(card.choices).map(([k, v]) => `${k}: ${v}`).join("\n")}>

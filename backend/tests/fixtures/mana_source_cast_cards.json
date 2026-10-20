@@ -1,0 +1,577 @@
+[
+  {
+    "name": "Brass's Tunnel-Grinder // Tecutlan, the Searing Rift",
+    "layout": "transform",
+    "mana_cost": "{2}{R} // ",
+    "cmc": 3.0,
+    "type_line": "Legendary Artifact // Legendary Land \u2014 Cave",
+    "oracle_text": "When Brass's Tunnel-Grinder enters, discard any number of cards, then draw that many cards plus one.\nAt the beginning of your end step, if you descended this turn, put a bore counter on Brass's Tunnel-Grinder. Then if there are three or more bore counters on it, remove those counters and transform it. (You descended if a permanent card was put into your graveyard from anywhere.)\n//\n(Transforms from Brass's Tunnel-Grinder.)\n{T}: Add {R}.\nWhenever you cast a permanent spell using mana produced by Tecutlan, discover X, where X is that spell's mana value.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Transform",
+      "Discover"
+    ],
+    "card_faces": [
+      {
+        "name": "Brass's Tunnel-Grinder",
+        "mana_cost": "{2}{R}",
+        "type_line": "Legendary Artifact",
+        "oracle_text": "When Brass's Tunnel-Grinder enters, discard any number of cards, then draw that many cards plus one.\nAt the beginning of your end step, if you descended this turn, put a bore counter on Brass's Tunnel-Grinder. Then if there are three or more bore counters on it, remove those counters and transform it. (You descended if a permanent card was put into your graveyard from anywhere.)",
+        "colors": [
+          "R"
+        ]
+      },
+      {
+        "name": "Tecutlan, the Searing Rift",
+        "mana_cost": "",
+        "type_line": "Legendary Land \u2014 Cave",
+        "oracle_text": "(Transforms from Brass's Tunnel-Grinder.)\n{T}: Add {R}.\nWhenever you cast a permanent spell using mana produced by Tecutlan, discover X, where X is that spell's mana value.",
+        "colors": []
+      }
+    ],
+    "defense": null
+  },
+  {
+    "name": "Thousand Moons Smithy // Barracks of the Thousand",
+    "layout": "transform",
+    "mana_cost": "{2}{W}{W} // ",
+    "cmc": 4.0,
+    "type_line": "Legendary Artifact // Legendary Artifact Land",
+    "oracle_text": "When Thousand Moons Smithy enters, create a white Gnome Soldier artifact creature token with \"This token's power and toughness are each equal to the number of artifacts and/or creatures you control.\"\nAt the beginning of your first main phase, you may tap five untapped artifacts and/or creatures you control. If you do, transform Thousand Moons Smithy.\n//\n(Transforms from Thousand Moons Smithy.)\n{T}: Add {W}.\nWhenever you cast an artifact or creature spell using mana produced by Barracks of the Thousand, create a white Gnome Soldier artifact creature token with \"This token's power and toughness are each equal to the number of artifacts and/or creatures you control.\"",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Transform"
+    ],
+    "card_faces": [
+      {
+        "name": "Thousand Moons Smithy",
+        "mana_cost": "{2}{W}{W}",
+        "type_line": "Legendary Artifact",
+        "oracle_text": "When Thousand Moons Smithy enters, create a white Gnome Soldier artifact creature token with \"This token's power and toughness are each equal to the number of artifacts and/or creatures you control.\"\nAt the beginning of your first main phase, you may tap five untapped artifacts and/or creatures you control. If you do, transform Thousand Moons Smithy.",
+        "colors": [
+          "W"
+        ]
+      },
+      {
+        "name": "Barracks of the Thousand",
+        "mana_cost": "",
+        "type_line": "Legendary Artifact Land",
+        "oracle_text": "(Transforms from Thousand Moons Smithy.)\n{T}: Add {W}.\nWhenever you cast an artifact or creature spell using mana produced by Barracks of the Thousand, create a white Gnome Soldier artifact creature token with \"This token's power and toughness are each equal to the number of artifacts and/or creatures you control.\"",
+        "colors": []
+      }
+    ],
+    "defense": null
+  },
+  {
+    "name": "The Everflowing Well // The Myriad Pools",
+    "layout": "transform",
+    "mana_cost": "{2}{U} // ",
+    "cmc": 3.0,
+    "type_line": "Legendary Artifact // Legendary Artifact Land",
+    "oracle_text": "When The Everflowing Well enters, mill two cards, then draw two cards.\nDescend 8 \u2014 At the beginning of your upkeep, if there are eight or more permanent cards in your graveyard, transform The Everflowing Well.\n//\n(Transforms from The Everflowing Well.)\n{T}: Add {U}.\nWhenever you cast a permanent spell using mana produced by The Myriad Pools, up to one other target permanent you control becomes a copy of that spell until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Transform",
+      "Descend",
+      "Mill"
+    ],
+    "card_faces": [
+      {
+        "name": "The Everflowing Well",
+        "mana_cost": "{2}{U}",
+        "type_line": "Legendary Artifact",
+        "oracle_text": "When The Everflowing Well enters, mill two cards, then draw two cards.\nDescend 8 \u2014 At the beginning of your upkeep, if there are eight or more permanent cards in your graveyard, transform The Everflowing Well.",
+        "colors": [
+          "U"
+        ]
+      },
+      {
+        "name": "The Myriad Pools",
+        "mana_cost": "",
+        "type_line": "Legendary Artifact Land",
+        "oracle_text": "(Transforms from The Everflowing Well.)\n{T}: Add {U}.\nWhenever you cast a permanent spell using mana produced by The Myriad Pools, up to one other target permanent you control becomes a copy of that spell until end of turn.",
+        "colors": []
+      }
+    ],
+    "defense": null
+  },
+  {
+    "name": "Thespian's Stage",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "{T}: Add {C}.\n{2}, {T}: This land becomes a copy of target land, except it has this ability.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "defense": null
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "defense": null
+  },
+  {
+    "name": "Sol Ring",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "defense": null
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "defense": null
+  },
+  {
+    "name": "Walking Ballista",
+    "layout": "normal",
+    "mana_cost": "{X}{X}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "This creature enters with X +1/+1 counters on it.\n{4}: Put a +1/+1 counter on this creature.\nRemove a +1/+1 counter from this creature: It deals 1 damage to any target.",
+    "power": "0",
+    "toughness": "0",
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "defense": null
+  },
+  {
+    "name": "Solemn Simulacrum",
+    "layout": "normal",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nWhen this creature dies, you may draw a card.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "defense": null
+  },
+  {
+    "name": "Ruby Medallion",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "Red spells you cast cost {1} less to cast.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "defense": null
+  },
+  {
+    "name": "Goblin Piker",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Goblin Warrior",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "defense": null
+  },
+  {
+    "name": "Forgotten Cave",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "This land enters tapped.\n{T}: Add {R}.\nCycling {R} ({R}, Discard this card: Draw a card.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Cycling"
+    ],
+    "defense": null
+  },
+  {
+    "name": "Twiddle",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "You may tap or untap target artifact, creature, or land.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "defense": null
+  },
+  {
+    "name": "Counterspell",
+    "layout": "normal",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "defense": null
+  },
+  {
+    "name": "Marwyn, the Nurturer",
+    "layout": "normal",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Elf Druid",
+    "oracle_text": "Whenever another Elf you control enters, put a +1/+1 counter on Marwyn.\n{T}: Add an amount of {G} equal to Marwyn's power.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "defense": null
+  },
+  {
+    "name": "Doubling Cube",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{3}, {T}: Double the amount of each type of unspent mana you have.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Double"
+    ],
+    "defense": null
+  },
+  {
+    "name": "Dark Ritual",
+    "layout": "normal",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Add {B}{B}{B}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "defense": null
+  },
+  {
+    "name": "Geosurge",
+    "layout": "normal",
+    "mana_cost": "{R}{R}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Add {R}{R}{R}{R}{R}{R}{R}. Spend this mana only to cast artifact or creature spells.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "defense": null
+  },
+  {
+    "name": "Willbender",
+    "oracle_text": "Morph {1}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, change the target of target spell or ability with a single target.",
+    "type_line": "Creature \u2014 Human Wizard",
+    "mana_cost": "{1}{U}",
+    "power": "1",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Morph"
+    ],
+    "cmc": 2.0
+  },
+  {
+    "name": "Dog Walker",
+    "oracle_text": "Vigilance\nDisguise {R/W}{R/W} (You may cast this card face down for {3} as a 2/2 creature with ward {2}. Turn it face up any time for its disguise cost.)\nWhen this creature is turned face up, create two tapped 1/1 white Dog creature tokens.",
+    "type_line": "Creature \u2014 Human Citizen",
+    "mana_cost": "{R}{W}",
+    "power": "3",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "layout": "normal",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": [
+      "Vigilance",
+      "Disguise"
+    ],
+    "cmc": 2.0
+  },
+  {
+    "name": "Phyrexian Fleshgorger",
+    "oracle_text": "Prototype {1}{B}{B} \u2014 3/3 (You may cast this spell with different mana cost, color, and size. It keeps its abilities and types.)\nMenace, lifelink\nWard\u2014Pay life equal to this creature's power.",
+    "type_line": "Artifact Creature \u2014 Phyrexian Wurm",
+    "mana_cost": "{7}",
+    "power": "7",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "layout": "prototype",
+    "colors": [],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Lifelink",
+      "Menace",
+      "Ward",
+      "Prototype"
+    ],
+    "cmc": 7.0
+  },
+  {
+    "name": "Firebending Student",
+    "oracle_text": "Prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\nFirebending X, where X is this creature's power. (Whenever this creature attacks, add X {R}. This mana lasts until end of combat.)",
+    "type_line": "Creature \u2014 Human Monk",
+    "mana_cost": "{1}{R}",
+    "power": "1",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Prowess",
+      "Firebending"
+    ],
+    "cmc": 2.0
+  },
+  {
+    "name": "Elvish Spirit Guide",
+    "oracle_text": "Exile this card from your hand: Add {G}.",
+    "type_line": "Creature \u2014 Elf Spirit",
+    "mana_cost": "{2}{G}",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "cmc": 3.0
+  },
+  {
+    "name": "Horizon Stone",
+    "oracle_text": "If you would lose unspent mana, that mana becomes colorless instead.",
+    "type_line": "Artifact",
+    "mana_cost": "{5}",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "cmc": 5.0
+  },
+  {
+    "name": "Sungrass Prairie",
+    "oracle_text": "{1}, {T}: Add {G}{W}.",
+    "type_line": "Land",
+    "mana_cost": "",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "keywords": [],
+    "cmc": 0.0
+  },
+  {
+    "name": "Kalonian Tusker",
+    "layout": "normal",
+    "mana_cost": "{G}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Beast",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Hall of the Bandit Lord",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Legendary Land",
+    "oracle_text": "Hall of the Bandit Lord enters tapped.\n{T}, Pay 3 life: Add {C}. If that mana is spent on a creature spell, it gains haste.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Rain of Riches",
+    "oracle_text": "When this enchantment enters, create two Treasure tokens.\nThe first spell you cast each turn that mana from a Treasure was spent to cast has cascade. (When you cast the spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)",
+    "type_line": "Enchantment",
+    "mana_cost": "{3}{R}{R}",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Treasure"
+    ]
+  }
+]

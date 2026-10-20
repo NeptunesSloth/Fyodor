@@ -282,7 +282,9 @@ def test_energy_mana_ability_is_activated_by_hand_only(cards):
         act(s, "p1", type="activate_ability", card_id=hub.id, ability=2, mana_choice="G")  # no energy: can't pay
     give(s, "p1", "energy", 1)
     act(s, "p1", type="activate_ability", card_id=hub.id, ability=2, mana_choice="G")
-    assert s.state.players["p1"].mana.get("G") == 1 and res(s) == 0 and s.state.cards[hub.id].tapped
+    from tests.game_helpers import mana_pool
+
+    assert mana_pool(s, 'p1').get('G') == 1 and res(s) == 0 and s.state.cards[hub.id].tapped
     roundtrip(s)
 
 

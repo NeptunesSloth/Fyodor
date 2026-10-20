@@ -103,6 +103,10 @@ def players_of(plan: Plan, refs: list[Any]) -> list[str]:
 
 def bind_what(plan: Plan, spec: dict[str, Any], groups: list[list[Any]]) -> str:
     """The selector of a group with "that player" bound to the player group ``of`` names (unbound — nothing matches — when there isn't exactly one)."""
+    if spec.get('relative_quality'):
+        from app.rules import permanent_exchanges
+
+        return permanent_exchanges.bind(plan, spec, groups)
     what = str(spec["what"])
     j = spec.get("of")
     if j is None or not marks(what):
@@ -118,6 +122,10 @@ def bind_what(plan: Plan, spec: dict[str, Any], groups: list[list[Any]]) -> str:
 def room(plan: Plan, spec: dict[str, Any], specs: list[dict[str, Any]], legal: Any) -> int:
     """For "can this be cast / activated at all" checks: the most legal targets a group relative to another could have, over the targets the earlier group
     could have (``legal``: selector key -> the legal target ids now)."""
+    if spec.get('relative_quality'):
+        from app.rules import permanent_exchanges
+
+        return permanent_exchanges.room(plan, spec, specs, legal)
     j = spec.get("of")
     if j is None or not marks(spec["what"]):
         return len(legal(spec["what"]))

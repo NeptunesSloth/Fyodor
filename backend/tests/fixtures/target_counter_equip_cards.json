@@ -1,0 +1,41 @@
+[
+  {
+    "name": "Warrior's Blades",
+    "oracle_text": "When this Equipment enters, it deals 3 damage to any target and you gain 3 life.\nEquipped creature gets +2/+1.\nEquip {3}. This ability costs {1} less to activate for each +1/+1 counter on the creature it targets.",
+    "type_line": "Artifact \u2014 Equipment",
+    "mana_cost": "{2}{R}{W}",
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal"
+  },
+  {
+    "name": "Llanowar Elves",
+    "oracle_text": "{T}: Add {G}.",
+    "type_line": "Creature \u2014 Elf Druid",
+    "mana_cost": "{G}",
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal"
+  },
+  {
+    "name": "Suppression Field",
+    "oracle_text": "Activated abilities cost {2} more to activate unless they're mana abilities.",
+    "type_line": "Enchantment",
+    "mana_cost": "{1}{W}",
+    "layout": "normal"
+  },
+  {
+    "name": "Lightning Greaves",
+    "oracle_text": "Equipped creature has haste and shroud. (It can't be the target of spells or abilities.)\nEquip {0}",
+    "type_line": "Artifact \u2014 Equipment",
+    "mana_cost": "{2}",
+    "layout": "normal"
+  }
+]

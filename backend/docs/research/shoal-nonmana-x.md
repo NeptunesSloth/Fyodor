@@ -1,0 +1,7 @@
+# Shining Shoal nonmana X cost prerequisite
+
+The bounded nonmana-X cost prerequisite is registered after native proofs. Shining Shoal itself remains PARTIAL. The exact cost `exile a white card with mana value X from your hand` produces an `AltCost` subclass with a trusted `nonmana_x` marker. Its single native `EXILE_FROM_HAND` component uses the existing white-card, hand, mana-value-equals-announced-X selector. It never supplies mana or a fabricated maximum X. Existing cost selection excludes the spell itself and revalidates the actual announced X before payment.
+
+The casting changes are three marker checks: recognize the chosen alternative as announcing X; allow its announced nonzero X although its mana portion has no X; and advertise the X input on affordable native alternative-cost hints. The original free-cast and mutually exclusive alternative-cost guards remain. Ordinary taxes, additional costs, native mana purpose and payment receipts run through the existing casting functions. A stack copy retains announced X; casting a card copy without paying its mana cost still chooses zero under the existing rule.
+
+Tests now use production cost parsing, casting, hints and native payment without cost adapters. The exact full source-choice damage-redirection body is supplied through an opt-in parser and uses the real source-shield record path. It carries an explicit finite limit equal to announced X and the normal target. No Shoal body hook or cross-recipient bridge is registered. Whole-card admission still requires the separately gated joint frontier.

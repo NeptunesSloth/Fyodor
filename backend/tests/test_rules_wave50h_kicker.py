@@ -171,12 +171,12 @@ def test_the_volver_enters_with_the_ability_its_kicker_names(cards):
     check(s)
 
 
-def test_an_ability_it_enters_with_works_and_a_static_one_other_objects_depend_on_stays_manual(cards):
+def test_abilities_it_enters_with_include_supported_static_rules(cards):
     # Rakavolver, kicked with {1}{W}: two +1/+1 counters and "Whenever this creature deals damage, you gain that much life." (a triggered ability: it runs); Prison
-    # Barricade enters with "This creature can attack as though it didn't have defender." (a static that combat reads from printed text, 113.10: refused)
+    # Barricade enters with the native defender exception; actual kicked declarations are covered in test_rules_kicked_entries.
     from tests.test_rules_wave34b_activated import attack, next_turn
 
-    assert level(cards, "Prison Barricade") != "FULL"
+    assert level(cards, "Prison Barricade") == "FULL"
     s = build(cards, ["Rakavolver"])
     vol = to_hand(s, "Rakavolver")
     pool(s, R=1, C=3, W=1)

@@ -1,0 +1,49 @@
+"""Triggers carried by the exact authority a player actually used."""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+from app.game.rules_state import ObjectRef, PermissionUseTrigger, TriggerEvent
+
+if TYPE_CHECKING:
+    from app.game.state import CardInstance, GameState
+    from app.rules.plan import Plan
+
+
+def static_receipt(state: GameState, source: CardInstance, index: int, kind: Any) -> PermissionUseTrigger | None:
+    if kind is None:
+        return None
+    if kind not in ("replenish_top", "owner_loses_mv") or state.rules is None:
+        raise ValueError("Unknown permission-use trigger")
+    return PermissionUseTrigger(kind=kind, source=ObjectRef(card=source.id, object_id=state.rules.object_id(source.id), zone=source.zone),
+                                controller=source.controller, name=source.name, index=index)
+
+
+def stored_receipt(plan: Plan, ctx: dict[str, Any], descriptor: Any) -> PermissionUseTrigger | None:
+    if descriptor is None:
+        return None
+    return PermissionUseTrigger(kind=descriptor['kind'],
+        source=ObjectRef(card=ctx['source_card'], object_id=ctx['source_object']),
+        controller=ctx['controller'], name=ctx['name'], index=descriptor['index'])
+
+
+def committed(plan: Plan, receipt: PermissionUseTrigger, card_id: str, verb: str) -> None:
+    from app.rules import stack_interaction, triggers
+
+    if receipt.controller not in plan.live() or (receipt.kind == 'owner_loses_mv' and verb != 'cast'):
+        return
+    card=plan.state.cards[card_id]
+    if receipt.kind == 'replenish_top':
+        player,amount=plan.actor,0
+        effects=[{'do':'exile_top','player':'player:'+player,'n':1,'link':True,'as':'permission_refill'}]
+    else:
+        if card.zone != 'stack':
+            raise ValueError('A cast-use receipt requires the actual stack spell')
+        player=card.owner
+        amount=stack_interaction.mana_value(card,plan.ch(card))
+        effects=[{'do':'lose_life','who':'player:'+player,'n':amount}]
+    triggers._add(plan,controller=receipt.controller,source_card=receipt.source.card,
+        source_object=receipt.source.object_id,name=receipt.name,index=receipt.index,
+        definition={'kind':'triggered','trigger':'reflexive','effects':effects},
+        event=TriggerEvent(kind='reflexive',players=[player],actor=plan.actor,amount=amount,
+                           objects=[ObjectRef(card=card.id,object_id=plan.oid(card),zone=card.zone)]))

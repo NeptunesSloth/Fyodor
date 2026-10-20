@@ -20,10 +20,11 @@ flying", "Enchanted creature can't block") are derived through the relationship 
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Literal
 
 from app.game.rules_state import DecisionOption
-from app.game.state import CardInstance
+from app.game.state import CardInstance, zone_key
 from app.rules import protection
 from app.rules.characteristics import Characteristics
 
@@ -95,6 +96,11 @@ def enchant_selector_of(line: str) -> str | None:
     # "Enchant red or green creature", "Enchant Forest or Plains", "Enchant artifact an opponent controls")
     from app.rules import selectors
 
+    if what.lower() == "artifact or non-aura enchantment":
+        # Each branch keeps its own Aura exclusion; an artifact Aura remains legal.
+        artifact = selectors.Selector(types=("Artifact",))
+        non_aura = selectors.Selector(types=("Enchantment",), not_subtypes=("Aura",))
+        return selectors.Selector(either=(artifact.key(), non_aura.key())).key()
     sel = selectors.parse(what)
     if sel is None or sel.card or sel.zones != ("battlefield",) or sel.player is not None:
         return None
@@ -118,6 +124,10 @@ def _equip_target(q: str | None) -> str | None:
 
     if q is None:
         return "creature_you_control"
+    if q.lower() == "planeswalker":  # Luxior's equip planeswalker, 702.6
+        selected = selectors.parse("planeswalker you control")
+        assert selected is not None
+        return selected.key()
     for phrase in (f"{q} you control", f"{q} creature you control", f"creature you control that's a {q}"):
         sel = selectors.parse(phrase)
         if sel is not None and sel.player is None and not sel.card and ("Creature" in sel.types or sel.subtypes) \
@@ -190,7 +200,8 @@ def entering_face(plan: Plan, card: CardInstance, entry: dict[str, Any]) -> Char
 
 
 def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | None = None, sba: bool = False,
-                 face: Characteristics | None = None) -> str | None:
+                 face: Characteristics | None = None, host_card: CardInstance | None = None,
+                 host_face: Characteristics | None = None) -> str | None:
     """Why ``source`` can't be attached to ``host`` (a card id or a player id) right now, or None
     if it can. For an Aura with an enchant wording the engine doesn't map, "unknown" (never
     remove an Aura on a guess). Targeting rules (hexproof, shroud) don't apply here: being
@@ -198,7 +209,7 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
     from app.rules.targets import SELECTORS
 
     you = controller or source.controller  # (an Aura about to enter under someone: judged as theirs)
-    sch = face or plan.ch(source)  # (face: -- block events (wave 53C) -- the back face an entering double-faced card will have)
+    sch = replace(face or plan.ch(source), object_controller=you)  # (face: -- block events (wave 53C) -- the back face an entering double-faced card will have)
     kind = attach_kind(sch)
     if kind is None:
         return "not an Aura, Equipment or Fortification"
@@ -222,15 +233,15 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
         if (shield := player_shields.protected_from(plan, host, sch)) is not None:
             return f"{plan.name(host)} has protection from it ({shield})"
         return None
-    card = plan.state.cards.get(host)
+    card = host_card or plan.state.cards.get(host)
     if card is not None and card.zone.endswith(":graveyard") and kind == "aura" and enchant_selector(sch) == GRAVE:
         # -- reanimation Auras (wave 51F) -- 303.4a: a creature card in a graveyard; protection and hexproof don't function there (Animate Dead's ruling 2016-06-08)
         from app.rules import selectors
 
         return None if selectors.matches(plan, selectors.from_key(GRAVE), card, plan.ch(card), you, source.id) else f"it can't enchant {card.name}"
-    if card is None or not card.zone.endswith(":battlefield"):
+    if card is None or (host_face is None and not card.zone.endswith(":battlefield")):
         return "it's not on the battlefield"
-    hch = plan.ch(card)
+    hch = host_face or plan.ch(card)
     # -- attached events (wave 25D) -- 702.16n: a protection that "doesn't remove" this Aura / Auras isn't why an Aura falls off as a
     # state-based action (``sba``); it still keeps an Aura from becoming attached (702.16c: review 25D)
     if protection.protected_from(hch, sch, (lambda k: k == f"self:{source.id}" or (k == "auras" and kind == "aura") or (k == f"yours:{source.controller}" and kind in ("aura", "equipment"))) if sba else None):  # (wave 53B: Benevolent Blessing, 702.16n)
@@ -259,7 +270,9 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
     if kind == "equipment":
         if sch.is_creature and "reconfigure" not in sch.keywords:  # (301.5c; 702.151: reconfigure, wave 18E)
             return "an Equipment that's also a creature can't equip"
-        return None if hch.is_creature else "Equipment can only equip a creature"
+        from app.rules import equipment_animation
+
+        return None if hch.is_creature or equipment_animation.makes_host_creature(plan, source, card) else "Equipment can only equip a creature"
     if sch.is_creature:
         return "a Fortification that's also a creature can't fortify"  # 301.6
     return None if hch.is_land else "a Fortification can only fortify a land"
@@ -329,18 +342,37 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
         from app.rules import enter_cost
 
         entry["reserved"] = sorted({str(e["card"]) for e in entries if e is not entry} | enter_cost.chosen_objects(entries, i))
-        if replacements.choice_needed(plan, card, entry) is not None:
-            # a shock land: "As ~ enters, you may pay 2 life" is decided before it enters (614.12a)
+        from app.rules import random_entry_choice
+
+        while (choice := replacements.choice_needed(plan, card, entry)) is not None:
+            if (value := random_entry_choice.answer(plan, choice, entry['player'], card.id)) is not None:
+                entry.update(replacements._answer(entry, choice, value))
+                continue
+            # A player answers only nonrandom entering choices (614.12a).
             replacements.ask_entry_choice(plan, entries, i, ctx, shuffle)
             return False
         # -- enter as copy (wave 5F) -- as it will enter: a permanent entering as a copy of an Aura is one (707.5, 303.4f)
         # (-- attached events (wave 40B) -- 712.14a: a double-faced card put onto the battlefield transformed enters with its back face up, so it is an Aura
         # only if that face is: "return this card to the battlefield transformed" for Skin Invasion (a creature on the back) is no Aura entering)
-        as_face = entering_face(plan, card, entry)
-        if attach_kind(as_face or (plan.ch(card) if copying.entering_as_copy(plan, card) else chars.of(card, plan.info))) != "aura" \
-                or entry.get("host"):
+        # CR 304.4/307.4: judge the object AS IT WOULD ENTER, after its
+        # copy choices and on its requested face. A printed instant manifested
+        # face down is a creature; an MDFC may enter on its permanent back face.
+        from app.rules import entry_characteristics
+
+        prospective = entry_characteristics.probe(card, entry.get("entry_characteristics"))
+        probe = prospective.model_copy(update={"zone": zone_key(entry["player"], "battlefield"),
+                                        "controller": entry["player"],
+                                        **({"face": 1} if entry.get("transformed") or entry.get("modal_back") else {})})
+        if {"Instant", "Sorcery"}.intersection(plan.ch(probe).types):
+            entry["stays"] = True
             continue
-        hosts = _hosts_on_entering(plan, card, entry["player"])
+        as_face = entering_face(plan, card, entry)
+        kind = attach_kind(as_face or (plan.ch(card) if copying.entering_as_copy(plan, card) else chars.of(card, plan.info)))
+        if (kind != "aura" and not (entry.get("host_choice") and kind == "equipment")) or entry.get("host"):
+            continue
+        hosts = _entry_hosts(plan, card, entry)
+        if not hosts and kind == "equipment":
+            continue  # 301.5e: Equipment enters unattached when no legal creature exists.
         if not hosts:
             # (no name in the text: the card may still be in a hidden zone; card_ids lets the log
             # name it only to players who can see it)
@@ -352,18 +384,30 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
             from app.rules.plan import decide
             from app.rules.targets import label
 
-            decide(plan, player=entry["player"], kind="choose_one", prompt="Choose what the Aura enchants",  # (not named: it may come from a hidden zone)
+            decide(plan, player=entry["player"], kind="choose_one", prompt="Choose what the Aura enchants" if kind == "aura" else "Choose a creature to equip",  # (not named: it may come from a hidden zone)
                    options=[DecisionOption(id=h, label=label(plan, h), card_id=h if h in plan.state.cards else None)
                             for h in hosts],
                    resume={"step": "aura_enters", "entries": entries, "index": i, "ctx": ctx, "shuffle": shuffle},
                    source=card)
             return False
     entering = [e for e in entries if not e.get("stays")]
-    replacements.move_together(plan, entering)
+    replacements.move_together(plan, entering, simultaneous=ctx.get("simultaneous_move") if ctx else None)
+    if ctx is not None:
+        ctx.pop("simultaneous_move", None)
     for entry in entering:
         if entry.get("host"):  # it enters attached to what was chosen (303.4f)
             attach(plan, entry["card"], entry["host"], entry["actor"])
     return True
+
+
+def _entry_hosts(plan: Plan, card: CardInstance, entry: dict[str, Any]) -> list[str]:
+    hosts = _hosts_on_entering(plan, card, entry["player"])
+    if entry.get("host_choice"):
+        from app.rules import selectors
+
+        allowed = selectors.candidates(plan, selectors.from_key(entry["host_choice"]), entry["player"], card.id)
+        hosts = [h for h in hosts if h in allowed]
+    return hosts
 
 
 def _hosts_on_entering(plan: Plan, card: CardInstance, controller: str) -> list[str]:
@@ -380,7 +424,7 @@ def resume_aura_enters(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, shuffle = d.resume.get("ctx"), d.resume.get("shuffle")
     card = plan.state.cards.get(entries[i]["card"])
     if card is not None:
-        if chosen[0] not in _hosts_on_entering(plan, card, entries[i]["player"]):
+        if chosen[0] not in _entry_hosts(plan, card, entries[i]):
             from app.game.errors import ActionError
 
             raise ActionError("It can't enchant that")

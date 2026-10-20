@@ -14,7 +14,7 @@ import pytest
 from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_wave12a_counters_keywords import answer
 from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, to_hand, zone_of
 
@@ -177,7 +177,7 @@ def test_max_speed_mana_ability(cards):
     set_speed(s, 4)
     assert len(mana_abilities(s, land.id)) == 2  # 702.178a: the granted one
     act(s, "p1", type="activate_ability", card_id=land.id, ability=max(mana_abilities(s, land.id)))
-    assert s.state.players["p1"].mana.get("C", 0) == 2
+    assert mana_pool(s, 'p1').get('C', 0) == 2
     check(s)
 
 

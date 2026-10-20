@@ -63,28 +63,99 @@ def exile_on_resolve(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         card = plan.state.cards[sid]
         if card.copy_of is not None or card.is_token or not plan.ch(card).is_instant_or_sorcery or (e.get("own") and card.owner != ctx["controller"]):
             continue
-        plan.rules.exile_resolves.setdefault(plan.oid(sid), {
+        record = {
             "bind": e.get("bind"), "then": copy.deepcopy(e["then"]), "controller": ctx["controller"], "source_card": ctx.get("source_card"),
-            "source_object": ctx.get("source_object"), "name": ctx.get("name") or ""})
+            "source_object": ctx.get("source_object"), "name": ctx.get("name") or "", "link": bool(e.get("link")),
+            "optional": bool(e.get("optional")),
+            "borrowed_link_scope": ctx.get("borrowed_link_scope")}
+        previous = plan.rules.exile_resolves.get(plan.oid(sid))
+        if previous is None:
+            plan.rules.exile_resolves[plan.oid(sid)] = record
+        else:
+            previous.setdefault("alternatives", []).append(record)
     return True
 
 
 def resolved(plan: Plan, card_id: str, controller: str, countered: bool) -> bool:
     """A spell leaves the stack (engine.leave_stack). True if it was exiled instead of going to the graveyard as it resolved (and its riders have run)."""
-    from app.rules import context, effects
-
     record = plan.rules.exile_resolves.pop(plan.oid(card_id), None)
     card = plan.state.cards[card_id]
     if record is None or countered or not plan.ch(card).is_instant_or_sorcery:
         return False
-    plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "exile"}}, actor=controller)
-    if record["then"] and plan.state.cards[card_id].zone.endswith(":exile"):  # ("If you do": a commander that went to the command zone instead (903.9a) was not exiled)
+    from app.rules import replacements
+
+    records = [{k: v for k, v in record.items() if k != 'alternatives'}, *record.get('alternatives', [])]
+    cands = [replacements.Cand(rec.get('name') or 'A cast-triggered replacement', 'exile', rider={
+        'source': rec.get('source_card') or '', 'controller': rec['controller'], 'effects': rec.get('then') or [],
+        'reflexive': False, 'resolve_exile_record': rec, 'card': card_id}) for rec in records]
+    cands.extend(replacements.zone_candidates(plan, card))
+    pick = replacements._pick(plan, card, _with_frontier(cands), 'graveyard')
+    if pick is not None:
+        if pick.used:
+            plan.rules.exile_if_graveyard = [oid for oid in plan.rules.exile_if_graveyard if oid != plan.oid(card)]
+        replacements.move_instead(plan, card_id, pick, controller)
+    return True
+
+
+def _with_frontier(cands: list[Any]) -> list[Any]:
+    frontier = [c._asdict() for c in cands]
+    return [c._replace(rider={**c.rider, 'optional_resolve_frontier': frontier})
+            if c.rider is not None and (c.rider.get('resolve_exile_record') or {}).get('optional') else c
+            for c in cands]
+
+
+def offer_optional(plan: Plan, card_id: str, cand: Any, actor: str | None) -> None:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    record = cand.rider['resolve_exile_record']
+    decide(plan, player=record['controller'], kind='choose_one', prompt='Exile this spell as it resolves?',
+        options=[DecisionOption(id='yes', label='Exile the spell'), DecisionOption(id='no', label='Decline')],
+        resume={'step': 'optional_resolve_exile', 'card': card_id, 'oid': plan.oid(card_id),
+                'candidate': cand._asdict(), 'actor': actor})
+
+
+def resume_optional(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import engine, replacements
+
+    r = d.resume
+    card = plan.state.cards.get(r['card'])
+    if card is None or card.zone != 'stack' or plan.oid(card) != r['oid']:
+        return
+    cand = replacements.Cand(**r['candidate'])
+    assert cand.rider is not None
+    if chosen[0] == 'yes':
+        rider = {**cand.rider, 'resolve_exile_record': {**cand.rider['resolve_exile_record'], 'optional': False}}
+        replacements.move_instead(plan, card.id, cand._replace(rider=rider), r['actor'])
+        return
+    remaining = [replacements.Cand(**value) for value in cand.rider['optional_resolve_frontier']
+                 if replacements.Cand(**value).sig != cand.sig]
+    if not remaining:
+        engine.leave_stack(plan, card.id, card.controller)
+        return
+    pick = replacements._pick(plan, card, _with_frontier(remaining), 'graveyard')
+    if pick is not None:
+        if pick.used:
+            plan.rules.exile_if_graveyard = [oid for oid in plan.rules.exile_if_graveyard if oid != r['oid']]
+        replacements.move_instead(plan, card.id, pick, r['actor'])
+
+
+def after_exile(plan: Plan, card_id: str, record: dict[str, Any]) -> None:
+    """Only the chosen replacement's linked record and riders apply after its actual exile."""
+    from app.rules import context, effects
+
+    if card_id not in plan.state.cards or not plan.state.cards[card_id].zone.endswith(':exile'):
+        return
+    if record.get('link'):
+        from app.rules import exiled_with
+
+        exiled_with.record(plan, record, [card_id])
+    if record['then']:
         ctx: Context = {"controller": record["controller"], "source_card": record["source_card"], "source_object": record["source_object"], "name": record["name"],
                         "targets": [], "stack_id": None, "kind": "replacement", "effects": copy.deepcopy(record["then"]), "next": 0, "x": 0, "event": None,
-                        "body_done": {"do": "noop"}}
+                        "body_done": {"do": "noop"}, 'borrowed_link_scope': record.get('borrowed_link_scope')}
         context.bind_objects(plan, ctx, record["bind"], [card_id])
         effects.continue_effects(plan, ctx)
-    return True
 
 
 def plotted(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -97,3 +168,4 @@ def plotted(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES = {"exile_on_resolve": exile_on_resolve, "plotted": plotted}
+RESUME = {'optional_resolve_exile': resume_optional}

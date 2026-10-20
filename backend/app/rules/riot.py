@@ -46,21 +46,29 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, answers: dict[st
     if plan.manual(card):
         return
     ch = plan.ch(card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller}))
-    if spec(ch) is None:
-        return
-    if answers.get(WHAT) in ("counter", "haste", "none"):
-        out.setdefault("choices", {})[WHAT] = answers[WHAT]
-    elif "choice" not in out:
-        out["choice"] = {"what": WHAT}
+    found = instances(ch)
+    from app.rules import prohibitions
+
+    blocked = prohibitions.cant_counters(plan, card.id, controller, '+1/+1') is not None
+    for i, kind in enumerate(found):
+        key = WHAT if len(found) == 1 else f'{WHAT}:{i}'
+        if blocked:
+            out.setdefault('choices', {})[key] = 'haste' if kind == 'riot' else 'none'
+        elif answers.get(key) in (('counter', 'haste') if kind == 'riot' else ('counter', 'none')):
+            out.setdefault('choices', {})[key] = answers[key]
+        elif 'choice' not in out:
+            out['choice'] = {'what': key}
 
 
 def is_choice(what: str) -> bool:
-    return what == WHAT
+    return what == WHAT or what.startswith(WHAT + ":")
 
 
-def prompt(plan: Plan, card: CardInstance, controller: str) -> tuple[str, list[DecisionOption]]:
+def prompt(plan: Plan, card: CardInstance, controller: str, what: str = WHAT) -> tuple[str, list[DecisionOption]]:
     ch = plan.ch(card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller}))
-    if spec(ch) == "riot":
+    found = instances(ch)
+    index = int(what.split(':')[1]) if ':' in what else 0
+    if index < len(found) and found[index] == 'riot':
         return (f"{card.name}: riot — enter with a +1/+1 counter, or gain haste?",
                 [DecisionOption(id="counter", label="A +1/+1 counter"), DecisionOption(id="haste", label="Haste")])
     return (f"{card.name}: unleash — enter with a +1/+1 counter?",
@@ -68,8 +76,8 @@ def prompt(plan: Plan, card: CardInstance, controller: str) -> tuple[str, list[D
 
 
 def counters(ch: Any, choices: dict[str, str] | None) -> int:
-    return 1 if spec(ch) is not None and (choices or {}).get(WHAT) == "counter" else 0
+    return min(len(instances(ch)), sum(v == 'counter' for k, v in (choices or {}).items() if is_choice(k)))
 
 
 def gains_haste(ch: Any, choices: dict[str, str] | None) -> bool:
-    return spec(ch) == "riot" and (choices or {}).get(WHAT) == "haste"
+    return bool(instances(ch)) and any(v == 'haste' for k, v in (choices or {}).items() if is_choice(k))

@@ -1,0 +1,30 @@
+[
+  {
+    "name": "Return to Dust",
+    "oracle_text": "Exile target artifact or enchantment. If you cast this spell during your main phase, you may exile up to one other target artifact or enchantment.",
+    "type_line": "Instant",
+    "mana_cost": "{2}{W}{W}",
+    "layout": "normal"
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal"
+  },
+  {
+    "name": "Arcane Signet",
+    "oracle_text": "{T}: Add one mana of any color in your commander's color identity.",
+    "type_line": "Artifact",
+    "mana_cost": "{2}",
+    "layout": "normal"
+  },
+  {
+    "name": "Twincast",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "type_line": "Instant",
+    "mana_cost": "{U}{U}",
+    "layout": "normal"
+  }
+]

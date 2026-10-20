@@ -109,7 +109,7 @@ def register() -> None:
         (re.compile(rf"(?:,)? that (?P<v>blocked or (?:was|were) blocked by|blocked|was blocked by|were blocked by) (?:(?P<r>{_REF})|(?P<sel>an? .+?)) "
                     r"this (?P<t>turn|combat)$"), _history),
         (re.compile(r"(?:,)? that (?:was|were) attached to (?P<r>that creature|it)$"), _was_attached),
-        (re.compile(rf"(?<!with a legendary Equipment)(?:,)? (?:that(?:'s| is| are) )?attached to (?P<r>that creature|it|{_TARGET})$"), _attached),  # (Kassandra's older "with a legendary Equipment attached to it" is its own)
+        (re.compile(rf"(?<!with a legendary Equipment)(?<!with another Aura)(?<!with another Equipment)(?:,)? (?:that(?:'s| is| are) )?attached to (?P<r>that creature|it|{_TARGET})$"), _attached),  # ("with another Aura/Equipment" and Kassandra's legendary Equipment qualifier have their own suffixes)
     ]
     for pair in reversed(suffixes):
         selectors._SUFFIXES.insert(0, pair)
@@ -155,10 +155,12 @@ def rel_matches(plan: Plan, card: CardInstance, extra: str, source: str | None) 
             ok = here and card.attached_to == rid
         elif kind == "wasatt":  # (the creature as it last existed, a card id in its attachments then)
             ok = snap is not None and card.id in snap.attached
-        elif kind in ("blocking", "blockedby", "pair"):
+        elif kind in ("blocking", "blocking_live", "blockedby", "pair"):
+            if kind == "blocking_live" and not here:
+                continue
             ok = card.zone.endswith(":battlefield") and kind != "blockedby" and (
                 card.blocks(rid) if here else snap is not None and card.id in snap.blocked_by_ids)
-            if not ok and kind != "blocking":
+            if not ok and kind not in ("blocking", "blocking_live"):
                 ok = rcard.blocks(card.id) if here and rcard is not None else snap is not None and card.id in snap.blocking_ids
         else:  # the turn's blocks (509.1g)
             log = plan.rules.turn_log
@@ -368,11 +370,12 @@ def become_blocked(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """"Target unblocked attacking creature becomes blocked." (Curtain of Light, Dazzling Beauty, Trap Runner): 509.1h — it is a blocked creature from now on, though no
     creature blocks it (it deals no combat damage unless it has trample, 702.19e). 509.3c: its "becomes blocked" abilities trigger (not "becomes blocked by a creature",
     509.3d — nothing blocks it), only if it was unblocked at that time. A target that is no longer an unblocked attacking creature as this resolves does nothing (608.2b)."""
-    from app.rules import effects, triggers
+    from app.rules import banding, effects, triggers
 
-    for cid in effects._cards(plan, ctx, e["who"]):
+    selected = effects._cards(plan, ctx, e["who"])
+    for cid in dict.fromkeys(member for selected_id in selected for member in banding.members(plan.state, selected_id)):
         card = plan.state.cards[cid]
-        if card.attacking is None or not card.zone.endswith(":battlefield") or cid in plan.rules.blocked or not blockers_declared(plan):
+        if not card.is_attacking or not card.zone.endswith(":battlefield") or cid in plan.rules.blocked or not blockers_declared(plan):
             continue
         plan.rules.blocked = [*plan.rules.blocked, cid]
         plan.note(f"{card.name} becomes blocked", [cid])

@@ -22,6 +22,11 @@ from typing import Any
 
 Definition = dict[str, Any]
 
+
+def parts(definition: Definition) -> tuple[Definition, ...]:
+    """Independent statics belonging to the same printed ability index."""
+    return (definition, *(part for child in definition.get('also', ()) for part in parts(child)))
+
 _SENTENCES = re.compile(r"(?<=\.) (?=[A-Z~])")
 _SUBJECT = re.compile(r"^(?:As long as [^,]+, )?(?P<s>Enchanted creature|Equipped creature|~)(?= (?:gets|has|can't)\b)")
 _OTHERWISE = re.compile(r"^Otherwise, it (?P<pred>(?:gets|has|can't) .+)\.$")  # (wave 25A: "it can't attack or block", Bonds of Faith)
@@ -56,7 +61,10 @@ def _not(conds: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def definition(text: str) -> Definition | None:
-    from app.rules import statics
+    from app.rules import joint_attached_pumps, statics
+
+    if (joint := joint_attached_pumps.definition(text)) is not None:
+        return joint
 
     # -- as long as (wave 25A) -- "As long as you control enchanted creature, it gets +2/+2.": "it" is the creature the condition names
     text = re.sub(r"^(As long as [^,]*\b(enchanted|equipped) creature\b[^,]*), it (?=(?:gets|has|can't)\b)",

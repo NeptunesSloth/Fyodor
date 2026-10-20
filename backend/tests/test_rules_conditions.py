@@ -46,8 +46,8 @@ def test_if_sentence_skips_only_its_own_effects(cards):
     hand = len(zone(s.state, "p1", "hand"))
     _activate(s, src)
     assert len(zone(s.state, "p1", "hand")) == hand and s.state.players["p1"].life == 41  # no Goblins: no draw
-    act(s, "p1", type="create_token", player="p1", token={"name": "G1", "type_line": "Token Creature — Goblin"})
-    act(s, "p1", type="create_token", player="p1", token={"name": "G2", "type_line": "Token Creature — Goblin"})
+    act(s, "p1", type="create_token", player="p1", token={"name": "G1", "type_line": "Token Creature — Goblin", "power": "1", "toughness": "1"})
+    act(s, "p1", type="create_token", player="p1", token={"name": "G2", "type_line": "Token Creature — Goblin", "power": "1", "toughness": "1"})
     _activate(s, src)
     assert len(zone(s.state, "p1", "hand")) == hand + 1 and s.state.players["p1"].life == 42
     replay_matches(s)

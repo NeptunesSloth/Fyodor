@@ -75,6 +75,11 @@ def zero_life_ok(plan: Plan, player: str) -> bool:
             continue
         ch = plan.ch(c)
         skip = conditional_lines(ch)
+        if any(i not in skip and d.get("kind") == "static" and d.get("zero_life_when_attached")
+               for i, d in scripts.definitions(ch).items()):
+            host = plan.state.cards.get(c.attached_to or "")
+            if host is not None and host.zone.endswith(":battlefield") and "Creature" in plan.ch(host).types:
+                return True
         if any(i not in skip and d.get("kind") == "static" and (d.get("zero_life") or (d.get("static") == KIND and d.get("you") == "zero_life"))
                for i, d in scripts.definitions(ch).items()):
             return True

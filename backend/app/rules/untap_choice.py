@@ -104,7 +104,7 @@ def _limits(plan: Plan, r: dict[str, Any]) -> None:
         plan.do({"type": "tap", "card_ids": let_go, "tapped": False}, actor=plan.active)
     f = r["fin"]
     engine.finish_turn_start(plan, [*f["stunned"], *stuck], (f["previous"][0], f["previous"][1]),
-                             [(p, n) for p, n in f["skipped"]], f["plain"], [*r["keep"], *r["denied"], *stuck])
+                             [(p, n) for p, n in f["skipped"]], f["plain"], [*r["keep"], *r["denied"], *stuck], same_turn=bool(f.get("same_turn")))
 
 
 def resume_limit(plan: Plan, d: object, chosen: list[str]) -> None:
@@ -148,16 +148,16 @@ def resume(plan: Plan, d: object, chosen: list[str]) -> None:
     let_go = [c for c in asked if c not in chosen and c in plan.state.cards]
     stuck = effects.keyword_actions.stunned(plan, let_go)  # 122.1d (the counter comes off in finish_turn_start)
     held = [c for g in r.get("groups", []) for c in g[0]]
-    keep = [c for c in r["keep"] if c not in asked and c not in held] + [c for c in chosen if c not in r["keep"]] + stuck
+    keep = [c for c in r["keep"] if c not in asked and c not in held] + list(chosen) + stuck
     if plan.state.settings.auto_untap:
         free = [c for c in let_go if c not in stuck]
         if free:
             plan.do({"type": "tap", "card_ids": free, "tapped": False}, actor=plan.active)
     for c in chosen:
         plan.note(f"{plan.state.cards[c].name or 'It'} stays tapped (it isn't untapped during the untap step)", [c], actor=plan.active)
-    fin = {k: r[k] for k in ("previous", "skipped", "plain")} | {"stunned": [*r["stunned"], *stuck]}
+    fin = {k: r[k] for k in ("previous", "skipped", "plain")} | {"same_turn": bool(r.get("same_turn"))} | {"stunned": [*r["stunned"], *stuck]}
     if held:  # -- untap restrictions (wave 13E) -- then the limited kinds
         _limits(plan, {"keep": keep, "held": held, "groups": r["groups"], "denied": [], "fin": fin})
         return
     engine.finish_turn_start(plan, fin["stunned"], (r["previous"][0], r["previous"][1]),
-                             [(p, n) for p, n in r["skipped"]], r["plain"], keep)
+                             [(p, n) for p, n in r["skipped"]], r["plain"], keep, same_turn=bool(r.get("same_turn")))

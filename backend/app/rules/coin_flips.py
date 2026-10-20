@@ -25,8 +25,6 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
-from app.game.rules_state import emit
-
 if TYPE_CHECKING:
     from app.rules.plan import Plan
 
@@ -116,22 +114,56 @@ def holds(ctx: Context, cond: dict[str, Any]) -> bool:
 
 
 def coin_flip(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    import secrets
+    from app.rules import coin_outcomes
 
-    if plan.rng is None:
-        plan.rng = secrets.SystemRandom()  # (the result is recorded on the step: the history replays it, not the generator)
-    face = "'face': True" in str(ctx.get("effects"))  # (705.2: the effect reads heads or tails: no winner or loser)
-    many = e.get("n") if isinstance(e.get("n"), int) else None  # (wave 53B: the number chosen, bound by chosen.bind_effects)
-    ctx["flips"] = []
-    for _ in range(many if many is not None else 1000 if e.get("until_lose") else 1):  # (ponytail: no game wins 1000 flips in a row)
-        done = plan.do({"type": "coin", "count": 1}, actor=ctx["controller"])
-        ctx["coin"] = bool(done.r.results[0])  # type: ignore[union-attr]
-        ctx["flips"].append(ctx["coin"])
-        if not face:
-            emit(plan.state, "designation", counter="coin_flip", player=ctx["controller"], amount=int(ctx["coin"]))
-        if not ctx["coin"] and e.get("until_lose"):
+    face = bool(e.get("face")) or "'face': True" in str(ctx.get("effects"))
+    many = e.get("n") if isinstance(e.get("n"), int) else None
+    if not e.get('until_lose'):
+        return coin_outcomes.group(plan, ctx, [{'player': ctx['controller']} for _ in range(many if many is not None else 1)], face=face)
+    return _loop(plan, ctx, {'do': 'coin_flip_finish', 'remaining': many, 'all': [], 'face': face})
+
+
+def _loop(plan: Plan, ctx: Context, after: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import coin_outcomes
+    from app.rules.plan import decide
+
+    while after['remaining'] != 0:
+        if len(plan.steps) >= plan.max_steps - 40:
+            decide(plan, player=ctx['controller'], kind='confirm', prompt='Continue the mandatory coin process.',
+                   options=[DecisionOption(id='continue', label='Continue resolving')],
+                   resume={'step': 'coin_loop', 'ctx': ctx, 'after': after})
+            return False
+        ctx['coin_after'] = after
+        if not coin_outcomes.group(plan, ctx, [{'player': ctx['controller']}], face=after['face']):
+            return False
+        ctx.pop('coin_after', None)
+        _collect(ctx, after)
+        if not ctx['coin']:
             break
+    ctx['flips'] = after['all']
     return True
+
+
+def _collect(ctx: Context, after: dict[str, Any]) -> None:
+    after['all'].extend(ctx['flips'])
+    if after['remaining'] is not None:
+        after['remaining'] -= len(ctx['flips'])
+
+
+def finish_flip(plan: Plan, ctx: Context, after: dict[str, Any]) -> bool:
+    _collect(ctx, after)
+    if ctx['coin'] and after['remaining'] != 0:
+        return _loop(plan, ctx, after)
+    ctx['flips'] = after['all']
+    return True
+
+
+def resume_loop(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    if _loop(plan, d.resume['ctx'], d.resume['after']):
+        effects.continue_effects(plan, d.resume['ctx'])
 
 
 def refs_ok(effects: list[dict[str, Any]]) -> bool:
@@ -146,4 +178,5 @@ def refs_ok(effects: list[dict[str, Any]]) -> bool:
     return True
 
 
-PRIMITIVES = {"coin_flip": coin_flip}
+PRIMITIVES = {"coin_flip": coin_flip, "coin_flip_finish": finish_flip}
+RESUME = {"coin_loop": resume_loop}

@@ -1,0 +1,9 @@
+# Directional and temporary declaration mana costs
+
+Brainwash and Phyrexian Marauder use the native per-creature declaration-cost evaluator with attack-only applicability; their costs never affect blocking requirements. Marauder's actual X cast establishes its native enters counters.
+
+Nils, Discipline Enforcer evaluates the counters on each declaring attacker, including every counter kind, independently. Its applicable defenders are the source controller and that player's planeswalkers. Onakke Oathkeeper applies only when attacking planeswalkers that player controls; attacking the player is exempt. Completed characteristics govern source ability loss, and the current source controller governs defender scope. Distinct static ability instances accumulate.
+
+War Tax and War Cadence create native rule-modifying continuous effects through `restrict`. The activated ability's chosen X is frozen when it resolves. The persisted rule carries a distinct effect identity, so successive activations add together even from one source. The group applies to creatures that enter later and ends during cleanup. This effect does not grant an ability, so source departure and Dress Down do not erase it. Zero contributes no fee. User-facing effect labels describe the applicable attack or block cost.
+
+All fees join existing declaration cost determination and payment (CR508.1h–j and509.1d–f). Existing payment continuations preserve locked costs during mana activation; no new callback or payment engine is introduced. Requirements never oblige payment (508.1d,509.1c). Canonical tests exercise real declarations, underpayment rollback, both War modes, source removal, control changes, ability loss, actual Onakke graveyard activation, replay, and fresh-process restoration midway through attack/block payment.

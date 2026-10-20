@@ -238,7 +238,7 @@ def facts(plan: Plan, e: Event) -> list[Any]:
     if e.counter in ("scry", "surveil") and e.player:  # -- looks (wave 8B) -- 701.22b, 701.25c (history.note_look)
         return [(e.counter, None, None, e.player, {"nth": e.amount, "amount": e.looked})]  # (wave 19C: "cards looked at while scrying this way")
     if e.counter == "roll" and e.player:  # -- rolling dice (wave 13E) -- "Whenever you roll one or more dice" (app/rules/dice.py)
-        return [("roll", None, None, e.player, {"high": e.amount})]
+        return [("roll", None, None, e.player, {"high": e.amount, "amount": e.amount, "dice_total": e.dice_total})]
     if e.counter == "roll_die" and e.player:  # -- dice (wave 24B) -- one die (706.2): its result, the natural result, the size, the turn's count
         return [("roll_die", None, None, e.player, {"amount": e.amount, "natural": e.natural, "sides": e.sides, "nth": e.nth,
                                                     "actor": e.player})]
@@ -977,6 +977,9 @@ def day_night_sync(plan: Plan, became: bool = False) -> bool:
         from app.game.rules_state import emit
 
         if plan.oid(c.id) not in entering:
+            from app.rules import transform_emblems
+
+            transform_emblems.apply(plan, plan.state.cards[c.id])
             emit(plan.state, "designation", counter="transformed", card=c.id, object_id=plan.oid(c.id), player=c.controller)
         changed = True
     return changed
@@ -1042,9 +1045,11 @@ def emblem_text_ok(text: str) -> bool:
         return False
     for d in scripts.definitions(ch).values():
         if d.get("kind") == "static":
+            if d.get('static') in ('spell_keyword', 'permission', 'loyalty_rule', 'cast_limit', 'cost_modifier'):
+                continue
             if d.get("static") == "no_max_hand":  # -- ability words (wave 20C) -- "You have no maximum hand size." (hand_size.maximum reads emblems)
                 continue
-            if d.get("static") == "replace" and d.get("event") == "life_loss":  # -- life floor (wave 35C) -- Serra the Benevolent's emblem (replace.static_candidates)
+            if d.get("static") == "replace" and d.get("event") in ("life_loss", "damage"):  # -- life floor (wave 35C) -- Serra the Benevolent's emblem (replace.static_candidates)
                 continue
             if d.get("static") != "grant" or zone_static(d) or d.get("also"):
                 return False

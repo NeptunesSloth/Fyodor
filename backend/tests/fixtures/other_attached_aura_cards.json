@@ -1,0 +1,60 @@
+[
+  {
+    "name": "Daybreak Coronet",
+    "oracle_text": "Enchant creature with another Aura attached to it\nEnchanted creature gets +3/+3 and has first strike, vigilance, and lifelink. (Damage dealt by the creature also causes its controller to gain that much life.)",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{W}{W}",
+    "layout": "normal"
+  },
+  {
+    "name": "Rancor",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +2/+0 and has trample.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{G}",
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal"
+  },
+  {
+    "name": "Lightning Greaves",
+    "oracle_text": "Equipped creature has haste and shroud. (It can't be the target of spells or abilities.)\nEquip {0}",
+    "type_line": "Artifact \u2014 Equipment",
+    "mana_cost": "{2}",
+    "layout": "normal"
+  },
+  {
+    "name": "Swords to Plowshares",
+    "oracle_text": "Exile target creature. Its controller gains life equal to its power.",
+    "type_line": "Instant",
+    "mana_cost": "{W}",
+    "layout": "normal"
+  },
+  {
+    "name": "Pacifism",
+    "oracle_text": "Enchant creature\nEnchanted creature can't attack or block.",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{1}{W}",
+    "layout": "normal"
+  },
+  {
+    "name": "Bonesplitter",
+    "oracle_text": "Equipped creature gets +2/+0.\nEquip {1}",
+    "type_line": "Artifact \u2014 Equipment",
+    "mana_cost": "{1}",
+    "layout": "normal"
+  },
+  {
+    "name": "Replenish",
+    "oracle_text": "Return all enchantment cards from your graveyard to the battlefield. (Auras with nothing to enchant remain in your graveyard.)",
+    "type_line": "Sorcery",
+    "mana_cost": "{3}{W}",
+    "layout": "normal"
+  }
+]

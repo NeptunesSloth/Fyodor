@@ -96,6 +96,14 @@ def canonical(plan: Plan, what: str, typed: str | None) -> str:
 
 
 def answer(plan: Plan, d: Decision, typed: str | None) -> str:
+    if d.options[0].group == 'historical splice names':
+        from app.rules import name_event_receipts
+
+        return name_event_receipts.splice_names_answer(plan, typed)
+    if d.options[0].group == 'historical spell names':
+        from app.rules import name_relation_continuations
+
+        return name_relation_continuations.historical_names_answer(plan, typed)
     if d.options[0].id == "__number__":  # -- group choices (wave 53D) -- "secretly chooses a number"
         from app.rules import group_choice
 

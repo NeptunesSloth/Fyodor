@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Beseech the Mirror",
+    "oracle_text": "Bargain (You may sacrifice an artifact, enchantment, or token as you cast this spell.)\nSearch your library for a card, exile it face down, then shuffle. If this spell was bargained, you may cast the exiled card without paying its mana cost if that spell's mana value is 4 or less. Put the exiled card into your hand if it wasn't cast this way.",
+    "type_line": "Sorcery",
+    "mana_cost": "{1}{B}{B}{B}"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2"
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}"
+  },
+  {
+    "name": "Hill Giant",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Giant",
+    "mana_cost": "{3}{R}",
+    "power": "3",
+    "toughness": "3"
+  },
+  {
+    "name": "Giant Growth",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "type_line": "Instant",
+    "mana_cost": "{G}"
+  },
+  {
+    "name": "Counterspell",
+    "oracle_text": "Counter target spell.",
+    "type_line": "Instant",
+    "mana_cost": "{U}{U}"
+  },
+  {
+    "name": "Colossal Dreadmaw",
+    "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+    "type_line": "Creature \u2014 Dinosaur",
+    "mana_cost": "{4}{G}{G}",
+    "power": "6",
+    "toughness": "6"
+  }
+]

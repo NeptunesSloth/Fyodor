@@ -55,7 +55,7 @@ from app.rules import casting, coverage
 from app.rules import mana as M
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act, zone
+from tests.game_helpers import act, mana_pool, zone
 from tests.test_rules_conditionals import build, creature, on_field
 from tests.test_rules_effects import mana, replay_matches
 
@@ -360,7 +360,7 @@ def test_untap_tapped_creatures_you_control_as_a_cost(cards):
     act(s, "p1", type="activate_ability", card_id=fountain.id, ability=ability(s, fountain, "{W}{W}, {T}"))
     settle(s)  # (both are untapped; the fountain tapped)
     assert [s.state.cards[b.id].tapped for b in bears] == [False, False] and s.state.cards[fountain.id].tapped
-    assert s.state.players["p1"].mana == {"W": 1}
+    assert mana_pool(s, "p1") == {"W": 1}
     roundtrip(s)
 
 
@@ -397,7 +397,7 @@ def test_exert_as_a_mana_ability_cost(cards):
     s.state.rules.controlled_since[c.id].turn = 0
     act(s, "p1", type="activate_ability", card_id=c.id, ability=ability(s, c, "{T}, Exert"))
     settle(s)
-    assert sum(s.state.players["p1"].mana.values()) == 2 and len(s.state.players["p1"].mana) == 1  # (two of one color)
+    assert sum(mana_pool(s, "p1").values()) == 2 and len(mana_pool(s, "p1")) == 1  # (two of one color)
     assert s.state.cards[c.id].tapped and s.state.rules.exerted
     roundtrip(s)
 
@@ -412,7 +412,7 @@ def test_untap_symbol_as_a_mana_ability_cost(cards):
     act(s, "p1", type="tap", card_ids=[c.id], tapped=True)
     act(s, "p1", type="activate_ability", card_id=c.id, ability=ability(s, c, "{2}, {Q}"))
     settle(s)
-    assert not s.state.cards[c.id].tapped and sum(s.state.players["p1"].mana.values()) == 1
+    assert not s.state.cards[c.id].tapped and sum(mana_pool(s, "p1").values()) == 1
     roundtrip(s)
 
 
@@ -428,7 +428,7 @@ def test_forage_as_a_mana_ability_cost(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.card_id in {f.id for f in forests}])
     settle(s)
     assert all(s.state.cards[f.id].zone.endswith(":exile") for f in forests)  # (701.61a: three cards from the graveyard)
-    assert sum(s.state.players["p1"].mana.values()) == 2 and s.state.cards[c.id].tapped
+    assert sum(mana_pool(s, "p1").values()) == 2 and s.state.cards[c.id].tapped
     roundtrip(s)
 
 
@@ -441,7 +441,7 @@ def test_storage_land_adds_x_mana_in_any_combination(cards):
     d = s.state.rules.decision  # one option per number of counters, and per mix of {U} and {B}: 1: U, B; 2: UU, UB, BB; 3: …
     assert [o.label for o in d.options][:5] == ["{U}", "{B}", "{U}{U}", "{U}{B}", "{B}{B}"]
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["3"])
-    assert s.state.players["p1"].mana == {"U": 1, "B": 1} and s.state.cards[reef.id].counters.get("storage", 0) == 1
+    assert mana_pool(s, "p1") == {"U": 1, "B": 1} and s.state.cards[reef.id].counters.get("storage", 0) == 1
     roundtrip(s)
 
 
@@ -455,11 +455,11 @@ def test_x_mana_of_any_one_color_and_x_plus_one(cards):
     act(s, "p1", type="activate_ability", card_id=baku.id, ability=ability(s, baku, "{1}, Remove"))
     d = s.state.rules.decision
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.label == "{G}{G}"])
-    assert s.state.players["p1"].mana == {"G": 2} and s.state.cards[baku.id].counters.get("ki", 0) == 0
+    assert mana_pool(s, "p1") == {"G": 2} and s.state.cards[baku.id].counters.get("ki", 0) == 0
     act(s, "p1", type="activate_ability", card_id=toy.id, ability=ability(s, toy, "{T}, Remove"))
     d = s.state.rules.decision  # 1 + X colorless: X = 0, 1 or 2
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.label == "{C}{C}{C}"])
-    assert s.state.players["p1"].mana == {"G": 2, "C": 3} and s.state.cards[toy.id].counters.get("charge", 0) == 0
+    assert mana_pool(s, "p1") == {"G": 2, "C": 3} and s.state.cards[toy.id].counters.get("charge", 0) == 0
     roundtrip(s)
 
 
@@ -477,7 +477,7 @@ def test_tap_x_untapped_tokens_for_x_mana(cards):
     assert len(d.options) == 15
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["0"])
     assert [s.state.cards[t.id].tapped for t in tokens] == [True, True, False]
-    assert sum(s.state.players["p1"].mana.values()) == 2 and s.state.players["p1"].life == 38
+    assert sum(mana_pool(s, "p1").values()) == 2 and s.state.players["p1"].life == 38
     roundtrip(s)
 
 
@@ -488,7 +488,7 @@ def test_sacrifice_an_artifact_for_mana_equal_to_its_mana_value(cards):
     toy = on_field(s, "Kyren Toy")  # (mana value 3)
     act(s, "p1", type="activate_ability", card_id=priest.id, ability=0)
     settle(s)
-    assert s.state.cards[toy.id].zone == "p1:graveyard" and s.state.players["p1"].mana == {"B": 3}
+    assert s.state.cards[toy.id].zone == "p1:graveyard" and mana_pool(s, "p1") == {"B": 3}
     roundtrip(s)
 
 
@@ -500,7 +500,7 @@ def test_choose_a_color_of_a_permanent_you_control(cards):
     d = s.state.rules.decision
     assert sorted(o.label for o in d.options) == ["{G}", "{W}"]  # (Selvala's colors; a land has none)
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "{G}")])
-    assert s.state.players["p1"].mana == {"G": 1}
+    assert mana_pool(s, "p1") == {"G": 1}
     roundtrip(s)
 
 
@@ -514,7 +514,7 @@ def test_one_mana_of_the_chosen_color_for_each_different_power(cards):
     act(s, "p1", type="activate_ability", card_id=selvala.id, ability=ability(s, selvala, "{T}"))
     d = s.state.rules.decision
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "{G}{G}{G}")])
-    assert s.state.players["p1"].mana == {"G": 3}  # (powers 4, 1 and 2)
+    assert mana_pool(s, "p1") == {"G": 3}  # (powers 4, 1 and 2)
     roundtrip(s)
 
 
@@ -603,7 +603,7 @@ def test_x_mana_in_any_combination_where_x_is_a_count(cards):
     d = s.state.rules.decision  # X = 1 (only the Guardian has defender): one mana of any color
     assert sorted(o.label for o in d.options) == ["{B}", "{G}", "{R}", "{U}", "{W}"]
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "{R}")])
-    assert s.state.players["p1"].mana == {"R": 1}
+    assert mana_pool(s, "p1") == {"R": 1}
     roundtrip(s)
 
 
@@ -615,7 +615,7 @@ def test_x_mana_of_two_colors_where_x_is_power_once_each_turn(cards):
     d = s.state.rules.decision
     assert [o.label for o in d.options] == ["{U}{U}", "{U}{R}", "{R}{R}"]
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["1"])
-    assert s.state.players["p1"].mana == {"U": 1, "R": 1}
+    assert mana_pool(s, "p1") == {"U": 1, "R": 1}
     with pytest.raises(ActionError):  # (once each turn)
         act(s, "p1", type="activate_ability", card_id=vivi.id, ability=0)
     roundtrip(s)
@@ -645,14 +645,14 @@ def waterbend_ruthless(cards, helpers, mana_c, pick):
 
 def test_waterbend_taps_artifacts_and_creatures_for_generic_mana(cards):
     s, c, tokens = waterbend_ruthless(cards, 2, 1, [0])  # {2}: one Helper taps, {1} of mana
-    assert chars(s, c).pt == (2, 4) and s.state.players["p1"].mana == {}
+    assert chars(s, c).pt == (2, 4) and mana_pool(s, "p1") == {}
     assert [s.state.cards[t.id].tapped for t in tokens] == [True, False]
     roundtrip(s)
 
 
 def test_waterbend_paid_with_mana_alone(cards):
     s, c, tokens = waterbend_ruthless(cards, 1, 2, [])  # none tapped: {2} of mana
-    assert chars(s, c).pt == (2, 4) and s.state.players["p1"].mana == {} and not s.state.cards[tokens[0].id].tapped
+    assert chars(s, c).pt == (2, 4) and mana_pool(s, "p1") == {} and not s.state.cards[tokens[0].id].tapped
     roundtrip(s)
 
 

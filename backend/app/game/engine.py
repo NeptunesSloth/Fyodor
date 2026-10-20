@@ -114,6 +114,7 @@ HANDLERS: dict[str, Handler] = {
     "rules_log": rules.rules_log,
     "rules_mana": rules.rules_mana,
     "rules_damage": rules.rules_damage,
+    "rules_life_changes": rules.rules_life_changes,
     "renumber": zones.renumber,
 }
 

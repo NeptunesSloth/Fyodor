@@ -15,10 +15,13 @@ creature. You may pay {W} to end this effect." (the twelve Commander-legal Licid
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from app.game import actions as A
 from app.game.errors import ActionError
+from app.rules import mana as M
+from app.rules import payment_continuations as pc
 from app.rules.plan import Plan, require_no_decision, require_priority
 
 if TYPE_CHECKING:
@@ -75,9 +78,7 @@ def ending(state: GameState, card: CardInstance, player: str) -> list[Any]:
 def end_effect(plan: Plan, a: A.EndEffect) -> None:
     """116.2c: the special action - pay the cost, the effect ends (any time the player has priority; it doesn't use the stack). ponytail: like turning a creature face up
     or unlocking a door it isn't in casting.can_act, so a player with nothing else to do keeps response stops on to get priority for it."""
-    from app.rules import delayed, layers
-    from app.rules import mana as M
-    from app.rules.casting import Purpose, pay, payment_step
+    from app.rules.casting import Purpose, pay_then, payment_step
 
     require_no_decision(plan)
     require_priority(plan)
@@ -87,8 +88,26 @@ def end_effect(plan: Plan, a: A.EndEffect) -> None:
     cost = M.parse_cost(effects[0].end_cost or "")
     if payment_step(plan, a, cost, f"ending the effect on {card.name}", purpose=Purpose()):
         return
-    pay(plan, plan.actor, cost, f"paid {cost.text()} to end the effect on {card.name}", sources=a.sources, purpose=Purpose())
-    delayed._end(plan, effects)
+    tail = pc.continuation(plan, "licid_ended", _Ended(card.id, card.name or "the permanent", [e.id for e in effects]))
+    pay_then(plan, plan.actor, cost, f"paid {cost.text()} to end the effect on {card.name}",
+             sources=a.sources, purpose=Purpose(), then=tail)
+    return
+
+
+@dataclass
+class _Ended:
+    card: str
+    name: str
+    effects: list[str]
+
+
+def _ended(plan: Plan, frame: _Ended, payment: M.Payment | None) -> None:
+    from app.rules import delayed, layers
+
+    delayed._end(plan, [e for e in plan.rules.effects if e.id in frame.effects])
     layers.control_sync(plan)
-    plan.note(f"{plan.name(plan.actor)} ends the effect on {card.name}", [card.id])
+    plan.note(f"{plan.name(plan.actor)} ends the effect on {frame.name}", [frame.card])
     plan.rules.passed = []
+
+
+pc.register("licid_ended", _Ended, _ended)

@@ -14,7 +14,7 @@ import json
 import pytest
 
 from app.game.visibility import SPECTATOR
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_conditionals import until
 from tests.test_rules_effects import replay_matches
 from tests.test_rules_wave9b_exile_permission import answer, build, find, put, roundtrip
@@ -47,7 +47,7 @@ def test_a_face_down_forest_land_taps_for_green(cards):
     tap = next(a for a in chars_of(s, land).abilities if a.text.startswith("{T}: Add {G}"))
     act(s, "p1", type="activate_ability", card_id=vid, ability=tap.index)
     assert s.state.cards[vid].tapped and s.state.cards[vid].face_down  # a mana ability: it stays face down (no reveal)
-    assert s.state.players["p1"].mana.get("G") == 1
+    assert mana_pool(s, "p1").get("G") == 1
     assert s.view("p2")["cards"][vid].get("face_down_as") == "Forest land"  # 708.2a: public
     assert unseen_by(s, land, "p2", SPECTATOR)
     roundtrip(s)

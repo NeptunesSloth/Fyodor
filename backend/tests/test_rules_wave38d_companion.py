@@ -81,15 +81,15 @@ def companion_warnings(cards, companion, commander, spells):
     return [w for w in found if "companion" in w.message.lower()]
 
 
-ALONE = {LURRUS, "Zirda, the Dawnwaker", "Kaheera, the Orphanguard", "Keruga, the Macrosage", "Lutri, the Spellchaser",
+ALONE = {LURRUS, "Zirda, the Dawnwaker", "Kaheera, the Orphanguard", "Keruga, the Macrosage", "Lutri, the Spellchaser", "Jegantha, the Wellspring",
          "Obosh, the Preypiercer", "Umori, the Collector", "Gyruda, Doom of Depths"}  # the companion line was all they lacked (Obosh since wave 46A, Umori since 47A, Gyruda since 51C: mill-and-take enters trigger)
 
 
 @pytest.mark.parametrize("name", [*CASES, "Yorion, Sky Nomad"])
 def test_the_companion_line_is_supported_for_all_ten(cards, name):
     """It works outside the game (checked with the deck, 116.2g at the table) and does nothing in the deck or as the commander: supported.
-    Five of the ten had no other missing line and are FULL; the rest keep theirs (Jegantha's mana restriction, Gyruda's and Yorion's enters
-    triggers, Umori's chosen type, Obosh's damage doubling) — those are other families."""
+    The current whole-card admissions are tracked in ALONE, including Jegantha's
+    native allocation restriction; this keyword gate covers all ten companions."""
     result = coverage.of_card_data(cards.resolve(name))
     assert next(f for f in result.features if f.id == "keyword:companion").supported
     assert (result.level == "FULL") == (name in ALONE)
@@ -315,6 +315,31 @@ def test_each_companion_is_taken_with_its_legal_deck(cards, name):
     mana(s, "p1", G=3)
     take(s, name)
     assert card_named(s, name).zone == "p1:hand"
+    check(s)
+
+
+def test_jegantha_restricted_units_cannot_pay_the_companion_special_action(cards):
+    from app.rules import casting
+    from tests.test_rules_wave30m_durations import to_phase
+
+    name = 'Jegantha, the Wellspring'
+    s = build38(cards, companion=name, spells=((1, name), (9, 'Forest')))
+    source = next(c for c in s.state.cards.values() if c.owner == 'p1' and c.name == name and c.origin == 'library')
+    companion = next(c for c in s.state.cards.values() if c.owner == 'p1' and c.name == name and c.origin == 'companion')
+    act(s, 'p1', type='move', card_ids=[source.id], to={'player': 'p1', 'zone': 'battlefield'})
+    to_phase(s, 'main1', 3)
+    index = next(i for i, _ in casting.mana_abilities(s.state, s.state.cards[source.id], cards))
+    act(s, 'p1', type='activate_ability', card_id=source.id, ability=index)
+    assert len(s.state.players['p1'].mana_units) == 5
+    before = s.state.model_dump(mode='json')
+    with pytest.raises(ActionError):
+        act(s, 'p1', type='activate_ability', card_id=companion.id, ability=0)
+    assert s.state.model_dump(mode='json') == before
+    mana(s, 'p1', C=3)
+    act(s, 'p1', type='activate_ability', card_id=companion.id, ability=0)
+    assert s.state.cards[companion.id].zone == 'p1:hand'
+    assert len(s.state.players['p1'].mana_units) == 5
+    assert all(not u.generic_allowed for u in s.state.players['p1'].mana_units)
     check(s)
 
 

@@ -1,0 +1,11 @@
+# Conditional counter spells
+
+Twelve cards share a scoped parser and native stack-effect continuation: Corrupted Resolve, Unified Will, Second Guess, Laquatus's Disdain, Ertai's Trickery, Glorious Gale, Jace's Defeat, Vex, Frightful Delusion, Icy Reception, Anticognition, and Bane's Contingency.
+
+The leaf evaluates the target spell's current controller, characteristics, payment decisions, and targets before the native counter instruction removes it. It immediately inserts ordinary serializable counter, draw, discard, scry, or Ring instructions into the current continuation. Thus follow-up player references retain the former controller, including through payment and draw choices or a fresh process. The counter operation and its existing uncounterability, zone replacement, payment, target legality, and copy semantics remain shared.
+
+Conditional effects remain distinct from target restrictions. Corrupted Resolve, Unified Will, and Ertai's Trickery can legally target a spell even when their condition is false; the condition is checked on resolution. Laquatus's Disdain requires an actual graveyard cast, and Second Guess requires the second cast note globally in the current turn. These restrictions apply both when targeting and resolving. Spell copies satisfy neither actual-cast restriction. Ertai instead reads copied kicker decisions, which CR 707.10 preserves; it deliberately avoids the global actual-cast predicate.
+
+Glorious Gale and Jace's Defeat check pre-counter characteristics even if the legal target cannot be countered. Vex offers the target spell's controller the optional draw regardless of counter success. Frightful Delusion follows either payment outcome with that controller's discard. Anticognition checks any opponent's current graveyard threshold when resolving; the controller's own graveyard does not qualify. Bane's Contingency examines the target spell's current object references to controlled commanders before countering it once.
+
+Validation uses canonical Oracle fixtures, actual casts and stack copies, positive and negative conditions, payment outcomes, Ring and scry/draw riders, graveyard and ordinal targeting, saved-state replay, and fresh-process optional draw resume. Existing stack interaction and unless-payment regressions also run unchanged.

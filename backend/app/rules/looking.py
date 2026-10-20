@@ -150,11 +150,10 @@ def join_down_piles(body: str) -> str:
 def kinds_of(plan: Plan, pid: str, card_id: str, sels: list[str]) -> list[int]:
     """The listed kinds (by index) a card is: "a creature card and/or a land card" (an artifact creature
     is either an artifact or a creature card for "each card type", never both at once)."""
-    from app.rules import characteristics as chars
     from app.rules import selectors
 
     card = plan.state.cards[card_id]
-    ch = chars.of(card, plan.info)
+    ch = plan.ch(card)
     return [k for k, key in enumerate(sels) if selectors.matches(plan, selectors.from_key(key), card, ch, pid)]
 
 

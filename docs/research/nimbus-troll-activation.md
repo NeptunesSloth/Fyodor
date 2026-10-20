@@ -1,0 +1,11 @@
+# Nimbus actor permissions and Mossbridge Troll tap costs
+
+This scope complements the shared automatic regeneration replacement engine. It adds actor permission for “Only your opponents may activate this ability”, relative to the source permanent's current controller. Both actual activation and activation hints use the same permission predicate. A control change therefore changes who may activate immediately. The ability controller and payer remain the player who activates it. Tapping the source and summoning sickness do not prohibit these abilities, which have no tap symbol. Existing activated-ability prohibitions still apply.
+
+Activation hints now inspect battlefield permanents controlled by other players as well; ordinary foreign abilities fail the existing actor gate. Crew hints remain restricted to the player's own permanents. Opponents-only text is removed from the effect body as a parsed activation restriction, and controller attempts receive an explicit denial message. The regeneration-prevention body and automatic regeneration replacement are implemented by the separate shared regeneration scope.
+
+Mossbridge Troll's cost compiles to the existing TAP_POWER component, selecting untapped creatures controlled by the payer other than the Troll. The chosen creatures' actual signed powers are summed: a 10-power creature plus a −1-power creature has total power 9 and cannot pay. Availability remains optimistic because the player may omit negative-power creatures. These are creatures tapped to pay a cost, not creatures activating tap-symbol abilities, so newly controlled creatures may pay. Neither a tapped creature, an opponent's creature, the Troll itself, nor an insufficient total can be submitted as payment. Invalid payments leave the game unchanged.
+
+The eight-card canonical fixture copies complete Oracle metadata. Fourteen focused cases verify both Nimbus cards, Troll, controller changes, actual opponent activations, hints, real Faith's Fetters, signed-power payment, persistent payment decisions, source tap state, and replay/JSON save-load. All three cards report FULL after the shared regeneration engine is present.
+
+Verification: all 175 combined focused and related cases pass, exit 0, including any-player activation, activated costs, and teamwork. Scoped Ruff and diff checks pass.
