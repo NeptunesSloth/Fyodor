@@ -288,9 +288,10 @@ def _self_pronouns(part: str) -> str:
     return re.sub(r"(?<=return ~ to )~'s owner's hand\b", "its owner's hand", part)  # -- if you do (wave 40A) -- "return him to his owner's hand" (Bob): 400.3, the card's owner
 
 
+@lru_cache(maxsize=8192)
 def self_text(text: str, name: str) -> str:
     """The ability with the card's own name (and "this creature" etc.) written as ~, without an
-    ability word (207.2c)."""
+    ability word (207.2c). Only immutable text is cached; no table state is read."""
     out = _ABILITY_WORD.sub("", text, count=1)
     if out.startswith("Exhaust — "):  # -- ability words (wave 4F) -- 702.177a (the restriction: restrictions.parse)
         out = out[len("Exhaust — "):]
@@ -2648,6 +2649,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import hand_library_choices52
+
+    if (hand_library := hand_library_choices52.parse(body)) is not None:
+        return hand_library
     from app.rules import counter_alternatives50
 
     if (counter_alternative := counter_alternatives50.parse(body)) is not None:
@@ -5682,6 +5687,22 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import trigger_attached_artifact67
+
+    if (attached67 := trigger_attached_artifact67.definition(ability, ch)) is not None:
+        return attached67
+    from app.rules import discard_counter_union66
+
+    if (discard_union66 := discard_counter_union66.definition(ability, ch)) is not None:
+        return discard_union66
+    from app.rules import trigger_handcast_sweep66
+
+    if (sweep66 := trigger_handcast_sweep66.definition(ability, ch)) is not None:
+        return sweep66
+    from app.rules import trigger_attack_population63
+
+    if (population63 := trigger_attack_population63.definition(ability, ch)) is not None:
+        return population63
     from app.rules import counter_event_packets50
 
     if (counter_packet := counter_event_packets50.definition(ability, ch)) is not None:
@@ -5875,6 +5896,14 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (counter_comparison := counter_event_comparisons50.definition(ability, ch)) is not None:
         return counter_comparison
+    from app.rules import upkeep_target_choice65
+
+    if (upkeep_choice65 := upkeep_target_choice65.definition(ability, ch)) is not None:
+        return upkeep_choice65
+    from app.rules import damage_target_counts65
+
+    if (damage_count65 := damage_target_counts65.definition(ability, ch)) is not None:
+        return damage_count65
     from app.rules import random_vehicle_crash45
 
     if (random_vehicle := random_vehicle_crash45.definition(ability, ch)) is not None:

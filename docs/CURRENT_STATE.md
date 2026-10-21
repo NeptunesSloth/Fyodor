@@ -1,3 +1,15 @@
+## CHECKPOINT50 VERIFIED — CONTINUING TOWARD1,500
+
+Latest full catalog classification: **29,571 FULL /2,497 PARTIAL**,32,068 Commander-legal cards. **105 exact expected promotions** from checkpoint49, zero prior FULL regressions, unexpected or missing promotions; identical database metadata and card-name set. **109 of1,500 additional completions verified;1,391 remain toward the target.** FULL is the engine's coverage classification, not a guarantee of every interaction.
+
+Durable exact diff: [checkpoint50-coverage.json](research/checkpoint50-coverage.json). Frozen781 parsed modules `/tmp/fyodor-catalog50-resume-snapshot`, hashes `/tmp/fyodor-catalog50-resume-source-hashes.json`; native inventory `/tmp/fyodor-fiftieth-resume-inventory.json`. Full snapshot mypy781 and core54 PASS. Snapshot Ruff found one staged-leaf import-order issue; live correction and live app/tools Ruff PASS. Later reviewed source changes remain outside these totals until the next audit.
+
+The105 comprise72 trigger-stream cards (including independently reviewed Moss-Pit Skeleton),3 earlier counter cards,3 conditional-effect cards,5 mana cards,4 earlier exile cards,10 blink cards plus Research//Development,2 phase-casting cards, and5 library-placement cards. Exact names and zero-regression evidence are in the durable diff. All admitted streams have adapter-free native whole-card, negative and cold-process proofs; per-stream related counts overlap.
+
+Post-snapshot performance: bounded8,192-entry LRU for pure self_text normalization, with no table-state dependency.32 complete inventory records were identical before/after; measured CPU0.941s to0.717s in that sample, normalization computations3,525 to81. Existing parser/thread38 and scoped scripts types1 PASS. Historical Asmodeus manual-coverage expectation corrected; actual linked draw/exile/return regression plus remaining manual case2PASS. These are not additional card promotions.
+
+Continue automatically. Current later production/staging includes artifact activation-cost tracking, counter-copy packets, private hand-to-library choices, Coax, delegated target choice, further triggers and static/combat rules. Six workers continue disjoint groups while root reviews and integrates. User status questions do not cancel this task. The1,500 target and remaining automation are unfinished.
+
 ## BATCH50 ACTIVE — AUTOMATIC CONTINUATION
 
 Standing instruction: keep working toward at least1,500 additional completed cards, automatically assigning the next largest coherent groups without waiting for another continue. Progress/status questions do not cancel this work. Six agents are assigned to continuous trigger, counter, mana/cost, exile, library and static/combat work; root reviews concrete shared patches and integrates results.
