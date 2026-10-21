@@ -102,6 +102,20 @@ def parse_cost(text: str, x_ok: bool = False) -> AltCost | None:
 
     if (nonmana_x := shoal_nonmana_x.parse(text)) is not None:
         return nonmana_x
+    if text == "discard an Island card and another card":
+        island, other = C._selector("Island card", zone="hand"), C._selector("card", zone="hand")
+        if island is None or other is None:
+            return None
+        return AltCost("", C.AbilityCost(components=(
+            C.CostComponent(C.DISCARD, selector=island, text="Discard an Island card"),
+            C.CostComponent(C.DISCARD, selector=other, text="Discard another card"),
+        )))
+    if text == "discard a card that shares a color with that spell":
+        from dataclasses import replace
+
+        from app.rules import selectors
+        selector = replace(selectors.Selector(card=True, zones=("hand",)), extras=("shares_color_source",))
+        return AltCost("", C.AbilityCost(components=(C.CostComponent(C.DISCARD, selector=selector.key(), text=text),)))
     if re.search(r"\bx\b", text.replace("{X}", "") if x_ok else text, re.IGNORECASE) or "," in text:
         return None
     mana = ""
@@ -134,6 +148,9 @@ def define(t: str, x_ok: bool = False) -> dict[str, Any] | None:
 
     if (gain_cost := opponent_gain_costs44.definition(t)) is not None:
         return gain_cost
+    if t == "rather than pay the mana cost for a spell, its controller may discard a card that shares a color with that spell":
+        return {"kind": "static", "static": "alt_cost", "cost": "discard a card that shares a color with that spell",
+                "table": True, "any_controller": True, "once": False, "effects": []}
     # -- cost alt (wave 16F) -- 118.9: "If an opponent controls a Forest and you control a Swamp, you may cast this spell without paying
     # its mana cost." (the Legates) is an alternative cost of {0}, used under that condition
     t = re.sub(r"^(if [^,]+), you may cast (?:this spell|~) without paying its mana cost$", r"\1, you may pay {0} rather than pay "
@@ -373,7 +390,7 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
         out.append(Offer(f"{card.id}:foretell", f"{ch.name}: {given}", alt, tag="foretell"))
     where = card.zone.rsplit(":", 1)[-1]
     for src, index, d in permissions._table_statics(state, info, {"alt_cost"}):
-        if not d.get("table") or src.controller != player or where == "foretell":
+        if not d.get("table") or (src.controller != player and not d.get("any_controller")) or where == "foretell":
             continue
         key = f"{r.object_id(src.id)}:alt:{index}"  # (-- review 31 -- 400.7: a new As Foretold / Darksteel Monolith has a new use, as permissions' review 30c)
         if d["once"] and r.once_per_turn.get(key) == state.turn.number:

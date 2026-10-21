@@ -15,7 +15,7 @@ import re
 from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
 from itertools import combinations_with_replacement
-from typing import Any
+from typing import Any, Literal
 
 from app.rules.mana_requirement_rows import OutputProducer, ProducerFact, RequirementPlan, SpentClass
 from app.rules.mana_requirement_rows import ProducerRequirement as ProducerRequirement
@@ -185,6 +185,7 @@ class ManaAbility:
     native_body: bool = False
     output_producers: tuple[tuple[OutputProducer | None, ...], ...] | None = None
     generic_allowed: bool = True  # CR106.6: eligibility of actual produced units for generic requirements.
+    activation_keyword: Literal["exhaust", "boast"] | None = None  # Frozen from this selected ability, unknown on old saves.
 
     def __post_init__(self) -> None:
         if self.output_producers and (len(self.output_producers) != len(self.options)
@@ -373,7 +374,11 @@ def _native_limit(text: str) -> bool:
 def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS, *, card_name: str = "") -> ManaAbility | None:
     """A fresh Oracle parse has a known original producer, unlike an old saved profile."""
     parsed = _parse_mana_ability(text, identity, card_name=card_name)
-    return replace(parsed, output_producers=()) if parsed is not None and parsed.output_producers is None else parsed
+    if parsed is None:
+        return None
+    keyword: Literal["exhaust", "boast"] | None = "exhaust" if text.strip().startswith("Exhaust — ") else "boast" if text.strip().startswith("Boast — ") else None
+    return replace(parsed, output_producers=() if parsed.output_producers is None else parsed.output_producers,
+                   activation_keyword=keyword)
 
 
 def _parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS, *, card_name: str = "") -> ManaAbility | None:

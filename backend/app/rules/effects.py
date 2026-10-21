@@ -6611,3 +6611,8 @@ PRIMITIVES.update(_ring_counter_packets67.PRIMITIVES)
 from app.rules import combat_teyo66 as _combat_teyo66  # noqa: E402
 
 PRIMITIVES.update(_combat_teyo66.PRIMITIVES)
+
+
+from app.rules import entry_counter_kind_choices68 as _entry_counter_kind_choices68  # noqa: E402
+
+PRIMITIVES.update(_entry_counter_kind_choices68.PRIMITIVES)

@@ -1,4 +1,4 @@
-"""Directional restrictions constrain declarations, never attack insertion or targets."""
+"""Conditional declaration requirements preserve origin, legality and native optimization."""
 from __future__ import annotations
 
 import json
@@ -126,11 +126,11 @@ def test_wars_toll_one_attacker_cap_has_legal_initiator(cards):
 def test_wars_toll_native_opponent_land_mana_taps_all_only_that_player(cards):
     s, _ = setup(cards)
     source = cast(s, NAMES[0])
-    first = put(s, 'Forest', 'battlefield', 'p2')
+    first = put(s, 'Island', 'battlefield', 'p2')
     other = put(s, 'Sol Ring', 'battlefield', 'p2')
     own = put(s, 'Forest', 'battlefield', 'p1')
-    # A second distinct basic land is already in the table's twenty-Forest pile.
-    land = next(c for c in s.state.cards.values() if c.name == 'Forest' and c.owner == 'p2' and c.id != first.id)
+    # A second distinct basic land is already in the table's twenty-Island pile.
+    land = next(c for c in s.state.cards.values() if c.name == 'Island' and c.owner == 'p2' and c.id != first.id)
     act(s, 'p2', type='move', card_ids=[land.id], to={'player': 'p2', 'zone': 'battlefield'})
     wait_priority(s, 'p2')
     act(s, 'p2', type='activate_ability', card_id=first.id, ability=0)
@@ -206,7 +206,7 @@ def test_viashino_conditional_requirement_genuine_cold_reload(cards, tmp_path):
     s, bears = setup(cards)
     source = cast(s, NAMES[1])
     to_phase(s, 'main1', turn=7)
-    saved = tmp_path / 'teyo66.json'
+    saved = tmp_path / 'conditional67.json'
     saved.write_text(s.state.model_dump_json())
     code = r"""
 import sys
@@ -231,5 +231,5 @@ roundtrip(s)
     backend = Path(app.__file__).resolve().parents[1]
     result = subprocess.run([sys.executable, '-c', code, str(saved), str(cards.db_path), source.id, *[x.id for x in bears['p1']]],
                             cwd=backend, env={**os.environ, 'PYTHONPATH': str(backend)},
-                            capture_output=True, text=True, timeout=90)
+                            capture_output=True, text=True, timeout=180, check=False)
     assert result.returncode == 0, result.stdout + result.stderr

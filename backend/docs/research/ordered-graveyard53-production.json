@@ -1,0 +1,67 @@
+{
+  "status": "PRODUCTION VERIFIED; pending central frozen catalog diff",
+  "baseline": "checkpoint50",
+  "cards": [
+    {
+      "name": "Nether Shadow",
+      "oracle_id": "c358b9e2-524c-434b-b3fa-74d2aa6d1df7",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Death Spark",
+      "oracle_id": "4b23a89c-89ba-41ad-b894-ec02221689eb",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Ashen Ghoul",
+      "oracle_id": "46fbcbdf-73d0-4fa2-8db7-3b19bfc7ac22",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Krovikan Horror",
+      "oracle_id": "a4c15223-784f-43a7-8626-30f96ccfdcaf",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    }
+  ],
+  "whole_and_related_checks": 96,
+  "whole_checks": 40,
+  "related_checks": 56,
+  "test_files": [
+    "tests/test_rules_ordered_graveyard53.py",
+    "tests/test_rules_wave40c_graveyard_order.py",
+    "tests/test_rules_conditions.py",
+    "tests/test_rules_restrictions.py"
+  ],
+  "production_log": "/tmp/resume-orderedgraveyard53-production-final.log",
+  "genuine_cold_paths": 5,
+  "adapters": false,
+  "type_modules": 5,
+  "types_log": "/tmp/resume-orderedgraveyard53-production-types.log",
+  "ruff_files": 3,
+  "ruff_log": "/tmp/resume-orderedgraveyard53-production-ruff.log",
+  "source_scope": [
+    "app/rules/ordered_graveyard53.py",
+    "app/rules/graveyard_order.py",
+    "app/rules/scripts.py",
+    "app/rules/conditions.py",
+    "app/rules/restrictions.py"
+  ],
+  "canonical": "/tmp/resume-orderedgraveyard53-canonical.json",
+  "all_official_rulings": "/tmp/resume-orderedgraveyard53-rulings.json",
+  "notes": [
+    "Original source object/owner graveyard and actual current creature-card types checked; original trigger IF and resolving only_if guards both updated.",
+    "Ashen Ghoul original printed restriction parsed at initial activation only; no invented definition restriction metadata.",
+    "Public above-source graveyard reader requests native simultaneous owner ordering, including same hidden-zone arrival batch; older below-source history cannot matter. Existing top/bottom historical-reader boundaries retained.",
+    "No adapter or cold bootstrap. Four original card cold paths plus actual Tome Scour pending-owner-order cold reload.",
+    "Five prior fixed-library placements and three prior hand-library cards already admitted in checkpoint50; not recounted.",
+    "Reflexive mill54 remains isolated staging and is not included."
+  ]
+}

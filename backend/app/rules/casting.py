@@ -488,7 +488,9 @@ def mana_activation_cost(state: GameState, card: CardInstance, ch: Characteristi
     raw = parse_ability_cost(ability.extra_cost, card_name=ch.name).mana if ability.extra_cost else ''
     if x is not None:
         raw = M.parse_cost(raw).with_x(x).text()
-    cost = M.parse_cost(permissions.ability_mana(state, card.controller, card, ch, raw, info, mana_ability=True))
+    keyword_text = {"exhaust": "Exhaust — ", "boast": "Boast — "}.get(ability.activation_keyword or "", "")
+    cost = M.parse_cost(permissions.ability_mana(state, card.controller, card, ch, raw, info,
+                                              ability_text=keyword_text, mana_ability=True))
     mode = cast_limits.ability_spend_mode(state, card.controller, card, ch, info)
     return M.spend_as(cost, mode) if mode else cost
 

@@ -1,0 +1,500 @@
+[
+  {
+    "id": "ff1d88a6-a74d-44b5-b7a8-866e866807f1",
+    "oracle_id": "0ff7440b-b831-40a9-81c4-99d77bf93b8d",
+    "name": "Dream Devourer",
+    "layout": "normal",
+    "set_code": "khm",
+    "set_name": "Kaldheim",
+    "collector_number": "90",
+    "rarity": "rare",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Demon Cleric",
+    "oracle_text": "Each nonland card in your hand without foretell has foretell. Its foretell cost is equal to its mana cost reduced by {2}. (During your turn, you may pay {2} and exile it from your hand face down. Cast it on a later turn for its foretell cost.)\nWhenever you foretell a card, this creature gets +2/+0 until end of turn.",
+    "power": "0",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-02-05",
+    "artist": "David Rapoza",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "30c01887-d4b3-46d2-af6b-2877659d057f",
+        "name": "Dream Devourer",
+        "component": "combo_piece"
+      },
+      {
+        "id": "fb02637f-1385-4d3d-8dc0-de513db7633a",
+        "name": "Foretell",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "6e779a16-7528-49f4-8304-502bb603c15b",
+    "oracle_id": "ab31b652-ddf2-480f-a955-e8b5c87728f9",
+    "name": "Bohn, Beguiling Balladeer",
+    "layout": "normal",
+    "set_code": "slx",
+    "set_name": "Universes Within",
+    "collector_number": "30",
+    "rarity": "rare",
+    "mana_cost": "{1}{U}{R}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Bard",
+    "oracle_text": "Each nonland card in your hand without foretell has foretell. Its foretell cost is equal to its mana cost reduced by {2}. (During your turn, you may pay {2} and exile it from your hand face down. Cast it on a later turn for its foretell cost.)\nWhenever you cast your second spell each turn, goad target creature an opponent controls.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [
+      "Goad"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-04-25",
+    "artist": "Alix Branwyn",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "207b3d62-2541-4a51-8152-3c54218ab6f7",
+        "name": "Foretell",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "266dd649-b767-4e40-8ccc-06d9f8db9be3",
+    "oracle_id": "5320f5a6-8066-47d4-aa0a-4c879f39d413",
+    "name": "Henzie \"Toolbox\" Torre",
+    "layout": "normal",
+    "set_code": "ncc",
+    "set_name": "New Capenna Commander",
+    "collector_number": "102",
+    "rarity": "mythic",
+    "mana_cost": "{B}{R}{G}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Devil Rogue",
+    "oracle_text": "Each creature spell you cast with mana value 4 or greater has blitz. The blitz cost is equal to its mana cost. (You may choose to cast that spell for its blitz cost. If you do, it gains haste and \"When this creature dies, draw a card.\" Sacrifice it at the beginning of the next end step.)\nBlitz costs you pay cost {1} less for each time you've cast your commander from the command zone this game.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "G",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-04-29",
+    "artist": "Johannes Voss",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "72a86d7d-a7a4-4a26-b92a-0518af2d9646",
+    "oracle_id": "76243b38-cab1-465f-aa7d-5bc617541753",
+    "name": "Herigast, Erupting Nullkite",
+    "layout": "normal",
+    "set_code": "mh3",
+    "set_name": "Modern Horizons 3",
+    "collector_number": "474",
+    "rarity": "mythic",
+    "mana_cost": "{9}",
+    "cmc": 9.0,
+    "type_line": "Legendary Creature \u2014 Eldrazi Dragon",
+    "oracle_text": "Emerge {6}{R}{R} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, you may exile your hand. If you do, draw three cards.\nFlying\nEach creature spell you cast has emerge. The emerge cost is equal to its mana cost.",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying",
+      "Emerge"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-06-14",
+    "artist": "Lucas Graciano",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "16c376f5-f69b-49d4-95f4-92bdd68c564c",
+    "oracle_id": "26aba6fa-830f-4a7f-8618-488d8e00215a",
+    "name": "Falkenrath Gorger",
+    "layout": "normal",
+    "set_code": "inr",
+    "set_name": "Innistrad Remastered",
+    "collector_number": "152",
+    "rarity": "rare",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Vampire Berserker",
+    "oracle_text": "Each Vampire creature card you own that isn't on the battlefield has madness. The madness cost is equal to its mana cost. (If you discard a card with madness, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-01-24",
+    "artist": "Anna Steinbauer",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "48b597dd-f6eb-45da-977d-453e8c1433cc",
+    "oracle_id": "1a62ba93-153c-4bed-9f6a-ff914df360c1",
+    "name": "Araumi of the Dead Tide",
+    "layout": "normal",
+    "set_code": "cmr",
+    "set_name": "Commander Legends",
+    "collector_number": "267",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{U}{B}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Merfolk Wizard",
+    "oracle_text": "{T}, Exile cards from your graveyard equal to the number of opponents you have: Target creature card in your graveyard gains encore until end of turn. The encore cost is equal to its mana cost. (Exile the creature card and pay its mana cost: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+    "power": "1",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-11-20",
+    "artist": "Daarken",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "9f834ec3-0901-455a-a32d-aa5d3fcdb247",
+        "name": "Copy",
+        "type_line": "Token"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "750f26c2-d7ea-4d39-bef0-f1f84c631265",
+        "name": "Araumi of the Dead Tide",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "01d3e6ea-4791-4948-af22-c1bd04c34c1e",
+    "oracle_id": "764f6412-c4ff-4eec-9a9d-870661f97f8b",
+    "name": "Fblthp, Lost on the Range",
+    "layout": "normal",
+    "set_code": "otj",
+    "set_name": "Outlaws of Thunder Junction",
+    "collector_number": "48",
+    "rarity": "rare",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Homunculus",
+    "oracle_text": "Ward {2}\nYou may look at the top card of your library any time.\nThe top card of your library has plot. The plot cost is equal to its mana cost.\nYou may plot nonland cards from the top of your library.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Plot",
+      "Ward"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-04-19",
+    "artist": "Brian Valeza",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "51bbf861-448b-455b-8922-38515ba65c40",
+        "name": "Fblthp, Lost on the Range",
+        "component": "combo_piece"
+      },
+      {
+        "id": "f07677af-88a4-4ff5-b591-e1e3ac05235d",
+        "name": "Plot",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "d5803b32-4a81-46c2-9b10-3198a709611d",
+    "oracle_id": "d9c4996a-35eb-4d38-9680-57d9d039ed82",
+    "name": "Cursecloth Wrappings",
+    "layout": "normal",
+    "set_code": "dft",
+    "set_name": "Aetherdrift",
+    "collector_number": "81",
+    "rarity": "rare",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "Zombies you control get +1/+1.\n{T}: Target creature card in your graveyard gains embalm until end of turn. The embalm cost is equal to its mana cost. (Exile that card and pay its embalm cost: Create a token that's a copy of it, except it's a white Zombie in addition to its other types and has no mana cost. Embalm only as a sorcery.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-02-14",
+    "artist": "Dominik Mayer",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "4b976756-e988-4211-95c2-0e3587118488",
+        "name": "Copy",
+        "type_line": "Token"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "2b283c18-abe7-4b73-8532-dd76a85fabd6",
+        "name": "Cursecloth Wrappings",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "702c4781-670b-49ae-b511-90ed119841b0",
+    "oracle_id": "711eea87-0fa3-46e0-a42b-fa5a86455f04",
+    "name": "Shivan Dragon",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "763",
+    "rarity": "uncommon",
+    "mana_cost": "{4}{R}{R}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Dragon",
+    "oracle_text": "Flying\n{R}: This creature gets +1/+0 until end of turn.",
+    "power": "5",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-04-24",
+    "artist": "Donato Giancola",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "2a43b352-d84b-4714-bbcd-3ad282c8aa9d",
+        "name": "Sarkhan, Wanderer to Shiv",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "4909ee20-f84e-480e-8215-78946cedf877",
+    "oracle_id": "78124cd1-2658-43f3-a339-0755d84154d2",
+    "name": "Stonecoil Serpent",
+    "layout": "normal",
+    "set_code": "soc",
+    "set_name": "Secrets of Strixhaven Commander",
+    "collector_number": "356",
+    "rarity": "rare",
+    "mana_cost": "{X}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Snake",
+    "oracle_text": "Reach, trample, protection from multicolored\nThis creature enters with X +1/+1 counters on it.",
+    "power": "0",
+    "toughness": "0",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Reach",
+      "Protection",
+      "Trample"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-04-24",
+    "artist": "Mark Poole",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "c353a09f-8a5a-41ce-97dc-60e7350460c0",
+    "oracle_id": "4b515bb0-f275-4400-8032-3173b799ab40",
+    "name": "Walking Ballista",
+    "layout": "normal",
+    "set_code": "j22",
+    "set_name": "Jumpstart 2022",
+    "collector_number": "806",
+    "rarity": "rare",
+    "mana_cost": "{X}{X}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "This creature enters with X +1/+1 counters on it.\n{4}: Put a +1/+1 counter on this creature.\nRemove a +1/+1 counter from this creature: It deals 1 damage to any target.",
+    "power": "0",
+    "toughness": "0",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-12-02",
+    "artist": "Daniel Ljunggren",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "bee08d2f-e875-473c-adc6-8dc286792ab5",
+    "oracle_id": "08c7db90-c0cf-4482-b7ee-bb033e5996d2",
+    "name": "Colossal Dreadmaw",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "646",
+    "rarity": "common",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Dinosaur",
+    "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Jesper Ejsing",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "3d668722-fbbf-43d8-94da-60cffc1dd9cd",
+        "name": "Colossal Chorus",
+        "component": "combo_piece"
+      }
+    ]
+  }
+]

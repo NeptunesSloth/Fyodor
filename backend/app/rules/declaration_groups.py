@@ -37,7 +37,7 @@ def rules(plan: Plan, cid: str) -> set[str]:
 
 
 def relevant(plan: Plan, ids: set[str], mode: str) -> bool:
-    return any(any(r.startswith(f'declaration_group:{mode}:') or r == f'cant_{mode}_alone' or (mode == 'attack' and r == 'attack_with_others') for r in rules(plan, cid)) for cid in ids)
+    return any(any(r.startswith(f'declaration_group:{mode}:') or r == f'cant_{mode}_alone' or (mode == 'attack' and (r == 'attack_with_others' or r.startswith('conditional_attack67:'))) for r in rules(plan, cid)) for cid in ids)
 
 
 def add(plan: Plan, profile: Profile, cid: str, mode: str) -> Profile:
@@ -89,7 +89,10 @@ def attack_requirements(plan: Plan, eligible: set[str], targets: set[str], decla
         companions = int('attack_with_others' in own and bool(set(declared) - {cid}))
 
         def score(target: str | None, ch: Characteristics = ch, companions: int = companions) -> int:
-            return attack_requirements.score(plan, ch, target) + (companions if target is not None else 0)
+            from app.rules import combat_conditional_requirements67
+
+            return (attack_requirements.score(plan, ch, target) + (companions if target is not None else 0)
+                    + combat_conditional_requirements67.score(plan, ch, declared, target))
 
         obeyed += score(declared.get(cid))
         places: dict[str, int] = {}

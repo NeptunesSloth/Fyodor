@@ -50,6 +50,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             "filter": selectors.Selector(types=("Planeswalker",), controller="opponent").key(),
             "loyalty_only": True,
         }
+    if text == "Exhaust abilities of other permanents you control cost {2} less to activate.":
+        return {
+            **base,
+            "filter": selectors.Selector(other=True, controller="you").key(),
+            "exhaust_only": True,
+        }
     if text == "Boast abilities you activate cost {1} less to activate for each Dragon you control.":
         value = cost_changes._value("Dragons you control")
         assert value is not None

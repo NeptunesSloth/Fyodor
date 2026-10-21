@@ -77,7 +77,10 @@
     "Charging Hooligan",
     "Cyclone Summoner",
     "Gremlin Infestation",
-    "Artificer's Hex"
+    "Artificer's Hex",
+    "Innocent Bystander",
+    "Umbilicus",
+    "Blood Clock"
   ],
   "expected_promotions": [
     "Archivist of Gondor",
@@ -156,7 +159,10 @@
     "Charging Hooligan",
     "Cyclone Summoner",
     "Gremlin Infestation",
-    "Artificer's Hex"
+    "Artificer's Hex",
+    "Innocent Bystander",
+    "Umbilicus",
+    "Blood Clock"
   ],
   "production_focused": {
     "count": 16,
@@ -895,6 +901,33 @@
       "app/rules/trigger_attached_artifact67.py": "0fbf0583bc637cf83af48d7e863dec450ae3a0568408d6717f98dff70ae359c0",
       "tests/test_rules_trigger_attached_artifact67.py": "ed6f189608645c1cb2c7501e017f0155d019046a81bc5cbde7bbefa14c7cfeb1",
       "tests/fixtures/trigger_attached_artifact67_cards.json": "4170e28485646bdc8dd679a9b6332dab9a8e8358e5033c6b43d27c0efab4568d"
+    }
+  },
+  "threshold_upkeep70_71_production": {
+    "baseline": "checkpoint50",
+    "names": [
+      "Innocent Bystander",
+      "Umbilicus",
+      "Blood Clock"
+    ],
+    "status": "PRODUCTION_VERIFIED_PENDING_NEXT_CATALOG",
+    "whole_checks": 25,
+    "genuine_cold_checks": 3,
+    "production_log": "/tmp/trigger70-71-production.log",
+    "related_checks": 157,
+    "related_log": "/tmp/trigger70-71-related-production.log",
+    "types_checked": 3,
+    "types_log": "/tmp/trigger70-71-production-types.log",
+    "ruff_log": "/tmp/trigger70-71-production-ruff.log",
+    "reviewer": "root",
+    "scope": "Exact threshold plus active-player upkeep payment leaves. Threshold only reads ephemeral complete-window batch/OID damage totals; native pending aggregation and existing conditions unchanged. Umbilicus/Blood Clock change only payer/chooser to event_player and retain native payment receipts and owner return.",
+    "source_sha256": {
+      "app/rules/trigger_damage_threshold70.py": "ef6489f6c0dde18aec1392b1877c8f19de3a042208c2d03321358ad24044a984",
+      "app/rules/trigger_upkeep_pay_return71.py": "d6121e85ed7aa35d0b18d7e597d071365121ec46743ddcaa9f5fce122dc509ac",
+      "tests/test_rules_trigger_damage_threshold70.py": "efaf6e0365147c8cd14bce99bcce153a28bb6d5b2275037148f4008c70af90fa",
+      "tests/test_rules_trigger_upkeep_pay_return71.py": "884ba334d93e69ce7d967dbf87b8892d27c59ef20d5041a289a60b6e35578133",
+      "tests/fixtures/trigger_damage_threshold70_cards.json": "ce686101d598829b93286068b3a624a0a8d73a298d9a7d620521221baddff658",
+      "tests/fixtures/trigger_upkeep_pay_return71_cards.json": "df172a1fe1fc061a0272dfd64c7eebe9fddeebf50d27d0d1e884624a81b6ff44"
     }
   }
 }

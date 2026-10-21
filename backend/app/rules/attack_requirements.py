@@ -19,7 +19,7 @@ PREFIX = 'attack_requirement:'
 
 
 def is_requirement(rule: str) -> bool:
-    return rule in ('must_attack', 'attack_player_any') or rule.startswith(('attack_player:', 'attack_other_than:', 'attack_host_controller:', 'attack_most_life:', 'attack_object:'))
+    return rule in ('must_attack', 'attack_player_any') or rule.startswith(('conditional_attack67:', 'attack_player:', 'attack_other_than:', 'attack_host_controller:', 'attack_most_life:', 'attack_object:'))
 
 
 def instances(rules: Iterable[str], origin: str) -> set[str]:
