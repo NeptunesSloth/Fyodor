@@ -14,14 +14,6 @@ STRANGER = ('When ~ enters, for each graveyard with an instant or sorcery card i
 PACKET = 'copied_exile_packet66'
 
 
-def _target(value: Any, group: int) -> Any:
-    if isinstance(value, dict):
-        return {key: _target(item, group) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_target(item, group) for item in value]
-    return f'target:{group}' if value in ('target', 'target:0') else value
-
-
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import card_copy_sources, scripts, selectors
 
@@ -36,7 +28,7 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         relative = selectors.replace(selectors.from_key(group['what']), controller='that_player').key()
         return {**first, 'target': None,
                 'targets': [{**first['target'], 'min': 1, 'max': 1}, {**group, 'what': relative, 'of': 0}],
-                'effects': [*_target(first['effects'], 0), *_target(second['effects'], 1)]}
+                'effects': [*scripts._renumber(first['effects'], [0]), *scripts._renumber(second['effects'], [1])]}
     if text == ULTIMATE:
         native = scripts.define(replace(ability, text='−7: Exile the top ten cards of your library.'), ch)
         if native is None:

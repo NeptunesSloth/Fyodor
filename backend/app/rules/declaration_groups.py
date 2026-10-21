@@ -195,7 +195,7 @@ def block_requirements(plan: Plan, blockers: set[str], attackers: set[str], used
         may_add = cid in used or not combat_rules.has_block_cost(plan, cid, plan.ch(b))
         choices: list[tuple[str, ...]] = [()]
         if may_add:
-            for n in range(1, min(combat.block_limit(plan.ch(b)), len(available)) + 1):
+            for n in range(1, min(combat.block_limit(plan, plan.ch(b)), len(available)) + 1):
                 choices.extend(combinations(available, n))
         options.append([(chosen, option(cid, chosen)) for chosen in choices])
 

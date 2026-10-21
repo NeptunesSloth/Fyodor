@@ -1,3 +1,11 @@
+## CHECKPOINT53 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,661 FULL / 2,407 PARTIAL**, among 32,068 Commander-legal cards. **18 exact expected promotions** from checkpoint52; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **199 of 1,500 additional completions verified; 1,301 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
+
+Evidence: [checkpoint53-coverage.json](research/checkpoint53-coverage.json) and [815-module source hashes](research/checkpoint53-source-hashes.json). Frozen `/tmp/fyodor-catalog53-resume-snapshot`: full app/tools mypy PASS, configured Ruff PASS, 54 core engine/history/privacy tests PASS. The 18 cover hybrid power-up, granted foretell costs and privacy, manifest Auras, upkeep comparisons, source-controller damage history, optional counter payments and attack restrictions. Each stream has closed focused native whole-card, negative, fresh-process and scoped related/type proofs.
+
+Later production changes remain outside these totals until the next frozen audit. Six agents continue automatic disjoint queues; root reviews, integrates and preserves work in PR18. Larger shared text-changing, casting, counter and return-receipt families are being prioritized. The 1,500-card target and all remaining card automation are unfinished. Sections below retain historical notes.
+
 ## CHECKPOINT52 VERIFIED — CONTINUING
 
 Latest full catalog classification: **29,643 FULL / 2,425 PARTIAL**, among 32,068 Commander-legal cards. **33 exact expected promotions** from checkpoint51; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **181 of 1,500 additional completions verified; 1,319 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.

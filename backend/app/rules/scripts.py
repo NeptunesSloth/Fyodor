@@ -5598,6 +5598,10 @@ def granted_ability(text: str) -> AbilityText | None:
     if ab.kind == "keywords":
         if ab.text.rstrip('.').lower() in ('affinity for artifacts', 'undaunted'):
             return ab  # Native selected cast permissions grant actual cumulative cost abilities.
+        from app.rules import graveyard_keywords
+
+        if len(ab.keywords) == 1 and ab.keywords[0] in ("embalm", "encore") and graveyard_keywords.supported(ab.keywords[0], ab.text):
+            return ab
         from app.rules import banding
         from app.rules.coverage import SUPPORTED_KEYWORDS
 
@@ -5687,6 +5691,18 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import saddled_receipts76
+
+    if (mount76 := saddled_receipts76.definition(ability, ch)) is not None:
+        return mount76
+    from app.rules import combat_equipment_blocks70
+
+    if (equipment70 := combat_equipment_blocks70.definition(ability, ch)) is not None:
+        return equipment70
+    from app.rules import conditional_tap_counter73
+
+    if (tap73 := conditional_tap_counter73.definition(ability, ch)) is not None:
+        return tap73
     from app.rules import trigger_upkeep_comparison75
 
     if (oath75 := trigger_upkeep_comparison75.definition(ability, ch)) is not None:
@@ -5965,6 +5981,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if (dynamic_keyword_cost := dynamic_keyword_costs55.definition(ability, ch)) is not None:
         return dynamic_keyword_cost
 
+    from app.rules import graveyard_cost_grants57
+
+    if (graveyard_cost_grant := graveyard_cost_grants57.definition(ability, ch)) is not None:
+        return graveyard_cost_grant
+
     from app.rules import dynamic_zone_keyword_costs56
 
     if (dynamic_zone_keyword := dynamic_zone_keyword_costs56.definition(ability, ch)) is not None:
@@ -5979,6 +6000,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (torch_exile65 := torch_exile_receipts65.definition(ability, ch)) is not None:
         return torch_exile65
+    from app.rules import copied_exile_packets66
+
+    if (copied_exile66 := copied_exile_packets66.definition(ability, ch)) is not None:
+        return copied_exile66
     from app.rules import damage_exile_statics65
 
     if (damage_exile_static65 := damage_exile_statics65.definition(ability, ch)) is not None:

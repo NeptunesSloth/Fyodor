@@ -79,15 +79,16 @@ def affecting(state: GameState, card: CardInstance, info: CardInfo | None = None
     if r is None:
         return []
     if not (card.zone.endswith(":battlefield") or card.zone == "stack"):
-        if not card.zone.endswith(':exile'):
+        zone = card.zone.rsplit(':', 1)[-1]
+        if zone not in ('exile', 'graveyard'):
             return []
         oid = r.object_id(card.id)
         # An explicit outside-zone grant changes only the object's actual abilities.
         return sorted([ContinuousEffect(id=e.id, affected=[oid], layer='6', source=e.source,
                                         controller=e.controller, timestamp=e.timestamp, object_seq=e.object_seq,
                                         add_abilities=e.add_abilities, duration=e.duration, label=e.label,
-                                        ability_zone='exile')
-                       for e in r.effects if e.ability_zone == 'exile' and e.layer == '6'
+                                        ability_zone=zone)
+                       for e in r.effects if e.ability_zone == zone and e.layer == '6'
                        and e.add_abilities and oid in e.affected and e.declaration_window is None],
                       key=lambda e: e.timestamp)
     oid = r.object_id(card.id)

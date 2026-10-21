@@ -90,7 +90,11 @@
     "Rageform",
     "Oath of Ghouls",
     "Oath of Scholars",
-    "Oath of Mages"
+    "Oath of Mages",
+    "Guidelight Matrix",
+    "Alacrian Armory",
+    "Rambling Possum",
+    "Bounding Felidar"
   ],
   "expected_promotions": [
     "Archivist of Gondor",
@@ -182,7 +186,11 @@
     "Rageform",
     "Oath of Ghouls",
     "Oath of Scholars",
-    "Oath of Mages"
+    "Oath of Mages",
+    "Guidelight Matrix",
+    "Alacrian Armory",
+    "Rambling Possum",
+    "Bounding Felidar"
   ],
   "production_focused": {
     "count": 16,
@@ -1027,6 +1035,33 @@
       "app/rules/trigger_upkeep_comparison75.py": "f20e701cdbbd7450d35aff37e3fc375394cda331ecd1397787cb53eba7c3510a",
       "tests/test_rules_trigger_upkeep_comparison75.py": "c9b8adeed30225c2d64b0605a857bdf62f6e393059bd9920b5c6ea92e7a6b911",
       "tests/fixtures/trigger_upkeep_comparison75_cards.json": "aa963be257e166dc6df3792657059a16bb1462d28f8f10d37b2c38024e68126d"
+    }
+  },
+  "saddled_receipts76_production": {
+    "baseline": "checkpoint53",
+    "names": [
+      "Guidelight Matrix",
+      "Alacrian Armory",
+      "Rambling Possum",
+      "Bounding Felidar"
+    ],
+    "status": "PRODUCTION_VERIFIED_PENDING_NEXT_CATALOG",
+    "whole_checks": 25,
+    "genuine_cold_checks": 4,
+    "production_log": "/tmp/trigger76-production.log",
+    "related_checks": 63,
+    "related_log": "/tmp/trigger76-related-native.log",
+    "types_checked": 1,
+    "types_log": "/tmp/trigger76-production-types.log",
+    "ruff_log": "/tmp/trigger76-production-ruff.log",
+    "canonical": "/tmp/trigger76-mounts-canonical.json",
+    "rulings": "/tmp/trigger76-mounts-rulings.json",
+    "reviewer": "root",
+    "scope": "Native saddle designation and original-source paid contributors; current Mount/Vehicle independent branches; typed frozen other-creature cohort count survives prevented counter placement. Actual paid entry/costs, unsaddled negatives, Vehicle and dual subtype, source destroyed/blink successor and four cold continuations. No shared algorithms/schema/events changed.",
+    "source_sha256": {
+      "app/rules/saddled_receipts76.py": "63439c0120c6c87a4760b75f7816e0f82d21c1ea1fcb6ad5e2396d8af981dc94",
+      "tests/test_rules_saddled_receipts76.py": "5cd174c102752e9bbe09b6ae1ae4c32174576a092fa330adbbb950cbbfb32fd4",
+      "tests/fixtures/saddled_receipts76_cards.json": "4ebb3e2c1e09a003c3052a8094e002fb61565f6ade5d78cc332f502f8b8dfbe0"
     }
   }
 }

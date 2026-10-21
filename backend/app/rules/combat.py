@@ -178,10 +178,12 @@ def evasion_rules(ach: Characteristics) -> set[str]:
     return scripts.statics(ach) | {rule for kw, rule in KEYWORD_RULES.items() if kw in ach.keywords}
 
 
-def block_limit(bch: Characteristics) -> int:
+def block_limit(plan: Plan, bch: Characteristics) -> int:
     """-- multiple blocks (wave 13B) -- 509.1a: one attacker per blocker, and one more for each "can block an additional
     creature" (``block_extra:N:<source>``, one per source, so several add up; "any number of creatures": a huge N)."""
-    return 1 + sum(int(arg.split(":")[0]) for name, arg in map(rule_arg, bch.imposed) if name == "block_extra")
+    from app.rules import combat_equipment_blocks70
+
+    return 1 + sum(int(arg.split(":")[0]) for name, arg in map(rule_arg, bch.imposed) if name == "block_extra") + combat_equipment_blocks70.extra(plan, bch)
 
 
 def min_blockers(ach: Characteristics) -> int:
@@ -820,7 +822,7 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
             raise ActionError(f"{blocker.name} can't block that")
         if decl.attacker_id in used.get(decl.blocker_id, []):
             raise ActionError(f"{blocker.name} can't block {attacker.name} twice")
-        if len(used.get(decl.blocker_id, [])) >= block_limit(plan.ch(blocker)):  # (-- multiple blocks (wave 13B) -- 509.1a)
+        if len(used.get(decl.blocker_id, [])) >= block_limit(plan, plan.ch(blocker)):  # (-- multiple blocks (wave 13B) -- 509.1a)
             raise ActionError(f"{blocker.name} can only block one attacker")
         used.setdefault(decl.blocker_id, []).append(decl.attacker_id)
         problem = block_problem(plan.state, blocker, plan.ch(blocker), attacker, plan.ch(attacker), plan.info)
@@ -981,7 +983,7 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
         """How many creatures could block ``x`` together with ``b``: those blocking it, and (-- review (wave 14R) -- 509.1c: the
         most requirements that could be obeyed counts any legal declaration) every other one with a block to spare that may."""
         return 1 + per_attacker.get(x.id, 0) + sum(
-            1 for i in blockers if i != b.id and x.id not in used.get(i, []) and len(used.get(i, [])) < block_limit(plan.ch(state.cards[i]))
+            1 for i in blockers if i != b.id and x.id not in used.get(i, []) and len(used.get(i, [])) < block_limit(plan, plan.ch(state.cards[i]))
             and (i in used or not combat_rules.has_block_cost(plan, i, plan.ch(state.cards[i])))
             and block_problem(state, state.cards[i], plan.ch(state.cards[i]), x, plan.ch(x), plan.info) is None)
 
@@ -1000,7 +1002,7 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
             blocks = used.get(b.id, [])  # (-- multiple blocks (wave 13B) -- a blocker with a block to spare could add this one)
             # (at its limit, a block that obeys a requirement of its own isn't traded for this one: -- review (wave 14R) -- one
             # that obeys none is no excuse)
-            if x.id in covered.get(b.id, set()) or (blocks and len(blocks) >= block_limit(plan.ch(b)) and any(
+            if x.id in covered.get(b.id, set()) or (blocks and len(blocks) >= block_limit(plan, plan.ch(b)) and any(
                     plan.oid(state.cards[i]) in wanted or "must_be_blocked" in scripts.statics(plan.ch(state.cards[i])) for i in blocks)):
                 continue
             if could(b, x, joined=joined(b, x)):
@@ -1019,7 +1021,7 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
             return "must_block" in scripts.statics(blocker) or any(name == "lure" for name, _ in map(rule_arg, scripts.statics(plan.ch(target)))) or any(
                 name == "must_block_obj" and arg == plan.oid(target) for name, arg in map(rule_arg, scripts.statics(blocker)))
 
-        spare = [state.cards[b] for b, ids in used.items() if len(ids) < block_limit(plan.ch(state.cards[b]))]
+        spare = [state.cards[b] for b, ids in used.items() if len(ids) < block_limit(plan, plan.ch(state.cards[b]))]
         free = idle + spare + [state.cards[d.blocker_id] for d in a.blocks
                                if state.cards[d.blocker_id] not in spare
                                and "must_be_blocked" not in scripts.statics(plan.ch(state.cards[d.attacker_id])) and not obeying(d)]
@@ -1038,7 +1040,7 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
             swappable = [state.cards[d.blocker_id] for d in a.blocks if d.attacker_id != x.id and len(used.get(d.blocker_id, [])) == 1
                          and "must_be_blocked" not in scripts.statics(plan.ch(state.cards[d.attacker_id])) and not any(
                              n == "must_be_blocked_by" for n, _ in map(rule_arg, scripts.statics(plan.ch(state.cards[d.attacker_id]))))]
-            spare = [state.cards[b] for b, ids in used.items() if 0 < len(ids) < block_limit(plan.ch(state.cards[b]))]
+            spare = [state.cards[b] for b, ids in used.items() if 0 < len(ids) < block_limit(plan, plan.ch(state.cards[b]))]
             if any(x.id not in used.get(b.id, []) and _any_selector(state, plan.info, arg, b, plan.ch(b), x) and could(b, x, joined=1)
                    for b in {c.id: c for c in [*idle, *spare, *swappable]}.values()):
                 return f"{x.name} must be blocked by {_phrase(arg)} if able"

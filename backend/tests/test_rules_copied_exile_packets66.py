@@ -665,3 +665,50 @@ def test_stranger_newly_populated_graveyard_after_announcement_is_not_added(card
     assert s.state.rules.decision.resume['step'] == 'free_cast_pick'
     answer(s, [])
     roundtrip(s)
+
+
+def test_genuine_cold_copied_spell_mandatory_cost_retains_source_power_and_caster(cards, tmp_path):
+    import subprocess
+    import sys
+
+    s = setup(cards)
+    other = put(s, 'Grizzly Bears', 'battlefield')
+    own = put(s, 'Fling', 'graveyard')
+    foreign = put(s, 'Fling', 'graveyard', 'p2')
+    source = cast(s, NAMES[1])
+    answer(s, [own.id])
+    answer(s, [foreign.id])
+    d = s.state.rules.decision
+    option = next(o.id for o in d.options if o.card_id and s.state.cards[o.card_id].name == 'Fling')
+    answer(s, [option])
+    answer(s, ['p2'])
+    d = s.state.rules.decision
+    assert d and d.player == 'p1' and {o.id for o in d.options} == {source.id, other.id}
+    saved = tmp_path / 'copy-cost66.json'
+    saved.write_text(s.state.model_dump_json())
+    code = '''
+import sys
+from pathlib import Path
+from app.cards.images import ImageStore
+from app.cards.repository import CardRepository
+from app.game.session import GameSession
+from app.game.state import GameState
+from tests.game_helpers import act
+from tests.test_rules_designations import roundtrip
+from tests.test_rules_library_look import settle
+p=Path(sys.argv[1])
+repo=CardRepository(Path(sys.argv[2]),ImageStore(p.parent/'images'))
+s=GameSession(GameState.model_validate_json(p.read_text()),cards=repo)
+d=s.state.rules.decision
+assert d and d.player=='p1' and sys.argv[3] in [o.id for o in d.options]
+act(s,d.player,type='choose',decision_id=d.id,option_ids=[sys.argv[3]])
+settle(s)
+assert s.state.cards[sys.argv[3]].zone=='p1:graveyard'
+assert s.state.players['p2'].life==37
+assert s.state.cards[sys.argv[4]].zone=='p1:battlefield'
+assert s.state.rules.decision is None
+roundtrip(s)
+'''
+    result = subprocess.run([sys.executable, '-c', code, str(saved), str(cards.db_path), source.id, other.id],
+                            capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stdout + result.stderr

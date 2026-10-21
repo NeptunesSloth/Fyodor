@@ -655,7 +655,7 @@ class ContinuousEffect(BaseModel):
 
     id: str
     affected: list[str] = Field(default_factory=list)  # rules object ids
-    ability_zone: Literal['exile'] | None = None  # Exact-object layer-6 ability grants explicitly functioning in exile.
+    ability_zone: Literal['exile', 'graveyard'] | None = None  # Exact-object layer-6 ability grants explicitly functioning in exile.
     declaration_window: Literal["next_turn", "next_combat"] | None = None
     declaration_player: str | None = None  # fixed when a resolved requirement names its controller’s next phase/turn
     entry_counters: dict[str, int] = Field(default_factory=dict)  # Rule-modifying additional entry counters, including future entrants.

@@ -126,6 +126,7 @@ class CostComponent:
     offering: bool = False  # -- offering (wave 51H) -- 702.48a: the sacrifice whose mana cost (colors included) takes that much off the spell's total cost (offering.reduce)
     names: str | None = None  # CR 201.2a–b: a constraint on the entire chosen payment group
     all_objects: bool = False  # Every matching controlled permanent, including an empty set.
+    amount_rule: Literal["opponents"] | None = None  # Bound when the actual activation total is determined.
 
     @property
     def chosen(self) -> bool:
@@ -151,7 +152,7 @@ class CostComponent:
         """-- activation costs (wave 4H) -- a part only an activated ability's activation pays (casting.activate_to_stack
         through app/rules/cost_payment.py): never a mana ability's (605: no stack, no X), an optional payment's or a
         spell's additional cost."""
-        return self.kind in WAVE_4H_KINDS or self.names is not None or self.selector_x or (self.x and self.kind != PAY_ENERGY) or self.counter == ANY_COUNTER or self.among \
+        return self.amount_rule is not None or self.kind in WAVE_4H_KINDS or self.names is not None or self.selector_x or (self.x and self.kind != PAY_ENERGY) or self.counter == ANY_COUNTER or self.among \
             or self.life_rule is not None or (self.kind == EXILE and self.selector is not None) \
             or self.alt is not None or self.named_self
 
@@ -609,6 +610,9 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
         return _x_part(RETURN_PERMANENT, m["what"], "battlefield", part)
     if m := _TAP_X.match(part):
         return _x_part(TAP_OTHER, "untapped " + m["what"], "battlefield", part)
+    if part == "Exile cards from your graveyard equal to the number of opponents you have":
+        key = _selector("cards from your graveyard", zone="graveyard")
+        return CostComponent(EXILE_FROM_GRAVEYARD, amount=0, selector=key, text=part, amount_rule="opponents") if key else None
     if m := _EXILE_GY_X.match(part):
         return _x_part(EXILE_FROM_GRAVEYARD, m["what"], "graveyard", part)
     if part == "Discard your hand":

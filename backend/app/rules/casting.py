@@ -5518,6 +5518,12 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
         return AbilityCost(either=tuple(ability_cost(ch, activation_alternatives.with_cost(ability, side),
                            state=state, card=card, info=info, target=target) for side in sides))
     cost = parse_ability_cost(ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
+    if state is not None and card is not None and any(c.amount_rule == "opponents" for c in cost.components):
+        from app.rules.plan import live_players
+
+        count = sum(pid != card.controller for pid in live_players(state))
+        cost = replace(cost, components=tuple(replace(c, amount=count, amount_rule=None) if c.amount_rule == "opponents" else c
+                                              for c in cost.components))
     if any(c.kind == costs.EXILE_TO_GY for c in cost.components):
         from app.rules import abilities_of, selectors
 

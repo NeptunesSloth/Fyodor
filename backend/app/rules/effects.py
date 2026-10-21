@@ -179,6 +179,9 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
 
 
 def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
+    if who == 'all_targets':
+        return list(dict.fromkeys(cid for i in range(len(ctx.get('groups') or []))
+                                  for cid in _cards(plan, ctx, f'target:{i}')))
     if who == "bandmates":
         from app.rules import banding
 
@@ -3004,8 +3007,9 @@ PRIMITIVES: dict[str, Callable[[Plan, Context, dict[str, Any]], bool]] = {
 }
 # -- copy system (wave 2F): copying spells, abilities and permanents (CR 707; app/rules/copying.py,
 # which imports this module lazily) --
-from app.rules import copying  # noqa: E402
+from app.rules import copying, graveyard_cost_grants57  # noqa: E402
 
+PRIMITIVES.update(graveyard_cost_grants57.PRIMITIVES)
 PRIMITIVES.update(copying.PRIMITIVES)
 from app.rules import crew_saddle, phasing  # noqa: E402
 
@@ -6630,3 +6634,10 @@ PRIMITIVES['attacker_reselect73'] = _attacker_reselection73.effect
 from app.rules import manifest_aura74 as _manifest_aura74  # noqa: E402
 
 PRIMITIVES['manifest_aura74'] = _manifest_aura74.become_aura
+
+
+from app.rules import saddled_receipts76 as _saddled_receipts76  # noqa: E402
+
+PRIMITIVES.update({"mount_vehicle76": _saddled_receipts76.mount_vehicle,
+                   "saddle_contributors76": _saddled_receipts76.contributors,
+                   "mount_cohort76": _saddled_receipts76.cohort})
