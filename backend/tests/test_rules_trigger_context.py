@@ -278,8 +278,8 @@ def test_that_many_is_the_number_discarded(cards):
     # is "you", never "that player", so the only player it can name is the target)
     ("Whenever you cast a spell from exile, this creature deals 2 damage to target player. That player discards a card.",
      True),
-    # "it" after "enchanted creature": which one?
-    ("When this creature enters, tap enchanted creature. It deals damage to you equal to its power.", False),
+    # The enchanted-creature antecedent remains the damage source and the power reference.
+    ("When this creature enters, tap enchanted creature. It deals damage to you equal to its power.", True),
     # a card returned from a graveyard: its printed characteristics (a within-resolution binding)
     ("When this creature enters, return target creature card from your graveyard to your hand. "
      "You gain life equal to its power.", True),

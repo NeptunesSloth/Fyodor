@@ -1,0 +1,32 @@
+{
+  "status": "HOLD_ROOT_SHARED_KERNEL_REVIEW_NOT_INSTALLED_NOT_ADMITTED",
+  "names": [
+    "Spreading Plague"
+  ],
+  "leaf_staged_native_checks": 18,
+  "genuine_cold_checks": 3,
+  "candidate_combined_checks": 70,
+  "independent_native_wrath_candidate_checks": 1,
+  "independent_native_wrath_production": "FAIL_REPRODUCED_PREEXISTING_MISSING_OWNER_REPLACEMENT_CHOICE",
+  "candidate_mypy_modules": 1,
+  "candidate_ruff": "PASS",
+  "reviewer": "remaining_counters",
+  "source_sha256": {
+    "backend/app/rules/trigger_shared_colors61.py": "b193c25995b3f5a84b8ce91652ad86bb71de23951520fa124e7bfbe43d0f5caf",
+    "backend/tests/test_rules_trigger_shared_colors61.py": "37d4663c7ca15e1652ac3ae327546a3f5850af3bd4289a7cf68acd4bd126e112",
+    "backend/tests/fixtures/trigger_shared_colors61_cards.json": "4627dcb72817a0fd19d98693bdb16df9c467b60ff0dc501be2401ed41e6231cd",
+    "docs/research/proposals/trigger61-multiple-destruction-replacement.patch": "b35103e174fc36dcedcb149bda33ad524c00ead0c677e4dc983e087dfe5d7cbe",
+    "docs/research/proposals/trigger61-native-destruction-frontier.py": "37276db15acf3b261988c237a9ccf1c61db15c0fb6129818fd8f16cba2416e40",
+    "docs/research/proposals/trigger61-plague-hooks.patch": "93e7f37e4a1b947923d905eab336b0da93ba58699879c017682c51cc614c7c27"
+  },
+  "live_hooks": false,
+  "live_shared_kernel_edit": false,
+  "candidate_related_checks": 18,
+  "candidate_total_unique_checks": 89,
+  "candidate_related_log": "/tmp/trigger61-kernel-candidate-related.log",
+  "candidate_combined_log": "/tmp/trigger61-plague-kernel-proposal-staged.log",
+  "native_wrath_candidate_log": "/tmp/trigger61-native-wrath-kernel-candidate.log",
+  "native_wrath_production_baseline_log": "/tmp/trigger61-native-wrath-production-baseline-final.log",
+  "types_log": "/tmp/trigger61-kernel-candidate-types.log",
+  "ruff_log": "/tmp/trigger61-kernel-candidate-ruff.log"
+}

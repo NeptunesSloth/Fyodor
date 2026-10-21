@@ -826,6 +826,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
         return int(info.get("amount") or 0) > 0 and (cond.get("ctl", "any") == "any" or (cond["ctl"] == "you") == (player == you))
     if subject == "self_or_host":  # "~ or equipped creature"
         return obj.id == watcher.id or _hosted(plan, watcher, obj, info, event)
+    if subject == "self" and event == "cycle" and cond.get("cycle_other_you") and obj.id != watcher.id:
+        return watcher.zone.endswith(":battlefield") and player == you
     if subject in ("self", "self_or") and obj.id == watcher.id:
         return True
     if subject == "self":
@@ -1370,7 +1372,12 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
         players = [player]
     else:
         players = [player] if player and obj is None else []
+    from app.game.rules_state import CounterPlacement
+
+    placements = [CounterPlacement(destination=ref, kind=info["counter"], amount=int(info["amount"]))] \
+        if kind == "counters_put" and ref is not None and info.get("counter") and int(info.get("amount") or 0) > 0 else []
     return TriggerEvent(kind=kind, batch=batch, objects=[ref] if ref else [], new_objects=new, players=players,
+                        counter_placements=placements,
                         dice_total=info.get("dice_total") if kind == "roll" else None,
                         turn_start_life=info.get('turn_start_life') if kind=='lose_game' else None,
                         actor=info.get("actor"), attacking_player=info.get("attacking_player"),
@@ -1496,11 +1503,12 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 pending = fired.get(key)
                 if pending is not None and pending.event is not None:  # the batch's other objects join it
                     if anykind:
+                        pending.event.counter_placements += event.counter_placements
                         if cond.get("counter_amount"):
                             pending.event.amount += event.amount
-                            from app.rules import trigger_multipliers
+                        from app.rules import trigger_multipliers
 
-                            trigger_multipliers.joined(plan, pending)
+                        trigger_multipliers.joined(plan, pending)
                         continue
                     if not one_event:
                         pending.event.objects += event.objects
@@ -1971,6 +1979,8 @@ def _whose_step(plan: Plan, card: CardInstance, whose: str, ap: str) -> bool:
         return card.controller == ap
     if whose in ("each", "any"):  # (wave 31D: "any": "At end of combat", every turn's, no player is named)
         return True
+    if whose == "monarch":
+        return plan.state.table.monarch == ap
     if whose == "opponent":
         return card.controller != ap
     if whose == "enchanted_player":
@@ -2306,7 +2316,7 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
                                          "effects": effects})
 
 
-def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False, ability_id: str | None = None, text: str = "", cost_has_x: bool | None = None,
+def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False, ability_id: str | None = None, text: str = "", cost_has_x: bool | None = None, cost_has_tap: bool | None = None,
               payment: PaymentRecord | None = None, mana_ability: bool = False, actor: str | None = None) -> None:
     """-- activation (wave 11F) -- 602.2: an activated ability (not a mana ability) was put on the stack by ``plan.actor``:
     "Whenever an opponent activates an ability of a creature …" (603.2). The source is the object that activated it,
@@ -2318,7 +2328,8 @@ def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False
     ability = plan.state.cards.get(ability_id or "")  # (wave 18F: the activated ability itself, for "copy that ability")
     record = payment if payment is not None else plan.rules.payments.get(plan.oid(ability)) if ability is not None else None
     actor = actor or plan.actor
-    activation_cost = {'mana_tags': [list(tags) for tags in record.mana_tags] if record is not None and record.mana_known else None,
+    activation_cost = {'has_tap': record.activation_cost_has_tap if record is not None and record.activation_cost_has_tap is not None else cost_has_tap,
+                       'mana_tags': [list(tags) for tags in record.mana_tags] if record is not None and record.mana_known else None,
                        'mana': dict(record.mana_spent) if record is not None and record.mana_known else None,
                        'life': record.activation_life_paid if record is not None else None,
                        'sacrificed': len(record.sacrificed_objects) if record is not None else 0,

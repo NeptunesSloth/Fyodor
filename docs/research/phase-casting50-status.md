@@ -1,0 +1,13 @@
+# Phase casting restrictions50
+
+Root reviewed and approved the exact calendar predicate patch plus the additional eight-line effect-cast enforcement patch. Both are installed, preserving concurrent casting.py changes. The tests now use production imports only; all staging/AST loaders and child-process adapters have been removed. Production native/cold/related verification passes71 tests; root owns authoritative inventory and admission accounting.
+
+Complete24 canonical rows and complete official ruling responses: `/tmp/fyodor-phasecasting50-canonical.json`, `/tmp/fyodor-phasecasting50-rulings.json`. Pinned CR2026-09-25 sections601.3 and506.8a–g reviewed directly. Bounded probes: `/tmp/fyodor-phasecasting50-bounded-probes.json`; only Savage Beating and Wake the Dead become FULL. Other22 retain independent whole-card blockers. The24 affected count is not24 completions.
+
+`cast_timing.py` adds own/opponent combat, own declare attackers, opponent declare blockers, opponent-before-attackers calendar vocabulary using existing step/whose/first_combat predicates. `casting.py` calls existing cast_timing.problem from both free_cast_problem preflight and actual cast_free: a resolving effect's permission does not override the card's restriction. Ordinary casting already enforced this. No normal type-timing rule is imposed on effect-granted casting.
+
+Native gameplay tests in `backend/tests/test_rules_phase_casting50.py` prove Wake X0/X2, exact targets/new incarnation, opponent-combat restriction and atomic refusal, official lost-control/no-retry delayed sacrifice, actual second combat produced by Full Throttle, and fresh-process saved casting/delayed sacrifice. Savage proofs cover both modes, entwine, actual double-strike damage, all-creature untap, extra combat, wrong-turn/main refusal, and cold entwined casting. Gearhulk legal/illegal effect-granted casting exposes and verifies the additional kernel. Every phase/player/combat-count combination and the defensive resolving-cast entry also have explicitly labeled kernel witnesses.
+
+Isolated final30 tests pass in `/tmp/fyodor-phasecasting50-isolated-complete.log`. Production scoped mypy passes both changed source files in `/tmp/fyodor-phasecasting50-production-types.log`; Ruff/diff checks pass. The broader production result is recorded in `/tmp/fyodor-phasecasting50-production.log`. No full catalog inventory, commit or push was run by this worker.
+
+Production result:71 tests PASS with no staged adapters; `/tmp/fyodor-phasecasting50-production.log`. Exact whole-card manifest: `/tmp/fyodor-phasecasting50-production-manifest.json` (Savage Beating, Wake the Dead). Bounded live canonical coverage is FULL for both; root still owns the verified full-catalog baseline delta.

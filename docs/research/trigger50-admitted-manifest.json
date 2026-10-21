@@ -1,0 +1,835 @@
+{
+  "baseline": "checkpoint49",
+  "names": [
+    "Archivist of Gondor",
+    "Lucky Clover",
+    "Psychic Possession",
+    "Riftsweeper",
+    "Fevered Visions",
+    "Skullcage",
+    "Urborg Stalker",
+    "Kazandu Stomper",
+    "Nulltread Gargantuan",
+    "Mortuary",
+    "Patron of the Nezumi",
+    "Liability",
+    "Planar Void",
+    "Measure of Wickedness",
+    "Narcomoeba",
+    "Bridge from Below",
+    "Warped Devotion",
+    "Aurochs",
+    "Burning Sun Cavalry",
+    "Case of the Pilfered Proof",
+    "Talon of Pain",
+    "Night Dealings",
+    "Littjara Kinseekers",
+    "Lunar Force",
+    "Hesitation",
+    "Presence of the Master",
+    "Jokulmorder",
+    "Ichneumon Druid",
+    "Pain Magnification",
+    "Tamanoa",
+    "Last Laugh",
+    "Fear of Immobility",
+    "Landscaper Colos",
+    "Elder Land Wurm",
+    "Valakut Fireboar",
+    "Construct a Cosmic Cube",
+    "Stormfront Riders",
+    "Second Chance",
+    "Elder Spawn",
+    "Royal Decree",
+    "Guardian of the Ages",
+    "Veteran Ice Climber",
+    "Tectonic Instability",
+    "Battle of Wits",
+    "Mask of Intolerance",
+    "Zealots en-Dal",
+    "Inversion Behemoth",
+    "Master of Winds",
+    "Drop of Honey",
+    "Porphyry Nodes",
+    "Purging Scythe",
+    "Nether Spirit",
+    "Grave Peril",
+    "Flame-Kin War Scout",
+    "Dovin's Acuity",
+    "Cultivator of Blades",
+    "Arbiter of Knollridge",
+    "Slab Hammer",
+    "Azorius Aethermage",
+    "Skulking Killer",
+    "Academy Researchers",
+    "Court of Cunning",
+    "Court of Bounty",
+    "Kumena's Awakening",
+    "Absolving Lammasu",
+    "Drake Familiar",
+    "Solitary Sanctuary",
+    "Icewrought Sentry",
+    "Desecrator Hag",
+    "Righteous Indignation",
+    "Ordruun Mentor",
+    "Moss-Pit Skeleton"
+  ],
+  "expected_promotions": [
+    "Archivist of Gondor",
+    "Lucky Clover",
+    "Psychic Possession",
+    "Riftsweeper",
+    "Fevered Visions",
+    "Skullcage",
+    "Urborg Stalker",
+    "Kazandu Stomper",
+    "Nulltread Gargantuan",
+    "Mortuary",
+    "Patron of the Nezumi",
+    "Liability",
+    "Planar Void",
+    "Measure of Wickedness",
+    "Narcomoeba",
+    "Bridge from Below",
+    "Warped Devotion",
+    "Aurochs",
+    "Burning Sun Cavalry",
+    "Case of the Pilfered Proof",
+    "Talon of Pain",
+    "Night Dealings",
+    "Littjara Kinseekers",
+    "Lunar Force",
+    "Hesitation",
+    "Presence of the Master",
+    "Jokulmorder",
+    "Ichneumon Druid",
+    "Pain Magnification",
+    "Tamanoa",
+    "Last Laugh",
+    "Fear of Immobility",
+    "Landscaper Colos",
+    "Elder Land Wurm",
+    "Valakut Fireboar",
+    "Construct a Cosmic Cube",
+    "Stormfront Riders",
+    "Second Chance",
+    "Elder Spawn",
+    "Royal Decree",
+    "Guardian of the Ages",
+    "Veteran Ice Climber",
+    "Tectonic Instability",
+    "Battle of Wits",
+    "Mask of Intolerance",
+    "Zealots en-Dal",
+    "Inversion Behemoth",
+    "Master of Winds",
+    "Drop of Honey",
+    "Porphyry Nodes",
+    "Purging Scythe",
+    "Nether Spirit",
+    "Grave Peril",
+    "Flame-Kin War Scout",
+    "Dovin's Acuity",
+    "Cultivator of Blades",
+    "Arbiter of Knollridge",
+    "Slab Hammer",
+    "Azorius Aethermage",
+    "Skulking Killer",
+    "Academy Researchers",
+    "Court of Cunning",
+    "Court of Bounty",
+    "Kumena's Awakening",
+    "Absolving Lammasu",
+    "Drake Familiar",
+    "Solitary Sanctuary",
+    "Icewrought Sentry",
+    "Desecrator Hag",
+    "Righteous Indignation",
+    "Ordruun Mentor",
+    "Moss-Pit Skeleton"
+  ],
+  "production_focused": {
+    "count": 16,
+    "cold": 2,
+    "log": "/tmp/trigger50-monarch-clover-production.log"
+  },
+  "production_related": {
+    "passed": 103,
+    "skipped": 1,
+    "log": "/tmp/trigger50-monarch-clover-production-related.log"
+  },
+  "mypy": {
+    "modules": 3,
+    "result": "PASS",
+    "log": "/tmp/trigger50-monarch-clover-production-types.log"
+  },
+  "ruff": "PASS",
+  "kernel_proposals": [
+    "/tmp/trigger50-monarch-steps-proposal.patch",
+    "/tmp/trigger50-adventure-cast-proposal.patch"
+  ],
+  "source_sha256": {
+    "app/rules/scripts.py": "5a612d1f94064975037adea1dbf154680c164fbe851bea2efd418a05b7c3cf5f",
+    "app/rules/triggers.py": "e70ea6875b10d097c8a948b1863c22274004427839a1d16ede8aaf0cc96f944d",
+    "app/rules/events.py": "cf8f83b331efba959d208e71231327b6b70bf7135ab37ca6748f7ae5d202369a",
+    "app/rules/source_damage_counters50.py": "404476d87ad48452d2aa520ee0355d4bdff46e0f2723140958e831aca95ee114",
+    "app/rules/trigger_faceup_union50.py": "7c4fb3eed3e02786b05e0e87f0222478b49ffc7cbc32e49a933de87cacc2e061",
+    "app/rules/trigger_combat_counts50.py": "70320a1a0f2826dcd9d3cb5ad269b0b73735b1c571f6c7dd7c5bde5285ac34dd",
+    "app/rules/trigger_source_graveyard50.py": "9458e6e387a06cbfcc5efb2cc006726a16bea6a12d1e22ac907829a8c824bf5a",
+    "app/rules/trigger_step_damage50.py": "d1c17d234d303c8f4334edf85f432f41e1dc0330a753cbceed7bda351159cec7",
+    "app/rules/trigger_hand_owner50.py": "e88659662db1660d5de536283f1401b5bf36f107f40402cb1c426f57106854ff",
+    "app/rules/trigger_step_counts50.py": "44f0e3094f07d2cc172018c11db796e3f8c8a199c82165d2e3df9ee5e2c7bf4c",
+    "app/rules/trigger_aggregate_counters50.py": "7e648f9f39152ced8869593a70bcea918bef31541d755c106dd4319a843042ef",
+    "app/rules/trigger_graveyard_owners50.py": "063b533201b7a2dfdb8d2f013832b91f37bf26dccc5922e5dc76f4f57e611991",
+    "app/rules/trigger_empty_board50.py": "9e5abfc4c8c6c30358e7a5042c726aff67e23673025e7f83e5062600286337f1",
+    "app/rules/trigger_return_choices50.py": "9d9a2c48dbb534d67a566ae6d09170f721817ac40d3862ea7eaf3c08bedc12c8",
+    "app/rules/trigger_cast_counters50.py": "7554c90ee745a14062f9d0b1cf6a57fa6f59bec0a30124e5f563f7dee9ce40a7",
+    "app/rules/trigger_leaf51_staged.py": "7ecf4ac6a48209ff1e02fb0ec0e6f54b2d0b0393e9f4e8b2301941494c490c64",
+    "app/rules/trigger_target_control50.py": "d0a58d019cc4038e408cb8773ae59467f1303a4417fa5acde947ef262fd3e07e",
+    "app/rules/trigger_damage_values51.py": "e43c8ddcd073971b9d8ffa9fe5d5ccf69e2be2edbdaa6b829145af63eea92677",
+    "app/rules/trigger_grave_bottom51.py": "c0adbfb5468ce2587614b626becd9a636de05ee96f5d1cb23909bd20d7e69b2d",
+    "app/rules/trigger_leaf52_staged.py": "5c1eef4cd16c2613bd80ae30ed73a96d557d09bd6fab7e955f1e9bd9729ea841",
+    "app/rules/trigger_draw_token_counter51.py": "a500bebed13f7ee50e644e0aad4e863d060367d4334dfb8d0202088c16e736e5",
+    "app/rules/trigger_owned_return51.py": "5e22022e7cbccd2a64bf5b3a9da892c72c91dbbe04bce1c064e9a10c868e05c0",
+    "app/rules/trigger_upkeep_compounds53.py": "263762beb869afa44178c644c9d3709a424f8b5ba2189277e8c921bba8321298",
+    "app/rules/trigger_tap_union52.py": "2844d2e7703f86db348c400c78af021084a8e1dd58952bd19e38f76fe5718877",
+    "app/rules/trigger_defender_release53.py": "e2833b8646ba9d1b3f1e4496da15b722c33522157c254b982222c57e2363cd00",
+    "app/rules/trigger_leaf53_staged.py": "914801d9223e35efaa6caf10a2f20ced17c228f686ed9a667cf796eb85c5cee1",
+    "app/rules/trigger_library_win53.py": "e6c512abad5dc537b7e5a982e5458b3215e62c20d8c1519ab219cab50a76ca22",
+    "app/rules/trigger_permanent_steps54.py": "72b1a935dd7b1e94c560bcf7300c230802aba0465b75ed60612bc641af9241c6",
+    "app/rules/trigger_pt_choices56.py": "ae2b0c334f51d9cb8091731f4268ffa0f4336b670df9711806bb1db91be99d28",
+    "app/rules/trigger_extreme_choices57.py": "3937b58e0eadd5118e0a771535699e70b896f261b44e898a99b10106b908efd9",
+    "app/rules/trigger_grave_upkeep59.py": "612f728e0720f377fb2044e7dbb38ff8d98b7e7e6a5a5af7ed08d3bfd8da5c91",
+    "app/rules/trigger_sacrifice_entered58.py": "1c6c03478ac35a609968885e93d174490fc817783cdff121b594780f5ae66891",
+    "app/rules/trigger_main_cast60.py": "8b92e261176bcfc87e9f863c41d939bf2e3c289fdcd16fe4dd8110e99dae442b",
+    "app/rules/trigger_leaf54_staged.py": "8ec7b26ca3f78a1dbcf1ba7e37b190c4a14bff7be7b166603676812ee3b9b9ad",
+    "app/rules/effects.py": "8099d8c685d057ce2b1d640a5ead6e8b112c8525c8d02f22589c3b425577a531",
+    "app/rules/trigger_return_references60.py": "7e9f2dbc3b686aa21c0d7423683858a5cf1a23ebbe3af10d16603d4e029d8cf2",
+    "app/rules/trigger_leaf56_staged.py": "0a6c0b0443ac784911049b6ffea5f703764183007bd5e59d85076521ea3be6a9",
+    "app/rules/trigger_status_instead60.py": "7e4649d157d00a8e90f9cd2cfe9274194c744251bec1c2e6ed690cda36dd3696",
+    "app/rules/trigger_leaf57_staged.py": "a70577165ed9ad3da0ca3251c09d1dbbf8faf99f54f85bb6edbdc6497ee9cf1b",
+    "app/rules/trigger_tap_actors62.py": "a3c3cff6a1bc17c2e881a00a7e0780444e6df8b6ab1018b335a51ec8d2afa88c",
+    "app/rules/trigger_grave_extreme64.py": "6a4579e705e2faf0067bd77400e058852f2f4b68858c4b0afbf2a45c78a2e35e",
+    "app/rules/trigger_leaf58_staged.py": "67c5a55823c02b6bc3c7670f21977d40ef72c18927a2d461e39cc70162c7cfa7"
+  },
+  "note": "71 verified native admissions in this trigger stream; parent owns deduplicated global catalog audit. No commit or push.",
+  "psychic_production": {
+    "focused": 7,
+    "cold": 1,
+    "related_passed": 69,
+    "mypy_modules": 1,
+    "ruff": "PASS",
+    "focused_log": "/tmp/trigger50-psychic-production.log",
+    "related_log": "/tmp/trigger50-psychic-production-related.log",
+    "types_log": "/tmp/trigger50-psychic-production-types.log",
+    "rulings": "/tmp/trigger50-psychic-rulings.json"
+  },
+  "riftsweeper_production": {
+    "focused": 10,
+    "cold": 1,
+    "related_passed": 44,
+    "mypy_modules": 1,
+    "ruff": "PASS",
+    "focused_log": "/tmp/trigger50-riftsweeper-production.log",
+    "related_log": "/tmp/trigger50-riftsweeper-production-related.log",
+    "types_log": "/tmp/trigger50-riftsweeper-production-types.log",
+    "rulings": "/tmp/trigger50-riftsweeper-rulings.json"
+  },
+  "fevered_production": {
+    "focused": 11,
+    "cold": 1,
+    "related_passed": 72,
+    "mypy_modules": 2,
+    "ruff": "PASS",
+    "focused_log": "/tmp/trigger50-fevered-production.log",
+    "related_log": "/tmp/trigger50-fevered-production-related.log",
+    "types_log": "/tmp/trigger50-fevered-production-types.log"
+  },
+  "step_damage_production": {
+    "focused": 17,
+    "cold": 2,
+    "related_passed": 28,
+    "mypy_modules": 1,
+    "ruff": "PASS",
+    "focused_log": "/tmp/trigger50-step-damage-production.log",
+    "related_log": "/tmp/trigger50-step-damage-production-related.log",
+    "types_log": "/tmp/trigger50-step-damage-types.log"
+  },
+  "return_choice_production": {
+    "focused": 13,
+    "cold": 2,
+    "related_passed": 48,
+    "mypy_modules": 1,
+    "ruff": "PASS",
+    "focused_log": "/tmp/trigger50-return-choice-production.log",
+    "related_log": "/tmp/trigger50-return-choice-production-related.log",
+    "types_log": "/tmp/trigger50-return-choice-production-types.log"
+  },
+  "graveyard_owners_production": {
+    "focused": 24,
+    "cold": 5,
+    "related_passed": 48,
+    "related_failed_preexisting": 0,
+    "baseline_failure_log": "/tmp/trigger50-context-production-baseline.log",
+    "mypy_modules": 1,
+    "ruff": "PASS",
+    "focused_log": "/tmp/trigger50-graveyard-owners-production.log",
+    "related_log": "/tmp/trigger50-graveyard-owners-production-related.log",
+    "types_log": "/tmp/trigger50-graveyard-owners-production-types.log",
+    "liability_defect_baseline": "/tmp/trigger50-liability-production-baseline.log",
+    "historical_preexisting_failure": 1,
+    "corrected_context_cases": 28,
+    "corrected_context_log": "/tmp/trigger50-context-corrected-production.log",
+    "related_validation": "Original related log has47 passes and a preexisting stale parser expectation; corrected complete context28 passes, remaining20 cases passed unchanged in original log."
+  },
+  "source_graveyard_production": {
+    "focused": 16,
+    "cold": 2,
+    "related_passed": 127,
+    "mypy_modules": 1,
+    "ruff": "PASS",
+    "focused_log": "/tmp/trigger50-source-graveyard-production.log",
+    "related_log": "/tmp/trigger50-source-graveyard-production-related.log",
+    "types_log": "/tmp/trigger50-source-graveyard-production-types.log"
+  },
+  "hand_owner_production": {
+    "focused": 8,
+    "cold": 1,
+    "related_passed": 36,
+    "mypy_modules": 1,
+    "ruff": "PASS",
+    "focused_log": "/tmp/trigger50-hand-owner-production.log",
+    "related_log": "/tmp/trigger50-hand-owner-production-related.log",
+    "types_log": "/tmp/trigger50-hand-owner-production-types.log"
+  },
+  "stale_tests_corrected": {
+    "host_antecedent": {
+      "file": "tests/test_rules_trigger_context.py",
+      "production_cases": 28,
+      "log": "/tmp/trigger50-context-corrected-production.log"
+    },
+    "ydwen": {
+      "file": "tests/test_rules_wave53c_block_events.py",
+      "existing_native_positive_cases": 8,
+      "positive_log": "/tmp/trigger50-ydwen-existing-positive.log",
+      "corrected_stage_module_cases": 108,
+      "stage_log": "/tmp/trigger50-combat-corrected-related.log"
+    },
+    "reviewer": "/root/remaining_counters",
+    "card_count_change": 0,
+    "Ashnod_trailing_manual_row": {
+      "native_positive_checks": 5,
+      "positive_log": "/tmp/trigger56-ashnod-existing-positive.log",
+      "full_corrected_checks": 67,
+      "corrected_log": "/tmp/trigger56-trailing-corrected-production.log",
+      "change": "Remove only Ashnod from obsolete manual expectation; all other negative rows retained; no rule or count change."
+    }
+  },
+  "combat_counts_production": {
+    "focused": 16,
+    "cold": 2,
+    "related_passed": 158,
+    "mypy_modules": 1,
+    "ruff": "PASS",
+    "focused_log": "/tmp/trigger50-combat-counts-production.log",
+    "related_log": "/tmp/trigger50-combat-counts-production-related.log",
+    "types_log": "/tmp/trigger50-combat-counts-production-types.log",
+    "peer_review": "/tmp/trigger50-combat-counts-peer-review.txt"
+  },
+  "case_production": {
+    "focused": 10,
+    "cold": 1,
+    "related_passed": 13,
+    "mypy_modules": 1,
+    "ruff": "PASS",
+    "focused_log": "/tmp/trigger50-case-production.log",
+    "related_log": "/tmp/trigger50-case-production-related.log",
+    "types_log": "/tmp/trigger50-case-production-types.log",
+    "peer_author": "/root/remaining_counters",
+    "independent_reviewer": "/root/remaining_triggers",
+    "staged_manifest": "/tmp/counter50-case-review-manifest.json",
+    "excluded": "Printlifter Ooze"
+  },
+  "source_damage_counters_production": {
+    "names": [
+      "Talon of Pain",
+      "Night Dealings"
+    ],
+    "author": "remaining_counters",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 32,
+    "genuine_cold_checks": 4,
+    "related_checks": 57,
+    "focused_log": "/tmp/trigger50-source-damage-production.log",
+    "related_log": "/tmp/trigger50-source-damage-related.log",
+    "types_log": "/tmp/trigger50-source-damage-types.log",
+    "ruff": "PASS",
+    "staged_review_manifest": "/tmp/counter50-source-review-manifest.json"
+  },
+  "aggregate_counters_production": {
+    "names": [
+      "Littjara Kinseekers"
+    ],
+    "author": "remaining_counters",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 10,
+    "genuine_cold_checks": 2,
+    "related_checks": 64,
+    "combined_log": "/tmp/trigger51-kin-production.log",
+    "types_log": "/tmp/trigger51-native-leaf-types.log",
+    "ruff": "PASS",
+    "staged_review_manifest": "/tmp/counter50-kin-review-manifest.json",
+    "excluded": [
+      "Rumbling Ruin"
+    ]
+  },
+  "cast_counters_production": {
+    "names": [
+      "Lunar Force",
+      "Hesitation",
+      "Presence of the Master"
+    ],
+    "whole_checks": 24,
+    "genuine_cold_checks": 3,
+    "related_checks": 81,
+    "focused_log": "/tmp/trigger51-cast-counter-production.log",
+    "related_log": "/tmp/trigger51-cast-counter-related.log",
+    "types_log": "/tmp/trigger51-cast-counter-types.log",
+    "independent_reviewer": "remaining_counters",
+    "ruff": "PASS"
+  },
+  "native_leaf51_production": {
+    "names": [
+      "Jokulmorder",
+      "Ichneumon Druid"
+    ],
+    "author": "mana40/mana_blocker_scout",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 15,
+    "genuine_cold_checks": 2,
+    "related_checks": 43,
+    "focused_log": "/tmp/trigger51-native2-production.log",
+    "related_log": "/tmp/trigger51-native2-related.log",
+    "types_log": "/tmp/trigger51-native-leaf-types.log",
+    "ruff": "PASS",
+    "staged_review_manifest": "/tmp/fyodor-triggerleaf51-manifest.json",
+    "excluded": [
+      "Indentured Djinn (registry hooks pending root review)"
+    ]
+  },
+  "damage_values51_production": {
+    "names": [
+      "Pain Magnification",
+      "Tamanoa"
+    ],
+    "whole_checks": 20,
+    "genuine_cold_checks": 2,
+    "related_checks": 57,
+    "combined_log": "/tmp/trigger51-damage-values-production.log",
+    "types_log": "/tmp/trigger51-damage-values-types.log",
+    "ruff_log": "/tmp/trigger51-damage-values-ruff.log",
+    "independent_reviewer": "remaining_counters",
+    "canonical": "/tmp/trigger51-source-damage-canonical.json",
+    "rulings": "/tmp/trigger51-source-damage-rulings.json"
+  },
+  "empty_board51_production": {
+    "names": [
+      "Last Laugh"
+    ],
+    "author": "remaining_counters",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 9,
+    "genuine_cold_checks": 3,
+    "related_checks": 88,
+    "combined_log": "/tmp/trigger51-lastlaugh-production.log",
+    "types_log": "/tmp/trigger51-peer-leaf-types.log",
+    "ruff_log": "/tmp/trigger51-peer-leaf-ruff.log",
+    "staged_review_manifest": "/tmp/counter50-lastlaugh-review-manifest.json"
+  },
+  "optional_target_control51_production": {
+    "names": [
+      "Fear of Immobility"
+    ],
+    "author": "remaining_counters",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 14,
+    "genuine_cold_checks": 2,
+    "related_checks": 27,
+    "combined_log": "/tmp/trigger51-immobility-production.log",
+    "types_log": "/tmp/trigger51-peer-leaf-types.log",
+    "ruff_log": "/tmp/trigger51-peer-leaf-ruff.log",
+    "staged_review_manifest": "/tmp/counter50-immobility-review-manifest.json"
+  },
+  "grave_bottom51_production": {
+    "names": [
+      "Landscaper Colos"
+    ],
+    "whole_checks": 8,
+    "genuine_cold_checks": 2,
+    "related_checks": 28,
+    "combined_log": "/tmp/trigger51-colos-production-final.log",
+    "types_log": "/tmp/trigger51-colos-types.log",
+    "ruff_log": "/tmp/trigger51-colos-ruff.log",
+    "independent_reviewer": "remaining_counters",
+    "canonical": "/tmp/trigger51-colos-canonical.json",
+    "rulings": "/tmp/trigger51-colos-rulings.json"
+  },
+  "self_layer52_production": {
+    "names": [
+      "Elder Land Wurm",
+      "Valakut Fireboar"
+    ],
+    "author": "mana40/mana_blocker_scout",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 18,
+    "genuine_cold_checks": 2,
+    "related_checks": 56,
+    "focused_log": "/tmp/trigger52-native-production.log",
+    "related_log": "/tmp/fyodor-triggerleaf52-related-production.log",
+    "types_log": "/tmp/trigger52-native-types.log",
+    "ruff_log": "/tmp/trigger52-native-ruff.log",
+    "staged_review_manifest": "/tmp/fyodor-triggerleaf52-manifest.json"
+  },
+  "draw_token_counter51_production": {
+    "names": [
+      "Construct a Cosmic Cube"
+    ],
+    "author": "remaining_counters",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 14,
+    "genuine_cold_checks": 3,
+    "related_checks": 78,
+    "combined_log": "/tmp/trigger51-cube-production.log",
+    "types_log": "/tmp/trigger51-cube-types.log",
+    "ruff_log": "/tmp/trigger51-cube-ruff.log",
+    "staged_review_manifest": "/tmp/counter51-cube-review-manifest.json"
+  },
+  "owned_return51_production": {
+    "names": [
+      "Stormfront Riders"
+    ],
+    "whole_checks": 13,
+    "genuine_cold_checks": 2,
+    "related_checks": 21,
+    "combined_log": "/tmp/trigger51-stormfront-production.log",
+    "types_log": "/tmp/trigger51-stormfront-production-types.log",
+    "ruff_log": "/tmp/trigger51-stormfront-production-ruff.log",
+    "independent_reviewer": "remaining_counters",
+    "canonical": "/tmp/trigger51-stormfront-canonical.json",
+    "rulings": "/tmp/trigger51-stormfront-rulings.json",
+    "source_noncreature_support": "/tmp/trigger51-noncreature-source-rulings.json",
+    "notes": [
+      "Exact entry recipe delegates native simultaneous player_chooses+bounce instead of sequential return_yours.",
+      "Return trigger self_or includes noncreature source per CR201.5; add-time native event object owner predicate scopes actual destination hand."
+    ]
+  },
+  "upkeep_compounds53_production": {
+    "names": [
+      "Second Chance",
+      "Elder Spawn"
+    ],
+    "author": "remaining_counters",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 15,
+    "genuine_cold_checks": 2,
+    "related_checks": 62,
+    "combined_log": "/tmp/trigger53-upkeep-production.log",
+    "types_log": "/tmp/trigger53-owned-types.log",
+    "ruff_log": "/tmp/trigger53-owned-ruff.log",
+    "staged_review_manifest": "/tmp/counter53-upkeep-review-manifest.json"
+  },
+  "integration_parser_regressions": {
+    "checks": 33,
+    "result": "PASS",
+    "log": "/tmp/trigger53-parser-regressions.log"
+  },
+  "tap_union52_production": {
+    "names": [
+      "Royal Decree"
+    ],
+    "whole_checks": 19,
+    "genuine_cold_checks": 2,
+    "related_checks": 25,
+    "combined_log": "/tmp/trigger52-royal-production.log",
+    "types_log": "/tmp/trigger53-tap-defender-types.log",
+    "ruff_log": "/tmp/trigger53-tap-defender-ruff.log",
+    "independent_reviewer": "remaining_counters",
+    "canonical": "/tmp/trigger52-royal-canonical.json",
+    "rulings": "/tmp/trigger52-royal-rulings.json"
+  },
+  "defender_release53_production": {
+    "names": [
+      "Guardian of the Ages"
+    ],
+    "author": "remaining_counters",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 11,
+    "genuine_cold_checks": 2,
+    "related_checks": 47,
+    "combined_log": "/tmp/trigger53-defender-production.log",
+    "types_log": "/tmp/trigger53-tap-defender-types.log",
+    "ruff_log": "/tmp/trigger53-tap-defender-ruff.log",
+    "staged_review_manifest": "/tmp/counter53-defender-review-manifest.json"
+  },
+  "bound_land53_production": {
+    "names": [
+      "Veteran Ice Climber",
+      "Tectonic Instability"
+    ],
+    "author": "mana40/mana_blocker_scout",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 21,
+    "genuine_cold_checks": 2,
+    "related_checks": 12,
+    "focused_log": "/tmp/trigger53-bound-land-production.log",
+    "related_log": "/tmp/trigger53-bound-land-related.log",
+    "types_log": "/tmp/trigger53-owned-types.log",
+    "ruff_log": "/tmp/trigger53-owned-ruff.log",
+    "staged_review_manifest": "/tmp/fyodor-triggerleaf53-manifest.json"
+  },
+  "library_win53_production": {
+    "names": [
+      "Battle of Wits"
+    ],
+    "author": "remaining_counters",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 12,
+    "genuine_cold_checks": 2,
+    "related_checks": 80,
+    "combined_log": "/tmp/trigger53-library-win-production.log",
+    "types_log": "/tmp/trigger53-library-win-types.log",
+    "ruff_log": "/tmp/trigger53-library-win-ruff.log",
+    "staged_review_manifest": "/tmp/counter53-library-review-manifest.json"
+  },
+  "permanent_steps54_production": {
+    "names": [
+      "Mask of Intolerance",
+      "Zealots en-Dal"
+    ],
+    "whole_checks": 24,
+    "genuine_cold_checks": 2,
+    "related_checks": 64,
+    "combined_log": "/tmp/trigger54-permanent-step-production.log",
+    "types_log": "/tmp/trigger54-permanent-step-final-types.log",
+    "ruff_log": "/tmp/trigger54-permanent-step-production-ruff.log",
+    "independent_reviewer": "remaining_counters",
+    "canonical": "/tmp/trigger54-permanent-step-canonical.json",
+    "rulings": "/tmp/trigger54-permanent-step-rulings.json"
+  },
+  "pt_choices56_production": {
+    "names": [
+      "Inversion Behemoth",
+      "Master of Winds"
+    ],
+    "author": "remaining_counters",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 22,
+    "genuine_cold_checks": 2,
+    "related_checks": 51,
+    "combined_log": "/tmp/trigger56-pt-production.log",
+    "types_log": "/tmp/trigger56-pt-types.log",
+    "ruff_log": "/tmp/trigger56-pt-ruff.log",
+    "staged_review_manifest": "/tmp/counter56-pt-review-manifest.json"
+  },
+  "extreme_choices57_production": {
+    "names": [
+      "Drop of Honey",
+      "Porphyry Nodes",
+      "Purging Scythe"
+    ],
+    "author": "remaining_counters",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 33,
+    "genuine_cold_checks": 3,
+    "related_checks": 57,
+    "combined_log": "/tmp/trigger57-extreme-production.log",
+    "types_log": "/tmp/trigger57-extreme-types.log",
+    "ruff_log": "/tmp/trigger57-extreme-ruff.log",
+    "staged_review_manifest": "/tmp/counter57-extreme-review-manifest.json"
+  },
+  "grave_upkeep59_production": {
+    "names": [
+      "Nether Spirit"
+    ],
+    "reviewer": "remaining_counters",
+    "whole_checks": 14,
+    "genuine_cold_checks": 2,
+    "related_checks": 57,
+    "combined_log": "/tmp/trigger59-grave-upkeep-production.log",
+    "types_log": "/tmp/trigger59-grave-upkeep-types.log",
+    "ruff_log": "/tmp/trigger59-grave-upkeep-ruff.log",
+    "canonical": "/tmp/trigger59-grave-step-canonical.json",
+    "rulings": "/tmp/trigger59-grave-step-rulings.json"
+  },
+  "sacrifice_entered58_production": {
+    "names": [
+      "Grave Peril",
+      "Flame-Kin War Scout"
+    ],
+    "author": "remaining_counters",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 24,
+    "genuine_cold_checks": 2,
+    "related_checks": 63,
+    "combined_log": "/tmp/trigger58-sacrifice-production.log",
+    "types_log": "/tmp/trigger58-sacrifice-types.log",
+    "ruff_log": "/tmp/trigger58-sacrifice-ruff.log",
+    "staged_review_manifest": "/tmp/counter58-sacrifice-review-manifest.json"
+  },
+  "main_cast60_production": {
+    "names": [
+      "Dovin's Acuity"
+    ],
+    "reviewer": "remaining_counters",
+    "whole_checks": 16,
+    "genuine_cold_checks": 2,
+    "related_checks": 48,
+    "combined_log": "/tmp/trigger60-main-cast-production.log",
+    "types_log": "/tmp/trigger60-main-cast-types.log",
+    "ruff_log": "/tmp/trigger60-main-cast-ruff.log",
+    "canonical": "/tmp/trigger60-main-cast-canonical.json",
+    "rulings": "/tmp/trigger60-main-cast-rulings.json"
+  },
+  "power_life54_production": {
+    "names": [
+      "Cultivator of Blades",
+      "Arbiter of Knollridge"
+    ],
+    "author": "mana40/mana_blocker_scout",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 28,
+    "genuine_cold_checks": 3,
+    "related_checks": 75,
+    "focused_log": "/tmp/trigger54-power-life-production.log",
+    "related_log": "/tmp/fyodor-triggerleaf54-related-production.log",
+    "types_log": "/tmp/trigger54-power-life-types.log",
+    "ruff_log": "/tmp/trigger54-power-life-ruff.log",
+    "staged_review_manifest": "/tmp/fyodor-triggerleaf54-manifest.json"
+  },
+  "return_references60_production": {
+    "names": [
+      "Slab Hammer",
+      "Azorius Aethermage"
+    ],
+    "author": "remaining_counters/counter_yield_scout",
+    "reviewer": "remaining_triggers and remaining_counters",
+    "whole_checks": 23,
+    "genuine_cold_checks": 2,
+    "related_checks": 40,
+    "combined_log": "/tmp/trigger60-return-references-production.log",
+    "types_log": "/tmp/trigger60-return-references-types.log",
+    "ruff_log": "/tmp/trigger60-return-references-ruff.log",
+    "staged_review_manifest": "/tmp/counter60-staged-manifest.json"
+  },
+  "target_aura56_production": {
+    "names": [
+      "Skulking Killer",
+      "Academy Researchers"
+    ],
+    "author": "mana40/mana_blocker_scout",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 22,
+    "genuine_cold_checks": 2,
+    "related_unique_checks": 101,
+    "related_note": "attachments21 + returnchoices13 + corrected full trailing67; runtime-only99 log overlaps65 trailing cases and is not added again",
+    "focused_log": "/tmp/trigger56-target-aura-production.log",
+    "related_logs": [
+      "/tmp/fyodor-triggerleaf56-related-runtime-production.log",
+      "/tmp/trigger56-trailing-corrected-production.log"
+    ],
+    "types_log": "/tmp/trigger56-target-aura-types.log",
+    "ruff_log": "/tmp/trigger56-target-aura-ruff.log",
+    "staged_review_manifest": "/tmp/fyodor-triggerleaf56-manifest.json"
+  },
+  "status_instead60_production": {
+    "names": [
+      "Court of Cunning",
+      "Court of Bounty",
+      "Kumena's Awakening"
+    ],
+    "author": "remaining_counters",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 26,
+    "genuine_cold_checks": 3,
+    "related_checks": 12,
+    "focused_log": "/tmp/trigger60-status-instead-production.log",
+    "related_log": "/tmp/trigger60-status-instead-related.log",
+    "types_log": "/tmp/trigger60-status-instead-types.log",
+    "ruff_log": "/tmp/trigger60-status-instead-ruff.log",
+    "staged_review_manifest": "/tmp/counter60-status-review-manifest.json"
+  },
+  "designation_return57_production": {
+    "names": [
+      "Absolving Lammasu",
+      "Drake Familiar"
+    ],
+    "author": "mana40/mana_blocker_scout",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 20,
+    "genuine_cold_checks": 2,
+    "related_checks": 59,
+    "focused_log": "/tmp/trigger57-designation-return-production.log",
+    "related_log": "/tmp/fyodor-triggerleaf57-related-production.log",
+    "types_log": "/tmp/trigger57-designation-return-types.log",
+    "ruff_log": "/tmp/trigger57-designation-return-ruff.log",
+    "staged_review_manifest": "/tmp/fyodor-triggerleaf57-manifest.json"
+  },
+  "tap_actors62_production": {
+    "names": [
+      "Solitary Sanctuary",
+      "Icewrought Sentry"
+    ],
+    "author": "remaining_counters/counter_yield_scout",
+    "reviewer": "remaining_triggers and remaining_counters",
+    "whole_checks": 26,
+    "genuine_cold_checks": 2,
+    "related_checks": 41,
+    "combined_log": "/tmp/trigger62-tap-actors-production.log",
+    "types_log": "/tmp/trigger62-tap-actors-types.log",
+    "ruff_log": "/tmp/trigger62-tap-actors-ruff.log",
+    "staged_review_manifest": "/tmp/counter62-staged-manifest.json",
+    "limitation": "Tangle Wire remains PARTIAL/unproved native producer; actual supported opponent mana-payment taps under your Rhystic Deluge tested instead; no manual implementation was misrepresented."
+  },
+  "grave_extreme64_production": {
+    "names": [
+      "Desecrator Hag"
+    ],
+    "author": "remaining_counters",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 12,
+    "genuine_cold_checks": 2,
+    "related_checks": 47,
+    "combined_log": "/tmp/trigger64-grave-extreme-production.log",
+    "types_log": "/tmp/trigger64-grave-extreme-types.log",
+    "ruff_log": "/tmp/trigger64-grave-extreme-ruff.log",
+    "staged_review_manifest": "/tmp/counter64-staged-manifest.json"
+  },
+  "pair_target58_production": {
+    "names": [
+      "Righteous Indignation",
+      "Ordruun Mentor"
+    ],
+    "author": "mana40/mana_blocker_scout",
+    "reviewer": "remaining_triggers",
+    "whole_checks": 26,
+    "genuine_cold_checks": 2,
+    "related_checks": 23,
+    "focused_log": "/tmp/trigger58-pair-target-production.log",
+    "related_log": "/tmp/fyodor-triggerleaf58-related-production.log",
+    "types_log": "/tmp/trigger58-pair-target-types.log",
+    "ruff_log": "/tmp/trigger58-pair-target-ruff.log",
+    "staged_review_manifest": "/tmp/fyodor-triggerleaf58-manifest.json"
+  },
+  "grave_counter_top65_production": {
+    "names": [
+      "Moss-Pit Skeleton"
+    ],
+    "author": "remaining_counters",
+    "reviewer": "root",
+    "whole_checks": 22,
+    "genuine_cold_checks": 2,
+    "related_checks": 38,
+    "combined_log": "/tmp/trigger65-grave-counter-top-production.log",
+    "root_admission": "Explicit independent native/canonical/rulings review approved; pending catalog diff"
+  }
+}

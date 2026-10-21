@@ -1,0 +1,154 @@
+[
+  {
+    "id": "dd473981-a62c-480f-aeae-0218f3e07fa6",
+    "oracle_id": "3961ef7c-4eb4-482e-9cda-d49d6a29c5a9",
+    "name": "Aurochs",
+    "layout": "normal",
+    "set_code": "5ed",
+    "set_name": "Fifth Edition",
+    "collector_number": "279",
+    "rarity": "common",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Aurochs",
+    "oracle_text": "Trample\nWhenever this creature attacks, it gets +1/+0 until end of turn for each other attacking Aurochs.",
+    "power": "2",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1997-03-24",
+    "artist": "Steve White",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "0c491ac0-4752-47a7-967e-456b6e4245de",
+    "oracle_id": "9da7e8b5-887d-4174-b7aa-982fd052fcd1",
+    "name": "Burning Sun Cavalry",
+    "layout": "normal",
+    "set_code": "lci",
+    "set_name": "The Lost Caverns of Ixalan",
+    "collector_number": "138",
+    "rarity": "common",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Knight",
+    "oracle_text": "Whenever this creature attacks or blocks while you control a Dinosaur, this creature gets +1/+1 until end of turn.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-11-17",
+    "artist": "Josu Hernaiz",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "bee08d2f-e875-473c-adc6-8dc286792ab5",
+    "oracle_id": "08c7db90-c0cf-4482-b7ee-bb033e5996d2",
+    "name": "Colossal Dreadmaw",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "646",
+    "rarity": "common",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Dinosaur",
+    "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Jesper Ejsing",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "3d668722-fbbf-43d8-94da-60cffc1dd9cd",
+        "name": "Colossal Chorus",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "2d59bd4a-006b-4dd8-ab33-d931196f3a8a",
+    "oracle_id": "edd5b228-f19f-4b27-8b92-75545389da14",
+    "name": "Bull Aurochs",
+    "layout": "normal",
+    "set_code": "csp",
+    "set_name": "Coldsnap",
+    "collector_number": "107",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Aurochs",
+    "oracle_text": "Trample\nWhenever this creature attacks, it gets +1/+0 until end of turn for each other attacking Aurochs.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2006-07-21",
+    "artist": "Kev Walker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  }
+]

@@ -1,0 +1,39 @@
+[
+  {
+    "id": "0b191592-7221-422a-8b5a-65f7b1caec1a",
+    "oracle_id": "898e480d-c44e-4080-910a-f53e4ee471e1",
+    "name": "Dovin's Acuity",
+    "layout": "normal",
+    "set_code": "rna",
+    "set_name": "Ravnica Allegiance",
+    "collector_number": "168",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{W}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, you gain 2 life and draw a card.\nWhenever you cast an instant spell during your main phase, you may return this enchantment to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2019-01-25",
+    "artist": "Bastien L. Deharme",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

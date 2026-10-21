@@ -1,0 +1,142 @@
+[
+  {
+    "id": "6d6d889f-daba-494d-8e91-aa5c6e361f3f",
+    "oracle_id": "22c49415-e8d2-4b4c-b021-57ee54670f86",
+    "name": "Warped Devotion",
+    "layout": "normal",
+    "set_code": "8ed",
+    "set_name": "Eighth Edition",
+    "collector_number": "172\u2605",
+    "rarity": "rare",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever a permanent is returned to a player's hand, that player discards a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2003-07-28",
+    "artist": "Eric Peterson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "f4095675-1e3f-4d3c-b565-5c434d2e5cc0",
+    "oracle_id": "dc4a4996-108a-4aac-850f-2d9f76403446",
+    "name": "Boomerang",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "70",
+    "rarity": "common",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Return target permanent to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "Arnie Swekel",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "854ccd5e-64af-40f6-a831-8d0cd4a0b204",
+    "oracle_id": "fdd94383-b573-439a-8e1c-925af887c5a6",
+    "name": "Evacuation",
+    "layout": "normal",
+    "set_code": "m3c",
+    "set_name": "Modern Horizons 3 Commander",
+    "collector_number": "184",
+    "rarity": "rare",
+    "mana_cost": "{3}{U}{U}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "Return all creatures to their owners' hands.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-06-14",
+    "artist": "Franz Vohwinkel",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "4950c3c2-80c1-4447-ac38-cf40f76b9545",
+    "oracle_id": "cbc9c731-181a-4f00-a7b0-eb7e56eac2ea",
+    "name": "Raise Dead",
+    "layout": "normal",
+    "set_code": "w17",
+    "set_name": "Welcome Deck 2017",
+    "collector_number": "18",
+    "rarity": "common",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Return target creature card from your graveyard to your hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-04-15",
+    "artist": "Carl Critchlow",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  }
+]

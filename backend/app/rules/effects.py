@@ -2836,6 +2836,7 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
     entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else (_players(plan, ctx, e["under"]) or [plan.state.cards[cid].owner])[0]
                 if str(e.get("under")).startswith("ref:") else plan.state.cards[cid].owner,
                 "actor": ctx["controller"], "tapped": bool(e.get("tapped")),
+                **({"tapped_if_land": True} if e.get("tapped_if_land") else {}),
                 **({"host_choice": e["host_choice"]} if e.get("host_choice") else {}),
                 **({"transformed": True} if e.get("transformed") else {}),  # (-- transform, wave 11A -- 712.14a)
                 **({"counter": e["counter"], **({"counter_if": e["counter_if"]} if e.get("counter_if") else {})} if e.get("counter") and entry_counter_applies else {}),
@@ -3420,7 +3421,7 @@ def to_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     (401.4)."""
     cards = ([t["id"] for group in ctx.get("groups", []) for t in group if t] if e["who"] == "all_targets" else _cards(plan, ctx, e["who"]))
     before = _remember(plan, ctx, e, cards)
-    if e["place"] == "choice" and len(cards) > 1:
+    if len(cards) > 1 and (e["place"] == "choice" or (e["place"] in ("top", "bottom") and not e.get("chooser"))):
         from app.rules import library_placements
 
         return library_placements.start(plan, ctx, e, cards, before)
@@ -6510,6 +6511,32 @@ PRIMITIVES['exile_cast_outcome45'] = _exile_cast_outcomes45.run
 RESUME['exile_cast_outcome45'] = _exile_cast_outcomes45.resume
 RESUME['exile_cast_extract45'] = _exile_cast_outcomes45.resume_extract
 
+from app.rules import exile_spell_choices49 as _exile_spell_choices49  # noqa: E402
+from app.rules import exile_sphinx49 as _exile_sphinx49  # noqa: E402
+
+PRIMITIVES.update(_exile_spell_choices49.PRIMITIVES)
+RESUME.update(_exile_spell_choices49.RESUME)
+PRIMITIVES.update(_exile_sphinx49.PRIMITIVES)
+
+from app.rules import delayed_blinks50 as _delayed_blinks50  # noqa: E402
+from app.rules import delayed_combat_blinks50 as _delayed_combat_blinks50  # noqa: E402
+from app.rules import delayed_entry_blinks50 as _delayed_entry_blinks50  # noqa: E402
+from app.rules import delayed_loyalty_blinks50 as _delayed_loyalty_blinks50  # noqa: E402
+from app.rules import delayed_self_blinks50 as _delayed_self_blinks50  # noqa: E402
+
+PRIMITIVES.update(_delayed_blinks50.PRIMITIVES)
+PRIMITIVES.update(_delayed_combat_blinks50.PRIMITIVES)
+PRIMITIVES.update(_delayed_entry_blinks50.PRIMITIVES)
+PRIMITIVES.update(_delayed_loyalty_blinks50.PRIMITIVES)
+PRIMITIVES.update(_delayed_self_blinks50.PRIMITIVES)
+RESUME.update(_delayed_loyalty_blinks50.RESUME)
+
+
+from app.rules import outside_research50 as _outside_research50  # noqa: E402
+
+PRIMITIVES.update(_outside_research50.PRIMITIVES)
+RESUME.update(_outside_research50.RESUME)
+
 
 def _register_adjacent_counter_consumers45() -> None:
     from app.rules import graveyard_payments45, reprieve_payment45, urge_payment45
@@ -6550,3 +6577,21 @@ PRIMITIVES.update(_quoted_prevention_loss47.PRIMITIVES)
 from app.rules import mana_persistent_replacements48 as _mana_persistent_replacements48  # noqa: E402
 
 PRIMITIVES.update(_mana_persistent_replacements48.PRIMITIVES)
+
+
+from app.rules import counter_alternatives50 as _counter_alternatives50  # noqa: E402
+
+PRIMITIVES.update(_counter_alternatives50.PRIMITIVES)
+
+from app.rules import trigger_leaf54_staged as _trigger_leaf54  # noqa: E402
+
+PRIMITIVES["arbiter_highest54"] = _trigger_leaf54.arbiter_highest
+
+from app.rules import trigger_leaf57_staged as _trigger_leaf57  # noqa: E402
+
+PRIMITIVES["lammasu_unsuspect57"] = _trigger_leaf57.unsuspect
+
+
+from app.rules import counter_event_packets50 as _counter_event_packets50  # noqa: E402
+
+PRIMITIVES.update(_counter_event_packets50.PRIMITIVES)

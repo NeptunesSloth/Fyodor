@@ -1,0 +1,115 @@
+[
+  {
+    "name": "Jokulmorder",
+    "mana_cost": "{4}{U}{U}{U}",
+    "cmc": 7.0,
+    "type_line": "Creature \u2014 Leviathan",
+    "oracle_text": "Trample\nThis creature enters tapped.\nWhen this creature enters, sacrifice it unless you sacrifice five lands.\nThis creature doesn't untap during your untap step.\nWhenever you play an Island, you may untap this creature.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Trample"
+    ],
+    "power": "12",
+    "toughness": "12"
+  },
+  {
+    "name": "Indentured Djinn",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Djinn",
+    "oracle_text": "Flying\nWhen this creature enters, each other player may draw up to three cards.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "power": "4",
+    "toughness": "4"
+  },
+  {
+    "name": "Ichneumon Druid",
+    "mana_cost": "{1}{G}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Druid",
+    "oracle_text": "Whenever an opponent casts an instant spell other than the first instant spell that player casts each turn, this creature deals 4 damage to that player.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "power": "1",
+    "toughness": "1"
+  },
+  {
+    "name": "Notion Thief",
+    "mana_cost": "{2}{U}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Rogue",
+    "oracle_text": "Flash\nIf an opponent would draw a card except the first one they draw in each of their draw steps, instead that player skips that draw and you draw a card.",
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "power": "3",
+    "toughness": "1"
+  },
+  {
+    "name": "Narset, Parter of Veils",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker \u2014 Narset",
+    "oracle_text": "Each opponent can't draw more than one card each turn.\n\u22122: Look at the top four cards of your library. You may reveal a noncreature, nonland card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "loyalty": "5"
+  },
+  {
+    "name": "Spirit of the Labyrinth",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment Creature \u2014 Spirit",
+    "oracle_text": "Each player can't draw more than one card each turn.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "power": "3",
+    "toughness": "1"
+  },
+  {
+    "name": "Alhammarret's Archive",
+    "mana_cost": "{5}",
+    "cmc": 5.0,
+    "type_line": "Legendary Artifact",
+    "oracle_text": "If you would gain life, you gain twice that much life instead.\nIf you would draw a card except the first one you draw in each of your draw steps, draw two cards instead.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  }
+]

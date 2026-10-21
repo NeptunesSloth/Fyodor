@@ -57,13 +57,23 @@ def _num(value: str | None) -> int | None:
         return None
 
 
-def affecting(state: GameState, card: CardInstance) -> list[ContinuousEffect]:
+def spell_entry(state: GameState, card: CardInstance, info: CardInfo | None) -> bool:
+    """400.7a: live effects on a native permanent spell follow its battlefield entry."""
+    if info is None or state.rules is None or not card.zone.endswith(':battlefield'):
+        return False
+    original = state.cards.get(card.id)
+    entry = state.rules.stack.get(card.id)
+    return bool(original is not None and original.zone == 'stack' and original.ability is None
+                and (entry is None or entry.kind == 'spell') and copiable(state, original, info).is_permanent_card)
+
+
+def affecting(state: GameState, card: CardInstance, info: CardInfo | None = None) -> list[ContinuousEffect]:
     new_object = False
     probe = _T.probe
     if probe is not None and (state is probe.origin or state is probe.state) and card.id == probe.incoming.id:
         state = probe.origin
         original = state.cards.get(card.id)
-        new_object = original is None or not original.zone.endswith(":battlefield")
+        new_object = (original is None or not original.zone.endswith(":battlefield")) and not spell_entry(state, card, info)
     r = state.rules
     # (-- color lace (wave 46B) -- a spell on the stack is affected too: "Target spell or permanent becomes blue" locks in the spell, 611.2c)
     if r is None:
@@ -953,7 +963,7 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
                  object_counters=frozenset(k for k, n in card.counters.items() if n > 0),
                  object_ring_bearer=bool(state.rules and card.zone.endswith(":battlefield")
                                          and state.rules.ring_bearers.get(card.controller) == state.rules.object_id(card.id)))
-    effects = affecting(state, card)
+    effects = affecting(state, card, info)
     each_amounts: dict[int, int] = {}
     attached45 = _attached45(state, card, info)  # -- attached events (wave 4L) -- "Enchanted creature is a … creature"
     ch = name_changes(ch, effects, attached45)

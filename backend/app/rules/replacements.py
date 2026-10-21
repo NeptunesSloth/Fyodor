@@ -115,7 +115,8 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, **kw: Any) -> di
 
 def _entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bool | None = None,
                tapped: bool = False, answers: dict[str, str] | None = None, x: int | None = None,
-               extra: dict[str, int] | None = None, reserved: set[str] | None = None, bare: bool = False) -> dict[str, Any]:
+               extra: dict[str, int] | None = None, reserved: set[str] | None = None, bare: bool = False,
+               tapped_if_land: bool = False) -> dict[str, Any]:
     """How the permanent's own replacement effects modify its entering: {"tapped": bool, "life": N
     (a shock land whose controller pays), "choices": {"color": "Blue", …} (its "As ~ enters, choose
     …" answers, ``answers``), "choice": {"life": N} | {"what": "color"} (the next thing still to be
@@ -127,6 +128,8 @@ def _entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bo
     the X it was cast with, counters the effect putting it there adds)."""
     out: dict[str, Any] = {"tapped": bool(tapped)}
     if bare:  # -- review 35 -- it enters with no abilities (``bare``: Xu-Ifit's ruling 2025-07-25): none of its own applies; others' still do (614.12)
+        if tapped_if_land and "Land" in plan.ch(card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})).types:
+            out["tapped"] = True
         out["tapped"] = out["tapped"] or others_enter_tapped(plan, card, controller)
         return out
     # -- copy system (wave 2F): "You may have ~ enter as a copy of …" (707.5, 614.12a): chosen first;
@@ -135,6 +138,8 @@ def _entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bo
 
     if copying.entering(plan, card, controller, answers, out):
         return out
+    if tapped_if_land and "Land" in plan.ch(card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})).types:
+        out["tapped"] = True
     # -- review (wave 22A) -- 614.12: the permanent as it would exist on the battlefield (Blood Moon, Humility: it has no such abilities)
     defs = [d for d in _definitions(plan, card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})).values()
             if d["kind"] == "replacement"]
@@ -481,7 +486,7 @@ def choice_needed(plan: Plan, card: CardInstance, entry: Entry) -> dict[str, Any
     if entry.get("modal_back"):  # -- play now (wave 28A) -- 712.12: the land face chosen enters face up, so its replacements apply
         card = card.model_copy(update={"face": 1})
     return entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped")),
-                      answers=entry.get("choices"), x=entry.get("x"), extra=_extra(entry, plan),
+                      answers=entry.get("choices"), x=entry.get("x"), extra=_extra(entry, plan), tapped_if_land=bool(entry.get("tapped_if_land")),
                       reserved=set(entry.get("reserved") or ()), bare=bool(entry.get("bare")), entry_characteristics=entry.get("entry_characteristics")).get("choice")  # (reserved: wave 5G)
 
 
@@ -746,7 +751,7 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
         # (-- transform, wave 11A -- 712.14a: it enters with its back face up, so that face's replacement effects apply)
         planned.append((entry, card, entry_plan(plan, card.model_copy(update={"face": 1}) if entry.get("transformed") or entry.get("modal_back") else card,
                                                  entry["player"], pay_life=entry.get("pay_life"),
-                                                 tapped=bool(entry.get("tapped")), answers=entry.get("choices"),
+                                                 tapped=bool(entry.get("tapped")), answers=entry.get("choices"), tapped_if_land=bool(entry.get("tapped_if_land")),
                                                  x=entry.get("x"), extra=_extra(entry, plan),
                                                  reserved=set(entry.get("reserved") or ()), bare=bool(entry.get("bare")), entry_characteristics=entry.get("entry_characteristics"))))  # (reserved: wave 5G)
     # -- entering for a cost (wave 5G) -- the payment first, or it goes to its owner's graveyard instead (614.6)

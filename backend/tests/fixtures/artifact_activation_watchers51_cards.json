@@ -1,0 +1,2433 @@
+[
+  {
+    "id": "587d6ac8-fad8-49e0-862e-636e06628ff9",
+    "oracle_id": "5c641df8-97d7-484b-8d0e-790279fd6177",
+    "name": "Artifact Possession",
+    "layout": "normal",
+    "set_code": "atq",
+    "set_name": "Antiquities",
+    "collector_number": "15",
+    "rarity": "common",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Enchantment — Aura",
+    "oracle_text": "Enchant artifact\nWhenever enchanted artifact becomes tapped or a player activates an ability of enchanted artifact without {T} in its activation cost, this Aura deals 2 damage to that artifact's controller.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1994-03-04",
+    "artist": "Christopher Rush",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "f79de5e7-1545-420c-bfe1-ee2444fca85b",
+    "oracle_id": "6b8cf2a0-b045-4d91-9d91-c602d40c6237",
+    "name": "Basalt Monolith",
+    "layout": "normal",
+    "set_code": "2xm",
+    "set_name": "Double Masters",
+    "collector_number": "232",
+    "rarity": "uncommon",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "This artifact doesn't untap during your untap step.\n{T}: Add {C}{C}{C}.\n{3}: Untap this artifact.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-08-07",
+    "artist": "Yeong-Hao Han",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "5b087992-9c30-4434-acb3-a12ee6f207b3",
+    "oracle_id": "5d0f4665-aa10-4251-b590-129b59274fb3",
+    "name": "Clock of Omens",
+    "layout": "normal",
+    "set_code": "m13",
+    "set_name": "Magic 2013",
+    "collector_number": "202",
+    "rarity": "uncommon",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "Tap two untapped artifacts you control: Untap target artifact.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2012-07-13",
+    "artist": "Ryan Yee",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "e4ed0052-d6dd-4f69-8313-10863baefac9",
+    "oracle_id": "0a79237e-0811-4a8a-bd4d-db3ca91bff22",
+    "name": "Everflowing Chalice",
+    "layout": "normal",
+    "set_code": "eoc",
+    "set_name": "Edge of Eternities Commander",
+    "collector_number": "137",
+    "rarity": "uncommon",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact",
+    "oracle_text": "Multikicker {2} (You may pay an additional {2} any number of times as you cast this spell.)\nThis artifact enters with a charge counter on it for each time it was kicked.\n{T}: Add {C} for each charge counter on this artifact.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Multikicker"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-08-01",
+    "artist": "Steve Argyle",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "9ddc9fe1-17c8-4e1d-aeb8-c4214e881280",
+    "oracle_id": "229d6627-1292-4ae1-8849-b0f956fa6540",
+    "name": "Grim Monolith",
+    "layout": "normal",
+    "set_code": "ulg",
+    "set_name": "Urza's Legacy",
+    "collector_number": "126",
+    "rarity": "rare",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "This artifact doesn't untap during your untap step.\n{T}: Add {C}{C}{C}.\n{4}: Untap this artifact.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1999-02-15",
+    "artist": "Chippy",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "a2f6ef2f-a3a2-4e1f-b7eb-59abc8414114",
+    "oracle_id": "cbd2d38b-6402-44b7-ba27-d854268e31d0",
+    "name": "Haunting Wind",
+    "layout": "normal",
+    "set_code": "atq",
+    "set_name": "Antiquities",
+    "collector_number": "17",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever an artifact becomes tapped or a player activates an artifact's ability without {T} in its activation cost, this enchantment deals 1 damage to that artifact's controller.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1994-03-04",
+    "artist": "Jeff A. Menges",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "63bacc32-d6ba-420c-9b49-299c08e5fb39",
+    "oracle_id": "ee6099b0-fb1f-42f1-b862-7708c6e36d05",
+    "name": "Lion's Eye Diamond",
+    "layout": "normal",
+    "set_code": "mir",
+    "set_name": "Mirage",
+    "collector_number": "307",
+    "rarity": "rare",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact",
+    "oracle_text": "Discard your hand, Sacrifice this artifact: Add three mana of any one color. Activate only as an instant.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1996-10-08",
+    "artist": "Margaret Organ-Kean",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "b2279cb1-089f-4c41-ae96-41837ed57822",
+    "oracle_id": "32e5339e-9e4f-46f8-b305-f9d6d3ba8bb5",
+    "name": "Lotus Petal",
+    "layout": "normal",
+    "set_code": "mps",
+    "set_name": "Kaladesh Inventions",
+    "collector_number": "15",
+    "rarity": "special",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}, Sacrifice this artifact: Add one mana of any color.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2016-09-30",
+    "artist": "Slawomir Maniak",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "469cc4e0-49c0-4009-97ea-28e44addec69",
+    "oracle_id": "7663ac7c-1de3-4250-b96a-fae9dbd66a27",
+    "name": "Memnite",
+    "layout": "normal",
+    "set_code": "som",
+    "set_name": "Scars of Mirrodin",
+    "collector_number": "174",
+    "rarity": "uncommon",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature — Construct",
+    "oracle_text": "",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2010-10-01",
+    "artist": "Svetlin Velinov",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "4892c152-1f4a-4616-8e7f-0ca4911e621a",
+    "oracle_id": "ad97333e-733c-402f-8ca3-e836c96b843c",
+    "name": "Pili-Pala",
+    "layout": "normal",
+    "set_code": "shm",
+    "set_name": "Shadowmoor",
+    "collector_number": "258",
+    "rarity": "common",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact Creature — Scarecrow",
+    "oracle_text": "Flying\n{2}, {Q}: Add one mana of any color. ({Q} is the untap symbol.)",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2008-05-02",
+    "artist": "Ron Spencer",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "ae1d7b09-3a1f-410f-b330-04ae768b0455",
+    "oracle_id": "877d42be-f74d-4521-87b7-bb59824d0acc",
+    "name": "Powerleech",
+    "layout": "normal",
+    "set_code": "atq",
+    "set_name": "Antiquities",
+    "collector_number": "34",
+    "rarity": "uncommon",
+    "mana_cost": "{G}{G}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever an artifact an opponent controls becomes tapped or an opponent activates an artifact's ability without {T} in its activation cost, you gain 1 life.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1994-03-04",
+    "artist": "Christopher Rush",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "702c4781-670b-49ae-b511-90ed119841b0",
+    "oracle_id": "711eea87-0fa3-46e0-a42b-fa5a86455f04",
+    "name": "Shivan Dragon",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "763",
+    "rarity": "uncommon",
+    "mana_cost": "{4}{R}{R}",
+    "cmc": 6.0,
+    "type_line": "Creature — Dragon",
+    "oracle_text": "Flying\n{R}: This creature gets +1/+0 until end of turn.",
+    "power": "5",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-04-24",
+    "artist": "Donato Giancola",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "2a43b352-d84b-4714-bbcd-3ad282c8aa9d",
+        "name": "Sarkhan, Wanderer to Shiv",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "2680ed41-da35-475a-9d80-ae2f4686feed",
+    "oracle_id": "49136bdc-bc50-49a2-999a-1ef9c16ea130",
+    "name": "Smuggler's Copter",
+    "layout": "normal",
+    "set_code": "nec",
+    "set_name": "Neon Dynasty Commander",
+    "collector_number": "160",
+    "rarity": "rare",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact — Vehicle",
+    "oracle_text": "Flying\nWhenever this Vehicle attacks or blocks, you may draw a card. If you do, discard a card.\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying",
+      "Crew"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-02-18",
+    "artist": "Florian de Gesincourt",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "4f152dd9-2b35-45b2-90fe-8c71d0634226",
+    "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487",
+    "name": "Sol Ring",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "286",
+    "rarity": "uncommon",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Mike Bierek",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "03992f88-7a15-4234-9bed-b7617d7ff09c",
+    "oracle_id": "3c549374-6c37-42e0-8d88-a8555d46732d",
+    "name": "Treasure",
+    "layout": "token",
+    "set_code": "tfra",
+    "set_name": "Reality Fracture Tokens",
+    "collector_number": "15",
+    "rarity": "common",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Token Artifact — Treasure",
+    "oracle_text": "{T}, Sacrifice this token: Add one mana of any color.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": true,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Alayna Danner",
+    "commander_legal": "not_legal",
+    "related_tokens": [
+      {
+        "id": "bb4ac08f-f6a5-49d6-91e9-38c4f217932b",
+        "name": "Smaug",
+        "type_line": "Token Legendary Creature — Dragon"
+      },
+      {
+        "id": "0d9461c3-f545-4efb-926e-759961db0495",
+        "name": "Goblin Shaman",
+        "type_line": "Token Creature — Goblin Shaman"
+      },
+      {
+        "id": "5eb01bef-8989-4b38-a303-0aafab1b33e5",
+        "name": "Smoke Blessing",
+        "type_line": "Token Enchantment — Aura"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "f679da19-5dac-4be6-983d-fee7e80cdb9c",
+        "name": "Ruthless Knave",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7ba507e2-fe5e-4947-aada-20184aa09700",
+        "name": "Surly Badgersaur",
+        "component": "combo_piece"
+      },
+      {
+        "id": "86c65c7f-c440-482d-964d-175c75ca4458",
+        "name": "Beza, the Bounding Spring",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5c45a5b1-d5d4-41cb-8d86-e3a54cf2808c",
+        "name": "Gluntch, the Bestower",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2443cb94-b27e-4a96-93cb-ac7880149bcc",
+        "name": "Beamtown Beatstick",
+        "component": "combo_piece"
+      },
+      {
+        "id": "d5a53791-d4e9-49e9-9daf-c8b378925afe",
+        "name": "Professional Face-Breaker",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2b689d91-1ac0-474b-ae58-2c320e1af5e4",
+        "name": "Bejeweled Warg",
+        "component": "combo_piece"
+      },
+      {
+        "id": "4a0c9cb4-d761-4015-8e43-4aff4da9928b",
+        "name": "Don Andres, the Renegade",
+        "component": "combo_piece"
+      },
+      {
+        "id": "f4f16314-d2eb-4117-8b28-4404c82e7343",
+        "name": "Kingpin, Wilson Fisk",
+        "component": "combo_piece"
+      },
+      {
+        "id": "271b249a-2cca-4a52-bbff-0f44f0ab51f9",
+        "name": "Rapacious Dragon",
+        "component": "combo_piece"
+      },
+      {
+        "id": "89241e80-3637-4ea0-afb4-14e5a22aa393",
+        "name": "Megaton's Fate",
+        "component": "combo_piece"
+      },
+      {
+        "id": "dfd3a839-8f73-4fa2-afd6-d5185fe14f4f",
+        "name": "Bloodroot Apothecary",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2018a8e6-7699-440f-94d5-91cf6ac3edb5",
+        "name": "Treasure Map // Treasure Cove",
+        "component": "combo_piece"
+      },
+      {
+        "id": "0add67db-e26a-419a-aa1d-841460c5f69e",
+        "name": "Boxing Ring",
+        "component": "combo_piece"
+      },
+      {
+        "id": "09b82084-87c9-4131-b604-d595d38d045a",
+        "name": "Xorn",
+        "component": "combo_piece"
+      },
+      {
+        "id": "573857cf-2afe-455e-a0e3-b67a465d4f4e",
+        "name": "Halo Scarab",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7a5e84d8-ac85-4aef-9373-4d26f9f11c85",
+        "name": "Descent into Avernus",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2a363b0d-294e-4d43-a793-b90de0734390",
+        "name": "Lotho, Corrupt Shirriff",
+        "component": "combo_piece"
+      },
+      {
+        "id": "60a1e6e9-5e5f-4431-9732-fd313df843df",
+        "name": "Brazen Freebooter",
+        "component": "combo_piece"
+      },
+      {
+        "id": "573c0f68-9ed8-4657-b709-b7f3804aaa68",
+        "name": "Most Wanted",
+        "component": "combo_piece"
+      },
+      {
+        "id": "1d632bef-ee93-4690-9c6d-07f70d18572a",
+        "name": "Crossover Collaboration",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7839cdc8-0cc9-4a17-9642-fb23f6e0be06",
+        "name": "Smothering Tithe",
+        "component": "combo_piece"
+      },
+      {
+        "id": "480d639d-871d-4da3-9ae1-41bd5cef81db",
+        "name": "Breeches, Eager Pillager",
+        "component": "combo_piece"
+      },
+      {
+        "id": "b835e0c3-7d63-402e-8752-7e55e974b777",
+        "name": "Smuggler's Share",
+        "component": "combo_piece"
+      },
+      {
+        "id": "1a3d70d2-0604-41b3-8dd1-bfeb05832271",
+        "name": "Glittermonger",
+        "component": "combo_piece"
+      },
+      {
+        "id": "ac736037-113f-4e4b-8b97-7b2300b0d276",
+        "name": "Master of Ceremonies",
+        "component": "combo_piece"
+      },
+      {
+        "id": "c6ee59c0-6e62-4f41-a27d-a54d25df1e32",
+        "name": "Lobelia Sackville-Baggins",
+        "component": "combo_piece"
+      },
+      {
+        "id": "aafb10ba-5e51-438a-958b-ded0896a0acc",
+        "name": "Hoard Robber",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7c502480-111e-46a3-9f2f-9c4901d88323",
+        "name": "Mahadi, Emporium Master",
+        "component": "combo_piece"
+      },
+      {
+        "id": "6704e4c9-3b5e-4ba5-a5bc-6d684e2983e9",
+        "name": "Wanted Scoundrels",
+        "component": "combo_piece"
+      },
+      {
+        "id": "8213f299-0f6e-499f-ba8e-7e297965d482",
+        "name": "Prosper, Tome-Bound",
+        "component": "combo_piece"
+      },
+      {
+        "id": "1b49b009-e6f2-494a-9235-f5c25c2d70a9",
+        "name": "Gleaming Barrier",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5091e2bd-247d-4a1d-adf4-6e66324ee20b",
+        "name": "Smaug, Wicked Worm",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2db27c67-0462-474c-844b-4f69d8fe6734",
+        "name": "Rocketeer Boostbuggy",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5841c3d5-afdc-4a5e-8b1b-40f4b71b80d1",
+        "name": "Alicia Masters, Skilled Sculptor",
+        "component": "combo_piece"
+      },
+      {
+        "id": "d2709d91-4235-482c-b9b3-ac5d61cb5bcb",
+        "name": "Oath of the Grey Host",
+        "component": "combo_piece"
+      },
+      {
+        "id": "9a3dfaeb-6ab9-45a2-9e8c-1603da1cd49d",
+        "name": "An Offer You Can't Refuse",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7c3aeedd-d41b-44c9-9b0a-e5952202f632",
+        "name": "Captain Lannery Storm",
+        "component": "combo_piece"
+      },
+      {
+        "id": "c85c5f06-dd31-4e2c-97be-2f64d65069ea",
+        "name": "Goblin Glasswright // Craft with Pride",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5c04ec8b-967e-4ad3-b11b-eebb09821d8f",
+        "name": "Vaan, Street Thief",
+        "component": "combo_piece"
+      },
+      {
+        "id": "914d431e-62f9-46bd-aa9d-94c71ac33155",
+        "name": "Hoard Hauler",
+        "component": "combo_piece"
+      },
+      {
+        "id": "baa74204-2593-4468-856d-a5791336126a",
+        "name": "Herald of Hadar",
+        "component": "combo_piece"
+      },
+      {
+        "id": "ad8f033f-2626-44f0-b549-f0b2777731c3",
+        "name": "Undercity Scrounger",
+        "component": "combo_piece"
+      },
+      {
+        "id": "fc66083f-1ddf-4045-b58e-a505e24dbbc9",
+        "name": "Glóin, Dwarf Emissary",
+        "component": "combo_piece"
+      },
+      {
+        "id": "b352f4df-b2a0-4fe9-8c96-c53208f08379",
+        "name": "Exit Through the Grift Shop",
+        "component": "combo_piece"
+      },
+      {
+        "id": "383bde13-c24c-4c3c-bc10-72287aae74de",
+        "name": "Prosperous Bandit",
+        "component": "combo_piece"
+      },
+      {
+        "id": "3e84ff6c-0380-4dec-879d-610876b2f57d",
+        "name": "Done for the Day",
+        "component": "combo_piece"
+      },
+      {
+        "id": "f6d25476-cab1-4035-843f-19da73c4dac7",
+        "name": "The Third Doctor",
+        "component": "combo_piece"
+      },
+      {
+        "id": "baf4c9dd-0546-41ac-a7ba-0bc312fef31e",
+        "name": "Meticulous Artisan",
+        "component": "combo_piece"
+      },
+      {
+        "id": "3baebc29-bc89-4b56-a821-b5d3ca0cd3b4",
+        "name": "Goldvein Hydra",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a2e415da-08a4-4b37-af5a-5a321b116ac7",
+        "name": "Widespread Thieving",
+        "component": "combo_piece"
+      },
+      {
+        "id": "0cd92a83-cec3-4085-a929-3f204e3e0140",
+        "name": "Blooming Blast",
+        "component": "combo_piece"
+      },
+      {
+        "id": "4f60ac5b-b16b-451d-8ae6-4ee8e375a198",
+        "name": "Bilbo, Retired Burglar",
+        "component": "combo_piece"
+      },
+      {
+        "id": "c2a0530f-7b72-4a33-8eec-bcd75d9c3045",
+        "name": "Hullbreacher",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2e391516-e04f-4432-aaa2-ee90ee564330",
+        "name": "Young Red Dragon // Bathe in Gold",
+        "component": "combo_piece"
+      },
+      {
+        "id": "8c9ac05f-f47c-4569-a06e-793d28cbb936",
+        "name": "Buy Your Silence",
+        "component": "combo_piece"
+      },
+      {
+        "id": "8e4cfc1f-5075-481e-9314-8a99fe6f0f07",
+        "name": "Inspired Tinkering",
+        "component": "combo_piece"
+      },
+      {
+        "id": "6f509dbe-6ec7-4438-ab36-e20be46c9922",
+        "name": "Dungeon of the Mad Mage",
+        "component": "combo_piece"
+      },
+      {
+        "id": "02242155-5612-4be7-b4db-c94f3ff34383",
+        "name": "City of Death",
+        "component": "combo_piece"
+      },
+      {
+        "id": "9dbfddcb-6f88-4d6a-9f03-248d7b86e567",
+        "name": "Fain, the Broker",
+        "component": "combo_piece"
+      },
+      {
+        "id": "b66bccde-c32f-4daa-89a9-a6561e9fdac7",
+        "name": "Wish Good Luck",
+        "component": "combo_piece"
+      },
+      {
+        "id": "76e64d7f-2259-411a-ac01-365f60debf08",
+        "name": "Baeloth Barrityl, Entertainer",
+        "component": "combo_piece"
+      },
+      {
+        "id": "61a89566-06c1-404f-8217-e5276e2dc5a2",
+        "name": "Ant-Man's Army",
+        "component": "combo_piece"
+      },
+      {
+        "id": "e7b630d4-4088-4811-bcff-df2fa1e66ab8",
+        "name": "Visions of Ruin",
+        "component": "combo_piece"
+      },
+      {
+        "id": "756a8e0a-f76e-4947-ac67-bc76d6fe98a6",
+        "name": "Heap Gate",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2c65185b-6cf0-451d-985e-56aa45d9a57d",
+        "name": "Undercity // The Initiative",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a71d1ec3-2d7a-4749-8936-8bf7a8b83d84",
+        "name": "Ragavan, Nimble Pilferer",
+        "component": "combo_piece"
+      },
+      {
+        "id": "ba53327b-1790-4fd4-9232-0eaaf4c5257d",
+        "name": "Puppet Master, String Puller",
+        "component": "combo_piece"
+      },
+      {
+        "id": "be11af2c-ced6-4da7-a56c-60cef97b7fbb",
+        "name": "The Reaver Cleaver",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5bb2552f-8370-4931-83e1-93706d51413a",
+        "name": "Plundering Pirate",
+        "component": "combo_piece"
+      },
+      {
+        "id": "08d9fdda-c665-4e9a-9e9e-d9fec6f275b8",
+        "name": "Vraska, Relic Seeker",
+        "component": "combo_piece"
+      },
+      {
+        "id": "03a2c40d-6adb-4ad7-ba8e-3954d33f0e09",
+        "name": "The Golden City of Orazca",
+        "component": "combo_piece"
+      },
+      {
+        "id": "e571614b-cef1-4e44-bfe4-0029db9694eb",
+        "name": "Treasure Vault",
+        "component": "combo_piece"
+      },
+      {
+        "id": "f9d25b34-990d-416c-aef7-1b5a73f19dd4",
+        "name": "Namazu Trader",
+        "component": "combo_piece"
+      },
+      {
+        "id": "4156e1cc-ee40-4753-adf8-47b948cf7eb8",
+        "name": "Seize the Spotlight",
+        "component": "combo_piece"
+      },
+      {
+        "id": "338380ba-8415-40a2-8b81-2b30218ea16a",
+        "name": "Magda, Brazen Outlaw",
+        "component": "combo_piece"
+      },
+      {
+        "id": "51cef04a-fa47-4f82-8772-76d4bc82bada",
+        "name": "Luke Cage, Hero for Hire",
+        "component": "combo_piece"
+      },
+      {
+        "id": "8a5381e7-ddda-47e7-886d-812250ffb745",
+        "name": "Professional Wrestler",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5bd26d24-a468-4f64-9cd0-3e1755b87ae9",
+        "name": "Treasure Chest",
+        "component": "combo_piece"
+      },
+      {
+        "id": "829af103-68b4-4a4b-94b4-d272b38e45cd",
+        "name": "Crack Open",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5cf4fee3-3059-4ca4-a47d-0848410b294d",
+        "name": "Malik, Grim Manipulator",
+        "component": "combo_piece"
+      },
+      {
+        "id": "249bf4b2-9239-4303-9c5d-81d06f6b7fb1",
+        "name": "Gadrak, the Crown-Scourge",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a954ac22-8236-4821-a29d-0da60993d6c7",
+        "name": "Pain Distributor",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a18088e7-9bad-40d1-af40-d9a65847d1cd",
+        "name": "Pick-a-Beeble",
+        "component": "combo_piece"
+      },
+      {
+        "id": "b18492fa-5b44-40aa-bf1d-1c8c4676b465",
+        "name": "Song of Eärendil",
+        "component": "combo_piece"
+      },
+      {
+        "id": "15845be1-919d-4450-9de6-3552c52e8623",
+        "name": "Gold Rush",
+        "component": "combo_piece"
+      },
+      {
+        "id": "d86fa72c-25c1-43ef-9cb0-fe76f7568ed3",
+        "name": "Deadly Dispute",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7f380fcd-dbd8-4d30-a332-7627d51b237f",
+        "name": "Ignacio of Myra's Marvels",
+        "component": "combo_piece"
+      },
+      {
+        "id": "37759556-ea31-47b4-8457-a83d17a51e28",
+        "name": "Heroes for Hire",
+        "component": "combo_piece"
+      },
+      {
+        "id": "df81568b-c66a-49c6-bd48-7df98ea00117",
+        "name": "Mastermind Plum",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2778b8a2-4487-4941-a7b2-1f969c4e1c48",
+        "name": "Black Market Tycoon",
+        "component": "combo_piece"
+      },
+      {
+        "id": "8ab5152d-767a-47d5-acfc-f439810aaeea",
+        "name": "Riveteers Requisitioner",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2acceef2-ee34-4cce-a69a-d31aa11f9ca4",
+        "name": "Jewel Thief",
+        "component": "combo_piece"
+      },
+      {
+        "id": "63c25ee8-f0b3-4dda-834f-cdf6e8fbf98d",
+        "name": "Forging the Tyrite Sword",
+        "component": "combo_piece"
+      },
+      {
+        "id": "10b2b8ca-7433-4bfe-abab-e19128e46a1d",
+        "name": "Patron of the Arts",
+        "component": "combo_piece"
+      },
+      {
+        "id": "f6cbc754-8aed-4c32-857c-ea639943b5d2",
+        "name": "Ancient Copper Dragon",
+        "component": "combo_piece"
+      },
+      {
+        "id": "374e1c0d-1dcc-4214-828a-624ef1af826a",
+        "name": "Unexpected Windfall",
+        "component": "combo_piece"
+      },
+      {
+        "id": "4a0e558d-cfd7-4ecf-b951-50016e8cc569",
+        "name": "The Western Cloud",
+        "component": "combo_piece"
+      },
+      {
+        "id": "1956d6c4-4dca-4110-8de3-a31a1e4ec98f",
+        "name": "Urabrask // The Great Work",
+        "component": "combo_piece"
+      },
+      {
+        "id": "1ec1a02f-128c-44aa-b708-6fcda34b40c0",
+        "name": "Deadly Derision",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a3ce857f-2870-4dc9-a763-9ce710e4b375",
+        "name": "Marut",
+        "component": "combo_piece"
+      },
+      {
+        "id": "b0c1244b-7d40-4ec1-9347-55870c3f5644",
+        "name": "Ruthless Technomancer",
+        "component": "combo_piece"
+      },
+      {
+        "id": "55e6c31b-f9e9-4e42-a875-985d99300d9d",
+        "name": "Olivia, Opulent Outlaw",
+        "component": "combo_piece"
+      },
+      {
+        "id": "84933e48-8b10-4ccf-a7e8-140fbb9c0c9b",
+        "name": "Spectrox Mines",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5185dfce-d3ad-4509-b356-f6750d7c6a09",
+        "name": "New New York",
+        "component": "combo_piece"
+      },
+      {
+        "id": "b13143d7-cdc0-4703-a1b4-d4563f03b964",
+        "name": "Kalain, Reclusive Painter",
+        "component": "combo_piece"
+      },
+      {
+        "id": "e1ec41d4-0180-42f7-9c54-f3c39b4ffb8d",
+        "name": "Pictures of Spider-Man",
+        "component": "combo_piece"
+      },
+      {
+        "id": "adaf463b-8d09-4c2e-ab3d-278d9a9dac24",
+        "name": "Life Insurance",
+        "component": "combo_piece"
+      },
+      {
+        "id": "f7b07542-b347-43ca-8203-cbf648d5426c",
+        "name": "Mary Read and Anne Bonny",
+        "component": "combo_piece"
+      },
+      {
+        "id": "8eb98381-8418-4dfd-b7d1-4353570e611b",
+        "name": "Redrock Sentinel",
+        "component": "combo_piece"
+      },
+      {
+        "id": "0f18d0a0-c9b8-44db-a274-0b1dc93bfb7b",
+        "name": "Atsushi, the Blazing Sky",
+        "component": "combo_piece"
+      },
+      {
+        "id": "10882e5b-4f49-45fd-ba15-fee54adaa47d",
+        "name": "Diamond Pick-Axe",
+        "component": "combo_piece"
+      },
+      {
+        "id": "616b606a-e7c2-461c-989c-b5e74b424849",
+        "name": "Village Pillagers",
+        "component": "combo_piece"
+      },
+      {
+        "id": "99ec58f0-494d-46bb-a49e-265a6d852244",
+        "name": "Petty Larceny",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a29d33b2-cabf-4623-8729-576a9a588781",
+        "name": "Vraska, the Cutting Glare",
+        "component": "combo_piece"
+      },
+      {
+        "id": "ce06cd3c-1003-4586-8bac-0da6eec955e2",
+        "name": "Scion of Opulence",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5e354fe8-fc03-42a0-8795-3d267fea9da0",
+        "name": "Mines of Moria",
+        "component": "combo_piece"
+      },
+      {
+        "id": "d2f60ad0-c887-4585-85f8-afcf72fb80d0",
+        "name": "Dori, Bearer of Friends",
+        "component": "combo_piece"
+      },
+      {
+        "id": "1a5bb429-104a-44e1-ab8a-7f251b6c93d1",
+        "name": "Seize the Spoils",
+        "component": "combo_piece"
+      },
+      {
+        "id": "354116d9-a04d-4bd9-9d99-8f29d94b6e80",
+        "name": "Magmatic Galleon",
+        "component": "combo_piece"
+      },
+      {
+        "id": "63a7a1a4-aec2-467d-91a1-1a2605718c7c",
+        "name": "Deadeye Plunderers",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2fb8dace-c604-40fc-bbd4-5add5deb041a",
+        "name": "Alchemist's Talent",
+        "component": "combo_piece"
+      },
+      {
+        "id": "506b9df7-8236-4c6e-aebc-6b7e6fcd7e88",
+        "name": "Dragon-Cursed Halls",
+        "component": "combo_piece"
+      },
+      {
+        "id": "59b11ff8-f118-4978-87dd-509dc0c8c932",
+        "name": "Lost Mine of Phandelver",
+        "component": "combo_piece"
+      },
+      {
+        "id": "19cfacff-e884-4954-aa6b-ed56ca942bf2",
+        "name": "Mine Raider",
+        "component": "combo_piece"
+      },
+      {
+        "id": "34274e5e-31e4-4e4d-9ff9-04074214a60e",
+        "name": "Decadent Dragon // Expensive Taste",
+        "component": "combo_piece"
+      },
+      {
+        "id": "6b4b3c1a-671c-422d-a98c-7d750760ca46",
+        "name": "Mari, the Killing Quill",
+        "component": "combo_piece"
+      },
+      {
+        "id": "55685602-a18c-43a4-ac60-13b039672fa4",
+        "name": "Gilded Ghoda",
+        "component": "combo_piece"
+      },
+      {
+        "id": "3fd4df96-c4f8-4753-8aa5-8cee60b00853",
+        "name": "Season of the Bold",
+        "component": "combo_piece"
+      },
+      {
+        "id": "ad45720e-2870-414d-8119-8e48c5600d3b",
+        "name": "Prying Blade",
+        "component": "combo_piece"
+      },
+      {
+        "id": "84ff997f-4852-4533-af06-fef596337496",
+        "name": "Brass's Bounty",
+        "component": "combo_piece"
+      },
+      {
+        "id": "545afa4b-cb38-41f4-aa6e-ae27c43944d0",
+        "name": "Spiteful Repossession",
+        "component": "combo_piece"
+      },
+      {
+        "id": "771b032d-747b-46ee-bb54-2cdd3c73192a",
+        "name": "Skullport Merchant",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5a186ba3-94c1-4eab-8d4f-42a320bfa073",
+        "name": "Cloud, Ex-SOLDIER",
+        "component": "combo_piece"
+      },
+      {
+        "id": "81c75dbe-8666-4881-8f69-58da7504c4b1",
+        "name": "Swashbuckler Extraordinaire",
+        "component": "combo_piece"
+      },
+      {
+        "id": "bac6d214-87e8-4b39-ae22-8f0a69c9933c",
+        "name": "RMS Titanic",
+        "component": "combo_piece"
+      },
+      {
+        "id": "20d54b22-62e8-48ac-ba65-0bdbf42d6cad",
+        "name": "Iron Man, Titan of Innovation",
+        "component": "combo_piece"
+      },
+      {
+        "id": "58a49829-c354-4823-8cc1-a159fc46c0d7",
+        "name": "Prized Statue",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2866da1d-62e9-4a0d-9e6c-793d2d38c884",
+        "name": "Relic Retriever",
+        "component": "combo_piece"
+      },
+      {
+        "id": "c71f0329-27ec-463d-8fde-edbdc378ee0f",
+        "name": "Tavern Scoundrel",
+        "component": "combo_piece"
+      },
+      {
+        "id": "e1f67518-b5ea-4b9b-96b5-e01de054b348",
+        "name": "Vault Robber",
+        "component": "combo_piece"
+      },
+      {
+        "id": "ce8f708a-2b7b-48b9-88ae-70dd60007b3d",
+        "name": "Gemcutter Buccaneer",
+        "component": "combo_piece"
+      },
+      {
+        "id": "c75ee954-9a94-4be2-965d-58979a560827",
+        "name": "Dockside Extortionist",
+        "component": "combo_piece"
+      },
+      {
+        "id": "773813a8-723f-4c26-9e0a-a01b2faada98",
+        "name": "Thorin, King of Durin's Folk",
+        "component": "combo_piece"
+      },
+      {
+        "id": "bd5cc052-7175-4bb8-a52c-f1fb80cb731a",
+        "name": "Nuka-Cola Vending Machine",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5dea029b-ffc9-49d1-925c-b55a944d3439",
+        "name": "Prosperous Thief",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5ba1d8a7-2249-4c74-adb7-d13a9b347571",
+        "name": "Orochi Soul-Reaver",
+        "component": "combo_piece"
+      },
+      {
+        "id": "371f2362-13bc-444e-b775-9a4f7ced08d3",
+        "name": "Pirate's Prize",
+        "component": "combo_piece"
+      },
+      {
+        "id": "d1a1e520-1fe2-4529-8afb-c187bb80da3c",
+        "name": "Long-Bodied Grey Dog",
+        "component": "combo_piece"
+      },
+      {
+        "id": "545c98b3-dc78-4070-8dcb-f6a246abce09",
+        "name": "Tataru Taru",
+        "component": "combo_piece"
+      },
+      {
+        "id": "529ae7c1-320d-4625-ad64-c87678d51354",
+        "name": "Kain, Traitorous Dragoon",
+        "component": "combo_piece"
+      },
+      {
+        "id": "848c1951-90fa-4f01-9aed-76f1afcd9995",
+        "name": "Goldspan Dragon",
+        "component": "combo_piece"
+      },
+      {
+        "id": "54b65cca-7844-4d3e-9d7f-ed1f49f94425",
+        "name": "Knuckles the Echidna",
+        "component": "combo_piece"
+      },
+      {
+        "id": "b10b8f15-b323-44d8-85a7-ed662a40889d",
+        "name": "Hornswoggle",
+        "component": "combo_piece"
+      },
+      {
+        "id": "4c46b6c1-0c84-4bd3-b317-9b8191ad937e",
+        "name": "Kerblam! Warehouse",
+        "component": "combo_piece"
+      },
+      {
+        "id": "af6826db-29c2-446d-8a76-1faf87535c25",
+        "name": "Sarkhan, Dragon Ascendant",
+        "component": "combo_piece"
+      },
+      {
+        "id": "cb210e6e-fcd1-4ab7-9827-fa73fdce3825",
+        "name": "Teval's Judgment",
+        "component": "combo_piece"
+      },
+      {
+        "id": "853c8df2-75b2-403e-87a4-5e5aa43a31b8",
+        "name": "Storm the Vault // Vault of Catlacan",
+        "component": "combo_piece"
+      },
+      {
+        "id": "584774b5-640f-45e0-810b-f5faf119645b",
+        "name": "Discerning Financier",
+        "component": "combo_piece"
+      },
+      {
+        "id": "912fcd14-5e81-418c-997b-771f2f38f63d",
+        "name": "Reckless Lackey",
+        "component": "combo_piece"
+      },
+      {
+        "id": "fa1f1295-0b9c-45ac-beec-0850b970cd33",
+        "name": "Vazi, Keen Negotiator",
+        "component": "combo_piece"
+      },
+      {
+        "id": "82730ad9-26d1-4349-a1f0-10307d76ad97",
+        "name": "You've Been Caught Stealing",
+        "component": "combo_piece"
+      },
+      {
+        "id": "cbb4479f-3157-44b4-b18b-7553c7513118",
+        "name": "Exhibition Magician",
+        "component": "combo_piece"
+      },
+      {
+        "id": "65bd6ec3-7597-499b-8b69-fe7d50ece069",
+        "name": "Blood Money",
+        "component": "combo_piece"
+      },
+      {
+        "id": "cb2b9ee7-2a42-48cd-b7a1-661e082b6483",
+        "name": "Cataclysmic Prospecting",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5b402a0c-4861-4b58-83b6-c754624cb6ea",
+        "name": "Thorin, Company's Leader",
+        "component": "combo_piece"
+      },
+      {
+        "id": "1097e866-9d24-43b6-bafb-b6da05b47a30",
+        "name": "Pirate's Pillage",
+        "component": "combo_piece"
+      },
+      {
+        "id": "07054edd-0dff-4342-8ab9-d600417a329c",
+        "name": "Bonehoard Dracosaur",
+        "component": "combo_piece"
+      },
+      {
+        "id": "709ffd07-706c-471f-b74d-4637afa11686",
+        "name": "Stark Industries Executive",
+        "component": "combo_piece"
+      },
+      {
+        "id": "0669a2bb-11c7-45d8-9299-09246ff4e72c",
+        "name": "Loot Dispute",
+        "component": "combo_piece"
+      },
+      {
+        "id": "9cd2e253-db7c-4c34-8cd5-8aca28752a60",
+        "name": "Dire Fleet Hoarder",
+        "component": "combo_piece"
+      },
+      {
+        "id": "d9e8f74a-fb7d-4291-b3c0-72c1796f3c70",
+        "name": "Impulsive Pilferer",
+        "component": "combo_piece"
+      },
+      {
+        "id": "294796ea-c246-44f3-9cbe-25053388861b",
+        "name": "Hell to Pay",
+        "component": "combo_piece"
+      },
+      {
+        "id": "f3ad3d62-2f24-4562-b3fa-809213dbc4a4",
+        "name": "Involuntary Employment",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2b001fed-ddc8-461c-91bb-ef23aa405d6c",
+        "name": "Magda, the Hoardmaster",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7c3faae3-a117-4d59-bc19-c85ceffe6021",
+        "name": "Thieves' Tools",
+        "component": "combo_piece"
+      },
+      {
+        "id": "eb485579-49c4-4834-9fba-a8ae2dde86e9",
+        "name": "Grim Bounty",
+        "component": "combo_piece"
+      },
+      {
+        "id": "8f5b40a3-b79c-4b54-b06e-a1aff9e981ad",
+        "name": "Rankle and Torbran",
+        "component": "combo_piece"
+      },
+      {
+        "id": "c790770c-110d-4eb2-b9ae-3aa2bc745a9d",
+        "name": "Pinkie Pie",
+        "component": "combo_piece"
+      },
+      {
+        "id": "01feef77-ff30-4f77-892f-6bdae3f0d35c",
+        "name": "Spell Swindle",
+        "component": "combo_piece"
+      },
+      {
+        "id": "082193bc-51fc-4140-ace5-04b89049b66a",
+        "name": "Jolene, the Plunder Queen",
+        "component": "combo_piece"
+      },
+      {
+        "id": "34d75399-02e1-4ab8-9493-70c1d9d28b42",
+        "name": "Rev, Tithe Extractor",
+        "component": "combo_piece"
+      },
+      {
+        "id": "469de55b-1f1a-4421-b300-d209ddf4022d",
+        "name": "Impetuous Lootmonger",
+        "component": "combo_piece"
+      },
+      {
+        "id": "f8c1f3b2-2365-42c2-9383-9a05318fb1ff",
+        "name": "Typhoid Mary, Fractured",
+        "component": "combo_piece"
+      },
+      {
+        "id": "bd1a27c1-ff44-47a7-991d-c294e30eea34",
+        "name": "Zhentarim Bandit",
+        "component": "combo_piece"
+      },
+      {
+        "id": "e86b3ff8-799c-4ab5-bb19-07c480d1bc67",
+        "name": "Big Spender",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a770d7c1-565a-4cec-a4e3-dbb17b9a2b95",
+        "name": "Goldlust Triad",
+        "component": "combo_piece"
+      },
+      {
+        "id": "71cb7776-a6af-4efb-b536-6b9b4f3d3874",
+        "name": "Contested Game Ball",
+        "component": "combo_piece"
+      },
+      {
+        "id": "899e278d-5d4e-461a-9878-2b85de16b38d",
+        "name": "Burakos, Party Leader",
+        "component": "combo_piece"
+      },
+      {
+        "id": "4462f57d-5214-4b0e-a963-e0077741aad1",
+        "name": "Fae Offering",
+        "component": "combo_piece"
+      },
+      {
+        "id": "13faeba0-0536-4e29-ae56-d76c659e1e50",
+        "name": "Grim Hireling",
+        "component": "combo_piece"
+      },
+      {
+        "id": "dca8554a-f74c-4d2d-95b6-ef6e74431d7c",
+        "name": "Gilded Pinions",
+        "component": "combo_piece"
+      },
+      {
+        "id": "816683ec-cfd2-4a66-bb9d-a13c1ad60d1e",
+        "name": "Meet and Greet \"Sisay\"",
+        "component": "combo_piece"
+      },
+      {
+        "id": "0f4e60ea-4192-4388-8ad0-e5b3339eb872",
+        "name": "Vault 21: House Gambit",
+        "component": "combo_piece"
+      },
+      {
+        "id": "8bc5a0ac-5979-43ce-8a65-98c5f09f4aa6",
+        "name": "Tokka & Rahzar, Unsupervised",
+        "component": "combo_piece"
+      },
+      {
+        "id": "d06a1a70-aa26-4178-8486-e0a25c907cdb",
+        "name": "Heartless Pillage",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2bda3765-c56f-4b27-83f8-d01e16265328",
+        "name": "Old Rutstein",
+        "component": "combo_piece"
+      },
+      {
+        "id": "9af06057-9adc-4e75-96dc-334b4c5c345f",
+        "name": "Smoke Spirits' Aid",
+        "component": "combo_piece"
+      },
+      {
+        "id": "3d453f08-ed2c-447d-b5c1-b1f052c229d8",
+        "name": "Racketeer Boss",
+        "component": "combo_piece"
+      },
+      {
+        "id": "9cff1f97-01e8-4825-aff9-3c6bab10aaab",
+        "name": "Kellogg, Dangerous Mind",
+        "component": "combo_piece"
+      },
+      {
+        "id": "b4702fcd-49ac-49f1-b0b9-db38efa6ce8b",
+        "name": "Goblin Airbrusher",
+        "component": "combo_piece"
+      },
+      {
+        "id": "dc098aae-3d9b-453b-a37e-e102f81a8311",
+        "name": "Gold Pan",
+        "component": "combo_piece"
+      },
+      {
+        "id": "27083f9c-25c0-4f32-947a-08b976d0b06c",
+        "name": "Generous Plunderer",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a6470185-99f8-4b13-9bae-ef62c6d92d02",
+        "name": "Reckless Endeavor",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5eec4350-cd61-4520-98a4-4a14fcbc226f",
+        "name": "Marching Duodrone",
+        "component": "combo_piece"
+      },
+      {
+        "id": "f91355e4-097d-417b-9c26-e7e83d9ece3b",
+        "name": "Cavern-Hoard Dragon",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5363c881-443d-43df-afd8-f81e1a1741a2",
+        "name": "The Gold Saucer",
+        "component": "combo_piece"
+      },
+      {
+        "id": "c823cedc-8532-4e82-bb92-2c98aa266808",
+        "name": "Fountainport",
+        "component": "combo_piece"
+      },
+      {
+        "id": "fa178ed7-8f3a-45f0-817d-5fbc7993b04a",
+        "name": "Ticket Tortoise",
+        "component": "combo_piece"
+      },
+      {
+        "id": "d9a42082-615c-4387-a77c-97ee94153c57",
+        "name": "Volatile Fault",
+        "component": "combo_piece"
+      },
+      {
+        "id": "182e6da3-a356-43f0-9ce7-6e48c4b43ff0",
+        "name": "Ashling's Command",
+        "component": "combo_piece"
+      },
+      {
+        "id": "44420f52-2ed8-4f81-93e4-5decc77bed01",
+        "name": "Enterprising Scallywag",
+        "component": "combo_piece"
+      },
+      {
+        "id": "1ab8648e-2b50-47d4-830b-b5fa15df3ce2",
+        "name": "Poetic Ingenuity",
+        "component": "combo_piece"
+      },
+      {
+        "id": "f91b18ef-ac8a-4d4c-9586-b101681d33e2",
+        "name": "Currency Converter",
+        "component": "combo_piece"
+      },
+      {
+        "id": "0fd4a0f7-ba03-4158-95cd-4effe798aec0",
+        "name": "Magma Opus",
+        "component": "combo_piece"
+      },
+      {
+        "id": "673a67b2-fbb0-4be4-9edd-93946a583f23",
+        "name": "Flick a Coin",
+        "component": "combo_piece"
+      },
+      {
+        "id": "36bf9133-b991-4a65-996a-3cb304f7dc64",
+        "name": "The Belligerent",
+        "component": "combo_piece"
+      },
+      {
+        "id": "d27d79c3-7740-4a46-94c6-06e41956f464",
+        "name": "Treasure Dredger",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5d778bde-f927-419e-8052-6230562bdedd",
+        "name": "Prosperous Pirates",
+        "component": "combo_piece"
+      },
+      {
+        "id": "922e7133-855e-4a8f-9b5a-70e387693bee",
+        "name": "Charming Scoundrel",
+        "component": "combo_piece"
+      },
+      {
+        "id": "9aa1dfed-d250-4d0a-90ff-0d0f4bfb8ee2",
+        "name": "Spiked Pit Trap",
+        "component": "combo_piece"
+      },
+      {
+        "id": "55d35442-5ca0-4fd7-8ff1-b7347b3e6690",
+        "name": "Piggy Bank",
+        "component": "combo_piece"
+      },
+      {
+        "id": "dd408ccb-3578-4729-82a7-8a61af0fd32e",
+        "name": "Storm-Kiln Artist",
+        "component": "combo_piece"
+      },
+      {
+        "id": "6489955c-1571-41dd-9419-5c071a8b3e30",
+        "name": "North Pole Research Base",
+        "component": "combo_piece"
+      },
+      {
+        "id": "0082ca96-10f3-4823-be16-117556b2afc3",
+        "name": "Noggle Robber",
+        "component": "combo_piece"
+      },
+      {
+        "id": "598580ba-31ff-49ad-8c7c-1e75f6cd62e7",
+        "name": "Ganax, Astral Hunter",
+        "component": "combo_piece"
+      },
+      {
+        "id": "11a4e199-faa9-4c41-863d-92170c8f20cc",
+        "name": "Ramirez DePietro, Pillager",
+        "component": "combo_piece"
+      },
+      {
+        "id": "183d29ca-dee2-4229-a235-43c29840d149",
+        "name": "Prosperous Partnership",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a636f0ea-d605-453c-8b10-c0ecfeffd573",
+        "name": "Hit the Mother Lode",
+        "component": "combo_piece"
+      },
+      {
+        "id": "784af2b7-9f2d-450f-af93-b344fae39e8a",
+        "name": "Contract Hero",
+        "component": "combo_piece"
+      },
+      {
+        "id": "f5db8199-22d8-4721-b62b-245ec5e2907a",
+        "name": "Big Score",
+        "component": "combo_piece"
+      },
+      {
+        "id": "cfcb3051-161f-42f8-bfec-db03b349ff00",
+        "name": "Malcolm, Keen-Eyed Navigator",
+        "component": "combo_piece"
+      },
+      {
+        "id": "b3941b30-ee01-47f8-895b-73b0f258fa80",
+        "name": "Ognis, the Dragon's Lash",
+        "component": "combo_piece"
+      },
+      {
+        "id": "8ba8b02a-8a05-40cd-8b83-51fd0cc0a7a5",
+        "name": "Pitiless Plunderer",
+        "component": "combo_piece"
+      },
+      {
+        "id": "b4e0debd-0157-4a7f-ac84-b322a821d88e",
+        "name": "Contract Killing",
+        "component": "combo_piece"
+      },
+      {
+        "id": "d5017dbc-07fd-45ea-9629-7c584144e8be",
+        "name": "Corsair Captain",
+        "component": "combo_piece"
+      },
+      {
+        "id": "af4481b1-43b0-43e6-a9ea-f4ec0a551e61",
+        "name": "Locke, Treasure Hunter",
+        "component": "combo_piece"
+      },
+      {
+        "id": "173157aa-712d-44f2-89ba-dd2511a07f26",
+        "name": "Sanar, Unfinished Genius // Wild Idea",
+        "component": "combo_piece"
+      },
+      {
+        "id": "bc49a9d1-9c5f-4a80-bab8-767f6d3b75e2",
+        "name": "Ancestors' Aid",
+        "component": "combo_piece"
+      },
+      {
+        "id": "efb5671a-942a-4730-9756-32fe600e0528",
+        "name": "You Find a Cursed Idol",
+        "component": "combo_piece"
+      },
+      {
+        "id": "bf3054a3-6473-4c2c-b277-26e23d10443a",
+        "name": "Shiny Impetus",
+        "component": "combo_piece"
+      },
+      {
+        "id": "6d2e2e8d-8382-4d98-9e25-2dff1b1d0ff8",
+        "name": "Tireless Provisioner",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a373c602-13e9-4184-bdc0-47469d271169",
+        "name": "Indulge // Excess",
+        "component": "combo_piece"
+      },
+      {
+        "id": "0e5b6968-fff2-4227-9442-d2b5225b29e5",
+        "name": "Setzer, Wandering Gambler",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2ce1df32-37c8-45d3-8da1-b8d0d80d5d52",
+        "name": "Warren Soultrader",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7625bc1f-d76c-4354-988b-4b58e054a3b7",
+        "name": "Monologue Tax",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5a331542-11e4-49dc-be2f-ee56f07ccee0",
+        "name": "Guild Artisan",
+        "component": "combo_piece"
+      },
+      {
+        "id": "271ac37f-305c-4918-8761-1779caa19f36",
+        "name": "Fake Your Own Death",
+        "component": "combo_piece"
+      },
+      {
+        "id": "9d85ba44-8f29-4c49-b77f-8a6692d23c8c",
+        "name": "Kheru Goldkeeper",
+        "component": "combo_piece"
+      },
+      {
+        "id": "3f006075-96b8-4e70-be46-8f01eb13fed4",
+        "name": "Cutthroat Negotiator",
+        "component": "combo_piece"
+      },
+      {
+        "id": "d3e2439d-dd2a-44a0-993f-10d64b73e860",
+        "name": "Scuzzback Scrounger",
+        "component": "combo_piece"
+      },
+      {
+        "id": "bb19fe09-d1d9-40bc-9af7-b19d129f5519",
+        "name": "Safana, Calimport Cutthroat",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7e607ace-e833-4f44-b4ec-fec8a42285da",
+        "name": "Great Train Heist",
+        "component": "combo_piece"
+      },
+      {
+        "id": "eb7be00a-3de3-4fc0-9779-aa160dffe7df",
+        "name": "Killmonger, Ruthless Usurper",
+        "component": "combo_piece"
+      },
+      {
+        "id": "072a0e6f-e636-4ce1-a253-580ab956410e",
+        "name": "Sonic the Hedgehog",
+        "component": "combo_piece"
+      },
+      {
+        "id": "861f4e4d-e3ed-483f-b9af-2f4072524742",
+        "name": "Edward Kenway",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7c801275-226e-43a0-8440-cfe8ef717b03",
+        "name": "Sword of Wealth and Power",
+        "component": "combo_piece"
+      },
+      {
+        "id": "c13b36e4-0e03-4517-a04e-99b5b35ca7da",
+        "name": "Ultimate Green Goblin",
+        "component": "combo_piece"
+      },
+      {
+        "id": "e91bfea6-0e80-4239-bede-7cb971e64c1a",
+        "name": "Furnace Reins",
+        "component": "combo_piece"
+      },
+      {
+        "id": "f4549bed-a026-4238-93c0-213fef84e789",
+        "name": "Erestor of the Council",
+        "component": "combo_piece"
+      },
+      {
+        "id": "05fab477-5e35-4a47-a972-441bbddc3302",
+        "name": "Reckoner Bankbuster // Reckoner Bankbuster",
+        "component": "combo_piece"
+      },
+      {
+        "id": "1dd17cea-9e8c-4dba-b6ab-a6b9de87a306",
+        "name": "Patient Naturalist",
+        "component": "combo_piece"
+      },
+      {
+        "id": "56607174-63aa-415b-8511-1abe17689e78",
+        "name": "Jewel-Eyed Cobra",
+        "component": "combo_piece"
+      },
+      {
+        "id": "b1628ece-a028-49d4-9065-ee997838c20a",
+        "name": "Flamekin Gildweaver",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a811b2cb-ffc7-4100-ac3e-bc4125842bb2",
+        "name": "Korvold and the Noble Thief",
+        "component": "combo_piece"
+      },
+      {
+        "id": "ff1f6e62-eb7b-4d9b-8034-f227f655431f",
+        "name": "Excavation Technique",
+        "component": "combo_piece"
+      },
+      {
+        "id": "4c25261b-6806-4d88-9000-4695d8f482fb",
+        "name": "Misfortune Teller",
+        "component": "combo_piece"
+      },
+      {
+        "id": "552ecf3b-5635-4aa7-90e1-fb0c7c0574b6",
+        "name": "Rashmi and Ragavan",
+        "component": "combo_piece"
+      },
+      {
+        "id": "42a1986c-9585-4544-b5a7-bee4be5c4506",
+        "name": "Gleaming Splendor",
+        "component": "combo_piece"
+      },
+      {
+        "id": "3d4b9d4e-ab16-4d81-ac15-e84b351ef2dd",
+        "name": "Fable of the Mirror-Breaker // Reflection of Kiki-Jiki",
+        "component": "combo_piece"
+      },
+      {
+        "id": "6ac5ef8f-302d-415c-8e9e-b228cc2fbf9e",
+        "name": "Prizefight",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a6bb4473-6c19-44ba-ba57-b2a9646d80d7",
+        "name": "Centrifuge",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a241317d-2277-467e-a8f9-aa71c944e244",
+        "name": "Goldvein Pick",
+        "component": "combo_piece"
+      },
+      {
+        "id": "f2a8f518-c0b5-4e15-aab2-49b5ef29fb41",
+        "name": "Death to Our Enemies",
+        "component": "combo_piece"
+      },
+      {
+        "id": "d1ad6649-8371-42da-809e-df27c45a2d52",
+        "name": "Battle Angels of Tyr",
+        "component": "combo_piece"
+      },
+      {
+        "id": "6717de83-2dcc-411b-b638-9250882a1db3",
+        "name": "Strike It Rich",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5a96d8ae-200a-40be-95a8-72b53638a090",
+        "name": "Careening Mine Cart",
+        "component": "combo_piece"
+      },
+      {
+        "id": "628eda6f-f88e-4d82-a884-d1537302adb4",
+        "name": "Bank Job",
+        "component": "combo_piece"
+      },
+      {
+        "id": "d43981b1-60c8-4896-8885-b07e73b99b30",
+        "name": "Boneyard Desecrator",
+        "component": "combo_piece"
+      },
+      {
+        "id": "323e9430-b87c-4b02-9ade-c4c65343147b",
+        "name": "Emissary Green",
+        "component": "combo_piece"
+      },
+      {
+        "id": "212e9011-a9b7-4a60-bb47-ce5c3c147280",
+        "name": "Sailor of Means",
+        "component": "combo_piece"
+      },
+      {
+        "id": "1aaf8a8a-1032-4ee5-9c18-2debb40ec561",
+        "name": "The Misty Mountains Cold",
+        "component": "combo_piece"
+      },
+      {
+        "id": "b6529666-0ec8-45a8-8740-3bffc19d2265",
+        "name": "Smaug the Magnificent",
+        "component": "combo_piece"
+      },
+      {
+        "id": "aa74e656-480a-4c1b-963d-1b207075c27f",
+        "name": "Dungeoneer's Pack",
+        "component": "combo_piece"
+      },
+      {
+        "id": "cc598338-eeba-4815-a0a6-ff2dc09790d2",
+        "name": "Luxurious Locomotive",
+        "component": "combo_piece"
+      },
+      {
+        "id": "3566bdae-a99f-4423-a9d6-f189b928d1c3",
+        "name": "Swarming of Moria",
+        "component": "combo_piece"
+      },
+      {
+        "id": "63420437-76a9-40cf-aedc-0ca1e73fcc0b",
+        "name": "Depths of Desire",
+        "component": "combo_piece"
+      },
+      {
+        "id": "57d07ca0-5618-4a90-a605-ca14a193ce3b",
+        "name": "Magic Pot",
+        "component": "combo_piece"
+      },
+      {
+        "id": "c22c7383-ba4d-4b3c-91d6-2d6528e19825",
+        "name": "Smashing Success",
+        "component": "combo_piece"
+      },
+      {
+        "id": "4ba9aeb8-2a2c-4057-9648-277dce7032ed",
+        "name": "Jan Jansen, Chaos Crafter",
+        "component": "combo_piece"
+      },
+      {
+        "id": "22ddde38-79e0-48f2-9920-b66f6399b077",
+        "name": "Revel in Riches",
+        "component": "combo_piece"
+      },
+      {
+        "id": "b4da4905-58b2-407e-8d89-4f4f116699ee",
+        "name": "Tempting Contract",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a496a9e4-8dd7-44a2-a4b2-d4ecfc8ee7c8",
+        "name": "Orcrist, Goblin-cleaver",
+        "component": "combo_piece"
+      },
+      {
+        "id": "dde66f70-fe80-4347-9a5c-83b54ea5db7b",
+        "name": "Gala Greeters",
+        "component": "combo_piece"
+      },
+      {
+        "id": "55872bce-08ce-4d4f-8951-9fa230f3e160",
+        "name": "Smaug the Impenetrable",
+        "component": "combo_piece"
+      },
+      {
+        "id": "ecbe7459-8613-4ab8-84dc-deab19c08511",
+        "name": "Stimulus Package",
+        "component": "combo_piece"
+      },
+      {
+        "id": "af130b37-d3e0-4839-8193-5c62a91f0218",
+        "name": "Axgard Artisan",
+        "component": "combo_piece"
+      },
+      {
+        "id": "9bbc8de9-6f74-468f-834c-46d10864e36b",
+        "name": "Galadriel, Gift-Giver",
+        "component": "combo_piece"
+      },
+      {
+        "id": "9be25e90-393a-4c30-86e2-6fa0d8be4247",
+        "name": "Bootleggers' Stash",
+        "component": "combo_piece"
+      },
+      {
+        "id": "71880a6a-4fac-4d4b-9bc3-a11d31466352",
+        "name": "Black Market Connections",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a175b24c-c256-45a8-b24a-6b83e42d5efa",
+        "name": "Wily Goblin",
+        "component": "combo_piece"
+      },
+      {
+        "id": "46155477-758e-47a0-9fb9-dec7869978d9",
+        "name": "Daily Bugle Newspaper",
+        "component": "combo_piece"
+      },
+      {
+        "id": "cea0ea07-6963-4de1-953d-b1ac41d8c6b5",
+        "name": "Dihada, Binder of Wills",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5e8d4c35-fbab-447e-83d8-27af4960db99",
+        "name": "Forsworn Paladin",
+        "component": "combo_piece"
+      },
+      {
+        "id": "68cce7e2-8c4b-4c76-a38b-0fee85da3151",
+        "name": "Ziatora, the Incinerator",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a72d9f7d-9a07-4875-94c1-c4193ca46b75",
+        "name": "My Wealth Will Bury You",
+        "component": "combo_piece"
+      },
+      {
+        "id": "692fe4e8-13b4-4bec-938e-a8073a7fbd71",
+        "name": "Greedy Freebooter",
+        "component": "combo_piece"
+      },
+      {
+        "id": "d15fe6fb-66e6-4ed2-a0b9-6eb7c9c16711",
+        "name": "Culmination of Studies",
+        "component": "combo_piece"
+      },
+      {
+        "id": "d54fa1d0-ec56-4be8-973b-384ae0e66b6c",
+        "name": "Mr. House, President and CEO",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7a4cc802-e038-4705-98f7-39932d3d4130",
+        "name": "The Balrog of Moria",
+        "component": "combo_piece"
+      },
+      {
+        "id": "5e7a331b-fcaf-4eb7-9c32-d57cb18a2627",
+        "name": "Rose Room Treasurer",
+        "component": "combo_piece"
+      },
+      {
+        "id": "de8067cc-3de3-43b2-8fcf-6dce6f4f7db1",
+        "name": "Sidequest: Hunt the Mark // Yiazmat, Ultimate Mark",
+        "component": "combo_piece"
+      },
+      {
+        "id": "ca053574-2ac9-4814-955d-87a97e0aca7e",
+        "name": "Coin of Mastery",
+        "component": "combo_piece"
+      },
+      {
+        "id": "d8023d83-3604-4a6d-abb2-7b9354810166",
+        "name": "Instrument of the Bards",
+        "component": "combo_piece"
+      },
+      {
+        "id": "54e26cce-e872-47f4-90b2-0739fa98e97c",
+        "name": "Luck Bobblehead",
+        "component": "combo_piece"
+      },
+      {
+        "id": "3e02a423-363a-422e-b71b-0daf3722ffcc",
+        "name": "Avengers: Under Siege",
+        "component": "combo_piece"
+      },
+      {
+        "id": "c4150d37-36f2-49ba-8830-0bfa1d4df6e3",
+        "name": "Henry Wu, InGen Geneticist",
+        "component": "combo_piece"
+      },
+      {
+        "id": "dbde23e1-eb98-491c-9f2b-11c6bb529a06",
+        "name": "Plundering Barbarian",
+        "component": "combo_piece"
+      },
+      {
+        "id": "ef5793d2-58e7-4da2-9777-8db45abc09c0",
+        "name": "Prosperous Innkeeper",
+        "component": "combo_piece"
+      },
+      {
+        "id": "587acae5-a5fc-4755-a550-2d6cfac50b2b",
+        "name": "Ingenious Mastery",
+        "component": "combo_piece"
+      },
+      {
+        "id": "d8cc9f89-4758-4236-ac08-638cbd8c107a",
+        "name": "Burdened Aerialist",
+        "component": "combo_piece"
+      },
+      {
+        "id": "f8f1f5e8-c1bf-405f-b8e3-655d5558e18d",
+        "name": "Covetous Elegy",
+        "component": "combo_piece"
+      },
+      {
+        "id": "e7ed7d2c-c49b-4786-86eb-125863e874a2",
+        "name": "The Ghoul, Gunslinger",
+        "component": "combo_piece"
+      },
+      {
+        "id": "098c976b-6096-4ac7-8d52-2f219ae21d1f",
+        "name": "Lara Croft, Tomb Raider",
+        "component": "combo_piece"
+      },
+      {
+        "id": "f7596fb2-2f2b-4fde-8b8b-e041e16de4e9",
+        "name": "There and Back Again",
+        "component": "combo_piece"
+      },
+      {
+        "id": "b6e3fe01-5e75-4cde-b9df-d7cb707e4995",
+        "name": "J. Jonah Jameson",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2daa0737-e1a5-4112-afde-34a3375e23f7",
+        "name": "Old Gnawbone",
+        "component": "combo_piece"
+      },
+      {
+        "id": "cda6bdeb-a0d6-46ca-ba8c-317ee0096416",
+        "name": "Redcap Thief",
+        "component": "combo_piece"
+      },
+      {
+        "id": "516105c2-462e-44e8-b412-5e9eb27ba040",
+        "name": "Prompto Argentum",
+        "component": "combo_piece"
+      },
+      {
+        "id": "76e11d36-8ab7-4728-b6ac-121930589a02",
+        "name": "Gonti, Night Minister",
+        "component": "combo_piece"
+      },
+      {
+        "id": "11144267-15d1-47b4-8c26-d57328e11422",
+        "name": "The Sackville-Bagginses",
+        "component": "combo_piece"
+      },
+      {
+        "id": "856e95de-792d-478a-91cf-fe0df549abdb",
+        "name": "Shambling Ghast",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7976e5ae-f2c3-467e-a4d5-b6c609d8aa26",
+        "name": "Ancient Adamantoise",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2c17de78-4628-4395-884a-e1cb8be14047",
+        "name": "Monument to Endurance",
+        "component": "combo_piece"
+      },
+      {
+        "id": "fab7646a-61e8-446b-9dba-ac6e0db82f10",
+        "name": "Grabby Giant // That's Mine",
+        "component": "combo_piece"
+      },
+      {
+        "id": "11af26b2-a317-48f5-b6c8-226b5c8e2368",
+        "name": "Gorbag of Minas Morgul",
+        "component": "combo_piece"
+      },
+      {
+        "id": "4c4d8bfb-aaf0-41f3-a000-1df6363fb25c",
+        "name": "Bottle-Cap Blast",
+        "component": "combo_piece"
+      },
+      {
+        "id": "4331a7a6-e98e-4517-b0f9-ace379426a94",
+        "name": "Elemental Masterpiece",
+        "component": "combo_piece"
+      },
+      {
+        "id": "4ba44586-3b28-49e6-a7c9-8c7d82b75080",
+        "name": "Bill Ferny, Bree Swindler",
+        "component": "combo_piece"
+      },
+      {
+        "id": "79f4fd9c-8ec1-4ccd-95aa-12f169032e1b",
+        "name": "Common Crook",
+        "component": "combo_piece"
+      },
+      {
+        "id": "24a5b025-4cdb-416d-aad6-0fc7e8da3df2",
+        "name": "Reckless Ransacking",
+        "component": "combo_piece"
+      },
+      {
+        "id": "c343b9dd-edce-46ee-bdd6-f240cf061d59",
+        "name": "The Matrix of Time",
+        "component": "combo_piece"
+      },
+      {
+        "id": "8a30173b-a7bd-4176-bedc-50763aefbc3c",
+        "name": "Rain of Riches",
+        "component": "combo_piece"
+      },
+      {
+        "id": "fa74ca8a-8bcd-4dc5-ab2b-a2e18a70978e",
+        "name": "Bilbo's Gambit",
+        "component": "combo_piece"
+      },
+      {
+        "id": "274788f4-fbf3-4a15-bdc0-f513a2fde30d",
+        "name": "Undercity Dire Rat",
+        "component": "combo_piece"
+      },
+      {
+        "id": "bc235c57-b263-418a-8d33-094d9ba1f5e6",
+        "name": "Casey & Raph, Hotheads",
+        "component": "combo_piece"
+      },
+      {
+        "id": "40b66faa-abcb-45e4-85cc-997d29907b4e",
+        "name": "Zidane, Tantalus Thief",
+        "component": "combo_piece"
+      },
+      {
+        "id": "3a38b622-4129-4d84-908f-35c223c7c61b",
+        "name": "Ant-Man, Elusive Avenger",
+        "component": "combo_piece"
+      },
+      {
+        "id": "545f6d3a-5101-407c-acde-168c5097d866",
+        "name": "Academy Manufactor",
+        "component": "combo_piece"
+      },
+      {
+        "id": "be533558-3b16-4df0-a0ca-faa1ebf2e641",
+        "name": "Noble's Purse",
+        "component": "combo_piece"
+      },
+      {
+        "id": "967a4f27-8cd6-437d-8c05-8aedbc7ddc4b",
+        "name": "Collector's Vault",
+        "component": "combo_piece"
+      },
+      {
+        "id": "ae959bbb-38ab-48da-a151-b240631dd557",
+        "name": "Tivit, Seller of Secrets",
+        "component": "combo_piece"
+      },
+      {
+        "id": "c78dd917-7748-41dd-b294-943302bdab34",
+        "name": "Sudden Breakthrough",
+        "component": "combo_piece"
+      },
+      {
+        "id": "faf67f7a-00da-422b-b517-fb55990a1999",
+        "name": "Trove of Temptation",
+        "component": "combo_piece"
+      },
+      {
+        "id": "9128e3f8-12c7-412f-be94-0c6cbcbd1ee0",
+        "name": "Chira, All In",
+        "component": "combo_piece"
+      },
+      {
+        "id": "dae9ae0a-6443-42f7-80e1-1cdffc83831a",
+        "name": "Gimli of the Glittering Caves",
+        "component": "combo_piece"
+      },
+      {
+        "id": "c35accd3-92ee-4b0b-a30a-4dcd3252d1b8",
+        "name": "Evin, Waterdeep Opportunist",
+        "component": "combo_piece"
+      },
+      {
+        "id": "38b51dbb-7d8e-41fc-9768-627fd4692555",
+        "name": "Bucknard's Everfull Purse",
+        "component": "combo_piece"
+      },
+      {
+        "id": "abdd3b41-6bdd-4b35-998c-0358ba72ca12",
+        "name": "Galazeth Prismari",
+        "component": "combo_piece"
+      },
+      {
+        "id": "c4995efb-c952-425f-b8e1-176a6c27ec20",
+        "name": "Jared Carthalion",
+        "component": "combo_piece"
+      },
+      {
+        "id": "372d0c0b-439c-413f-aac4-5174c75aadb0",
+        "name": "Prismari Command",
+        "component": "combo_piece"
+      },
+      {
+        "id": "828a5005-0b19-49a2-bc9a-5b32c719c74c",
+        "name": "Improvised Weaponry",
+        "component": "combo_piece"
+      },
+      {
+        "id": "deae46e9-29db-426a-a92b-fc10ebbacd7f",
+        "name": "Sticky Fingers",
+        "component": "combo_piece"
+      },
+      {
+        "id": "6aaf74f7-ba92-47b5-97d1-f2708b375f36",
+        "name": "Hoarding Ogre",
+        "component": "combo_piece"
+      },
+      {
+        "id": "fe30b5c8-4889-4350-bb1d-3e2a67d9dfb2",
+        "name": "Jolene, Plundering Pugilist",
+        "component": "combo_piece"
+      },
+      {
+        "id": "32adac7e-ef3b-4b15-ace8-80e8102bf126",
+        "name": "Kamachal, Ship's Mascot",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a6975ed0-b2f0-4820-9649-6bc5594af19a",
+        "name": "Spiteful Banditry",
+        "component": "combo_piece"
+      },
+      {
+        "id": "b3e0fc49-f765-4bd1-a2b9-23e703388b50",
+        "name": "Invasion of Ergamon // Truga Cliffcharger",
+        "component": "combo_piece"
+      },
+      {
+        "id": "fb7f1e73-183f-4041-907d-700e248ac5af",
+        "name": "Summon: Yojimbo",
+        "component": "combo_piece"
+      },
+      {
+        "id": "eab58d87-bf01-45dc-8958-e2b3375f914b",
+        "name": "Creative Outburst",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "1b25858a-ab2d-441a-a3fe-6d5ecd7f05be",
+    "oracle_id": "773ad2ef-5acc-49ea-8d85-056330e87039",
+    "name": "Twiddle",
+    "layout": "normal",
+    "set_code": "8ed",
+    "set_name": "Eighth Edition",
+    "collector_number": "111",
+    "rarity": "common",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "You may tap or untap target artifact, creature, or land.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2003-07-28",
+    "artist": "Matt Cavotta",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "5184b967-f474-4c9b-9a20-65ddb0d6e4f8",
+    "oracle_id": "99e2b36b-1fab-4b09-b371-d97a6854dfbc",
+    "name": "Well of Knowledge",
+    "layout": "normal",
+    "set_code": "wth",
+    "set_name": "Weatherlight",
+    "collector_number": "162",
+    "rarity": "rare",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "{2}: Draw a card. Any player may activate this ability but only during their draw step.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1997-06-09",
+    "artist": "D. Alexander Gregory",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  }
+]

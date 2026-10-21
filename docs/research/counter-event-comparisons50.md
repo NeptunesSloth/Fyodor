@@ -1,0 +1,7 @@
+# Pelt Collector: mixed entry/death current and last-known comparisons
+
+The exact printed trigger uses the existing native either-event selector and an event-object power comparison. Its intervening condition is checked both when triggering and again through the ordinary only-if effect as it resolves. Native context.info supplies current characteristics for the original object still on the battlefield, or that object's last-known information after it leaves. A blinked physical successor is not substituted. Native counter placement and the existing three-counter trample static remain unchanged.
+
+Production12 focused cases pass, including two genuine fresh-process cold cases. They cover actual paid source casting, own-entry exclusion, own/opponent and equal/greater power, growth enabling actual trample damage, native death, source/event power changes before resolution, simultaneous2/2 deaths producing only one counter, native Giant Growth plus Flicker of Fate with original-object last-known power, negative source versus zero entering power, and simultaneous lethal damage. All seven official rulings were read. Related conditions/counter suites91 pass; scoped types2 and owned Ruff pass.
+
+Native scenario file: backend/tests/test_rules_counter_event_comparisons50.py. Complete canonical metadata: backend/tests/fixtures/counter_event_comparisons50_cards.json. Exact one-card production manifest: /tmp/counter50-pelt-admission-manifest.json. Parent catalog audit determines the combined checkpoint count.

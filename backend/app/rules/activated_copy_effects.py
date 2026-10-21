@@ -94,6 +94,8 @@ def matches(need: dict[str, Any], facts: dict[str, Any] | None) -> bool:
         return False
     if need.get('has_x') and not facts.get('has_x'):
         return False
+    if 'has_tap' in need and facts.get('has_tap') is not need['has_tap']:
+        return False
     return not (need.get('mana_at_least') is not None and (facts.get('mana') is None or sum(facts['mana'].values()) < need['mana_at_least']))
 
 

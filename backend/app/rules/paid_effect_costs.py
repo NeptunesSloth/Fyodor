@@ -57,6 +57,8 @@ def announce(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristics
                    options=options, resume={'step': 'paid_effect_cost', 'intent': a.model_dump(mode='json', exclude={'r', 'actor', 'ts'})}, source=card)
             return True
         pending['paid_cost_chosen'] = True
+    if casting.announce_free_optional(plan, a, card, ch):
+        return True
     alt = alt_costs.chosen(plan, a.alt_cost, card, ch) if a.alt_cost is not None else None
     base = alt.alt.mana_cost if alt else mana.parse_cost(ch.mana_cost)
     if a.x_value is None and base.x:

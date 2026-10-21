@@ -41,7 +41,7 @@ class DecisionOption(BaseModel):
 
 # -- cancelling a cast (wave 24D) -- 601.2: the announcement choices (modes, targets) of a spell or ability that can still be taken back:
 # the chooser's view says ``cancelable`` and the answer ["cancel"] is legal (app/rules/casting.py: ``cancelled``).
-CANCELLABLE_STEPS = ("delegated_target_opponent", "cast_target", "cast_group", "cast_modes", "cast_slot_target", "phyrexian", "casualty_x", "flashback_choice", "spell_symbols")  # (wave 50B: the Phyrexian mana choice, 601.2b)
+CANCELLABLE_STEPS = ("paid_x_number", "delegated_target_opponent", "cast_target", "cast_group", "cast_modes", "cast_slot_target", "phyrexian", "casualty_x", "flashback_choice", "spell_symbols")  # (wave 50B: the Phyrexian mana choice, 601.2b)
 
 
 def cancelable(d: Any) -> bool:
@@ -762,6 +762,14 @@ class ObjectRef(BaseModel):
     snapshot: ObjectSnapshot | None = None  # as it last existed, when it had already left (603.10a)
 
 
+class CounterPlacement(BaseModel):
+    """One committed positive placement, retained independently of later board state."""
+
+    destination: ObjectRef
+    kind: str
+    amount: int
+
+
 class ResolvedManaColorReplacement(BaseModel):
     """One resolved white-to-colorless effect on an exact permanent, indefinitely."""
 
@@ -807,6 +815,7 @@ class TriggerEvent(BaseModel):
     kind: str = Field(max_length=40)  # the condition's event: "die", "draw", "gain_life", …
     batch: int = 0
     objects: list[ObjectRef] = Field(default_factory=list)  # the object(s) the event happened to
+    counter_placements: list[CounterPlacement] = Field(default_factory=list)
     cast_targets: list[ObjectRef] = Field(default_factory=list)  # exact card targets as a spell was cast; optional for old saves
     # For a zone change: the object each became where it went (400.7e: a "dies" ability can find
     # it in the graveyard, and only there)
@@ -1032,6 +1041,7 @@ class PaymentRecord(BaseModel):
     resolved_x: int | None = None  # Actual permanent spell X at resolution; paid/announced x stays separate.
     cast_greatest_power: int | None = None  # Server-captured as-cast value; unknown in old payment records.
     activation_cost_has_x: bool | None = None  # Original activation cost before reductions/X substitution.
+    activation_cost_has_tap: bool | None = None  # Actual selected activation cost includes literal {T}; None is legacy unknown.
     activation_life_paid: int | None = Field(default=None, ge=0)  # Direct activation costs, excluding mana sources.
     x_black_spent: int | None = Field(default=None, ge=0)  # Actual black mana assigned to X; None for old saves.
     mana_spent: dict[str, int] = Field(default_factory=dict)  # actual mana, by type (W U B R G C)

@@ -61,6 +61,10 @@ def rules_mana(state: GameState, a: A.RulesMana) -> None:
             raise ActionError(f"{card.name or 'That card'} is already tapped")
         card.tapped = True
         tapped.append(card)
+        # A same-action sacrifice hides this intermediate tap from the final-state diff.
+        if cid in a.sacrifice:
+            emit(state, "tapped", object_id=state.rules.object_id(cid) if state.rules else cid,
+                 card=cid, actor=a.actor)
     # -- mana provenance (wave 18B) -- units spent, added, or emptied (the plain pool below is the rest)
     if a.spend_units:
         gone = set(a.spend_units)

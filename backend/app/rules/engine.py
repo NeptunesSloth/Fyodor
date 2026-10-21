@@ -1406,7 +1406,7 @@ def choose(plan: Plan, a: A.Choose) -> None:
         valid.add("cancel")  # (-- cancelling a cast (wave 24D) --)
     from app.rules import card_names  # -- card names (wave 22B) -- 201.4: a typed name answers it
 
-    if card_names.is_free_text(d):
+    if card_names.is_free_text(d) and not (chosen == ["cancel"] and cancelable(d)):
         if chosen or a.amounts:
             raise ActionError("Type a card name")
         chosen, valid = [card_names.answer(plan, d, a.name)], set()
@@ -1752,7 +1752,8 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "casualty_x": casting.resume_casualty_x,
     "flashback_choice": casting.resume_flashback_choice,
     "spell_symbols": casting.resume_spell_symbols,
-    "free_x": casting.resume_free_x,  # -- cast keywords (wave 43D) -- 107.3a: the X of a kicker or miracle cost paid on a free cast
+    "free_x": casting.resume_free_x,
+    "paid_x_number": casting.resume_paid_x_number,  # -- cast keywords (wave 43D) -- 107.3a: the X of a kicker or miracle cost paid on a free cast
     "slot": permissions.resume_slot,  # -- cast permissions (wave 30Q) -- Muldrotha: which permanent type a cast uses up
     "legend_rule": sba.resume_legend_rule,
     "graveyard_order": graveyard_order.resume,  # -- graveyard order (wave 40C) -- 404.3

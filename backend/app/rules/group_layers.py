@@ -110,7 +110,7 @@ class _Solver:
 
         card = self.cards[cid]
         self.base[cid] = L.subtype_cdas(card, L.prepared(self.state, card, chars.of(card, self.info), self.info))
-        self.effects[cid] = L.affecting(self.state, card)
+        self.effects[cid] = L.affecting(self.state, card, self.info)
         attached = L._attached45(self.state, card, self.info, self.table)
         self.own4[cid] = L._own_layer4(self.state, card, self.info, self.table) + attached
         self.own5[cid] = attached + L._own_layer5(self.state, card, self.info, self.table)

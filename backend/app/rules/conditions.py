@@ -1658,6 +1658,11 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
 
         ok = context.flag(ctx, cond["flag"])
         return not ok if cond.get("negate") else ok
+    if "event_player_relation" in cond:
+        from app.rules import context
+
+        players = context.players(plan, ctx, context.EVENT)
+        return len(players) == 1 and cond["event_player_relation"] == "opponent" and players[0] != ctx["controller"]
     if "current_step" in cond:
         return plan.state.turn.phase == cond["current_step"]
     if "turn" in cond:

@@ -108,12 +108,18 @@ def spend_as(cost: ManaCost, mode: str) -> ManaCost:
     from app.rules import mana_allocation_masks
 
     transformed = _spend_as(cost, mode)
-    if mode not in ('type', 'color', 'colorless_color'):
+    if mode not in ('type', 'color', 'colorless_color', 'white_red'):
         return transformed
     return replace(transformed, allocation=mana_allocation_masks.requirements(cost, mode))
 
 
 def _spend_as(cost: ManaCost, mode: str) -> ManaCost:
+    if mode == 'white_red':
+        return ManaCost(cost.generic, tuple(c for c in cost.colored if c != 'R'),
+                        (('R', 'W'),) * cost.colored.count('R') +
+                        tuple(tuple(dict.fromkeys((*h, 'W'))) if 'R' in h else h for h in cost.hybrid),
+                        tuple('/'.join(dict.fromkeys((*c.split('/'), 'W'))) if 'R' in c.split('/') else c
+                              for c in cost.phyrexian), cost.x, cost.unsupported)
     if mode == 'colorless_color':
         # Only actual C may substitute for a colored requirement. Allocation and
         # provenance retain the actual mana type, including restricted units.
@@ -775,7 +781,11 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
         (fact is not None and 'Snow' in fact.tags) != source.snow
         for profile in source.producer_facts for fact in profile) for source in sources)
     snow_due = SNOW in cost.colored or any(SNOW in symbols for symbols in cost.hybrid)
-    if ((mixed_snow and snow_due)
+    helper_matching = (cost.allocation is not None and
+        any(row.helpers is not None and row.helpers != row.alternatives
+            for row in (*cost.allocation.symbols, *cost.allocation.phyrexian)) and
+        any(source.abilities and any(index < 0 for index in source.abilities) for source in sources))
+    if (helper_matching or (mixed_snow and snow_due)
             or any(s.generic_allowed and not all(s.generic_allowed) for s in sources)
             or (cost.allocation is not None and any(row.producer is not None
                 for row in (*cost.allocation.symbols, *cost.allocation.phyrexian)))):

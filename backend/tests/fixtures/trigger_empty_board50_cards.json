@@ -1,0 +1,345 @@
+[
+  {
+    "id": "d4c05f2a-b844-42b3-af91-65694b4211dd",
+    "oracle_id": "5facb256-b993-43f8-b971-b3a59a7434bf",
+    "name": "Last Laugh",
+    "layout": "normal",
+    "set_code": "tor",
+    "set_name": "Torment",
+    "collector_number": "68",
+    "rarity": "rare",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever a permanent other than this enchantment is put into a graveyard from the battlefield, this enchantment deals 1 damage to each creature and each player.\nWhen no creatures are on the battlefield, sacrifice this enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2002-02-04",
+    "artist": "John Matson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "409f9b88-f03e-40b6-9883-68c14c37c0de",
+    "oracle_id": "14c8f55d-d177-4c25-a931-ebeb9e6062a0",
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "268",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "D. J. Cleland-Hura",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "d1995238-79cc-4381-9595-71ef11ea1e36",
+    "oracle_id": "ec49dfcf-d16d-4621-af4b-4a6f09043221",
+    "name": "Runeclaw Bear",
+    "layout": "normal",
+    "set_code": "m15",
+    "set_name": "Magic 2015",
+    "collector_number": "197",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2014-07-18",
+    "artist": "Jesper Ejsing",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "5368ce20-0970-4630-8c46-439db2231a39",
+    "oracle_id": "68954295-54e3-4303-a6bc-fc4547a4e3a3",
+    "name": "Llanowar Elves",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "213",
+    "rarity": "common",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Eric Wilkerson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "8ef95e7a-9f07-41f8-908b-2df93e03d391",
+        "name": "Marwyn's Kindred",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "0852f9f3-d7ef-4d31-93e3-93bc7c5a4ec9",
+    "oracle_id": "4457ed35-7c10-48c8-9776-456485fdf070",
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "163",
+    "rarity": "uncommon",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Christopher Moeller",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "4f095067-cf24-4061-8626-dc68a66a0b36",
+        "name": "Toralf's Disciple",
+        "component": "combo_piece"
+      },
+      {
+        "id": "69b51576-532b-450e-a8bf-0482cac04618",
+        "name": "Thayan Evokers",
+        "component": "combo_piece"
+      },
+      {
+        "id": "618806ea-7ea8-4cfb-a8c1-c3defa34e7dd",
+        "name": "Indris, the Hydrostatic Surge",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "d2334c10-fa96-4f8e-8187-c7ecc00cbac8",
+    "oracle_id": "6e880df6-fc00-43d2-a9c8-f575f40b78c6",
+    "name": "Stone Rain",
+    "layout": "normal",
+    "set_code": "9ed",
+    "set_name": "Ninth Edition",
+    "collector_number": "221",
+    "rarity": "common",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Destroy target land.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2005-07-29",
+    "artist": "John Matson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "81d3e5c5-6531-48e7-9dd6-2db519dd61b1",
+    "oracle_id": "5b2364d7-a811-4595-a1b4-224c70555ffa",
+    "name": "Raise the Alarm",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "101",
+    "rarity": "common",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Create two 1/1 white Soldier creature tokens.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Slawomir Maniak",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "d093322e-a717-4e2d-8199-fa560792bcf6",
+        "name": "Soldier",
+        "type_line": "Token Creature \u2014 Soldier"
+      }
+    ],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "6417e616-0490-4d89-a8ab-9b92fcc62a29",
+    "oracle_id": "d5b9d250-92f5-40d8-b962-4ae4adb466c8",
+    "name": "Flicker of Fate",
+    "layout": "normal",
+    "set_code": "j22",
+    "set_name": "Jumpstart 2022",
+    "collector_number": "56",
+    "rarity": "common",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature or enchantment, then return it to the battlefield under its owner's control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-12-02",
+    "artist": "Sila",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "616d1b20-61c1-4d39-a9b5-ad9fd61699e4",
+    "oracle_id": "b3b00911-ece7-4484-bc36-f211ce72b6cc",
+    "name": "Stifle",
+    "layout": "normal",
+    "set_code": "cns",
+    "set_name": "Conspiracy",
+    "collector_number": "108",
+    "rarity": "rare",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2014-06-06",
+    "artist": "Eric Fortune",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  }
+]

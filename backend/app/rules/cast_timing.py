@@ -42,6 +42,19 @@ def _phases_before(phase: str) -> list[str]:
 def _clause(clause: str) -> dict[str, Any] | None:
     from app.rules import restrictions
 
+    # CR506.8c: an explicitly named player's combat means any combat on that
+    # player's turn, including extra combats. These restrictions do not impose
+    # the first-combat qualifier of the unqualified "before" wordings.
+    m = re.fullmatch(r"during combat on (?P<whose>your|an opponent's) turn(?: before blockers are declared)?", clause)
+    if m:
+        phases = ["begin_combat", "declare_attackers"] if clause.endswith("before blockers are declared") else ["begin_combat", "declare_attackers", "declare_blockers", "combat_damage", "end_combat"]
+        return {"kind": "step", "phases": phases, "whose": "you" if m["whose"] == "your" else "opponent"}
+    m = re.fullmatch(r"during (?:(?P<your>your) declare attackers step|the declare blockers step on an opponent's turn)", clause)
+    if m:
+        return {"kind": "step", "phases": ["declare_attackers" if m["your"] else "declare_blockers"],
+                "whose": "you" if m["your"] else "opponent"}
+    if clause == "during an opponent's turn, before attackers are declared":
+        return {"kind": "step", "phases": _phases_before("declare_attackers"), "whose": "opponent", "first_combat": True}
     m = re.fullmatch(r"during combat (?P<when>after|before) blockers are declared", clause)
     if m:  # (declare blockers begins with the blockers declared, 509.1)
         phases = ["declare_blockers", "combat_damage", "end_combat"] if m["when"] == "after" else ["begin_combat", "declare_attackers"]

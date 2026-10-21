@@ -1,0 +1,111 @@
+[
+  {
+    "id": "3f5882a5-ea4c-4b2b-bcf9-7d15087d8bd4",
+    "oracle_id": "b917e472-2550-4381-b756-45487c2c187a",
+    "name": "Sawtooth Loon",
+    "layout": "normal",
+    "set_code": "dmr",
+    "set_name": "Dominaria Remastered",
+    "collector_number": "199",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{W}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Bird",
+    "oracle_text": "Flying\nWhen this creature enters, return a white or blue creature you control to its owner's hand.\nWhen this creature enters, draw two cards, then put two cards from your hand on the bottom of your library.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-01-13",
+    "artist": "Heather Hudson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "d7da182c-cde3-40d8-976e-a88427a1edb8",
+    "oracle_id": "81338d64-8fc3-41ac-afc8-e2a79df1159b",
+    "name": "Dream Cache",
+    "layout": "normal",
+    "set_code": "c18",
+    "set_name": "Commander 2018",
+    "collector_number": "88",
+    "rarity": "common",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Draw three cards, then put two cards from your hand both on top of your library or both on the bottom of your library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-08-10",
+    "artist": "D. Alexander Gregory",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "4c9b7393-eb35-4c99-bbf5-bcf924aa8ff3",
+    "oracle_id": "e3480c8f-15ad-451b-bb34-b129805569e1",
+    "name": "Stunted Growth",
+    "layout": "normal",
+    "set_code": "ice",
+    "set_name": "Ice Age",
+    "collector_number": "266",
+    "rarity": "rare",
+    "mana_cost": "{3}{G}{G}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target player chooses three cards from their hand and puts them on top of their library in any order.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1995-06-03",
+    "artist": "N\u00e9N\u00e9 Thomas",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  }
+]

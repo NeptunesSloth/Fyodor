@@ -1,0 +1,14 @@
+--- a/backend/app/rules/regeneration_choices.py
++++ b/backend/app/rules/regeneration_choices.py
+@@ -100,7 +100,9 @@
+-        auto = [cid for cid in cards if automatic(plan, cid) or regeneration_riders.shields(plan, plan.oid(cid))]
++        applicable = {cid: options(plan, cid, can_regenerate=can_regenerate, effect=not sba) for cid in cards}
++        auto = [cid for cid in cards if automatic(plan, cid) or regeneration_riders.shields(plan, plan.oid(cid))
++                or len(applicable[cid]) > 1]
+         if not auto:
+             return True
+-        candidates = {cid: options(plan, cid, can_regenerate=can_regenerate, effect=not sba) for cid in auto}
++        candidates = {cid: applicable[cid] for cid in auto}
+         saved = dict(ctx) if ctx is not None else None
+         if saved is not None:
+             saved['next'] = max(0, saved['next'] - 1)

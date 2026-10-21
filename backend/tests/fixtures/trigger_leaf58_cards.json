@@ -1,0 +1,295 @@
+[
+  {
+    "name": "Righteous Indignation",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever a creature blocks a black or red creature, the blocking creature gets +1/+1 until end of turn.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ordruun Mentor",
+    "mana_cost": "{2}{R/W}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Minotaur Soldier",
+    "oracle_text": "Mentor (Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.)\nWhenever you attack a player, target creature that's attacking that player gains first strike until end of turn.",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": [
+      "Mentor"
+    ],
+    "power": "3",
+    "toughness": "2"
+  },
+  {
+    "name": "Wall of Glare",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Wall",
+    "oracle_text": "Defender (This creature can't attack.)\nThis creature can block any number of creatures.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Defender"
+    ],
+    "power": "0",
+    "toughness": "5"
+  },
+  {
+    "name": "Goblin Piker",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Goblin Warrior",
+    "oracle_text": "",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "power": "2",
+    "toughness": "1"
+  },
+  {
+    "name": "Drudge Skeletons",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Skeleton",
+    "oracle_text": "{B}: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Heal",
+      "Regenerate"
+    ],
+    "power": "1",
+    "toughness": "1"
+  },
+  {
+    "name": "Rakdos Cackler",
+    "mana_cost": "{B/R}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Devil",
+    "oracle_text": "Unleash (You may have this creature enter with a +1/+1 counter on it. It can't block as long as it has a +1/+1 counter on it.)",
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [
+      "Unleash"
+    ],
+    "power": "1",
+    "toughness": "1"
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "power": "2",
+    "toughness": "2"
+  },
+  {
+    "name": "Llanowar Elves",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "power": "1",
+    "toughness": "1"
+  },
+  {
+    "name": "Jace Beleren",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker \u2014 Jace",
+    "oracle_text": "+2: Each player draws a card.\n\u22121: Target player draws a card.\n\u221210: Target player mills twenty cards.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "loyalty": "3"
+  },
+  {
+    "name": "Cerulean Wisps",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature becomes blue until end of turn. Untap that creature.\nDraw a card.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Crimson Wisps",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature becomes red and gains haste until end of turn. (It can attack and {T} this turn.)\nDraw a card.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cloudshift",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Beast Within",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target permanent. Its controller creates a 3/3 green Beast creature token.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Stifle",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Giant Growth",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Invasion of Mercadia // Kyren Flamewright",
+    "mana_cost": "{1}{R} // ",
+    "cmc": 2.0,
+    "type_line": "Battle \u2014 Siege // Creature \u2014 Goblin Spellshaper",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, you may discard a card. If you do, draw two cards.\n//\n{2}{R}, {T}, Discard a card: Create two 1/1 blue and red Elemental creature tokens. Creatures you control get +1/+0 and gain haste until end of turn.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Transform"
+    ],
+    "defense": "4",
+    "layout": "transform",
+    "card_faces": [
+      {
+        "name": "Invasion of Mercadia",
+        "mana_cost": "{1}{R}",
+        "type_line": "Battle \u2014 Siege",
+        "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, you may discard a card. If you do, draw two cards.",
+        "defense": "4",
+        "colors": [
+          "R"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+          "normal": "https://cards.scryfall.io/normal/front/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+          "large": "https://cards.scryfall.io/large/front/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993"
+        }
+      },
+      {
+        "name": "Kyren Flamewright",
+        "mana_cost": "",
+        "type_line": "Creature \u2014 Goblin Spellshaper",
+        "oracle_text": "{2}{R}, {T}, Discard a card: Create two 1/1 blue and red Elemental creature tokens. Creatures you control get +1/+0 and gain haste until end of turn.",
+        "power": "3",
+        "toughness": "3",
+        "colors": [
+          "R"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+          "normal": "https://cards.scryfall.io/normal/back/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+          "large": "https://cards.scryfall.io/large/back/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/4/0/407d6723-bf58-403e-b2ac-ba52c51d356f.jpg?1783916993"
+        }
+      }
+    ]
+  }
+]

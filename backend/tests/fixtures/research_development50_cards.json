@@ -1,0 +1,43 @@
+[
+  {
+    "name": "Research // Development",
+    "layout": "split",
+    "mana_cost": "{G}{U} // {3}{U}{R}",
+    "cmc": 7.0,
+    "type_line": "Instant // Instant",
+    "colors": [
+      "G",
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "object": "card_face",
+        "name": "Research",
+        "mana_cost": "{G}{U}",
+        "type_line": "Instant",
+        "oracle_text": "Shuffle up to four cards you own from outside the game into your library.",
+        "watermark": "simic",
+        "artist": "Greg Staples",
+        "artist_id": "93d65564-bf00-447b-8406-e2031f03b6b1",
+        "illustration_id": "aebdf324-d965-447f-8d2e-5e72d4fa150f"
+      },
+      {
+        "object": "card_face",
+        "name": "Development",
+        "mana_cost": "{3}{U}{R}",
+        "type_line": "Instant",
+        "oracle_text": "Create a 3/1 red Elemental creature token unless any opponent has you draw a card. Repeat this process two more times.",
+        "watermark": "izzet",
+        "artist": "Greg Staples",
+        "artist_id": "93d65564-bf00-447b-8406-e2031f03b6b1"
+      }
+    ]
+  }
+]

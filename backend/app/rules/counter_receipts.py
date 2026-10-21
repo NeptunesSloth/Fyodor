@@ -3,15 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel
-
-from app.game.rules_state import ObjectRef
-
-
-class CounterPlacement(BaseModel):
-    destination: ObjectRef
-    kind: str
-    amount: int
+from app.game.rules_state import CounterPlacement as CounterPlacement
 
 
 def store(ctx: dict[str, Any], binding: str, placements: list[CounterPlacement]) -> None:

@@ -1,0 +1,409 @@
+[
+  {
+    "id": "2f585f52-7b07-4453-b543-9654d314aa36",
+    "oracle_id": "2ab88c99-aaa0-4a91-9225-0bbfba04b6bc",
+    "name": "Court of Cunning",
+    "layout": "normal",
+    "set_code": "cmr",
+    "set_name": "Commander Legends",
+    "collector_number": "63",
+    "rarity": "rare",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, you become the monarch.\nAt the beginning of your upkeep, any number of target players each mill two cards. If you're the monarch, each of those players mills ten cards instead. (To mill a card, a player puts the top card of their library into their graveyard.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-11-20",
+    "artist": "Yeong-Hao Han",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "e60d3606-6f90-43b4-b056-543f7245958f",
+        "name": "Court of Cunning",
+        "component": "combo_piece"
+      },
+      {
+        "id": "bf7f3fc9-35f1-4b8c-b02b-494c71f31107",
+        "name": "The Monarch",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "dcffbea4-0126-483d-87da-b20e3c0b88a7",
+    "oracle_id": "e55d9377-f89a-41e5-a094-730d6f24caf0",
+    "name": "Court of Bounty",
+    "layout": "normal",
+    "set_code": "cmr",
+    "set_name": "Commander Legends",
+    "collector_number": "220",
+    "rarity": "rare",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, you become the monarch.\nAt the beginning of your upkeep, you may put a land card from your hand onto the battlefield. If you're the monarch, instead you may put a creature or land card from your hand onto the battlefield.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-11-20",
+    "artist": "Milivoj \u0106eran",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "bf7f3fc9-35f1-4b8c-b02b-494c71f31107",
+        "name": "The Monarch",
+        "component": "combo_piece"
+      },
+      {
+        "id": "17c4205a-959d-4da8-b228-791fa1eed07a",
+        "name": "Court of Bounty",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "3a86f499-a2d4-47f1-9fc1-b543e5ad5c82",
+    "oracle_id": "f7a8066e-f8a4-4202-8825-0327d11e58c3",
+    "name": "Kumena's Awakening",
+    "layout": "normal",
+    "set_code": "rix",
+    "set_name": "Rivals of Ixalan",
+    "collector_number": "42",
+    "rarity": "rare",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Ascend (If you control ten or more permanents, you get the city's blessing for the rest of the game.)\nAt the beginning of your upkeep, each player draws a card. If you have the city's blessing, instead only you draw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Ascend"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-01-19",
+    "artist": "Zack Stella",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "ba64ed3e-93c5-406f-a38d-65cc68472122",
+        "name": "City's Blessing",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "fdf6eb1d-aea4-4705-acbe-b428ad8616aa",
+    "oracle_id": "9684447a-5955-4bc7-8ad0-8bb8b316873b",
+    "name": "Throne of the High City",
+    "layout": "normal",
+    "set_code": "mkc",
+    "set_name": "Murders at Karlov Manor Commander",
+    "collector_number": "307",
+    "rarity": "rare",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "{T}: Add {C}.\n{4}, {T}, Sacrifice this land: You become the monarch.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-02-09",
+    "artist": "Titus Lunter",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "014627ea-1d70-4cd2-8c4e-103616e271f7",
+        "name": "The Monarch",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "b4b266e2-1cad-40df-bc0e-3e1464b299b3",
+    "oracle_id": "a7894a81-8c0a-4015-8bc1-2698cf5306d1",
+    "name": "Thorn of the Black Rose",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "190",
+    "rarity": "common",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Assassin",
+    "oracle_text": "Deathtouch\nWhen this creature enters, you become the monarch.",
+    "power": "1",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Deathtouch"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "David Gaillet",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "0cd9c491-6ba0-4484-822c-73bcbe9b0c49",
+        "name": "The Monarch",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "25e36841-3242-436b-8e82-9099063fa461",
+    "oracle_id": "b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6",
+    "name": "Forest",
+    "layout": "normal",
+    "set_code": "fra",
+    "set_name": "Reality Fracture",
+    "collector_number": "290",
+    "rarity": "common",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Chris Ostrowski",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "a0d12fc5-c7bd-4734-9259-98fe65241f60",
+        "name": "Forest",
+        "component": "combo_piece"
+      },
+      {
+        "id": "aed8ae06-ae54-4a16-8830-6547164ce6ae",
+        "name": "Gilt-Leaf Alchemist",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "409f9b88-f03e-40b6-9883-68c14c37c0de",
+    "oracle_id": "14c8f55d-d177-4c25-a931-ebeb9e6062a0",
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "268",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "D. J. Cleland-Hura",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "81d3e5c5-6531-48e7-9dd6-2db519dd61b1",
+    "oracle_id": "5b2364d7-a811-4595-a1b4-224c70555ffa",
+    "name": "Raise the Alarm",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "101",
+    "rarity": "common",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Create two 1/1 white Soldier creature tokens.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Slawomir Maniak",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "d093322e-a717-4e2d-8199-fa560792bcf6",
+        "name": "Soldier",
+        "type_line": "Token Creature \u2014 Soldier"
+      }
+    ],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "f4095675-1e3f-4d3c-b565-5c434d2e5cc0",
+    "oracle_id": "dc4a4996-108a-4aac-850f-2d9f76403446",
+    "name": "Boomerang",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "70",
+    "rarity": "common",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Return target permanent to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "Arnie Swekel",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "6417e616-0490-4d89-a8ab-9b92fcc62a29",
+    "oracle_id": "d5b9d250-92f5-40d8-b962-4ae4adb466c8",
+    "name": "Flicker of Fate",
+    "layout": "normal",
+    "set_code": "j22",
+    "set_name": "Jumpstart 2022",
+    "collector_number": "56",
+    "rarity": "common",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature or enchantment, then return it to the battlefield under its owner's control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-12-02",
+    "artist": "Sila",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  }
+]

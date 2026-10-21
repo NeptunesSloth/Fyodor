@@ -116,7 +116,7 @@ TRIGGERS = [
     (re.compile(r"^Whenever (?P<filter>another creature you control|a creature you control|another nontoken creature you control|"
                 r"a nontoken creature you control|another creature|a creature) enters, (?P<body>.+)$"), "enters_other"),
     # 503.1a / 504 / 505 / 507 / 513: "At the beginning of [whose] [step]" (generic: see step_trigger)
-    (re.compile(r"^At the beginning of (?:(?:each of )?(?P<whose>your|each|each player's|each opponent's|each other player's|the|enchanted player's|the chosen player's) "
+    (re.compile(r"^At the beginning of (?:(?:each of )?(?P<whose>your|each|each player's|each opponent's|each other player's|the|enchanted player's|the chosen player's|the monarch's) "
                 r"(?P<first_upkeep>first )?(?P<step>upkeep|draw step|end step|first main phase|precombat main phase|second main phase|"
                 r"postcombat main phases?|main phases)(?: each turn)?|the (?P<hstep>upkeep|draw step|end step) of enchanted (?:creature|permanent|land|artifact|"
                 r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's|each player's) turn|(?P<each_combat>each combat)), "
@@ -145,7 +145,7 @@ STEPS = {"upkeep": "upkeep", "draw step": "draw", "end step": "end", "first main
          "main phases": "main"}  # (-- trigger other (wave 52B) -- "each of your main phases" (Frontier Siege): the precombat and every postcombat main phase, 505.1; triggers.at_step_generic)  # (-- triggers (wave 30J) -- "each of your postcombat main phases": 505.1a, every main phase but the first, additional ones included)
 WHOSE = {"your": "you", "each": "each", "each player's": "each", "the": "each", "each opponent's": "opponent", "each other player's": "opponent",  # (wave 51G: every other player is an opponent in Commander, 102.2: Well of Ideas)
          "enchanted player's": "enchanted_player",
-         "the chosen player's": "chosen_player"}  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
+         "the chosen player's": "chosen_player", "the monarch's": "monarch"}  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
 
 
 def step_trigger(m: re.Match[str]) -> str:
@@ -408,6 +408,8 @@ def self_text(text: str, name: str) -> str:
     # Replacing that name must retain the sentence boundary for effect parsing.
     if name.endswith(("!", "?")) and text.rstrip().endswith(name) and out.rstrip().endswith("~"):
         out = out.rstrip() + "."
+    out = out.replace("choose target face-up exiled card. Its owner shuffles it into their library.",
+                      "shuffle target face-up card in exile into its owner's library.")
     return _counter_threshold(_language.base_become(out))  # (-- layers (wave 30O) -- "~'s base power and toughness become …")
 
 
@@ -566,7 +568,7 @@ def _aura_card_effects(effects: list[dict[str, Any]]) -> list[dict[str, Any]] | 
 # "At the beginning of enchanted player's upkeep / the upkeep of enchanted creature's controller /
 # each opponent's upkeep, that player …": the player whose step it is (triggers.at_step_generic
 # gives the event that player and, for the enchanted creature's controller, that creature)
-STEP_PLAYER_WHOSE = ("enchanted_player", "host_controller", "opponent", "each", "chosen_player")  # (chosen_player: wave 4J)
+STEP_PLAYER_WHOSE = ("enchanted_player", "host_controller", "opponent", "each", "chosen_player", "monarch")  # (chosen_player: wave 4J)
 
 
 def step_names_player(d: dict[str, Any]) -> bool:
@@ -2646,6 +2648,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import counter_alternatives50
+
+    if (counter_alternative := counter_alternatives50.parse(body)) is not None:
+        return counter_alternative
     from app.rules import combat_prevention_variants47, ordered_zone_costs46, quoted_prevention_loss47
 
     if (combat_prevention := combat_prevention_variants47.parse(body)) is not None:
@@ -2835,6 +2841,31 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (outcome45 := exile_cast_outcomes45.production_parse(body)) is not None:
         return outcome45
+
+    from app.rules import exile_spell_choices49
+
+    if (spell_choice49 := exile_spell_choices49.parse(body)) is not None:
+        return spell_choice49
+
+    from app.rules import outside_research50
+
+    if (research50 := outside_research50.parse(body)) is not None:
+        return research50
+
+    from app.rules import delayed_blinks50
+
+    if (blink50 := delayed_blinks50.parse(body)) is not None:
+        return blink50
+
+    from app.rules import delayed_combat_blinks50
+
+    if (combat_blink50 := delayed_combat_blinks50.parse(body)) is not None:
+        return combat_blink50
+
+    from app.rules import delayed_spell_blinks50
+
+    if (spell_blink50 := delayed_spell_blinks50.parse(body)) is not None:
+        return spell_blink50
 
     from app.rules import exile_authority_continuations
 
@@ -5651,6 +5682,199 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import counter_event_packets50
+
+    if (counter_packet := counter_event_packets50.definition(ability, ch)) is not None:
+        return counter_packet
+    from app.rules import counter_lki_tokens50
+
+    if (counter_lki_token := counter_lki_tokens50.definition(ability, ch)) is not None:
+        return counter_lki_token
+    from app.rules import counter_ownership50
+
+    if (counter_owner := counter_ownership50.definition(ability, ch)) is not None:
+        return counter_owner
+    from app.rules import counter_state_thresholds50
+
+    if (counter_state := counter_state_thresholds50.definition(ability, ch)) is not None:
+        return counter_state
+    from app.rules import conditional_instead59
+
+    if (instead59 := conditional_instead59.definition(ability, ch)) is not None:
+        return instead59
+    from app.rules import trigger_grave_counter_top65
+
+    if (grave_counter_top := trigger_grave_counter_top65.definition(ability, ch)) is not None:
+        return grave_counter_top
+
+    from app.rules import trigger_grave_extreme64
+
+    if (grave_extreme := trigger_grave_extreme64.definition(ability, ch)) is not None:
+        return grave_extreme
+
+    from app.rules import trigger_leaf58_staged
+
+    if (pair_target_trigger := trigger_leaf58_staged.definition(ability, ch)) is not None:
+        return pair_target_trigger
+
+    from app.rules import trigger_tap_actors62
+
+    if (tap_actor_trigger := trigger_tap_actors62.definition(ability, ch)) is not None:
+        return tap_actor_trigger
+
+    from app.rules import trigger_leaf57_staged
+
+    if (designation_return := trigger_leaf57_staged.definition(ability, ch)) is not None:
+        return designation_return
+
+    from app.rules import trigger_status_instead60
+
+    if (status_trigger := trigger_status_instead60.definition(ability, ch)) is not None:
+        return status_trigger
+
+    from app.rules import trigger_leaf56_staged
+
+    if (target_aura_trigger := trigger_leaf56_staged.definition(ability, ch)) is not None:
+        return target_aura_trigger
+
+    from app.rules import trigger_return_references60
+
+    if (return_reference := trigger_return_references60.definition(ability, ch)) is not None:
+        return return_reference
+
+
+    from app.rules import trigger_leaf54_staged
+
+    if (power_life_trigger := trigger_leaf54_staged.definition(ability, ch)) is not None:
+        return power_life_trigger
+
+    from app.rules import trigger_main_cast60
+
+    if (main_cast := trigger_main_cast60.definition(ability, ch)) is not None:
+        return main_cast
+
+    from app.rules import trigger_grave_upkeep59
+
+    if (grave_upkeep := trigger_grave_upkeep59.definition(ability, ch)) is not None:
+        return grave_upkeep
+
+    from app.rules import trigger_sacrifice_entered58
+
+    if (sacrifice_entered := trigger_sacrifice_entered58.definition(ability, ch)) is not None:
+        return sacrifice_entered
+
+    from app.rules import trigger_extreme_choices57
+
+    if (extreme_choice := trigger_extreme_choices57.definition(ability, ch)) is not None:
+        return extreme_choice
+    from app.rules import trigger_permanent_steps54
+
+    if (permanent_step := trigger_permanent_steps54.definition(ability, ch)) is not None:
+        return permanent_step
+    from app.rules import trigger_pt_choices56
+
+    if (pt_choice := trigger_pt_choices56.definition(ability, ch)) is not None:
+        return pt_choice
+    from app.rules import trigger_library_win53
+
+    if (library_win := trigger_library_win53.definition(ability, ch)) is not None:
+        return library_win
+    from app.rules import trigger_tap_union52
+
+    if (tap_union := trigger_tap_union52.definition(ability, ch)) is not None:
+        return tap_union
+    from app.rules import trigger_defender_release53
+
+    if (defender_release := trigger_defender_release53.definition(ability, ch)) is not None:
+        return defender_release
+    from app.rules import trigger_upkeep_compounds53
+
+    if (upkeep_compound := trigger_upkeep_compounds53.definition(ability, ch)) is not None:
+        return upkeep_compound
+    from app.rules import trigger_owned_return51
+
+    if (owned_return := trigger_owned_return51.definition(ability, ch)) is not None:
+        return owned_return
+    from app.rules import trigger_draw_token_counter51
+
+    if (draw_token_counter := trigger_draw_token_counter51.definition(ability, ch)) is not None:
+        return draw_token_counter
+    from app.rules import trigger_grave_bottom51
+
+    if (grave_bottom := trigger_grave_bottom51.definition(ability, ch)) is not None:
+        return grave_bottom
+    from app.rules import trigger_target_control50
+
+    if (target_control := trigger_target_control50.definition(ability, ch)) is not None:
+        return target_control
+    from app.rules import trigger_empty_board50
+
+    if (empty_board := trigger_empty_board50.definition(ability, ch)) is not None:
+        return empty_board
+    from app.rules import trigger_damage_values51
+
+    if (damage_values := trigger_damage_values51.definition(ability, ch)) is not None:
+        return damage_values
+    from app.rules import trigger_aggregate_counters50
+
+    if (aggregate_counters := trigger_aggregate_counters50.definition(ability, ch)) is not None:
+        return aggregate_counters
+    from app.rules import trigger_cast_counters50
+
+    if (cast_counter := trigger_cast_counters50.definition(ability, ch)) is not None:
+        return cast_counter
+    from app.rules import source_damage_counters50
+
+    if (damage_counters := source_damage_counters50.definition(ability, ch)) is not None:
+        return damage_counters
+    from app.rules import trigger_faceup_union50
+
+    if (faceup_union := trigger_faceup_union50.definition(ability, ch)) is not None:
+        return faceup_union
+    from app.rules import trigger_combat_counts50
+
+    if (combat_count := trigger_combat_counts50.definition(ability, ch)) is not None:
+        return combat_count
+    from app.rules import trigger_hand_owner50
+
+    if (hand_owner := trigger_hand_owner50.definition(ability, ch)) is not None:
+        return hand_owner
+    from app.rules import trigger_source_graveyard50
+
+    if (source_graveyard := trigger_source_graveyard50.definition(ability, ch)) is not None:
+        return source_graveyard
+    from app.rules import trigger_graveyard_owners50
+
+    if (graveyard_owner := trigger_graveyard_owners50.definition(ability, ch)) is not None:
+        return graveyard_owner
+    from app.rules import trigger_return_choices50
+
+    if (return_choice := trigger_return_choices50.definition(ability, ch)) is not None:
+        return return_choice
+    from app.rules import trigger_step_damage50
+
+    if (step_damage := trigger_step_damage50.definition(ability, ch)) is not None:
+        return step_damage
+    from app.rules import trigger_leaf51_staged
+
+    if ability.text in (trigger_leaf51_staged.JOKUL, trigger_leaf51_staged.DRUID) and (leaf_trigger := trigger_leaf51_staged.definition(ability, ch)) is not None:
+        return leaf_trigger
+    from app.rules import trigger_leaf52_staged
+
+    if (self_layer_trigger := trigger_leaf52_staged.definition(ability, ch)) is not None:
+        return self_layer_trigger
+    from app.rules import trigger_leaf53_staged
+
+    if (bound_land_trigger := trigger_leaf53_staged.definition(ability, ch)) is not None:
+        return bound_land_trigger
+    from app.rules import trigger_step_counts50
+
+    if (step_count := trigger_step_counts50.definition(ability, ch)) is not None:
+        return step_count
+    from app.rules import counter_event_comparisons50
+
+    if (counter_comparison := counter_event_comparisons50.definition(ability, ch)) is not None:
+        return counter_comparison
     from app.rules import random_vehicle_crash45
 
     if (random_vehicle := random_vehicle_crash45.definition(ability, ch)) is not None:
@@ -5683,6 +5907,14 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (mana_followthrough := mana_followthrough_profiles.definition(ability, ch)) is not None:
         return mana_followthrough
+    from app.rules import mana_activation_cost_watchers51
+
+    if (activation_cost_watcher := mana_activation_cost_watchers51.definition(ability, ch)) is not None:
+        return activation_cost_watcher
+    from app.rules import mana_sunglasses49
+
+    if (sunglasses := mana_sunglasses49.definition(ability, ch)) is not None:
+        return sunglasses
     from app.rules import mana_persistent_replacements48
 
     if (persistent_mana := mana_persistent_replacements48.definition(ability, ch)) is not None:
@@ -5732,6 +5964,36 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (outcome45 := exile_cast_outcomes45.production_definition(ability, ch)) is not None:
         return outcome45
+
+    from app.rules import exile_sphinx49
+
+    if (sphinx49 := exile_sphinx49.definition(ability, ch)) is not None:
+        return sphinx49
+
+    from app.rules import delayed_blinks50
+
+    if (blink50 := delayed_blinks50.definition(ability, ch)) is not None:
+        return blink50
+
+    from app.rules import delayed_loyalty_blinks50
+
+    if (loyalty_blink50 := delayed_loyalty_blinks50.definition(ability, ch)) is not None:
+        return loyalty_blink50
+
+    from app.rules import delayed_entry_blinks50
+
+    if (entry_blink50 := delayed_entry_blinks50.definition(ability, ch)) is not None:
+        return entry_blink50
+
+    from app.rules import delayed_self_blinks50
+
+    if (self_blink50 := delayed_self_blinks50.definition(ability, ch)) is not None:
+        return self_blink50
+
+    from app.rules import delayed_cycle_blinks50
+
+    if (cycle_blink50 := delayed_cycle_blinks50.definition(ability, ch)) is not None:
+        return cycle_blink50
 
     from app.rules import exile_authority_continuations
 
@@ -6716,7 +6978,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     if nm:
                         body = body[nm.end():]
                     elif not cond["nonmana"] and not cond.get("ability_targets"):  # (wave 23B: an ability with a target is no mana ability, 605.1a)
-                        return None
+                        from app.rules import mana_activation_watchers50
+
+                        if not mana_activation_watchers50.supported(ability, ch):
+                            return None
                 # (a trigger about a player, or damage to one, names them: "that player")
                 has_player = cond is not None and _has_player(cond)
                 if cond is not None and cond.get("event") == "cast" and cond.get("player") == "you":

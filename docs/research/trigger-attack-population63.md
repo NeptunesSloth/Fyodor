@@ -1,0 +1,9 @@
+# Charging Hooligan 63 — staged only
+
+Charging Hooligan (`c808892a-83d5-4b09-b0da-118b0d6fe58e`) is isolated for independent registration review; no live hook or admission is claimed. The exact printed trigger composes native self-attack pumping, a global current attacking-Creature count, and a separate resolution-time attacking-Rat condition. Neither count is restricted to the ability controller. All effects use native end-of-turn duration and source incarnation binding.
+
+The 16-case native gate passed, including one genuine subprocess cold reload. Tests cover paid cast and actual combat, counting self, another attacker, Rats and changeling, a nonattacking changeling negative, departed attackers, real Unnatural Selection type choices before resolution, native Hanweir Garrison token-entry defender choices before and after the count, a real opponent-controlled Return the Favor copy with Stifle removing the original, Cloudshift source incarnation, cleanup, and a genuine subprocess reload with the trigger pending.
+
+Related verification passed 40 cases: Ainok Strike Leader 24 and trigger combat counts 50 16. Scoped mypy (one source) and Ruff passed. Full actual database canonical and all one official ruling are `/tmp/counter63-hooligan-canonical.json` and `/tmp/counter63-hooligan-rulings.json`. Frozen hashes, exact hook proposal, and final logs are recorded in `/tmp/counter63-staged-manifest.json`.
+
+An initial harness attempted Amoeboid Changeling's unsupported activated abilities. Current coverage correctly labels that card PARTIAL; its native definition refuses those abilities. It was excluded in favor of FULL Unnatural Selection, whose actual native type-choice result is asserted before the Hooligan outcome. No coverage discrepancy, rule change, or card count is claimed for this collateral producer.

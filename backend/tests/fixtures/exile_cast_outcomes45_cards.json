@@ -925,5 +925,222 @@
     "keywords": [
       "Suspend"
     ]
+  },
+  {
+    "name": "Mind Grind",
+    "mana_cost": "{X}{U}{B}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Each opponent reveals cards from the top of their library until they reveal X land cards, then puts all cards revealed this way into their graveyard. X can't be 0.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Hallow",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Prevent all damage target spell would deal this turn. You gain life equal to the damage prevented this way.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Serra Sphinx",
+    "layout": "normal",
+    "mana_cost": "{3}{U}{U}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Sphinx",
+    "oracle_text": "Flying, vigilance",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Vigilance"
+    ],
+    "power": "4",
+    "toughness": "4"
+  },
+  {
+    "name": "Bruvac the Grandiloquent",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Advisor",
+    "oracle_text": "If an opponent would mill one or more cards, they mill twice that many cards instead. (To mill a card, a player puts the top card of their library into their graveyard.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "power": "1",
+    "toughness": "4"
+  },
+  {
+    "name": "Yore-Tiller Nephilim",
+    "oracle_text": "Whenever this creature attacks, return target creature card from your graveyard to the battlefield tapped and attacking.",
+    "mana_cost": "{W}{U}{B}{R}",
+    "type_line": "Creature \u2014 Nephilim",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "B",
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Giant Spider",
+    "layout": "normal",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Spider",
+    "oracle_text": "Reach (This creature can block creatures with flying.)",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Reach"
+    ],
+    "power": "2",
+    "toughness": "4"
+  },
+  {
+    "name": "Chandra's Ignition",
+    "layout": "normal",
+    "mana_cost": "{3}{R}{R}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target creature you control deals damage equal to its power to each other creature and each opponent.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Soul's Fire",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature you control deals damage equal to its power to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Fog",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Prevent all combat damage that would be dealt this turn.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mystic Forge",
+    "layout": "normal",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "You may look at the top card of your library any time.\nYou may cast artifact spells and colorless spells from the top of your library.\n{T}, Pay 1 life: Exile the top card of your library.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Elder Deep-Fiend",
+    "layout": "normal",
+    "mana_cost": "{8}",
+    "cmc": 8.0,
+    "type_line": "Creature \u2014 Eldrazi Octopus",
+    "oracle_text": "Flash\nEmerge {5}{U}{U} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, tap up to four target permanents.",
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Emerge",
+      "Flash"
+    ],
+    "power": "5",
+    "toughness": "6"
+  },
+  {
+    "name": "Progenitus",
+    "layout": "normal",
+    "mana_cost": "{W}{W}{U}{U}{B}{B}{R}{R}{G}{G}",
+    "cmc": 10.0,
+    "type_line": "Legendary Creature \u2014 Hydra Avatar",
+    "oracle_text": "Protection from everything\nIf Progenitus would be put into a graveyard from anywhere, reveal Progenitus and shuffle it into its owner's library instead.",
+    "colors": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Protection"
+    ],
+    "power": "10",
+    "toughness": "10"
   }
 ]

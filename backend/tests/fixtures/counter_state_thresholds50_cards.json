@@ -1,0 +1,109 @@
+[
+  {
+    "id": "18f1cc24-a5fc-43cc-b558-ac7901c48b81",
+    "oracle_id": "5d02b0d9-cc53-4967-84bb-8b7f5c489b5c",
+    "name": "Homarid",
+    "layout": "normal",
+    "set_code": "fem",
+    "set_name": "Fallen Empires",
+    "collector_number": "19d",
+    "rarity": "common",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Homarid",
+    "oracle_text": "This creature enters with a tide counter on it.\nAt the beginning of your upkeep, put a tide counter on this creature.\nAs long as there is exactly one tide counter on this creature, it gets -1/-1.\nAs long as there are exactly three tide counters on this creature, it gets +1/+1.\nWhenever there are four or more tide counters on this creature, remove all tide counters from it.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1994-11-01",
+    "artist": "Bryon Wackwitz",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "b2192c7b-ef6f-4ff6-9017-b1a125340517",
+    "oracle_id": "b1393388-b8b3-4c54-a086-f5e6d9908972",
+    "name": "Tidal Influence",
+    "layout": "normal",
+    "set_code": "fem",
+    "set_name": "Fallen Empires",
+    "collector_number": "28",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Cast this spell only if no permanents named Tidal Influence are on the battlefield.\nThis enchantment enters with a tide counter on it.\nAt the beginning of your upkeep, put a tide counter on this enchantment.\nAs long as there is exactly one tide counter on this enchantment, all blue creatures get -2/-0.\nAs long as there are exactly three tide counters on this enchantment, all blue creatures get +2/+0.\nWhenever there are four or more tide counters on this enchantment, remove all tide counters from it.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1994-11-01",
+    "artist": "Tom W\u00e4nerstrand",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "81ac7bdf-a722-4bed-b480-a1c2f80c5d64",
+    "oracle_id": "7744bae4-a8b7-44a5-9b4c-0048ad4cc448",
+    "name": "Air Elemental",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "284",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{U}{U}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Elemental",
+    "oracle_text": "Flying",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Kev Walker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  }
+]

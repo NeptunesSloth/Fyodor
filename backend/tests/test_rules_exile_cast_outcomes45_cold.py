@@ -13,7 +13,6 @@ from tests.test_rules_library_look import settle
 from tests.test_rules_wave30m_durations import to_phase
 
 cards=gameplay.cards
-staged=gameplay.staged
 
 
 def fresh(s,cards,path,actor,payload):
@@ -30,15 +29,6 @@ from app.cards.images import ImageStore
 from app.cards.repository import CardRepository
 from app.game.session import GameSession
 from app.game.state import GameState
-from app.rules import scripts,effects,engine
-from app.rules import exile_cast_outcomes45 as leaf
-native=scripts.define
-native_parse=scripts.parse_effects
-scripts.define=lambda ability,ch:leaf.definition(ability,ch) or native(ability,ch)
-scripts.parse_effects=lambda body,*args,**kw:leaf.parse(body) or native_parse(body,*args,**kw)
-scripts._cached.cache_clear()
-effects.PRIMITIVES.update(leaf.PRIMITIVES)
-engine.RESUME.update(leaf.RESUME)
 path=Path(sys.argv[1])
 repo=CardRepository(Path(sys.argv[2]),ImageStore(path.parent/'cold-images'))
 s=GameSession(GameState.model_validate_json(path.read_text()),cards=repo)

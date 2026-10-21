@@ -19,7 +19,7 @@ _NAMED = re.compile(r"^(?:you may )?reveal a card you own named (?:~|[A-Z][^,.]+
 _PLAY = re.compile(r"^(?:you may )?play a card you own from outside the game this turn$")
 _CAST = re.compile(r"^cast any number of (?P<type>[A-Z][A-Za-z'-]*) spells from among cards you own outside the game without paying their mana costs$")
 _EXILE_OR_OUTSIDE = re.compile(
-    r"^You may reveal an? (?P<what>artifact) card you own from outside the game or choose a face-up (?P=what) card you own in exile\. Put that card into your hand\.$")
+    r"^You may reveal an? (?P<what>artifact|Eldrazi) card you own from outside the game or choose a face-up (?P=what) card you own in exile\. Put that card into your hand\.$")
 
 
 def combined(body: str) -> tuple[list[dict[str, Any]], None, bool] | None:
@@ -29,7 +29,8 @@ def combined(body: str) -> tuple[list[dict[str, Any]], None, bool] | None:
         return None
     sel = selectors.parse(f"face-up {m['what']} card you own in exile")
     assert sel is not None
-    return ([{'do': 'outside_permission', 'exile_choice': sel.key()}], None, False)
+    return ([{'do': 'outside_permission', 'exile_choice': sel.key(),
+              'exile_label': f"a face-up {m['what']} card you own in exile"}], None, False)
 
 
 def _permission(m: re.Match[str]) -> tuple[list[dict[str, Any]], None]:
@@ -52,6 +53,7 @@ def plain(body: str) -> str:
     """903.11, 608.2d: do not offer an impossible optional import as a yes/no choice."""
     parts = body.split(". ")
     for i, part in enumerate(parts):
+        part = part.strip()
         clause = part.removesuffix(".")
         clause = clause[:1].lower() + clause[1:]
         if clause.startswith("you may ") and any(p.fullmatch(clause) for p in (_HAND, _NAMED, _PLAY, _PUT)):
@@ -68,6 +70,6 @@ def permission(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         return effects.return_choice(plan, ctx, {
             'do': 'return_choice', 'sel': e['exile_choice'], 'to': 'hand',
             'under': 'owner', 'n': 1, 'upto': True, 'random': False,
-            'label': 'a face-up artifact card you own in exile'})
+            'label': e.get('exile_label', 'a face-up artifact card you own in exile')})
     # 903.11: an ordinary Wish, play permission, or cast permission supplies no Commander exception.
     return True

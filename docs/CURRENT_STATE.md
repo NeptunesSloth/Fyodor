@@ -1,3 +1,13 @@
+## BATCH50 ACTIVE — AUTOMATIC CONTINUATION
+
+Standing instruction: keep working toward at least1,500 additional completed cards, automatically assigning the next largest coherent groups without waiting for another continue. Progress/status questions do not cancel this work. Six agents are assigned to continuous trigger, counter, mana/cost, exile, library and static/combat work; root reviews concrete shared patches and integrates results.
+
+Checkpoint49 remains the latest audited total: **29,466 FULL /2,602 PARTIAL**. Subsequent production manifests currently contain at least85 additional distinct candidates, with more reviewed batches closing; these are not added to the catalog total until the exact frozen diff closes. Moss-Pit Skeleton independently reviewed and added to the trigger manifest after a stale staged-document discrepancy was resolved.
+
+Current audit snapshot: `/tmp/fyodor-catalog50-resume-snapshot`,781 parsed app/tools modules, exact hashes `/tmp/fyodor-catalog50-resume-source-hashes.json`. Full snapshot mypy781PASS; core54PASS. Snapshot Ruff found one import-order issue in an unimported staged counter leaf; corrected in live source. Full native inventory is running against the immutable snapshot. Later source changes are next-batch candidates.
+
+This checkpoint preserves accumulated production work and uninstalled research/tests in draft PR18. Staged-only leaves and proposal files remain uncounted. The accumulated PR has not received a fresh full-suite run; focused whole-card, negative, fresh-process and related proof logs/manifests distinguish tested production from held staging. Do not mark the1,500-card target or all cards complete.
+
 ## CHECKPOINT49 VERIFIED — 1,500-CARD TARGET CONTINUES
 
 Latest full catalog classification: **29,466 FULL / 2,602 PARTIAL**, 32,068 Commander-legal cards. Four expected promotions from checkpoint48: Lashwhip Predator, Lumbering Megasloth, Closing Statement, Blood for the Blood God!. Zero prior FULL losses, unexpected promotions, or missing promotions. **4 of1,500 additional completions verified;1,496 remain toward the requested target**. Classification FULL is not a guarantee of every interaction.

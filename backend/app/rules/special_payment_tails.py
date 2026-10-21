@@ -66,7 +66,7 @@ def _paid(plan: Plan, frame: SpecialPayment, payment: M.Payment | None) -> None:
                                    mana_sources=payment.sources if payment is not None else [],
                                    life=payment.life if payment is not None else 0,
                                    activation_life_paid=max(0, payment.life-payment.auxiliary_life) if payment is not None else 0,
-                                   activation_cost_has_x=frame.cost_has_x, x=frame.number if frame.cost_has_x else None,
+                                   activation_cost_has_x=frame.cost_has_x, activation_cost_has_tap=False, x=frame.number if frame.cost_has_x else None,
                                    discarded=[card.id], discarded_objects=[plan.oid(card)])
             casting.record_payment(plan, frame.ability_id, record)
         casting._stacked(plan, card, frame.object_id, ch, frame.ability_id, frame.effects, cost_has_x=frame.cost_has_x,

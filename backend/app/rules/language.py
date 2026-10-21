@@ -1163,7 +1163,8 @@ _SUBJ_UNTIL = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) cards from the 
                          r"(?:reveal|exile) (?:(?P<cnt>two|three|four|five|six|seven) |an? )(?P<sel>.+)")  # (wave 44B: "until they reveal four land cards", Mirko Vosk)
 _REST_THEY = re.compile(rf"(?:that player|the player) puts {_REST}")
 _OWNERS = r"(?:its owner's|their owner's|their owners'|your)"
-_TO_LIBRARY = re.compile(rf"put (?P<o>.+?) (?P<place>on top|on the bottom) of {_OWNERS} library")
+_TO_LIBRARY = re.compile(r"put (?P<o>.+?) (?P<place>on top|on the bottom) of "
+                         r"(?:(?:its owner's|their owner's|your) library|their owners' librar(?:y|ies))")
 # -- block events (wave 53C) -- "Put ~ and each creature blocking or blocked by it on top of their owners' libraries, then those players shuffle." (Vortex Elemental):
 # put into their owners' libraries and shuffled (701.24a): the cards go in, then each owner's library is shuffled, which is shuffling them into it
 _TOP_SHUFFLE = re.compile(r"put (?:(?P<self>~) and )?(?P<o>each .+?) on top of their owners' libraries, then those players shuffle")
@@ -1509,8 +1510,8 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     m = _TO_LIBRARY.fullmatch(text) or _SHUFFLE_INTO.fullmatch(text)
     if m:
         kind, key, group = ref(m["o"])
-        if kind not in ("target", "self", "it", "them", "host"):  # (wave 40B: "Shuffle enchanted creature into its owner's library." — Dramatic Accusation)
-            raise _Fail  # ("put two cards from your hand on top": which two? not read)
+        if kind not in ("target", "self", "it", "them", "host") and not (kind == "each" and "place" in m.groupdict()):
+            raise _Fail  # An untargeted selector is a fixed set; unspecified hand choices remain unread.
         place = "shuffle" if "place" not in m.groupdict() else ("top" if m["place"] == "on top" else "bottom")
         return [{"do": "to_library", "who": _who(kind, key), "place": place}], _one(group)
     m = _OWNER_SHUFFLES.fullmatch(text)

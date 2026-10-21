@@ -1,0 +1,272 @@
+[
+  {
+    "name": "Yorion, Sky Nomad",
+    "mana_cost": "{3}{W/U}{W/U}",
+    "type_line": "Legendary Creature \u2014 Bird Serpent",
+    "oracle_text": "Companion \u2014 Your starting deck contains at least twenty cards more than the minimum deck size. (If this card is your chosen companion, you may put it into your hand from outside the game for {3} as a sorcery.)\nFlying\nWhen Yorion enters, exile any number of other nonland permanents you own and control. Return those cards to the battlefield at the beginning of the next end step.",
+    "power": "4",
+    "toughness": "5",
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Companion"
+    ]
+  },
+  {
+    "name": "Nahiri's Resolve",
+    "mana_cost": "{3}{R}{W}",
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures you control get +1/+0 and have haste.\nAt the beginning of your end step, exile any number of nontoken artifacts and/or creatures you control. Return those cards to the battlefield under their owner's control at the beginning of your next upkeep.",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Legion's Initiative",
+    "mana_cost": "{R}{W}",
+    "type_line": "Enchantment",
+    "oracle_text": "Red creatures you control get +1/+0.\nWhite creatures you control get +0/+1.\n{R}{W}, Exile this enchantment: Exile all creatures you control. At the beginning of the next combat, return those cards to the battlefield under their owner's control and those creatures gain haste until end of turn.",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Astral Drift",
+    "mana_cost": "{2}{W}",
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever you cycle this card or cycle another card while this enchantment is on the battlefield, you may exile target creature. If you do, return that card to the battlefield under its owner's control at the beginning of the next end step.\nCycling {2}{W} ({2}{W}, Discard this card: Draw a card.)",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Cycling"
+    ]
+  },
+  {
+    "name": "Obzedat, Ghost Council",
+    "mana_cost": "{1}{W}{W}{B}{B}",
+    "type_line": "Legendary Creature \u2014 Spirit Advisor",
+    "oracle_text": "When Obzedat enters, target opponent loses 2 life and you gain 2 life.\nAt the beginning of your end step, you may exile Obzedat. If you do, return it to the battlefield under its owner's control at the beginning of your next upkeep. It gains haste.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Kaya, Ghost Assassin",
+    "mana_cost": "{2}{W}{B}",
+    "type_line": "Legendary Planeswalker \u2014 Kaya",
+    "oracle_text": "0: Exile Kaya or up to one target creature. Return that card to the battlefield under its owner's control at the beginning of your next upkeep. You lose 2 life.\n\u22121: Each opponent loses 2 life and you gain 2 life.\n\u22122: Each opponent discards a card and you draw a card.",
+    "loyalty": "5",
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Roll-Roll-Roll-Roll",
+    "mana_cost": "{2}{U}",
+    "type_line": "Enchantment \u2014 Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after IV.)\nI, II, III, IV \u2014 Exile up to one target creature or land you control. If you do, return it to the battlefield under its owner's control at the beginning of the next end step.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Silver Surfer, Cosmic Voyager",
+    "mana_cost": "{4}{U}{U}",
+    "type_line": "Legendary Creature \u2014 Alien Hero",
+    "oracle_text": "Flash\nFlying\nWhen Silver Surfer enters, exile any number of other target permanents you control. Return those cards to the battlefield under their owner's control at the beginning of the next end step. If a land enters this way, it enters tapped.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Flash"
+    ]
+  },
+  {
+    "name": "Sudden Disappearance",
+    "mana_cost": "{5}{W}",
+    "type_line": "Sorcery",
+    "oracle_text": "Exile all nonland permanents target player controls. Return the exiled cards to the battlefield under their owner's control at the beginning of the next end step.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Morningtide's Light",
+    "mana_cost": "{3}{W}",
+    "type_line": "Sorcery",
+    "oracle_text": "Exile any number of target creatures. At the beginning of the next end step, return those cards to the battlefield tapped under their owners' control.\nUntil your next turn, prevent all damage that would be dealt to you.\nExile Morningtide's Light.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lonely Sandbar",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "This land enters tapped.\n{T}: Add {U}.\nCycling {U} ({U}, Discard this card: Draw a card.)",
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Cycling"
+    ]
+  },
+  {
+    "name": "Hero's Downfall",
+    "mana_cost": "{1}{B}{B}",
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature or planeswalker.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ephemerate",
+    "mana_cost": "{W}",
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return it to the battlefield under its owner's control.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Rebound"
+    ]
+  },
+  {
+    "name": "Clone",
+    "mana_cost": "{3}{U}",
+    "type_line": "Creature \u2014 Shapeshifter",
+    "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield.",
+    "power": "0",
+    "toughness": "0",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Dryad Arbor",
+    "mana_cost": "",
+    "type_line": "Land Creature \u2014 Forest Dryad",
+    "oracle_text": "(This land isn't a spell, it's affected by summoning sickness, and it has \"{T}: Add {G}.\")",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Spelunking",
+    "mana_cost": "{2}{G}",
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, draw a card, then you may put a land card from your hand onto the battlefield. If you put a Cave onto the battlefield this way, you gain 4 life.\nLands you control enter untapped.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Deflecting Swat",
+    "mana_cost": "{2}{R}",
+    "type_line": "Instant",
+    "oracle_text": "If you control a commander, you may cast this spell without paying its mana cost.\nYou may choose new targets for target spell or ability.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Breaching Hippocamp",
+    "mana_cost": "{3}{U}",
+    "type_line": "Creature \u2014 Horse Fish",
+    "oracle_text": "Flash (You may cast this spell any time you could cast an instant.)\nWhen this creature enters, untap another target creature you control.",
+    "power": "3",
+    "toughness": "2",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flash"
+    ]
+  }
+]

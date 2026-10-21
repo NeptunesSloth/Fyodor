@@ -1,0 +1,379 @@
+[
+  {
+    "id": "2c216ff3-26e1-43bc-beb5-65fc7fd1b6db",
+    "oracle_id": "f5a74cee-6b17-4ed4-bc05-94fac53f87d7",
+    "name": "Grave Peril",
+    "layout": "normal",
+    "set_code": "c15",
+    "set_name": "Commander 2015",
+    "collector_number": "128",
+    "rarity": "common",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When a nonblack creature enters, sacrifice this enchantment. If you do, destroy that creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2015-11-13",
+    "artist": "Daarken",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "c8092518-99ba-43b8-b5e9-8b46f1679696",
+    "oracle_id": "b00171b4-d1be-47e9-9293-ea57092f196b",
+    "name": "Flame-Kin War Scout",
+    "layout": "normal",
+    "set_code": "dis",
+    "set_name": "Dissension",
+    "collector_number": "61",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Elemental Scout",
+    "oracle_text": "When another creature enters, sacrifice this creature. If you do, this creature deals 4 damage to that creature.",
+    "power": "2",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2006-05-05",
+    "artist": "Fred Hooper",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "409f9b88-f03e-40b6-9883-68c14c37c0de",
+    "oracle_id": "14c8f55d-d177-4c25-a931-ebeb9e6062a0",
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "268",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "D. J. Cleland-Hura",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "0c198d94-248c-4f81-b8d5-e1b5a0623ee7",
+    "oracle_id": "9456c5b6-946d-403a-8ed0-dff9f921d98c",
+    "name": "Black Knight",
+    "layout": "normal",
+    "set_code": "m11",
+    "set_name": "Magic 2011",
+    "collector_number": "83",
+    "rarity": "uncommon",
+    "mana_cost": "{B}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Knight",
+    "oracle_text": "First strike (This creature deals combat damage before creatures without first strike.)\nProtection from white (This creature can't be blocked, targeted, dealt damage, or enchanted by anything white.)",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "First strike",
+      "Protection"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2010-07-16",
+    "artist": "Christopher Moeller",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "2569d4f3-55ed-4f99-9592-34c7df0aab72",
+    "oracle_id": "b9d0f2e1-62c2-44fd-ad38-471daf17bb0a",
+    "name": "Tolarian Terror",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "167",
+    "rarity": "common",
+    "mana_cost": "{6}{U}",
+    "cmc": 7.0,
+    "type_line": "Creature \u2014 Serpent",
+    "oracle_text": "This spell costs {1} less to cast for each instant and sorcery card in your graveyard.\nWard {2} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.)",
+    "power": "5",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Ward"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Vincent Christiaens",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "81d3e5c5-6531-48e7-9dd6-2db519dd61b1",
+    "oracle_id": "5b2364d7-a811-4595-a1b4-224c70555ffa",
+    "name": "Raise the Alarm",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "101",
+    "rarity": "common",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Create two 1/1 white Soldier creature tokens.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Slawomir Maniak",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "d093322e-a717-4e2d-8199-fa560792bcf6",
+        "name": "Soldier",
+        "type_line": "Token Creature \u2014 Soldier"
+      }
+    ],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "6417e616-0490-4d89-a8ab-9b92fcc62a29",
+    "oracle_id": "d5b9d250-92f5-40d8-b962-4ae4adb466c8",
+    "name": "Flicker of Fate",
+    "layout": "normal",
+    "set_code": "j22",
+    "set_name": "Jumpstart 2022",
+    "collector_number": "56",
+    "rarity": "common",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature or enchantment, then return it to the battlefield under its owner's control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-12-02",
+    "artist": "Sila",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "f4095675-1e3f-4d3c-b565-5c434d2e5cc0",
+    "oracle_id": "dc4a4996-108a-4aac-850f-2d9f76403446",
+    "name": "Boomerang",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "70",
+    "rarity": "common",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Return target permanent to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "Arnie Swekel",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "0852f9f3-d7ef-4d31-93e3-93bc7c5a4ec9",
+    "oracle_id": "4457ed35-7c10-48c8-9776-456485fdf070",
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "163",
+    "rarity": "uncommon",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Christopher Moeller",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "4f095067-cf24-4061-8626-dc68a66a0b36",
+        "name": "Toralf's Disciple",
+        "component": "combo_piece"
+      },
+      {
+        "id": "69b51576-532b-450e-a8bf-0482cac04618",
+        "name": "Thayan Evokers",
+        "component": "combo_piece"
+      },
+      {
+        "id": "618806ea-7ea8-4cfb-a8c1-c3defa34e7dd",
+        "name": "Indris, the Hydrostatic Surge",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "d108c2b1-236e-4b8d-8445-d9749ccc4fea",
+    "oracle_id": "087f9ad7-e74f-40e2-8102-1ed2925d0418",
+    "name": "Rest in Peace",
+    "layout": "normal",
+    "set_code": "big",
+    "set_name": "The Big Score",
+    "collector_number": "4",
+    "rarity": "mythic",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-04-19",
+    "artist": "Grady Frederick",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  }
+]

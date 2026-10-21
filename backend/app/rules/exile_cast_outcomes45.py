@@ -244,6 +244,8 @@ LIVE_DEFINITIONS: frozenset[str]=frozenset({
 })
 
 LIVE_BODIES: frozenset[str]=frozenset({
+    'you may cast an instant or sorcery spell with mana value 1 or 2 from your hand without paying its mana cost',
+    'exile target instant or sorcery card from your graveyard. copy it. you may cast the copy',
     "each opponent mills three cards, then you may cast a spell from each opponent's graveyard without paying its mana cost. if a spell cast this way would be put into a graveyard, exile it instead",
     'target opponent reveals the top seven cards of their library. you may cast an instant or sorcery spell from among them without paying its mana cost. then that player puts the rest into their graveyard',
     'target opponent reveals the top seven cards of their library. you may cast an instant or sorcery spell from among them without paying its mana cost. then that player puts the rest into their graveyard. if there are two or more instant and/or sorcery cards in your graveyard, you may cast up to two instant and/or sorcery spells from among the revealed cards instead of one',

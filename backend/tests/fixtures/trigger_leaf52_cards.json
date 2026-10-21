@@ -1,0 +1,95 @@
+[
+  {
+    "name": "Elder Land Wurm",
+    "mana_cost": "{4}{W}{W}{W}",
+    "cmc": 7.0,
+    "type_line": "Creature \u2014 Dragon Wurm",
+    "oracle_text": "Defender, trample\nWhen this creature blocks, it loses defender.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Trample",
+      "Defender"
+    ],
+    "power": "5",
+    "toughness": "5"
+  },
+  {
+    "name": "Valakut Fireboar",
+    "mana_cost": "{4}{R}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Elemental Boar",
+    "oracle_text": "Whenever this creature attacks, switch its power and toughness until end of turn.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "power": "1",
+    "toughness": "7"
+  },
+  {
+    "name": "Guard Duty",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature has defender.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Fists of the Anvil",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets +4/+0 until end of turn.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "About Face",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Switch target creature's power and toughness until end of turn.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Stifle",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  }
+]

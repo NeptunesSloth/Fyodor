@@ -228,6 +228,8 @@ def _selector_targets(plan: Plan, sel: selectors.Selector, chooser: str, source:
                 and player_shields.can_target(plan, chooser, p, source)]
     from app.rules import prohibitions
 
+    if sel.other and source_card is not None and source_object is not None and (source_card not in plan.state.cards or plan.oid(source_card) != source_object):
+        sel = selectors.replace(sel, other=False)
     out = []
     for cid in selectors.candidates(plan, sel, chooser, source_card, attacker):
         card = plan.state.cards[cid]

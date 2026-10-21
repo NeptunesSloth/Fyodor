@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import re
 import secrets
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from itertools import islice, product
 from typing import Any
@@ -471,6 +472,12 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
     out = mana_replace.extend(state, card, info, out)  # -- mana replacements (wave 9C) -- 106.12b: first, then the triggers' extras
     out = tap_mana.extend(state, card, info, out)  # -- mana riders (wave 5A) -- "Whenever you tap a land for mana, …"
     return attached_mana.extend(state, card, info, ch.is_land, out) + reveal_sources
+
+
+def _spending_cost(state: GameState, player: str, info: CardInfo | None, cost: M.ManaCost) -> M.ManaCost:
+    from app.rules import mana_sunglasses49
+
+    return mana_sunglasses49.spending_cost(state, player, info, cost)
 
 
 # Mana abilities use the same cost-modifier stage as other activated abilities (605.3a).
@@ -1112,7 +1119,7 @@ def _constrained(cost: M.ManaCost, purpose: Purpose | None) -> M.ManaCost:
 
 
 def _solve_with_filters(cost: M.ManaCost, pool: dict[str, int], plain: list[M.Source], filters: list[M.Source],
-                        life: int) -> M.Payment:
+                        life: int, *, input_spending: Callable[[M.ManaCost], M.ManaCost] | None = None) -> M.Payment:
     """Pay with ordinary sources; if that fails, add filter sources one or two at a time. A
     filter's own activation cost joins the requirement, and must be payable without it."""
     try:
@@ -1137,9 +1144,10 @@ def _solve_with_filters(cost: M.ManaCost, pool: dict[str, int], plain: list[M.So
                                         allocation.requirements(activation).generic + allocation.requirements(act).generic,
                                         allocation.requirements(activation).symbols + allocation.requirements(act).symbols,
                                         allocation.requirements(activation).phyrexian + allocation.requirements(act).phyrexian))
+        matching_activation = input_spending(activation) if input_spending is not None else activation
         others = [s for s in plain if s.card_id not in {f.card_id for f in combo}]
         try:
-            M.solve(activation, pool, others, life=life)  # the filters can't pay for themselves
+            M.solve(matching_activation, pool, others, life=life)  # the filters can't pay for themselves
         except M.ManaError:
             continue
         free = [replace(f, activation=None) for f in combo]
@@ -1147,10 +1155,10 @@ def _solve_with_filters(cost: M.ManaCost, pool: dict[str, int], plain: list[M.So
         # solution can use the filter's output to fund its own activation, or
         # spend a Forest needed by the spell instead of an available Island.
         for colors in islice(product(M.ALL_MANA, repeat=activation.generic), M.MAX_SEARCH):
-            total = M.ManaCost(cost.generic, cost.colored + activation.colored + colors,
-                               cost.hybrid + activation.hybrid, cost.phyrexian, 0, cost.unsupported)
+            total = M.ManaCost(cost.generic, cost.colored + matching_activation.colored + colors,
+                               cost.hybrid + matching_activation.hybrid, cost.phyrexian, 0, cost.unsupported)
             base_rows = allocation.requirements(cost)
-            assigned_rows = allocation.assign_generic_encoding(activation, colors)
+            assigned_rows = allocation.assign_generic_encoding(matching_activation, colors)
             total = replace(total, allocation=RequirementPlan(base_rows.generic + assigned_rows.generic,
                 base_rows.symbols + assigned_rows.symbols, base_rows.phyrexian + assigned_rows.phyrexian))
             try:
@@ -1169,7 +1177,7 @@ def _solve_with_filters(cost: M.ManaCost, pool: dict[str, int], plain: list[M.So
                         generic_allowed=(src.generic_allowed[index],) if src.generic_allowed else (),
                         producer_facts=(src.producer_facts[index],) if src.producer_facts else (),
                         ability_options=(src.ability_options[index],) if src.ability_options else ()))
-                constrained = M.ManaCost(0, activation.colored + colors, activation.hybrid, allocation=assigned_rows)
+                constrained = M.ManaCost(0, matching_activation.colored + colors, matching_activation.hybrid, allocation=assigned_rows)
                 M.solve(constrained, pool, inputs, life=life)
             except M.ManaError:
                 continue
@@ -1199,7 +1207,7 @@ def find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo
     if purpose.allocation is not None and cost.allocation is None:
         cost = replace(cost, allocation=purpose.allocation)
     try:
-        payment = _find_payment(state, player, _constrained(life_for_mana(state, player, info, cost), purpose), info, sources=sources, exclude=exclude,
+        payment = _find_payment(state, player, _constrained(_spending_cost(state, player, info, life_for_mana(state, player, info, cost)), purpose), info, sources=sources, exclude=exclude,
                                 purpose=purpose, reserve=reserve)
     except ActionError as exc:
         if purpose.producer_requirement is not None:
@@ -1286,7 +1294,7 @@ def _find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInf
         if len({s.card_id for s in chosen + chosen_filters}) != len(set(sources)):
             raise ActionError("Pick untapped mana sources you control")
         try:
-            payment = _solve_with_filters(cost, pool, chosen + units, chosen_filters, life)
+            payment = _solve_with_filters(cost, pool, chosen + units, chosen_filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))
         except M.ManaError as exc:
             raise ActionError(f"Those sources can't pay {cost.text()}") from exc
         unused = set(sources) - set(payment.tapped)
@@ -1299,11 +1307,11 @@ def _find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInf
     normal = [s for s in marked if protection.get(s.card_id) != "save"]
     normal_filters = [s for s in filters if protection.get(s.card_id) != "save"]
     try:
-        return _solve_with_filters(cost, pool, normal + units, normal_filters, life)
+        return _solve_with_filters(cost, pool, normal + units, normal_filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))
     except M.ManaError:
         pass
     try:
-        return _solve_with_filters(cost, pool, marked + units, filters, life)  # SAVE sources only when nothing else works
+        return _solve_with_filters(cost, pool, marked + units, filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))  # SAVE sources only when nothing else works
     except M.ManaError as exc:
         raise ActionError(f"{exc}. Tap mana yourself first, or use the table tools.") from exc
 
@@ -1336,9 +1344,9 @@ def after_mana_ability(plan: Plan, card: CardInstance, index: int, ability: M.Ma
     from app.rules.triggers import activated as mana_activated
 
     payment_record = PaymentRecord.model_validate(mana_context['activation_payment']) if mana_context is not None and mana_context.get('activation_payment') is not None else PaymentRecord(
-        card=card.id, controller=who, activation_cost_has_x='{X}' in ability.extra_cost,
+        card=card.id, controller=who, activation_cost_has_x='{X}' in ability.extra_cost, activation_cost_has_tap=ability.tap,
         activation_life_paid=extra.life if extra else 0)
-    mana_activated(plan, card, source_object or plan.oid(card), payment=payment_record, mana_ability=True, actor=who)
+    mana_activated(plan, card, source_object or plan.oid(card), payment=payment_record, mana_ability=True, actor=who, cost_has_tap=ability.tap)
     if ability.delayed_effects:
         from app.rules import mana_delayed_effects
 
@@ -1416,6 +1424,7 @@ class _FilterPayment:
     life_due: int
     then: dict[str, Any]
     at: int = 0
+    allow_more_sources: bool = False
 
 
 @dataclass
@@ -1445,7 +1454,7 @@ def _filter_run(plan: Plan, data: _FilterPayment) -> M.Payment | None | _Payment
 
     selected = set(data.payment.tapped)
     filter_ids = {cid for cid, _, _, _ in data.payment.filters}
-    outside = tuple(cid for cid in plan.state.cards if cid not in selected)
+    outside = data.exclude if data.allow_more_sources else tuple(cid for cid in plan.state.cards if cid not in selected)
     for i in range(data.at, len(data.payment.filters)):
         cid, index, option, activation_cost = data.payment.filters[i]
         card = plan.state.cards[cid]
@@ -1457,7 +1466,7 @@ def _filter_run(plan: Plan, data: _FilterPayment) -> M.Payment | None | _Payment
     remaining = [cid for cid in data.payment.tapped if cid not in filter_ids and cid in plan.state.cards
                  and not plan.state.cards[cid].tapped and plan.state.cards[cid].zone.endswith(":battlefield")]
     after = pc.continuation(plan, "payment_filter_result", _FilterResult(data.payment.tapped, data.then))
-    result = _pay(plan, data.player, data.cost, data.label, sources=remaining, exclude=data.exclude,
+    result = _pay(plan, data.player, data.cost, data.label, sources=None if data.allow_more_sources else remaining, exclude=data.exclude,
                   purpose=data.purpose, life_due=data.life_due, then=after)
     if not isinstance(result, _PaymentWaiting) and result is not None:
         result.tapped = list(dict.fromkeys(data.payment.tapped + result.tapped))
@@ -1466,8 +1475,9 @@ def _filter_run(plan: Plan, data: _FilterPayment) -> M.Payment | None | _Payment
 
 def _pay_filters(plan: Plan, player: str, cost: M.ManaCost, label: str, payment: M.Payment,
                  exclude: tuple[str, ...], purpose: Purpose | None, life_due: int,
-                 then: dict[str, Any]) -> M.Payment | None | _PaymentWaiting:
-    return _filter_run(plan, _FilterPayment(player, cost, label, payment, exclude, purpose, life_due, then))
+                 then: dict[str, Any], *, allow_more_sources: bool = False) -> M.Payment | None | _PaymentWaiting:
+    return _filter_run(plan, _FilterPayment(player, cost, label, payment, exclude, purpose, life_due, then,
+                                           allow_more_sources=allow_more_sources))
 
 
 @dataclass
@@ -1493,6 +1503,7 @@ class _SequentialPayment:
     source_life: int
     then: dict[str, Any]
     at: int = 0
+    allow_more_sources: bool = False
 
 
 def _sequential_merge(data: _SequentialPayment, payment: M.Payment | None) -> M.Payment | None:
@@ -1531,7 +1542,7 @@ def _sequential_run(plan: Plan, data: _SequentialPayment) -> M.Payment | None | 
         if not produce(plan, card, source.ability, source.option, source.index, then=after, option_index=source.option_index):
             return _PAYMENT_WAITING
     after = pc.continuation(plan, "sequential_mana_result", data)
-    result = _pay(plan, data.player, data.cost, data.label, sources=[], exclude=data.exclude,
+    result = _pay(plan, data.player, data.cost, data.label, sources=None if data.allow_more_sources else [], exclude=data.exclude,
                   purpose=data.purpose, life_due=data.life_due, then=after)
     return result if isinstance(result, _PaymentWaiting) else _sequential_merge(data, result)
 
@@ -1569,8 +1580,14 @@ def _pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list
         return None
     payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose,
                            reserve=plan.reserved_life)
+    from app.rules import mana_sunglasses49
+
+    live_spending = mana_sunglasses49.present(plan.state, player, plan.info)
+    if live_spending and then is None and payment.filters:
+        raise ActionError('Activate these mana sources before paying this cost')
     if payment.filters and then is not None:
-        return _pay_filters(plan, player, cost, label, payment, exclude, purpose, life_due, then)
+        return _pay_filters(plan, player, cost, label, payment, exclude, purpose, life_due, then,
+                            allow_more_sources=live_spending and sources is None)
     if payment.filters:
         # Filter inputs pay a mana ability, not the spell/ability whose payment
         # requested the filter (106.4). Execute those payments separately: their
@@ -1606,14 +1623,16 @@ def _pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list
     if life > max(0, plan.state.players[player].life - plan.reserved_life + life_due) and life > payment.life + life_due:  # (the true total: Karn's Sylex bans only spells')
         raise ActionError(f"Those sources would take {life} life to pay {cost.text()}, and you can't pay more life than you have (119.4): "
                           "tap other sources")
-    if then is not None and any(ab.immediate_effects or any(kind == "draw" for kind, _ in ab.riders) or (ab.extra_cost and parse_ability_cost(ab.extra_cost, card_name=plan.ch(source).name).life > 0) for source, _, ab in extras):
+    if live_spending and extras and then is None:
+        raise ActionError('Activate these mana sources before paying this cost')
+    if then is not None and (live_spending and bool(extras) or any(ab.immediate_effects or any(kind == "draw" for kind, _ in ab.riders) or (ab.extra_cost and parse_ability_cost(ab.extra_cost, card_name=plan.ch(source).name).life > 0) for source, _, ab in extras)):
         # Mana abilities finish in 601.2g before the spell's mana is spent in
         # 601.2h. In particular, source two cannot activate during source one's
         # replacement draw choice, and later costs cannot consume its cards yet.
         options = dict(payment.slots)
         sequence = [_SequentialSource(card, plan.oid(card), index, ab, options[card.id], dict(payment.ability_options).get(card.id)) for card, index, ab in extras]
         data = _SequentialPayment(player, cost, label, payment, sequence, exclude, purpose, life_due,
-                                  life - payment.life - life_due, then)
+                                  life - payment.life - life_due, then, allow_more_sources=live_spending and sources is None)
         return _sequential_run(plan, data)
     oids = {card.id: plan.oid(card) for card, _, _ in extras}  # (wave 5A: the objects as they were tapped)
     from app.rules import mana_units
@@ -1660,7 +1679,7 @@ def _auto_helpers(plan: Plan, cost: M.ManaCost, spell: Characteristics, spell_ca
         return []
     plain = [s for s in mana_sources(state, player, plan.info, purpose) if s.activation is None]
     try:
-        found = M.solve(_constrained(life_for_mana(state, player, plan.info, cost), purpose), dict(state.players[player].mana),
+        found = M.solve(_constrained(_spending_cost(state, player, plan.info, life_for_mana(state, player, plan.info, cost)), purpose), dict(state.players[player].mana),
                         _helper_sources(state, player, plan.info, spell, spell_card, plain), life=spendable_life(state, player, plan.info))
     except M.ManaError:
         return []
@@ -2080,7 +2099,7 @@ def pool_covers(state: GameState, player: str, cost: M.ManaCost, purpose: Purpos
 
     purpose = _purpose_for_cost(cost,purpose)
     try:
-        M.solve(_constrained(life_for_mana(state, player, info, cost) if info is not None else cost, purpose), dict(state.players[player].mana), mana_units.unit_sources(state, player, purpose),
+        M.solve(_constrained(_spending_cost(state, player, info, life_for_mana(state, player, info, cost) if info is not None else cost), purpose), dict(state.players[player].mana), mana_units.unit_sources(state, player, purpose),
                 life=spendable_life(state, player, info))
     except M.ManaError:
         return False
@@ -2152,7 +2171,7 @@ def _covered(plan: Plan, player: str, cost: M.ManaCost, helpers: list[P.Helper],
     if after.get('stage') == 'activation_announced':
         reserve = max(reserve, int(after.get('reserved_life', 0)))
     covers = P.pool_pays(dict(p.mana), max(0, spendable_life(plan.state, player, plan.info) - reserve), units)
-    return P.assign(cost, helpers, lambda rest: covers(_constrained(life_for_mana(plan.state, player, plan.info, rest), purpose)))  # (review 18B: K'rrik)
+    return P.assign(cost, helpers, lambda rest: covers(_constrained(_spending_cost(plan.state, player, plan.info, life_for_mana(plan.state, player, plan.info, rest)), purpose)))  # (review 18B: K'rrik)
 
 
 def _tap_display(plan: Plan, player: str, cost: M.ManaCost, what: str, resume: dict[str, Any]) -> dict[str, Any]:
@@ -2184,7 +2203,7 @@ def _tap_display(plan: Plan, player: str, cost: M.ManaCost, what: str, resume: d
     rest = P.remaining(cost, assignment) if len(assignment) == len(helpers) else cost
     from app.rules import x_mana_restrictions
 
-    remaining = P.after_pool(_constrained(rest, _prompt_purpose(plan, resume)), mana_units.visible_pool(plan.state, player))
+    remaining = P.after_pool(_constrained(_spending_cost(plan.state, player, plan.info, rest), _prompt_purpose(plan, resume)), mana_units.visible_pool(plan.state, player))
     remaining = x_mana_restrictions.visible(remaining)
     # (wave 29C: every helper is listed — the table clicks a creature / artifact / card only if it is on its list, so a cut list hid some)
     return {"kind": "tap_mana", "cost": cost.text(), "what": what, "sources": sources,
@@ -2268,7 +2287,7 @@ def _best_option_index(plan: Plan, options: tuple[tuple[str, ...], ...]) -> int:
     if d is None or not d.resume or "cost" not in d.resume:
         return 0
     cost = M.parse_cost(d.resume["cost"])
-    cost = _constrained(life_for_mana(plan.state, plan.actor, plan.info, cost), _prompt_purpose(plan, d.resume))
+    cost = _constrained(_spending_cost(plan.state, plan.actor, plan.info, life_for_mana(plan.state, plan.actor, plan.info, cost)), _prompt_purpose(plan, d.resume))
     pool = dict(plan.state.players[plan.actor].mana)
     for option_index, opt in enumerate(options):
         trial = dict(pool)
@@ -2389,12 +2408,13 @@ def can_pay(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *, 
         everything = _helper_sources(state, player, info, purpose.spell, purpose.card, everything)
     from app.rules import mana_units
 
-    cost = _constrained(life_for_mana(state, player, info, cost), purpose)
+    cost = _constrained(_spending_cost(state, player, info, life_for_mana(state, player, info, cost)), purpose)
     try:
         _solve_with_filters(cost, dict(state.players[player].mana),
                             [s for s in everything if s.activation is None] + mana_units.unit_sources(state, player, purpose),
                             [s for s in everything if s.activation is not None],
-                            max(0, spendable_life(state, player, info) - reserve))  # (-- hints (wave 30B) -- 119.4: less the life the spell's other costs pay, as ``_find_payment``'s ``reserve``)
+                            max(0, spendable_life(state, player, info) - reserve),
+                            input_spending=lambda due: _spending_cost(state, player, info, due))  # (-- hints (wave 30B) -- 119.4: less the life the spell's other costs pay, as ``_find_payment``'s ``reserve``)
     except M.ManaError:
         return False
     return True
@@ -3257,6 +3277,10 @@ def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Character
     mandatory additional cost, "sacrifice a creature", can't be paid). The same checks as ``cast_free``, in the same order; cast_limits'
     prohibitions (601.3) are the caller's. Mana is not checked here: ``can_pay`` doesn't count the mana abilities activated by hand (a Spirit
     Guide, Ashnod's Altar), so a cost increase that can't be paid is met in the payment, where the cast can be cancelled (``_announcing``)."""
+    from app.rules import cast_timing
+
+    if (timed := cast_timing.problem(plan.state, player, card, ch, plan.info)) is not None:
+        return timed  # CR601.3: a resolving effect's permission does not override a card's own restrictions.
     if paid and x is None and '{X}' in ch.mana_cost:
         from app.rules import source_qualities
 
@@ -4141,7 +4165,7 @@ def _new_ability(plan: Plan, card: CardInstance, text: str) -> str | None:
 
 
 def _stacked(plan: Plan, card: CardInstance, oid: str, ch: Characteristics, ability_id: str | None,
-             effects: list[dict[str, Any]], *, cost_has_x: bool | None = None, x: int | None = None) -> None:
+             effects: list[dict[str, Any]], *, cost_has_x: bool | None = None, cost_has_tap: bool | None = None, x: int | None = None) -> None:
     """An activated ability is on the stack: record what it does, then pass priority Arena-style."""
     from app.rules.engine import advance  # the engine imports this module
 
@@ -4151,7 +4175,7 @@ def _stacked(plan: Plan, card: CardInstance, oid: str, ch: Characteristics, abil
                                          name=ch.name, effects=effects, targets=[], target_spec=None, x=x)
         from app.rules.triggers import activated  # -- activation (wave 11F) --
 
-        activated(plan, card, oid, ability_id=ability_id, cost_has_x=cost_has_x)
+        activated(plan, card, oid, ability_id=ability_id, cost_has_x=cost_has_x, cost_has_tap=cost_has_tap)
     r.passed = []
     r.priority = plan.actor
     if r.prefs_for(plan.actor).hold_priority:
@@ -4457,7 +4481,7 @@ def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
     if restrictions.limited(limits):
         restrictions.record_use(plan.rules, oid, a.ability, plan.state.turn.number)
     _stacked(plan, card, oid, ch, ability_id, [{"do": "saddled"}] if saddle else
-             [{"do": "animate", "who": "self", "types": ["Artifact", "Creature"], "crewed": True}])
+             [{"do": "animate", "who": "self", "types": ["Artifact", "Creature"], "crewed": True}], cost_has_tap=False)
 
 
 # -- static statics (wave 10B) -- cascade a permanent gives the spell as it's cast (cast_limits.granted_cascade)
@@ -4706,8 +4730,11 @@ def announce_free_x(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characte
                            reserve=life_due + (alternative_parts.life if alternative_parts is not None else 0)) for i, (total, life_due) in enumerate(ways)):
             break
         options.append(DecisionOption(id=f"x:{n}", label=str(n)))
+    if paid:
+        options.append(DecisionOption(id="x:other", label="Another value for X (0–1000)"))
     decide(plan, player=plan.actor, kind="choose_one", prompt=f"{ch.name or 'This spell'}: choose a value for X (107.3a)",
-           options=options or [DecisionOption(id="x:0", label="0")], resume=_announcing(plan, "free_x", a), source=card)
+           options=options or [DecisionOption(id="x:0", label="0")],
+           resume=_announcing(plan, "free_x", a, card_object=plan.oid(card), paid_x=paid), source=card)
     return True
 
 
@@ -4729,11 +4756,46 @@ def resume_casualty_x(plan: Plan, d: Any, chosen: list[str]) -> None:
     casualty_x.resume(plan, d, chosen)
 
 
+def _paid_x_identity(plan: Plan, intent: A.CastSpell, resume: dict[str, Any]) -> None:
+    """A numeric paid-copy continuation belongs to the originally selected spell object and authority."""
+    pending = plan.rules.free_cast_then
+    if (not resume.get("paid_x") or resume.get("card_object") is None
+            or plan.oid(intent.card_id) != resume["card_object"] or pending is None
+            or pending["card"] != intent.card_id or not pending["e"].get("paid")):
+        raise ActionError("The original paid spell object or casting permission is no longer available")
+
+
+def resume_paid_x_number(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """Type X in the platform range; actual payment, including SELF mana abilities, checks its cost."""
+    from app.rules.engine import INTENTS
+
+    if cancelled(plan, d, chosen):
+        return
+    count = int(chosen[0])
+    if not 0 <= count <= 1000:
+        raise ActionError("Choose X from 0 to 1000 (platform numeric range)")
+    intent = A.parse_action(d.resume["intent"])
+    assert isinstance(intent, A.CastSpell)
+    _paid_x_identity(plan, intent, d.resume)
+    intent.x_value = count
+    plan.rules.priority = d.player
+    plan.rules.passed = []
+    INTENTS[intent.type](plan, intent)
+
+
 def resume_free_x(plan: Plan, d: Any, chosen: list[str]) -> None:
     """The caster's X: the cast goes on with it announced."""
     from app.rules.engine import INTENTS  # the engine imports this module
 
     intent = A.parse_action(d.resume["intent"])
+    if chosen == ["x:other"]:
+        assert isinstance(intent, A.CastSpell)
+        _paid_x_identity(plan, intent, d.resume)
+        decide(plan, player=d.player, kind="choose_one", prompt="Choose X (platform range 0–1000)",
+               options=[DecisionOption(id="__number__", label="Paid spell X: 0–1000")],
+               resume=_announcing(plan, "paid_x_number", intent, card_object=d.resume["card_object"], paid_x=True),
+               source=plan.state.cards[intent.card_id])
+        return
     intent.x_value = int(chosen[0].split(":")[1])  # type: ignore[union-attr]
     plan.rules.priority = d.player
     plan.rules.passed = []
@@ -4807,6 +4869,10 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     limited = cast_limits.cast_problem(plan.state, plan.actor, card, ch, plan.info, resolving=True)
     if limited:
         raise ActionError(limited)
+    from app.rules import cast_timing
+
+    if (timed := cast_timing.problem(plan.state, plan.actor, card, ch, plan.info)) is not None:
+        raise ActionError(timed)
     # -- static wordings (wave 6E) -- 118.9d: a choice of additional costs is still announced (601.2b) and paid
     from app.rules import alt_costs, cost_changes, either_costs
 
@@ -5983,6 +6049,7 @@ def _post_activation(plan: Plan, data: _PostActivation, paid: M.Payment | None) 
         _activated(plan, "cycling")
         emit(plan.state, "cycled", object_id=oid, card=card.id, player=plan.actor, amount=a.x_value or 0)
     record.activation_cost_has_x = "{X}" in (ability.cost or "")
+    record.activation_cost_has_tap = cost.tap
     record.activation_life_paid = max(0, record.life - (paid.auxiliary_life if paid else 0))
     if ability_id:
         record_payment(plan, ability_id, record)  # Each activation has its own mana and nonmana payment.
@@ -6270,7 +6337,7 @@ def _produce_body(plan: Plan, card: CardInstance, ability: M.ManaAbility, option
                 mana_spent=dict(input_payment.spent) if input_payment else {},
                 mana_tags=input_payment.tags if input_payment else [],
                 mana_riders=mana_units.ability_riders(input_payment.riders) if input_payment else [],
-                activation_cost_has_x='{X}' in ability.extra_cost,
+                activation_cost_has_x='{X}' in ability.extra_cost, activation_cost_has_tap=ability.tap,
                 activation_life_paid=(extra.life if extra else 0) + max(0, (input_payment.life-input_payment.auxiliary_life) if input_payment else 0)).model_dump(mode='json')})
     return True
 
@@ -6375,7 +6442,7 @@ def _chosen_mana_paid(plan: Plan, data: _ChosenManaPayment, payment: M.Payment |
         mana_spent=dict(payment.spent) if payment else {}, mana_tags=payment.tags if payment else [],
         mana_riders=mana_units.ability_riders(payment.riders) if payment else [],
         snow_spent=dict(payment.snow_spent) if payment else {},
-        mana_sources=payment.sources if payment else [], activation_cost_has_x='{X}' in parsed.extra_cost,
+        mana_sources=payment.sources if payment else [], activation_cost_has_x='{X}' in parsed.extra_cost, activation_cost_has_tap=parsed.tap,
         activation_life_paid=cost.life + max(0, (payment.life-payment.auxiliary_life) if payment else 0))
     mana_context['activation_payment'] = input_record.model_dump(mode='json')
     source_snapshot = card.model_dump(mode="json")
