@@ -223,7 +223,7 @@ def test_forced_group_rechecks_target_after_native_control_change(cards):
     response = put(s, 'Dominate', 'hand', 'p3')
     mana(s, pid='p3', C=3, U=3)
     wait_priority(s, 'p3')
-    act(s, 'p3', type='cast_spell', card_id=response.id, targets=[a.id], x=2, sources=[])
+    act(s, 'p3', type='cast_spell', card_id=response.id, targets=[a.id], x_value=2, sources=[])
     settle(s)
     a = s.state.cards[a.id]
     assert a.controller == 'p3' and not a.is_attacking
@@ -301,8 +301,6 @@ def test_reselection_invalidates_original_defending_player_target(cards):
 
 
 def test_actual_copied_forced_ability_rebinds_new_player_targets(cards):
-    from tests.test_rules_counter_event_comparisons50 import resolve_only
-
     s, a, b = setup(cards)
     source = cast(s, 'Portal Manipulator')
     choose(s, ['p3'])
@@ -315,9 +313,12 @@ def test_actual_copied_forced_ability_rebinds_new_player_targets(cards):
     mana(s, pid='p2', C=1, R=2)
     wait_priority(s, 'p2')
     act(s, 'p2', type='cast_spell', card_id=favor.id, modes=[0], targets=[original], sources=[])
-    resolve_only(s, favor)
+    settle(s)
     d = s.state.rules.decision
     assert d is not None and d.resume['step'] == 'copy_target'
+    act(s, 'p2', type='choose', decision_id=d.id, option_ids=['p1'])
+    d = s.state.rules.decision
+    assert d is not None and d.resume['step'] == 'copy_target' and d.resume['picks'] == []
     act(s, 'p2', type='choose', decision_id=d.id, option_ids=['p2'])
     for _ in range(3):
         d = s.state.rules.decision

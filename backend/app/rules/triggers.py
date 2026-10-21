@@ -906,6 +906,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
 
     event, obj, och, player, info = fact
     you = watcher.controller
+    if cond.get('during_step') and plan.state.turn.phase != cond['during_step']:
+        return False
     if 'life_loss_exact' in cond and (event != 'lose_life' or info.get('amount') != cond['life_loss_exact']):
         return False
     if event == "attack" and cond.get("defender_lands_min"):

@@ -2097,6 +2097,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
            for x in sel.extras):  # -- copy abilities (wave 19E) -- "… from an enchantment source"
         return False
     for extra in sel.extras:
+        if extra == 'controlled_since_turn_start69':
+            from app.rules import controller_turn_history69
+
+            if not controller_turn_history69.continuous(plan, card):
+                return False
         if extra == 'enchant_creature_exact':
             from app.rules import attachments
 

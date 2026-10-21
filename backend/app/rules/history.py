@@ -91,6 +91,10 @@ def graveyard_entries(plan: Plan, player: str, *, last: bool = False) -> int:
 def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     """Is this ``{"history": …}`` condition true for the ability's controller right now?"""
     kind = cond["history"]
+    if kind == 'control_acquired69':
+        from app.rules import controller_turn_history69
+
+        return controller_turn_history69.acquired(plan, ctx, log_for(plan, bool(cond.get('last'))))
     me: str = ctx["controller"]
     n = int(cond.get("n", 1))
     log = log_for(plan, bool(cond.get("last")))
@@ -264,6 +268,9 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
     from app.rules import roll_result_history42
 
     roll_result_history42.note(plan, events, log)
+    from app.rules import controller_turn_history69
+
+    controller_turn_history69.note(events, log, plan.state.turn.number)
     for e in events:
         if e.kind not in ("zone_change", "sacrificed", "damage", "counters", "milled", "land_played") or e.turn != plan.state.turn.number:
             continue

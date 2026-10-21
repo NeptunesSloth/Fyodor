@@ -106,6 +106,8 @@ class ControlMark(BaseModel):
     # battlefield under this control (reanimated "under your control"), None when unknown (an
     # older save, or automation turned on mid-game).
     changed: bool | None = None
+    # First turn this unknown-age control relationship was actually observed.
+    observed_from_turn: int | None = None
 
 
 # -- automation levels and options ---------------------------------------------------------
@@ -1701,7 +1703,7 @@ def start_rules(state: GameState) -> RulesState:
         combat_memory=CombatMemory(known_empty=list(state.seat_order) if state.seq <= 1 else []),
         turn_started={state.turn.active_player: state.turn.number},
         controlled_since={
-            cid: ControlMark(controller=c.controller, turn=0)
+            cid: ControlMark(controller=c.controller, turn=0, observed_from_turn=state.turn.number)
             for cid, c in state.cards.items()
             if c.zone.endswith(":battlefield")
         },
@@ -1942,13 +1944,15 @@ def track(state: GameState, before: Capture | None = None, *, manual: bool = Fal
     turn_log_now(state)  # Initialize even empty turns; completed-own-turn summaries must not skip them.
     on_battlefield: set[str] = set()
     for card_id, card in state.cards.items():
-        if not card.zone.endswith(":battlefield"):
+        if not card.zone.endswith((":battlefield", ":phased")):
             continue
         on_battlefield.add(card_id)
         mark = rules.controlled_since.get(card_id)
         if mark is None or mark.controller != card.controller:
             rules.controlled_since[card_id] = ControlMark(controller=card.controller, turn=state.turn.number,
                                                           changed=mark is not None)
+        elif mark.turn == 0 and mark.observed_from_turn is None:
+            mark.observed_from_turn = state.turn.number
     for card_id in [c for c in rules.controlled_since if c not in on_battlefield]:
         del rules.controlled_since[card_id]
     if before is not None:

@@ -3910,6 +3910,9 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
             # an illegal target keeps its place (None), so the division stays as announced (115.7f)
             together = relation_ok(plan, gspec, refs)  # (wave 51A) "that share a creature type": no longer so, all of the group's targets are illegal (608.2b; Shifting Loyalties ruling)
             what = player_relative.bind_what(plan, gspec, entry.groups)  # (-- player-relative selectors (wave 53A) -- "that player controls": the player group ``of`` names, as it last was)
+            dependency = gspec.get('requires_legal_group')
+            if dependency is not None:
+                together = together and 0 <= dependency < len(groups) and any(groups[dependency])
             groups.append([t.model_dump() if together and still_legal(plan, what, entry.controller, t, src, entry.source_card, attacker, source_object=entry.source_object)
                            else None for t in refs])
         chosen = sum(len(refs) for refs in entry.groups)
@@ -6616,3 +6619,6 @@ PRIMITIVES.update(_combat_teyo66.PRIMITIVES)
 from app.rules import entry_counter_kind_choices68 as _entry_counter_kind_choices68  # noqa: E402
 
 PRIMITIVES.update(_entry_counter_kind_choices68.PRIMITIVES)
+
+from app.rules import attacker_reselection73 as _attacker_reselection73  # noqa: E402
+PRIMITIVES['attacker_reselect73'] = _attacker_reselection73.effect

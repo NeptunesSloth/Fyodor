@@ -53,7 +53,7 @@
   ],
   "snapshot": "/tmp/fyodor-catalog51-resume-snapshot",
   "notes": "Bribe Taker and later hooks excluded; frozen source has no Bribe hook. Production manifests for some recent names are still closing and must pass before final admission.",
-  "catalog_status": "RUNNING_NO_NEW_VERIFIED_TOTAL",
+  "catalog_status": "COMPLETE_EXACT39_ZERO_REGRESSIONS_SCOPED_ADMISSIONS_VERIFIED",
   "source_module_count": 799,
   "source_mypy": "PASS 799 modules",
   "source_ruff": "PASS",
@@ -62,5 +62,16 @@
     "FULL": 29571,
     "PARTIAL": 2497
   },
-  "continuation": "Six agents continue automatic disjoint work; status requests do not cancel the task."
+  "continuation": "Six agents continue automatic disjoint work; status requests do not cancel the task.",
+  "catalog_result": {
+    "FULL": 29610,
+    "PARTIAL": 2458,
+    "expected_promotions": 39,
+    "regressions": 0,
+    "unexpected_promotions": 0,
+    "missing_promotions": 0,
+    "database_metadata_equal": true,
+    "card_name_set_equal": true
+  },
+  "final_coverage": "checkpoint51-coverage.json"
 }

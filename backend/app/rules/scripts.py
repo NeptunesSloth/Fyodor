@@ -5687,6 +5687,10 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import attacker_reselection73
+
+    if (reselection73 := attacker_reselection73.definition(ability, ch)) is not None:
+        return reselection73
     from app.rules import combat_conditional_requirements67
 
     if (conditional67 := combat_conditional_requirements67.definition(ability, ch)) is not None:
@@ -5707,6 +5711,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (direction66 := combat_teyo66.definition(ability, ch)) is not None:
         return direction66
+    from app.rules import controller_turn_history69
+
+    if (controller69 := controller_turn_history69.definition(ability, ch)) is not None:
+        return controller69
     from app.rules import entry_counter_kind_choices68
 
     if (entry_kind68 := entry_counter_kind_choices68.definition(ability, ch)) is not None:
@@ -5941,6 +5949,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if (table_activation := table_activation_modifiers52.definition(ability, ch)) is not None:
         return table_activation
 
+    from app.rules import dependent_object_targets65
+
+    if (dependent_object65 := dependent_object_targets65.definition(ability, ch)) is not None:
+        return dependent_object65
     from app.rules import fight_exile_receipts65
 
     if (fight_exile65 := fight_exile_receipts65.definition(ability, ch)) is not None:
