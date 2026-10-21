@@ -3511,5 +3511,74 @@
     "artist": "Todd Lockwood",
     "edhrec_rank": 26627,
     "faces": []
+  },
+  {
+    "id": "53b92e8a-fadf-4568-8b30-2df68e6ff7cf",
+    "oracle_id": "6492c381-0fa1-4d43-bf72-d8956d8a34b6",
+    "name": "Lumbering Megasloth",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "pip",
+    "set_name": "Fallout",
+    "set_type": "commander",
+    "collector_number": "80",
+    "released_at": "2024-03-08",
+    "rarity": "uncommon",
+    "mana_cost": "{10}{G}{G}",
+    "cmc": 12.0,
+    "type_line": "Creature \u2014 Sloth Mutant",
+    "oracle_text": "This spell costs {1} less to cast for each counter among players and permanents.\nTrample\nThis creature enters tapped.",
+    "power": "8",
+    "toughness": "8",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ],
+    "produced_mana": null,
+    "all_parts": null,
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/5/3/53b92e8a-fadf-4568-8b30-2df68e6ff7cf.jpg?1783912397",
+      "normal": "https://cards.scryfall.io/normal/front/5/3/53b92e8a-fadf-4568-8b30-2df68e6ff7cf.jpg?1783912397",
+      "large": "https://cards.scryfall.io/large/front/5/3/53b92e8a-fadf-4568-8b30-2df68e6ff7cf.jpg?1783912397",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/5/3/53b92e8a-fadf-4568-8b30-2df68e6ff7cf.jpg?1783912397"
+    },
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "not_legal",
+      "timeless": "not_legal",
+      "gladiator": "not_legal",
+      "pioneer": "not_legal",
+      "modern": "not_legal",
+      "legacy": "legal",
+      "pauper": "not_legal",
+      "vintage": "legal",
+      "penny": "not_legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "not_legal",
+      "competitivebrawl": "not_legal",
+      "alchemy": "not_legal",
+      "paupercommander": "not_legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "not_legal",
+      "predh": "not_legal",
+      "tlr": "not_legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Daniel Romanovsky",
+    "edhrec_rank": 11886,
+    "faces": []
   }
 ]

@@ -214,6 +214,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     ``it`` is what a bare "it" means for the caller ("counters on it": the static's own source
     is "self"); None refuses it (a pronoun the caller can't bind is never guessed)."""
     p = phrase.strip()
+    if p.lower() in ("counter among players and permanents", "counters among players and permanents", "the number of counters among players and permanents"):
+        return {"all_counters_among_players_and_permanents": True}
     from app.rules import linked_aggregates
 
     if (linked := linked_aggregates.parse_value(p)) is not None:
@@ -950,6 +952,19 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         spec=v["players_with_counters"]
         return sum(int(plan.state.players[p].resources.get(spec["kind"],0))>=spec["at_least"]
                    for p in plan.live() if spec["who"]!="opponents" or p!=you)
+    if "all_counters_among_players_and_permanents" in v:
+        player_total = sum(
+            max(0, n)
+            for pid in plan.live()
+            for kind, n in plan.state.players[pid].resources.items()
+            if kind != "speed"
+        )
+        permanents = selectors.Selector(types=tuple(PERMANENT_TYPES))
+        return player_total + sum(
+            max(0, n)
+            for cid in selectors.candidates(plan, permanents, you)
+            for n in plan.state.cards[cid].counters.values()
+        )
     if "player_counters" in v:
         if v.get("of") == "opponents":  # (wave 3E) "poison counters your opponents have": all of them together
             return sum(max(0, int(plan.state.players[p].resources.get(v["player_counters"], 0))) for p in plan.live() if p != you)

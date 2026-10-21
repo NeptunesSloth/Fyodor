@@ -1,5 +1,9 @@
 ## CHECKPOINT48 VERIFIED — CONTINUING BATCH49
 
+User target: complete at least **1,500 additional cards** from checkpoint48; target **30,962 FULL / at most1,106 PARTIAL**. Planning groups and deduplicated affected-card lists are in [remaining1500-plan.json](research/remaining1500-plan.json); these are priorities, not completed work.
+
+Post-snapshot Lumbering Megasloth: six native/canonical cases PASS, including genuine cold reload, actual paid-cost receipts, individual counters on all players and permanents, speed/nonpermanent exclusions, green cost floor, enters tapped, and actual chosen trample damage. Shared value/counter/Lashwhip regression run123PASS (overlaps focused cases); scoped values mypy and owned Ruff PASS. Outside checkpoint48 totals pending combined catalog audit.
+
 Latest full catalog classification: **29,462 FULL / 2,606 PARTIAL**, 32,068 Commander-legal cards. All5 expected promotions appeared: Wicked Akuba, Sailors' Bane, Hearth Elemental // Stoke Genius, Quarum Trench Gnomes, Flotsam // Jetsam. Zero prior FULL losses and no unexpected or missing promotions. Permanent evidence: [checkpoint48-coverage.json](research/checkpoint48-coverage.json). Stable snapshot713 Python modules, SHA256 map `/tmp/fyodor-catalog48-source-hashes.json`, full native inventory `/tmp/fyodor-fortyeighth-inventory.json`;713 app/tools mypyPASS and configured snapshotRuffPASS. These are coverage classifications; automation remains incomplete.
 
 Focused production: Akuba13 unique cases including1 genuine cold +129 targeting/parser/core-related cases; Sailors/Hearth16 cases including2 genuine cold +92 cost-related; Quarum21 including2 genuine cold +203 related; Flotsam/Jetsam18 including1 genuine cold. Owned types3+2+4 and leaf types passed. Counts overlap and are not a global deduplicated test total.
