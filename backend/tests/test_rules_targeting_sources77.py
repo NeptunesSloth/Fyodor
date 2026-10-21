@@ -41,12 +41,14 @@ def test_canonical_whole_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == 'FULL'
 
 
-def setup(cards, name):
+def setup(cards, name, pyro=False):
     names = [c['name'] for c in DATA] + ['Grizzly Bears', 'Llanowar Elves']
     s = table(cards, names, names, names)
     source = put(s, name, 'battlefield')
     bear = put(s, 'Grizzly Bears', 'battlefield')
     elf = put(s, 'Llanowar Elves', 'battlefield')
+    if pyro:
+        put(s, 'Prodigal Pyromancer', 'battlefield', 'p2')
     start(s)
     act(s, 'p1', type='set_prefs', hold_priority=True)
     return s, source, bear, elf
@@ -173,7 +175,7 @@ def test_copied_backup_retains_keyword_and_triggers_unused_hoplite(cards):
     assert other.counters.get('+1/+1',0) == 1
 
 
-@pytest.mark.parametrize('mode', ['Leyline', 'Hoplite'])
+@pytest.mark.parametrize('mode', ['Leyline', 'Hoplite', 'Hojo'])
 def test_genuine_cold_pending_target_event_or_copy_choice(cards, tmp_path, mode):
     import subprocess
     import sys
@@ -181,9 +183,14 @@ def test_genuine_cold_pending_target_event_or_copy_choice(cards, tmp_path, mode)
     import app
     from tests.test_rules_bandmate_references import wait_priority
     from tests.test_rules_trigger_upkeep_comparison75 import cast
-    name = 'Leyline of Combustion' if mode == 'Leyline' else 'Mirror-Shield Hoplite'
+    name = {'Leyline':'Leyline of Combustion', 'Hoplite':'Mirror-Shield Hoplite', 'Hojo':'Professor Hojo'}[mode]
     s, source, bear, elf = setup(cards, name)
-    if mode == 'Leyline':
+    before = len(s.state.zones['p1:hand'])
+    if mode == 'Hojo':
+        dagger = put(s, 'Silver-Inlaid Dagger', 'battlefield')
+        act(s, 'p1', type='activate_ability', card_id=dagger.id, ability=2, targets=[bear.id], sources=[])
+        assert s.state.rules.stack
+    elif mode == 'Leyline':
         wait_priority(s, 'p2')
         spell = put(s, 'Lightning Bolt', 'hand', 'p2')
         mana(s, pid='p2', R=1)
@@ -209,20 +216,21 @@ from tests.test_rules_library_look import settle
 from tests.test_rules_wave6c_tokens_pumps import chars
 r=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
 s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=r)
-mode,bear=sys.argv[3:]
+mode,bear,before=sys.argv[3:]
 if mode=='Hoplite':
  d=s.state.rules.decision
  assert d is not None
  act(s,d.player,type='choose',decision_id=d.id,option_ids=['keep'])
 settle(s)
 if mode=='Leyline':assert s.state.players['p2'].life==38
+elif mode=='Hojo':assert len(s.state.zones['p1:hand'])==int(before)+1
 else:
  c=s.state.cards[bear]
  assert c.counters.get('+1/+1',0)==2
  assert {'flying','first strike','lifelink'} <= chars(s,c).keywords
 assert s.state.rules.decision is None
 '''
-    result = subprocess.run([sys.executable, '-c', code, str(saved), str(cards.db_path), mode, bear.id],
+    result = subprocess.run([sys.executable, '-c', code, str(saved), str(cards.db_path), mode, bear.id, str(before)],
                             capture_output=True, text=True, timeout=90, cwd=Path(app.__file__).resolve().parents[1])
     assert result.returncode == 0, result.stdout + result.stderr
 
@@ -262,8 +270,8 @@ def test_leyline_native_opening_hand_entry(cards):
 @pytest.mark.parametrize('name', ['Professor Hojo', 'Leyline of Combustion'])
 def test_opponent_native_activated_source_kind_targets_creature(cards, name):
     from tests.test_rules_bandmate_references import wait_priority
-    s, source, bear, elf = setup(cards, name)
-    pyro = put(s, 'Prodigal Pyromancer', 'battlefield', 'p2')
+    s, source, bear, elf = setup(cards, name, pyro=True)
+    pyro = next(c for c in s.state.cards.values() if c.name == 'Prodigal Pyromancer' and c.owner == 'p2')
     before = len(s.state.zones['p1:hand'])
     wait_priority(s, 'p2')
     act(s, 'p2', type='activate_ability', card_id=pyro.id, ability=0, targets=[bear.id], sources=[])

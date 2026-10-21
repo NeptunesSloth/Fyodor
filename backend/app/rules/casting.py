@@ -5508,15 +5508,16 @@ def _variable_ability_matching(state: GameState, card: CardInstance, ch: Charact
 
 
 def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState | None = None,
-                 card: CardInstance | None = None, info: CardInfo | None = None, target: str | None = None) -> AbilityCost:
+                 card: CardInstance | None = None, info: CardInfo | None = None, target: str | None = None,
+                 targets: tuple[str, ...] | None = None, actor: str | None = None) -> AbilityCost:
     from app.rules import activation_alternatives, hybrid_power_up71
 
     if (branches71 := hybrid_power_up71.alternatives(state, card, ch, ability)) is not None:
-        return AbilityCost(either=tuple(ability_cost(ch, branch, state=state, card=card, info=info, target=target)
+        return AbilityCost(either=tuple(ability_cost(ch, branch, state=state, card=card, info=info, target=target, targets=targets, actor=actor)
                                        for branch in branches71))
     if (sides := activation_alternatives.sides(ability.cost or "")) is not None:
         return AbilityCost(either=tuple(ability_cost(ch, activation_alternatives.with_cost(ability, side),
-                           state=state, card=card, info=info, target=target) for side in sides))
+                           state=state, card=card, info=info, target=target, targets=targets, actor=actor) for side in sides))
     cost = parse_ability_cost(ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
     if state is not None and card is not None and any(c.amount_rule == "opponents" for c in cost.components):
         from app.rules.plan import live_players
@@ -5548,7 +5549,7 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
             cost = replace(cost, mana=power_up.reduced(state, card, ch, cost.mana) or "")
         own = cost_changes.ability_delta(state, card.controller, card, ch, ability.text, info, target=target) \
             if "This ability costs " in ability.text else 0
-        reduced = permissions.ability_mana(state, card.controller, card, ch, cost.mana, info, own, ability.text, target)
+        reduced = permissions.ability_mana(state, actor or card.controller, card, ch, cost.mana, info, own, ability.text, target, targets=targets)
         if reduced != cost.mana:
             cost = replace(cost, mana=reduced)
         from app.rules import (
@@ -5835,7 +5836,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         if a.x_value is not None and a.x_value != x:
             raise ActionError(f"X is {x} for this ability; it isn't chosen (107.3c)")
         a.x_value = x
-    cost = ability_cost(ch, ability, state=plan.state, card=card, info=plan.info, target="?")  # (wave 46C: the best case until the targets are chosen, below)
+    cost = ability_cost(ch, ability, state=plan.state, card=card, info=plan.info, target="?", actor=plan.actor)  # (wave 46C: the best case until the targets are chosen, below)
     if a.x_value is not None and any(c.kind == costs.PAY_LIFE and c.x for c in cost.components):
         from dataclasses import replace as replace_cost
 
@@ -5880,7 +5881,8 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         return
     chosen = picked_targets.flat
     if not was_locked:  # -- most-played cards III (wave 46C) -- 601.2f: the total cost once the targets are chosen (601.2c): "Equip abilities you activate that target this creature cost {2} less"
-        exact = ability_cost(ch, ability, state=plan.state, card=card, info=plan.info, target=chosen[0].id if chosen else None)
+        exact = ability_cost(ch, ability, state=plan.state, card=card, info=plan.info, target=chosen[0].id if chosen else None,
+                             targets=tuple(t.id for t in chosen), actor=plan.actor)
         if exact.mana != cost.mana:
             mana = ability_mana_cost(exact)
     problem = cost_payment.problem(plan, cost, card, plan.actor, a.x_value)  # 118.3 / 601.2h: nothing is paid unless all can be
@@ -5900,7 +5902,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         from app.rules import cost_changes
 
         own = cost_changes.ability_delta(plan.state, card.controller, card, ch, ability.text, plan.info) if "This ability costs " in ability.text else 0
-        due = M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, due.text(), plan.info, own, ability.text, capture=x_reductions))
+        due = M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, due.text(), plan.info, own, ability.text, target=chosen[0].id if chosen else None, capture=x_reductions, targets=tuple(t.id for t in chosen)))
         due = _variable_ability_matching(plan.state, card, ch, ability, plan.info, due)
     from app.rules import cast_limits, x_mana_restrictions
 
@@ -5916,9 +5918,12 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
 
     resolved_x = a.x_value
     a.x_value = input_x
+    from app.rules import first_target_activation_cost58
+
     data = _PostActivation(a.model_copy(deep=True), ability, None, card.model_copy(deep=True), ch, chosen, cost, cost_objects,
                            definition, oid, picked_targets, _ModalSnapshot.capture(modal), resolved_x,
-                           {cid: plan.oid(cid) for cid in not_mana if cid in plan.state.cards}, keep_revealed=keep_revealed)
+                           {cid: plan.oid(cid) for cid in not_mana if cid in plan.state.cards}, keep_revealed=keep_revealed,
+                           targets_controlled_creature=first_target_activation_cost58.qualifies(plan.state, plan.actor, tuple(t.id for t in chosen), plan.info))
     after = pc.continuation(plan, "activation_announced", data)
     from app.rules import fixed_top_graveyard_cost46
 
@@ -5970,6 +5975,7 @@ class _PostActivation:
     reserved_objects: dict[str, str] | None = None
     keep_revealed: bool = False
     numeric_roll_cost: NumericRollCostReceipt | None = None
+    targets_controlled_creature: bool | None = None  # Frozen before any nonmana target may leave as payment.
 
 
 def _activation_announced(plan: Plan, data: _PostActivation, paid: M.Payment | None) -> None:
@@ -6095,6 +6101,9 @@ def _post_activation(plan: Plan, data: _PostActivation, paid: M.Payment | None) 
         from app.rules.triggers import targeted
 
         targeted(plan, ability_id, plan.actor, chosen)
+    from app.rules import first_target_activation_cost58
+
+    first_target_activation_cost58.record(plan, data.targets_controlled_creature)
     if ability.special == "equip":  # -- first activation (wave 48D) --
         _activated(plan, "equip")
     if ability_id:  # -- activation (wave 11F) -- 602.2: "Whenever a player activates an ability …"

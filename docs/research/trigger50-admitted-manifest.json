@@ -94,7 +94,9 @@
     "Guidelight Matrix",
     "Alacrian Armory",
     "Rambling Possum",
-    "Bounding Felidar"
+    "Bounding Felidar",
+    "Leyline of Combustion",
+    "Mirror-Shield Hoplite"
   ],
   "expected_promotions": [
     "Archivist of Gondor",
@@ -190,7 +192,9 @@
     "Guidelight Matrix",
     "Alacrian Armory",
     "Rambling Possum",
-    "Bounding Felidar"
+    "Bounding Felidar",
+    "Leyline of Combustion",
+    "Mirror-Shield Hoplite"
   ],
   "production_focused": {
     "count": 16,
@@ -1063,5 +1067,32 @@
       "tests/test_rules_saddled_receipts76.py": "5cd174c102752e9bbe09b6ae1ae4c32174576a092fa330adbbb950cbbfb32fd4",
       "tests/fixtures/saddled_receipts76_cards.json": "4ebb3e2c1e09a003c3052a8094e002fb61565f6ade5d78cc332f502f8b8dfbe0"
     }
+  },
+  "targeting_sources77_production": {
+    "baseline": "checkpoint54",
+    "names": [
+      "Leyline of Combustion",
+      "Mirror-Shield Hoplite"
+    ],
+    "status": "PRODUCTION_VERIFIED_PENDING_NEXT_CATALOG",
+    "whole_checks": 18,
+    "genuine_cold_checks": 2,
+    "production_log": "/tmp/trigger77-production-two.log",
+    "related_checks": 5,
+    "related_log": "/tmp/trigger77-related-production-five.log",
+    "types_checked": 5,
+    "types_log": "/tmp/trigger77-production-types.log",
+    "ruff_log": "/tmp/trigger77-production-ruff.log",
+    "canonical": "/tmp/trigger77-targeting-canonical.json",
+    "rulings": "/tmp/trigger77-targeting-rulings.json",
+    "reviewer": "root",
+    "scope": "Native aggregate target event, exact source refs/actor, existing StackInfo Backup provenance from actual keyword producer and current/LKI copied abilities. Exact backup-only event copy guard and native copy-new-targets. Paid spell/ability targets, repeated and mixed targets, generic counter ETB negative, actual copied-backup retarget and native LKI copying pass.",
+    "source_sha256": {
+      "app/rules/targeting_sources77.py": "69218ae21f7a3975c9d981b76036bb3be95390090b7e96f32f470f05918dad39",
+      "tests/test_rules_targeting_sources77.py": "8d462df7184f8ec75100163ec9618e9394cbc020496c29233f0daffa8b8c44af",
+      "tests/fixtures/targeting_sources77_cards.json": "59981200961feffa92d5196b410a5e6bb4dfeef54b7ec6208e4acff6ec0c635d"
+    },
+    "excluded_overlap": "Professor Hojo separately admitted and counted once by mana58 after native cost13/3cold + integrated whole5/1cold production PASS; not counted in trigger77 exact2.",
+    "cost_dependency_manifest": "/tmp/fyodor-mana58-hojo-production-admission-manifest.json"
   }
 }

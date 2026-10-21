@@ -644,6 +644,8 @@ def _copy_spell(plan: Plan, card: CardInstance, controller: str, excepts: list[C
 
 
 def _copy_ability(plan: Plan, card: CardInstance, controller: str, oid: str | None = None) -> str | None:
+    from app.game.state import StackInfo
+
     r = plan.rules
     ab = card.ability
     assert ab is not None
@@ -661,8 +663,10 @@ def _copy_ability(plan: Plan, card: CardInstance, controller: str, oid: str | No
     if entry is not None:  # 707.10b: the same source as the original
         r.stack[copy_id] = _entry_copy(entry, controller=controller, source=None, orig=orig_oid)
     _payment_alias(plan, orig_oid, oid, copy_id, controller)
-    if card.stack_info is not None and card.stack_info.x is not None:
-        plan.do({"type": "set_stack_info", "card_id": copy_id, "x": card.stack_info.x, "tags": ["Copy"]}, actor=controller)
+    info = (StackInfo.model_validate(mem.info) if mem.info else None) if mem is not None else card.stack_info
+    if info is not None and (info.x is not None or "Backup" in info.tags):
+        plan.do({"type": "set_stack_info", "card_id": copy_id, "x": info.x,
+                 "tags": ["Copy", *(["Backup"] if "Backup" in info.tags else [])]}, actor=controller)
     return copy_id
 
 

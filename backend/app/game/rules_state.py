@@ -1364,6 +1364,7 @@ class RulesState(BaseModel):
     coin_history_from_turn: int | None = None  # None in legacy saves; no absence is invented.
     graveyard_history_from_turn: int | None = None  # Complete physical-card arrival history; None is legacy unknown.
     turn_seen: int = 0  # last turn number the bookkeeping saw
+    target_activation_history_turn: int | None = None  # Unknown on legacy midturn saves; complete after a native turn boundary.
     turn_started: dict[str, int] = Field(default_factory=dict)  # player -> number of their latest turn
     controlled_since: dict[str, ControlMark] = Field(default_factory=dict)
     # -- control (wave 3K) -- the cards whose controller a layer-2 effect set (so that when the effect ends
@@ -1944,6 +1945,7 @@ def track(state: GameState, before: Capture | None = None, *, manual: bool = Fal
         return
     if rules.turn_seen != state.turn.number:
         rules.turn_seen = state.turn.number
+        rules.target_activation_history_turn = state.turn.number
         rules.turn_started[state.turn.active_player] = state.turn.number
     turn_log_now(state)  # Initialize even empty turns; completed-own-turn summaries must not skip them.
     on_battlefield: set[str] = set()

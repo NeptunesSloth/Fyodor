@@ -88,6 +88,9 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who.startswith(selectors.PREFIX):  # "each opponent", "each player" … as a selector
         sel = selectors.from_key(who)
         return [p for p in plan.live() if selectors.matches_player(plan, sel, p, me)] if sel.player else []
+    if who == "target_owner":
+        original = values._object(plan, ctx, "target")
+        return [original[0].owner] if original is not None and original[0].owner in plan.live() else []
     if who == "you":
         return [me]
     if who.startswith(player_relative.TP):  # -- player-relative selectors (wave 53A) -- the player (or the permanent's controller) a target group names
@@ -4565,6 +4568,9 @@ def choose_value(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         options = _choice_options(plan, ctx, e["what"])
     if e.get("options"):  # -- chosen type (wave 51C) -- "choose Elemental, Elf, …": only the creature types it lists
         options = [o for o in options if o.id in e["options"]]
+    from app.rules import player_counter_instructions75
+
+    options = player_counter_instructions75.remaining_players(plan, ctx, e, options)
     if not options:
         return True  # (no opponent left to choose: 800.4)
     if e["what"] == MOST_LIFE and len(options) == 1:  # (one player has the most life: nothing to choose)
@@ -6652,3 +6658,8 @@ from app.rules import saddled_receipts76 as _saddled_receipts76  # noqa: E402
 PRIMITIVES.update({"mount_vehicle76": _saddled_receipts76.mount_vehicle,
                    "saddle_contributors76": _saddled_receipts76.contributors,
                    "mount_cohort76": _saddled_receipts76.cohort})
+
+
+from app.rules import targeting_sources77 as _targeting_sources77  # noqa: E402
+
+PRIMITIVES['targeting_actor_damage77'] = _targeting_sources77.damage_actor

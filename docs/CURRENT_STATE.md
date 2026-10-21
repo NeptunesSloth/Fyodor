@@ -1,10 +1,12 @@
+Current review: [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). PR #18 was already merged; later work remained safely pushed on the same branch and is now included in the open continuation PR. Historical PR18 references below refer to that shared branch and earlier review.
+
 ## CHECKPOINT54 VERIFIED — CONTINUING
 
 Latest full catalog classification: **29,676 FULL / 2,392 PARTIAL**, among 32,068 Commander-legal cards. **15 exact expected promotions** from checkpoint53; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **214 of 1,500 additional completions verified; 1,286 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
 
 Evidence: [checkpoint54-coverage.json](research/checkpoint54-coverage.json) and [822-module source hashes](research/checkpoint54-source-hashes.json). Frozen inventory source passes configured Ruff and 54 core engine/history/privacy tests. Full mypy822 passes on a separate copy with one explicit actor-type guard correction in an unregistered research leaf; the original error, exact correction and scope are recorded in the coverage evidence. The 15 cover saddle designation and contributors, copied exile packets, graveyard keyword grants, committed entry receipts, counter instructions and combat restrictions. Every admission has closed native whole-card, negative, saved-game and relevant regression proofs.
 
-A stale Shizuko test now checks visible mana, actual payment and turn expiry, passing against live and checkpoint53 engines; no engine change or promotion. Six agents continue larger casting, graveyard-return, counter-choice and text-changing families while root reviews, integrates and saves work in PR18. All remaining automation and the 1,500-card target remain unfinished. Sections below retain historical notes.
+A stale Shizuko test now checks visible mana, actual payment and turn expiry, passing against live and checkpoint53 engines; no engine change or promotion. Six agents continue larger casting, graveyard-return, counter-choice and text-changing families while root reviews, integrates and saves work in PR19. All remaining automation and the 1,500-card target remain unfinished. Sections below retain historical notes.
 
 ## CHECKPOINT53 VERIFIED — CONTINUING
 

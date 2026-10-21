@@ -2649,6 +2649,14 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import immediate_cast_pools67
+
+    if (immediate := immediate_cast_pools67.parse(body)) is not None:
+        return immediate
+    from app.rules import player_counter_instructions75
+
+    if (players75 := player_counter_instructions75.parse(body)) is not None:
+        return players75
     from app.rules import entry_receipt56
 
     if (entered := entry_receipt56.parse(body)) is not None:
@@ -5695,6 +5703,14 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import player_counter_instructions75
+
+    if (players75 := player_counter_instructions75.definition(ability, ch)) is not None:
+        return players75
+    from app.rules import targeting_sources77
+
+    if (target77 := targeting_sources77.definition(ability, ch)) is not None:
+        return target77
     from app.rules import combat_soulbond_partner70
 
     if (soulbond70 := combat_soulbond_partner70.definition(ability, ch)) is not None:
@@ -5993,6 +6009,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if (dynamic_keyword_cost := dynamic_keyword_costs55.definition(ability, ch)) is not None:
         return dynamic_keyword_cost
 
+    from app.rules import first_target_activation_cost58
+
+    if (first_target_cost := first_target_activation_cost58.definition(ability, ch)) is not None:
+        return first_target_cost
+
     from app.rules import graveyard_cost_grants57
 
     if (graveyard_cost_grant := graveyard_cost_grants57.definition(ability, ch)) is not None:
@@ -6012,6 +6033,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (torch_exile65 := torch_exile_receipts65.definition(ability, ch)) is not None:
         return torch_exile65
+    from app.rules import immediate_cast_pools67
+
+    if (immediate67 := immediate_cast_pools67.definition(ability, ch)) is not None:
+        return immediate67
     from app.rules import copied_exile_packets66
 
     if (copied_exile66 := copied_exile_packets66.definition(ability, ch)) is not None:
@@ -7624,6 +7649,8 @@ def _event_refs_ok(d: Definition) -> bool:
         d = {**d, "effects": [*d["effects"][:picked[0] + 1], *json.loads(json.dumps(d["effects"][picked[0] + 1:]).replace(
             '\\"controller\\":\\"that_player\\"', '\\"controller\\":\\"player:chosen\\"').replace('"event_player"', '"player:chosen"'))]}
     effects = [e for e in d.get("effects") or []] + [e for m in d.get("modes") or [] for e in m.get("effects") or []]
+    if any(e.get("shares_type") == "target" for e in effects) and (d.get("kind") != "spell" or (d.get("target") or {}).get("what") != "spell"):
+        return False
     if not _event_spell_ok(d):  # -- refused copy/mana (wave 3R3) --
         return False
     # -- intervening ifs (wave 11F) -- "if that player controls …" / "if defending player has …" (603.4: read as it triggers
@@ -7637,7 +7664,7 @@ def _event_refs_ok(d: Definition) -> bool:
         return False
     if '"same_name": "event"' in raw and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
         return False  # -- value grammar (wave 23C) -- "that spell": the spell a cast trigger is about
-    if any(e.get("do") == "free_cast" and (e.get("shares_type") or {"mana_value": "event"} in (e.get("mv"), e.get("mv_lt"))) for e in effects) \
+    if any(e.get("do") == "free_cast" and ((e.get("shares_type") and e.get("shares_type") != "target") or {"mana_value": "event"} in (e.get("mv"), e.get("mv_lt"))) for e in effects) \
             and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
         return False  # -- if you do (wave 40A) -- "a spell with equal or lesser mana value [that shares a card type with it]": the spell a cast trigger is about
     if '"of": "cast_spell"' in raw and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
@@ -11364,7 +11391,8 @@ def _event_spell_ok(d: Definition) -> bool:
             return False
     if any(e.get("who") == "event_ability" for e in effects):  # -- copied abilities (wave 18F) -- the ability an activation trigger is about
         cond = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
-        return cond is not None and cond.get("event") == "activate" and cond.get("subject") in ("player", "host")  # (wave 23B: a loyalty ability or an attached permanent's too)
+        return cond is not None and ((cond.get("event") == "activate" and cond.get("subject") in ("player", "host"))
+                                    or (cond.get("event") == "targeted" and cond.get("target_source77") == "backup"))
     from app.rules import watches  # -- turn watches (wave 7D) --
 
     watched = watches.deferred_event_effects(effects)

@@ -13,7 +13,7 @@ Current ownership (six active agents):
 - `resume_library`: ordered graveyard readers, then remaining library/hand/graveyard choice families.
 - `integration_review`: combat direction and requirements, then remaining static/combat families.
 
-After each batch, send the exact completed-card manifest, native whole-card/negative/cold evidence, and shared patch to root. Move directly to the next largest disjoint coherent group while root reviews and integrates. Coordinate shared kernel edits with the current owner; do not wait idly for integration when independent work is available. Root reviews concrete shared patches, preserves work in PR18, and runs a frozen full-catalog diff before updating verified totals. Classifier-only changes never count as implementation.
+After each batch, send the exact completed-card manifest, native whole-card/negative/cold evidence, and shared patch to root. Move directly to the next largest disjoint coherent group while root reviews and integrates. Coordinate shared kernel edits with the current owner; do not wait idly for integration when independent work is available. Root reviews concrete shared patches, preserves work in PR19, and runs a frozen full-catalog diff before updating verified totals. Classifier-only changes never count as implementation.
 
 Each production admission requires the exact reviewed source, native whole-card and negative proofs, genuine cold continuation where applicable, and related checks. Production closures after checkpoint50 remain uncounted until the next frozen catalog diff.
 

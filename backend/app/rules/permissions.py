@@ -1791,7 +1791,7 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
 # -- costs (wave 3$) -- cost modifiers for activated abilities (602.2b -> 601.2f, 118.7) ---------------------
 def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characteristics, mana: str, info: CardInfo,
                  own: int = 0, ability_text: str = "", target: str | None = None, mana_ability: bool = False,
-                 capture: list[int] | None = None) -> str:
+                 capture: list[int] | None = None, targets: tuple[str, ...] | None = None) -> str:
     """The mana part of an activated ability's cost after "Activated abilities of creatures you control cost {2} less to
     activate" and its increases: increases first, then reductions on the generic component only (118.7a, 601.2f), and with
     "can't reduce the mana in that cost to less than one mana" never below one mana. Costs with {X} are left alone."""
@@ -1809,6 +1809,11 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
     from app.rules import attachments
 
     for src, d in mods:
+        if d.get("first_controlled_creature_target58"):
+            from app.rules import first_target_activation_cost58
+
+            if not first_target_activation_cost58.available(state, player, target, targets, info):
+                continue
         if d.get('source_only') and src.id != card.id:
             continue
         if d["who"] == "you" and src.controller != player:
@@ -2135,7 +2140,7 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                     continue  # 118.6: a missing cost needs a payable alternative
             if below is not None and ch.mana_value >= below:
                 continue
-            if e.get("shares_type") and not _shares_type(plan, ctx, ch):  # -- if you do (wave 40A) -- "that shares a card type with it": the spell that triggered this
+            if e.get("shares_type") and not _shares_type(plan, ctx, ch, "target" if e["shares_type"] == "target" else "event"):  # -- if you do (wave 40A) -- "that shares a card type with it": the spell that triggered this
                 continue
             if e.get("parity") and ch.mana_value % 2 != (1 if e["parity"] == "odd" else 0):
                 continue
@@ -2189,11 +2194,11 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return False
 
 
-def _shares_type(plan: Plan, ctx: dict[str, Any], ch: Characteristics) -> bool:
+def _shares_type(plan: Plan, ctx: dict[str, Any], ch: Characteristics, who: str = "event") -> bool:
     """-- if you do (wave 40A) -- 205.2: the card shares a card type with the spell the trigger is about (as it was cast, 608.2h)."""
     from app.rules import values
 
-    found = values._object(plan, ctx, "event")
+    found = values._object(plan, ctx, who)
     return found is not None and bool(set(ch.types) & set(found[1].types))
 
 
@@ -2287,6 +2292,8 @@ def _free_pool(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> list[str]:
 
     pid = ctx["controller"]
     zone = e["zone"]
+    if zone == "selector" and e.get("pool_selector"):
+        return selectors.candidates(plan, selectors.from_key(e["pool_selector"]), pid, ctx.get("source_card"))
     if zone == "hand_graveyard":
         return [cid for place in ("hand", "graveyard") for cid in plan.state.zones.get(zone_key(pid, place), [])]
     if zone == "hand":

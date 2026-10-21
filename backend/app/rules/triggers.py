@@ -904,6 +904,11 @@ def _other_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, info: dic
 
 def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: Fact) -> bool:
     """The parts of a condition beyond its subject and event."""
+    if cond.get('target_source77'):
+        from app.rules import targeting_sources77
+
+        if not targeting_sources77.matches(plan, cond, fact):
+            return False
     from app.rules import selectors
 
     event, obj, och, player, info = fact
@@ -2745,6 +2750,8 @@ def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[s
                                          and x_source(t.ability, plan.ch(plan.state.cards[t.source_card])) == 'cast'), **extra)  # (x: wave 4J, 107.3m)
     if t.ability.get("chosen_modes"):  # -- modal frames (wave 33B) -- 603.3c: the modes chosen are announced (a modal ability whose modes have target groups)
         plan.do({"type": "set_stack_info", "card_id": ability_id, "modes": t.ability["chosen_modes"]}, actor=t.controller)
+    if t.ability.get('stack_tags'):
+        plan.do({'type': 'set_stack_info', 'card_id': ability_id, 'tags': t.ability['stack_tags']}, actor=t.controller)
     if targets:
         plan.target_arrows(ability_id, [x.id for x in targets], actor=t.controller)  # (review 28D: an arrow points at up to 20)
         targeted(plan, ability_id, t.controller, targets)

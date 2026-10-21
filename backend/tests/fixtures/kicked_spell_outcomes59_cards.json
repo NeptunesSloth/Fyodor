@@ -1,0 +1,455 @@
+[
+  {
+    "id": "06996ff1-7f57-4e73-940a-a58c4482cadd",
+    "oracle_id": "f509ac02-f22e-4d1a-9fe1-afa96dd7806d",
+    "name": "Thieving Skydiver",
+    "layout": "normal",
+    "set_code": "otc",
+    "set_name": "Outlaws of Thunder Junction Commander",
+    "collector_number": "118",
+    "rarity": "rare",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Merfolk Rogue",
+    "oracle_text": "Kicker {X}. X can't be 0. (You may pay an additional {X} as you cast this spell.)\nFlying\nWhen this creature enters, if it was kicked, gain control of target artifact with mana value X or less. If that artifact is an Equipment, attach it to this creature.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Kicker",
+      "Flying"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-04-19",
+    "artist": "Kieran Yanner",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "6203e3d4-8998-41d6-9f7e-b68af0f1f8b5",
+    "oracle_id": "8998d211-5ca6-41d2-bc64-f51f70bd41e5",
+    "name": "Vines of Vastwood",
+    "layout": "normal",
+    "set_code": "mm2",
+    "set_name": "Modern Masters 2015",
+    "collector_number": "168",
+    "rarity": "common",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Kicker {G} (You may pay an additional {G} as you cast this spell.)\nTarget creature can't be the target of spells or abilities your opponents control this turn. If this spell was kicked, that creature gets +4/+4 until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Kicker"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2015-05-22",
+    "artist": "Christopher Moeller",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0bda1b62-47fc-42c2-a841-ccad8ea0db48",
+    "oracle_id": "169a4a77-12ff-4997-9550-bdcd456aa2f7",
+    "name": "The Eagles Are Coming!",
+    "layout": "normal",
+    "set_code": "hob",
+    "set_name": "The Hobbit",
+    "collector_number": "12",
+    "rarity": "rare",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Kicker {2}{W}{W} (You may pay an additional {2}{W}{W} as you cast this spell.)\nChoose target creature you own. If this spell was kicked, instead choose any number of target creatures you own. Return each chosen creature to your hand. At the beginning of the next upkeep, create a 4/4 white Bird Soldier creature token with flying for each creature returned to your hand this way.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Kicker"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-08-14",
+    "artist": "Zezhou Chen",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "9ed2d2f3-e1b0-41e0-a29d-31624e5e9004",
+        "name": "Bird Soldier",
+        "type_line": "Token Creature \u2014 Bird Soldier"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "62a7ff97-b940-4745-9e2e-3258fb51b846",
+        "name": "The Eagles Are Coming!",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "17ca6865-e894-4390-ba27-b7cc8b03a424",
+    "oracle_id": "21390513-1ed0-48f2-a7fa-020da8f803c0",
+    "name": "Molten Disaster",
+    "layout": "normal",
+    "set_code": "c13",
+    "set_name": "Commander 2013",
+    "collector_number": "117",
+    "rarity": "rare",
+    "mana_cost": "{X}{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Kicker {R} (You may pay an additional {R} as you cast this spell.)\nIf this spell was kicked, it has split second. (As long as this spell is on the stack, players can't cast spells or activate abilities that aren't mana abilities.)\nMolten Disaster deals X damage to each creature without flying and each player.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Kicker"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2013-11-01",
+    "artist": "Ittoku",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "281cdb1c-21ae-4430-8e0f-c993f52ba891",
+    "oracle_id": "1551fe97-437e-4e89-a0d2-c398cb2155e4",
+    "name": "Inscription of Insight",
+    "layout": "normal",
+    "set_code": "znr",
+    "set_name": "Zendikar Rising",
+    "collector_number": "61",
+    "rarity": "rare",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Kicker {2}{U}{U}\nChoose one. If this spell was kicked, choose any number instead.\n\u2022 Return up to two target creatures to their owners' hands.\n\u2022 Scry 2, then draw two cards.\n\u2022 Target player creates an X/X blue Illusion creature token, where X is the number of cards in their hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Kicker",
+      "Scry"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-09-25",
+    "artist": "Zoltan Boros",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "2300635e-7771-4676-a5a5-29a9d8f49f1a",
+        "name": "Illusion",
+        "type_line": "Token Creature \u2014 Illusion"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "bea9e50b-f76e-4797-8e52-1e30ccfdb284",
+        "name": "Inscription of Insight",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "5c91e364-c157-494e-bb1b-f2cef004900f",
+    "oracle_id": "363f8c66-fe0c-44b9-987d-1d160e3f9c54",
+    "name": "Urza's Rage",
+    "layout": "normal",
+    "set_code": "mh1",
+    "set_name": "Modern Horizons",
+    "collector_number": "151",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Kicker {8}{R} (You may pay an additional {8}{R} as you cast this spell.)\nThis spell can't be countered.\nUrza's Rage deals 3 damage to any target. If this spell was kicked, instead it deals 10 damage to that permanent or player and the damage can't be prevented.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Kicker"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2019-06-14",
+    "artist": "Jim Murray",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0f979e7a-4e7b-4b7b-b4eb-cefa3c02d64f",
+    "oracle_id": "8d4e0866-d8f5-4eb6-a0fd-3fa9d4b9cf4a",
+    "name": "Waste Management",
+    "layout": "normal",
+    "set_code": "ncc",
+    "set_name": "New Capenna Commander",
+    "collector_number": "40",
+    "rarity": "rare",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Kicker {3}{B} (You may pay an additional {3}{B} as you cast this spell.)\nExile up to two target cards from a single graveyard. If this spell was kicked, instead exile target player's graveyard. Create a 2/2 black Rogue creature token for each creature card exiled this way.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Kicker"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-04-29",
+    "artist": "Aaron Miller",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "06e503b9-a822-4c42-b478-1f598bc5941d",
+        "name": "Rogue",
+        "type_line": "Token Creature \u2014 Rogue"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "418b5431-8d96-42ce-9db1-226624f9f8e2",
+        "name": "Waste Management",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "f7db6e16-357c-4872-8b23-338953ffefb4",
+    "oracle_id": "15a71d11-da00-4c1a-bf64-ec3f627ed6a3",
+    "name": "Wicker Picker",
+    "layout": "normal",
+    "set_code": "unf",
+    "set_name": "Unfinity",
+    "collector_number": "196",
+    "rarity": "uncommon",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact Creature \u2014 Scarecrow Guest",
+    "oracle_text": "Creature spells you cast have sticker kicker {1}. (You may pay an additional {1} as you cast a creature spell. If you do, you get {TK}, then you may put a sticker on it.)",
+    "power": "2",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-10-07",
+    "artist": "Igor Grechanyi",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "99b2c656-2b4a-4541-8934-29d0db93f794",
+        "name": "Wicker Picker",
+        "component": "combo_piece"
+      },
+      {
+        "id": "52942a5c-0552-4a9b-9c0f-7a9ffd04d0af",
+        "name": "Ticket Bucket-Bot",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "b7621aab-4839-45ef-bfa2-9aa2417bbec0",
+    "oracle_id": "41681a1f-0777-4b96-8c7e-d6a5d1b1c8fc",
+    "name": "Agonizing Demise",
+    "layout": "normal",
+    "set_code": "ddh",
+    "set_name": "Duel Decks: Ajani vs. Nicol Bolas",
+    "collector_number": "66",
+    "rarity": "common",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Kicker {1}{R} (You may pay an additional {1}{R} as you cast this spell.)\nDestroy target nonblack creature. It can't be regenerated. If this spell was kicked, Agonizing Demise deals damage equal to that creature's power to the creature's controller.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [
+      "Kicker"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2011-09-02",
+    "artist": "Mark Brill",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "2a85437f-052e-494c-a9ee-265c4624a409",
+    "oracle_id": "e42fb51e-254a-43ac-ad02-9f0fad0f4c8a",
+    "name": "Scorching Lava",
+    "layout": "normal",
+    "set_code": "inv",
+    "set_name": "Invasion",
+    "collector_number": "164",
+    "rarity": "common",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Kicker {R} (You may pay an additional {R} as you cast this spell.)\nScorching Lava deals 2 damage to any target. If this spell was kicked, that creature can't be regenerated this turn and if it would die this turn, exile it instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Kicker"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2000-10-02",
+    "artist": "Mark Tedin",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "660d7983-b335-48b4-898d-f182effcf2de",
+    "oracle_id": "b92f2a4c-36dc-40a6-a874-7405fc97fb7a",
+    "name": "Monstrous War-Leech",
+    "layout": "normal",
+    "set_code": "dmu",
+    "set_name": "Dominaria United",
+    "collector_number": "98",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Leech Horror",
+    "oracle_text": "Kicker {U} (You may pay an additional {U} as you cast this spell.)\nAs this creature enters, if it was kicked, mill four cards. (To mill a card, put the top card of your library into your graveyard.)\nMonstrous War-Leech's power and toughness are each equal to the greatest mana value among cards in your graveyard.",
+    "power": "*",
+    "toughness": "*",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [
+      "Mill",
+      "Kicker"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-09-09",
+    "artist": "Christopher Burdett",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]
