@@ -1,0 +1,153 @@
+[
+  {
+    "id": "3836d7e5-98cd-4f1e-9a66-150b80cd0325",
+    "oracle_id": "0222dc7c-459b-4909-a037-72b2eb248599",
+    "name": "Gluntch, the Bestower",
+    "layout": "normal",
+    "set_code": "clb",
+    "set_name": "Commander Legends: Battle for Baldur's Gate",
+    "collector_number": "533",
+    "rarity": "rare",
+    "mana_cost": "{1}{G}{W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Jellyfish",
+    "oracle_text": "Flying\nAt the beginning of your end step, choose a player. They put two +1/+1 counters on a creature they control. Choose a second player to draw a card. Then choose a third player to create two Treasure tokens.",
+    "power": "0",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Treasure"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-06-10",
+    "artist": "Olivier Bernard",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "770b988d-4f31-4746-8c23-4ed8d9a6b393",
+        "name": "Treasure",
+        "type_line": "Token Artifact \u2014 Treasure"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "74d29b3d-f588-431d-bf4e-f7215683ab39",
+    "oracle_id": "c4ea0931-43e0-4214-9e0b-213eee3a7e69",
+    "name": "Tangle Wire",
+    "layout": "normal",
+    "set_code": "v13",
+    "set_name": "From the Vault: Twenty",
+    "collector_number": "8",
+    "rarity": "mythic",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "Fading 4 (This artifact enters with four fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nAt the beginning of each player's upkeep, that player taps an untapped artifact, creature, or land they control for each fade counter on this artifact.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Fading"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2013-08-23",
+    "artist": "Marco Nelor",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "fb7fdad9-8a39-4c66-b9d2-cfce8c4928a5",
+    "oracle_id": "15e14a91-a596-465f-becc-cef2e7fbbd30",
+    "name": "Mikey & Mona, Mutant Sitters",
+    "layout": "normal",
+    "set_code": "tmc",
+    "set_name": "Teenage Mutant Ninja Turtles Eternal",
+    "collector_number": "125",
+    "rarity": "rare",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Mutant Ninja Turtle Lizard",
+    "oracle_text": "When Mikey & Mona enter, choose one or both. Each mode must target a different player.\n\u2022 Target player chooses a creature they control and puts two +1/+1 counters on it.\n\u2022 Target player returns a creature or land card from their graveyard to their hand.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-03-06",
+    "artist": "Randy Vargas",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "b0e0f5f6-8b63-4c63-bd1d-445613bc106b",
+    "oracle_id": "85277284-1eba-4f87-bf7b-abf1dcbb7691",
+    "name": "Bold Plagiarist",
+    "layout": "normal",
+    "set_code": "c21",
+    "set_name": "Commander 2021",
+    "collector_number": "37",
+    "rarity": "rare",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Vampire Rogue",
+    "oracle_text": "Flash\nWhenever an opponent puts one or more counters on a creature they control, they put the same number and kind of counters on this creature.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-04-23",
+    "artist": "Miguel Mercado",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  }
+]

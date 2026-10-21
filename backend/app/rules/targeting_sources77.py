@@ -58,6 +58,6 @@ def damage_actor(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules import effects
 
     actor = (ctx.get('event') or {}).get('actor')
-    if actor not in plan.live():
+    if not isinstance(actor, str) or actor not in plan.live():
         return True
     return effects.damage(plan, ctx, {'who': 'player:' + actor, 'n': 2})

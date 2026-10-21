@@ -1,4 +1,4 @@
-"""Native saddle payment, designation, contributors and frozen counter cohorts."""
+"""Native targeting source kinds, aggregate watches and copied backup provenance."""
 from __future__ import annotations
 
 import json
@@ -171,3 +171,105 @@ def test_copied_backup_retains_keyword_and_triggers_unused_hoplite(cards):
     settle(s)
     assert bear.counters.get('+1/+1',0) == 2
     assert other.counters.get('+1/+1',0) == 1
+
+
+@pytest.mark.parametrize('mode', ['Leyline', 'Hoplite'])
+def test_genuine_cold_pending_target_event_or_copy_choice(cards, tmp_path, mode):
+    import subprocess
+    import sys
+
+    import app
+    from tests.test_rules_bandmate_references import wait_priority
+    from tests.test_rules_trigger_upkeep_comparison75 import cast
+    name = 'Leyline of Combustion' if mode == 'Leyline' else 'Mirror-Shield Hoplite'
+    s, source, bear, elf = setup(cards, name)
+    if mode == 'Leyline':
+        wait_priority(s, 'p2')
+        spell = put(s, 'Lightning Bolt', 'hand', 'p2')
+        mana(s, pid='p2', R=1)
+        act(s, 'p2', type='cast_spell', card_id=spell.id, targets=[bear.id], sources=[])
+        assert s.state.rules.stack
+    else:
+        cast(s, 'Boon-Bringer Valkyrie', {'C':3, 'W':2})
+        d = s.state.rules.decision
+        act(s, d.player, type='choose', decision_id=d.id, option_ids=[bear.id])
+        settle(s)
+        assert s.state.rules.decision is not None
+    saved = tmp_path/'targeting.json'
+    saved.write_text(s.state.model_dump_json())
+    code = r'''
+import sys
+from pathlib import Path
+from app.cards.images import ImageStore
+from app.cards.repository import CardRepository
+from app.game.session import GameSession
+from app.game.state import GameState
+from tests.game_helpers import act
+from tests.test_rules_library_look import settle
+from tests.test_rules_wave6c_tokens_pumps import chars
+r=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=r)
+mode,bear=sys.argv[3:]
+if mode=='Hoplite':
+ d=s.state.rules.decision
+ assert d is not None
+ act(s,d.player,type='choose',decision_id=d.id,option_ids=['keep'])
+settle(s)
+if mode=='Leyline':assert s.state.players['p2'].life==38
+else:
+ c=s.state.cards[bear]
+ assert c.counters.get('+1/+1',0)==2
+ assert {'flying','first strike','lifelink'} <= chars(s,c).keywords
+assert s.state.rules.decision is None
+'''
+    result = subprocess.run([sys.executable, '-c', code, str(saved), str(cards.db_path), mode, bear.id],
+                            capture_output=True, text=True, timeout=90, cwd=Path(app.__file__).resolve().parents[1])
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize('name,pool', [('Leyline of Combustion', {'C':2,'R':2}), ('Mirror-Shield Hoplite', {'R':1,'W':1})])
+def test_paid_full_target_watcher_entry(cards, name, pool):
+    from tests.test_rules_trigger_upkeep_comparison75 import cast
+    names = [c['name'] for c in DATA]
+    s = table(cards, names, names, names)
+    start(s)
+    source = cast(s, name, pool)
+    assert source.zone == 'p1:battlefield'
+
+
+def test_hoplite_actual_vigilance_attack_stays_untapped(cards):
+    from tests.test_rules_wave30m_durations import to_phase
+    from tests.test_rules_wave30p_combat import attack
+    s, source, bear, elf = setup(cards, 'Mirror-Shield Hoplite')
+    to_phase(s, 'declare_attackers')
+    attack(s, (source, 'p2'))
+    settle(s)
+    assert source.is_attacking and not source.tapped
+
+
+def test_leyline_native_opening_hand_entry(cards):
+    from tests.test_rules_wave18c_pregame_vote import answer, table3
+    s = table3(cards, ['Leyline of Combustion'], [], [])
+    for pid in ('p1','p2','p3'):
+        act(s, pid, type='mulligan_keep')
+    answer(s, 'p1', ['Leyline of Combustion'])
+    answer(s, 'p2')
+    answer(s, 'p3')
+    source = next(c for c in s.state.cards.values() if c.name == 'Leyline of Combustion' and c.owner == 'p1')
+    assert source.zone == 'p1:battlefield'
+
+
+@pytest.mark.parametrize('name', ['Professor Hojo', 'Leyline of Combustion'])
+def test_opponent_native_activated_source_kind_targets_creature(cards, name):
+    from tests.test_rules_bandmate_references import wait_priority
+    s, source, bear, elf = setup(cards, name)
+    pyro = put(s, 'Prodigal Pyromancer', 'battlefield', 'p2')
+    before = len(s.state.zones['p1:hand'])
+    wait_priority(s, 'p2')
+    act(s, 'p2', type='activate_ability', card_id=pyro.id, ability=0, targets=[bear.id], sources=[])
+    settle(s)
+    if name == 'Professor Hojo':
+        assert len(s.state.zones['p1:hand']) == before + 1
+    else:
+        assert s.state.players['p2'].life == 38
+    assert bear.damage == 1

@@ -6,6 +6,8 @@ Root approved Akron's native Creature/current-controller/nonartifact/literal-nam
 
 Katabatic has no current owner in the mana lane. Existing activation prohibitions cover all abilities or nonmana abilities, rather than only selected costs containing literal {T}. A reviewed activation-boundary extension would be needed across explicit activations, native mana activations and availability estimates. Keep held; `cant_activate` would over-prohibit.
 
-Kemba's current Equipment-derived block count is the next isolated queue, with a native Plan passed to the six block-limit call sites. The count must apply at declaration, add to other independent block permissions, observe current Equipment types/attachments and preserve already-legal blocks after later Equipment removal. No live70 hooks or Kemba admission yet.
+Kemba's Legion is now admitted exact1 via native current Equipment-derived block counts, all six Plan-aware block-limit callers, whole13 including cold plus13 focused related regressions (production26), scoped mypy3 and Ruff. See combat-equipment-blocks70-admitted-manifest.json.
 
-Flowering requires the original current ObjectRef pair and a partner that currently has soulbond. Ability loss preserves a pair while forbidding new attacks/blocks, and unpairing after declaration does not undo combat. Existing pairing phasing behavior remains under exact CR702.95/702.26 review; no Flowering admission or kernel patch yet.
+Flowering Lumberknot is now admitted exact1 via exact paired ObjectRef/current soulbond static restrictions; existing pairing is unchanged. CR702.95a/702.26f justify native phase-unpair duration behavior without treating phasing as a leave event. Production24 =whole12 including cold +12 native soulbond regressions, corrected root54 full822 types and Ruff. See combat-soulbond-partner70-admitted-manifest.json.
+
+Next coherent foundation is eleven text-changing cards, explicitly unadmitted; design and source-boundary risks are in proposals/text-changes71-design.md.

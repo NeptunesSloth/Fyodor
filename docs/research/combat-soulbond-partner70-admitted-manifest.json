@@ -1,0 +1,38 @@
+{
+  "status": "PRODUCTION_ADMITTED_EXACT_ONE",
+  "names": [
+    "Flowering Lumberknot"
+  ],
+  "baseline": "checkpoint52 PARTIAL",
+  "whole_cases": 12,
+  "genuine_cold_cases": 1,
+  "related_cases": 12,
+  "total_production_cases": 24,
+  "production_hooks": true,
+  "production_log": "/tmp/combat70-flowering-production-whole-related.log",
+  "production_xml": "/tmp/combat70-flowering-production-results.xml",
+  "production_case_counts": {
+    "tests.test_rules_combat_soulbond_partner70": 12,
+    "tests.test_rules_wave24b_soulbond": 12
+  },
+  "source_sha256": {
+    "backend/app/rules/combat_soulbond_partner70.py": "75a72c6ce25a55d31a8929596b17749b36eed0b9ba0a6de60f1da67556b250b1",
+    "backend/tests/test_rules_combat_soulbond_partner70.py": "5941c3feeeebf475917ba4de8afe0ae37685f750222ac9eaf6b441262a68b5dc",
+    "backend/tests/fixtures/combat_soulbond_partner70_cards.json": "b9edaf195e9b937ff3a4ce02f372755b95a5e7acce9335e0cc27bcb1f65b4225"
+  },
+  "canonical_rulings": "/tmp/combat70-flowering-canonical-rulings.json",
+  "hook_proposal": "/tmp/combat70-flowering-hooks-proposal.patch",
+  "ruff": "PASS owned leaf/live test/shared hooks",
+  "types": {
+    "modules": 822,
+    "log": "/tmp/fyodor-fiftyfourth-resume-mypy-corrected.log",
+    "hashes": "/tmp/fyodor-catalog54-resume-source-hashes.json",
+    "scope": "frozen54 contains exact leaf and shared hooks; corrected full graph differs only unrelated unhooked77 actor narrowing, per root verification"
+  },
+  "isolated_proofs": {
+    "initial6": "/tmp/combat70-flowering-first7.log (six PASS; obsolete manual controller assertion failed)",
+    "block_cold3": "/tmp/combat70-flowering-expanded4.log (three PASS; obsolete opponent sorcery timing failed)",
+    "copy_recovery2": "/tmp/combat70-flowering-copy-recovery2.log",
+    "actual_control1": "/tmp/combat70-flowering-control-final1.log"
+  }
+}
