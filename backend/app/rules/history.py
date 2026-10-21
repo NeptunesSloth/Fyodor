@@ -317,7 +317,7 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
                 # -- trigger damage (wave 39B) -- its source, as it was as it dealt that damage to a permanent (608.2i): "a Giant, Wizard, or spell you
                 # controlled dealt damage to it this turn" (Aegar) — a spell is a source on the stack that isn't an ability (120.1)
                 last = log.facts[-1]
-                last.source_subtypes, last.source_controller = what["subtypes"], obj.controller if obj is not None else None
+                last.source_subtypes, last.source_controller = what["subtypes"], info.get("actor")
                 last.source_types, last.source_supertypes = what["types"], what["supertypes"]
                 last.source_colors = sorted(ch.colors) if ch is not None else []
                 last.source_spell = obj is not None and obj.zone == "stack" and obj.ability is None

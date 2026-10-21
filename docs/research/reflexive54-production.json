@@ -1,0 +1,101 @@
+{
+  "status": "PRODUCTION VERIFIED; pending central frozen catalog diff",
+  "baseline": "checkpoint50",
+  "cards": [
+    {
+      "name": "Primal Witchstalker",
+      "oracle_id": "c21fafaf-4510-4752-a501-606ae68e6699",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Yathan Roadwatcher",
+      "oracle_id": "0c3d86b6-5dcd-4016-9b4a-d4f66b1e963f",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Kraven's Last Hunt",
+      "oracle_id": "e74efcf2-d77f-4fb5-9027-77e462ec829e",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Wick's Patrol",
+      "oracle_id": "29423a9a-31a6-4605-8b49-a75895038a3a",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Sigil of Myrkul",
+      "oracle_id": "ae7e14cf-a275-4260-8d78-324429a042b7",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Forum Filibuster",
+      "oracle_id": "6a9cc11b-a223-46f0-bf58-c1e08ad1253d",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Ratonhnhak\u00e9\ua789ton",
+      "oracle_id": "a37f8381-83a4-4b6b-8176-c90f6a61da74",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    }
+  ],
+  "whole_checks": 43,
+  "production_related_checks": 19,
+  "whole_and_related_checks": 62,
+  "test_files": [
+    "tests/test_rules_reflexive_mill54.py",
+    "tests/test_rules_reflexive_token_return54.py",
+    "tests/test_rules_wave24c_reflexive.py",
+    "tests/test_rules_linked_attachment_return.py"
+  ],
+  "production_log": "/tmp/resume-reflexive54-production.log",
+  "production_related_log": "/tmp/resume-reflexive54-production-related.log",
+  "genuine_cold_paths": 7,
+  "adapters": false,
+  "type_modules": 4,
+  "types_log": "/tmp/resume-reflexive54-production-types.log",
+  "ruff_files": 4,
+  "ruff_log": "/tmp/resume-reflexive54-production-ruff.log",
+  "source_scope": [
+    "app/rules/reflexive_mill54.py",
+    "app/rules/reflexive_token_return54.py",
+    "app/rules/scripts.py",
+    "app/rules/effects.py"
+  ],
+  "canonical": "/tmp/resume-reflexive54-production-canonical.json",
+  "all_official_rulings": "/tmp/resume-reflexive54-production-rulings.json",
+  "receipt_patch": "/tmp/resume-reflexive54-fullmill-receipt-proposal.patch",
+  "additional_staged_related": {
+    "passed": 70,
+    "baseline_failure": 1,
+    "log": "/tmp/resume-reflexive54-related-stage.log",
+    "reproduced_without_54_hooks": "/tmp/resume-reflexive54-related-baseline-counterexample.log",
+    "failure": "test_rules_wave5j_token_copies.py:610 stale refusal of already-supported Aura hand-to-battlefield attached to source. Not counted as passing.",
+    "resolution": {
+      "status": "Root corrected stale Aura refusal; focused production test passes. Existing70 staged passes retained; no suite rerun or new promotion.",
+      "log": "/tmp/fyodor-aura-stale-refusal-regression.log"
+    }
+  },
+  "notes": [
+    "Wick official ruling requires the complete modified mill instruction; zero/short libraries never create the reflexive trigger. Post-count-replacement required amount is compared with pre-action availability, then recorded through native did/payment binding after milling.",
+    "Actual Bruvac five-versus-six boundary, RIP exile, and Colossus short-one-versus-full-three replacement cases proved. Destination replacement does not erase a complete mill action.",
+    "Sigil intervening IF checked at reflexive creation and resolution; native target choice follows actual mill. Actual Kraven all-three-chapter behavior and native duration expiry proved.",
+    "Created creature-token event remains host; newly returned Equipment gets its own native binding. Enter-attached and return-then-attach sequences remain distinct.",
+    "Native Aura enchant restriction failure, lost original token, animated Equipment failure, optional zero target, actual Raton hexproof/unblockability before first damage and loss afterwards, and Forum flying combat proved.",
+    "All seven true cold paths run in fresh production interpreters without adapters or bootstrap imports.",
+    "The Last Ronin stays PARTIAL on its separate chapter III; original reservation other cards remain held and are not included."
+  ]
+}

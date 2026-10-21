@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
+from app.game.mana_cost_templates import ForetellCostReceipt, GrantedManaCost
 from app.game.rules_state import PaymentRecord, emit
 from app.game.state import CardInstance
 from app.rules import mana as M
@@ -30,16 +31,17 @@ class SpecialPayment:
     original_cost: str | None = None
     total_cost: str = ""
     cost_has_x: bool | None = None
+    granted_mana_cost: GrantedManaCost | None = None
 
 
 def pay(plan: Plan, kind: Kind, card: CardInstance, ch: Characteristics, cost: M.ManaCost, label: str, *,
         sources: list[str] | None, purpose: Purpose, ability_id: str | None = None,
         effects: list[dict[str, Any]] | None = None, number: int = 0, faceup_kind: str | None = None,
-        original_cost: str | None = None) -> None:
+        original_cost: str | None = None, granted_mana_cost: GrantedManaCost | None = None) -> None:
     from app.rules import casting
 
     frame = SpecialPayment(kind, card.model_copy(deep=True), plan.oid(card), ch, ability_id, effects or [], number, faceup_kind,
-                           original_cost, cost.text(), "{X}" in original_cost if original_cost is not None else purpose.selected_cost_has_x)
+                           original_cost, cost.text(), "{X}" in original_cost if original_cost is not None else purpose.selected_cost_has_x, granted_mana_cost)
     casting.pay_then(plan, plan.actor, cost, label, sources=sources, purpose=purpose,
                      then=pc.continuation(plan, 'special_action', frame))
 
@@ -92,6 +94,9 @@ def _paid(plan: Plan, frame: SpecialPayment, payment: M.Payment | None) -> None:
         casting.become_plotted(plan, card.id)
     elif kind == 'foretell':
         plan.rules.foretold[card.id] = plan.state.turn.number
+        if frame.granted_mana_cost is not None:
+            plan.rules.foretell_templates[card.id] = ForetellCostReceipt(plan.oid(card), frame.granted_mana_cost)
+        emit(plan.state, "foretold", object_id=plan.oid(card), card=card.id, player=plan.actor)
         plan.note(f'{plan.name(plan.actor)} foretells a card')
     elif kind == 'companion':
         plan.note(f'{plan.name(plan.actor)} puts their companion {ch.name} into their hand', [card.id])

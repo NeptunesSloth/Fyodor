@@ -21,7 +21,7 @@ from tests.test_rules_shared_damage_choices import table
 
 SOURCES = ['Lethal Sting', 'Scarscale Ritual']
 DATA = json.loads((Path(__file__).parent / 'fixtures/placement_spell_costs70_cards.json').read_text())
-NAMES = [c['name'] for c in DATA] + ['Grizzly Bears', 'Llanowar Elves', 'Colossal Dreadmaw', 'Counterspell', 'Nest of Scarabs']
+NAMES = [c['name'] for c in DATA] + ['Grizzly Bears', 'Llanowar Elves', 'Colossal Dreadmaw', 'Counterspell', 'Nest of Scarabs', 'Vizier of Remedies', 'Melira, Sylvok Outcast']
 
 
 @pytest.fixture()
@@ -205,4 +205,37 @@ def test_native_paid_counter_event_triggers_nest_even_when_payer_dies(cards, nam
     settle(s)
     insects = [c for c in s.state.cards.values() if c.is_token and c.name == 'Insect' and c.zone == 'p1:battlefield']
     assert len(insects) == 1 and nest.zone == 'p1:battlefield'
+    roundtrip(s)
+
+
+@pytest.mark.parametrize('name', SOURCES)
+def test_vizier_replacement_reduces_cost_counter_to_zero_but_cost_is_paid(cards, name):
+    s = setup(cards)
+    put(s, 'Vizier of Remedies', 'battlefield')
+    put(s, 'Nest of Scarabs', 'battlefield')
+    host = put(s, 'Llanowar Elves', 'battlefield')
+    source, victim, args = prepare(s, name)
+    hand_before = len(s.state.zones['p1:hand'])
+    act(s, 'p1', **args, cost_choices=[{'component': 0, 'cards': [host.id]}])
+    assert source.zone == 'stack' and not host.counters and host.zone == 'p1:battlefield'
+    settle(s)
+    assert source.zone == 'p1:graveyard' and not host.counters
+    assert not any(c.is_token and c.name == 'Insect' for c in s.state.cards.values())
+    if name == 'Lethal Sting':
+        assert victim.zone == 'p2:graveyard'
+    else:
+        assert len(s.state.zones['p1:hand']) == hand_before + 1
+    roundtrip(s)
+
+
+def test_melira_forbids_payment_even_with_vizier_reducing_to_zero(cards):
+    s = setup(cards)
+    put(s, 'Vizier of Remedies', 'battlefield')
+    put(s, 'Melira, Sylvok Outcast', 'battlefield')
+    host = put(s, 'Grizzly Bears', 'battlefield')
+    source, victim, args = prepare(s, 'Lethal Sting')
+    before = s.state.model_dump_json()
+    with pytest.raises(ActionError):
+        act(s, 'p1', **args, cost_choices=[{'component': 0, 'cards': [host.id]}])
+    assert s.state.model_dump_json() == before and source.zone == 'p1:hand'
     roundtrip(s)

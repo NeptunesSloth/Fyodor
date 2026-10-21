@@ -1195,6 +1195,11 @@ def _static_exile_all(plan: Plan, card: CardInstance) -> list[tuple[CardInstance
                     continue
                 if not selectors.matches(plan, selectors.from_key(who), card, plan.ch(card), src.controller, src.id):
                     continue
+            if d.get('damaged_source_scope'):
+                from app.rules import damage_exile_statics65
+
+                if not damage_exile_statics65.matches(plan, src, card, d['damaged_source_scope']):
+                    continue
             found.append((src, d))
     return found
 

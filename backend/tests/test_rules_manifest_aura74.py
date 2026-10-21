@@ -54,11 +54,12 @@ def top(s, name):
     return c
 
 
-def cast(s, name, pool, targets=(), pid='p1', pending=False):
+def cast(s, name, pool, targets=(), pid='p1', pending=False, **kwargs):
+    wait_priority(s, pid)
     source = put(s, name, 'hand', pid)
     mana(s, pid=pid, **pool)
     wait_priority(s, pid)
-    act(s, pid, type='cast_spell', card_id=source.id, targets=list(targets), sources=[])
+    act(s, pid, type='cast_spell', card_id=source.id, targets=list(targets), sources=[], **kwargs)
     if pending:
         for _ in range(10):
             if source.zone != 'stack':
@@ -118,7 +119,8 @@ def test_prevented_manifest_does_not_attach_a_different_object(cards, name):
     s = game(cards, "Grafdigger's Cage")
     before = list(s.state.zones['p1:library'])
     source = form(s, name)
-    assert not bodies(s) and s.state.zones['p1:library'] == before
+    assert not bodies(s)
+    assert s.state.zones['p1:library'] == [cid for cid in before if cid != source.id]
     assert source.zone == 'p1:graveyard'
     roundtrip(s)
 
@@ -140,4 +142,131 @@ def test_original_pending_form_still_manifests_after_paid_destruction(cards):
     body, = bodies(s)
     assert source.zone == 'p1:graveyard' and body.face_down
     assert all(c.attached_to != body.id for c in s.state.cards.values())
+    roundtrip(s)
+
+
+@pytest.mark.parametrize('name', NAMES)
+def test_native_combat_executes_flying_lifelink_or_double_strike(cards, name):
+    s = game(cards)
+    form(s, name)
+    body, = bodies(s)
+    to_phase(s, 'declare_attackers', turn=7)
+    before = {pid: s.state.players[pid].life for pid in ['p1','p2']}
+    attack(s, (body,'p2'))
+    to_phase(s, 'end_combat', turn=7)
+    settle(s)
+    assert s.state.players['p2'].life == before['p2'] - (4 if name=='Rageform' else 2)
+    assert s.state.players['p1'].life == before['p1'] + (2 if name=='Lightform' else 0)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize('name', NAMES)
+def test_empty_library_leaves_unattached_aura_to_native_sba(cards, name):
+    s = game(cards)
+    source = put(s, name, 'hand')
+    library = list(s.state.zones['p1:library'])
+    act(s, 'p1', type='move', card_ids=library, to={'player':'p1','zone':'exile'})
+    form(s, name)
+    assert not bodies(s) and source.zone == 'p1:graveyard'
+    roundtrip(s)
+
+
+@pytest.mark.parametrize('name', NAMES)
+def test_true_cold_pending_paid_form_resolves_with_native_manifest_receipt(cards, tmp_path, name):
+    import subprocess
+    import sys
+
+    import app
+
+    s = game(cards)
+    source = form(s, name, pending=True)
+    assert not bodies(s) and 'Aura' not in chars(s, source).subtypes
+    saved = tmp_path / 'form.json'
+    saved.write_text(s.state.model_dump_json())
+    code = r'''
+import sys
+from pathlib import Path
+from app.cards.images import ImageStore
+from app.cards.repository import CardRepository
+from app.game.session import GameSession
+from app.game.state import GameState
+from tests.test_rules_library_look import settle
+from tests.test_rules_designations import roundtrip
+from tests.test_rules_wave6c_tokens_pumps import chars
+r=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=r)
+settle(s)
+body,=[c for c in s.state.cards.values() if c.zone=='p1:battlefield' and c.face_down_kind=='manifest']
+aura=s.state.cards[sys.argv[3]]
+assert aura.attached_to==body.id and chars(s,body).pt==(2,2)
+assert ('double strike' if sys.argv[4]=='Rageform' else 'flying') in chars(s,body).keywords
+assert 'Aura' in chars(s,aura).subtypes
+roundtrip(s)
+'''
+    p = subprocess.run([sys.executable, '-c', code, str(saved), str(cards.db_path), source.id, name],
+                       capture_output=True, text=True, timeout=90, cwd=Path(app.__file__).resolve().parents[1])
+    assert p.returncode == 0, p.stdout + p.stderr
+
+
+def test_paid_blink_successor_keeps_its_own_attachment_not_old_trigger_output(cards):
+    assert coverage.of_card_data(cards.resolve('Flicker of Fate')).level == 'FULL'
+    s = game(cards)
+    top(s, 'Llanowar Elves')
+    top(s, 'Grizzly Bears')
+    source = form(s, 'Cloudform', pending=True)
+    original = s.state.rules.object_id(source.id)
+    cast(s, 'Flicker of Fate', {'C':1,'W':1}, [source.id], pid='p2')
+    current = s.state.cards[source.id]
+    assert s.state.rules.object_id(source.id) != original
+    created = bodies(s)
+    assert len(created) == 2
+    first = next(c for c in created if c.name == 'Grizzly Bears')
+    second = next(c for c in created if c.name == 'Llanowar Elves')
+    assert current.attached_to == first.id and current.attached_to != second.id
+    assert 'flying' in chars(s, first).keywords and 'flying' not in chars(s, second).keywords
+    roundtrip(s)
+
+
+def test_cloudform_hexproof_rejects_enemy_spell_but_allows_own_native_spell(cards):
+    from app.game.errors import ActionError
+
+    s = game(cards)
+    source = form(s, 'Cloudform')
+    body, = bodies(s)
+    enemy = put(s, 'Lightning Bolt', 'hand', 'p2')
+    mana(s, pid='p2', R=1)
+    wait_priority(s, 'p2')
+    with pytest.raises(ActionError):
+        act(s, 'p2', type='cast_spell', card_id=enemy.id, targets=[body.id], sources=[])
+    assert body.damage == 0 and body.zone == 'p1:battlefield'
+    cast(s, 'Lightning Bolt', {'R':1}, [body.id])
+    assert not bodies(s) and source.zone == 'p1:graveyard'
+    roundtrip(s)
+
+
+def test_countered_native_trigger_leaves_original_non_aura_enchantment(cards):
+    s = game(cards)
+    source = form(s, 'Lightform', pending=True)
+    original = next(sid for sid, entry in s.state.rules.stack.items() if entry.source_card == source.id)
+    cast(s, 'Stifle', {'U':1}, [original], pid='p2')
+    assert source.zone == 'p1:battlefield' and 'Aura' not in chars(s, source).subtypes
+    assert source.attached_to is None and not bodies(s)
+    roundtrip(s)
+
+
+def test_native_copy_to_shrine_then_old_trigger_replaces_enchantment_subtype_set(cards):
+    assert coverage.of_card_data(cards.resolve('True Polymorph')).level == 'FULL'
+    s = game(cards, 'Encroaching Mycosynth')
+    put(s, 'Encroaching Mycosynth', 'battlefield', 'p2')
+    shrine = put(s, 'Sanctum of All', 'battlefield', 'p2')
+    source = form(s, 'Rageform', pending=True)
+    oid = s.state.rules.object_id(source.id)
+    cast(s, 'True Polymorph', {'C':4,'U':2}, [source.id, shrine.id], target_counts=[1,1])
+    current = s.state.cards[source.id]
+    assert s.state.rules.object_id(source.id) == oid
+    assert chars(s, current).name == 'Sanctum of All'
+    assert chars(s, current).types == {'Artifact','Enchantment'}
+    assert chars(s, current).subtypes == {'Aura'}
+    body, = bodies(s)
+    assert current.attached_to == body.id
     roundtrip(s)

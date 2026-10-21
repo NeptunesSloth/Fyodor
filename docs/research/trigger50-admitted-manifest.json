@@ -80,7 +80,17 @@
     "Artificer's Hex",
     "Innocent Bystander",
     "Umbilicus",
-    "Blood Clock"
+    "Blood Clock",
+    "Portal Mage",
+    "Misleading Signpost",
+    "Windshaper Planetar",
+    "Portal Manipulator",
+    "Cloudform",
+    "Lightform",
+    "Rageform",
+    "Oath of Ghouls",
+    "Oath of Scholars",
+    "Oath of Mages"
   ],
   "expected_promotions": [
     "Archivist of Gondor",
@@ -162,7 +172,17 @@
     "Artificer's Hex",
     "Innocent Bystander",
     "Umbilicus",
-    "Blood Clock"
+    "Blood Clock",
+    "Portal Mage",
+    "Misleading Signpost",
+    "Windshaper Planetar",
+    "Portal Manipulator",
+    "Cloudform",
+    "Lightform",
+    "Rageform",
+    "Oath of Ghouls",
+    "Oath of Scholars",
+    "Oath of Mages"
   ],
   "production_focused": {
     "count": 16,
@@ -928,6 +948,85 @@
       "tests/test_rules_trigger_upkeep_pay_return71.py": "884ba334d93e69ce7d967dbf87b8892d27c59ef20d5041a289a60b6e35578133",
       "tests/fixtures/trigger_damage_threshold70_cards.json": "ce686101d598829b93286068b3a624a0a8d73a298d9a7d620521221baddff658",
       "tests/fixtures/trigger_upkeep_pay_return71_cards.json": "df172a1fe1fc061a0272dfd64c7eebe9fddeebf50d27d0d1e884624a81b6ff44"
+    }
+  },
+  "attacker_reselection73_production": {
+    "baseline": "checkpoint51",
+    "names": [
+      "Portal Mage",
+      "Misleading Signpost",
+      "Windshaper Planetar",
+      "Portal Manipulator"
+    ],
+    "status": "PRODUCTION_VERIFIED_PENDING_NEXT_CATALOG",
+    "whole_checks": 27,
+    "genuine_cold_checks": 6,
+    "production_log": "/tmp/trigger73-production.log",
+    "related_checks": 80,
+    "related_log": "/tmp/trigger73-related-production.log",
+    "types_checked": 3,
+    "types_log": "/tmp/trigger73-production-types.log",
+    "ruff_log": "/tmp/trigger73-production-ruff.log",
+    "canonical": "/tmp/trigger73-reselection-canonical.json",
+    "rulings": "/tmp/trigger73-reselection-rulings.json",
+    "reviewer": "root",
+    "scope": "Typed existing-attacker destination continuation, original attack history/no new declaration trigger, structural opponent/PW/battle legality bypassing declaration requirements/restrictions/taxes; exact attacker/destination OIDs survive cold. Native forced target groups rebind/recheck at selection/resolution/copy through of=0; invalid copied kept-set rejected. Five narrow shared hooks preserve sibling object_of foundation.",
+    "source_sha256": {
+      "app/rules/attacker_reselection73.py": "2844bc05e5378a6122ed058fcb231bc276fc61906ba9539d90ee809397f4d645",
+      "tests/test_rules_attacker_reselection73.py": "cef1f70b55428107ea55a646cc6ae9ee21cf5dd5e76ec3182a90825cb60632c9",
+      "tests/fixtures/attacker_reselection73_cards.json": "0e9e53814be55c54c2a10ac82daffc40d825aa9bf3d65caf16f5726e072916ee"
+    }
+  },
+  "manifest_aura74_production": {
+    "baseline": "checkpoint51",
+    "names": [
+      "Cloudform",
+      "Lightform",
+      "Rageform"
+    ],
+    "status": "PRODUCTION_VERIFIED_PENDING_NEXT_CATALOG",
+    "whole_checks": 29,
+    "genuine_cold_checks": 3,
+    "production_log": "/tmp/trigger74-production.log",
+    "related_checks": 33,
+    "related_log": "/tmp/trigger74-related-production.log",
+    "types_checked": 1,
+    "types_log": "/tmp/trigger74-production-types.log",
+    "ruff_log": "/tmp/trigger74-production-ruff.log",
+    "canonical": "/tmp/trigger74-manifest-auras-canonical.json",
+    "rulings": "/tmp/trigger74-manifest-auras-rulings.json",
+    "reviewer": "root",
+    "scope": "Native become layer4 exact enchantment subtype replacement retaining card types, manifest committed ObjectRef binding, native attach_to. Two registry hooks only. Actual faceup/combat/lifelink/double strike/hexproof, empty and blocked manifest, countered trigger, sourcegone and paid blink successor, paid True Polymorph to Shrine then original subtype replacement all pass.",
+    "source_sha256": {
+      "app/rules/manifest_aura74.py": "0e185f3ee78c4e4b33062d5fa6963286dacd7a80308774834747ce54e920765d",
+      "tests/test_rules_manifest_aura74.py": "8d472fed95cbc83fb1f115ade1f498dcc214acbe4829affb520a59d6f6ec0a26",
+      "tests/fixtures/manifest_aura74_cards.json": "40b5c605768a870ea0cb62b1f2414ca71d2d74d0afa9322a8fbd6960b05f0f6b"
+    }
+  },
+  "upkeep_comparison75_production": {
+    "baseline": "checkpoint51",
+    "names": [
+      "Oath of Ghouls",
+      "Oath of Scholars",
+      "Oath of Mages"
+    ],
+    "status": "PRODUCTION_VERIFIED_PENDING_NEXT_CATALOG",
+    "whole_checks": 21,
+    "genuine_cold_checks": 3,
+    "production_log": "/tmp/trigger75-production-final.log",
+    "related_checks": 42,
+    "related_log": "/tmp/trigger75-related-production.log",
+    "types_checked": 2,
+    "types_log": "/tmp/trigger75-production-types.log",
+    "ruff_log": "/tmp/trigger75-production-ruff.log",
+    "canonical": "/tmp/trigger75-oaths-canonical.json",
+    "rulings": "/tmp/trigger75-oaths-rulings.json",
+    "reviewer": "root + integration_review",
+    "scope": "Exact native comparative player selector using bound original upkeep player; source-controller targeting authority and active-player chooser/optional actor retained. Two hooks only; no controller rewrite.",
+    "source_sha256": {
+      "app/rules/trigger_upkeep_comparison75.py": "f20e701cdbbd7450d35aff37e3fc375394cda331ecd1397787cb53eba7c3510a",
+      "tests/test_rules_trigger_upkeep_comparison75.py": "c9b8adeed30225c2d64b0605a857bdf62f6e393059bd9920b5c6ea92e7a6b911",
+      "tests/fixtures/trigger_upkeep_comparison75_cards.json": "aa963be257e166dc6df3792657059a16bb1462d28f8f10d37b2c38024e68126d"
     }
   }
 }

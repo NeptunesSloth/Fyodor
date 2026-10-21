@@ -2028,6 +2028,11 @@ def matches_player(plan: Plan, sel: Selector, pid: str, you: str, *, source_obje
         return False
     if sel.player_exclude is not None and (not sel.player_exclude.startswith("player:") or pid == sel.player_exclude[7:]):
         return False
+    if any(x.startswith('upkeep_compare75:') for x in sel.extras):
+        from app.rules import trigger_upkeep_comparison75
+
+        if not trigger_upkeep_comparison75.matches(plan, sel, pid):
+            return False
     if sel.lost_life_this_turn:
         from app.rules.history import log_for
 

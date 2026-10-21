@@ -705,6 +705,10 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
         return
     if d.resume["amount"] is not None and len(chosen) != d.resume["amount"]:  # (None: validated as a whole, wave 4H)
         raise ActionError(f"Choose {d.resume['amount']}")
+    if d.resume.get('hybrid_power_up71') is not None:
+        from app.rules import hybrid_power_up71
+
+        hybrid_power_up71.guard_source(plan, d.resume['hybrid_power_up71'])
     if d.resume.get('counter_objects'):
         for token in chosen:
             cid = token.rsplit(':', 2)[0]

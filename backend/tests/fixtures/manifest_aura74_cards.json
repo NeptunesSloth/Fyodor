@@ -180,5 +180,67 @@
     ],
     "keywords": [],
     "card_faces": null
+  },
+  {
+    "name": "Stifle",
+    "mana_cost": "{U}",
+    "type_line": "Instant",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "True Polymorph",
+    "mana_cost": "{4}{U}{U}",
+    "type_line": "Instant",
+    "oracle_text": "Target artifact or creature becomes a copy of another target artifact or creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Sanctum of All",
+    "mana_cost": "{W}{U}{B}{R}{G}",
+    "type_line": "Legendary Enchantment \u2014 Shrine",
+    "oracle_text": "At the beginning of your upkeep, you may search your library and/or graveyard for a Shrine card and put it onto the battlefield. If you search your library this way, shuffle.\nIf a triggered ability of another Shrine you control triggers while you control six or more Shrines, that ability triggers an additional time.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": null
   }
 ]

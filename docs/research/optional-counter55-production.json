@@ -1,0 +1,52 @@
+{
+  "status": "PRODUCTION VERIFIED; pending central frozen catalog diff",
+  "baseline": "checkpoint50",
+  "cards": [
+    {
+      "name": "Slumbering Walker",
+      "oracle_id": "6d972501-4174-4bf0-a26b-2edef31b3a0c",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Leatherhead, Swamp Stalker",
+      "oracle_id": "ee9b606a-a1fe-43c8-84d0-9bf7b012cc75",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    }
+  ],
+  "whole_checks": 19,
+  "production_related_checks": 42,
+  "whole_and_related_checks": 61,
+  "cold_paths": 2,
+  "test_files": [
+    "tests/test_rules_optional_counter55.py",
+    "tests/test_rules_optional_payment.py",
+    "tests/test_rules_optional_payment_continuations.py"
+  ],
+  "logs": {
+    "production": "/tmp/resume-optional-counter55-production.log",
+    "types": "/tmp/resume-optional-counter55-production-types.log",
+    "ruff": "/tmp/resume-optional-counter55-production-ruff.log"
+  },
+  "types_modules": 2,
+  "ruff_files": 2,
+  "canonical": "/tmp/resume-optional-counter55-canonical.json",
+  "all_official_rulings": "/tmp/resume-optional-counter55-rulings.json",
+  "canonical_proof": "/tmp/resume-optional-counter55-production-canonical-proof.json",
+  "approved_source_sha256": "619ae6e96ec61fe192fa1696a258131e7285c4a49fad38073faeca4545c5288a",
+  "approved_hooks_sha256": "4ccacfc23e426d6d7650ce36ab027124082048e3c91bcde9d579867021901845",
+  "semantics": [
+    "Exactly one source ANY-counter payment; existing native counter tokens, removal and success receipts.",
+    "Original source object ID, counter-removal prohibitions, mixed-kind private selection, decline and actual payment guarded.",
+    "Late reflexive targets; Leatherhead actual combat trample and hexproof loss; Walker printed entry counters and reanimation power checks.",
+    "Two fresh-process cold paths restore pending private counter selection with no adapters."
+  ],
+  "exclusions": [
+    "Mixed/X/among/multiple counter costs remain unsupported.",
+    "No event forwarding changes; existing native that-player freezing used.",
+    "Previously admitted library batches not recounted."
+  ]
+}

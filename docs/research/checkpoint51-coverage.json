@@ -92,16 +92,20 @@
     "Umbilicus",
     "Warmonger's Chariot"
   ],
-  "proof_closures_status": "SCOPED_ADMISSIONS_VERIFIED; broader Incinerator129 regression run remains running, not claimed passed",
+  "proof_closures_status": "ADMISSIONS_VERIFIED; Incinerator broader129 subsequently completed PASS",
   "scope_review": "Exact Incinerator12 native whole/negative/cold cases, canonical FULL, frozen799 full mypy/Ruff and no-regression catalog suffice: new history kind and recipient metadata are used only by the exact leaf; existing branches retain behavior. The already-running129 broader tests continue in background.",
   "source_module_count": 799,
   "source_mypy": "PASS",
   "source_ruff": "PASS",
-  "core_checks": "54 frozen core checks running; prior live54 passed",
+  "core_checks": "PASS 54 frozen engine/history/privacy tests",
   "additional_target": {
     "baseline": "checkpoint48",
     "verified": 148,
     "target": 1500,
     "remaining": 1352
+  },
+  "related_followup": {
+    "Incinerator": "PASS129",
+    "log": "/tmp/exile-resume65-incinerator-related.log"
   }
 }

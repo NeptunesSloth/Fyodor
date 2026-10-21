@@ -33,7 +33,7 @@ def cards(settings):
 
 
 def setup(cards):
-    return gameplay.setup(cards, *NAMES, 'Fiery Annihilation', 'Forest', 'Sol Ring', 'Llanowar Elves', 'Lightning Bolt', 'Darksteel Myr', 'Healing Salve', 'Murder', 'Bonesplitter', 'Unsummon', "Mishra's Factory", 'Song of the Dryads', 'Stone Rain', 'Cloudshift', 'Blossoming Defense', 'Magnetic Theft', 'Reverberate')
+    return gameplay.setup(cards, *NAMES, 'Fiery Annihilation', 'Forest', 'Sol Ring', 'Llanowar Elves', 'Lightning Bolt', 'Darksteel Myr', 'Healing Salve', 'Murder', 'Bonesplitter', 'Unsummon', "Mishra's Factory", 'Song of the Dryads', 'Stone Rain', 'Cloudshift', 'Blossoming Defense', 'Magnetic Theft', 'Reverberate', 'Torch the Tower', 'Centaur Courser', 'Jace Beleren', "Kumano's Blessing", 'Kumano Faces Kakkazan // Etching of Kumano', 'Hermetic Study', 'Naturalize', 'Pyroclasm', 'Control Magic', 'Act of Treason', 'Dominate', 'Regrowth')
 
 
 @pytest.mark.parametrize('name', NAMES)

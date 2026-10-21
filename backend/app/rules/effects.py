@@ -2045,6 +2045,7 @@ def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     counts = replace.mill_counts(plan, wants, then=replace.rerun_then(ctx, e), ctx=ctx)  # (run again with the answers, not continued)
     if counts is None:
         return False
+    complete = bool(counts) and all(count > 0 and len(plan.state.zones.get(zone_key(pid, "library"), [])) >= count for pid, count in counts)
     start = plan.rules.batch
     for pid, count in counts:
         library = plan.state.zones.get(zone_key(pid, "library"), [])
@@ -2063,6 +2064,8 @@ def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     _one_batch(plan, start)
     _moved(plan, ctx, e, before)  # "cards milled this way": the new objects in the graveyards (400.7j)
+    if e.get("did"):
+        context.bind_payment(ctx, e["did"], complete)
     if e.get("look"):  # -- if you do (wave 10C) -- "Mill three cards. You may put a land card from among them into your hand."
         # (701.17a: the cards are put into the graveyard; "them" are the ones this mill put there — a card a replacement sent
         # elsewhere isn't "milled" — and they are public, so the pick that follows works on them like a look's)
@@ -6621,4 +6624,9 @@ from app.rules import entry_counter_kind_choices68 as _entry_counter_kind_choice
 PRIMITIVES.update(_entry_counter_kind_choices68.PRIMITIVES)
 
 from app.rules import attacker_reselection73 as _attacker_reselection73  # noqa: E402
+
 PRIMITIVES['attacker_reselect73'] = _attacker_reselection73.effect
+
+from app.rules import manifest_aura74 as _manifest_aura74  # noqa: E402
+
+PRIMITIVES['manifest_aura74'] = _manifest_aura74.become_aura

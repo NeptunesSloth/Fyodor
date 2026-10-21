@@ -1,3 +1,19 @@
+## CHECKPOINT52 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,643 FULL / 2,425 PARTIAL**, among 32,068 Commander-legal cards. **33 exact expected promotions** from checkpoint51; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **181 of 1,500 additional completions verified; 1,319 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
+
+Evidence: [checkpoint52-coverage.json](research/checkpoint52-coverage.json) and [807-module source hashes](research/checkpoint52-source-hashes.json). Frozen `/tmp/fyodor-catalog52-resume-snapshot`: full app/tools mypy PASS, configured Ruff PASS, 54 core engine/history/privacy tests PASS. The 33 cover attacker reselection, counter choices and casting costs, controller history, alternative payments, dynamic blitz/emerge, damage/exile effects, attack requirements and reflexive mill/token receipts. Each stream has closed focused native whole-card, negative, fresh-process and scoped related/type proofs. Incinerator's earlier 129-case background regression run also completed PASS.
+
+Later production changes remain outside these totals until the next frozen audit. Six agents continue automatic disjoint queues; root reviews, integrates and preserves work in PR18. The 1,500-card target and all remaining card automation are unfinished. Sections below retain historical notes.
+
+## CHECKPOINT51 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,610 FULL / 2,458 PARTIAL**, among 32,068 Commander-legal cards. **39 exact expected promotions** from checkpoint50; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **148 of 1,500 additional completions verified; 1,352 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
+
+Evidence: [checkpoint51-coverage.json](research/checkpoint51-coverage.json) and [799-module source hashes](research/checkpoint51-source-hashes.json). Frozen snapshot `/tmp/fyodor-catalog51-resume-snapshot`: full app/tools mypy PASS, configured Ruff PASS, 54 core engine/history/privacy tests PASS. The 39 comprise eight trigger cards, nine mana/cost cards, eight counter cards, four exile/damage cards, seven hand/library/graveyard cards and three combat cards. Each has focused native whole-card, negative and cold-process evidence. Incinerator's 12 focused native cases passed; its broader 129-case regression run subsequently passed. The exact scoped-admission review is recorded in the coverage evidence.
+
+Later production changes remain outside these totals until the next frozen audit. Six agents continue disjoint automatic queues; root reviews shared kernels, integrates and saves work in PR18. Neither the 1,500-card target nor all remaining card automation is complete. Sections below retain historical checkpoint notes.
+
 ## CHECKPOINT50 VERIFIED — CONTINUING TOWARD 1,500
 
 Latest full catalog classification: **29,571 FULL / 2,497 PARTIAL**, 32,068 Commander-legal cards. **105 exact expected promotions** from checkpoint49, zero prior FULL regressions, unexpected or missing promotions; identical database metadata and card-name set. **109 of 1,500 additional completions verified; 1,391 remain toward the target.** FULL is the engine's coverage classification, not a guarantee of every interaction.

@@ -1,0 +1,13 @@
+--- a/app/rules/scripts.py
++++ b/app/rules/scripts.py
+@@ -8478,6 +8478,10 @@
+     """A static line that is a replacement or prevention effect of the permanent itself."""
+     if ability.kind != "static":
+         return None
++    from app.rules import entry_counter_source72
++
++    if (source72 := entry_counter_source72.definition(text)) is not None:
++        return source72
+     from app.rules import entry_payment_diversion, entry_value_counters
+
+     if (entry_diversion := entry_payment_diversion.definition(text)) is not None:

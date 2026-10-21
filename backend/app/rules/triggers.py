@@ -535,6 +535,8 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
             return [("land_played", played_card, played_ch, e.player, {"oid": e.object_id, "actor": e.player, "snap": e.played_snapshot, "played_from": e.from_zone})]
         got = _object_then(plan, e.card, e.object_id)
         return [("land_played", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "played_from": e.from_zone})] if got is not None else []
+    if e.kind == "foretold":
+        return [("foretell", None, None, e.player, {"actor": e.player, "amount": 1})]
     if e.kind == "cycled":  # 702.29: the card is in its owner's graveyard now (702.29c)
         card = plan.state.cards.get(e.card or "")
         if card is None:

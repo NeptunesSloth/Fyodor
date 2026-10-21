@@ -750,6 +750,8 @@ def _problem(plan: Plan, entry: StackEntry) -> str | None:
             ok = targets.legal_targets(plan, player_relative.bind_what(plan, spec, entry.groups), entry.controller,
                                        targets.source_of(plan, entry.source_card, entry.kind == "spell", object_id=entry.source_object), entry.source_card, source_object=entry.source_object)
             if any(t.id not in ok for t in refs):
+                if spec.get('object_of') is not None:
+                    return 'Choose Equipment attached to the chosen creature.'
                 return "those targets must satisfy the earlier target's quality restriction" if spec.get("relative_quality") else "those targets must be controlled by the player the earlier target names"
     return None
 

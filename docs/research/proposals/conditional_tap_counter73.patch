@@ -1,0 +1,13 @@
+--- a/app/rules/scripts.py
++++ b/app/rules/scripts.py
+@@ -5687,6 +5687,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import conditional_tap_counter73
++
++    if (tap73 := conditional_tap_counter73.definition(ability, ch)) is not None:
++        return tap73
+     from app.rules import trigger_upkeep_comparison75
+
+     if (oath75 := trigger_upkeep_comparison75.definition(ability, ch)) is not None:

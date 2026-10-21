@@ -11,6 +11,8 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+from app.game.mana_cost_templates import GrantedManaCost
+
 AbilityKind = Literal["keywords", "mana", "activated", "loyalty", "triggered", "static", "spell"]
 
 _REMINDER = re.compile(r"\s*\([^()]*\)")
@@ -85,6 +87,8 @@ class AbilityText:
     borrowed_scope: str | None = None  # Explicit scope for an unambiguous legacy saved link, when needed.
     borrowed_color: str | None = None  # object whose particular borrowing static permits colored-mana substitutions
     activation_player: str | None = None  # A resolved grant may reserve activation to its original controller.
+    power_up_prepared: bool = False  # A selected native reduction branch, before other cost modifiers.
+    granted_mana_cost: GrantedManaCost | None = None  # Frozen actual grant provenance; absent on legacy abilities.
 
 
 def strip_reminders(text: str) -> str:

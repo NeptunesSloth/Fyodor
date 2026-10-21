@@ -224,5 +224,75 @@
     ],
     "related_cards": [],
     "card_faces": []
+  },
+  {
+    "id": "36ab760e-93e0-4dbc-aaa1-02316f62ed3f",
+    "oracle_id": "79770e65-740a-44c7-bea2-a24e6a722c22",
+    "name": "Vizier of Remedies",
+    "layout": "normal",
+    "set_code": "akh",
+    "set_name": "Amonkhet",
+    "collector_number": "38",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Cleric",
+    "oracle_text": "If one or more -1/-1 counters would be put on a creature you control, that many -1/-1 counters minus one are put on it instead.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-04-28",
+    "artist": "Randy Gallegos",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "e83851a1-e4e8-49ec-af5c-4efe86fa51ad",
+    "oracle_id": "a6f72f15-d103-49fb-a808-054b278d00a8",
+    "name": "Melira, Sylvok Outcast",
+    "layout": "normal",
+    "set_code": "nph",
+    "set_name": "New Phyrexia",
+    "collector_number": "115",
+    "rarity": "rare",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Human Scout",
+    "oracle_text": "You can't get poison counters.\nCreatures you control can't have -1/-1 counters put on them.\nCreatures your opponents control lose infect.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2011-05-13",
+    "artist": "Min Yum",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
   }
 ]

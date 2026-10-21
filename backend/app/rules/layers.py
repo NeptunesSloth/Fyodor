@@ -1130,6 +1130,9 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         )
 
         ch = zone_grants.apply(state, card, ch, info)
+        from app.rules import dynamic_zone_keyword_costs56
+
+        ch = dynamic_zone_keyword_costs56.apply(state, card, ch, info)
     if info is not None and _T.depth == 0 and state.rules is not None and card.zone == "stack" and card.ability is None:
         from app.rules import (
             spell_grants,  # -- spell grants (wave 28C) -- "Instant and sorcery spells you control have lifelink." (613.1f, 604.1)

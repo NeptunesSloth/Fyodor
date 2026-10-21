@@ -37,7 +37,7 @@ def rules(plan: Plan, cid: str) -> set[str]:
 
 
 def relevant(plan: Plan, ids: set[str], mode: str) -> bool:
-    return any(any(r.startswith(f'declaration_group:{mode}:') or r == f'cant_{mode}_alone' or (mode == 'attack' and (r == 'attack_with_others' or r.startswith('conditional_attack67:'))) for r in rules(plan, cid)) for cid in ids)
+    return any(any(r.startswith(f'declaration_group:{mode}:') or r == f'cant_{mode}_alone' or (mode == 'attack' and (r == 'attack_with_others' or r.startswith(('conditional_attack67:', 'attack_at_least_one68:')))) for r in rules(plan, cid)) for cid in ids)
 
 
 def add(plan: Plan, profile: Profile, cid: str, mode: str) -> Profile:
@@ -78,7 +78,13 @@ def attack_requirements(plan: Plan, eligible: set[str], targets: set[str], decla
     ids = sorted(eligible)
     order = sorted(caps)
     weights: list[dict[str, int]] = []
-    obeyed = 0
+    from app.rules import combat_at_least_one68
+
+    one_groups = combat_at_least_one68.groups(plan, eligible)
+    actual_mask = 0
+    for target in declared.values():
+        actual_mask |= combat_at_least_one68.hit(one_groups, target)
+    obeyed = combat_at_least_one68.value(one_groups, actual_mask)
     for cid in ids:
         card = plan.state.cards[cid]
         ch = plan.ch(card)
@@ -107,22 +113,22 @@ def attack_requirements(plan: Plan, eligible: set[str], targets: set[str], decla
                 places[target] = score(target)
         weights.append(places)
 
-    if not any(weight for places in weights for weight in places.values()):
+    if not one_groups and not any(weight for places in weights for weight in places.values()):
         return None
 
     @cache
-    def best(i: int, left: tuple[int, ...], profile: Profile) -> int:
+    def best(i: int, left: tuple[int, ...], profile: Profile, mask: int) -> int:
         if i == len(ids):
-            return 0 if valid(profile) else -10**9
-        top = best(i + 1, left, profile)
+            return combat_at_least_one68.value(one_groups, mask) if valid(profile) else -10**9
+        top = best(i + 1, left, profile, mask)
         for target, weight in weights[i].items():
             pools = [j for j, cap in enumerate(order) if cap in (target, '*')]
             if any(left[j] <= 0 for j in pools):
                 continue
-            top = max(top, weight + best(i + 1, tuple(n - int(j in pools) for j, n in enumerate(left)), add(plan, profile, ids[i], 'attack')))
+            top = max(top, weight + best(i + 1, tuple(n - int(j in pools) for j, n in enumerate(left)), add(plan, profile, ids[i], 'attack'), mask | combat_at_least_one68.hit(one_groups, target)))
         return top
 
-    return 'The attack does not obey as many attack requirements as it could (508.1d)' if obeyed < best(0, tuple(caps[p] for p in order), EMPTY) else None
+    return 'The attack does not obey as many attack requirements as it could (508.1d)' if obeyed < best(0, tuple(caps[p] for p in order), EMPTY, 0) else None
 
 
 def block_requirements(plan: Plan, blockers: set[str], attackers: set[str], used: dict[str, list[str]]) -> str | None:

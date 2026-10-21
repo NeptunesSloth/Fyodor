@@ -3058,7 +3058,9 @@ def life_x_problem(plan: Plan, extra: AbilityCost, a: Any, player: str) -> str |
 
 
 def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *, check_priority: bool = True) -> bool:
-    faces = (0, 1) if chars.is_two_spell_card(card, info) else (None,)
+    from app.rules import dynamic_zone_keyword_costs56
+
+    faces = dynamic_zone_keyword_costs56.foretell_faces(state, player, card, info) or ((0, 1) if chars.is_two_spell_card(card, info) else (None,))
     for face in faces:
         ch = chars.as_cast(card, info, face)
         if cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is not None:
@@ -3075,7 +3077,7 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
         if grant_extra is not None and additional_problem(permissions._view(state, player, info), grant_extra, card, player):
             continue  # -- cast permissions (wave 30Q) -- the permission's own additional cost ("by sacrificing a land") can't be paid: not offered
         if grant is not None and grant.how in ("escape", "foretell"):  # -- escape (wave 5I) -- only for an escape cost (702.138a)
-            if alt_castable(state, player, card, info, check_priority=check_priority):
+            if alt_castable(state, player, card, info, check_priority=check_priority, face=face):
                 return True
             continue
         from app.rules import flashback_choices
@@ -3140,7 +3142,7 @@ def _hint_targets(ch: Characteristics) -> tuple[str, ...]:
 
 # -- cost changers (wave 4I) --
 def alt_castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *,
-                 check_priority: bool = True) -> list[dict[str, Any]]:
+                 check_priority: bool = True, face: int | None = None) -> list[dict[str, Any]]:
     """The alternative costs (118.9) ``player`` could cast this card for right now, each with what the intent's
     ``alt_cost`` names: its condition holds, and the whole total cost (601.2f) can be paid (118.3)."""
     from app.rules import alt_costs  # (a leaf over this module)
@@ -3148,7 +3150,7 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
     out: list[dict[str, Any]] = []
     if chars.is_two_spell_card(card, info) or state.rules is None or state.rules.card_mode(card.id) == "manual":
         return out  # (a split card / adventure: which half isn't part of the hint)
-    ch = chars.as_cast(card, info, None)
+    ch = chars.as_cast(card, info, face)
     blocked = cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is not None
     if blocked and cast_problem(state, player, card, ch, check_priority=check_priority, info=info, sneak=True) is not None:
         return out
@@ -3168,16 +3170,16 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
         if extra is not None and additional_problem(view, extra, card, player):
             continue
         selected_costs: list[bool | None] = []
-        ways = spell_cost_ways(state, card, ch, info=info, player=player, alternative=offer.alt.mana_cost,
+        ways = spell_cost_ways(state, card, ch, info=info, player=player, alternative=alt_costs.bind_template(offer, x=0).alt.mana_cost,
                                additional=(M.ManaCost(generic=grant.generic_extra),) if grant is not None and grant.generic_extra else (),
                                targets=_hint_targets(ch), selected_costs=selected_costs)
         if any(can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
                                                                 spell_object=_spell_reference(state, card),
-                                                                selected_cost_has_x=cost_x, alternative=offer.tag,
+                                                                selected_cost_has_x=True if offer.template_mana_has_x else cost_x, alternative=offer.tag,
                                                                 producer_requirement=offer.producer_requirement),
                        reserve=(extra.life if extra is not None else 0) + life_due)
                for (cost, life_due), cost_x in zip(ways, selected_costs, strict=True)):
-            out.append({"id": offer.key, "label": offer.label, **({"x": True} if (offer.alt.mana_cost.x or getattr(offer.alt, "nonmana_x", False)) else {})})
+            out.append({"id": offer.key, "label": offer.label, **({"x": True} if alt_costs.announces_x(offer) else {})})
     return out
 
 
@@ -3425,7 +3427,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     from app.rules import alt_costs as _alt_x  # (leaves over this module)
 
     alt_x = a.alt_cost is not None and not free and not plan.manual(card) and any(  # -- cast keywords (wave 43D) -- 107.3a: an alternative cost with {X}
-        o.key == a.alt_cost and (o.alt.mana_cost.x or getattr(o.alt, "nonmana_x", False)) for o in _alt_x.offers(plan.state, plan.actor, card, ch, plan.info))  # (harmonize, overload, surge …)
+        o.key == a.alt_cost and _alt_x.announces_x(o) for o in _alt_x.offers(plan.state, plan.actor, card, ch, plan.info))  # (harmonize, overload, surge …)
     if (base.x or alt_x) and a.x_value is None:
         if alt_x or (not free and a.alt_cost is None and not airbent):
             raise ActionError(f"Choose a value for X to cast {ch.name}")
@@ -3515,9 +3517,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if a.alt_cost is not None:  # (a foretold card: no other alternative cost, 118.9a)
         if free or alternative is not None or a.face_down or (grant is not None and grant.how == "flashback" and not escaping):
             raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
-        alt_offer = alt_costs.chosen(plan, a.alt_cost, card, ch)
+        alt_offer = alt_costs.chosen(plan, a.alt_cost, card, ch, x=a.x_value)
         alternative = alt_offer.alt.mana_cost
-        if base.x and a.x_value and not alternative.x and not getattr(alt_offer.alt, "nonmana_x", False):
+        if base.x and a.x_value and not alt_costs.announces_x(alt_offer):
             raise ActionError("X is 0 when the spell is cast for an alternative cost without X (107.3b)")
     # -- end cost changers (wave 4I) --
     # -- static wordings (wave 6E) -- 601.2b: which of its additional costs the caster pays, announced before targets
@@ -3653,6 +3655,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         add_objects = found_objects
     emerge_reduction = 0  # -- casting extras (wave 18E) -- 702.119a: reduced by the sacrificed permanent's mana value; 702.180a: harmonize, by
     # the tapped creature's power
+    if alt_offer is not None and alt_offer.tag == "blitz":
+        from app.rules import dynamic_keyword_costs55
+
+        emerge_reduction += dynamic_keyword_costs55.blitz_discount(plan.state, plan.actor, plan.info)
     if alt_offer is not None and alt_offer.tag in ("emerge", "harmonize"):
         n_alt = len(alt_offer.alt.cost.components)
         for i, ids in add_objects.items():
@@ -3672,6 +3678,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
                       free=free, kicker=a.kicker, additional=tuple(additional), face_down=a.face_down, targets=tuple(t.id for t in chosen),
                       reduce=emerge_reduction + (cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0),
                       flashback_choice=a.flashback_choice, mana_symbols=a.mana_symbols, capture=prepared)  # (wave 47C: "you may sacrifice any number of …")
+    if alt_offer is not None and alt_offer.template_mana_has_x is not None:
+        prepared[-1] = replace(prepared[-1], selected_cost_has_x=bool(alt_offer.template_mana_has_x or prepared[-1].selected_cost_has_x))
     if spell_mana_floor.minimum(plan.state, plan.info) or a.mana_symbols is not None:
         if spell_symbol_choices.announce(plan, a, card, ch, prepared[0]):
             return
@@ -4271,8 +4279,10 @@ def foretell(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateA
         return
     from app.rules import special_payment_tails
 
+    selected = next((ability for ability in ch.abilities if ability.index == a.ability), None)
     special_payment_tails.pay(plan, "foretell", card, ch, cost, "paid {2} to foretell a card",
-                              sources=a.sources, purpose=Purpose(special="foretell"))
+                              sources=a.sources, purpose=Purpose(special="foretell"),
+                              granted_mana_cost=selected.granted_mana_cost if selected is not None else None)
 
 
 def companion_problem(state: GameState, player: str, card: CardInstance, info: CardInfo) -> str | None:
@@ -5198,7 +5208,7 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
             suspend(plan, card, ch, a, *found)
         elif (plot_cost := keyword_cost(ch, "plot", PLOT, a.ability)) is not None and not plan.manual(card):
             plot(plan, card, ch, a, plot_cost)
-        elif keyword_cost(ch, "foretell", FORETELL, a.ability) is not None and not plan.manual(card):
+        elif (keyword_cost(ch, "foretell", FORETELL, a.ability) is not None or (ability is not None and ability.granted_mana_cost is not None and ability.granted_mana_cost.keyword == "foretell")) and not plan.manual(card):
             foretell(plan, card, ch, a)
         elif (ninja := ninjutsu.cost_of(ch, a.ability)) is not None and not plan.manual(card):
             on_stack = len(plan.state.zones.get(STACK, []))
@@ -5499,8 +5509,11 @@ def _variable_ability_matching(state: GameState, card: CardInstance, ch: Charact
 
 def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState | None = None,
                  card: CardInstance | None = None, info: CardInfo | None = None, target: str | None = None) -> AbilityCost:
-    from app.rules import activation_alternatives
+    from app.rules import activation_alternatives, hybrid_power_up71
 
+    if (branches71 := hybrid_power_up71.alternatives(state, card, ch, ability)) is not None:
+        return AbilityCost(either=tuple(ability_cost(ch, branch, state=state, card=card, info=info, target=target)
+                                       for branch in branches71))
     if (sides := activation_alternatives.sides(ability.cost or "")) is not None:
         return AbilityCost(either=tuple(ability_cost(ch, activation_alternatives.with_cost(ability, side),
                            state=state, card=card, info=info, target=target) for side in sides))
@@ -5523,7 +5536,7 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
         # -- cost changers (wave 4I) -- and the ability's own "This ability costs {1} less to activate for each …" (602.2b)
         from app.rules import cost_changes  # (a leaf over this module)
 
-        if ability.text.startswith("Power-up — "):  # -- counters (wave 7C) -- 702.193a: reduced by its mana cost this turn
+        if ability.text.startswith("Power-up — ") and not ability.power_up_prepared:  # 702.193a
             from app.rules import power_up
 
             cost = replace(cost, mana=power_up.reduced(state, card, ch, cost.mana) or "")

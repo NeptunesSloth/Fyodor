@@ -901,6 +901,9 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
     when the engine can't pay it by itself ("you may …", "… or …" alternatives, X, a cost with no
     chosen object): the spell then stays manual rather than being cast without its cost (601.2b)."""
     text = text.strip()
+    if text == 'put a -1/-1 counter on a creature you control':
+        counter = _one_4h(text[:1].upper() + text[1:], '')
+        return AbilityCost(components=(counter,)) if counter is not None and counter.selector is not None else None
     if (behold_exile := re.fullmatch(r"behold (an? [A-Z][a-z]+) and exile it", text)) is not None:
         behold_exile_part = _extra_part('Behold ' + behold_exile[1])
         if behold_exile_part is not None:

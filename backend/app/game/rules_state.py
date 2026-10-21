@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.game.mana_cost_templates import ForetellCostReceipt
+
 if TYPE_CHECKING:
     from app.game.state import GameState
 
@@ -391,6 +393,7 @@ EventKind = Literal[
     "exerted",  # 701.43: the player exerted this permanent
     "spell_cast",  # a player cast a spell (the object is the spell on the stack)
     "cycled",  # a player cycled a card (702.29: "when you cycle …")
+    "foretold",  # A completed native foretell special action, not an effect making a card foretold.
     "milled",  # -- triggers (wave 17D) -- 701.17a: ``player`` milled ``card`` (read where it lies, in their graveyard)
     "land_played",  # -- entry forms (wave 5F) -- a player played a land (305.1: "when you play another land")
     "mana_added",  # a mana ability produced mana (106.3, 106.12a); convoke/improvise/delve never do
@@ -1497,6 +1500,7 @@ class RulesState(BaseModel):
     suspended: list[str] = Field(default_factory=list)  # cards exiled with suspend (702.62)
     # -- hidden exile (wave 18A) -- 702.143d: a foretell cost an effect gave a foretold card ("its mana cost reduced by {2}")
     foretell_costs: dict[str, str] = Field(default_factory=dict)
+    foretell_templates: dict[str, ForetellCostReceipt] = Field(default_factory=dict)
     foretold: dict[str, int] = Field(default_factory=dict)  # -- hidden exile (wave 18A) -- 702.143d: card -> the turn it became foretold
     free_casts: list[str] = Field(default_factory=list)
     madness_declined: dict[str, MadnessFollowup] = Field(default_factory=dict)

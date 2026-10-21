@@ -5687,6 +5687,22 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import trigger_upkeep_comparison75
+
+    if (oath75 := trigger_upkeep_comparison75.definition(ability, ch)) is not None:
+        return oath75
+    from app.rules import combat_named_exception69
+
+    if (named69 := combat_named_exception69.definition(ability, ch)) is not None:
+        return named69
+    from app.rules import manifest_aura74
+
+    if (form74 := manifest_aura74.definition(ability, ch)) is not None:
+        return form74
+    from app.rules import combat_at_least_one68
+
+    if (one68 := combat_at_least_one68.definition(ability, ch)) is not None:
+        return one68
     from app.rules import attacker_reselection73
 
     if (reselection73 := attacker_reselection73.definition(ability, ch)) is not None:
@@ -5944,11 +5960,29 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (damage_count65 := damage_target_counts65.definition(ability, ch)) is not None:
         return damage_count65
+    from app.rules import dynamic_keyword_costs55
+
+    if (dynamic_keyword_cost := dynamic_keyword_costs55.definition(ability, ch)) is not None:
+        return dynamic_keyword_cost
+
+    from app.rules import dynamic_zone_keyword_costs56
+
+    if (dynamic_zone_keyword := dynamic_zone_keyword_costs56.definition(ability, ch)) is not None:
+        return dynamic_zone_keyword
+
     from app.rules import table_activation_modifiers52
 
     if (table_activation := table_activation_modifiers52.definition(ability, ch)) is not None:
         return table_activation
 
+    from app.rules import torch_exile_receipts65
+
+    if (torch_exile65 := torch_exile_receipts65.definition(ability, ch)) is not None:
+        return torch_exile65
+    from app.rules import damage_exile_statics65
+
+    if (damage_exile_static65 := damage_exile_statics65.definition(ability, ch)) is not None:
+        return damage_exile_static65
     from app.rules import dependent_object_targets65
 
     if (dependent_object65 := dependent_object_targets65.definition(ability, ch)) is not None:
@@ -7372,7 +7406,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         if ability.text.startswith("Power-up — "):  # -- counters (wave 7C) -- 702.193: the reduction must be readable
             from app.rules import power_up
 
-            if not power_up.readable(ch, cost.mana):
+            if not ability.power_up_prepared and not power_up.readable(ch, cost.mana):
                 return None
         # -- spell copies (wave 31D) -- "This ability can't be copied and X can't be 0." (Gogo): 107.1b X is announced as 1 or more (casting reads
         # ``x_min``); 113.6g the ability on the stack carries its own text (copying.uncopyable)
@@ -8449,6 +8483,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     """A static line that is a replacement or prevention effect of the permanent itself."""
     if ability.kind != "static":
         return None
+    from app.rules import entry_counter_source72
+
+    if (source72 := entry_counter_source72.definition(text)) is not None:
+        return source72
     from app.rules import entry_payment_diversion, entry_value_counters
 
     if (entry_diversion := entry_payment_diversion.definition(text)) is not None:
@@ -10217,6 +10255,10 @@ def _reflex_created(rest: str, made: dict[str, Any]) -> dict[str, Any] | None:
     if body.lower().startswith("if "):
         return None  # (an intervening "if" is checked as the reflexive ability would trigger, 603.4, before any target is chosen: not read here)
     parsed = parse_effects(body[:1].upper() + body[1:], "event")
+    if parsed is None and "Creature" in made["token"].get("type_line", ""):
+        from app.rules import reflexive_token_return54
+
+        parsed = reflexive_token_return54.parse(body)
     if parsed is None or not parsed[0] or "event_amount" in json.dumps(parsed, default=str):
         return None  # ("that many" of one token each: nothing to count)
     many = made["n"] != 1  # -- most-played cards IV (wave 51G) -- "Create two 1/1 blue Faerie creature tokens with flying. When you do, tap target creature an opponent controls." (Faebloom Trick, ruling 2024-11-08): it
@@ -10237,6 +10279,10 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     base = effects[prev_start:]
     if (this := _REFLEX_THIS_WAY.match(rest)) is not None:  # -- reflexive discards (wave 19C; wave 30G) -- the instruction counted "this way"
         return _reflex_this_way(this, rest, effects, it, groups)
+    from app.rules import reflexive_mill54
+
+    if (milled := reflexive_mill54.parse(rest, base, optional, prev_start)) is not None:
+        return milled
     if len(base) == 1 and _makes_one_token(base[0]) and (not optional or prev_start == 0):  # -- reflexive this way (wave 30G) --
         return _reflex_created(rest, base[0])
     if len(base) == 1 and _counted(base[0]) and (not optional or prev_start == 0) and rest.lower().startswith("when you do, "):

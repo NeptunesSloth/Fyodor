@@ -1,0 +1,36 @@
+{
+  "status": "PRODUCTION_ADMITTED_EXACT_ONE",
+  "names": [
+    "Akron Legionnaire"
+  ],
+  "baseline": "checkpoint49 PARTIAL",
+  "whole_cases": 7,
+  "genuine_cold_cases": 1,
+  "whole_log": "/tmp/combat69-name-first7.log",
+  "source_sha256": {
+    "backend/app/rules/combat_named_exception69.py": "3dfb36580e89d57f870ac1df8ae02bd71d7485d24101a1191a3db1fdaa150af7",
+    "docs/research/proposals/combat69-named-exception-tests.py": "c5ff0d98794b12e66c8147a7266da6c44f339494609dfad33a1c14f26a2157cb",
+    "backend/tests/fixtures/combat_named_exception69_cards.json": "8afad1a1d24cc39dac713091f113ebfdd440359b7aedbb6ce6539306788443d9",
+    "backend/tests/test_rules_combat_named_exception69.py": "85a2274ee4e771436fb48e1b43e4dc6291872bf81436a96d4d5e1a3433928e2c"
+  },
+  "hook_proposal": "/tmp/combat69-named-hooks-proposal.patch",
+  "canonical_rulings": "/tmp/combat69-static-canonical-rulings.json",
+  "types_leaf_matches_frozen807": true,
+  "production_hooks": true,
+  "types": {
+    "scope": "exact unchanged owned leaf only; later69 shared hooks absent snapshot52",
+    "frozen_modules": 807,
+    "log": "/tmp/fyodor-fiftysecond-resume-mypy.log",
+    "source_hashes": "/tmp/fyodor-catalog52-resume-source-hashes.json",
+    "sha256": "3dfb36580e89d57f870ac1df8ae02bd71d7485d24101a1191a3db1fdaa150af7"
+  },
+  "total_production_cases": 8,
+  "related_cases": 1,
+  "production_case_counts": {
+    "tests.test_rules_combat_named_exception69": 7,
+    "tests.test_rules_wave24a_copies": 1
+  },
+  "production_xml": "/tmp/combat69-production-results.xml",
+  "production_log": "/tmp/combat69-production-whole-copy.log",
+  "ruff": "PASS owned leaf/live test/shared opt-in kernel"
+}
