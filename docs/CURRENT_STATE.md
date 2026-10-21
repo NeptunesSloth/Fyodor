@@ -1,3 +1,11 @@
+## CHECKPOINT49 VERIFIED — 1,500-CARD TARGET CONTINUES
+
+Latest full catalog classification: **29,466 FULL / 2,602 PARTIAL**, 32,068 Commander-legal cards. Four expected promotions from checkpoint48: Lashwhip Predator, Lumbering Megasloth, Closing Statement, Blood for the Blood God!. Zero prior FULL losses, unexpected promotions, or missing promotions. **4 of1,500 additional completions verified;1,496 remain toward the requested target**. Classification FULL is not a guarantee of every interaction.
+
+Permanent audit: [checkpoint49-coverage.json](research/checkpoint49-coverage.json). Frozen716 parsed modules `/tmp/fyodor-catalog49-root-snapshot`, exact SHA256 map `/tmp/fyodor-catalog49-root-source-hashes.json`; native inventory `/tmp/fyodor-fortyninth-root-inventory.json`, full actual-database canonical proof4. Snapshot mypy716, configured Ruff, native core54 all PASS. Focused gates: Lashwhip6 including cold; Megasloth6 including cold and actual trample; Closing Statement7 including cold; Blood for the Blood God!5 including cold. Related runs99,123,113,33 overlap and are not a global unique test total. Source-scoped types and owned Ruff passed.
+
+Sunglasses of Urza and Founding the Third Path remain isolated staging; no admission or new count is claimed. Prior unadmitted research remains preserved. Continue remaining card rules; the1,500-card goal is not complete.
+
 ## CHECKPOINT48 VERIFIED — CONTINUING BATCH49
 
 Batch49 root audit in progress: frozen716 parsed app/tools modules `/tmp/fyodor-catalog49-root-snapshot`, SHA256 map `/tmp/fyodor-catalog49-root-source-hashes.json`; exact expected4 promotions Lashwhip Predator, Lumbering Megasloth, Closing Statement, Blood for the Blood God!. Final catalog counts remain checkpoint48 until full diff closes. Blood for the Blood God! five focused cases PASS including genuine cold, native all-player death-history discount and whole discard/draw/damage/self-exile sequence;33 parser regressions PASS. A narrow self-name normalization retains terminal sentence punctuation when the printed name itself ends in! or?.
