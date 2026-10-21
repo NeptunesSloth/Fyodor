@@ -903,3 +903,7 @@ RESUME: dict[str, Any] = {"attack_each_opponent": resume_attack_each, "myriad_pi
 
 _token_attack_continuations.register()
 RESUME['token_attack_created'] = _token_attack_continuations.resume
+
+from app.rules import attacker_reselection73 as _attacker_reselection73  # noqa: E402
+
+RESUME['attacker_reselect73'] = _attacker_reselection73.resume

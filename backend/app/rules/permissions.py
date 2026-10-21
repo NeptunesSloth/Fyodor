@@ -639,7 +639,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         from app.rules import alt_costs
 
         return alt_costs.grant_web_slinging(t)
-    if " rather than pay " in t or (" without paying its mana cost" in t and t.startswith("if ") and "commander" not in t) \
+    if " rather than pay " in t or t.startswith("rather than pay ") or (" without paying its mana cost" in t and t.startswith("if ") and "commander" not in t) \
             or (t.startswith("as long as ") and re.search(r", you may pay [^,]+? to cast (?:this spell|~)$", t)):  # alternative costs (118.9): app/rules/alt_costs.py (wave 49B: "As long as …, you may pay {B/R} to cast this spell")
         from app.rules import alt_costs
 
@@ -1244,6 +1244,7 @@ class Grant:
     use_trigger: PermissionUseTrigger | None = None
     spell_keywords: tuple[str, ...] = ()  # Abilities of a spell cast using this selected authority.
     flash: bool = False  # as though it had flash (601.3b)
+    flash_requires_free: bool = False  # This timing authority applies only to its zero-mana casting option.
     permission: str | None = None  # the stored Permission's id
     spend: str = ""  # -- as long as (wave 9B) -- "" | "type" | "color": how mana may be spent casting with it (118.14, 609.4b)
     once_key: str | None = None  # a static "once during each of your turns" ability's key
@@ -1381,7 +1382,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
     turn = state.turn.number
     where = _card_zone(state, player, card)
     oid = r.object_id(card.id)
-    from app.rules import permission_use_triggers43
+    from app.rules import conditional_free_casts68, permission_use_triggers43
 
     out: list[Grant] = []
     for p in r.permissions:
@@ -1443,6 +1444,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         for d in _definitions(ch).values():
             if d.get("static") == "permission" and d.get("self") and d.get("free") and d["zone"] == "hand" \
                     and (d.get("cond") != "commander" or _controls_commander(state, player)):
+                if not conditional_free_casts68.eligible(state, info, player, card, ch, d):
+                    continue
                 if d.get("while") is not None and not _while_holds(state, info, player, card, d["while"]):
                     continue
                 out.append(Grant("permission", f"{ch.name}: cast it without paying its mana cost", free=True, flash=bool(d.get("flash"))))
@@ -1485,6 +1488,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                              once_key=key if d["once"] else None, choice_key=key, enters=d.get("enters"), spend=d.get("spend", ""),
                              use_trigger=permission_use_triggers43.static_receipt(state, src, index, d.get("use_trigger"))))
             continue
+        if not conditional_free_casts68.eligible(state, info, player, card, ch, d):
+            continue
         permission_where = 'exile' if d.get('exile_counter') and card.zone.endswith(':exile') else where
         if d["zone"] != "any" and permission_where not in d.get("zones", [d["zone"]]):
             continue
@@ -1521,7 +1526,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         # cast ("choose one as you play it"); one grant per type still unused, the player picks which (cast_grant ``slot``)
         slots = [t for t in SLOT_TYPES if (t == "Land") == (verb == "play") and t in ch.types and r.once_per_turn.get(f"{key}:{t}") != turn] \
             if d.get("slots") else [""]
-        out += [Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"], free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
+        out += [Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"], flash_requires_free=bool(d.get("flash_requires_free")), free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
                       once_key=f"{key}:{slot}" if slot else key if d["once"] else None, choice_key=f"{key}:{slot}" if slot else key, extra=d.get("extra") or "", exile_gy=d.get("exile_gy", ""),
                       slot=slot, enters=d.get("enters"), spend=d.get("spend", "")) for slot in slots]
     # -- top of library (wave 5I) -- the player picks the permission they use (601.3): a once-each-turn one is offered
@@ -1791,7 +1796,7 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
 # -- costs (wave 3$) -- cost modifiers for activated abilities (602.2b -> 601.2f, 118.7) ---------------------
 def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characteristics, mana: str, info: CardInfo,
                  own: int = 0, ability_text: str = "", target: str | None = None, mana_ability: bool = False,
-                 capture: list[int] | None = None) -> str:
+                 capture: list[int] | None = None, targets: tuple[str, ...] | None = None) -> str:
     """The mana part of an activated ability's cost after "Activated abilities of creatures you control cost {2} less to
     activate" and its increases: increases first, then reductions on the generic component only (118.7a, 601.2f), and with
     "can't reduce the mana in that cost to less than one mana" never below one mana. Costs with {X} are left alone."""
@@ -1805,15 +1810,35 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
         return mana
     view = None
     increase, reduction = max(0, own), max(0, -own)
-    floor = False
+    floored_reduction = 0
     from app.rules import attachments
 
     for src, d in mods:
+        if d.get("first_controlled_creature_target58"):
+            from app.rules import first_target_activation_cost58
+
+            if not first_target_activation_cost58.available(state, player, target, targets, info):
+                continue
         if d.get('source_only') and src.id != card.id:
             continue
         if d["who"] == "you" and src.controller != player:
             continue
         if d.get("attached_host") and (src.attached_to != card.id or not card.zone.endswith(":battlefield")):
+            continue
+        if d.get('condition') is not None:
+            from app.rules import conditions
+
+            view = view or _view(state, player, info)
+            if not conditions.holds(view, cost_changes.context(state, src.controller, src), d['condition']):
+                continue
+        if d.get('loyalty_only'):
+            from app.rules import oracle
+
+            if not oracle._LOYALTY.match(ability_text):
+                continue
+        if d.get('exhaust_only') and not ability_text.startswith('Exhaust — '):
+            continue
+        if d.get('boast_only') and not ability_text.startswith('Boast — '):
             continue
         if mana_ability and d.get("nonmana"):  # -- chosen filters (wave 53B) -- "unless they're mana abilities": a mana ability is not charged
             continue
@@ -1845,19 +1870,17 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
         if delta > 0:
             increase += delta
         elif delta < 0:
-            reduction -= delta
-            floor = floor or d["floor"]
-    if not increase and not reduction:
+            if d['floor']:
+                floored_reduction -= delta
+            else:
+                reduction -= delta
+    if not increase and not reduction and not floored_reduction:
         return mana
     cost = cost.plus_generic(increase)
-    # -- cost changers (wave 4I) -- the floor ("can't reduce … to less than one mana") limits only its own effect; the
-    # player orders reductions (601.2f), so the floored ones go first and the ability's own reduction after them
-    own_cut = max(0, -own)
-    cut = reduction - own_cut
-    if floor:
-        symbols = cost.generic + len(cost.colored) + len(cost.hybrid) + len(cost.phyrexian)
-        cut = min(cut, max(0, symbols - 1))
-    cut = min(cost.generic, cut + own_cut)
+    # 601.2f: floored reductions may be applied before unrestricted ones.
+    symbols = cost.generic + len(cost.colored) + len(cost.hybrid) + len(cost.phyrexian)
+    floored_cut = min(floored_reduction, max(0, symbols - 1))
+    cut = min(cost.generic, floored_cut + reduction)
     if capture is not None:
         capture[-1] = cut
     out = cost.plus_generic(-cut)
@@ -2122,7 +2145,7 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                     continue  # 118.6: a missing cost needs a payable alternative
             if below is not None and ch.mana_value >= below:
                 continue
-            if e.get("shares_type") and not _shares_type(plan, ctx, ch):  # -- if you do (wave 40A) -- "that shares a card type with it": the spell that triggered this
+            if e.get("shares_type") and not _shares_type(plan, ctx, ch, "target" if e["shares_type"] == "target" else "event"):  # -- if you do (wave 40A) -- "that shares a card type with it": the spell that triggered this
                 continue
             if e.get("parity") and ch.mana_value % 2 != (1 if e["parity"] == "odd" else 0):
                 continue
@@ -2176,11 +2199,11 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return False
 
 
-def _shares_type(plan: Plan, ctx: dict[str, Any], ch: Characteristics) -> bool:
+def _shares_type(plan: Plan, ctx: dict[str, Any], ch: Characteristics, who: str = "event") -> bool:
     """-- if you do (wave 40A) -- 205.2: the card shares a card type with the spell the trigger is about (as it was cast, 608.2h)."""
     from app.rules import values
 
-    found = values._object(plan, ctx, "event")
+    found = values._object(plan, ctx, who)
     return found is not None and bool(set(ch.types) & set(found[1].types))
 
 
@@ -2274,6 +2297,8 @@ def _free_pool(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> list[str]:
 
     pid = ctx["controller"]
     zone = e["zone"]
+    if zone == "selector" and e.get("pool_selector"):
+        return selectors.candidates(plan, selectors.from_key(e["pool_selector"]), pid, ctx.get("source_card"))
     if zone == "hand_graveyard":
         return [cid for place in ("hand", "graveyard") for cid in plan.state.zones.get(zone_key(pid, place), [])]
     if zone == "hand":

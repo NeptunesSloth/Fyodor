@@ -64,6 +64,12 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
     refers to ("it's a land card", "~ is tapped") — only for wording inside an ability's effects or
     trigger, which has those objects (statics and restrictions don't)."""
     t = text.strip().rstrip(",").replace("’", "'")
+    from app.rules import graveyard_return57
+
+    if (returned57 := graveyard_return57.condition(t)) is not None and (objects or "history" in returned57):
+        return returned57
+    if t.lower() == "your opponents control three or more creatures":
+        return {"value": {"count": selectors.Selector(controller="opponent", types=("Creature",)).key()}, "op": ">=", "n": 3}
     if t.lower()=='you control a time lord':
         return {'value':{'count':selectors.Selector(controller='you',subtypes=('Time Lord',)).key()},'op':'>=','n':1}
     if t.lower() == 'you control two or more nonland, nontoken permanents with the same name as one another':
@@ -1656,6 +1662,13 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
 
         ok = context.flag(ctx, cond["flag"])
         return not ok if cond.get("negate") else ok
+    if "event_player_relation" in cond:
+        from app.rules import context
+
+        players = context.players(plan, ctx, context.EVENT)
+        return len(players) == 1 and cond["event_player_relation"] == "opponent" and players[0] != ctx["controller"]
+    if "current_step" in cond:
+        return plan.state.turn.phase == cond["current_step"]
     if "turn" in cond:
         if cond["turn"] == "event_player":
             from app.rules import context
@@ -1903,6 +1916,10 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
 def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
     """The source's own physical state ("~ is tapped"): as it is while it's still that object on the
     battlefield, else as it last existed there (608.2h)."""
+    if test in ("graveyard_three_creatures_above", "graveyard_creature_directly_above"):
+        from app.rules import ordered_graveyard53
+
+        return ordered_graveyard53.holds(plan, ctx, test)
     card = plan.state.cards.get(ctx.get("source_card") or "")
     if test == "suspended":
         from app.rules import suspend_grants

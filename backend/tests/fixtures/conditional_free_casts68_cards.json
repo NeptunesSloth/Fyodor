@@ -1,0 +1,157 @@
+[
+  {
+    "name": "Omnipresence",
+    "oracle_id": "8dad1fa8-3533-4e3c-b9b3-fcd57b20a33d",
+    "mana_cost": "{5}{G}{G}{G}",
+    "cmc": 8.0,
+    "type_line": "Enchantment",
+    "oracle_text": "You may cast spells with mana value less than or equal to the number of creatures you control from your hand without paying their mana costs.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Aluren",
+    "oracle_id": "44e02e70-07ab-4795-8037-55185bd11d54",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Any player may cast creature spells with mana value 3 or less without paying their mana costs and as though they had flash.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Fires of Invention",
+    "oracle_id": "27e27681-9221-4e64-8c78-e153a86bc6e0",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "You can cast spells only during your turn and you can cast no more than two spells each turn.\nYou may cast spells with mana value less than or equal to the number of lands you control without paying their mana costs.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Vision, Spectral Synthezoid",
+    "oracle_id": "1a44261a-2b6a-45dc-91a4-b2eb219ba6fb",
+    "mana_cost": "{6}{U}{U}",
+    "cmc": 8.0,
+    "type_line": "Legendary Artifact Creature \u2014 Robot Hero",
+    "oracle_text": "Flying\nOnce during each of your turns, you may cast a noncreature or Robot spell from your hand without paying its mana cost.",
+    "power": "2",
+    "toughness": "5",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Weftwalking",
+    "oracle_id": "08af6751-5848-47fb-95f5-57215e899460",
+    "mana_cost": "{4}{U}{U}",
+    "cmc": 6.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, if you cast it, shuffle your hand and graveyard into your library, then draw seven cards.\nThe first spell each player casts during each of their turns may be cast without paying its mana cost.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Once Upon a Time",
+    "oracle_id": "d00ade82-caab-43c6-9756-6e9e6edfc519",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "If this spell is the first spell you've cast this game, you may cast it without paying its mana cost.\nLook at the top five cards of your library. You may reveal a creature or land card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "World War Hulk",
+    "oracle_id": "8c4da760-8913-46ca-b00c-bba6d877d482",
+    "mana_cost": "{3}{G}{G}",
+    "cmc": 5.0,
+    "type_line": "Enchantment \u2014 Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 The next red or green creature spell you cast this turn can be cast without paying its mana cost.\nII \u2014 Put three +1/+1 counters on target creature you control.\nIII \u2014 Choose target creature you control. Until end of turn, double its power and toughness and it gains trample.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "layout": "saga"
+  },
+  {
+    "name": "K-9, Mark I",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Legendary Artifact Creature \u2014 Robot Dog",
+    "oracle_text": "Negative \u2014 As long as K-9 is untapped, other legendary creatures you control have ward {1}.\nAffirmative \u2014 {1}{U}, {T}: Target legendary creature can't be blocked this turn.\nDoctor's companion (You can have two commanders if the other is the Doctor.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Negative",
+      "Affirmative",
+      "Doctor's companion"
+    ],
+    "power": "1",
+    "toughness": "1"
+  },
+  {
+    "name": "Skaab Ruinator",
+    "oracle_id": "83734824-1cad-4649-87ae-a5c338771c4c",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Zombie Horror",
+    "oracle_text": "As an additional cost to cast this spell, exile three creature cards from your graveyard.\nFlying\nYou may cast this card from your graveyard.",
+    "power": "5",
+    "toughness": "6",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Vedalken Orrery",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "You may cast spells as though they had flash.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  }
+]

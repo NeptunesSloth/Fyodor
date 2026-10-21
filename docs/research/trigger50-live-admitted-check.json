@@ -1,0 +1,499 @@
+[
+  {
+    "name": "Archivist of Gondor",
+    "oracle_id": "a086f7a5-1319-4c5d-b23f-41bec2f81027",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "e8bc3594bce322b44d61dc85fc9e221c8d4cc02d2d6f3acc58831c4d2091a0de"
+  },
+  {
+    "name": "Lucky Clover",
+    "oracle_id": "370d67f6-8d43-46ca-ae6c-00799bb0bd0c",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "4fdf56668695c121eb04224236c4927b353d1905fc13376f2564deb7c48d11c8"
+  },
+  {
+    "name": "Psychic Possession",
+    "oracle_id": "d2458d63-c627-4e75-8bda-23bca38cae93",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "527d1aa82aeec0ef3cfca8064b625a6a52605336c29d80cb3ef27b1600bd0b53"
+  },
+  {
+    "name": "Riftsweeper",
+    "oracle_id": "1ba0dce5-e767-47cc-9967-174e52bce120",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "d3b7d4df272aa12b188f2d54faae0020ec65d8d32035c13341710e8f8de42766"
+  },
+  {
+    "name": "Fevered Visions",
+    "oracle_id": "70763549-4b4e-4cb8-8c02-0639ba18bb1a",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "7abd8f13c1a5679aea1444f56dddb6f4f2aff3852e7dc84719acf5b5b56f0860"
+  },
+  {
+    "name": "Skullcage",
+    "oracle_id": "a96387fb-ff10-4299-8f42-aa61da693d07",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "c2b3819f22aec04de6906c31387be7e2fba25a9b1405c0773fdc37c0b8544d31"
+  },
+  {
+    "name": "Urborg Stalker",
+    "oracle_id": "e5ef45e4-8c19-40bf-8756-c1b408dcb2fb",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "5f1e28631ba96a38e0c0a32a2d60b2633b97452dafe24566153ea039071478e6"
+  },
+  {
+    "name": "Kazandu Stomper",
+    "oracle_id": "121f6c96-2911-4ee3-b14e-d3b143eb14c3",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "a9221965aaa26d1a374e8601d1c326c5f9a23598ac430d7d1bb606c14f48c556"
+  },
+  {
+    "name": "Nulltread Gargantuan",
+    "oracle_id": "acc74d59-f587-46a2-a90b-865f721d494d",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "34ad130b105d55cf7617e96b2f80f16b481a6d73d5f462efaa66eab7c5535a79"
+  },
+  {
+    "name": "Mortuary",
+    "oracle_id": "8bd2af55-5a48-4300-a893-ae6cd548db24",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "79e343181988b22703817375dd9e51d75927df6ffcbb7cea1ce17ce92808bb99"
+  },
+  {
+    "name": "Patron of the Nezumi",
+    "oracle_id": "038a8b6b-4529-4e06-bdff-9ee7ba291776",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "5f0d1115c26d05568e7c9ff1ae4e21dac6a4fb09e1f707b2add563d20697a426"
+  },
+  {
+    "name": "Liability",
+    "oracle_id": "65f1bebb-6441-4189-b6de-993ec9d24a59",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "68eb4805952f81cae1b7a19b5ec0209a3690b68cbe9ef2d64ba9cf3c68fb9a2d"
+  },
+  {
+    "name": "Planar Void",
+    "oracle_id": "994e27e1-0bff-47c9-a1e6-b9e3ae4ffb1e",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "08e689898fe6a6f3d17cd74b7fb1b1aa9759844cf9e2a2c37f63ec22b4f21735"
+  },
+  {
+    "name": "Measure of Wickedness",
+    "oracle_id": "8f1d65ae-7ce5-4bb6-8c00-eace25ff837c",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "c48600d32b780fda65c3d22d6076201e3cfeba50cd0cfd4dd5c65f2a33efeaaf"
+  },
+  {
+    "name": "Narcomoeba",
+    "oracle_id": "dc65bb62-4ba2-4ec1-b3b9-9c51e64cbfc8",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "abec3a73c2579d75f2df00562a256be07d19e8874e145623ae4e3f1c2bc77c03"
+  },
+  {
+    "name": "Bridge from Below",
+    "oracle_id": "0f071f64-b69b-4fa0-999c-5028429e3cfb",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "9f3511c8323cef544320be6afb813ea599a9340ad4da4269737faaf7ae51539b"
+  },
+  {
+    "name": "Warped Devotion",
+    "oracle_id": "22c49415-e8d2-4b4c-b021-57ee54670f86",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "bff7557d4147a1eb01a42185103040c6e94191c31b6a95e0c6319f1f6e73891b"
+  },
+  {
+    "name": "Aurochs",
+    "oracle_id": "3961ef7c-4eb4-482e-9cda-d49d6a29c5a9",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "10dc5b3871765cf55d1d819c24afcc4da86457d9f8ad743c66e64287add95c9e"
+  },
+  {
+    "name": "Burning Sun Cavalry",
+    "oracle_id": "9da7e8b5-887d-4174-b7aa-982fd052fcd1",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "8a73a27b2c07abcc77e2c520a71dc0aeb585ef28d91e77b6c4c8d832ac168959"
+  },
+  {
+    "name": "Case of the Pilfered Proof",
+    "oracle_id": "68d3084b-0f4b-44a6-8954-6ebaf1db9269",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "a217ba45063da5f6255ab853f0ae87a698074b88ad680be5ad9820e3b596455d"
+  },
+  {
+    "name": "Talon of Pain",
+    "oracle_id": "0e4d2fbc-1b34-4501-9022-8ea800cb2d24",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "236cef712ae8033f4a437d1ca1171774042252798f6411e9b62ce20177d37180"
+  },
+  {
+    "name": "Night Dealings",
+    "oracle_id": "9d52641e-b9ad-4781-a374-1d2868eb32a8",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "f7a55990370f24c628d2c757ca3ff46627e4fefafc54dee4ba5b551509bdfa55"
+  },
+  {
+    "name": "Littjara Kinseekers",
+    "oracle_id": "67ff2880-1998-48e9-88c7-2aa012697401",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "b02d970419ff17e021d5ec856297b1f2666d7aea6870c4d06c9ce85fc509773b"
+  },
+  {
+    "name": "Lunar Force",
+    "oracle_id": "31b18e10-c74d-4384-a0e2-def0b3ec4799",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "4587e04eb0a605ad6c8cbdbcd356edfe25abcb40dda45cfd41675e519e9bf356"
+  },
+  {
+    "name": "Hesitation",
+    "oracle_id": "11eb31d9-cbcb-4ec5-abab-dfa646addbba",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "5f0332b966b3972839898a531d65050364ce141b098fbff939251f0d33457a5a"
+  },
+  {
+    "name": "Presence of the Master",
+    "oracle_id": "e1aad679-93ec-420e-881b-35ebc99763a2",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "4c28511f04e537e2bda7771aadd838394a73a1faf75cc17171f51cbb0bad91d2"
+  },
+  {
+    "name": "Jokulmorder",
+    "oracle_id": "fbf074b2-d650-43b2-b8b8-d7a778dfd27e",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "25b7d857e3c421e67bbae0e0818287e518342fc8c29e4584dd7b6064fc624790"
+  },
+  {
+    "name": "Ichneumon Druid",
+    "oracle_id": "6aba2a04-0117-429e-a5df-6ba4645129d8",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "0134034a74d6f343c366192a337d3aebb3d89e676034b4f2f6aeb50c3a424582"
+  },
+  {
+    "name": "Pain Magnification",
+    "oracle_id": "659c749d-2852-4cce-9eba-7ea962f7af6d",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "056a2b27bd2db20aa9cb3c340fa60441d2ec080988027c05e9c2fbbaacee14ef"
+  },
+  {
+    "name": "Tamanoa",
+    "oracle_id": "14440669-ddf0-46ac-b140-13948a8113b8",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "995824f2dfbc1d81f4c9ae72df4bfb5cbcf2348d462d0d8067d735a0a6528bfa"
+  },
+  {
+    "name": "Last Laugh",
+    "oracle_id": "5facb256-b993-43f8-b971-b3a59a7434bf",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "a8dd96cdc2a6df4346b7e36cf7a84db13297bf7a9d9b672b7352f202cc34f169"
+  },
+  {
+    "name": "Fear of Immobility",
+    "oracle_id": "fb2600a8-0ba6-4888-ac8a-f206469d4c71",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "3980a009c0f3798a8169e619887d69eb57ae197fd1daabe375f945e893a8fd2e"
+  },
+  {
+    "name": "Landscaper Colos",
+    "oracle_id": "144bef8b-3583-4e98-9285-a1965e7e17f8",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "0f9428136e56c1f04593471fb3157a80656b4dcb34792c1ab5f77fcd1892f397"
+  },
+  {
+    "name": "Elder Land Wurm",
+    "oracle_id": "5948381a-419d-4b8b-8ea2-ea623cb0d606",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "1340432baa45a2ebd6b07b9ea7b4ee9848fdfef1f1cc6da7f8de023849a18485"
+  },
+  {
+    "name": "Valakut Fireboar",
+    "oracle_id": "126bf98a-64d0-4de2-9bf4-f59d36ef6e25",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "84fc235e05fc887d83e7d15b10c9cdc939c179cda088b3176176ed3c9d759569"
+  },
+  {
+    "name": "Construct a Cosmic Cube",
+    "oracle_id": "369aa9a6-af8a-432c-adff-ced2bb203dc7",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "af3867b71aeac3329c36edf1952dc628a1fd5096a580dea77bd32894f0d9957e"
+  },
+  {
+    "name": "Stormfront Riders",
+    "oracle_id": "9df318b9-16c6-42f1-9f81-6f73ca01e5c1",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "d917477bd0563ccbd4401b380a104623d814223ff61e824ccab97228ee734c19"
+  },
+  {
+    "name": "Second Chance",
+    "oracle_id": "aa19bbf0-7de3-4ec3-a98b-2ac7533c6b0b",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "1f7c36336bfdf733c1b710afe23e98b5eec91b0e451726eaec7c230972225b72"
+  },
+  {
+    "name": "Elder Spawn",
+    "oracle_id": "363b2213-4c70-4cb0-b895-81393c1082a7",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "3f72d981ae40b70e7cc14ae62998a5795f0a828b829166c225892eae69115ccf"
+  },
+  {
+    "name": "Royal Decree",
+    "oracle_id": "fca14cbd-5ffc-441f-bccb-7ec22b03acbb",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "6ee2b78081ee3a86a8d194ff5e52815707133383e55bbe01e7b36e180d9ba5d8"
+  },
+  {
+    "name": "Guardian of the Ages",
+    "oracle_id": "1bf88f66-b673-4652-981b-3ea5d28f5c29",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "d40381534febd2d56cf740839e17a8f0aa4a7024cb12aa207f27a5a4845785d4"
+  },
+  {
+    "name": "Veteran Ice Climber",
+    "oracle_id": "ccaadf8d-22c0-4139-b734-03ac2fcb4494",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "9d88cfc8515d37ef3e11a79898edf9de25eaef33ddd3587adb54eeb2f01410ec"
+  },
+  {
+    "name": "Tectonic Instability",
+    "oracle_id": "0e68ee36-9649-490a-8483-fc8bdc23f161",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "555ecd0174599e26567eed31e4025ef5abb815eb7762cce73cff97a213801278"
+  },
+  {
+    "name": "Battle of Wits",
+    "oracle_id": "9b544415-841d-4038-841b-efb0cede5c24",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "5c3668f13a6294d4778a46112420800e0c5a323eed975ee4894844b10ecf9c4a"
+  },
+  {
+    "name": "Mask of Intolerance",
+    "oracle_id": "990d4798-3f59-462d-952c-777da5af1c41",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "0f7266e2539784f50c66494011b11641a349f1c176d829cda4b95a1acd2174d9"
+  },
+  {
+    "name": "Zealots en-Dal",
+    "oracle_id": "3fa67c92-6328-4d0a-95e3-656d447ab20e",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "5d4ad278c6b8f27e5d49df0ff1d59713451a3d5f583adf94aae8c8157e263276"
+  },
+  {
+    "name": "Inversion Behemoth",
+    "oracle_id": "fedcb737-723b-4a38-b86c-dad6ac7bec7b",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "40c14dfbeb47065a902d45ddb4f66d0188b24ef785e093ecd4b312809604a236"
+  },
+  {
+    "name": "Master of Winds",
+    "oracle_id": "7accdc91-3140-4096-a71f-0cee38d29e96",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "216a4c9eb5a64e3fbda3d1da6e77ac44066f51d9f229c7019055f86848081b27"
+  },
+  {
+    "name": "Drop of Honey",
+    "oracle_id": "383e9005-5869-4d1d-917d-30e5f214fbd9",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "4b7d7138ccbef9cb115ce77c0a86252b85748e3b0b11537885bf2d36ad760e80"
+  },
+  {
+    "name": "Porphyry Nodes",
+    "oracle_id": "7cfeb732-8a35-4a1f-a417-11db4c1499fd",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "3a2beca69679af8a4651b6dcf9c60e8b58da898cc67a2982f29eebb59a78fced"
+  },
+  {
+    "name": "Purging Scythe",
+    "oracle_id": "4410e3c4-b8c5-46d7-9418-7490bb69d8c4",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "4986f7b4414b91c331cca56c9fad9a67d56cd2b4d8d5cfce889b472c49e649ae"
+  },
+  {
+    "name": "Nether Spirit",
+    "oracle_id": "194e2563-c0bf-4151-bbb0-0d626130b055",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "195823b70b0375441e9dc1914afaeeafaffdbb5b51f8815983eecaebae504c6b"
+  },
+  {
+    "name": "Grave Peril",
+    "oracle_id": "f5a74cee-6b17-4ed4-bc05-94fac53f87d7",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "36cc0458083ead0773930a0e43ffbfa6624b460a7ceccd7ca178af20165448cf"
+  },
+  {
+    "name": "Flame-Kin War Scout",
+    "oracle_id": "b00171b4-d1be-47e9-9293-ea57092f196b",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "bfefc32b3ef6987dc579bcc7da633679fabd185b167138351694364806f0701d"
+  },
+  {
+    "name": "Dovin's Acuity",
+    "oracle_id": "898e480d-c44e-4080-910a-f53e4ee471e1",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "5baf8c2f1ccfb18582ba6a39166aca2bc5de6e62f386ab553966bb176b87b53d"
+  },
+  {
+    "name": "Cultivator of Blades",
+    "oracle_id": "ca4c0945-7035-47dc-aba8-fbda351d9b7b",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "3d77b9e5a637bbc2747c42f293835670137678ac1c4ccbf010904e9503651684"
+  },
+  {
+    "name": "Arbiter of Knollridge",
+    "oracle_id": "62705a41-7c4d-4e6c-85b0-36a9d27ab5ae",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "e2006fb353984f4c3436d803456005f2ec96c8d760ff45cc744ac73ba1bb0479"
+  },
+  {
+    "name": "Slab Hammer",
+    "oracle_id": "f353948c-b5f9-4840-a89a-19206dde9d47",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "0048c46ecc1d97b82d16d6140fe7f1cddd432cf216e54984fd788cf38822f632"
+  },
+  {
+    "name": "Azorius Aethermage",
+    "oracle_id": "12971527-aa8e-4517-9b00-71474caebfd0",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "78f90baa59902f197e1049f2c8948352b5632d46a575cc0d486e326de0ec9c8d"
+  },
+  {
+    "name": "Skulking Killer",
+    "oracle_id": "e711a2d6-008d-4e7b-986e-f34805165679",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "12f7b18b5ec6b40f90edbf0020b15b1465d81572a2a679ead73f2cf3909b9944"
+  },
+  {
+    "name": "Academy Researchers",
+    "oracle_id": "df2d2c52-475b-4057-9cf8-7886700f0fae",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "15611e3a5dbb83f9cc0976c879256a63f914bbfddb55546a82117202bb9ee03c"
+  },
+  {
+    "name": "Court of Cunning",
+    "oracle_id": "2ab88c99-aaa0-4a91-9225-0bbfba04b6bc",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "14208a3602b0a7cbb454774e5774ae6efd5137ce7f38da680c2c979c9a7c2fc3"
+  },
+  {
+    "name": "Court of Bounty",
+    "oracle_id": "e55d9377-f89a-41e5-a094-730d6f24caf0",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "873f4812d3db6cf85a57dcb9b170f0fe6d519309dadf92d7d4fed18998c52cda"
+  },
+  {
+    "name": "Kumena's Awakening",
+    "oracle_id": "f7a8066e-f8a4-4202-8825-0327d11e58c3",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "ecd140b28359279209008693fd739b234e2c33e7bb676624cb510d3906956046"
+  },
+  {
+    "name": "Absolving Lammasu",
+    "oracle_id": "dbedd45e-f76c-4be7-ad89-ff57bed6626f",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "2fd04784d9da4d864d7244327b6b1f41072304978ce429720386e2f17632dba1"
+  },
+  {
+    "name": "Drake Familiar",
+    "oracle_id": "5d144825-594a-454b-9276-fe92e87c19c0",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "6c9e630f1be7b4c6be53685edd0bd44f0e6ee2a48c39c9dce0dad509d959561a"
+  },
+  {
+    "name": "Solitary Sanctuary",
+    "oracle_id": "4c0a8eed-f2e2-4821-8011-6e6ad2081936",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "1c84069719715f20ea5e8b970af834d2a0db30973f0afea731bada5baf43c2d5"
+  },
+  {
+    "name": "Icewrought Sentry",
+    "oracle_id": "0828d891-f7c3-4e51-b42e-6ce88d48ac8b",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "f6b66f754306397716efb42f37447bc64f1e303924b799b3105a7316c3759c05"
+  },
+  {
+    "name": "Desecrator Hag",
+    "oracle_id": "264e60a3-3191-497d-ab06-1411e668b4aa",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "a43b8524038394a6827f64544be9058b6726fb794c42645865cc8043f6b640be"
+  },
+  {
+    "name": "Righteous Indignation",
+    "oracle_id": "97409c60-537e-4eeb-9d63-be0fde7e8284",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "c83b87e902b3087ec24479b7706e2f7fa563733b28fd17d93be6b04d71a9b43b"
+  },
+  {
+    "name": "Ordruun Mentor",
+    "oracle_id": "56c8b610-0753-45ce-b1cc-6a5e58538286",
+    "baseline": "PARTIAL",
+    "live": "FULL",
+    "canonical_sha256": "b12b4a65d650ce1fa9e9e5eac9b0079b9fff1dcbaaf429ad8d0d01c232238ad4"
+  }
+]

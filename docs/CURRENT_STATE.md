@@ -1,3 +1,119 @@
+Current review: [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). PR #18 was already merged; later work remained safely pushed on the same branch and is now included in the open continuation PR. Historical PR18 references below refer to that shared branch and earlier review.
+
+## CHECKPOINT57 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,715 FULL / 2,353 PARTIAL**, among32,068 Commander-legal cards. **13 exact expected promotions** from checkpoint56; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **253 of1,500 additional completions verified;1,247 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
+
+Evidence: [checkpoint57-coverage.json](research/checkpoint57-coverage.json) and [830-module source hashes](research/checkpoint57-source-hashes.json). Original frozen source passes full mypy830, configured Ruff and54 core engine/history/privacy tests. The13 comprise7 static casting-permission cards,3 conditional kicker target/mode cards and3 first-event receipt cards. Every admission has closed native whole-card, negative, saved-game and relevant regression evidence. Unknown legacy history uses explicit native handling rather than invented first events. Additional costs, bound Aluren timing, genuine investigate actions and zero-mode payment continuations are exercised.
+
+Hojo's trustworthy fresh-turn1 marker repair and existing Abundance/Ruin zero-mode quality repairs are included without extra card counts. Current review is PR19, with ongoing work continuously pushed. Six workers continue text changes, original entry putters, optional-payment continuations, top-library permissions, remaining kicker foundations and unblocked combat. Later changes remain outside these totals until another audit; all remaining automation and the1,500-card target remain unfinished.
+
+## CHECKPOINT56 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,702 FULL / 2,366 PARTIAL**, among 32,068 Commander-legal cards. **14 reviewed promotions** from checkpoint55; zero prior FULL regressions, unreviewed or missing promotions. Database metadata and card names match. **240 of 1,500 additional completions verified; 1,260 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
+
+Evidence: [checkpoint56-coverage.json](research/checkpoint56-coverage.json) and [827-module source hashes](research/checkpoint56-source-hashes.json). Original frozen source passes full mypy827, configured Ruff and 54 core engine/history/privacy tests. The14 comprise10 graveyard-return cards and4 conditional kicker effects. Three additional recursive-either trigger candidates were held until their dedicated22 native checks, including3 genuine cold saves, passed; the original11 expected set and additional review remain documented. All admitted cards have closed whole-card, negative, multiplayer, saved-game and relevant regression evidence.
+
+Current review is PR19; work is continuously pushed. Six workers continue conditional target/mode rules, optional payment continuations, first-event receipts, entry putter provenance, static free casting and text changes. The already admitted Hojo now has a separate fresh-turn1 constructor-marker repair with4 native/legacy/cold checks passing; it is not another promotion and follows this frozen source. Later source changes remain outside these totals until another audit. All remaining automation and the1,500-card target remain unfinished.
+
+## CHECKPOINT55 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,688 FULL / 2,380 PARTIAL**, among 32,068 Commander-legal cards. **12 exact expected promotions** from checkpoint54; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **226 of 1,500 additional completions verified; 1,274 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
+
+Evidence: [checkpoint55-coverage.json](research/checkpoint55-coverage.json) and [825-module source hashes](research/checkpoint55-source-hashes.json). Original frozen source passes full mypy825, configured Ruff and 54 core engine/history/privacy tests. The 12 cover targeting source provenance, first qualifying activation costs, player-selected counter/tap instructions and immediate casting pools. Admissions have closed native whole-card, negative, multiplayer, saved-game and relevant regression proofs, including original stack-face type, owner/controller distinctions and uncounterable spell behavior.
+
+Current continuation review is PR19; branch work is pushed. Six agents continue graveyard returns, conditional kicked effects, first-event history, entry putters, static casting permissions and text-changing semantics. Later changes remain outside these totals until another audit. All remaining automation and the 1,500-card target remain unfinished.
+
+## CHECKPOINT54 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,676 FULL / 2,392 PARTIAL**, among 32,068 Commander-legal cards. **15 exact expected promotions** from checkpoint53; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **214 of 1,500 additional completions verified; 1,286 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
+
+Evidence: [checkpoint54-coverage.json](research/checkpoint54-coverage.json) and [822-module source hashes](research/checkpoint54-source-hashes.json). Frozen inventory source passes configured Ruff and 54 core engine/history/privacy tests. Full mypy822 passes on a separate copy with one explicit actor-type guard correction in an unregistered research leaf; the original error, exact correction and scope are recorded in the coverage evidence. The 15 cover saddle designation and contributors, copied exile packets, graveyard keyword grants, committed entry receipts, counter instructions and combat restrictions. Every admission has closed native whole-card, negative, saved-game and relevant regression proofs.
+
+A stale Shizuko test now checks visible mana, actual payment and turn expiry, passing against live and checkpoint53 engines; no engine change or promotion. Six agents continue larger casting, graveyard-return, counter-choice and text-changing families while root reviews, integrates and saves work in PR19. All remaining automation and the 1,500-card target remain unfinished. Sections below retain historical notes.
+
+## CHECKPOINT53 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,661 FULL / 2,407 PARTIAL**, among 32,068 Commander-legal cards. **18 exact expected promotions** from checkpoint52; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **199 of 1,500 additional completions verified; 1,301 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
+
+Evidence: [checkpoint53-coverage.json](research/checkpoint53-coverage.json) and [815-module source hashes](research/checkpoint53-source-hashes.json). Frozen `/tmp/fyodor-catalog53-resume-snapshot`: full app/tools mypy PASS, configured Ruff PASS, 54 core engine/history/privacy tests PASS. The 18 cover hybrid power-up, granted foretell costs and privacy, manifest Auras, upkeep comparisons, source-controller damage history, optional counter payments and attack restrictions. Each stream has closed focused native whole-card, negative, fresh-process and scoped related/type proofs.
+
+Later production changes remain outside these totals until the next frozen audit. Six agents continue automatic disjoint queues; root reviews, integrates and preserves work in PR18. Larger shared text-changing, casting, counter and return-receipt families are being prioritized. The 1,500-card target and all remaining card automation are unfinished. Sections below retain historical notes.
+
+## CHECKPOINT52 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,643 FULL / 2,425 PARTIAL**, among 32,068 Commander-legal cards. **33 exact expected promotions** from checkpoint51; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **181 of 1,500 additional completions verified; 1,319 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
+
+Evidence: [checkpoint52-coverage.json](research/checkpoint52-coverage.json) and [807-module source hashes](research/checkpoint52-source-hashes.json). Frozen `/tmp/fyodor-catalog52-resume-snapshot`: full app/tools mypy PASS, configured Ruff PASS, 54 core engine/history/privacy tests PASS. The 33 cover attacker reselection, counter choices and casting costs, controller history, alternative payments, dynamic blitz/emerge, damage/exile effects, attack requirements and reflexive mill/token receipts. Each stream has closed focused native whole-card, negative, fresh-process and scoped related/type proofs. Incinerator's earlier 129-case background regression run also completed PASS.
+
+Later production changes remain outside these totals until the next frozen audit. Six agents continue automatic disjoint queues; root reviews, integrates and preserves work in PR18. The 1,500-card target and all remaining card automation are unfinished. Sections below retain historical notes.
+
+## CHECKPOINT51 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,610 FULL / 2,458 PARTIAL**, among 32,068 Commander-legal cards. **39 exact expected promotions** from checkpoint50; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **148 of 1,500 additional completions verified; 1,352 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
+
+Evidence: [checkpoint51-coverage.json](research/checkpoint51-coverage.json) and [799-module source hashes](research/checkpoint51-source-hashes.json). Frozen snapshot `/tmp/fyodor-catalog51-resume-snapshot`: full app/tools mypy PASS, configured Ruff PASS, 54 core engine/history/privacy tests PASS. The 39 comprise eight trigger cards, nine mana/cost cards, eight counter cards, four exile/damage cards, seven hand/library/graveyard cards and three combat cards. Each has focused native whole-card, negative and cold-process evidence. Incinerator's 12 focused native cases passed; its broader 129-case regression run subsequently passed. The exact scoped-admission review is recorded in the coverage evidence.
+
+Later production changes remain outside these totals until the next frozen audit. Six agents continue disjoint automatic queues; root reviews shared kernels, integrates and saves work in PR18. Neither the 1,500-card target nor all remaining card automation is complete. Sections below retain historical checkpoint notes.
+
+## CHECKPOINT50 VERIFIED — CONTINUING TOWARD 1,500
+
+Latest full catalog classification: **29,571 FULL / 2,497 PARTIAL**, 32,068 Commander-legal cards. **105 exact expected promotions** from checkpoint49, zero prior FULL regressions, unexpected or missing promotions; identical database metadata and card-name set. **109 of 1,500 additional completions verified; 1,391 remain toward the target.** FULL is the engine's coverage classification, not a guarantee of every interaction.
+
+Durable exact diff: [checkpoint50-coverage.json](research/checkpoint50-coverage.json). Frozen 781 parsed modules `/tmp/fyodor-catalog50-resume-snapshot`, hashes `/tmp/fyodor-catalog50-resume-source-hashes.json`; native inventory `/tmp/fyodor-fiftieth-resume-inventory.json`. Full snapshot mypy 781 and core 54 PASS. Snapshot Ruff found one staged-leaf import-order issue; live correction and live app/tools Ruff PASS. Later reviewed source changes remain outside these totals until the next audit.
+
+The 105 comprise 72 trigger-stream cards (including independently reviewed Moss-Pit Skeleton), 3 earlier counter cards, 3 conditional-effect cards, 5 mana cards, 4 earlier exile cards, 10 blink cards plus Research//Development, 2 phase-casting cards, and 5 library-placement cards. Exact names and zero-regression evidence are in the durable diff. All admitted streams have adapter-free native whole-card, negative and cold-process proofs; per-stream related counts overlap.
+
+Post-snapshot performance: bounded 8,192-entry LRU for pure self_text normalization, with no table-state dependency. 32 complete inventory records were identical before/after; measured CPU 0.941s to 0.717s in that sample, normalization computations 3,525 to 81. Existing parser/thread 38 and scoped scripts types 1 PASS. Historical Asmodeus manual-coverage expectation corrected; actual linked draw/exile/return regression plus remaining manual case 2 PASS. These are not additional card promotions.
+
+Continue automatically. Current later production/staging includes artifact activation-cost tracking, counter-copy packets, private hand-to-library choices, Coax, delegated target choice, further triggers and static/combat rules. Six workers continue disjoint groups while root reviews and integrates. User status questions do not cancel this task. The 1,500 target and remaining automation are unfinished.
+
+Latest live integration check: 54 core engine/history/privacy tests PASS and app/tools Ruff PASS. Work saved in PR18 at `5c6a2e74`; subsequent batch closures continue. The sections below retain historical checkpoint notes.
+
+## BATCH50 ACTIVE — AUTOMATIC CONTINUATION
+
+Standing instruction: keep working toward at least1,500 additional completed cards, automatically assigning the next largest coherent groups without waiting for another continue. Progress/status questions do not cancel this work. Six agents are assigned to continuous trigger, counter, mana/cost, exile, library and static/combat work; root reviews concrete shared patches and integrates results.
+
+Checkpoint49 remains the latest audited total: **29,466 FULL /2,602 PARTIAL**. Subsequent production manifests currently contain at least85 additional distinct candidates, with more reviewed batches closing; these are not added to the catalog total until the exact frozen diff closes. Moss-Pit Skeleton independently reviewed and added to the trigger manifest after a stale staged-document discrepancy was resolved.
+
+Current audit snapshot: `/tmp/fyodor-catalog50-resume-snapshot`,781 parsed app/tools modules, exact hashes `/tmp/fyodor-catalog50-resume-source-hashes.json`. Full snapshot mypy781PASS; core54PASS. Snapshot Ruff found one import-order issue in an unimported staged counter leaf; corrected in live source. Full native inventory is running against the immutable snapshot. Later source changes are next-batch candidates.
+
+This checkpoint preserves accumulated production work and uninstalled research/tests in draft PR18. Staged-only leaves and proposal files remain uncounted. The accumulated PR has not received a fresh full-suite run; focused whole-card, negative, fresh-process and related proof logs/manifests distinguish tested production from held staging. Do not mark the1,500-card target or all cards complete.
+
+## CHECKPOINT49 VERIFIED — 1,500-CARD TARGET CONTINUES
+
+Latest full catalog classification: **29,466 FULL / 2,602 PARTIAL**, 32,068 Commander-legal cards. Four expected promotions from checkpoint48: Lashwhip Predator, Lumbering Megasloth, Closing Statement, Blood for the Blood God!. Zero prior FULL losses, unexpected promotions, or missing promotions. **4 of1,500 additional completions verified;1,496 remain toward the requested target**. Classification FULL is not a guarantee of every interaction.
+
+Permanent audit: [checkpoint49-coverage.json](research/checkpoint49-coverage.json). Frozen716 parsed modules `/tmp/fyodor-catalog49-root-snapshot`, exact SHA256 map `/tmp/fyodor-catalog49-root-source-hashes.json`; native inventory `/tmp/fyodor-fortyninth-root-inventory.json`, full actual-database canonical proof4. Snapshot mypy716, configured Ruff, native core54 all PASS. Focused gates: Lashwhip6 including cold; Megasloth6 including cold and actual trample; Closing Statement7 including cold; Blood for the Blood God!5 including cold. Related runs99,123,113,33 overlap and are not a global unique test total. Source-scoped types and owned Ruff passed.
+
+Sunglasses of Urza and Founding the Third Path remain isolated staging; no admission or new count is claimed. Prior unadmitted research remains preserved. Continue remaining card rules; the1,500-card goal is not complete.
+
+## CHECKPOINT48 VERIFIED — CONTINUING BATCH49
+
+Batch49 root audit in progress: frozen716 parsed app/tools modules `/tmp/fyodor-catalog49-root-snapshot`, SHA256 map `/tmp/fyodor-catalog49-root-source-hashes.json`; exact expected4 promotions Lashwhip Predator, Lumbering Megasloth, Closing Statement, Blood for the Blood God!. Final catalog counts remain checkpoint48 until full diff closes. Blood for the Blood God! five focused cases PASS including genuine cold, native all-player death-history discount and whole discard/draw/damage/self-exile sequence;33 parser regressions PASS. A narrow self-name normalization retains terminal sentence punctuation when the printed name itself ends in! or?.
+
+Post-snapshot Closing Statement: seven focused native/canonical cases PASS including genuine cold, own-end-step discount, own main phases/opponent end-step full cost, destruction and optional counter target.113 shared cost/condition regressions PASS; two scoped types and owned Ruff PASS. Actual database canonical read; official rulings fetch returned HTTP400, so no new ruling source is claimed. Exact current-step condition is evaluated alongside active-player ownership. Outside checkpoint48 audited totals.
+
+User target: complete at least **1,500 additional cards** from checkpoint48; target **30,962 FULL / at most1,106 PARTIAL**. Planning groups and deduplicated affected-card lists are in [remaining1500-plan.json](research/remaining1500-plan.json); these are priorities, not completed work.
+
+Post-snapshot Lumbering Megasloth: six native/canonical cases PASS, including genuine cold reload, actual paid-cost receipts, individual counters on all players and permanents, speed/nonpermanent exclusions, green cost floor, enters tapped, and actual chosen trample damage. Shared value/counter/Lashwhip regression run123PASS (overlaps focused cases); scoped values mypy and owned Ruff PASS. Outside checkpoint48 totals pending combined catalog audit.
+
+Latest full catalog classification: **29,462 FULL / 2,606 PARTIAL**, 32,068 Commander-legal cards. All5 expected promotions appeared: Wicked Akuba, Sailors' Bane, Hearth Elemental // Stoke Genius, Quarum Trench Gnomes, Flotsam // Jetsam. Zero prior FULL losses and no unexpected or missing promotions. Permanent evidence: [checkpoint48-coverage.json](research/checkpoint48-coverage.json). Stable snapshot713 Python modules, SHA256 map `/tmp/fyodor-catalog48-source-hashes.json`, full native inventory `/tmp/fyodor-fortyeighth-inventory.json`;713 app/tools mypyPASS and configured snapshotRuffPASS. These are coverage classifications; automation remains incomplete.
+
+Focused production: Akuba13 unique cases including1 genuine cold +129 targeting/parser/core-related cases; Sailors/Hearth16 cases including2 genuine cold +92 cost-related; Quarum21 including2 genuine cold +203 related; Flotsam/Jetsam18 including1 genuine cold. Owned types3+2+4 and leaf types passed. Counts overlap and are not a global deduplicated test total.
+
+Post-snapshot batch49: Lashwhip Predator native6 including1 genuine cold +99 cost/condition-related +1 scoped typecheckPASS, outside the classification total. Sunglasses of Urza live-permission spending foundation is isolated and under review. Founding the Third Path remains unadmitted: its paid spell-copy X menu incorrectly treats AUTO affordability as a legal limit; native strict-xfail counterexample is retained and a typed Other-number continuation is being staged. Hall of Gemstone remains held for correct World-rule support. Continue automatically; do not mark all cards finished.
+
+## CHECKPOINT47 VERIFIED — CONTINUING REMAINING CARDS
+
+Latest full catalog classification: **29,457 FULL / 2,611 PARTIAL**, 32,068 Commander-legal cards. All5 expected promotions appeared: Bogardan Phoenix, Rix Maadi Guildmage, Security Rhox, Reno and Rude, Diluvian Primordial. Zero prior FULL losses and no unexpected or missing promotions. Permanent audit summary: [checkpoint47-coverage.json](research/checkpoint47-coverage.json). Stable native audit snapshot `/tmp/fyodor-catalog47-snapshot`,711 parsed modules with SHA256 map; native inventory `/tmp/fyodor-fortyseventh-inventory.json`. Automation remains incomplete; these are coverage classifications.
+
+The large colored-multikicker boundary is repaired: internally generated RulesMana labels and exact PaymentRecord.total_cost no longer reject valid costs merely for exceeding200characters. Numeric limits, action mana deltas and the existing bounded display prompt remain intact. The former strict-xfail is now three passing native tests:67 and1000 actual colored multikickers, and a genuine cold SELF1000 payment with full exact cost/mana receipt. Related payment/quantity/privacy35PASS; schemas2 scoped typesPASS. Anrakyr's previously recorded colored-cost closure hold is resolved.
+
+New cards: root Phoenix11 focused (2cold), Rix9 focused (1cold) plus66 parser/selector regressions; Security Rhox13 production (2cold) plus220 related and4 scoped types; Reno11 production and Diluvian15 production (24 native, including2cold, plus2 canonical gates). Shared full app/tools mypy711PASS, core54PASS, app/toolsRuffPASS. Per-stream counts overlap, not a deduplicated global test count. See code/tests and audit summary; /tmp logs are session-local supporting artifacts.
+
+Batch48 continues: Quarum Trench Gnomes typed persistent mana-replacement staging; Flotsam // Jetsam native per-opponent freecasting staging; Wicked Akuba source-incarnation targeting research. Hall of Gemstone remains held for a correct World-rule foundation. This checkpoint does not mean all cards are finished. Older sections below are historical snapshots and may describe issues since resolved.
+
 ## PR handoff — work preserved, automation remains incomplete
 
 Latest completed full catalog classification audit: **29,452 FULL / 2,616 PARTIAL**, 32,068 Commander-legal cards. All18 expected promotions from checkpoint45 appeared, with zero prior FULL losses, unexpected or missing promotions. Permanent audit summary: [checkpoint46-coverage.json](research/checkpoint46-coverage.json). Classification FULL is not a claim that every card rule is finished.

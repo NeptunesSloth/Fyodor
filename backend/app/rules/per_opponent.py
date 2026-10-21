@@ -100,9 +100,11 @@ def expanded(plan: Plan, controller: str, source_card: str | None, ab: dict[str,
     effects: list[dict[str, Any]] = []
     for p in opponents:
         key = (replace(sel, zone_owner=f"player:{p}") if sel.zone_owner == "opponent" else replace(sel, controller=f"player:{p}")).key()
-        if group["min"] and not legal_targets(plan, key, controller, source_of(plan, source_card, ab.get("kind") == "spell"), source_card):
+        if group.get('required_present') and not selectors.candidates(plan, selectors.from_key(key), controller, source_card):
+            continue
+        if not group.get('required_present') and group["min"] and not legal_targets(plan, key, controller, source_of(plan, source_card, ab.get("kind") == "spell"), source_card):
             continue
         effects += _renumber([e for e in ab["effects"][first:] if not e.get("opponent_aggregate")], [len(groups)])
-        groups.append({k: v for k, v in group.items() if k not in (FLAG, "from")} | {"what": key})
+        groups.append({k: v for k, v in group.items() if k not in (FLAG, "from", "required_present")} | {"what": key})
     aggregate = [{k: v for k, v in e.items() if k != "opponent_aggregate"} for e in ab["effects"][first:] if e.get("opponent_aggregate")]
     return {**ab, "effects": [*ab["effects"][:first], *effects, *aggregate], "targets": groups}

@@ -1,0 +1,144 @@
+[
+  {
+    "id": "82c5272d-df5b-4c21-9bff-4d6245b8d2a6",
+    "oracle_id": "a5236bf7-c84f-4c64-bf6b-3a89c05e161a",
+    "name": "Cephalid Constable",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "72",
+    "rarity": "rare",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Octopus Wizard",
+    "oracle_text": "Whenever this creature deals combat damage to a player, return up to that many target permanents that player controls to their owner's hand.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "Alan Pollack",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "bd0bf74e-14c1-4428-88d8-2181a080b5d0",
+    "oracle_id": "5748ebf1-24e3-499d-ab7c-c2cebd462a24",
+    "name": "Giant Growth",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "223",
+    "rarity": "common",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Matt Cavotta",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "bbc3152e-7b3b-4ac6-8b33-abfebde216aa",
+    "oracle_id": "27e9db49-7af7-4bef-ad4c-bf5dfb92030d",
+    "name": "Fog",
+    "layout": "normal",
+    "set_code": "ema",
+    "set_name": "Eternal Masters",
+    "collector_number": "167",
+    "rarity": "common",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Prevent all combat damage that would be dealt this turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2016-06-10",
+    "artist": "Jaime Jones",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "b50762ad-494a-46fa-811f-4e472de8cebd",
+    "oracle_id": "792d7818-ee5c-4254-b969-7b50f475c629",
+    "name": "Hermetic Study",
+    "layout": "normal",
+    "set_code": "dmr",
+    "set_name": "Dominaria Remastered",
+    "collector_number": "53",
+    "rarity": "common",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature has \"{T}: This creature deals 1 damage to any target.\"",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-01-13",
+    "artist": "Filipe Pagliuso",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  }
+]

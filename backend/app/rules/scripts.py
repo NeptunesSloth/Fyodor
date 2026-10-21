@@ -116,7 +116,7 @@ TRIGGERS = [
     (re.compile(r"^Whenever (?P<filter>another creature you control|a creature you control|another nontoken creature you control|"
                 r"a nontoken creature you control|another creature|a creature) enters, (?P<body>.+)$"), "enters_other"),
     # 503.1a / 504 / 505 / 507 / 513: "At the beginning of [whose] [step]" (generic: see step_trigger)
-    (re.compile(r"^At the beginning of (?:(?:each of )?(?P<whose>your|each|each player's|each opponent's|each other player's|the|enchanted player's|the chosen player's) "
+    (re.compile(r"^At the beginning of (?:(?:each of )?(?P<whose>your|each|each player's|each opponent's|each other player's|the|enchanted player's|the chosen player's|the monarch's) "
                 r"(?P<first_upkeep>first )?(?P<step>upkeep|draw step|end step|first main phase|precombat main phase|second main phase|"
                 r"postcombat main phases?|main phases)(?: each turn)?|the (?P<hstep>upkeep|draw step|end step) of enchanted (?:creature|permanent|land|artifact|"
                 r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's|each player's) turn|(?P<each_combat>each combat)), "
@@ -145,7 +145,7 @@ STEPS = {"upkeep": "upkeep", "draw step": "draw", "end step": "end", "first main
          "main phases": "main"}  # (-- trigger other (wave 52B) -- "each of your main phases" (Frontier Siege): the precombat and every postcombat main phase, 505.1; triggers.at_step_generic)  # (-- triggers (wave 30J) -- "each of your postcombat main phases": 505.1a, every main phase but the first, additional ones included)
 WHOSE = {"your": "you", "each": "each", "each player's": "each", "the": "each", "each opponent's": "opponent", "each other player's": "opponent",  # (wave 51G: every other player is an opponent in Commander, 102.2: Well of Ideas)
          "enchanted player's": "enchanted_player",
-         "the chosen player's": "chosen_player"}  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
+         "the chosen player's": "chosen_player", "the monarch's": "monarch"}  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
 
 
 def step_trigger(m: re.Match[str]) -> str:
@@ -288,9 +288,10 @@ def _self_pronouns(part: str) -> str:
     return re.sub(r"(?<=return ~ to )~'s owner's hand\b", "its owner's hand", part)  # -- if you do (wave 40A) -- "return him to his owner's hand" (Bob): 400.3, the card's owner
 
 
+@lru_cache(maxsize=8192)
 def self_text(text: str, name: str) -> str:
     """The ability with the card's own name (and "this creature" etc.) written as ~, without an
-    ability word (207.2c)."""
+    ability word (207.2c). Only immutable text is cached; no table state is read."""
     out = _ABILITY_WORD.sub("", text, count=1)
     if out.startswith("Exhaust — "):  # -- ability words (wave 4F) -- 702.177a (the restriction: restrictions.parse)
         out = out[len("Exhaust — "):]
@@ -404,6 +405,12 @@ def self_text(text: str, name: str) -> str:
     out = re.sub(r"(\btarget creature(?: you control)? gets [+-]\d+/[+-]\d+ until end of turn for each [^,.]+?) and (can't be blocked this turn)\.", r"\1. It \2.", out)
     out = re.sub(r"(\btarget [^,.]+? defending player controls), and creatures that player controls (without [a-z]+ can't block this turn)\.",
                  r"\1. Creatures defending player controls \2.", out)
+    # A terminal name punctuation mark also terminates the printed sentence.
+    # Replacing that name must retain the sentence boundary for effect parsing.
+    if name.endswith(("!", "?")) and text.rstrip().endswith(name) and out.rstrip().endswith("~"):
+        out = out.rstrip() + "."
+    out = out.replace("choose target face-up exiled card. Its owner shuffles it into their library.",
+                      "shuffle target face-up card in exile into its owner's library.")
     return _counter_threshold(_language.base_become(out))  # (-- layers (wave 30O) -- "~'s base power and toughness become …")
 
 
@@ -562,7 +569,7 @@ def _aura_card_effects(effects: list[dict[str, Any]]) -> list[dict[str, Any]] | 
 # "At the beginning of enchanted player's upkeep / the upkeep of enchanted creature's controller /
 # each opponent's upkeep, that player …": the player whose step it is (triggers.at_step_generic
 # gives the event that player and, for the enchanted creature's controller, that creature)
-STEP_PLAYER_WHOSE = ("enchanted_player", "host_controller", "opponent", "each", "chosen_player")  # (chosen_player: wave 4J)
+STEP_PLAYER_WHOSE = ("enchanted_player", "host_controller", "opponent", "each", "chosen_player", "monarch")  # (chosen_player: wave 4J)
 
 
 def step_names_player(d: dict[str, Any]) -> bool:
@@ -1326,7 +1333,7 @@ def _free_cast_source(e: dict[str, Any], pronoun: str, intro: _Introducer | None
     return True
 
 
-_TARGET_REFS = ("who", "library", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player", "cards", "for_player", "that", "recipient_ref", "exclude_target", "excess_on")  # (that: -- player-relative selectors (wave 53A) --) ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)  # (for_player: wave 50I, "Target player gains X life, where X is the greatest power among creatures they control" in a mode with other groups)
+_TARGET_REFS = ("who", "hand", "library", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player", "cards", "for_player", "that", "recipient_ref", "exclude_target", "excess_on")  # (that: -- player-relative selectors (wave 53A) --) ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)  # (for_player: wave 50I, "Target player gains X life, where X is the greatest power among creatures they control" in a mode with other groups)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:
@@ -1345,7 +1352,7 @@ def rename_bindings(value: Any, prefix: str) -> Any:
         if k == 'of' and value.get('do') == 'discard_revealed' and isinstance(v, str):
             v = prefix + v
         elif k in ("as", "bind", "verdict", "succeeded", "flag", "did", "ref_amount", "ref_count", "live_ref_count",
-                 "bind_dealt", "bind_life_caps", "bind_damage_players", "life_caps", "bind_excess", "bind_hit", "paid_x", "perm_as", "bind_amount", "energy_as", "exclude", "lki") and isinstance(v, str) and v not in (this_way.COST, this_way.DEVOURED, "cond_ref"):  # (wave 53C: "lki", a reflexive ability's event binding)  # (wave 48B: the spell's own cost, a devourer's own sacrifices: one name for every line)  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
+                 "bind_dealt", "bind_life_caps", "bind_damage_players", "life_caps", "bind_excess", "bind_hit", "paid_x", "perm_as", "bind_amount", "energy_as", "exclude", "lki", "entry_receipt56") and isinstance(v, str) and v not in (this_way.COST, this_way.DEVOURED, "cond_ref"):  # (wave 53C: "lki", a reflexive ability's event binding)  # (wave 48B: the spell's own cost, a devourer's own sacrifices: one name for every line)  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
             v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on;
             # "flag": the verdict an "instead" / "Otherwise" clause reads)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
@@ -1612,6 +1619,19 @@ def _target_loses(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "lose_life", "who": "target", "n": num(m["n"])}], "player"
 
 
+@effect(r"target player who lost life this turn loses {N} life")
+def _target_loses_after_loss(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    target = selectors.parse("player who lost life this turn")
+    assert target is not None
+    return [{"do": "lose_life", "who": "target", "n": num(m["n"])}], target.key()
+
+
+@effect(r"target player dealt damage by (?:~|this creature) this turn loses {N} life")
+def _target_loses_after_source_damage(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    target = selectors.Selector(player="any", damaged_by_source_this_turn=True)
+    return [{"do": "lose_life", "who": "target", "n": num(m["n"])}], target.key()
+
+
 # -- life lost (wave 8B) -- "Each opponent loses life equal to the life they lost this turn." (Wound Reflection): each
 # opponent's own total (the turn's log, 119.3), read for them as the instruction is carried out (608.2h)
 @effect(r"each opponent loses life equal to the life (?:they|that player) lost this turn")
@@ -1757,8 +1777,12 @@ def _someone_creates(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
     subject (a pronoun is resolved later, resolve_it)."""
     from app.rules import language  # (a leaf module)
 
-    # -- token & pump wordings (wave 6C) -- "Its controller creates a 1/1 … token with changeling": the token grammar
-    made = _token_parse("create " + m["rest"]) if not re.search(r"\bfor each\b|, where ", m["rest"]) else None
+    # A targeted player's own hand is a frozen target reference, including grouped modal slots.
+    targeted_hand = m["s"] in ("target player", "target opponent") and m["rest"].endswith(
+        ", where X is the number of cards in their hand")
+    token_body = m["rest"].replace(
+        ", where X is the number of cards in their hand", ", where X is the number of cards in target player's hand") if targeted_hand else m["rest"]
+    made = _token_parse("create " + token_body) if targeted_hand or not re.search(r"\bfor each\b|, where ", m["rest"]) else None
     # (wave 38B: "that attacking player creates a tapped … token that's attacking that opponent" — token_grammar.create_attacking, by that player)
     if made is not None and all(e["do"] == "create_token" or (e["do"] == "create_attacking" and m["s"] in ("that player", "its controller")) for e in made):
         if m["s"] in ("target player", "target opponent"):
@@ -1956,7 +1980,7 @@ def _exile_until(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 @effect(r"investigate")
 def _investigate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     type_line, text = PREDEFINED_TOKENS["Clue"]
-    return [{"do": "create_token", "who": "you", "n": 1,
+    return [{"do": "create_token", "investigate78": True, "who": "you", "n": 1,
              "token": {"name": "Clue", "power": None, "toughness": None, "colors": [], "type_line": type_line, "text": text}}], None
 
 
@@ -1968,7 +1992,7 @@ def _investigate_times(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | No
 @effect(r"investigate that many times")  # -- triggers (wave 19B) -- 701.16a: one Clue each time, as many times as the event's amount
 def _investigate_many(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     type_line, text = PREDEFINED_TOKENS["Clue"]
-    return [{"do": "create_token", "who": "you", "n": {"event_amount": 1},
+    return [{"do": "create_token", "investigate78": True, "who": "you", "n": {"event_amount": 1},
              "token": {"name": "Clue", "power": None, "toughness": None, "colors": [], "type_line": type_line, "text": text}}], None
 
 
@@ -2629,6 +2653,30 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import graveyard_return57
+
+    if (returned57 := graveyard_return57.parse(body, it)) is not None:
+        return returned57
+    from app.rules import immediate_cast_pools67
+
+    if (immediate := immediate_cast_pools67.parse(body)) is not None:
+        return immediate
+    from app.rules import player_counter_instructions75
+
+    if (players75 := player_counter_instructions75.parse(body)) is not None:
+        return players75
+    from app.rules import entry_receipt56
+
+    if (entered := entry_receipt56.parse(body)) is not None:
+        return entered
+    from app.rules import hand_library_choices52
+
+    if (hand_library := hand_library_choices52.parse(body)) is not None:
+        return hand_library
+    from app.rules import counter_alternatives50
+
+    if (counter_alternative := counter_alternatives50.parse(body)) is not None:
+        return counter_alternative
     from app.rules import combat_prevention_variants47, ordered_zone_costs46, quoted_prevention_loss47
 
     if (combat_prevention := combat_prevention_variants47.parse(body)) is not None:
@@ -2735,6 +2783,16 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     if (creature_damage := creature_damage_followups.parse(body)) is not None:
         return creature_damage
 
+    from app.rules import kicked_target_outcomes60
+
+    if (kicked_targets := kicked_target_outcomes60.parse(body)) is not None:
+        return kicked_targets
+
+    from app.rules import kicked_spell_outcomes59
+
+    if (kicked_outcome := kicked_spell_outcomes59.parse(body)) is not None:
+        return kicked_outcome
+
     from app.rules import kicked_spell_riders
 
     if (kicked_rider := kicked_spell_riders.parse(body)) is not None:
@@ -2818,6 +2876,31 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (outcome45 := exile_cast_outcomes45.production_parse(body)) is not None:
         return outcome45
+
+    from app.rules import exile_spell_choices49
+
+    if (spell_choice49 := exile_spell_choices49.parse(body)) is not None:
+        return spell_choice49
+
+    from app.rules import outside_research50
+
+    if (research50 := outside_research50.parse(body)) is not None:
+        return research50
+
+    from app.rules import delayed_blinks50
+
+    if (blink50 := delayed_blinks50.parse(body)) is not None:
+        return blink50
+
+    from app.rules import delayed_combat_blinks50
+
+    if (combat_blink50 := delayed_combat_blinks50.parse(body)) is not None:
+        return combat_blink50
+
+    from app.rules import delayed_spell_blinks50
+
+    if (spell_blink50 := delayed_spell_blinks50.parse(body)) is not None:
+        return spell_blink50
 
     from app.rules import exile_authority_continuations
 
@@ -5545,6 +5628,10 @@ def granted_ability(text: str) -> AbilityText | None:
     if ab.kind == "keywords":
         if ab.text.rstrip('.').lower() in ('affinity for artifacts', 'undaunted'):
             return ab  # Native selected cast permissions grant actual cumulative cost abilities.
+        from app.rules import graveyard_keywords
+
+        if len(ab.keywords) == 1 and ab.keywords[0] in ("embalm", "encore") and graveyard_keywords.supported(ab.keywords[0], ab.text):
+            return ab
         from app.rules import banding
         from app.rules.coverage import SUPPORTED_KEYWORDS
 
@@ -5634,6 +5721,378 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import first_event_receipts78
+
+    if (first78 := first_event_receipts78.definition(ability, ch)) is not None:
+        return first78
+    from app.rules import graveyard_return57
+
+    if (return57 := graveyard_return57.definition(ability, ch)) is not None:
+        return return57
+    from app.rules import player_counter_instructions75
+
+    if (players75 := player_counter_instructions75.definition(ability, ch)) is not None:
+        return players75
+    from app.rules import targeting_sources77
+
+    if (target77 := targeting_sources77.definition(ability, ch)) is not None:
+        return target77
+    from app.rules import combat_soulbond_partner70
+
+    if (soulbond70 := combat_soulbond_partner70.definition(ability, ch)) is not None:
+        return soulbond70
+    from app.rules import optional_attacker_damage74
+
+    if (damage74 := optional_attacker_damage74.definition(ability, ch)) is not None:
+        return damage74
+    from app.rules import saddled_receipts76
+
+    if (mount76 := saddled_receipts76.definition(ability, ch)) is not None:
+        return mount76
+    from app.rules import combat_equipment_blocks70
+
+    if (equipment70 := combat_equipment_blocks70.definition(ability, ch)) is not None:
+        return equipment70
+    from app.rules import conditional_tap_counter73
+
+    if (tap73 := conditional_tap_counter73.definition(ability, ch)) is not None:
+        return tap73
+    from app.rules import trigger_upkeep_comparison75
+
+    if (oath75 := trigger_upkeep_comparison75.definition(ability, ch)) is not None:
+        return oath75
+    from app.rules import combat_named_exception69
+
+    if (named69 := combat_named_exception69.definition(ability, ch)) is not None:
+        return named69
+    from app.rules import manifest_aura74
+
+    if (form74 := manifest_aura74.definition(ability, ch)) is not None:
+        return form74
+    from app.rules import combat_at_least_one68
+
+    if (one68 := combat_at_least_one68.definition(ability, ch)) is not None:
+        return one68
+    from app.rules import attacker_reselection73
+
+    if (reselection73 := attacker_reselection73.definition(ability, ch)) is not None:
+        return reselection73
+    from app.rules import combat_conditional_requirements67
+
+    if (conditional67 := combat_conditional_requirements67.definition(ability, ch)) is not None:
+        return conditional67
+    from app.rules import ordered_graveyard53
+
+    if (ordered_graveyard := ordered_graveyard53.definition(ability, ch)) is not None:
+        return ordered_graveyard
+    from app.rules import trigger_upkeep_pay_return71
+
+    if (pay_return71 := trigger_upkeep_pay_return71.definition(ability, ch)) is not None:
+        return pay_return71
+    from app.rules import trigger_damage_threshold70
+
+    if (threshold70 := trigger_damage_threshold70.definition(ability, ch)) is not None:
+        return threshold70
+    from app.rules import combat_teyo66
+
+    if (direction66 := combat_teyo66.definition(ability, ch)) is not None:
+        return direction66
+    from app.rules import controller_turn_history69
+
+    if (controller69 := controller_turn_history69.definition(ability, ch)) is not None:
+        return controller69
+    from app.rules import entry_counter_kind_choices68
+
+    if (entry_kind68 := entry_counter_kind_choices68.definition(ability, ch)) is not None:
+        return entry_kind68
+    from app.rules import ring_counter_packets67
+
+    if (ring_packet67 := ring_counter_packets67.definition(ability, ch)) is not None:
+        return ring_packet67
+    from app.rules import combat_defender_aliases66
+
+    if (defender66 := combat_defender_aliases66.definition(ability, ch)) is not None:
+        return defender66
+    from app.rules import trigger_attached_artifact67
+
+    if (attached67 := trigger_attached_artifact67.definition(ability, ch)) is not None:
+        return attached67
+    from app.rules import discard_counter_union66
+
+    if (discard_union66 := discard_counter_union66.definition(ability, ch)) is not None:
+        return discard_union66
+    from app.rules import trigger_handcast_sweep66
+
+    if (sweep66 := trigger_handcast_sweep66.definition(ability, ch)) is not None:
+        return sweep66
+    from app.rules import trigger_attack_population63
+
+    if (population63 := trigger_attack_population63.definition(ability, ch)) is not None:
+        return population63
+    from app.rules import counter_event_packets50
+
+    if (counter_packet := counter_event_packets50.definition(ability, ch)) is not None:
+        return counter_packet
+    from app.rules import counter_lki_tokens50
+
+    if (counter_lki_token := counter_lki_tokens50.definition(ability, ch)) is not None:
+        return counter_lki_token
+    from app.rules import counter_ownership50
+
+    if (counter_owner := counter_ownership50.definition(ability, ch)) is not None:
+        return counter_owner
+    from app.rules import counter_state_thresholds50
+
+    if (counter_state := counter_state_thresholds50.definition(ability, ch)) is not None:
+        return counter_state
+    from app.rules import conditional_instead59
+
+    if (instead59 := conditional_instead59.definition(ability, ch)) is not None:
+        return instead59
+    from app.rules import trigger_grave_counter_top65
+
+    if (grave_counter_top := trigger_grave_counter_top65.definition(ability, ch)) is not None:
+        return grave_counter_top
+
+    from app.rules import trigger_grave_extreme64
+
+    if (grave_extreme := trigger_grave_extreme64.definition(ability, ch)) is not None:
+        return grave_extreme
+
+    from app.rules import trigger_leaf58_staged
+
+    if (pair_target_trigger := trigger_leaf58_staged.definition(ability, ch)) is not None:
+        return pair_target_trigger
+
+    from app.rules import trigger_tap_actors62
+
+    if (tap_actor_trigger := trigger_tap_actors62.definition(ability, ch)) is not None:
+        return tap_actor_trigger
+
+    from app.rules import trigger_leaf57_staged
+
+    if (designation_return := trigger_leaf57_staged.definition(ability, ch)) is not None:
+        return designation_return
+
+    from app.rules import trigger_status_instead60
+
+    if (status_trigger := trigger_status_instead60.definition(ability, ch)) is not None:
+        return status_trigger
+
+    from app.rules import trigger_leaf56_staged
+
+    if (target_aura_trigger := trigger_leaf56_staged.definition(ability, ch)) is not None:
+        return target_aura_trigger
+
+    from app.rules import trigger_return_references60
+
+    if (return_reference := trigger_return_references60.definition(ability, ch)) is not None:
+        return return_reference
+
+
+    from app.rules import trigger_leaf54_staged
+
+    if (power_life_trigger := trigger_leaf54_staged.definition(ability, ch)) is not None:
+        return power_life_trigger
+
+    from app.rules import trigger_main_cast60
+
+    if (main_cast := trigger_main_cast60.definition(ability, ch)) is not None:
+        return main_cast
+
+    from app.rules import trigger_grave_upkeep59
+
+    if (grave_upkeep := trigger_grave_upkeep59.definition(ability, ch)) is not None:
+        return grave_upkeep
+
+    from app.rules import trigger_sacrifice_entered58
+
+    if (sacrifice_entered := trigger_sacrifice_entered58.definition(ability, ch)) is not None:
+        return sacrifice_entered
+
+    from app.rules import trigger_extreme_choices57
+
+    if (extreme_choice := trigger_extreme_choices57.definition(ability, ch)) is not None:
+        return extreme_choice
+    from app.rules import trigger_permanent_steps54
+
+    if (permanent_step := trigger_permanent_steps54.definition(ability, ch)) is not None:
+        return permanent_step
+    from app.rules import trigger_pt_choices56
+
+    if (pt_choice := trigger_pt_choices56.definition(ability, ch)) is not None:
+        return pt_choice
+    from app.rules import trigger_library_win53
+
+    if (library_win := trigger_library_win53.definition(ability, ch)) is not None:
+        return library_win
+    from app.rules import trigger_tap_union52
+
+    if (tap_union := trigger_tap_union52.definition(ability, ch)) is not None:
+        return tap_union
+    from app.rules import trigger_defender_release53
+
+    if (defender_release := trigger_defender_release53.definition(ability, ch)) is not None:
+        return defender_release
+    from app.rules import trigger_upkeep_compounds53
+
+    if (upkeep_compound := trigger_upkeep_compounds53.definition(ability, ch)) is not None:
+        return upkeep_compound
+    from app.rules import trigger_owned_return51
+
+    if (owned_return := trigger_owned_return51.definition(ability, ch)) is not None:
+        return owned_return
+    from app.rules import trigger_draw_token_counter51
+
+    if (draw_token_counter := trigger_draw_token_counter51.definition(ability, ch)) is not None:
+        return draw_token_counter
+    from app.rules import trigger_grave_bottom51
+
+    if (grave_bottom := trigger_grave_bottom51.definition(ability, ch)) is not None:
+        return grave_bottom
+    from app.rules import trigger_target_control50
+
+    if (target_control := trigger_target_control50.definition(ability, ch)) is not None:
+        return target_control
+    from app.rules import trigger_empty_board50
+
+    if (empty_board := trigger_empty_board50.definition(ability, ch)) is not None:
+        return empty_board
+    from app.rules import trigger_damage_values51
+
+    if (damage_values := trigger_damage_values51.definition(ability, ch)) is not None:
+        return damage_values
+    from app.rules import trigger_aggregate_counters50
+
+    if (aggregate_counters := trigger_aggregate_counters50.definition(ability, ch)) is not None:
+        return aggregate_counters
+    from app.rules import trigger_cast_counters50
+
+    if (cast_counter := trigger_cast_counters50.definition(ability, ch)) is not None:
+        return cast_counter
+    from app.rules import source_damage_counters50
+
+    if (damage_counters := source_damage_counters50.definition(ability, ch)) is not None:
+        return damage_counters
+    from app.rules import trigger_faceup_union50
+
+    if (faceup_union := trigger_faceup_union50.definition(ability, ch)) is not None:
+        return faceup_union
+    from app.rules import trigger_combat_counts50
+
+    if (combat_count := trigger_combat_counts50.definition(ability, ch)) is not None:
+        return combat_count
+    from app.rules import trigger_hand_owner50
+
+    if (hand_owner := trigger_hand_owner50.definition(ability, ch)) is not None:
+        return hand_owner
+    from app.rules import trigger_source_graveyard50
+
+    if (source_graveyard := trigger_source_graveyard50.definition(ability, ch)) is not None:
+        return source_graveyard
+    from app.rules import trigger_graveyard_owners50
+
+    if (graveyard_owner := trigger_graveyard_owners50.definition(ability, ch)) is not None:
+        return graveyard_owner
+    from app.rules import trigger_return_choices50
+
+    if (return_choice := trigger_return_choices50.definition(ability, ch)) is not None:
+        return return_choice
+    from app.rules import trigger_step_damage50
+
+    if (step_damage := trigger_step_damage50.definition(ability, ch)) is not None:
+        return step_damage
+    from app.rules import trigger_leaf51_staged
+
+    if ability.text in (trigger_leaf51_staged.JOKUL, trigger_leaf51_staged.DRUID) and (leaf_trigger := trigger_leaf51_staged.definition(ability, ch)) is not None:
+        return leaf_trigger
+    from app.rules import trigger_leaf52_staged
+
+    if (self_layer_trigger := trigger_leaf52_staged.definition(ability, ch)) is not None:
+        return self_layer_trigger
+    from app.rules import trigger_leaf53_staged
+
+    if (bound_land_trigger := trigger_leaf53_staged.definition(ability, ch)) is not None:
+        return bound_land_trigger
+    from app.rules import trigger_step_counts50
+
+    if (step_count := trigger_step_counts50.definition(ability, ch)) is not None:
+        return step_count
+    from app.rules import counter_event_comparisons50
+
+    if (counter_comparison := counter_event_comparisons50.definition(ability, ch)) is not None:
+        return counter_comparison
+    from app.rules import upkeep_target_choice65
+
+    if (upkeep_choice65 := upkeep_target_choice65.definition(ability, ch)) is not None:
+        return upkeep_choice65
+    from app.rules import damage_target_counts65
+
+    if (damage_count65 := damage_target_counts65.definition(ability, ch)) is not None:
+        return damage_count65
+    from app.rules import dynamic_keyword_costs55
+
+    if (dynamic_keyword_cost := dynamic_keyword_costs55.definition(ability, ch)) is not None:
+        return dynamic_keyword_cost
+
+    from app.rules import kicked_spell_outcomes59
+
+    if (kicked_keyword := kicked_spell_outcomes59.definition(ability, ch)) is not None:
+        return kicked_keyword
+
+    from app.rules import first_target_activation_cost58
+
+    if (first_target_cost := first_target_activation_cost58.definition(ability, ch)) is not None:
+        return first_target_cost
+
+    from app.rules import graveyard_cost_grants57
+
+    if (graveyard_cost_grant := graveyard_cost_grants57.definition(ability, ch)) is not None:
+        return graveyard_cost_grant
+
+    from app.rules import dynamic_zone_keyword_costs56
+
+    if (dynamic_zone_keyword := dynamic_zone_keyword_costs56.definition(ability, ch)) is not None:
+        return dynamic_zone_keyword
+
+    from app.rules import table_activation_modifiers52
+
+    if (table_activation := table_activation_modifiers52.definition(ability, ch)) is not None:
+        return table_activation
+
+    from app.rules import torch_exile_receipts65
+
+    if (torch_exile65 := torch_exile_receipts65.definition(ability, ch)) is not None:
+        return torch_exile65
+    from app.rules import conditional_free_casts68
+
+    if (conditional68 := conditional_free_casts68.definition(ability, ch)) is not None:
+        return conditional68
+
+    from app.rules import immediate_cast_pools67
+
+    if (immediate67 := immediate_cast_pools67.definition(ability, ch)) is not None:
+        return immediate67
+    from app.rules import copied_exile_packets66
+
+    if (copied_exile66 := copied_exile_packets66.definition(ability, ch)) is not None:
+        return copied_exile66
+    from app.rules import damage_exile_statics65
+
+    if (damage_exile_static65 := damage_exile_statics65.definition(ability, ch)) is not None:
+        return damage_exile_static65
+    from app.rules import dependent_object_targets65
+
+    if (dependent_object65 := dependent_object_targets65.definition(ability, ch)) is not None:
+        return dependent_object65
+    from app.rules import fight_exile_receipts65
+
+    if (fight_exile65 := fight_exile_receipts65.definition(ability, ch)) is not None:
+        return fight_exile65
+    from app.rules import relative_damage_receipts65
+
+    if (relative_damage65 := relative_damage_receipts65.definition(ability, ch)) is not None:
+        return relative_damage65
     from app.rules import random_vehicle_crash45
 
     if (random_vehicle := random_vehicle_crash45.definition(ability, ch)) is not None:
@@ -5666,6 +6125,22 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (mana_followthrough := mana_followthrough_profiles.definition(ability, ch)) is not None:
         return mana_followthrough
+    from app.rules import mana_activation_cost_watchers51
+
+    if (activation_cost_watcher := mana_activation_cost_watchers51.definition(ability, ch)) is not None:
+        return activation_cost_watcher
+    from app.rules import mana_sunglasses49
+
+    if (sunglasses := mana_sunglasses49.definition(ability, ch)) is not None:
+        return sunglasses
+    from app.rules import mana_persistent_replacements48
+
+    if (persistent_mana := mana_persistent_replacements48.definition(ability, ch)) is not None:
+        return persistent_mana
+    from app.rules import mana_security_rhox47
+
+    if (rhox := mana_security_rhox47.definition(ability, ch)) is not None:
+        return rhox
     from app.rules import mana_producer_profiles45
 
     if (producer := mana_producer_profiles45.definition(ability, ch)) is not None:
@@ -5707,6 +6182,36 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (outcome45 := exile_cast_outcomes45.production_definition(ability, ch)) is not None:
         return outcome45
+
+    from app.rules import exile_sphinx49
+
+    if (sphinx49 := exile_sphinx49.definition(ability, ch)) is not None:
+        return sphinx49
+
+    from app.rules import delayed_blinks50
+
+    if (blink50 := delayed_blinks50.definition(ability, ch)) is not None:
+        return blink50
+
+    from app.rules import delayed_loyalty_blinks50
+
+    if (loyalty_blink50 := delayed_loyalty_blinks50.definition(ability, ch)) is not None:
+        return loyalty_blink50
+
+    from app.rules import delayed_entry_blinks50
+
+    if (entry_blink50 := delayed_entry_blinks50.definition(ability, ch)) is not None:
+        return entry_blink50
+
+    from app.rules import delayed_self_blinks50
+
+    if (self_blink50 := delayed_self_blinks50.definition(ability, ch)) is not None:
+        return self_blink50
+
+    from app.rules import delayed_cycle_blinks50
+
+    if (cycle_blink50 := delayed_cycle_blinks50.definition(ability, ch)) is not None:
+        return cycle_blink50
 
     from app.rules import exile_authority_continuations
 
@@ -6691,7 +7196,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     if nm:
                         body = body[nm.end():]
                     elif not cond["nonmana"] and not cond.get("ability_targets"):  # (wave 23B: an ability with a target is no mana ability, 605.1a)
-                        return None
+                        from app.rules import mana_activation_watchers50
+
+                        if not mana_activation_watchers50.supported(ability, ch):
+                            return None
                 # (a trigger about a player, or damage to one, names them: "that player")
                 has_player = cond is not None and _has_player(cond)
                 if cond is not None and cond.get("event") == "cast" and cond.get("player") == "you":
@@ -6996,7 +7504,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         if ability.text.startswith("Power-up — "):  # -- counters (wave 7C) -- 702.193: the reduction must be readable
             from app.rules import power_up
 
-            if not power_up.readable(ch, cost.mana):
+            if not ability.power_up_prepared and not power_up.readable(ch, cost.mana):
                 return None
         # -- spell copies (wave 31D) -- "This ability can't be copied and X can't be 0." (Gogo): 107.1b X is announced as 1 or more (casting reads
         # ``x_min``); 113.6g the ability on the stack carries its own text (copying.uncopyable)
@@ -7171,11 +7679,18 @@ def _event_refs_ok(d: Definition) -> bool:
     generic trigger condition whose event has that player or amount can use them. A "one or more"
     trigger has one event per batch (603.2c) — per damaged player for damage to players, per
     acting player for a player's actions — so it can too."""
+    from app.rules import first_event_receipts78
+
+    if not first_event_receipts78.recipes_ok(d):
+        return False
+    from app.rules import entry_receipt56
     if (picked := [i for i, e in enumerate(d.get("effects") or []) if e.get("do") == "choose_value" and e.get("what") == "player with the most life or tied for most life"]):
         # -- block events (wave 53C) -- "that player" after "Choose a player with the most life…" is the player chosen (effects._bind_chosen_player), not an event's
         d = {**d, "effects": [*d["effects"][:picked[0] + 1], *json.loads(json.dumps(d["effects"][picked[0] + 1:]).replace(
             '\\"controller\\":\\"that_player\\"', '\\"controller\\":\\"player:chosen\\"').replace('"event_player"', '"player:chosen"'))]}
     effects = [e for e in d.get("effects") or []] + [e for m in d.get("modes") or [] for e in m.get("effects") or []]
+    if any(e.get("shares_type") == "target" for e in effects) and (d.get("kind") != "spell" or (d.get("target") or {}).get("what") != "spell"):
+        return False
     if not _event_spell_ok(d):  # -- refused copy/mana (wave 3R3) --
         return False
     # -- intervening ifs (wave 11F) -- "if that player controls …" / "if defending player has …" (603.4: read as it triggers
@@ -7189,7 +7704,7 @@ def _event_refs_ok(d: Definition) -> bool:
         return False
     if '"same_name": "event"' in raw and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
         return False  # -- value grammar (wave 23C) -- "that spell": the spell a cast trigger is about
-    if any(e.get("do") == "free_cast" and (e.get("shares_type") or {"mana_value": "event"} in (e.get("mv"), e.get("mv_lt"))) for e in effects) \
+    if any(e.get("do") == "free_cast" and ((e.get("shares_type") and e.get("shares_type") != "target") or {"mana_value": "event"} in (e.get("mv"), e.get("mv_lt"))) for e in effects) \
             and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
         return False  # -- if you do (wave 40A) -- "a spell with equal or lesser mana value [that shares a card type with it]": the spell a cast trigger is about
     if '"of": "cast_spell"' in raw and not (ev is not None and ev["event"] == "cast" and ev.get("subject") == "player" and not ev.get("copy")):
@@ -7233,7 +7748,7 @@ def _event_refs_ok(d: Definition) -> bool:
     # events of an "or" trigger is about one object (603.2c, the ruling: it triggers for each artifact), and so is the source's own death, its last-known snapshot)
     if '\\"evt:' in raw and d.get("trigger") not in ("attacks_self", "dies_self") and not (
             one_object(ev) or (ev is not None and ev["event"] == "either" and all(one_object(c) for c in ev["conds"]))) \
-            and '\\"evt:' in json.dumps({**d, "effects": [e for i, e in enumerate(d.get("effects") or []) if i not in _delayed.object_deferred(d.get("effects") or [])]}):
+            and '\\"evt:' in json.dumps({**d, "effects": [e for i, e in enumerate(d.get("effects") or []) if i not in (_delayed.object_deferred(d.get("effects") or []) | entry_receipt56.object_deferred(d.get("effects") or []))]}):
         # (wave 28D: the spell a cast trigger is about; -- turn-long triggers (wave 35B) -- or the one object a "When that creature dies this turn" trigger is about)
         return False  # -- reanimation (wave 16F) -- "lesser mana value": than the one object the event is about
     if "not_event" in raw and not (ev is not None and ev["event"] in ("targeted", "unblocked")):  # -- stack interaction (wave 23B) -- "other than that creature":
@@ -7550,9 +8065,8 @@ def modal_header(text: str) -> tuple[int, int, bool, dict[str, Any] | None] | No
             {"object": "self", "cast": {"optional": "blight"}})):  # (-- blight (wave 51E) -- Pyrrhic Strike)
         return None
     both = m["k"] not in ("one or more", "any number")
-    # (-- most-played modal spells (wave 50I) -- "If this spell was kicked, choose any number instead." (Inscription of Abundance) reads as "one or more";
-    # ponytail: choosing no mode at all, which does nothing, isn't offered)
-    return 1, 1, False, {"cond": cond, "min": 1 if m["may"] or not both else 2, "max": 2 if both else 99}
+    # CR107.1c: "any number" includes zero; native mode decisions retain an explicitly empty choice.
+    return 1, 1, False, {"cond": cond, "min": 0 if m["k"] == "any number" else 1 if m["may"] or not both else 2, "max": 2 if both else 99}
 
 
 def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | None:
@@ -7693,7 +8207,7 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
              and not own_card_event_ability(defs.get(ab.index))  # (wave 36A: cycling / discard triggers of the card itself)
              and defs.get(ab.index, {}).get("trigger") != "cast_self"  # -- spell copies (wave 31D) -- 601.2i: "When you cast this spell, …" triggers
              and defs.get(ab.index, {}).get("replacement") != "shuffle_instead"  # -- zone replacements (wave 51C) -- Nexus of Fate: where the spell card goes (614.1), not what it does
-             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional", "x_cap", "escape", "draft_only", "cant_be_copied", "self_uncounterable", "x_mana_restriction")  # (escape: wave 52C, 702.138a; draft_only: wave 52C; x_cap: wave 51C; own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
+             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional", "x_cap", "escape", "draft_only", "cant_be_copied", "self_uncounterable", "x_mana_restriction", "own_spell_kicked_keyword59")  # (escape: wave 52C, 702.138a; draft_only: wave 52C; x_cap: wave 51C; own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
                       and (defs[ab.index].get("free") or defs[ab.index].get("zone") in ("graveyard", "exile")
                            or defs[ab.index].get("flash")))]  # (wave 17C: retrace, 702.81a; wave 22F: "cast this spell as though it had flash if …", 601.3d)
@@ -8073,6 +8587,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     """A static line that is a replacement or prevention effect of the permanent itself."""
     if ability.kind != "static":
         return None
+    from app.rules import entry_counter_source72
+
+    if (source72 := entry_counter_source72.definition(text)) is not None:
+        return source72
     from app.rules import entry_payment_diversion, entry_value_counters
 
     if (entry_diversion := entry_payment_diversion.definition(text)) is not None:
@@ -9841,6 +10359,10 @@ def _reflex_created(rest: str, made: dict[str, Any]) -> dict[str, Any] | None:
     if body.lower().startswith("if "):
         return None  # (an intervening "if" is checked as the reflexive ability would trigger, 603.4, before any target is chosen: not read here)
     parsed = parse_effects(body[:1].upper() + body[1:], "event")
+    if parsed is None and "Creature" in made["token"].get("type_line", ""):
+        from app.rules import reflexive_token_return54
+
+        parsed = reflexive_token_return54.parse(body)
     if parsed is None or not parsed[0] or "event_amount" in json.dumps(parsed, default=str):
         return None  # ("that many" of one token each: nothing to count)
     many = made["n"] != 1  # -- most-played cards IV (wave 51G) -- "Create two 1/1 blue Faerie creature tokens with flying. When you do, tap target creature an opponent controls." (Faebloom Trick, ruling 2024-11-08): it
@@ -9861,6 +10383,10 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     base = effects[prev_start:]
     if (this := _REFLEX_THIS_WAY.match(rest)) is not None:  # -- reflexive discards (wave 19C; wave 30G) -- the instruction counted "this way"
         return _reflex_this_way(this, rest, effects, it, groups)
+    from app.rules import reflexive_mill54
+
+    if (milled := reflexive_mill54.parse(rest, base, optional, prev_start)) is not None:
+        return milled
     if len(base) == 1 and _makes_one_token(base[0]) and (not optional or prev_start == 0):  # -- reflexive this way (wave 30G) --
         return _reflex_created(rest, base[0])
     if len(base) == 1 and _counted(base[0]) and (not optional or prev_start == 0) and rest.lower().startswith("when you do, "):
@@ -10904,7 +11430,8 @@ def _event_spell_ok(d: Definition) -> bool:
             return False
     if any(e.get("who") == "event_ability" for e in effects):  # -- copied abilities (wave 18F) -- the ability an activation trigger is about
         cond = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
-        return cond is not None and cond.get("event") == "activate" and cond.get("subject") in ("player", "host")  # (wave 23B: a loyalty ability or an attached permanent's too)
+        return cond is not None and ((cond.get("event") == "activate" and cond.get("subject") in ("player", "host"))
+                                    or (cond.get("event") == "targeted" and cond.get("target_source77") == "backup"))
     from app.rules import watches  # -- turn watches (wave 7D) --
 
     watched = watches.deferred_event_effects(effects)

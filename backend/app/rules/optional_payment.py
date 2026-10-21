@@ -36,7 +36,7 @@ from typing import Any
 from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption, ObjectRef, PaymentRecord
 from app.game.state import CardInstance
-from app.rules import context, cost_payment, mana_units
+from app.rules import context, cost_payment, mana_units, optional_counter55
 from app.rules import costs as C
 from app.rules import mana as M
 from app.rules.costs import AbilityCost
@@ -166,7 +166,7 @@ def parse(text: str) -> AbilityCost | None:
     cost = C.parse_ability_cost(text, anyn=False)
     if cost.unsupported or not cost.components or "{X}" in cost.mana.upper() or cost.energy_x:
         return None
-    if any(c.activation_only and not _blight_like(c) for c in cost.components):  # (wave 4H; wave 6F: blight)
+    if any(c.activation_only and not _blight_like(c) for c in cost.components) and not optional_counter55.allowed(cost):  # (wave 4H; wave 6F: blight)
         return None
     if any(c.kind not in SUPPORTED for c in cost.components):
         return None
@@ -252,7 +252,7 @@ def _problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: di
                 return f"{source.name or 'it'} isn't in the graveyard"
         elif not same or not source.zone.endswith(":battlefield"):
             return f"{source.name or 'it'} isn't on the battlefield"  # (118.12: Standstill exiled in response)
-        elif comp.kind == C.REMOVE_COUNTER and source.counters.get(comp.counter or "", 0) < comp.amount:
+        elif comp.kind == C.REMOVE_COUNTER and comp.counter != C.ANY_COUNTER and source.counters.get(comp.counter or "", 0) < comp.amount:
             return f"{source.name or 'It'} doesn't have {comp.amount} {comp.counter} counters"
     if cost.life and plan.state.players[payer].life < cost.life:  # 119.4
         return f"{plan.name(payer)} can't pay {cost.life} life"
@@ -266,6 +266,12 @@ def _problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: di
     if chosen is not None:
         used: set[str] = set()
         for i, comp in cost.choices:
+            if optional_counter55.component(comp):
+                picks = chosen.get(i, [])
+                if not optional_counter55.validate(plan, source, comp, picks, used):
+                    return f"Those counters can't pay “{comp.text}”"
+                used |= set(picks)
+                continue
             if comp.kind in FLEXIBLE:  # -- if you do (wave 26C) -- forage / collect evidence: validated as a whole (701.61a, 701.59a)
                 options, _ = cost_payment._flexible_options(plan, comp, source, payer, used)
                 picks = chosen.get(i, [])
@@ -443,7 +449,7 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     cost = parse(opt["cost"])
     assert cost is not None
     if "component" in r:
-        if not chosen and r.get("hand"):  # (wave 18F: a card from a hand, chosen privately; none is a decline that says nothing of the hand)
+        if not chosen and (r.get("hand") or r.get("counter_pick55")):  # (wave 18F: a card from a hand, chosen privately; none is a decline that says nothing of the hand)
             plan.note(f"{plan.name(d.player)} didn't pay {_label(cost)} for {ctx.get('name') or 'it'}")
             context.bind_payment(ctx, opt["bind"], False)
             effects.continue_effects(plan, ctx)
@@ -578,6 +584,14 @@ def _choose_next(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCos
     used = {c for i, ids in picked.items() if cost.components[i].kind != C.PUT_COUNTER for c in ids} | _taken(plan, ctx, payer)
     for i, comp in cost.choices:
         if i in picked:
+            continue
+        if optional_counter55.component(comp):
+            counters = optional_counter55.choose(plan, ctx, opt, cost, i, comp, source, used)
+            if counters is None:
+                return False
+            picked[i] = counters
+            used |= set(counters)
+            opt["chosen"][str(i)] = counters
             continue
         if comp.kind in FLEXIBLE:  # -- if you do (wave 26C) -- the payer picks the graveyard cards (or the Food) as a whole; none is a decline
             options, payable = cost_payment._flexible_options(plan, comp, source, payer, used)

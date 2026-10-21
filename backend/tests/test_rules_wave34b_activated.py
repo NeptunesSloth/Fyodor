@@ -668,11 +668,12 @@ def test_jace_does_not_win_with_cards_left(cards):
     check(s)
 
 
-@pytest.mark.parametrize("name", ["Asmodeus the Archfiend", "Diaochan, Artful Beauty"])
+@pytest.mark.parametrize("name", ["Diaochan, Artful Beauty"])
 def test_still_manual(cards, name):
-    """Asmodeus' "exiled with" link needs the draw replacement to be the exiling ability; (Tinder Wall is FULL since wave 52D: the creature it
-    blocks is its last known information, 608.2b); (Ice Cream Kitty is FULL since wave 50G: "another" covers the token too);
-    Diaochan's second target is chosen by an opponent."""
+    """Diaochan's second target is chosen by an opponent.
+
+    Asmodeus' implemented draw-replacement link is covered by test_rules_linked_return_family.
+    """
     assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL", name
 
 

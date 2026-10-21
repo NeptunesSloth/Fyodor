@@ -167,9 +167,9 @@ def test_a_replacement_exiling_the_sacrificed_card_does_not_undo_the_payment(car
     roundtrip(s)
 
 
-def test_effect_sacrifices_and_distinct_alternative_cost_choices_remain_manual(cards):
+def test_unsupported_sacrifice_conditions_and_distinct_cost_choices_remain_manual(cards):
     from app.rules import conditions
 
     assert conditions.parse('a Saproling was sacrificed this way') is None
-    assert coverage.of_card_data(cards.resolve('Tyrant of Discord')).level == 'PARTIAL'
+    # Tyrant of Discord is covered by the native random-choice receipt tests.
     assert coverage.of_card_data(cards.resolve('Lethal Throwdown')).level == 'PARTIAL'

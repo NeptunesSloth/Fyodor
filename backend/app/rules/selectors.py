@@ -114,6 +114,8 @@ class Selector:
     # -- static grants (wave 15A) -- "artifact, enchantment, or creature with flying": any of these selectors (keys), the qualifier
     # belonging to the last kind only. Only target phrases are read this way (parse_either); other consumers never see it.
     either: tuple[str, ...] = ()
+    lost_life_this_turn: bool = False
+    damaged_by_source_this_turn: bool = False
 
     def key(self) -> str:
         """Canonical and compact: only fields that differ from the defaults."""
@@ -362,6 +364,11 @@ def _thats_both(s: Selector, m: re.Match[str]) -> Selector:
 
 DEFENDED = "defended_player"  # -- triggers (wave 19B) -- a non-targeted "defending player controls": the attack event's player (bound as it's put on the stack)
 THAT_PLAYER = "that_player"  # -- damage wordings (wave 6B) -- a controller the trigger event's player binds
+
+
+@_suffix(r"who lost life this turn")
+def _player_lost_life(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, lost_life_this_turn=True)
 
 
 # -- damage history (wave 6B) -- "creature that was dealt damage this turn", "each creature dealt damage this turn",
@@ -1885,9 +1892,11 @@ def _parse(phrase: str) -> Selector | None:
     kinds = [c for c in nouns if c[0] not in _MARKERS]
     markers = {c[0] for c in nouns} - {"type", "sub", "player"}
     if any(k[0] == "player" for k in kinds):
-        if len(nouns) != 1 or i >= 0 or s != _DEFAULT:  # ("player from your graveyard")
+        if len(nouns) != 1 or i >= 0 or replace(s, lost_life_this_turn=False) != _DEFAULT:  # ("player from your graveyard")
             return None
-        return Selector(player="opponent" if kinds[0][1] == "opponent" else "any")
+        return replace(s, player="opponent" if kinds[0][1] == "opponent" else "any")
+    if s.lost_life_this_turn:
+        return None
     types = tuple(dict.fromkeys(v for k, v in kinds if k == "type"))
     subtypes = tuple(dict.fromkeys(v for k, v in kinds if k == "sub"))
     # (-- counters (wave 33C) -- "artifact creature and/or Vehicle" (Iron Spider): an artifact creature, or a Vehicle (an artifact too, 301.7: the
@@ -2014,11 +2023,29 @@ def defending_players(plan: Plan, source: str | None, attacker: str | None = Non
     return {d} if d else set()
 
 
-def matches_player(plan: Plan, sel: Selector, pid: str, you: str) -> bool:
+def matches_player(plan: Plan, sel: Selector, pid: str, you: str, *, source_object: str | None = None) -> bool:
     if sel.player is None or pid not in plan.live():
         return False
     if sel.player_exclude is not None and (not sel.player_exclude.startswith("player:") or pid == sel.player_exclude[7:]):
         return False
+    if any(x.startswith('upkeep_compare75:') for x in sel.extras):
+        from app.rules import trigger_upkeep_comparison75
+
+        if not trigger_upkeep_comparison75.matches(plan, sel, pid):
+            return False
+    if sel.lost_life_this_turn:
+        from app.rules.history import log_for
+
+        if log_for(plan).lost.get(pid, 0) <= 0:
+            return False
+    if sel.damaged_by_source_this_turn:
+        from app.rules.history import log_for
+
+        if source_object is None or not any(
+            fact.kind == "damage" and fact.player == pid and fact.amount > 0 and fact.object_id == source_object
+            for fact in log_for(plan).facts
+        ):
+            return False
     if sel.player == "opponent":
         return pid != you
     if sel.player == "you":
@@ -2075,6 +2102,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
            for x in sel.extras):  # -- copy abilities (wave 19E) -- "… from an enchantment source"
         return False
     for extra in sel.extras:
+        if extra == 'controlled_since_turn_start69':
+            from app.rules import controller_turn_history69
+
+            if not controller_turn_history69.continuous(plan, card):
+                return False
         if extra == 'enchant_creature_exact':
             from app.rules import attachments
 

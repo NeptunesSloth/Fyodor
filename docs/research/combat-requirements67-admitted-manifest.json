@@ -1,0 +1,42 @@
+{
+  "status": "PRODUCTION_ADMITTED_EXACT_TWO",
+  "names": [
+    "War's Toll",
+    "Viashino Bey"
+  ],
+  "baseline": "checkpoint49 PARTIAL each",
+  "staged_whole_cases": 11,
+  "staged_genuine_cold_cases": 1,
+  "staged_whole_log": "/tmp/combat67-conditional-final11.log",
+  "canonical_rulings": "/tmp/combat67-requirements-canonical-rulings.json",
+  "requested_identity_controller_multiplicity_goad_log": "/tmp/combat67-conditional-identity3.log",
+  "production_log": "/tmp/combat67-production-whole-related.log",
+  "production_xml": "/tmp/combat67-production-results.xml",
+  "source_sha256": {
+    "backend/app/rules/combat_conditional_requirements67.py": "c6abc4c6126a2db349354c26c6bbb8353ed760ec7c96bc2544485bbd0c9fb544",
+    "backend/tests/test_rules_combat_conditional_requirements67.py": "7588dc23a4e6fc8265b0a98f9c5e5aa26d619bb08480b8f0fb244cc245aedcca",
+    "backend/tests/fixtures/combat_conditional_requirements67_cards.json": "94d20323889b5e00eebd2c685d65f582ed763b20b4fc451d65dd217e5f149a7d"
+  },
+  "types": {
+    "scope": "frozen807 complete graph includes conditional67 shared hooks; later68/Akron hooks outside snapshot",
+    "log": "/tmp/fyodor-fiftysecond-resume-mypy.log",
+    "frozen_modules": 807,
+    "source_hashes": "/tmp/fyodor-catalog52-resume-source-hashes.json",
+    "owned_leaf_sha256": "c6abc4c6126a2db349354c26c6bbb8353ed760ec7c96bc2544485bbd0c9fb544"
+  },
+  "hook_proposal": "/tmp/combat67-conditional-kernel-proposal.patch",
+  "whole_cases": 11,
+  "genuine_cold_cases": 1,
+  "whole_log": "/tmp/combat67-production-whole-related.log",
+  "whole_gate": "PASS 11 native whole cases including genuine cold",
+  "related_status": "PASS",
+  "limitations": [],
+  "related_cases": 140,
+  "total_production_cases": 151,
+  "related_files": [
+    "tests/test_rules_declaration_groups.py",
+    "tests/test_rules_declaration_requirements33.py",
+    "tests/test_rules_attack_destinations34.py",
+    "tests/test_rules_combat.py"
+  ]
+}

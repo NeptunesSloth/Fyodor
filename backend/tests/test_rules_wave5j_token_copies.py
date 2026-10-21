@@ -605,9 +605,9 @@ def test_incandescent_soulstoke_puts_a_hasty_elemental_sacrificed_at_the_end_ste
 def test_put_from_hand_wordings():
     assert ok("{G}, {T}: You may put a creature card from your hand onto the battlefield.", "Elvish Piper")
     assert ok("When this creature enters, you may put a land card from your hand onto the battlefield tapped.")
-    # refused: an instant or sorcery could be chosen ("a card"), attached as it enters, attacking, "and/or"
+    # Refused: an instant or sorcery could be chosen ("a card"), or unsupported "and/or" combinations.
     assert not ok("{T}: You may put a card from your hand onto the battlefield.")
-    assert not ok("When this creature enters, you may put an Aura card from your hand onto the battlefield attached to "
+    assert ok("When this creature enters, you may put an Aura card from your hand onto the battlefield attached to "
                   "this creature.")
     assert ok("Whenever this creature attacks, you may put a creature card from your hand onto the battlefield tapped "
               "and attacking.")  # (wave 15B: 508.4, its controller chooses what it attacks)

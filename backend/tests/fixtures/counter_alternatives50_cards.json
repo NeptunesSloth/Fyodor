@@ -1,0 +1,191 @@
+[
+  {
+    "id": "25ceade9-f12a-4724-b198-312fb4b1210b",
+    "oracle_id": "eedd74c4-42d1-41ba-9051-dc518e45ebbb",
+    "name": "Sigurd, Jarl of Ravensthorpe",
+    "layout": "normal",
+    "set_code": "acr",
+    "set_name": "Assassin's Creed",
+    "collector_number": "66",
+    "rarity": "rare",
+    "mana_cost": "{R}{G}{W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Warrior",
+    "oracle_text": "Vigilance, trample, lifelink\nBoast \u2014 {1}: Put a lore counter on target Saga you control or remove one from it. (Activate only if this creature attacked this turn and only once each turn.)\nWhenever you put a lore counter on a Saga you control, put a +1/+1 counter on up to one other target creature.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "R",
+      "W"
+    ],
+    "keywords": [
+      "Lifelink",
+      "Vigilance",
+      "Boast",
+      "Trample"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-07-05",
+    "artist": "Alexander Gering",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "869e27e3-1707-4e1d-b04a-8309da2e41b4",
+    "oracle_id": "fef502af-6e79-4c55-a86a-b45adb3fc64a",
+    "name": "Plague Boiler",
+    "layout": "normal",
+    "set_code": "c13",
+    "set_name": "Commander 2013",
+    "collector_number": "254",
+    "rarity": "rare",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "At the beginning of your upkeep, put a plague counter on this artifact.\n{1}{B}{G}: Put a plague counter on this artifact or remove a plague counter from it.\nWhen this artifact has three or more plague counters on it, sacrifice it. If you do, destroy all nonland permanents.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2013-11-01",
+    "artist": "Mark Tedin",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "d134385d-b01c-41c7-bb2d-30722b44dc5a",
+    "oracle_id": "c15bb7eb-aaaa-4468-9641-8f706d6137e8",
+    "name": "History of Benalia",
+    "layout": "saga",
+    "set_code": "dom",
+    "set_name": "Dominaria",
+    "collector_number": "21",
+    "rarity": "mythic",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI, II \u2014 Create a 2/2 white Knight creature token with vigilance.\nIII \u2014 Knights you control get +2/+1 until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-04-27",
+    "artist": "Noah Bradley",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "cc7d137c-f6c0-44e5-af9f-a8bbd52d3b2a",
+        "name": "Knight",
+        "type_line": "Token Creature \u2014 Knight"
+      }
+    ],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "0a71fb62-acbd-49f5-842f-0fc9fa48afea",
+    "oracle_id": "f0b4331b-ddd3-4f11-ba16-67c651c8954c",
+    "name": "Solemnity",
+    "layout": "normal",
+    "set_code": "hou",
+    "set_name": "Hour of Devastation",
+    "collector_number": "22",
+    "rarity": "rare",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-07-14",
+    "artist": "Greg Opalinski",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "1cdd8e69-5a71-4933-914e-dfede7b1ac93",
+    "oracle_id": "01546b7d-a233-4176-8843-d732074dc5b6",
+    "name": "Doubling Season",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "283",
+    "rarity": "mythic",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Chuck Lukacs",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  }
+]

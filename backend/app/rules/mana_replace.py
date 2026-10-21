@@ -132,6 +132,9 @@ def _statics(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any]
                     out.append((c.controller, d))
     if r is not None and state.turn.phase != "cleanup":  # (wave 49A) this turn's effects of resolved spells and abilities (514.2: they end in the cleanup step)
         out += [(str(x["controller"]), x["def"]) for x in r.tap_mana if x["def"].get("static") == "mana_replace" and x.get("turn") == state.turn.number]
+    from app.rules import mana_persistent_replacements48
+
+    out += mana_persistent_replacements48.statics(state)
     return out
 
 
@@ -143,6 +146,8 @@ def _applies(state: GameState, info: CardInfo, card: CardInstance, owner: str, d
     from app.rules import selectors
     from app.rules.plan import Plan
 
+    if d.get('target_object') is not None and (state.rules is None or state.rules.object_id(card.id) != d['target_object']):
+        return False
     if d["who"] == "you" and owner != card.controller:
         return False
     plan = Plan.view(state, owner, info)
@@ -156,6 +161,8 @@ def _map_colors(op: dict[str, Any], subtypes: Any) -> list[str]:
 
 def _apply(op: dict[str, Any], option: tuple[str, ...], subtypes: Any = ()) -> list[tuple[str, ...]]:
     mana = tuple(option)
+    if op['do'] == 'white_to_colorless':
+        return [tuple('C' if sym == 'W' else sym for sym in option)]
     if op["do"] == "mul":
         return [mana * int(op["n"])]
     if op["do"] == "map":  # (wave 49A) one color per mapped basic land type it has; all its mana is of the one chosen

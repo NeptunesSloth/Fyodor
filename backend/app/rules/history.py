@@ -91,6 +91,10 @@ def graveyard_entries(plan: Plan, player: str, *, last: bool = False) -> int:
 def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     """Is this ``{"history": …}`` condition true for the ability's controller right now?"""
     kind = cond["history"]
+    if kind == 'control_acquired69':
+        from app.rules import controller_turn_history69
+
+        return controller_turn_history69.acquired(plan, ctx, log_for(plan, bool(cond.get('last'))))
     me: str = ctx["controller"]
     n = int(cond.get("n", 1))
     log = log_for(plan, bool(cond.get("last")))
@@ -264,6 +268,12 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
     from app.rules import roll_result_history42
 
     roll_result_history42.note(plan, events, log)
+    from app.rules import controller_turn_history69
+
+    controller_turn_history69.note(events, log, plan.state.turn.number)
+    from app.rules import first_event_receipts78
+
+    first_event_receipts78.note_events(plan, events, log)
     for e in events:
         if e.kind not in ("zone_change", "sacrificed", "damage", "counters", "milled", "land_played") or e.turn != plan.state.turn.number:
             continue
@@ -310,7 +320,7 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
                 # -- trigger damage (wave 39B) -- its source, as it was as it dealt that damage to a permanent (608.2i): "a Giant, Wizard, or spell you
                 # controlled dealt damage to it this turn" (Aegar) — a spell is a source on the stack that isn't an ability (120.1)
                 last = log.facts[-1]
-                last.source_subtypes, last.source_controller = what["subtypes"], obj.controller if obj is not None else None
+                last.source_subtypes, last.source_controller = what["subtypes"], info.get("actor")
                 last.source_types, last.source_supertypes = what["types"], what["supertypes"]
                 last.source_colors = sorted(ch.colors) if ch is not None else []
                 last.source_spell = obj is not None and obj.zone == "stack" and obj.ability is None
@@ -882,6 +892,11 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         return sum(f.amount for f in log.facts if f.kind == "damage" and f.player == me)
     if kind == "all_lost":  # -- activated other (wave 52D) -- the life every player lost this turn (119.3)
         return sum(n for p, n in log.lost.items() if p in plan.live())  # (-- review 52 -- 102.1: a player is one in the game; one who has left is none, as opp_lost reads it)
+    if kind == 'opponent_noncombat_damage':
+        # Chandra's Incinerator explicitly counts opponents who have left.
+        # Read actual damage receipts, independent of source and later life gain.
+        return sum(max(0, f.amount) for f in log.facts
+                   if f.kind == 'damage' and f.player != me and not f.combat)
     if kind in ("opp_lost", "opp_damage"):  # (the opponents still in the game: 800.4a)
         opps = {p for p in plan.live() if p != me}
         if kind == "opp_lost":

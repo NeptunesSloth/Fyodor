@@ -1,0 +1,47 @@
+{
+  "status": "PRODUCTION_ADMITTED_EXACT_TWO",
+  "names": [
+    "Seeker of Slaanesh",
+    "Trove of Temptation"
+  ],
+  "baseline": "checkpoint49 PARTIAL each",
+  "final_unique_cases": 15,
+  "genuine_cold_cases": 1,
+  "proofs": [
+    {
+      "log": "/tmp/combat68-one-whole11.log",
+      "executed_cases": 11,
+      "scope": "initial whole/cold plus costs/no-eligible/native all printed features; original cap case later strengthened by focused5"
+    },
+    {
+      "log": "/tmp/combat68-one-expanded5.log",
+      "executed_cases": 5,
+      "scope": "replaces original cap case with3 variants including2 PW controllers and external goad; adds Seeker Battle acceptance and distinct group split completion"
+    }
+  ],
+  "types": {
+    "scope": "exact unchanged owned leaf only; later68 shared hooks absent snapshot52",
+    "frozen_modules": 807,
+    "log": "/tmp/fyodor-fiftysecond-resume-mypy.log",
+    "source_hashes": "/tmp/fyodor-catalog52-resume-source-hashes.json",
+    "sha256": "2f3e6c936230343c848da07b06fa3d7cad2aa52bbc638213bc57cad7ef749dd4"
+  },
+  "source_sha256": {
+    "backend/app/rules/combat_at_least_one68.py": "2f3e6c936230343c848da07b06fa3d7cad2aa52bbc638213bc57cad7ef749dd4",
+    "docs/research/proposals/combat68-at-least-one-tests.py": "b2eb31b12f4d1f8980306e0d89d1a63a44e6b0b7f2c091251a2d8c6496593a86",
+    "backend/tests/fixtures/combat_at_least_one68_cards.json": "82d876acfc079c1cabd129d8b94634829bd7a53ab3bdbe6e91c6ddf9d645103d",
+    "backend/tests/test_rules_combat_at_least_one68.py": "316cbccbd0c400b773171458d597f0b3ad5503d9b3a04a80c3262cd346af6b16"
+  },
+  "hook_proposal": "/tmp/combat68-at-least-one-kernel-draft.patch",
+  "production_hooks": true,
+  "ruff": "PASS owned leaf/live test/shared opt-in kernel",
+  "whole_cases": 15,
+  "total_production_cases": 36,
+  "related_cases": 21,
+  "production_case_counts": {
+    "tests.test_rules_combat_at_least_one68": 15,
+    "tests.test_rules_declaration_groups": 21
+  },
+  "production_xml": "/tmp/combat68-production-results.xml",
+  "production_log": "/tmp/combat68-production-whole-targeted.log"
+}

@@ -1,0 +1,48 @@
+{
+  "baseline": "checkpoint53",
+  "checkpoint": "checkpoint54",
+  "database_metadata_equal": true,
+  "card_name_set_equal": true,
+  "summary": {
+    "FULL": 29676,
+    "PARTIAL": 2392
+  },
+  "promotions": [
+    "Alacrian Armory",
+    "Araumi of the Dead Tide",
+    "Back for More",
+    "Bloodspore Thrinax",
+    "Bounding Felidar",
+    "Celestial Regulator",
+    "Chandra, Pyromaster",
+    "Cursecloth Wrappings",
+    "Flowering Lumberknot",
+    "Guidelight Matrix",
+    "Jailbreak",
+    "Kemba's Legion",
+    "Mysterious Stranger",
+    "Rage Forger",
+    "Rambling Possum"
+  ],
+  "regressions": [],
+  "unexpected": [],
+  "missing": [],
+  "source_module_count": 822,
+  "source_mypy": "PASS822 corrected variant; original snapshot found one unregistered staged-leaf actor typing error",
+  "source_ruff": "PASS original frozen source",
+  "core_checks": "PASS54 frozen core tests",
+  "additional_target": {
+    "baseline": "checkpoint48",
+    "verified": 214,
+    "target": 1500,
+    "remaining": 1286
+  },
+  "admissions_status": "All15 have closed native whole/negative/cold and scoped related/type evidence. Later work excluded.",
+  "type_correction": {
+    "base": "/tmp/fyodor-catalog54-resume-snapshot",
+    "change": "Unregistered staged leaf explicit actor str narrowing; no hooks or catalog behavior change.",
+    "path": "app/rules/targeting_sources77.py",
+    "sha256": "69218ae21f7a3975c9d981b76036bb3be95390090b7e96f32f470f05918dad39"
+  },
+  "type_scope": "Original frozen inventory source is unchanged. A separate copy differs only by explicit str narrowing in unregistered targeting_sources77.py; all822 modules pass mypy there. The unregistered leaf cannot affect catalog classification. Original and corrected hashes are preserved."
+}

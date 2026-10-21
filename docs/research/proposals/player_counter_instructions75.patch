@@ -1,0 +1,36 @@
+--- a/app/rules/scripts.py
++++ b/app/rules/scripts.py
+@@ -2649,6 +2649,10 @@
+
+
+ def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import player_counter_instructions75
++
++    if (players75 := player_counter_instructions75.parse(body)) is not None:
++        return players75
+     from app.rules import entry_receipt56
+
+     if (entered := entry_receipt56.parse(body)) is not None:
+@@ -5695,6 +5699,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import player_counter_instructions75
++
++    if (players75 := player_counter_instructions75.definition(ability, ch)) is not None:
++        return players75
+     from app.rules import combat_soulbond_partner70
+
+     if (soulbond70 := combat_soulbond_partner70.definition(ability, ch)) is not None:
+--- a/app/rules/effects.py
++++ b/app/rules/effects.py
+@@ -4565,6 +4565,9 @@
+         options = _choice_options(plan, ctx, e["what"])
+     if e.get("options"):  # -- chosen type (wave 51C) -- "choose Elemental, Elf, …": only the creature types it lists
+         options = [o for o in options if o.id in e["options"]]
++    from app.rules import player_counter_instructions75
++
++    options = player_counter_instructions75.remaining_players(plan, ctx, e, options)
+     if not options:
+         return True  # (no opponent left to choose: 800.4)
+     if e["what"] == MOST_LIFE and len(options) == 1:  # (one player has the most life: nothing to choose)

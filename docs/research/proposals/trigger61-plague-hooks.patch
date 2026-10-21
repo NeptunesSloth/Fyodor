@@ -1,0 +1,16 @@
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5663,3 +5663,7 @@
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import trigger_shared_colors61
++
++    if (shared_colors := trigger_shared_colors61.definition(ability, ch)) is not None:
++        return shared_colors
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6562,0 +6563,4 @@
++
++from app.rules import trigger_shared_colors61 as _trigger_shared_colors61  # noqa: E402
++
++PRIMITIVES.update(_trigger_shared_colors61.PRIMITIVES)

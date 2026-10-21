@@ -1,0 +1,558 @@
+[
+  {
+    "id": "ed6e6cf5-8fb7-4ba6-943a-e5aa14a3ee92",
+    "oracle_id": "a7d4f5aa-26d4-4363-aa5a-a26d6f791b82",
+    "name": "Deathmist Raptor",
+    "layout": "normal",
+    "set_code": "dsc",
+    "set_name": "Duskmourn: House of Horror Commander",
+    "collector_number": "176",
+    "rarity": "mythic",
+    "mana_cost": "{1}{G}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Dinosaur Beast",
+    "oracle_text": "Deathtouch\nWhenever a permanent you control is turned face up, you may return this card from your graveyard to the battlefield face up or face down.\nMegamorph {4}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its megamorph cost and put a +1/+1 counter on it.)",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Megamorph",
+      "Deathtouch"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-09-27",
+    "artist": "Filip Burburan",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "e9375cbe-93c0-41a5-a6e3-fb4416f54a69",
+        "name": "Morph",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "5a0c2773-3205-4ac4-b31c-c54fb06fdd7c",
+    "oracle_id": "215c287d-56a5-46da-b49e-8524b6d320a4",
+    "name": "Sword of the Meek",
+    "layout": "normal",
+    "set_code": "2xm",
+    "set_name": "Double Masters",
+    "collector_number": "299",
+    "rarity": "rare",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +1/+2.\nEquip {2}\nWhenever a 1/1 creature you control enters, you may return this card from your graveyard to the battlefield, then attach it to that creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-08-07",
+    "artist": "Franz Vohwinkel",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "d6c53e52-8d63-4628-bfb9-8abe4c7c7f4a",
+    "oracle_id": "b1afaf1c-2311-4fdc-b78c-98bf1892d1de",
+    "name": "Grave Scrabbler",
+    "layout": "normal",
+    "set_code": "tsr",
+    "set_name": "Time Spiral Remastered",
+    "collector_number": "118",
+    "rarity": "common",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Zombie",
+    "oracle_text": "Madness {1}{B} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)\nWhen this creature enters, if its madness cost was paid, you may return target creature card from a graveyard to its owner's hand.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Madness"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-03-19",
+    "artist": "Dave Allsop",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "605b0d7d-4ece-4ad8-bf59-86ac121ccafe",
+    "oracle_id": "8fdb3350-a6ff-4d02-a649-10663436c40f",
+    "name": "Skyfire Phoenix",
+    "layout": "normal",
+    "set_code": "c19",
+    "set_name": "Commander 2019",
+    "collector_number": "28",
+    "rarity": "rare",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Phoenix",
+    "oracle_text": "Flying, haste\nWhen you cast your commander, return this card from your graveyard to the battlefield.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying",
+      "Haste"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2019-08-23",
+    "artist": "Greg Staples",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "1a91cd9b-9a5d-4251-bd6c-41c3ebd6d991",
+    "oracle_id": "65ddd04c-7207-4f6c-ae1b-c5e02a520a51",
+    "name": "Chandra's Phoenix",
+    "layout": "normal",
+    "set_code": "e01",
+    "set_name": "Archenemy: Nicol Bolas",
+    "collector_number": "44",
+    "rarity": "rare",
+    "mana_cost": "{1}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Phoenix",
+    "oracle_text": "Flying\nHaste (This creature can attack and {T} as soon as it comes under your control.)\nWhenever an opponent is dealt damage by a red instant or sorcery spell you control or by a red planeswalker you control, return this card from your graveyard to your hand.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying",
+      "Haste"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-06-16",
+    "artist": "Aleksi Briclot",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "f3307da2-6dad-4ef2-9614-a7d34f38088e",
+    "oracle_id": "13bfc51f-d079-40ef-a4ba-47d06d3150a3",
+    "name": "Command the Stage",
+    "layout": "normal",
+    "set_code": "fra",
+    "set_name": "Reality Fracture",
+    "collector_number": "77",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Create a 2/2 colorless Wizard Soldier creature token named Cadet, then put a +1/+1 counter on each other Wizard token you control.\nAt the beginning of each upkeep, if an opponent was dealt noncombat damage last turn, return this card from your graveyard to your hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Jarel Threat",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "8f4534d8-2783-484f-8ebf-a47b1cc4c6df",
+        "name": "Cadet",
+        "type_line": "Token Creature \u2014 Wizard Soldier"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "f7e152ae-43ec-4b9d-a43f-786c2f6c7366",
+    "oracle_id": "4d6e38f6-480b-4f81-a5d4-342fc45e39b0",
+    "name": "Dawn Evangel",
+    "layout": "normal",
+    "set_code": "thb",
+    "set_name": "Theros Beyond Death",
+    "collector_number": "8",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment Creature \u2014 Human Cleric",
+    "oracle_text": "Whenever a creature dies, if an Aura you controlled was attached to it, return target creature card with mana value 2 or less from your graveyard to your hand.",
+    "power": "2",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-01-24",
+    "artist": "Livia Prima",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "44108e96-1fb5-41e0-a391-0c111e0f4f11",
+    "oracle_id": "f4da7a43-e9d5-47ea-b2f0-3cf55a156f4a",
+    "name": "Chandra Nalaar",
+    "layout": "normal",
+    "set_code": "jvc",
+    "set_name": "Duel Decks Anthology: Jace vs. Chandra",
+    "collector_number": "34",
+    "rarity": "mythic",
+    "mana_cost": "{3}{R}{R}",
+    "cmc": 5.0,
+    "type_line": "Legendary Planeswalker \u2014 Chandra",
+    "oracle_text": "+1: Chandra Nalaar deals 1 damage to target player or planeswalker.\n\u2212X: Chandra Nalaar deals X damage to target creature.\n\u22128: Chandra Nalaar deals 10 damage to target player or planeswalker and each creature that player or that planeswalker's controller controls.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "6",
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2014-12-05",
+    "artist": "Kev Walker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "7c337af5-35bf-4a80-8cc0-bb9af20305b3",
+    "oracle_id": "f307b5b4-e949-4f69-8dc7-856e33a45a16",
+    "name": "Tormenting Voice",
+    "layout": "normal",
+    "set_code": "j22",
+    "set_name": "Jumpstart 2022",
+    "collector_number": "615",
+    "rarity": "common",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "As an additional cost to cast this spell, discard a card.\nDraw two cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-12-02",
+    "artist": "Volkan Ba\u01f5a",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "17d154d3-7ae5-43ff-9978-d974285e2c89",
+    "oracle_id": "e3886fe8-9b76-4613-8891-4ec74657c087",
+    "name": "Glorious Anthem",
+    "layout": "normal",
+    "set_code": "m21",
+    "set_name": "Core Set 2021",
+    "collector_number": "21",
+    "rarity": "rare",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures you control get +1/+1.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-07-03",
+    "artist": "Raymond Swanland",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "87551307-6b5f-4f12-aa1f-4beebefad3b3",
+    "oracle_id": "0aab31b7-7196-4843-b4f1-c15e9e05dd86",
+    "name": "Gravel Slinger",
+    "layout": "normal",
+    "set_code": "ons",
+    "set_name": "Onslaught",
+    "collector_number": "33",
+    "rarity": "common",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "{T}: This creature deals 1 damage to target attacking or blocking creature.\nMorph {1}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    "power": "1",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Morph"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2002-10-07",
+    "artist": "Kev Walker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "5430da88-b72e-4d64-bd3c-b21062cac1c2",
+        "name": "Morph",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "1cdd8e69-5a71-4933-914e-dfede7b1ac93",
+    "oracle_id": "01546b7d-a233-4176-8843-d732074dc5b6",
+    "name": "Doubling Season",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "283",
+    "rarity": "mythic",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Chuck Lukacs",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "537d2b05-3f52-45d6-8fe3-26282085d0c6",
+    "oracle_id": "34515b16-c9a4-4f98-8c77-416a7a523407",
+    "name": "Wrath of God",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "70",
+    "rarity": "rare",
+    "mana_cost": "{2}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Destroy all creatures. They can't be regenerated.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Willian Murai",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "9588be49-d9b5-4491-a5a0-10bcadc9f8b3",
+    "oracle_id": "6d56aeb1-0a50-46b6-abdb-cd6575a98dc3",
+    "name": "Praetor's Grasp",
+    "layout": "normal",
+    "set_code": "nph",
+    "set_name": "New Phyrexia",
+    "collector_number": "71",
+    "rarity": "rare",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Search target opponent's library for a card and exile it face down. Then that player shuffles. You may play that card for as long as it remains exiled.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2011-05-13",
+    "artist": "Steve Argyle",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "5d84cc58-0965-4c7f-a408-7630f23fb8f3",
+    "oracle_id": "42bb7ea9-f6e4-4551-8d93-3b1eae84b865",
+    "name": "Clever Concealment",
+    "layout": "normal",
+    "set_code": "onc",
+    "set_name": "Phyrexia: All Will Be One Commander",
+    "collector_number": "5",
+    "rarity": "rare",
+    "mana_cost": "{2}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nAny number of target nonland permanents you control phase out. (Treat them and anything attached to them as though they don't exist until your next turn.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Convoke"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-02-10",
+    "artist": "Alexey Kruglov",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

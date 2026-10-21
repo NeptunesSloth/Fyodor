@@ -1,0 +1,118 @@
+[
+  {
+    "id": "81d3e5c5-6531-48e7-9dd6-2db519dd61b1",
+    "oracle_id": "5b2364d7-a811-4595-a1b4-224c70555ffa",
+    "name": "Raise the Alarm",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "101",
+    "rarity": "common",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Create two 1/1 white Soldier creature tokens.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Slawomir Maniak",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "d093322e-a717-4e2d-8199-fa560792bcf6",
+        "name": "Soldier",
+        "type_line": "Token Creature \u2014 Soldier"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "d0429a79-af7a-4de1-be3a-773498cfdc22",
+    "oracle_id": "a5e28749-18ea-4a2b-b7d9-905cf2913d4e",
+    "name": "Inscription of Abundance",
+    "layout": "normal",
+    "set_code": "dsc",
+    "set_name": "Duskmourn: House of Horror Commander",
+    "collector_number": "186",
+    "rarity": "rare",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Kicker {2}{G}\nChoose one. If this spell was kicked, choose any number instead.\n\u2022 Put two +1/+1 counters on target creature.\n\u2022 Target player gains X life, where X is the greatest power among creatures they control.\n\u2022 Target creature you control fights target creature you don't control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Fight",
+      "Kicker"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-09-27",
+    "artist": "Zoltan Boros",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "93612079-0b8d-489d-9ae1-3593414a8cee",
+    "oracle_id": "760e8561-4ec6-4594-ba5d-f79cb9f25fd0",
+    "name": "Inscription of Ruin",
+    "layout": "normal",
+    "set_code": "znr",
+    "set_name": "Zendikar Rising",
+    "collector_number": "108",
+    "rarity": "rare",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Kicker {2}{B}{B}\nChoose one. If this spell was kicked, choose any number instead.\n\u2022 Target opponent discards two cards.\n\u2022 Return target creature card with mana value 2 or less from your graveyard to the battlefield.\n\u2022 Destroy target creature with mana value 3 or less.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Kicker"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-09-25",
+    "artist": "Zoltan Boros",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

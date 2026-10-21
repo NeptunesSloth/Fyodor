@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.game.mana_cost_templates import ForetellCostReceipt
+
 if TYPE_CHECKING:
     from app.game.state import GameState
 
@@ -41,7 +43,7 @@ class DecisionOption(BaseModel):
 
 # -- cancelling a cast (wave 24D) -- 601.2: the announcement choices (modes, targets) of a spell or ability that can still be taken back:
 # the chooser's view says ``cancelable`` and the answer ["cancel"] is legal (app/rules/casting.py: ``cancelled``).
-CANCELLABLE_STEPS = ("delegated_target_opponent", "cast_target", "cast_group", "cast_modes", "cast_slot_target", "phyrexian", "casualty_x", "flashback_choice", "spell_symbols")  # (wave 50B: the Phyrexian mana choice, 601.2b)
+CANCELLABLE_STEPS = ("paid_x_number", "delegated_target_opponent", "cast_target", "cast_group", "cast_modes", "cast_slot_target", "phyrexian", "casualty_x", "flashback_choice", "spell_symbols")  # (wave 50B: the Phyrexian mana choice, 601.2b)
 
 
 def cancelable(d: Any) -> bool:
@@ -106,6 +108,8 @@ class ControlMark(BaseModel):
     # battlefield under this control (reanimated "under your control"), None when unknown (an
     # older save, or automation turned on mid-game).
     changed: bool | None = None
+    # First turn this unknown-age control relationship was actually observed.
+    observed_from_turn: int | None = None
 
 
 # -- automation levels and options ---------------------------------------------------------
@@ -294,6 +298,13 @@ class EntryCharacteristics(BaseModel):
     label: str = ""
 
 
+class AttachedObjectFact(BaseModel):
+    object_id: str
+    controller: str
+    types: list[str] = Field(default_factory=list)
+    subtypes: list[str] = Field(default_factory=list)
+
+
 class ObjectSnapshot(BaseModel):
     """An object as it last existed in a public zone (Last Known Information, rule 608.2h).
     Recorded *before* it left, never reconstructed from where it went."""
@@ -343,6 +354,7 @@ class ObjectSnapshot(BaseModel):
     attached_to: str | None = None
     attached_object: str | None = None  # exact host as this Aura/Equipment last existed (608.2h); absent in older saves
     attached_player: str | None = None  # -- attached events (wave 4L) -- the player an Aura enchanted (a Curse)
+    attachments_before: list[AttachedObjectFact] | None = None  # Native pre-departure types/controllers; None in older saves.
     # -- sagas & attached-object triggers (wave 3S) -- the permanents (card ids) attached to it as it
     # last existed: "When enchanted creature dies" looks back in time (603.10a)
     attached: list[str] = Field(default_factory=list)
@@ -388,7 +400,9 @@ EventKind = Literal[
     "evolved",  # An evolve keyword ability actually put one or more +1/+1 counters.
     "exerted",  # 701.43: the player exerted this permanent
     "spell_cast",  # a player cast a spell (the object is the spell on the stack)
+    "investigated",  # A completed investigate action, independent of replaced token count.
     "cycled",  # a player cycled a card (702.29: "when you cycle …")
+    "foretold",  # A completed native foretell special action, not an effect making a card foretold.
     "milled",  # -- triggers (wave 17D) -- 701.17a: ``player`` milled ``card`` (read where it lies, in their graveyard)
     "land_played",  # -- entry forms (wave 5F) -- a player played a land (305.1: "when you play another land")
     "mana_added",  # a mana ability produced mana (106.3, 106.12a); convoke/improvise/delve never do
@@ -650,7 +664,7 @@ class ContinuousEffect(BaseModel):
 
     id: str
     affected: list[str] = Field(default_factory=list)  # rules object ids
-    ability_zone: Literal['exile'] | None = None  # Exact-object layer-6 ability grants explicitly functioning in exile.
+    ability_zone: Literal['exile', 'graveyard'] | None = None  # Exact-object layer-6 ability grants explicitly functioning in exile.
     declaration_window: Literal["next_turn", "next_combat"] | None = None
     declaration_player: str | None = None  # fixed when a resolved requirement names its controller’s next phase/turn
     entry_counters: dict[str, int] = Field(default_factory=dict)  # Rule-modifying additional entry counters, including future entrants.
@@ -762,6 +776,23 @@ class ObjectRef(BaseModel):
     snapshot: ObjectSnapshot | None = None  # as it last existed, when it had already left (603.10a)
 
 
+class CounterPlacement(BaseModel):
+    """One committed positive placement, retained independently of later board state."""
+
+    destination: ObjectRef
+    kind: str
+    amount: int
+
+
+class ResolvedManaColorReplacement(BaseModel):
+    """One resolved white-to-colorless effect on an exact permanent, indefinitely."""
+
+    id: str
+    target: ObjectRef
+    op: Literal['white_to_colorless'] = 'white_to_colorless'
+    source_object: str | None = None
+
+
 class PhaseLifetime(BaseModel):
     """Direct phasing recipients held until one original source actually leaves (610.3)."""
 
@@ -798,6 +829,7 @@ class TriggerEvent(BaseModel):
     kind: str = Field(max_length=40)  # the condition's event: "die", "draw", "gain_life", …
     batch: int = 0
     objects: list[ObjectRef] = Field(default_factory=list)  # the object(s) the event happened to
+    counter_placements: list[CounterPlacement] = Field(default_factory=list)
     cast_targets: list[ObjectRef] = Field(default_factory=list)  # exact card targets as a spell was cast; optional for old saves
     # For a zone change: the object each became where it went (400.7e: a "dies" ability can find
     # it in the graveyard, and only there)
@@ -1019,10 +1051,11 @@ class PaymentRecord(BaseModel):
 
     card: str = Field(max_length=64)
     controller: str = Field(max_length=64)
-    total_cost: str = Field(default="", max_length=200)  # the locked-in total cost, e.g. "{3}{G}{G}"
+    total_cost: str = ""  # Exact locked-in cost, including repeated additional colored costs.
     resolved_x: int | None = None  # Actual permanent spell X at resolution; paid/announced x stays separate.
     cast_greatest_power: int | None = None  # Server-captured as-cast value; unknown in old payment records.
     activation_cost_has_x: bool | None = None  # Original activation cost before reductions/X substitution.
+    activation_cost_has_tap: bool | None = None  # Actual selected activation cost includes literal {T}; None is legacy unknown.
     activation_life_paid: int | None = Field(default=None, ge=0)  # Direct activation costs, excluding mana sources.
     x_black_spent: int | None = Field(default=None, ge=0)  # Actual black mana assigned to X; None for old saves.
     mana_spent: dict[str, int] = Field(default_factory=dict)  # actual mana, by type (W U B R G C)
@@ -1258,6 +1291,10 @@ class CombatHistoryNotice(BaseModel):
     notified: bool = False
 
 
+class FirstEventHistoryNotice78(CombatHistoryNotice):
+    """An unresolved first-action qualification from a legacy midturn save."""
+
+
 class CombatReceipt(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
@@ -1340,6 +1377,9 @@ class RulesState(BaseModel):
     coin_history_from_turn: int | None = None  # None in legacy saves; no absence is invented.
     graveyard_history_from_turn: int | None = None  # Complete physical-card arrival history; None is legacy unknown.
     turn_seen: int = 0  # last turn number the bookkeeping saw
+    target_activation_history_turn: int | None = None  # Unknown on legacy midturn saves; complete after a native turn boundary.
+    first_event_history_turn78: int | None = None
+    first_event_notices78: list[FirstEventHistoryNotice78] = Field(default_factory=list)
     turn_started: dict[str, int] = Field(default_factory=dict)  # player -> number of their latest turn
     controlled_since: dict[str, ControlMark] = Field(default_factory=dict)
     # -- control (wave 3K) -- the cards whose controller a layer-2 effect set (so that when the effect ends
@@ -1440,6 +1480,7 @@ class RulesState(BaseModel):
     # -- mana riders (wave 5A) -- "Until end of turn, whenever a player taps an Island for mana, that player adds an
     # additional {U}." (High Tide; app/rules/tap_mana.py): {"turn", "controller", "def"}
     tap_mana: list[dict[str, Any]] = Field(default_factory=list)
+    resolved_mana_replacements: list[ResolvedManaColorReplacement] = Field(default_factory=list)
     # 903.9b: commanders just put into their owner's hand / library (card id -> "hand" | "library")
     # whose owner hasn't yet said whether it goes to the command zone instead (asked before priority)
     pending_903_9b: dict[str, str] = Field(default_factory=dict)
@@ -1475,6 +1516,7 @@ class RulesState(BaseModel):
     suspended: list[str] = Field(default_factory=list)  # cards exiled with suspend (702.62)
     # -- hidden exile (wave 18A) -- 702.143d: a foretell cost an effect gave a foretold card ("its mana cost reduced by {2}")
     foretell_costs: dict[str, str] = Field(default_factory=dict)
+    foretell_templates: dict[str, ForetellCostReceipt] = Field(default_factory=dict)
     foretold: dict[str, int] = Field(default_factory=dict)  # -- hidden exile (wave 18A) -- 702.143d: card -> the turn it became foretold
     free_casts: list[str] = Field(default_factory=list)
     madness_declined: dict[str, MadnessFollowup] = Field(default_factory=dict)
@@ -1595,6 +1637,7 @@ class RulesState(BaseModel):
     completed_own_turns: dict[str, CompletedOwnTurn] = Field(default_factory=dict)
     own_turn_history_known: list[str] = Field(default_factory=list)
     own_turn_history_notice: bool = False
+    cast_history_complete: bool | None = None  # True only when automation observed the trusted fresh-game boundary.
     named_casts_game: dict[str, dict[str, int]] = Field(default_factory=dict)  # public names when actually cast, per player, across turns
     entry_life_losses: dict[str, int] = Field(default_factory=dict)  # exact source incarnation / entry ability -> actual life lost
     entry_life_origins: list[str] = Field(default_factory=list)  # automatic entries observed with entry-life bookkeeping available
@@ -1676,12 +1719,15 @@ def start_rules(state: GameState) -> RulesState:
         step=f"{state.turn.number}:{state.turn.phase}",
         priority=state.turn.active_player,
         turn_seen=state.turn.number,
+        first_event_history_turn78=(state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None),
+        cast_history_complete=True if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
+        target_activation_history_turn=state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
         coin_history_from_turn=state.turn.number if state.seq <= 1 else state.turn.number + 1,
         graveyard_history_from_turn=state.turn.number if state.seq <= 1 else state.turn.number + 1,
         combat_memory=CombatMemory(known_empty=list(state.seat_order) if state.seq <= 1 else []),
         turn_started={state.turn.active_player: state.turn.number},
         controlled_since={
-            cid: ControlMark(controller=c.controller, turn=0)
+            cid: ControlMark(controller=c.controller, turn=0, observed_from_turn=state.turn.number)
             for cid, c in state.cards.items()
             if c.zone.endswith(":battlefield")
         },
@@ -1918,17 +1964,21 @@ def track(state: GameState, before: Capture | None = None, *, manual: bool = Fal
         return
     if rules.turn_seen != state.turn.number:
         rules.turn_seen = state.turn.number
+        rules.target_activation_history_turn = state.turn.number
+        rules.first_event_history_turn78 = state.turn.number
         rules.turn_started[state.turn.active_player] = state.turn.number
     turn_log_now(state)  # Initialize even empty turns; completed-own-turn summaries must not skip them.
     on_battlefield: set[str] = set()
     for card_id, card in state.cards.items():
-        if not card.zone.endswith(":battlefield"):
+        if not card.zone.endswith((":battlefield", ":phased")):
             continue
         on_battlefield.add(card_id)
         mark = rules.controlled_since.get(card_id)
         if mark is None or mark.controller != card.controller:
             rules.controlled_since[card_id] = ControlMark(controller=card.controller, turn=state.turn.number,
                                                           changed=mark is not None)
+        elif mark.turn == 0 and mark.observed_from_turn is None:
+            mark.observed_from_turn = state.turn.number
     for card_id in [c for c in rules.controlled_since if c not in on_battlefield]:
         del rules.controlled_since[card_id]
     if before is not None:

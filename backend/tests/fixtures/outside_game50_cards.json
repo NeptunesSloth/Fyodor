@@ -1,0 +1,55 @@
+[
+  {
+    "name": "Vivien, Arkbow Ranger",
+    "mana_cost": "{1}{G}{G}{G}",
+    "type_line": "Legendary Planeswalker \u2014 Vivien",
+    "oracle_text": "+1: Distribute two +1/+1 counters among up to two target creatures. They gain trample until end of turn.\n\u22123: Target creature you control deals damage equal to its power to target creature or planeswalker.\n\u22125: You may reveal a creature card you own from outside the game and put it into your hand.",
+    "loyalty": "4",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Coax from the Blind Eternities",
+    "mana_cost": "{2}{U}",
+    "type_line": "Sorcery",
+    "oracle_text": "You may reveal an Eldrazi card you own from outside the game or choose a face-up Eldrazi card you own in exile. Put that card into your hand.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Eldrazi Mimic",
+    "mana_cost": "{2}",
+    "type_line": "Creature \u2014 Eldrazi",
+    "oracle_text": "Whenever another colorless creature you control enters, you may have this creature's base power and toughness become equal to that creature's power and toughness until end of turn.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "The Raven's Warning",
+    "mana_cost": "{1}{W}{U}",
+    "type_line": "Enchantment \u2014 Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 Create a 1/1 blue Bird creature token with flying. You gain 2 life.\nII \u2014 Whenever one or more creatures you control with flying deal combat damage to a player this turn, look at that player's hand and draw a card.\nIII \u2014 You may put a card you own from outside the game on top of your library.",
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": []
+  }
+]

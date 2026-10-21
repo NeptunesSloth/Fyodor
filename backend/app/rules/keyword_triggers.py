@@ -242,7 +242,7 @@ def backup_definition(ch: Any, ab: AbilityText, nth: int = 0) -> dict[str, Any] 
             f"it gains {gained}.")
     probe = AbilityText(index=0, text=text, kind="triggered")
     d = scripts.define(probe, Characteristics(name="\u0000", abilities=(probe,), types=frozenset({"Creature"})))
-    return d if d is not None and d.get("kind") == "triggered" and scripts._event_refs_ok(d) else None
+    return {**d, "stack_tags": ["Backup"]} if d is not None and d.get("kind") == "triggered" and scripts._event_refs_ok(d) else None
 
 
 # -- X keywords (wave 41B) -- "Fumiko has bushido X, where X is the number of attacking creatures." (702.45a), "Firebending X, where X is

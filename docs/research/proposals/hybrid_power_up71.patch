@@ -1,0 +1,131 @@
+--- a/app/rules/oracle.py
++++ b/app/rules/oracle.py
+@@ -85,6 +85,7 @@
+     borrowed_scope: str | None = None  # Explicit scope for an unambiguous legacy saved link, when needed.
+     borrowed_color: str | None = None  # object whose particular borrowing static permits colored-mana substitutions
+     activation_player: str | None = None  # A resolved grant may reserve activation to its original controller.
++    power_up_prepared: bool = False  # A selected native reduction branch, before other cost modifiers.
+
+
+ def strip_reminders(text: str) -> str:
+--- a/app/rules/power_up.py
++++ b/app/rules/power_up.py
+@@ -5,7 +5,8 @@
+ exhaust-like limit: restrictions.py, ``per_game``); the reduction is read when the cost is determined (601.2f, 602.2b).
+ 702.193b / 118.7: generic mana in the permanent's mana cost reduces generic mana in the activation cost; colored and
+ colorless mana reduce mana of the same type, and any excess reduces generic mana. A mana component reduced to nothing
+-is {0}. Not read (manual): a hybrid or Phyrexian symbol in either cost (118.7e/f ask the player to choose).
++is {0}. Matching ordinary two-color hybrid structures use explicit native cost branches (118.7e/f). Other hybrid
++and Phyrexian reductions remain manual.
+ """
+
+ from __future__ import annotations
+@@ -22,8 +23,11 @@
+
+
+ def readable(ch: Characteristics, mana: str | None) -> bool:
+-    """Can its reduction be worked out? (No hybrid / Phyrexian / X / unsupported symbol in the permanent's mana cost or
+-    in the activation cost.)"""
++    """Can native reduction or explicit ordinary-hybrid branches determine its activation cost?"""
++    from app.rules import hybrid_power_up71
++
++    if hybrid_power_up71.readable(ch, mana):
++        return True
+     own, cost = M.parse_cost(ch.mana_cost), M.parse_cost(mana)
+     snow = M.SNOW in own.colored or M.SNOW in cost.colored  # (118.7g: snow reduces generic mana only: not read)
+     return not (own.hybrid or own.phyrexian or own.x or own.unsupported or cost.hybrid or cost.phyrexian or cost.unsupported
+@@ -40,7 +44,8 @@
+
+ def reduced(state: GameState, card: CardInstance, ch: Characteristics, mana: str | None) -> str | None:
+     """The activation cost after the reduction of 702.193a (itself when the permanent didn't enter this turn)."""
+-    if not mana or not entered_this_turn(state, card) or not readable(ch, mana):
++    if (not mana or not entered_this_turn(state, card) or not readable(ch, mana)
++            or M.parse_cost(ch.mana_cost).hybrid or M.parse_cost(mana).hybrid):
+         return mana
+     own, cost = M.parse_cost(ch.mana_cost), M.parse_cost(mana)
+     colored = list(cost.colored)
+--- a/app/rules/scripts.py
++++ b/app/rules/scripts.py
+@@ -7385,7 +7381,7 @@
+         if ability.text.startswith("Power-up — "):  # -- counters (wave 7C) -- 702.193: the reduction must be readable
+             from app.rules import power_up
+
+-            if not power_up.readable(ch, cost.mana):
++            if not ability.power_up_prepared and not power_up.readable(ch, cost.mana):
+                 return None
+         # -- spell copies (wave 31D) -- "This ability can't be copied and X can't be 0." (Gogo): 107.1b X is announced as 1 or more (casting reads
+         # ``x_min``); 113.6g the ability on the stack carries its own text (copying.uncopyable)
+--- a/app/rules/casting.py
++++ b/app/rules/casting.py
+@@ -5503,8 +5503,11 @@
+
+ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState | None = None,
+                  card: CardInstance | None = None, info: CardInfo | None = None, target: str | None = None) -> AbilityCost:
+-    from app.rules import activation_alternatives
+-
++    from app.rules import activation_alternatives, hybrid_power_up71
++
++    if (branches71 := hybrid_power_up71.alternatives(state, card, ch, ability)) is not None:
++        return AbilityCost(either=tuple(ability_cost(ch, branch, state=state, card=card, info=info, target=target)
++                                       for branch in branches71))
+     if (sides := activation_alternatives.sides(ability.cost or "")) is not None:
+         return AbilityCost(either=tuple(ability_cost(ch, activation_alternatives.with_cost(ability, side),
+                            state=state, card=card, info=info, target=target) for side in sides))
+@@ -5527,7 +5530,7 @@
+         # -- cost changers (wave 4I) -- and the ability's own "This ability costs {1} less to activate for each …" (602.2b)
+         from app.rules import cost_changes  # (a leaf over this module)
+
+-        if ability.text.startswith("Power-up — "):  # -- counters (wave 7C) -- 702.193a: reduced by its mana cost this turn
++        if ability.text.startswith("Power-up — ") and not ability.power_up_prepared:  # 702.193a
+             from app.rules import power_up
+
+             cost = replace(cost, mana=power_up.reduced(state, card, ch, cost.mana) or "")
+--- a/app/rules/activation_alternatives.py
++++ b/app/rules/activation_alternatives.py
+@@ -46,13 +46,20 @@
+              ability: AbilityText) -> AbilityText | None:
+     from app.game.errors import ActionError
+     from app.game.rules_state import DecisionOption
+-    from app.rules import casting, costs
++    from app.rules import casting, costs, hybrid_power_up71
+     from app.rules.plan import decide
+
+-    choices = sides(ability.cost or '')
+-    if choices is None:
+-        return ability
+-    made = [with_cost(ability, side) for side in choices]
++    choices: list[str] | None
++    made = hybrid_power_up71.alternatives(plan.state, card, ch, ability)
++    hybrid = made is not None
++    if made is not None:
++        choices = [casting.ability_cost(ch, candidate, state=plan.state, card=card, info=plan.info).mana or '{0}'
++                   for candidate in made]
++    else:
++        choices = sides(ability.cost or '')
++        if choices is None:
++            return ability
++        made = [with_cost(ability, side) for side in choices]
+     given = next((c.cards for c in a.cost_choices if c.component == costs.EITHER_SLOT), None)
+     if given is not None:
+         index = int(given[0][7:]) if len(given) == 1 and given[0].startswith('either:') and given[0][7:].isdigit() else -1
+@@ -73,5 +80,6 @@
+     decide(plan, player=plan.actor, kind='choose_cards', prompt=f'{ch.name}: choose its activation cost, or none to cancel',
+            options=[DecisionOption(id=f'either:{i}', label=choices[i]) for i in offered], min_choices=0, max_choices=1,
+            resume={'step': 'ability_cost', 'component': costs.EITHER_SLOT, 'amount': 1,
+-                   'intent': a.model_dump(mode='json', exclude={'r', 'actor', 'ts'})}, source=card)
++                   'intent': a.model_dump(mode='json', exclude={'r', 'actor', 'ts'}),
++                   **({'hybrid_power_up71': hybrid_power_up71.source_receipt(plan, card, ch, ability)} if hybrid else {})}, source=card)
+     return None
+--- a/app/rules/cost_payment.py
++++ b/app/rules/cost_payment.py
+@@ -705,6 +705,10 @@
+         return
+     if d.resume["amount"] is not None and len(chosen) != d.resume["amount"]:  # (None: validated as a whole, wave 4H)
+         raise ActionError(f"Choose {d.resume['amount']}")
++    if d.resume.get('hybrid_power_up71') is not None:
++        from app.rules import hybrid_power_up71
++
++        hybrid_power_up71.guard_source(plan, d.resume['hybrid_power_up71'])
+     if d.resume.get('counter_objects'):
+         for token in chosen:
+             cid = token.rsplit(':', 2)[0]

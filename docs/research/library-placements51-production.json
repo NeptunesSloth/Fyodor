@@ -1,0 +1,67 @@
+{
+  "status": "PRODUCTION VERIFIED; pending central frozen catalog diff",
+  "baseline": "checkpoint49",
+  "cards": [
+    {
+      "name": "Terminus",
+      "oracle_id": "3dd196b6-a85a-4e3e-bb57-ec34241f8117",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Hallowed Burial",
+      "oracle_id": "dcaaddee-00b1-495c-9161-40c91c900aac",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Harmonic Convergence",
+      "oracle_id": "400adeec-11b4-4a9c-9466-dcab524d87ea",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Plow Under",
+      "oracle_id": "23b36aef-961f-4a78-9652-8594ad73102e",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Rebuking Ceremony",
+      "oracle_id": "ddd97b56-a80f-4515-9883-ae5fc1de0c5d",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    }
+  ],
+  "whole_and_related_checks": 66,
+  "test_files": [
+    "tests/test_rules_library_placements51.py",
+    "tests/test_rules_library_placements.py",
+    "tests/test_rules_owner_library_choices.py"
+  ],
+  "production_log": "/tmp/resume-library51-production.log",
+  "genuine_cold": true,
+  "adapters": false,
+  "type_modules": 3,
+  "types_log": "/tmp/resume-library51-production-types.log",
+  "ruff_files": 4,
+  "ruff_log": "/tmp/resume-library51-production-ruff.log",
+  "kernel_patch": "/tmp/fyodor-libraryplacements51-kernel.patch",
+  "source_scope": [
+    "app/rules/language.py",
+    "app/rules/effects.py",
+    "app/rules/library_placements.py"
+  ],
+  "canonical": "/tmp/fyodor-libraryplacements51-canonical.json",
+  "all_official_rulings": "/tmp/fyodor-libraryplacements51-rulings.json",
+  "notes": [
+    "Exact fixed top/bottom selection uses existing atomic owner placement continuation; explicit chooser and shuffle paths preserved.",
+    "Hidden owner order and commander replacement collected before one simultaneous move; actual Terminus miracle and cold owner order proved.",
+    "New hand-library family remains unregistered and is not included."
+  ]
+}

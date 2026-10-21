@@ -472,6 +472,7 @@ function NumberChoice({ d }: { d: DecisionView }) {
         onChange={(e) => setN(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && ok) void chooseName(d.id, n.trim()); }} />
       <button className="tt-btn brass" data-testid="number-done" disabled={!ok} onClick={() => void chooseName(d.id, n.trim())}>Choose</button>
       {canPass && <button className="tt-btn" data-testid="number-pass" onClick={() => void chooseName(d.id, "pass")}>Pass</button>}
+      {d.cancelable && <button className="tt-btn" data-testid="number-cancel" onClick={() => void choose(d.id, ["cancel"])}>Cancel</button>}
     </div>
   );
 }

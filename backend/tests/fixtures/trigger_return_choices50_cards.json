@@ -1,0 +1,76 @@
+[
+  {
+    "id": "08a89d40-d764-4d0b-a1a4-a165ae91b7e5",
+    "oracle_id": "121f6c96-2911-4ee3-b14e-d3b143eb14c3",
+    "name": "Kazandu Stomper",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "680",
+    "rarity": "common",
+    "mana_cost": "{5}{G}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Beast",
+    "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nWhen this creature enters, return up to two lands you control to their owner's hand.",
+    "power": "6",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Sam Rowan",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "a263f594-621e-46af-8561-f7eee565a19a",
+    "oracle_id": "acc74d59-f587-46a2-a90b-865f721d494d",
+    "name": "Nulltread Gargantuan",
+    "layout": "normal",
+    "set_code": "arb",
+    "set_name": "Alara Reborn",
+    "collector_number": "102",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{G}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Beast",
+    "oracle_text": "When this creature enters, put a creature you control on top of its owner's library.",
+    "power": "5",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2009-04-30",
+    "artist": "Anthony Francisco",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  }
+]

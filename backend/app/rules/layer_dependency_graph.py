@@ -162,10 +162,10 @@ class Solver:
             if real is not None and real.zone.endswith(':battlefield'):
                 self.raw.extend(layers._resolved_mana_statics(state, [(incoming.id, incoming.controller)]))
         self.state = state
-        self.effects = {cid: layers.affecting(self.original, c) for cid, c in self.cards.items()}
+        self.effects = {cid: layers.affecting(self.original, c, info) for cid, c in self.cards.items()}
         if incoming is not None:
             real = self.original.cards.get(incoming.id)
-            if real is None or not real.zone.endswith(':battlefield'):
+            if (real is None or not real.zone.endswith(':battlefield')) and not layers.spell_entry(self.original, incoming, info):
                 self.effects[incoming.id] = [e for e in self.effects[incoming.id] if e.id.startswith('entry:')]
         self.base = {cid: layers.name_changes(layers.subtype_cdas(c, layers.prepared(self.original, c, chars.of(c, info), info)),
                                             self.effects[cid], layers._attached45(state, c, info, self.raw))

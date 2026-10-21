@@ -192,7 +192,9 @@ def test_unread_wordings_stay_manual(text):
     assert events.parse_condition(text) is None
 
 
-def test_activating_a_mana_ability_would_trigger_it_too_so_the_wording_must_exclude_them(cards):
-    """605.3b: mana abilities don't use the stack here, so "Whenever you activate an ability of a creature" (which a mana
-    ability triggers, 602.2) is refused rather than read as the non-mana abilities only."""
-    assert coverage.of_card_data(cards.resolve("Elrond, Moon-Reader")).level != "FULL"
+def test_creature_activation_watcher_includes_native_mana_activations(cards):
+    """Mana abilities emit the activation event without a stack placeholder (605.3b).
+
+    Canonical whole-card timing, once-per-turn and cold proofs live in the native activation-watchers suite.
+    """
+    assert coverage.of_card_data(cards.resolve("Elrond, Moon-Reader")).level == "FULL"

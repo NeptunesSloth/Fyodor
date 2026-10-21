@@ -57,27 +57,38 @@ def _num(value: str | None) -> int | None:
         return None
 
 
-def affecting(state: GameState, card: CardInstance) -> list[ContinuousEffect]:
+def spell_entry(state: GameState, card: CardInstance, info: CardInfo | None) -> bool:
+    """400.7a: live effects on a native permanent spell follow its battlefield entry."""
+    if info is None or state.rules is None or not card.zone.endswith(':battlefield'):
+        return False
+    original = state.cards.get(card.id)
+    entry = state.rules.stack.get(card.id)
+    return bool(original is not None and original.zone == 'stack' and original.ability is None
+                and (entry is None or entry.kind == 'spell') and copiable(state, original, info).is_permanent_card)
+
+
+def affecting(state: GameState, card: CardInstance, info: CardInfo | None = None) -> list[ContinuousEffect]:
     new_object = False
     probe = _T.probe
     if probe is not None and (state is probe.origin or state is probe.state) and card.id == probe.incoming.id:
         state = probe.origin
         original = state.cards.get(card.id)
-        new_object = original is None or not original.zone.endswith(":battlefield")
+        new_object = (original is None or not original.zone.endswith(":battlefield")) and not spell_entry(state, card, info)
     r = state.rules
     # (-- color lace (wave 46B) -- a spell on the stack is affected too: "Target spell or permanent becomes blue" locks in the spell, 611.2c)
     if r is None:
         return []
     if not (card.zone.endswith(":battlefield") or card.zone == "stack"):
-        if not card.zone.endswith(':exile'):
+        zone = card.zone.rsplit(':', 1)[-1]
+        if zone not in ('exile', 'graveyard'):
             return []
         oid = r.object_id(card.id)
         # An explicit outside-zone grant changes only the object's actual abilities.
         return sorted([ContinuousEffect(id=e.id, affected=[oid], layer='6', source=e.source,
                                         controller=e.controller, timestamp=e.timestamp, object_seq=e.object_seq,
                                         add_abilities=e.add_abilities, duration=e.duration, label=e.label,
-                                        ability_zone='exile')
-                       for e in r.effects if e.ability_zone == 'exile' and e.layer == '6'
+                                        ability_zone=zone)
+                       for e in r.effects if e.ability_zone == zone and e.layer == '6'
                        and e.add_abilities and oid in e.affected and e.declaration_window is None],
                       key=lambda e: e.timestamp)
     oid = r.object_id(card.id)
@@ -953,7 +964,7 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
                  object_counters=frozenset(k for k, n in card.counters.items() if n > 0),
                  object_ring_bearer=bool(state.rules and card.zone.endswith(":battlefield")
                                          and state.rules.ring_bearers.get(card.controller) == state.rules.object_id(card.id)))
-    effects = affecting(state, card)
+    effects = affecting(state, card, info)
     each_amounts: dict[int, int] = {}
     attached45 = _attached45(state, card, info)  # -- attached events (wave 4L) -- "Enchanted creature is a … creature"
     ch = name_changes(ch, effects, attached45)
@@ -1120,11 +1131,16 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         )
 
         ch = zone_grants.apply(state, card, ch, info)
+        from app.rules import dynamic_zone_keyword_costs56
+
+        ch = dynamic_zone_keyword_costs56.apply(state, card, ch, info)
     if info is not None and _T.depth == 0 and state.rules is not None and card.zone == "stack" and card.ability is None:
         from app.rules import (
+            kicked_spell_outcomes59,
             spell_grants,  # -- spell grants (wave 28C) -- "Instant and sorcery spells you control have lifelink." (613.1f, 604.1)
         )
 
+        ch = kicked_spell_outcomes59.apply_stack(state, card, ch, info)
         ch = spell_grants.apply(state, card, ch, info)
     # Pure layer-7 effects asking about abilities see the completed layer 6, including
     # quoted/borrowed abilities appended above (613.1f, 613.4). Their sources have

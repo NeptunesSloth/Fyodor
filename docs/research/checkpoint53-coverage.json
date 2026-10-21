@@ -1,0 +1,44 @@
+{
+  "baseline": "checkpoint52",
+  "checkpoint": "checkpoint53",
+  "database_metadata_equal": true,
+  "card_name_set_equal": true,
+  "summary": {
+    "FULL": 29661,
+    "PARTIAL": 2407
+  },
+  "promotions": [
+    "Abomination, Terrifying Titan",
+    "Akron Legionnaire",
+    "Bohn, Beguiling Balladeer",
+    "Brawn, Amadeus Cho",
+    "Cloudform",
+    "Dream Devourer",
+    "Kumano Faces Kakkazan // Etching of Kumano",
+    "Kumano's Blessing",
+    "Leatherhead, Swamp Stalker",
+    "Lightform",
+    "Oath of Ghouls",
+    "Oath of Mages",
+    "Oath of Scholars",
+    "Rageform",
+    "Seeker of Slaanesh",
+    "She-Hulk, Attorney-at-Law",
+    "Slumbering Walker",
+    "Trove of Temptation"
+  ],
+  "regressions": [],
+  "unexpected": [],
+  "missing": [],
+  "source_module_count": 815,
+  "source_mypy": "PASS",
+  "source_ruff": "PASS",
+  "core_checks": "PASS54 frozen core tests",
+  "additional_target": {
+    "baseline": "checkpoint48",
+    "verified": 199,
+    "target": 1500,
+    "remaining": 1301
+  },
+  "admissions_status": "All18 have closed focused native whole/negative/cold and scoped type/related evidence; later source work excluded."
+}

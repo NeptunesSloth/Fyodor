@@ -1,0 +1,36 @@
+{
+  "status": "PRODUCTION_ADMITTED_EXACT_TWO",
+  "names": [
+    "Animate Wall",
+    "Warmonger's Chariot"
+  ],
+  "baseline": "checkpoint49",
+  "baseline_levels": {
+    "Animate Wall": "PARTIAL",
+    "Warmonger's Chariot": "PARTIAL"
+  },
+  "whole_cases": 17,
+  "genuine_cold_cases": 2,
+  "whole_log": "/tmp/combat66-defender-production17.log",
+  "related_cases": 83,
+  "related_files": [
+    "tests/test_rules_attachments.py",
+    "tests/test_rules_combat.py",
+    "tests/test_rules_wave4b_conditional_statics.py"
+  ],
+  "related_log": "/tmp/combat66-defender-production-related.log",
+  "types_modules": 1,
+  "types_log": "/tmp/combat66-defender-production-types.log",
+  "ruff": "PASS ownedsource+test",
+  "hook": "/tmp/combat66-defender-hooks-proposal.patch",
+  "canonical": "/tmp/combat66-static-canonicals.json",
+  "rulings": "/tmp/combat66-static-rulings.json",
+  "source_sha256": {
+    "app/rules/combat_defender_aliases66.py": "1bb9d451fc907d8b8691182deeffff312caf47b7acef7b025d2213492062de92",
+    "tests/test_rules_combat_defender_aliases66.py": "01fd9a7fe20a53966ce9e6b4616223754589c475a8fb6887804d919481fabafa",
+    "tests/fixtures/combat_defender_aliases66_cards.json": "66e8acd8ab63cb625995508739b10ae97c4f69583ad47a5a210f07b6358b35a6"
+  },
+  "limitations": [
+    "Separate permanent directional restriction prototypes remain held and uncounted."
+  ]
+}

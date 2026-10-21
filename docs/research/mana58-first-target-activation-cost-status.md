@@ -1,0 +1,11 @@
+# First qualifying activation cost (mana58)
+
+Professor Hojo now reduces the generic cost of the first activated ability during its controller’s turn that targets a creature they control. The existing cost engine applies increases, individually floored reductions and unrestricted reductions in the correct order. Every actual announced target participates, including a controlled creature after a noncreature first target and targets of an announced-X ability. Colored requirements remain payable.
+
+The activation frame freezes whether a chosen target qualifies before mana or nonmana payments can remove it. A completed activation records the first qualifying use even when Hojo is absent. Native turn bookkeeping marks history completeness; legacy current-turn saves without that knowledge refuse to guess a first-use discount until a known turn boundary. Saved payment frames retain the original qualification after their target is sacrificed for mana.
+
+Production13 cost/history cases pass, including three genuine fresh-process cases, actual X and multiple-target ordering, prior qualifying activation before Hojo enters, target paid as nonmana cost, target sacrificed during a saved mana-payment window, taxes, colored mana, floored reductions, opponent source control and opponent turns. The integrated canonical whole card and four trigger scenarios pass, including a fourth fresh-process scenario, first equip free and second paid with only one draw. Twenty-three directly affected first-activation, target cost and payment-provenance regressions pass. Scoped five-file types and production Ruff pass. Exact admission is Professor Hojo only; the trigger77 manifest separately owns Leyline of Combustion and Mirror-Shield Hoplite.
+
+Evidence: `/tmp/fyodor-mana58-hojo-production-admission-manifest.json`.
+
+A follow-up fresh-game witness exposed turn-one initialization missing its trusted history stamp. The constructor now marks only a genuinely fresh turn-one table (no prior rules, sequence at most one); older loaded tables remain unknown. Actual turn-one free equip and three existing known/unknown history checks pass, including two cold processes. This repairs an already admitted card and adds no admission.

@@ -1,0 +1,9 @@
+# Conditional attack requirements — exact-two scoped production admission
+
+War's Toll and Viashino Bey were PARTIAL in checkpoint49. Their native requirements now preserve source/ability multiplicity and use each proposed declaration to determine whether the condition applies. War's Toll includes the initiating attacker in its opponent's group; Viashino applies only when its physical source card is declared attacking. The native optimizer maximizes legal, cost-free requirements together with existing caps, companion restrictions and goad.
+
+Root reviewed and approved the public definition, requirement origin and declaration score hooks in `/tmp/combat67-conditional-kernel-proposal.patch`. Ordered adapter-free production whole11 passed, including actual paid casting, War's Toll's native land-mana trigger, Silent Arbiter's one-attacker cap, empty declarations, physical source identity, distinct source multiplicity, controller changes, external goad and genuine subprocess reload. Requested identity/controller/multiplicity/goad3 also passed independently in isolation. Complete canonical records and all official rulings are frozen in `/tmp/combat67-requirements-canonical-rulings.json`.
+
+Root snapshot52 complete807-module mypy/Ruff PASS includes these conditional67 shared hooks and the exact unchanged owned leaf. Snapshot52 global audit closed with zero regressions, unexpected promotions or missing names. Later68/Akron hooks are outside that type snapshot. Durable names, hashes, evidence and limits are in `combat-requirements67-admitted-manifest.json`.
+
+The combined adapter-free production run completed **151 PASS**: whole11 plus 140 declaration/combat regressions. Evidence: `/tmp/combat67-production-whole-related.log` and `/tmp/combat67-production-results.xml`. No additional card names are counted.

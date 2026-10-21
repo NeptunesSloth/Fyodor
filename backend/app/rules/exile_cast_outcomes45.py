@@ -65,6 +65,17 @@ def parse(body: str) -> tuple[list[dict[str,Any]],Any,bool] | None:
         native=scripts.parse_effects('Target opponent mills nine cards.')
         assert native is not None
         return [*native[0],step('target_graveyard')],native[1],False
+    if text=="each opponent mills three cards, then you may cast a spell from each opponent's graveyard without paying its mana cost. if a spell cast this way would be put into a graveyard, exile it instead":
+        native=scripts.parse_effects('Each opponent mills three cards.')
+        assert native is not None
+        return [*native[0],step('opponent_graveyards')],native[1],False
+    if text=='you may cast an instant or sorcery spell with mana value 1 or 2 from your hand without paying its mana cost':
+        key=packets.selector('instant or sorcery spells with mana value 1 or 2')
+        return [{'do':'free_cast','zone':'hand','optional':True,'n':1,'filter':key}],None,False
+    if text=='exile target instant or sorcery card from your graveyard. copy it. you may cast the copy':
+        native=scripts.parse_effects('Exile target instant or sorcery card from your graveyard. Copy it. You may cast the copy without paying its mana cost.')
+        assert native is not None and native[0][-1]['do']=='free_cast'
+        return [*native[0][:-1],{**native[0][-1],'paid':True}],native[1],False
     talent='target opponent reveals the top seven cards of their library. you may cast an instant or sorcery spell from among them without paying its mana cost. then that player puts the rest into their graveyard'
     mastery='if there are two or more instant and/or sorcery cards in your graveyard, you may cast up to two instant and/or sorcery spells from among the revealed cards instead of one'
     if text in (talent,talent+'. '+mastery):
@@ -156,6 +167,15 @@ def run(plan: Any,ctx: dict[str,Any],e: dict[str,Any]) -> bool:
         cards=[cid for cid in effects._cards(plan,ctx,e['who']) if plan.state.cards[cid].zone.endswith(':graveyard')]
         context.bind_objects(plan,ctx,packets.bind(e,'_packet'),cards)
         return packets.insert(ctx,[packets.offer(e,n=1,exile_gy=True)])
+    if mode=='opponent_graveyards':
+        return packets.insert(ctx,[step('one_opponent_graveyard',player=p) for p in plan.apnap() if p!=ctx['controller']])
+    if mode=='one_opponent_graveyard':
+        player=e['player']
+        if player not in plan.live():
+            return True
+        cards=list(plan.state.zones.get(player+':graveyard',[]))
+        context.bind_objects(plan,ctx,packets.bind(e,'_packet'),cards)
+        return packets.insert(ctx,[packets.offer(e,n=1,exile_gy=True,source_zone='graveyard',source_owner='player:'+player)])
     if mode=='target_graveyard':
         players=effects._players(plan,ctx,'target')
         cards=[cid for player in players for cid in plan.state.zones.get(player+':graveyard',[])]
@@ -214,6 +234,8 @@ RESUME={'exile_cast_outcome45':resume,'exile_cast_extract45':resume_extract}
 
 
 LIVE_DEFINITIONS: frozenset[str]=frozenset({
+    "when ~ enters, for each opponent, you may cast up to one target instant or sorcery card from that player's graveyard without paying its mana cost. if a spell cast this way would be put into a graveyard, exile it instead",
+    "whenever ~ deals combat damage to a player, exile the top card of that player's library. then you may sacrifice another creature or artifact. if you do, you may play the exiled card this turn, and mana of any type can be spent to cast it",
     'whenever ~ attacks, you may cast an artifact spell from your hand or graveyard by paying life equal to its mana value rather than paying its mana cost',
     "whenever ~ deals combat damage to a player, that player exiles cards from the top of their library until they exile a nonland card. you may put a +1/+1 counter on ~. if you don't, you may cast the exiled nonland card until end of turn and mana of any type can be spent to cast that spell",
     'when ~ enters, target opponent reveals their hand. you may cast an instant or sorcery spell from among those cards without paying its mana cost',
@@ -222,6 +244,9 @@ LIVE_DEFINITIONS: frozenset[str]=frozenset({
 })
 
 LIVE_BODIES: frozenset[str]=frozenset({
+    'you may cast an instant or sorcery spell with mana value 1 or 2 from your hand without paying its mana cost',
+    'exile target instant or sorcery card from your graveyard. copy it. you may cast the copy',
+    "each opponent mills three cards, then you may cast a spell from each opponent's graveyard without paying its mana cost. if a spell cast this way would be put into a graveyard, exile it instead",
     'target opponent reveals the top seven cards of their library. you may cast an instant or sorcery spell from among them without paying its mana cost. then that player puts the rest into their graveyard',
     'target opponent reveals the top seven cards of their library. you may cast an instant or sorcery spell from among them without paying its mana cost. then that player puts the rest into their graveyard. if there are two or more instant and/or sorcery cards in your graveyard, you may cast up to two instant and/or sorcery spells from among the revealed cards instead of one',
     "target opponent mills nine cards, then you may cast an instant or sorcery spell from that player's graveyard without paying its mana cost. if that spell would be put into a graveyard, exile it instead",

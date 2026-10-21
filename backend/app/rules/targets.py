@@ -169,7 +169,7 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
         excluded = source_card if source_object is None or source_card in plan.state.cards and plan.oid(source_card) == source_object else None
         return [t for t in legal_targets(plan, "any", chooser, source, source_card, attacker, source_object=source_object) if t != excluded]
     if selector.startswith(selectors.PREFIX):  # a structured selector (app/rules/selectors.py)
-        return _selector_targets(plan, selectors.from_key(selector), chooser, source, source_card, attacker)
+        return _selector_targets(plan, selectors.from_key(selector), chooser, source, source_card, attacker, source_object)
     if selector.startswith("graveyard:"):  # "target Spirit card with mana value N or less from your graveyard"
         from app.rules import characteristics as chars
 
@@ -217,14 +217,19 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
 
 
 def _selector_targets(plan: Plan, sel: selectors.Selector, chooser: str, source: Characteristics | None,
-                      source_card: str | None, attacker: str | None = None) -> list[str]:
+                      source_card: str | None, attacker: str | None = None, source_object: str | None = None) -> list[str]:
     if sel.player is not None:  # 115.1: players
         from app.rules import player_shields  # -- player shields (wave 5E) -- 702.11c, 702.16b, 702.18a
 
-        return [p for p in plan.live() if selectors.matches_player(plan, sel, p, chooser)
+        oid = source_object
+        if oid is None and source_card is not None and source_card in plan.state.cards:
+            oid = plan.oid(plan.state.cards[source_card])
+        return [p for p in plan.live() if selectors.matches_player(plan, sel, p, chooser, source_object=oid)
                 and player_shields.can_target(plan, chooser, p, source)]
     from app.rules import prohibitions
 
+    if sel.other and source_card is not None and source_object is not None and (source_card not in plan.state.cards or plan.oid(source_card) != source_object):
+        sel = selectors.replace(sel, other=False)
     out = []
     for cid in selectors.candidates(plan, sel, chooser, source_card, attacker):
         card = plan.state.cards[cid]

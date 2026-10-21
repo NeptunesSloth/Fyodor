@@ -1,0 +1,49 @@
+{
+  "status": "PRODUCTION VERIFIED; pending central frozen catalog diff",
+  "baseline": "checkpoint49",
+  "cards": [
+    {
+      "name": "Sawtooth Loon",
+      "oracle_id": "b917e472-2550-4381-b756-45487c2c187a",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Dream Cache",
+      "oracle_id": "81338d64-8fc3-41ac-afc8-e2a79df1159b",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Stunted Growth",
+      "oracle_id": "e3480c8f-15ad-451b-bb34-b129805569e1",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    }
+  ],
+  "whole_checks": 14,
+  "genuine_cold_checks": 3,
+  "related_checks": 65,
+  "combined_production_checks": 79,
+  "test_files": [
+    "tests/test_rules_hand_library_choices52.py",
+    "tests/test_rules_wave5d_triggers.py"
+  ],
+  "production_log": "/tmp/resume-handlibrary52-production.log",
+  "types_checked": 2,
+  "types_log": "/tmp/resume-handlibrary52-production-types.log",
+  "ruff_files": 3,
+  "ruff_log": "/tmp/resume-handlibrary52-production-ruff.log",
+  "shared_kernel_hook": "/tmp/resume-handlibrary52-hooks-proposal.patch",
+  "leaf": "app/rules/hand_library_choices52.py",
+  "canonical": "/tmp/resume-handlibrary52-canonical.json",
+  "official_rulings": "/tmp/resume-handlibrary52-rulings.json",
+  "notes": [
+    "Exact three normalized printed sentences reuse native draw, resolution-time pick_one and private put_back selection/owner ordering.",
+    "Sawtooth actual self/other-white return and actual flying combat proved; both other cards include hidden-card privacy, both destinations, and short hand0/1/2.",
+    "One genuine cold production continuation per card; no fixture adapters or candidate paths."
+  ]
+}

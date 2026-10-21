@@ -1,0 +1,241 @@
+[
+  {
+    "id": "4b5d23a6-3a23-4169-aea1-f10bf5153180",
+    "oracle_id": "370d67f6-8d43-46ca-ae6c-00799bb0bd0c",
+    "name": "Lucky Clover",
+    "layout": "normal",
+    "set_code": "eld",
+    "set_name": "Throne of Eldraine",
+    "collector_number": "226",
+    "rarity": "uncommon",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "Whenever you cast an Adventure instant or sorcery spell, copy it. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2019-10-04",
+    "artist": "John Stanko",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "b5b71cd2-de35-451f-b16e-2e3936169407",
+    "oracle_id": "d6d72f5f-8f5d-4180-b514-f22ff5482902",
+    "name": "Bonecrusher Giant // Stomp",
+    "layout": "adventure",
+    "set_code": "clb",
+    "set_name": "Commander Legends: Battle for Baldur's Gate",
+    "collector_number": "781",
+    "rarity": "rare",
+    "mana_cost": "{2}{R} // {1}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Giant // Instant \u2014 Adventure",
+    "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.\n//\nDamage can't be prevented this turn. Stomp deals 2 damage to any target.",
+    "power": "4",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-06-10",
+    "artist": "Victor Adame Minguez",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "5e289bb3-f6de-450d-9f7e-77e2e70cb7cc",
+        "name": "On an Adventure",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": [
+      {
+        "name": "Bonecrusher Giant",
+        "mana_cost": "{2}{R}",
+        "type_line": "Creature \u2014 Giant",
+        "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.",
+        "power": "4",
+        "toughness": "3",
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      },
+      {
+        "name": "Stomp",
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant \u2014 Adventure",
+        "oracle_text": "Damage can't be prevented this turn. Stomp deals 2 damage to any target.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      }
+    ]
+  },
+  {
+    "id": "ceb7308d-608c-4ede-9496-d795fc5bb271",
+    "oracle_id": "4f5096d4-bbb5-4a48-9dd0-9dabdd2ac125",
+    "name": "Merfolk Secretkeeper // Venture Deeper",
+    "layout": "adventure",
+    "set_code": "eld",
+    "set_name": "Throne of Eldraine",
+    "collector_number": "53",
+    "rarity": "common",
+    "mana_cost": "{U} // {U}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Merfolk Wizard // Sorcery \u2014 Adventure",
+    "oracle_text": "\n//\nTarget player mills four cards. (Then exile this card. You may cast the creature later from exile.)",
+    "power": "0",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2019-10-04",
+    "artist": "Jana Schirmer",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "8182c9e0-861e-4736-997b-e79e62a2fec5",
+        "name": "Merfolk Secretkeeper // Venture Deeper",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a8d50cf9-03e6-467a-aadf-84a24106ffa9",
+        "name": "On an Adventure",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": [
+      {
+        "name": "Merfolk Secretkeeper",
+        "mana_cost": "{U}",
+        "type_line": "Creature \u2014 Merfolk Wizard",
+        "oracle_text": "",
+        "power": "0",
+        "toughness": "4",
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      },
+      {
+        "name": "Venture Deeper",
+        "mana_cost": "{U}",
+        "type_line": "Sorcery \u2014 Adventure",
+        "oracle_text": "Target player mills four cards. (Then exile this card. You may cast the creature later from exile.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      }
+    ]
+  },
+  {
+    "id": "56b0f66b-dca9-4a01-9394-20a513c2b225",
+    "oracle_id": "fff28b30-9903-4a0a-a723-31216abd457d",
+    "name": "Young Blue Dragon // Sand Augury",
+    "layout": "adventure",
+    "set_code": "clb",
+    "set_name": "Commander Legends: Battle for Baldur's Gate",
+    "collector_number": "106",
+    "rarity": "common",
+    "mana_cost": "{4}{U} // {1}{U}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Dragon // Sorcery \u2014 Adventure",
+    "oracle_text": "Flying\n//\nScry 1, then draw a card. (Then exile this card. You may cast the creature later from exile.)",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Scry",
+      "Flying"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-06-10",
+    "artist": "Tuan Duong Chu",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "5e289bb3-f6de-450d-9f7e-77e2e70cb7cc",
+        "name": "On an Adventure",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": [
+      {
+        "name": "Young Blue Dragon",
+        "mana_cost": "{4}{U}",
+        "type_line": "Creature \u2014 Dragon",
+        "oracle_text": "Flying",
+        "power": "3",
+        "toughness": "3",
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      },
+      {
+        "name": "Sand Augury",
+        "mana_cost": "{1}{U}",
+        "type_line": "Sorcery \u2014 Adventure",
+        "oracle_text": "Scry 1, then draw a card. (Then exile this card. You may cast the creature later from exile.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      }
+    ]
+  }
+]

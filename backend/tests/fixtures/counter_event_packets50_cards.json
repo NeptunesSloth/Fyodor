@@ -1,0 +1,434 @@
+[
+  {
+    "id": "b0e0f5f6-8b63-4c63-bd1d-445613bc106b",
+    "oracle_id": "85277284-1eba-4f87-bf7b-abf1dcbb7691",
+    "name": "Bold Plagiarist",
+    "layout": "normal",
+    "set_code": "c21",
+    "set_name": "Commander 2021",
+    "collector_number": "37",
+    "rarity": "rare",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Vampire Rogue",
+    "oracle_text": "Flash\nWhenever an opponent puts one or more counters on a creature they control, they put the same number and kind of counters on this creature.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-04-23",
+    "artist": "Miguel Mercado",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "516e14ce-9cc8-4be3-aacb-ba801f26a6bc",
+    "oracle_id": "6d86d783-7116-4426-8c0f-718c2d904887",
+    "name": "Captain Marvel, Apex Avenger",
+    "layout": "normal",
+    "set_code": "msc",
+    "set_name": "Marvel Super Heroes Commander",
+    "collector_number": "78",
+    "rarity": "rare",
+    "mana_cost": "{5}{R}{W}",
+    "cmc": 7.0,
+    "type_line": "Legendary Creature \u2014 Human Kree Hero",
+    "oracle_text": "Flying, double strike, indestructible\nWhenever you put one or more counters on another creature, if it's not a Kree, you may put the same number and kind of counters on Captain Marvel.",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Indestructible",
+      "Double strike"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-06-26",
+    "artist": "Julie Bell",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "17fa0b62-d474-4dc7-9631-9d0a9d99e5e2",
+    "oracle_id": "7b1a59db-0ffc-490b-a881-c8192f3747db",
+    "name": "Gift of the Viper",
+    "layout": "normal",
+    "set_code": "mh3",
+    "set_name": "Modern Horizons 3",
+    "collector_number": "156",
+    "rarity": "common",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Put a +1/+1 counter, a reach counter, and a deathtouch counter on target creature. Untap it.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-06-14",
+    "artist": "Madeline Boni",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "1cdd8e69-5a71-4933-914e-dfede7b1ac93",
+    "oracle_id": "01546b7d-a233-4176-8843-d732074dc5b6",
+    "name": "Doubling Season",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "283",
+    "rarity": "mythic",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Chuck Lukacs",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "0a71fb62-acbd-49f5-842f-0fc9fa48afea",
+    "oracle_id": "f0b4331b-ddd3-4f11-ba16-67c651c8954c",
+    "name": "Solemnity",
+    "layout": "normal",
+    "set_code": "hou",
+    "set_name": "Hour of Devastation",
+    "collector_number": "22",
+    "rarity": "rare",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-07-14",
+    "artist": "Greg Opalinski",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "92613468-205e-488b-930d-11908477e9f8",
+    "oracle_id": "5a3fdf5a-bff8-4896-b288-3f43f9a72d9b",
+    "name": "Vorinclex, Monstrous Raider",
+    "layout": "normal",
+    "set_code": "khm",
+    "set_name": "Kaldheim",
+    "collector_number": "199",
+    "rarity": "mythic",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Legendary Creature \u2014 Phyrexian Praetor",
+    "oracle_text": "Trample, haste\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead.\nIf an opponent would put one or more counters on a permanent or player, they put half that many of each of those kinds of counters on that permanent or player instead, rounded down.",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Haste",
+      "Trample"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-02-05",
+    "artist": "Daarken",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "df606cf5-67dc-46f4-8c79-1d2f1d054391",
+    "oracle_id": "f0bbcabf-29e7-4c7e-893f-86b64d3620a9",
+    "name": "Virtue of Knowledge // Vantress Visions",
+    "layout": "adventure",
+    "set_code": "woe",
+    "set_name": "Wilds of Eldraine",
+    "collector_number": "76",
+    "rarity": "mythic",
+    "mana_cost": "{4}{U} // {1}{U}",
+    "cmc": 5.0,
+    "type_line": "Enchantment // Instant \u2014 Adventure",
+    "oracle_text": "If a permanent entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.\n//\nCopy target activated or triggered ability you control. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-09-08",
+    "artist": "Piotr Dura",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "fcf4c7fb-7859-4c11-8552-6817f5119d2e",
+        "name": "On an Adventure",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7cc2173a-b7fb-4bd6-9c8e-73de91c6903a",
+        "name": "Virtue of Knowledge // Vantress Visions",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": [
+      {
+        "name": "Virtue of Knowledge",
+        "mana_cost": "{4}{U}",
+        "type_line": "Enchantment",
+        "oracle_text": "If a permanent entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      },
+      {
+        "name": "Vantress Visions",
+        "mana_cost": "{1}{U}",
+        "type_line": "Instant \u2014 Adventure",
+        "oracle_text": "Copy target activated or triggered ability you control. You may choose new targets for the copy.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      }
+    ]
+  },
+  {
+    "id": "b16ddbcb-b28d-4a67-857b-5c30ccf055f0",
+    "oracle_id": "d50b1d2e-1825-432a-ab73-068fdc356f50",
+    "name": "Universal Automaton",
+    "layout": "normal",
+    "set_code": "j22",
+    "set_name": "Jumpstart 2022",
+    "collector_number": "803",
+    "rarity": "common",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact Creature \u2014 Shapeshifter",
+    "oracle_text": "Changeling (This card is every creature type.)",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Changeling"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-12-02",
+    "artist": "Ben Maier",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "cc5f287b-beaa-4b51-8db7-91982e2c0bb0",
+    "oracle_id": "0bb2b3cc-d3e6-40e9-a5da-d589e8e8f0bd",
+    "name": "Wings of Velis Vel",
+    "layout": "normal",
+    "set_code": "mm2",
+    "set_name": "Modern Masters 2015",
+    "collector_number": "70",
+    "rarity": "common",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Kindred Instant \u2014 Shapeshifter",
+    "oracle_text": "Changeling (This card is every creature type.)\nUntil end of turn, target creature has base power and toughness 4/4, gains all creature types, and gains flying.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Changeling"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2015-05-22",
+    "artist": "Jim Pavelec",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "0063654b-6e4e-4958-a63c-24cf933e4a40",
+    "oracle_id": "245d0ccf-87b6-460a-8b99-9e2079f2d375",
+    "name": "Delney, Streetwise Lookout",
+    "layout": "normal",
+    "set_code": "mkm",
+    "set_name": "Murders at Karlov Manor",
+    "collector_number": "378",
+    "rarity": "mythic",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Scout",
+    "oracle_text": "Creatures you control with power 2 or less can't be blocked by creatures with power 3 or greater.\nIf a triggered ability of a creature you control with power 2 or less triggers, that ability triggers an additional time.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-02-09",
+    "artist": "Jack Hughes",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "81a1ba0c-1131-4b16-9a11-90947cdb6292",
+    "oracle_id": "be78a76c-e126-4f09-9e8e-b773a437cfeb",
+    "name": "Strength of the Pack",
+    "layout": "normal",
+    "set_code": "cmr",
+    "set_name": "Commander Legends",
+    "collector_number": "259",
+    "rarity": "uncommon",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Put two +1/+1 counters on each creature you control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-11-20",
+    "artist": "Tomasz Jedruszek",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  }
+]

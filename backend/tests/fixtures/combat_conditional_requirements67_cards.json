@@ -1,0 +1,331 @@
+[
+  {
+    "object": "card",
+    "id": "3a08f7fe-8ca9-4604-85c8-9050298730ea",
+    "oracle_id": "ba4e4afb-24bb-47de-aba8-89d21b11d45c",
+    "multiverse_ids": [
+      446155
+    ],
+    "tcgplayer_id": 167983,
+    "cardmarket_id": 359014,
+    "name": "War's Toll",
+    "lang": "en",
+    "released_at": "2018-06-08",
+    "uri": "https://api.scryfall.com/cards/3a08f7fe-8ca9-4604-85c8-9050298730ea",
+    "scryfall_uri": "https://scryfall.com/card/bbd/187/wars-toll?utm_source=api",
+    "layout": "normal",
+    "highres_image": true,
+    "image_status": "highres_scan",
+    "image_updated_at": "2026-07-13T09:26:50Z",
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/3/a/3a08f7fe-8ca9-4604-85c8-9050298730ea.jpg?1783934810",
+      "normal": "https://cards.scryfall.io/normal/front/3/a/3a08f7fe-8ca9-4604-85c8-9050298730ea.jpg?1783934810",
+      "large": "https://cards.scryfall.io/large/front/3/a/3a08f7fe-8ca9-4604-85c8-9050298730ea.jpg?1783934810",
+      "png": "https://cards.scryfall.io/png/front/3/a/3a08f7fe-8ca9-4604-85c8-9050298730ea.png?1783934810",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/3/a/3a08f7fe-8ca9-4604-85c8-9050298730ea.jpg?1783934810",
+      "border_crop": "https://cards.scryfall.io/border_crop/front/3/a/3a08f7fe-8ca9-4604-85c8-9050298730ea.jpg?1783934810",
+      "thumb": "https://cards.scryfall.io/thumb/front/3/a/3a08f7fe-8ca9-4604-85c8-9050298730ea.webp?1783934810",
+      "grid": "https://cards.scryfall.io/grid/front/3/a/3a08f7fe-8ca9-4604-85c8-9050298730ea.webp?1783934810",
+      "display": "https://cards.scryfall.io/display/front/3/a/3a08f7fe-8ca9-4604-85c8-9050298730ea.webp?1783934810",
+      "art": "https://cards.scryfall.io/art/front/3/a/3a08f7fe-8ca9-4604-85c8-9050298730ea.webp?1783934810",
+      "crop": "https://cards.scryfall.io/crop/front/3/a/3a08f7fe-8ca9-4604-85c8-9050298730ea.webp?1783934810",
+      "jpeg": "https://cards.scryfall.io/normal/front/3/a/3a08f7fe-8ca9-4604-85c8-9050298730ea.jpg?1783934810"
+    },
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever an opponent taps a land for mana, tap all lands that player controls.\nIf a creature an opponent controls attacks, all creatures that opponent controls attack if able.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "not_legal",
+      "timeless": "not_legal",
+      "gladiator": "not_legal",
+      "pioneer": "not_legal",
+      "modern": "legal",
+      "legacy": "legal",
+      "pauper": "not_legal",
+      "vintage": "legal",
+      "penny": "legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "not_legal",
+      "competitivebrawl": "not_legal",
+      "alchemy": "not_legal",
+      "paupercommander": "not_legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "not_legal",
+      "predh": "legal",
+      "tlr": "not_legal"
+    },
+    "games": [
+      "paper"
+    ],
+    "reserved": false,
+    "game_changer": false,
+    "foil": true,
+    "nonfoil": true,
+    "finishes": [
+      "nonfoil",
+      "foil"
+    ],
+    "oversized": false,
+    "promo": false,
+    "reprint": true,
+    "variation": false,
+    "set_id": "95f97fbc-58ef-4645-982e-43e2db6f1124",
+    "set": "bbd",
+    "set_name": "Battlebond",
+    "set_type": "draft_innovation",
+    "set_uri": "https://api.scryfall.com/sets/95f97fbc-58ef-4645-982e-43e2db6f1124",
+    "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Abbd&unique=prints",
+    "scryfall_set_uri": "https://scryfall.com/sets/bbd?utm_source=api",
+    "rulings_uri": "https://api.scryfall.com/cards/3a08f7fe-8ca9-4604-85c8-9050298730ea/rulings",
+    "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3Aba4e4afb-24bb-47de-aba8-89d21b11d45c&unique=prints",
+    "collector_number": "187",
+    "digital": false,
+    "rarity": "rare",
+    "flavor_text": "Razia, archangel of war, demands total commitment.",
+    "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+    "artist": "Dana Knutson",
+    "artist_ids": [
+      "4eac683c-8c96-4f57-b8a4-ad7f7b7c44c7"
+    ],
+    "illustration_id": "65ae07fa-3efe-4f7a-9111-c3aee514a070",
+    "border_color": "black",
+    "frame": "2015",
+    "security_stamp": "oval",
+    "full_art": false,
+    "textless": false,
+    "booster": true,
+    "story_spotlight": false,
+    "edhrec_rank": 5443,
+    "penny_rank": 12670,
+    "prices": {
+      "usd": "11.45",
+      "usd_foil": "27.55",
+      "usd_etched": null,
+      "eur": "5.99",
+      "eur_foil": "9.64",
+      "tix": null
+    },
+    "related_uris": {
+      "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=446155&printed=false",
+      "tcgplayer_infinite_articles": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Farticles&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Farticles%3FproductLineName%3Dmagic%26q%3DWar%2527s%2BToll",
+      "tcgplayer_infinite_decks": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Fdecks&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Fdecks%3FproductLineName%3Dmagic%26q%3DWar%2527s%2BToll",
+      "edhrec": "https://edhrec.com/route/?cc=War%27s+Toll"
+    },
+    "purchase_uris": {
+      "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F167983%3Fpage%3D1",
+      "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=359014&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
+      "cardhoarder": "https://www.cardhoarder.com/cards?affiliate_id=scryfall&data%5Bsearch%5D=War%27s+Toll&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+    }
+  },
+  {
+    "object": "card",
+    "id": "26cc07c6-60c7-4abe-8197-7544887ec64d",
+    "oracle_id": "d9c9b933-74f4-4898-bbb8-2da76b86ccda",
+    "multiverse_ids": [
+      12948
+    ],
+    "mtgo_id": 12737,
+    "mtgo_foil_id": 12738,
+    "tcgplayer_id": 6407,
+    "cardmarket_id": 10650,
+    "name": "Viashino Bey",
+    "lang": "en",
+    "released_at": "1999-02-15",
+    "uri": "https://api.scryfall.com/cards/26cc07c6-60c7-4abe-8197-7544887ec64d",
+    "scryfall_uri": "https://scryfall.com/card/ulg/93/viashino-bey?utm_source=api",
+    "layout": "normal",
+    "highres_image": true,
+    "image_status": "highres_scan",
+    "image_updated_at": "2026-07-13T12:37:13Z",
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/2/6/26cc07c6-60c7-4abe-8197-7544887ec64d.jpg?1783946233",
+      "normal": "https://cards.scryfall.io/normal/front/2/6/26cc07c6-60c7-4abe-8197-7544887ec64d.jpg?1783946233",
+      "large": "https://cards.scryfall.io/large/front/2/6/26cc07c6-60c7-4abe-8197-7544887ec64d.jpg?1783946233",
+      "png": "https://cards.scryfall.io/png/front/2/6/26cc07c6-60c7-4abe-8197-7544887ec64d.png?1783946233",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/2/6/26cc07c6-60c7-4abe-8197-7544887ec64d.jpg?1783946233",
+      "border_crop": "https://cards.scryfall.io/border_crop/front/2/6/26cc07c6-60c7-4abe-8197-7544887ec64d.jpg?1783946233",
+      "thumb": "https://cards.scryfall.io/thumb/front/2/6/26cc07c6-60c7-4abe-8197-7544887ec64d.webp?1783946233",
+      "grid": "https://cards.scryfall.io/grid/front/2/6/26cc07c6-60c7-4abe-8197-7544887ec64d.webp?1783946233",
+      "display": "https://cards.scryfall.io/display/front/2/6/26cc07c6-60c7-4abe-8197-7544887ec64d.webp?1783946233",
+      "art": "https://cards.scryfall.io/art/front/2/6/26cc07c6-60c7-4abe-8197-7544887ec64d.webp?1783946233",
+      "crop": "https://cards.scryfall.io/crop/front/2/6/26cc07c6-60c7-4abe-8197-7544887ec64d.webp?1783946233",
+      "jpeg": "https://cards.scryfall.io/normal/front/2/6/26cc07c6-60c7-4abe-8197-7544887ec64d.jpg?1783946233"
+    },
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Lizard",
+    "oracle_text": "If this creature attacks, all creatures you control attack if able.",
+    "power": "4",
+    "toughness": "3",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "not_legal",
+      "timeless": "not_legal",
+      "gladiator": "not_legal",
+      "pioneer": "not_legal",
+      "modern": "not_legal",
+      "legacy": "legal",
+      "pauper": "legal",
+      "vintage": "legal",
+      "penny": "legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "not_legal",
+      "competitivebrawl": "not_legal",
+      "alchemy": "not_legal",
+      "paupercommander": "legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "legal",
+      "predh": "legal",
+      "tlr": "not_legal"
+    },
+    "games": [
+      "paper",
+      "mtgo"
+    ],
+    "reserved": false,
+    "game_changer": false,
+    "foil": true,
+    "nonfoil": true,
+    "finishes": [
+      "nonfoil",
+      "foil"
+    ],
+    "oversized": false,
+    "promo": false,
+    "reprint": false,
+    "variation": false,
+    "set_id": "78ced61b-4b8a-4b33-b6b2-f5bd66f1a75a",
+    "set": "ulg",
+    "set_name": "Urza's Legacy",
+    "set_type": "expansion",
+    "set_uri": "https://api.scryfall.com/sets/78ced61b-4b8a-4b33-b6b2-f5bd66f1a75a",
+    "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Aulg&unique=prints",
+    "scryfall_set_uri": "https://scryfall.com/sets/ulg?utm_source=api",
+    "rulings_uri": "https://api.scryfall.com/cards/26cc07c6-60c7-4abe-8197-7544887ec64d/rulings",
+    "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3Ad9c9b933-74f4-4898-bbb8-2da76b86ccda&unique=prints",
+    "collector_number": "93",
+    "digital": false,
+    "rarity": "common",
+    "flavor_text": "When the bey runs, match his stride.\n\u2014Viashino saying",
+    "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+    "artist": "Bradley Williams",
+    "artist_ids": [
+      "24d81dfa-3745-4386-93f8-7e67dddb3c8a"
+    ],
+    "illustration_id": "6b4e5232-eb98-45b3-8b94-e158e4f04cb9",
+    "border_color": "black",
+    "frame": "1997",
+    "full_art": false,
+    "textless": false,
+    "booster": true,
+    "story_spotlight": false,
+    "edhrec_rank": 32198,
+    "prices": {
+      "usd": "0.06",
+      "usd_foil": "2.44",
+      "usd_etched": null,
+      "eur": "0.16",
+      "eur_foil": "1.06",
+      "tix": "0.09"
+    },
+    "related_uris": {
+      "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=12948&printed=false",
+      "tcgplayer_infinite_articles": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Farticles&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Farticles%3FproductLineName%3Dmagic%26q%3DViashino%2BBey",
+      "tcgplayer_infinite_decks": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Fdecks&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Fdecks%3FproductLineName%3Dmagic%26q%3DViashino%2BBey",
+      "edhrec": "https://edhrec.com/route/?cc=Viashino+Bey"
+    },
+    "purchase_uris": {
+      "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F6407%3Fpage%3D1",
+      "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=10650&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
+      "cardhoarder": "https://www.cardhoarder.com/cards/12737?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+    }
+  },
+  {
+    "name": "Silent Arbiter",
+    "oracle_text": "No more than one creature can attack each combat.\nNo more than one creature can block each combat.",
+    "mana_cost": "{4}",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "power": "1",
+    "toughness": "5",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "id": "b8c5e74c-96e7-4a1f-93b7-14d776fe4b2d",
+    "oracle_id": "4b7ac066-e5c7-43e6-9e7e-2739b24a905d",
+    "name": "Serra Angel",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "740",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Angel",
+    "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Vigilance"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-04-24",
+    "artist": "Greg Staples",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "ad2bbfa1-81e0-4683-b1dc-a3aaa9837690",
+        "name": "Treizeci, Sun of Serra",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "name": "Shiny Impetus",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +2/+2 and is goaded. (It attacks each combat if able and attacks a player other than you if able.)\nWhenever enchanted creature attacks, you create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{2}{R}",
+    "layout": "normal"
+  }
+]

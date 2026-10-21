@@ -1474,7 +1474,7 @@ def test_cass_does_nothing_for_a_creature_that_was_neither_enchanted_nor_equippe
 
 
 @pytest.mark.parametrize("name", ["Galea, Kindler of Hope", "Shuriken", "General Jarkeld", "Glyph of Reincarnation", "Dread Wight",
-                                  "Infinite Authority", "False Orders", "Balduvian Warlord", "Ydwen Efreet", "Nacatl War-Pride", "Motion Sickness"])
+                                  "Infinite Authority", "False Orders", "Balduvian Warlord", "Nacatl War-Pride", "Motion Sickness"])
 def test_the_rest_of_the_list_stays_manual(cards, name):
     """Remaining gaps: banded-creature references, unblocking and re-blocking by an effect, one delayed ability reading what another did,
     a creature that stops blocking one attacker and blocks another, tokens that are copies attacking, Attractions, a cast from the library: not read."""

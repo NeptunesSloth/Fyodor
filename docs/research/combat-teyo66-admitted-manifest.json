@@ -1,0 +1,27 @@
+{
+  "status": "PRODUCTION_ADMITTED_EXACT_ONE",
+  "names": [
+    "Teyo, Geometric Tactician"
+  ],
+  "whole_cases": 11,
+  "genuine_cold_cases": 1,
+  "whole_log": "/tmp/combat66-teyo-production11.log",
+  "related_cases": 83,
+  "related_log": "/tmp/combat66-teyo-production-related.log",
+  "types_modules": 1,
+  "types_log": "/tmp/combat66-teyo-production-types.log",
+  "ruff": "PASS",
+  "hook_proposal": "/tmp/combat66-teyo-kernel-proposal.patch",
+  "source_sha256": {
+    "backend/app/rules/combat_teyo66.py": "1eb609e049edc94308fd286bf238ee6dc917138b32d5b9f01c0257900e780a42",
+    "docs/research/proposals/combat66-teyo-tests.py": "a613bbc36e66edec2296d25b5f2bc741e0ead5e1e9f97b3fd72cb8a2cd0aae01",
+    "backend/tests/fixtures/combat_directions66_cards.json": "af0b46791178e60fe3058a6d35477822ad5e0554e2e4fcd2e8e7caa9f6562308",
+    "backend/tests/test_rules_combat_teyo66.py": "a613bbc36e66edec2296d25b5f2bc741e0ead5e1e9f97b3fd72cb8a2cd0aae01"
+  },
+  "held_unrecognized": [
+    "Pramikon, Sky Rampart",
+    "Mystic Barrier"
+  ],
+  "production_hooks": true,
+  "baseline": "checkpoint49 PARTIAL"
+}

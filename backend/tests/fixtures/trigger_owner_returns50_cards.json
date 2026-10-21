@@ -1,0 +1,114 @@
+[
+  {
+    "id": "785d5a98-97b2-4a9e-83ee-2a74479add7b",
+    "oracle_id": "1ba0dce5-e767-47cc-9967-174e52bce120",
+    "name": "Riftsweeper",
+    "layout": "normal",
+    "set_code": "mma",
+    "set_name": "Modern Masters",
+    "collector_number": "159",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Elf Shaman",
+    "oracle_text": "When this creature enters, choose target face-up exiled card. Its owner shuffles it into their library.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2013-06-07",
+    "artist": "Brian Despain",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "4ccd0ada-92b2-48f3-b5ae-96346fc138b6",
+    "oracle_id": "2b8afa9f-4236-4c02-a8d5-3c145caecfd6",
+    "name": "Rift Bolt",
+    "layout": "normal",
+    "set_code": "2x2",
+    "set_name": "Double Masters 2022",
+    "collector_number": "122",
+    "rarity": "common",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Rift Bolt deals 3 damage to any target.\nSuspend 1\u2014{R} (Rather than cast this card from your hand, you may pay {R} and exile it with a time counter on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Suspend"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-07-08",
+    "artist": "Daniel Ljunggren",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "814a5348-988d-480f-806d-9c958f1a10b9",
+    "oracle_id": "a731f5bc-892c-4857-9590-4fa31c1caf00",
+    "name": "Blind Hunter",
+    "layout": "normal",
+    "set_code": "rvr",
+    "set_name": "Ravnica Remastered",
+    "collector_number": "166",
+    "rarity": "common",
+    "mana_cost": "{2}{W}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Bat",
+    "oracle_text": "Flying\nHaunt (When this creature dies, exile it haunting target creature.)\nWhen this creature enters or the creature it haunts dies, target player loses 2 life and you gain 2 life.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Haunt"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-01-12",
+    "artist": "Warren Mahy",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  }
+]

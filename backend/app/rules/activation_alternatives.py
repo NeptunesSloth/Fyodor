@@ -46,13 +46,20 @@ def announce(plan: Plan, a: ActivateAbility, card: CardInstance, ch: Characteris
              ability: AbilityText) -> AbilityText | None:
     from app.game.errors import ActionError
     from app.game.rules_state import DecisionOption
-    from app.rules import casting, costs
+    from app.rules import casting, costs, hybrid_power_up71
     from app.rules.plan import decide
 
-    choices = sides(ability.cost or '')
-    if choices is None:
-        return ability
-    made = [with_cost(ability, side) for side in choices]
+    choices: list[str] | None
+    made = hybrid_power_up71.alternatives(plan.state, card, ch, ability)
+    hybrid = made is not None
+    if made is not None:
+        choices = [casting.ability_cost(ch, candidate, state=plan.state, card=card, info=plan.info).mana or '{0}'
+                   for candidate in made]
+    else:
+        choices = sides(ability.cost or '')
+        if choices is None:
+            return ability
+        made = [with_cost(ability, side) for side in choices]
     given = next((c.cards for c in a.cost_choices if c.component == costs.EITHER_SLOT), None)
     if given is not None:
         index = int(given[0][7:]) if len(given) == 1 and given[0].startswith('either:') and given[0][7:].isdigit() else -1
@@ -73,5 +80,6 @@ def announce(plan: Plan, a: ActivateAbility, card: CardInstance, ch: Characteris
     decide(plan, player=plan.actor, kind='choose_cards', prompt=f'{ch.name}: choose its activation cost, or none to cancel',
            options=[DecisionOption(id=f'either:{i}', label=choices[i]) for i in offered], min_choices=0, max_choices=1,
            resume={'step': 'ability_cost', 'component': costs.EITHER_SLOT, 'amount': 1,
-                   'intent': a.model_dump(mode='json', exclude={'r', 'actor', 'ts'})}, source=card)
+                   'intent': a.model_dump(mode='json', exclude={'r', 'actor', 'ts'}),
+                   **({'hybrid_power_up71': hybrid_power_up71.source_receipt(plan, card, ch, ability)} if hybrid else {})}, source=card)
     return None

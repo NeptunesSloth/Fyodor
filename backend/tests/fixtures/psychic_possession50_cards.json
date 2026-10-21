@@ -1,0 +1,74 @@
+[
+  {
+    "id": "e8364ce0-4c11-4af0-9f4b-e4c20d640dfc",
+    "oracle_id": "d2458d63-c627-4e75-8bda-23bca38cae93",
+    "name": "Psychic Possession",
+    "layout": "normal",
+    "set_code": "dis",
+    "set_name": "Dissension",
+    "collector_number": "30",
+    "rarity": "rare",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant opponent\nSkip your draw step.\nWhenever enchanted opponent draws a card, you may draw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2006-05-05",
+    "artist": "Mark Tedin",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "cb3b35b8-f321-46d8-a441-6b9a6efa9021",
+    "oracle_id": "273b339c-964b-4a18-8eb5-ceb8abcdfd9e",
+    "name": "Divination",
+    "layout": "normal",
+    "set_code": "m19",
+    "set_name": "Core Set 2019",
+    "collector_number": "51",
+    "rarity": "common",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Draw two cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-07-13",
+    "artist": "Willian Murai",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  }
+]

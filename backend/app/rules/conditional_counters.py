@@ -22,6 +22,7 @@ def parse(body: str) -> tuple[list[dict[str,Any]],Any,bool] | None:
         'Counter target spell if its controller is poisoned':('poison','target spell'),
         "Counter target spell if you control more creatures than that spell's controller":('creatures','target spell'),
         'Counter target spell if it was kicked':('kicked','target spell'),
+        'Counter target spell if its mana value is X':('mana_value_x','target spell'),
         "Counter target spell that's the second spell cast this turn":('plain','second'),
         'Counter target spell cast from a graveyard. Draw a card':('graveyard_draw','graveyard'),
         'Counter target spell cast from a graveyard':('plain','graveyard'),
@@ -84,6 +85,10 @@ def run(plan: Plan,ctx: dict[str,Any],e: dict[str,Any]) -> bool:
         def count(player: str) -> int:
             return sum(c.zone.endswith(':battlefield') and c.controller==player and 'Creature' in plan.ch(c).types for c in plan.state.cards.values())
         if count(you)<=count(pid):
+            return True
+    if test == 'mana_value_x':
+        from app.rules import stack_interaction, values
+        if stack_interaction.mana_value(card, ch) != values.evaluate(plan, ctx, {"x": 1}):
             return True
     if test=='kicked' and (rec is None or rec.kicked<=0):
         return True

@@ -182,3 +182,74 @@ def test_widow_cold_optional_counter_decline_then_normal_paid_foreign_spell(card
     mana(s,G=3)
     s=fresh(s,cards,tmp_path/'cast.json','p1',{'type':'cast_spell','card_id':packet[0]})
     assert s.state.cards[packet[0]].zone=='p2:graveyard'
+
+
+def test_reno_cold_optional_sacrifice_then_normal_paid_exile_spell(cards,tmp_path):
+    from tests.test_rules_bandmate_references import mana
+    from tests.test_rules_refused_look import stack_library
+
+    s=gameplay.setup(cards,'Reno and Rude')
+    source=put(s,'Reno and Rude','battlefield')
+    altar=put(s,"Ashnod's Altar",'battlefield')
+    to_phase(s,'declare_attackers',turn=4)
+    packet=stack_library(s,['Divination','Grizzly Bears'],pid='p2')
+    d=gameplay.combat_optional_offer(s,source)
+    if 'pay' in [o.id for o in d.options]:
+        s=fresh(s,cards,tmp_path/'accept.json',d.player,{'type':'choose','decision_id':d.id,'option_ids':['pay']})
+        d=s.state.rules.decision
+    if d is not None:
+        s=fresh(s,cards,tmp_path/'sac.json',d.player,{'type':'choose','decision_id':d.id,'option_ids':[altar.id]})
+    assert s.state.cards[altar.id].zone=='p1:graveyard'
+    to_phase(s,'main2',turn=4)
+    mana(s,G=3)
+    s=fresh(s,cards,tmp_path/'cast.json','p1',{'type':'cast_spell','card_id':packet[0]})
+    assert s.state.cards[packet[0]].zone=='p2:graveyard'
+
+
+def test_diluvian_cold_all_opponent_targets_announced_before_ordered_casts_with_exile_riders(cards,tmp_path):
+    from tests.test_rules_ordered_tutor_continuations import cast
+
+    s=gameplay.setup(cards,'Diluvian Primordial')
+    first=put(s,'Divination','graveyard',pid='p2')
+    second=put(s,'Giant Growth','graveyard',pid='p3')
+    bear=put(s,'Grizzly Bears','battlefield')
+    cast(s,'Diluvian Primordial')
+    d=s.state.rules.decision
+    s=fresh(s,cards,tmp_path/'first-target.json',d.player,{'type':'choose','decision_id':d.id,'option_ids':[first.id]})
+    d=s.state.rules.decision
+    assert d.resume['step']=='trigger_group'
+    assert s.state.cards[first.id].zone=='p2:graveyard'
+    s=fresh(s,cards,tmp_path/'second-target.json',d.player,{'type':'choose','decision_id':d.id,'option_ids':[second.id]})
+    d=s.state.rules.decision
+    assert d.resume['step']=='free_cast_pick'
+    s=fresh(s,cards,tmp_path/'first-cast.json',d.player,{'type':'choose','decision_id':d.id,'option_ids':[first.id]})
+    assert s.state.cards[first.id].zone=='stack'
+    d=s.state.rules.decision
+    assert d.resume['step']=='free_cast_pick'
+    s=fresh(s,cards,tmp_path/'second-cast.json',d.player,{'type':'choose','decision_id':d.id,'option_ids':[second.id]})
+    d=s.state.rules.decision
+    if d is not None:
+        s=fresh(s,cards,tmp_path/'spell-target.json',d.player,{'type':'choose','decision_id':d.id,'option_ids':[bear.id]})
+    assert s.state.cards[first.id].zone=='p2:exile'
+    assert s.state.cards[second.id].zone=='p3:exile'
+
+
+def test_jetsam_cold_all_mills_then_each_current_graveyard_cast_and_exact_rider(cards,tmp_path):
+    from tests.test_rules_bandmate_references import mana
+
+    s=gameplay.setup(cards,'Flotsam // Jetsam')
+    first=put(s,"Ashnod's Altar",'graveyard',pid='p2')
+    second=put(s,'Divination','graveyard',pid='p3')
+    source=put(s,'Flotsam // Jetsam','hand')
+    mana(s,U=2,C=4)
+    act(s,'p1',type='cast_spell',card_id=source.id,face=1)
+    settle(s)
+    d=s.state.rules.decision
+    s=fresh(s,cards,tmp_path/'first.json',d.player,{'type':'choose','decision_id':d.id,'option_ids':[first.id]})
+    assert s.state.cards[first.id].zone=='stack'
+    d=s.state.rules.decision
+    assert d.resume['step']=='free_cast_pick'
+    s=fresh(s,cards,tmp_path/'second.json',d.player,{'type':'choose','decision_id':d.id,'option_ids':[second.id]})
+    assert s.state.cards[first.id].zone=='p1:battlefield'
+    assert s.state.cards[second.id].zone=='p3:exile'
+    assert s.state.cards[source.id].zone=='p1:graveyard'

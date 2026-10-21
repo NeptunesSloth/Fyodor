@@ -7,6 +7,7 @@ cards:
 * a card on the battlefield, on the stack or in the command zone whose text reads the order of a graveyard ("the top creature card of your
   graveyard", READER) is there, or one that left the battlefield in the same batch (a creature that dies with the others: its trigger still
   reads the graveyard), or
+* a public graveyard card reads cards above itself (earlier arrivals are below it, so their historical order cannot matter), or
 * the owner set ``ask_graveyard_order`` ("always ask me"), which covers a reader in a hand or a library.
 
 Both depend on public information and the asked player's own setting only, so the question never says what a hand or a library holds.
@@ -33,6 +34,9 @@ if TYPE_CHECKING:
 # "the top card of target player's graveyard", "the bottom card of …", "the top two cards of your graveyard", "from the top of your graveyard"
 # (a library's top is not it: "the top card of your library into your graveyard")
 READER = re.compile(r"\b(?:top|bottom)\b(?:(?!library)[^.:;]){0,30}?\bof (?:(?!library)[^.:;]){0,30}?graveyard", re.IGNORECASE)
+
+# An above-source reader only observes batches arriving with or after its public graveyard presence.
+ABOVE_READER = re.compile(r"\bcreature cards? (?:are )?(?:directly )?above (?:it|this card)\b", re.IGNORECASE)
 
 
 def unordered(plan: Plan, payload: dict[str, Any]) -> dict[str, Any]:
@@ -79,8 +83,14 @@ def after(plan: Plan, seen: dict[str, Any]) -> None:
 def has_reader(plan: Plan, extra: Any) -> bool:
     """Is there a card whose text reads a graveyard's order where everyone can see it (or among ``extra``: the batch of dying cards)?"""
     for c in plan.state.cards.values():
-        if (c.zone.endswith((":battlefield", ":command")) or c.zone == "stack" or c.id in extra) and not c.face_down \
-                and READER.search(chars.of(c, plan.info).oracle_text):
+        if c.face_down:
+            continue
+        public = c.zone.endswith((":battlefield", ":command")) or c.zone == "stack" or c.id in extra
+        above_public = public or c.zone.endswith(":graveyard")
+        if not above_public:
+            continue
+        text = chars.of(c, plan.info).oracle_text
+        if (public and READER.search(text)) or ABOVE_READER.search(text):
             return True
     return False
 

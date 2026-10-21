@@ -1,0 +1,17 @@
+{
+  "status": "PASS; test assertion repair, no engine or coverage change",
+  "test": "tests/test_rules_wave44b_trigger_other.py::test_shizuko_gives_each_player_mana_that_they_keep_through_the_turn",
+  "reason": "Mana with source provenance lives in mana_units; raw player.mana excludes it. Assert native visible_pool and actual payment instead.",
+  "observable_proofs": [
+    "Three green mana belongs to the upkeep player and survives through their main phase.",
+    "Actual Grizzly Bears cast pays two, leaving one green.",
+    "The remaining mana expires by the next turn.",
+    "History/replay checks pass."
+  ],
+  "logs": [
+    "/tmp/fyodor-mana-shizuko-native-observable.log",
+    "/tmp/fyodor-mana-shizuko-frozen53-observable.log"
+  ],
+  "related_context": "Resolves the stale raw-pool assertion in Rage Forger related checks; earlier125 passing cases are not rerun or inflated.",
+  "promotions": []
+}

@@ -1,0 +1,734 @@
+[
+  {
+    "id": "3fc7210c-da23-4cec-9195-4de75587f40f",
+    "oracle_id": "670df8be-21cd-49d8-92e3-d7cc38b256d6",
+    "name": "Back for More",
+    "layout": "normal",
+    "set_code": "iko",
+    "set_name": "Ikoria: Lair of Behemoths",
+    "collector_number": "177",
+    "rarity": "uncommon",
+    "mana_cost": "{4}{B}{G}",
+    "cmc": 6.0,
+    "type_line": "Instant",
+    "oracle_text": "Return target creature card from your graveyard to the battlefield. When you do, it fights up to one target creature you don't control. (Each deals damage equal to its power to the other.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [
+      "Fight"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-04-24",
+    "artist": "Daarken",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "e28eac1e-adc7-4f8d-b206-bef09ba07d38",
+    "oracle_id": "84856b92-5ce8-47f3-9a1c-78d6a3e26aca",
+    "name": "Eden, Seat of the Sanctum",
+    "layout": "normal",
+    "set_code": "fin",
+    "set_name": "Final Fantasy",
+    "collector_number": "277",
+    "rarity": "uncommon",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land \u2014 Town",
+    "oracle_text": "{T}: Add {C}.\n{5}, {T}: Mill two cards. Then you may sacrifice this land. When you do, return another target permanent card from your graveyard to your hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-06-13",
+    "artist": "Leon Tukker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "81e82915-e734-4754-829f-f5da6a7c550d",
+    "oracle_id": "6d972501-4174-4bf0-a26b-2edef31b3a0c",
+    "name": "Slumbering Walker",
+    "layout": "normal",
+    "set_code": "ecl",
+    "set_name": "Lorwyn Eclipsed",
+    "collector_number": "35",
+    "rarity": "rare",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Giant Warrior",
+    "oracle_text": "This creature enters with two -1/-1 counters on it.\nAt the beginning of your end step, you may remove a counter from this creature. When you do, return target creature card with power 2 or less from your graveyard to the battlefield.",
+    "power": "4",
+    "toughness": "7",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-01-23",
+    "artist": "Jakub Kasper",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "72ab3ccf-3ddb-4dd1-9cfb-98802a18d954",
+    "oracle_id": "e1865bec-1744-40c2-9031-7d6363be5333",
+    "name": "The Last Ronin",
+    "layout": "saga",
+    "set_code": "tmt",
+    "set_name": "Teenage Mutant Ninja Turtles",
+    "collector_number": "154",
+    "rarity": "mythic",
+    "mana_cost": "{4}{B}{G}",
+    "cmc": 6.0,
+    "type_line": "Enchantment \u2014 Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 Destroy all creatures.\nII \u2014 Mill four cards. When you do, return target creature card from your graveyard to your hand.\nIII \u2014 Whenever a creature you control attacks alone this turn, put three +1/+1 counters on it. It gains trample, lifelink, and indestructible until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-03-06",
+    "artist": "Hokyoung Kim",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "8e77339b-dd82-481c-9ee2-4156ca69ad35",
+    "oracle_id": "0c3d86b6-5dcd-4016-9b4a-d4f66b1e963f",
+    "name": "Yathan Roadwatcher",
+    "layout": "normal",
+    "set_code": "tdm",
+    "set_name": "Tarkir: Dragonstorm",
+    "collector_number": "236",
+    "rarity": "rare",
+    "mana_cost": "{1}{W}{B}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Scout",
+    "oracle_text": "When this creature enters, if you cast it, mill four cards. When you do, return target creature card with mana value 3 or less from your graveyard to the battlefield.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "G",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "W"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-04-11",
+    "artist": "Inkognit",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "04e64af7-cca1-499e-8951-f386e84c8b5b",
+    "oracle_id": "c21fafaf-4510-4752-a501-606ae68e6699",
+    "name": "Primal Witchstalker",
+    "layout": "normal",
+    "set_code": "fra",
+    "set_name": "Reality Fracture",
+    "collector_number": "144",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{B}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Wolf",
+    "oracle_text": "Menace (This creature can't be blocked except by two or more creatures.)\nWhen this creature enters, mill four cards. When you do, return target land card from your graveyard to the battlefield tapped. (To mill four cards, put the top four cards of your library into your graveyard.)",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [
+      "Menace",
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Kaitlyn McCulley",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "1c2fcf3e-63ce-45bd-afc4-2c11f54c70c4",
+    "oracle_id": "6a9cc11b-a223-46f0-bf58-c1e08ad1253d",
+    "name": "Forum Filibuster",
+    "layout": "normal",
+    "set_code": "soc",
+    "set_name": "Secrets of Strixhaven Commander",
+    "collector_number": "14",
+    "rarity": "rare",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, create a 2/1 white and black Inkling creature token with flying. When you do, return up to one target Aura or Equipment card from your graveyard to the battlefield attached to that token.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-04-24",
+    "artist": "Inkognit",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "b2ef67fc-b544-4fb3-8362-a29d4533fdd7",
+        "name": "Inkling",
+        "type_line": "Token Creature \u2014 Inkling"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "5e3a5d72-afc2-47e7-a3a7-039afaf6f2a2",
+        "name": "Forum Filibuster",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "2b16a212-602c-4839-9e34-fc5c5b0388f0",
+    "oracle_id": "a37f8381-83a4-4b6b-8176-c90f6a61da74",
+    "name": "Ratonhnhak\u00e9\ua789ton",
+    "layout": "normal",
+    "set_code": "acr",
+    "set_name": "Assassin's Creed",
+    "collector_number": "62",
+    "rarity": "rare",
+    "mana_cost": "{W}{U}{B}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Assassin",
+    "oracle_text": "As long as Ratonhnhak\u00e9\ua789ton hasn't dealt damage yet, it has hexproof and can't be blocked.\nWhenever Ratonhnhak\u00e9\ua789ton deals combat damage to a player, create a 1/1 black Assassin creature token with menace. When you do, return target Equipment card from your graveyard to the battlefield, then attach it to that token.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "U",
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-07-05",
+    "artist": "Greg Staples",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "19cb2062-86f0-4ce3-b5fb-d3c310f36ec3",
+        "name": "Assassin",
+        "type_line": "Token Creature \u2014 Assassin"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "6133c3ab-9552-4b02-8c07-4128773a78b9",
+        "name": "Ratonhnhak\u00e9\ua789ton",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "2b80feb8-5cc8-4e91-ac22-a733305a67de",
+    "oracle_id": "aa929252-5dcc-4c9b-9e7c-61d0bef98d6d",
+    "name": "Blood Spatter Analysis",
+    "layout": "normal",
+    "set_code": "mkm",
+    "set_name": "Murders at Karlov Manor",
+    "collector_number": "189",
+    "rarity": "rare",
+    "mana_cost": "{B}{R}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, it deals 3 damage to target creature an opponent controls.\nWhenever one or more creatures die, mill a card and put a bloodstain counter on this enchantment. Then sacrifice it if it has five or more bloodstain counters on it. When you do, return target creature card from your graveyard to your hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-02-09",
+    "artist": "Jokubas Uogintas",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "5884d98e-3e02-48ae-9904-4ebbf1e90f6d",
+    "oracle_id": "169cf74a-07bf-4841-83f3-904df8a0a39b",
+    "name": "Jailbreak",
+    "layout": "normal",
+    "set_code": "ncc",
+    "set_name": "New Capenna Commander",
+    "collector_number": "17",
+    "rarity": "rare",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Return target permanent card in an opponent's graveyard to the battlefield under their control. When that permanent enters, return up to one target permanent card with equal or lesser mana value from your graveyard to the battlefield.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-04-29",
+    "artist": "Tatiana Kirgetova",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "d0c18ffe-a2b9-40df-a6b4-a9381e6dc467",
+    "oracle_id": "e74efcf2-d77f-4fb5-9027-77e462ec829e",
+    "name": "Kraven's Last Hunt",
+    "layout": "saga",
+    "set_code": "spm",
+    "set_name": "Marvel's Spider-Man",
+    "collector_number": "105",
+    "rarity": "rare",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Enchantment \u2014 Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 Mill five cards. When you do, this Saga deals damage equal to the greatest power among creature cards in your graveyard to target creature.\nII \u2014 Target creature you control gets +2/+2 until end of turn.\nIII \u2014 Return target creature card from your graveyard to your hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-09-26",
+    "artist": "Bill Sienkiewicz",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "5fa0c53d-fe7b-4b8b-ad81-7967ca318ff7",
+    "oracle_id": "29423a9a-31a6-4605-8b49-a75895038a3a",
+    "name": "Wick's Patrol",
+    "layout": "normal",
+    "set_code": "blb",
+    "set_name": "Bloomburrow",
+    "collector_number": "121",
+    "rarity": "uncommon",
+    "mana_cost": "{4}{B}{B}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Rat Warlock",
+    "oracle_text": "When this creature enters, mill three cards. When you do, target creature an opponent controls gets -X/-X until end of turn, where X is the greatest mana value among cards in your graveyard.",
+    "power": "5",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-08-02",
+    "artist": "Dmitry Burmak",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "24fdf8bd-1893-4599-936a-fe0d6a87545f",
+    "oracle_id": "ae7e14cf-a275-4260-8d78-324429a042b7",
+    "name": "Sigil of Myrkul",
+    "layout": "normal",
+    "set_code": "clb",
+    "set_name": "Commander Legends: Battle for Baldur's Gate",
+    "collector_number": "147",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of combat on your turn, mill a card. When you do, if there are four or more creature cards in your graveyard, put a +1/+1 counter on target creature you control and it gains deathtouch until end of turn. (To mill a card, put the top card of your library into your graveyard.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-06-10",
+    "artist": "David Astruga",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "b8c5e74c-96e7-4a1f-93b7-14d776fe4b2d",
+    "oracle_id": "4b7ac066-e5c7-43e6-9e7e-2739b24a905d",
+    "name": "Serra Angel",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "740",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Angel",
+    "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Vigilance"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-04-24",
+    "artist": "Greg Staples",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "ad2bbfa1-81e0-4683-b1dc-a3aaa9837690",
+        "name": "Treizeci, Sun of Serra",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "d108c2b1-236e-4b8d-8445-d9749ccc4fea",
+    "oracle_id": "087f9ad7-e74f-40e2-8102-1ed2925d0418",
+    "name": "Rest in Peace",
+    "layout": "normal",
+    "set_code": "big",
+    "set_name": "The Big Score",
+    "collector_number": "4",
+    "rarity": "mythic",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-04-19",
+    "artist": "Grady Frederick",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "70197723-c61b-4600-b61d-41380c8f3067",
+    "oracle_id": "1b09d0cf-403c-4a15-aeee-602a1bdaf0c1",
+    "name": "Darksteel Colossus",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "671",
+    "rarity": "mythic",
+    "mana_cost": "{11}",
+    "cmc": 11.0,
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nIndestructible (Damage and effects that say \"destroy\" don't destroy this creature.)\nIf Darksteel Colossus would be put into a graveyard from anywhere, reveal Darksteel Colossus and shuffle it into its owner's library instead.",
+    "power": "11",
+    "toughness": "11",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Indestructible",
+      "Trample"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Carl Critchlow",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "2ce2d73f-3f64-44db-a2bc-a8f4a37dc487",
+    "oracle_id": "274b999f-f193-48fd-9a4a-0fdaf535e6c3",
+    "name": "Bruvac the Grandiloquent",
+    "layout": "normal",
+    "set_code": "rvr",
+    "set_name": "Ravnica Remastered",
+    "collector_number": "35",
+    "rarity": "mythic",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Advisor",
+    "oracle_text": "If an opponent would mill one or more cards, they mill twice that many cards instead. (To mill a card, a player puts the top card of their library into their graveyard.)",
+    "power": "1",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-01-12",
+    "artist": "Ekaterina Burmak",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "98bad09a-64f4-4067-9802-f408793d82f7",
+    "oracle_id": "0f5ac364-447b-4c43-9aed-6098dc0bab82",
+    "name": "Daybreak Coronet",
+    "layout": "normal",
+    "set_code": "woc",
+    "set_name": "Wilds of Eldraine Commander",
+    "collector_number": "65",
+    "rarity": "rare",
+    "mana_cost": "{W}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature with another Aura attached to it\nEnchanted creature gets +3/+3 and has first strike, vigilance, and lifelink. (Damage dealt by the creature also causes its controller to gain that much life.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-09-08",
+    "artist": "Johannes Voss",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "3245f858-b5c3-42dd-8ec2-3f775ad9e1ec",
+    "oracle_id": "51092634-308e-4779-aa51-182715dbc734",
+    "name": "March of the Machines",
+    "layout": "normal",
+    "set_code": "arc",
+    "set_name": "Archenemy",
+    "collector_number": "6",
+    "rarity": "rare",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Each noncreature artifact is an artifact creature with power and toughness each equal to its mana value. (Equipment that's a creature can't equip a creature.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2010-06-18",
+    "artist": "Ben Thompson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

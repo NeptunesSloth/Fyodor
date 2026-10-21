@@ -1,0 +1,9 @@
+# Simultaneous received-damage threshold — production reviewed
+
+Innocent Bystander was independently reviewed and admitted after exact live proposal installation and native production closure. Its full canonical record and all six official rulings were read. A bounded observer addition computes actual nonmanual damage totals per batch and recipient object identity, attaches ephemeral metadata to the existing native fact, and applies the threshold only to the exact admitted received-damage condition. Existing conditions and native pending-event aggregation remain unchanged.
+
+Nine native staged cases pass, including genuine cold source departure. Lightning Bolt creates a Clue after lethal damage and the Clue can actually be sacrificed to draw. Two damage, separate damage events, and prevented damage do not qualify. Simultaneous combat damage from two sources totaling three triggers once. Furnace of Rath damage qualifies once. Fiery Confluence repeating its one-damage mode three times within one resolution does not combine these separate instructions into one qualifying event. Related damage suites pass 76 cases; scoped types and Ruff pass.
+
+Exact proposal: `/tmp/trigger70-threshold-kernel-proposal.patch`. Source: `backend/app/rules/trigger_damage_threshold70.py`, its native test and fixture. Logs: `/tmp/trigger70-nine-staged.log`, `/tmp/trigger70-related-staged-corrected.log`, `/tmp/trigger70-staged-types.log`, `/tmp/trigger70-staged-ruff.log`. The earlier related run with a nonexistent filename is excluded from evidence.
+
+Adapter-free combined production25, including3 genuine cold, and related157 pass. Scoped source types3 and Ruff pass. Final combined logs: `/tmp/trigger70-71-production.log`, `/tmp/trigger70-71-related-production.log`, `/tmp/trigger70-71-production-types.log`, `/tmp/trigger70-71-production-ruff.log`.

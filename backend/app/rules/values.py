@@ -214,6 +214,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     ``it`` is what a bare "it" means for the caller ("counters on it": the static's own source
     is "self"); None refuses it (a pronoun the caller can't bind is never guessed)."""
     p = phrase.strip()
+    if p.lower() in ("counter among players and permanents", "counters among players and permanents", "the number of counters among players and permanents"):
+        return {"all_counters_among_players_and_permanents": True}
     from app.rules import linked_aggregates
 
     if (linked := linked_aggregates.parse_value(p)) is not None:
@@ -540,6 +542,8 @@ _TURN_ENTERED = re.compile(r"^(?:the number of )?(?P<sel>(?:nontoken )?(?:creatu
 
 
 def _turn_amount(what: str) -> Value | None:
+    if what == 'the total amount of noncombat damage dealt to your opponents this turn':
+        return {'turn_history': 'opponent_noncombat_damage'}
     if what in ("{E} you've paid or lost this turn", "the amount of {E} you've paid or lost this turn"):
         return {"turn_history": "energy_lost"}
     if m := _OPPONENTS_HAND.match(what):  # each opponent whose hand size now says so (the count of a hand is public)
@@ -912,7 +916,7 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "hand" in v and v["hand"] == "opponent_max":  # (wave 42A) the opponent with the most cards in hand: that many (0 with no opponent)
         return max([len(plan.state.zones.get(f"{p}:hand", [])) for p in plan.live() if p != you] or [0])
     if "hand" in v:
-        players = [you] if v["hand"] == "you" else _target_players(plan, ctx)
+        players = [you] if v["hand"] == "you" else _target_players(plan, ctx, v["hand"] if str(v["hand"]).startswith("target:") else "target")
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in players)
     if "library" in v:  # -- static grants (wave 15A) -- "half their library": the cards in the library of the player it names
         from app.rules import context
@@ -950,6 +954,19 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         spec=v["players_with_counters"]
         return sum(int(plan.state.players[p].resources.get(spec["kind"],0))>=spec["at_least"]
                    for p in plan.live() if spec["who"]!="opponents" or p!=you)
+    if "all_counters_among_players_and_permanents" in v:
+        player_total = sum(
+            max(0, n)
+            for pid in plan.live()
+            for kind, n in plan.state.players[pid].resources.items()
+            if kind != "speed"
+        )
+        permanents = selectors.Selector(types=tuple(PERMANENT_TYPES))
+        return player_total + sum(
+            max(0, n)
+            for cid in selectors.candidates(plan, permanents, you)
+            for n in plan.state.cards[cid].counters.values()
+        )
     if "player_counters" in v:
         if v.get("of") == "opponents":  # (wave 3E) "poison counters your opponents have": all of them together
             return sum(max(0, int(plan.state.players[p].resources.get(v["player_counters"], 0))) for p in plan.live() if p != you)

@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from app.game.errors import ActionError
+from app.game.mana_cost_templates import GrantedManaCost
 from app.rules import conditions
 from app.rules import costs as C
 from app.rules import mana as M
@@ -102,6 +103,20 @@ def parse_cost(text: str, x_ok: bool = False) -> AltCost | None:
 
     if (nonmana_x := shoal_nonmana_x.parse(text)) is not None:
         return nonmana_x
+    if text == "discard an Island card and another card":
+        island, other = C._selector("Island card", zone="hand"), C._selector("card", zone="hand")
+        if island is None or other is None:
+            return None
+        return AltCost("", C.AbilityCost(components=(
+            C.CostComponent(C.DISCARD, selector=island, text="Discard an Island card"),
+            C.CostComponent(C.DISCARD, selector=other, text="Discard another card"),
+        )))
+    if text == "discard a card that shares a color with that spell":
+        from dataclasses import replace
+
+        from app.rules import selectors
+        selector = replace(selectors.Selector(card=True, zones=("hand",)), extras=("shares_color_source",))
+        return AltCost("", C.AbilityCost(components=(C.CostComponent(C.DISCARD, selector=selector.key(), text=text),)))
     if re.search(r"\bx\b", text.replace("{X}", "") if x_ok else text, re.IGNORECASE) or "," in text:
         return None
     mana = ""
@@ -134,6 +149,9 @@ def define(t: str, x_ok: bool = False) -> dict[str, Any] | None:
 
     if (gain_cost := opponent_gain_costs44.definition(t)) is not None:
         return gain_cost
+    if t == "rather than pay the mana cost for a spell, its controller may discard a card that shares a color with that spell":
+        return {"kind": "static", "static": "alt_cost", "cost": "discard a card that shares a color with that spell",
+                "table": True, "any_controller": True, "once": False, "effects": []}
     # -- cost alt (wave 16F) -- 118.9: "If an opponent controls a Forest and you control a Swamp, you may cast this spell without paying
     # its mana cost." (the Legates) is an alternative cost of {0}, used under that condition
     t = re.sub(r"^(if [^,]+), you may cast (?:this spell|~) without paying its mana cost$", r"\1, you may pay {0} rather than pay "
@@ -296,6 +314,10 @@ class Offer:
     escape: bool = False  # -- escape (wave 5I) -- 702.138a: a cast from the graveyard (app/rules/escape.py)
     tag: str | None = None  # -- keywords (wave 15E) -- "blitz": cast for its blitz cost (702.152a)
     flash: bool = False  # Timing permission belongs only to this actual alternative cost.
+    producer_requirement: M.ProducerRequirement | None = None  # Frozen from the actual selected definition.
+    minimum_mana_value: int | None = None  # Validated against the selected face and announced X.
+    cost_template: GrantedManaCost | None = None
+    template_mana_has_x: bool | None = None  # Actual original cost, unknown in old offers.
 
 
 def sneak_timing(state: GameState, player: str) -> bool:
@@ -364,14 +386,28 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
                 continue
         alt = parse_cost(d["cost"], x_ok=d.get("tag") in X_KEYWORDS)
         if alt is not None:
-            out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}" + (f" ({d['tag']})" if d.get("tag") in ("mutate", "evoke") else ""), alt, tag=d.get("tag")))
+            out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}" + (f" ({d['tag']})" if d.get("tag") in ("mutate", "evoke") else ""), alt, tag=d.get("tag"),
+                             producer_requirement=M.ProducerRequirement(d["producer_requirement"]) if d.get("producer_requirement") else None))
     given = r.foretell_costs.get(card.id)  # -- hidden exile (wave 18A) -- 702.143d: a foretell cost an effect gave it
     if given and card.zone == f"{player}:foretell" and card.owner == player and r.foretold.get(card.id, 0) < state.turn.number \
             and (alt := parse_cost(f"pay {given}")) is not None:
         out.append(Offer(f"{card.id}:foretell", f"{ch.name}: {given}", alt, tag="foretell"))
+    receipt = r.foretell_templates.get(card.id)
+    if receipt is not None and receipt.object_id == r.object_id(card.id) and card.zone == f"{player}:foretell" and card.owner == player and r.foretold.get(card.id, 0) < state.turn.number and ch.mana_cost:
+        raw = M.parse_cost(ch.mana_cost)
+        if not raw.unsupported:
+            out.append(Offer(f"{card.id}:foretell-template", f"{ch.name}: foretell (its mana cost reduced by {{{receipt.template.generic_reduction}}})",
+                             AltCost(raw.text(), C.AbilityCost()), tag="foretell", cost_template=receipt.template,
+                             template_mana_has_x=bool(raw.x)))
     where = card.zone.rsplit(":", 1)[-1]
     for src, index, d in permissions._table_statics(state, info, {"alt_cost"}):
-        if not d.get("table") or src.controller != player or where == "foretell":
+        if d.get("dynamic_keyword"):
+            from app.rules import dynamic_keyword_costs55
+
+            if where != "foretell" and src.controller == player and (granted := dynamic_keyword_costs55.offer(src, index, d, ch)) is not None:
+                out.append(granted)
+            continue
+        if not d.get("table") or (src.controller != player and not d.get("any_controller")) or where == "foretell":
             continue
         key = f"{r.object_id(src.id)}:alt:{index}"  # (-- review 31 -- 400.7: a new As Foretold / Darksteel Monolith has a new use, as permissions' review 30c)
         if d["once"] and r.once_per_turn.get(key) == state.turn.number:
@@ -399,11 +435,32 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
     return out
 
 
-def chosen(plan: Plan, key: str, card: CardInstance, ch: Characteristics) -> Offer:
+def bind_template(offer: Offer, *, x: int) -> Offer:
+    from dataclasses import replace
+
+    if offer.cost_template is None:
+        return offer
+    raw = offer.alt.mana_cost.with_x(x)
+    bound = raw.plus_generic(-min(raw.generic, offer.cost_template.generic_reduction))
+    return replace(offer, alt=replace(offer.alt, mana=bound.text()))
+
+
+def announces_x(offer: Offer) -> bool:
+    return bool(offer.alt.mana_cost.x or getattr(offer.alt, "nonmana_x", False) or offer.template_mana_has_x)
+
+
+def chosen(plan: Plan, key: str, card: CardInstance, ch: Characteristics, *, x: int | None = None) -> Offer:
     """The alternative cost the intent names, checked now (601.2b), or an ActionError."""
     for offer in offers(plan.state, plan.actor, card, ch, plan.info):
         if offer.key == key:
-            return offer
+            if offer.minimum_mana_value is not None and (x is not None or not offer.alt.mana_cost.x):
+                from app.game.state import StackInfo
+                from app.rules import stack_interaction
+
+                probe = card.model_copy(update={"zone": "stack", "stack_info": StackInfo(x=x or 0)})
+                if stack_interaction.mana_value(probe, ch) < offer.minimum_mana_value:
+                    raise ActionError("That spell's announced mana value is too low for this alternative cost")
+            return bind_template(offer, x=x or 0) if x is not None or not offer.alt.mana_cost.x else offer
     raise ActionError("That alternative cost can't be used to cast this spell now")
 
 

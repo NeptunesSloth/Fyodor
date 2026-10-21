@@ -1,0 +1,378 @@
+[
+  {
+    "id": "fddc6f47-202d-4764-abc1-ee453a8917c2",
+    "oracle_id": "c808892a-83d5-4b09-b0da-118b0d6fe58e",
+    "name": "Charging Hooligan",
+    "layout": "normal",
+    "set_code": "woe",
+    "set_name": "Wilds of Eldraine",
+    "collector_number": "318",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Peasant",
+    "oracle_text": "Whenever this creature attacks, it gets +1/+0 until end of turn for each attacking creature. If a Rat is attacking, this creature gains trample until end of turn.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-09-08",
+    "artist": "Tomas Duchek",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "1811b4fa-fed6-46ea-a6de-bb7624a5b1de",
+    "oracle_id": "7cb29569-48e1-4782-9906-fad155ebfafe",
+    "name": "Hanweir Garrison",
+    "layout": "meld",
+    "set_code": "inr",
+    "set_name": "Innistrad Remastered",
+    "collector_number": "157",
+    "rarity": "rare",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "Whenever this creature attacks, create two 1/1 red Human creature tokens that are tapped and attacking.\n(Melds with Hanweir Battlements.)",
+    "power": "2",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-01-24",
+    "artist": "Vincent Proce",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "5806617d-a621-434a-a2aa-756144efb67b",
+        "name": "Human",
+        "type_line": "Token Creature \u2014 Human"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "8c0acb91-edfc-43a5-af77-6614327fce43",
+        "name": "Hanweir Battlements",
+        "component": "meld_part"
+      },
+      {
+        "id": "cd8586f9-97e2-438d-b74f-1e53c811f314",
+        "name": "Eldritch Moon Checklist",
+        "component": "combo_piece"
+      },
+      {
+        "id": "ddad5b2a-0575-4b44-9fbc-107ee4d10f24",
+        "name": "Hanweir, the Writhing Township",
+        "component": "meld_result"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "559a14ce-de7a-4ce4-8c46-99818372187f",
+    "oracle_id": "68865793-daeb-4c55-80cb-12853f9f96c4",
+    "name": "Amoeboid Changeling",
+    "layout": "normal",
+    "set_code": "j22",
+    "set_name": "Jumpstart 2022",
+    "collector_number": "269",
+    "rarity": "common",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Shapeshifter",
+    "oracle_text": "Changeling (This card is every creature type.)\n{T}: Target creature gains all creature types until end of turn.\n{T}: Target creature loses all creature types until end of turn.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Changeling"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-12-02",
+    "artist": "Nils Hamm",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "6c37f680-770b-4d0e-8bf7-44ba3449d419",
+    "oracle_id": "d6ee6cc1-902d-4f56-afa5-6fa4813bfbbc",
+    "name": "Typhoid Rats",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "497",
+    "rarity": "common",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Rat",
+    "oracle_text": "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Deathtouch"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Dave Kendall",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "a9cc02d1-799d-42aa-9bc2-4c05452b63b4",
+    "oracle_id": "30377bd5-99ab-4888-9ea7-e5a069b527e8",
+    "name": "Return the Favor",
+    "layout": "normal",
+    "set_code": "otj",
+    "set_name": "Outlaws of Thunder Junction",
+    "collector_number": "142",
+    "rarity": "uncommon",
+    "mana_cost": "{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Spree (Choose one or more additional costs.)\n+ {1} \u2014 Copy target instant spell, sorcery spell, activated ability, or triggered ability. You may choose new targets for the copy.\n+ {1} \u2014 Change the target of target spell or ability with a single target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Spree"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-04-19",
+    "artist": "Eli Minaya",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "616d1b20-61c1-4d39-a9b5-ad9fd61699e4",
+    "oracle_id": "b3b00911-ece7-4484-bc36-f211ce72b6cc",
+    "name": "Stifle",
+    "layout": "normal",
+    "set_code": "cns",
+    "set_name": "Conspiracy",
+    "collector_number": "108",
+    "rarity": "rare",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2014-06-06",
+    "artist": "Eric Fortune",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "8bc7fdf0-3e1e-487c-833d-7c74aa02c0c1",
+    "oracle_id": "6879f5ce-7a1b-4606-bad1-885779b0d456",
+    "name": "Cloudshift",
+    "layout": "normal",
+    "set_code": "jmp",
+    "set_name": "Jumpstart",
+    "collector_number": "97",
+    "rarity": "common",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-07-17",
+    "artist": "Howard Lyon",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "ddad9f16-52d5-49de-82b0-b1a5294a9c44",
+    "oracle_id": "837182db-1bf3-4a2c-bd01-1af9d9873561",
+    "name": "Unsummon",
+    "layout": "normal",
+    "set_code": "fra",
+    "set_name": "Reality Fracture",
+    "collector_number": "46",
+    "rarity": "common",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Return target creature to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Ioannis Fiore",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "b16ddbcb-b28d-4a67-857b-5c30ccf055f0",
+    "oracle_id": "d50b1d2e-1825-432a-ab73-068fdc356f50",
+    "name": "Universal Automaton",
+    "layout": "normal",
+    "set_code": "j22",
+    "set_name": "Jumpstart 2022",
+    "collector_number": "803",
+    "rarity": "common",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact Creature \u2014 Shapeshifter",
+    "oracle_text": "Changeling (This card is every creature type.)",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Changeling"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-12-02",
+    "artist": "Ben Maier",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "c575e2cb-3990-4c73-b81c-e16311ec6bbb",
+    "oracle_id": "0be10525-09dc-4970-b495-2db7d4d3c3e7",
+    "name": "Unnatural Selection",
+    "layout": "normal",
+    "set_code": "apc",
+    "set_name": "Apocalypse",
+    "collector_number": "32",
+    "rarity": "rare",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "{1}: Choose a creature type other than Wall. Target creature becomes that type until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2001-06-04",
+    "artist": "Kev Walker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  }
+]

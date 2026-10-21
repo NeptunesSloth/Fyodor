@@ -1,0 +1,402 @@
+[
+  {
+    "id": "06883fd2-eccd-47c6-8c34-10d95e923685",
+    "oracle_id": "bdf4e225-23b5-47d9-9936-ddcec8aa1ca4",
+    "name": "Tourach's Chant",
+    "layout": "normal",
+    "set_code": "fem",
+    "set_name": "Fallen Empires",
+    "collector_number": "47",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, sacrifice this enchantment unless you pay {B}.\nWhenever a player puts a Forest onto the battlefield, this enchantment deals 3 damage to that player unless they put a -1/-1 counter on a creature they control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1994-11-01",
+    "artist": "Richard Kane Ferguson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "9d970195-0a09-4cb4-a2c0-c16fcab5c859",
+    "oracle_id": "ff4ccf8d-7d3d-4a44-a9ab-6bc88e90d6a7",
+    "name": "Thelon's Chant",
+    "layout": "normal",
+    "set_code": "fem",
+    "set_name": "Fallen Empires",
+    "collector_number": "76",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{G}{G}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, sacrifice this enchantment unless you pay {G}.\nWhenever a player puts a Swamp onto the battlefield, this enchantment deals 3 damage to that player unless the player puts a -1/-1 counter on a creature they control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1994-11-01",
+    "artist": "Melissa A. Benson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "e3ddbebf-72cd-4d1b-ba0d-d94934654ab7",
+    "oracle_id": "e996cd67-739c-40f4-b276-0042acf26c71",
+    "name": "Dryad Arbor",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land Creature \u2014 Forest Dryad",
+    "oracle_text": "(This land isn't a spell, it's affected by summoning sickness, and it has \"{T}: Add {G}.\")",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_indicator": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "set": "dsc",
+    "collector_number": "273",
+    "rarity": "rare"
+  },
+  {
+    "id": "5f1cdcba-a04a-4a2f-8bc1-0dd7fa03754d",
+    "oracle_id": "fbe61f74-1b3c-4e12-8758-7029872c9ff1",
+    "name": "Exhume",
+    "layout": "normal",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Each player puts a creature card from their graveyard onto the battlefield.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "set": "jmp",
+    "collector_number": "230",
+    "rarity": "uncommon"
+  },
+  {
+    "id": "4e50ee7c-f2a2-4d49-a1cc-8233fd8dd0c5",
+    "oracle_id": "15cef63b-903e-4f1b-a128-e59157e07c36",
+    "name": "Second Sunrise",
+    "layout": "normal",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Each player returns to the battlefield all artifact, creature, enchantment, and land cards in their graveyard that were put there from the battlefield this turn.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "set": "mrd",
+    "collector_number": "20",
+    "rarity": "rare"
+  },
+  {
+    "id": "5884d98e-3e02-48ae-9904-4ebbf1e90f6d",
+    "oracle_id": "169cf74a-07bf-4841-83f3-904df8a0a39b",
+    "name": "Jailbreak",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Return target permanent card in an opponent's graveyard to the battlefield under their control. When that permanent enters, return up to one target permanent card with equal or lesser mana value from your graveyard to the battlefield.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "set": "ncc",
+    "collector_number": "17",
+    "rarity": "rare"
+  },
+  {
+    "id": "4ac29c46-f8ee-42ba-a98c-d785ba65485e",
+    "oracle_id": "9e6a3df4-67a3-452e-a6ef-f04dbadb21ef",
+    "name": "Living Death",
+    "layout": "normal",
+    "mana_cost": "{3}{B}{B}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "set": "tdc",
+    "collector_number": "185",
+    "rarity": "rare"
+  },
+  {
+    "id": "1c95f8b8-faba-4412-8d8f-093e2ec903f0",
+    "oracle_id": "3cc79d36-1a24-4395-8ad1-915a65db8a60",
+    "name": "Awaken the Woods",
+    "layout": "normal",
+    "mana_cost": "{X}{G}{G}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Create X 1/1 green Forest Dryad land creature tokens. (They're affected by summoning sickness.)",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "set": "bro",
+    "collector_number": "170",
+    "rarity": "mythic"
+  },
+  {
+    "id": "b233b117-9369-45c1-80c5-cc857386b6be",
+    "oracle_id": "56719f6a-1a6c-4c0a-8d21-18f7d7350b68",
+    "name": "Swamp",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Swamp",
+    "oracle_text": "({T}: Add {B}.)",
+    "colors": [],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "set": "mdd",
+    "collector_number": "296",
+    "rarity": "common"
+  },
+  {
+    "id": "0a71fb62-acbd-49f5-842f-0fc9fa48afea",
+    "oracle_id": "f0b4331b-ddd3-4f11-ba16-67c651c8954c",
+    "name": "Solemnity",
+    "layout": "normal",
+    "set_code": "hou",
+    "set_name": "Hour of Devastation",
+    "collector_number": "22",
+    "rarity": "rare",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-07-14",
+    "artist": "Greg Opalinski",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "36ab760e-93e0-4dbc-aaa1-02316f62ed3f",
+    "oracle_id": "79770e65-740a-44c7-bea2-a24e6a722c22",
+    "name": "Vizier of Remedies",
+    "layout": "normal",
+    "set_code": "akh",
+    "set_name": "Amonkhet",
+    "collector_number": "38",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Cleric",
+    "oracle_text": "If one or more -1/-1 counters would be put on a creature you control, that many -1/-1 counters minus one are put on it instead.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-04-28",
+    "artist": "Randy Gallegos",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "e83851a1-e4e8-49ec-af5c-4efe86fa51ad",
+    "oracle_id": "a6f72f15-d103-49fb-a808-054b278d00a8",
+    "name": "Melira, Sylvok Outcast",
+    "layout": "normal",
+    "set_code": "nph",
+    "set_name": "New Phyrexia",
+    "collector_number": "115",
+    "rarity": "rare",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Human Scout",
+    "oracle_text": "You can't get poison counters.\nCreatures you control can't have -1/-1 counters put on them.\nCreatures your opponents control lose infect.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2011-05-13",
+    "artist": "Min Yum",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "4391b0af-2f26-4a45-9e2a-5bd8e9838107",
+    "oracle_id": "e4bcd4ea-e7cd-4471-8f3b-18bb51d3d70c",
+    "name": "Pyroclasm",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Pyroclasm deals 2 damage to each creature.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "set": "dsk",
+    "collector_number": "149",
+    "rarity": "uncommon"
+  },
+  {
+    "id": "317686d8-b762-4598-b74a-8b1fa6b899ba",
+    "oracle_id": "25fc3bc2-d852-4f52-9adb-c7e35c06f3af",
+    "name": "Patriarch's Bidding",
+    "layout": "normal",
+    "mana_cost": "{3}{B}{B}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Each player chooses a creature type. Each player returns all creature cards of a type chosen this way from their graveyard to the battlefield.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "set": "mh2",
+    "collector_number": "275",
+    "rarity": "rare"
+  },
+  {
+    "id": "7fe593eb-df3c-43e5-97a6-418f91e87cb3",
+    "oracle_id": "e36a92be-537d-4a63-858a-afaab064fbf7",
+    "name": "Parallax Tide",
+    "layout": "normal",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Fading 5 (This enchantment enters with five fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nRemove a fade counter from this enchantment: Exile target land.\nWhen this enchantment leaves the battlefield, each player returns to the battlefield all cards they own exiled with it.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Fading"
+    ],
+    "set": "nem",
+    "collector_number": "37",
+    "rarity": "rare"
+  },
+  {
+    "id": "7ac43e16-8b14-46f2-877a-600ea918766b",
+    "oracle_id": "a7e97fa9-4b72-4548-b854-5be5f18a6f1a",
+    "name": "Disenchant",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "set": "fdn",
+    "collector_number": "572",
+    "rarity": "common"
+  }
+]

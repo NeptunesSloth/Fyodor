@@ -118,7 +118,7 @@ _PLAYER_VERBS = [
     (r"attacks?", "you_attack"),
 ]
 _PLAYERS = {"you": "you", "an opponent": "opponent", "a player": "any", "each opponent": "opponent",
-            "enchanted player": "enchanted", "another player": "other"}  # (wave 16F: a Curse's "enchanted player")
+            "enchanted player": "enchanted", "enchanted opponent": "enchanted", "another player": "other"}  # (wave 16F: a Curse's "enchanted player")
 _NTH = {"second": 2, "third": 3, "first": 1, "fourth": 4, "fifth": 5}
 _COUNT = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}  # (wave 22E: eight …)
 _MULTI = {"enters": "enter", "dies": "die", "attacks": "attack", "leaves the battlefield": "leave", "blocks": "block",
@@ -168,6 +168,10 @@ def parse_condition(cond: str) -> Condition | None:
         assert sel is not None
         return {'event': 'deal_combat_damage_player', 'combat_recipient': 'player', 'subject': 'self_or', 'sel': sel.key(), 'aggregate': False}
     """The part between "When/Whenever" and the comma → a condition, or None."""
+    from app.rules import graveyard_return57
+
+    if (returned57 := graveyard_return57.event(cond)) is not None:
+        return returned57
     # -- attached events (wave 25D) -- the Genju: "When enchanted Forest is put into a graveyard" — what an Aura is attached to is on the battlefield,
     # so being put into a graveyard is dying (700.4); "enchanted Forest" is the land it's attached to
     if cond.endswith(" without being played"):
@@ -779,7 +783,7 @@ def _parse(c: str) -> Condition | None:
         # -- life floor (wave 35C) -- 603.2c "one or more … lose life" (Emet-Selch of the Third Seat): once for everything that happened at the same time
         return {"event": "lose_life", "subject": "player", "player": "opponent" if m["p"] == "opponents" else "any", "aggregate": True}
     for pattern, event in _PLAYER_VERBS:
-        m = re.fullmatch(rf"(?P<p>you|an opponent|a player|each opponent|enchanted player) (?:{pattern})", c)
+        m = re.fullmatch(rf"(?P<p>you|an opponent|a player|each opponent|enchanted player|enchanted opponent) (?:{pattern})", c)
         if m:
             return {"event": event, "subject": "player", "player": _PLAYERS[m["p"]]}
     for pattern, event in _EVENT_VERBS:
@@ -1110,7 +1114,9 @@ def _cast(c: str) -> Condition | None:
         spell = "a " + k["rest"]
     spell = re.sub(r"^an? ", "", spell)
     spell = re.sub(r"^(\w+) spell or an? (\w+) spell$", r"\1 or \2 spell", spell)  # (wave 17D: "a noncreature spell or a Dragon spell")
-    sel = selectors.parse(spell) if spell != "spell" else selectors.Selector(zones=("stack",))
+    sel = (selectors.Selector(types=("Instant", "Sorcery"), subtypes=("Adventure",), zones=("stack",))
+           if spell == "Adventure instant or sorcery spell" else
+           selectors.parse(spell) if spell != "spell" else selectors.Selector(zones=("stack",)))
     if sel is None:  # -- triggers (wave 17D) -- "a noncreature or Dragon spell": two whole kinds, either one (601.2i)
         alt = re.fullmatch(r"(?:([a-z]+|[A-Z][a-z]+) or ([a-z]+|[A-Z][a-z]+)|(\w+ \w+) or (\w+ \w+)) spell", spell)  # (wave 47D: "a Phyrexian creature or artifact creature spell", Brimaz: each half qualified)
         halves = [selectors.parse(f"{w} spell") for w in alt.groups() if w] if alt else []

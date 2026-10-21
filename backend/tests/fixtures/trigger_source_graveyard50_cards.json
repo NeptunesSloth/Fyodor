@@ -1,0 +1,372 @@
+[
+  {
+    "id": "860f46ea-6fd0-456d-971d-8d1eccc7fa60",
+    "oracle_id": "8bd2af55-5a48-4300-a893-ae6cd548db24",
+    "name": "Mortuary",
+    "layout": "normal",
+    "set_code": "sth",
+    "set_name": "Stronghold",
+    "collector_number": "66",
+    "rarity": "rare",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever a creature is put into your graveyard from the battlefield, put that card on top of your library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1998-03-02",
+    "artist": "Robert Bliss",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "b0e6847b-38fa-400a-b4aa-8861d18e5c8e",
+    "oracle_id": "038a8b6b-4529-4e06-bdff-9ee7ba291776",
+    "name": "Patron of the Nezumi",
+    "layout": "normal",
+    "set_code": "cmd",
+    "set_name": "Commander 2011",
+    "collector_number": "93",
+    "rarity": "rare",
+    "mana_cost": "{5}{B}{B}",
+    "cmc": 7.0,
+    "type_line": "Legendary Creature \u2014 Spirit",
+    "oracle_text": "Rat offering (You may cast this spell any time you could cast an instant by sacrificing a Rat and paying the difference in mana costs between this and the sacrificed Rat. Mana cost includes color.)\nWhenever a permanent is put into an opponent's graveyard, that player loses 1 life.",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Offering"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2011-06-17",
+    "artist": "Kev Walker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "0b07c66d-5f37-4098-b7e6-03e6c684806b",
+    "oracle_id": "65f1bebb-6441-4189-b6de-993ec9d24a59",
+    "name": "Liability",
+    "layout": "normal",
+    "set_code": "mmq",
+    "set_name": "Mercadian Masques",
+    "collector_number": "144",
+    "rarity": "rare",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever a nontoken permanent is put into a player's graveyard from the battlefield, that player loses 1 life.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1999-10-04",
+    "artist": "Christopher Moeller",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "b035c718-ac11-4c97-a9bb-0cd88dc71904",
+    "oracle_id": "994e27e1-0bff-47c9-a1e6-b9e3ae4ffb1e",
+    "name": "Planar Void",
+    "layout": "normal",
+    "set_code": "usg",
+    "set_name": "Urza's Saga",
+    "collector_number": "149",
+    "rarity": "uncommon",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever another card is put into a graveyard from anywhere, exile that card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1998-10-12",
+    "artist": "Andrew Goldhawk",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "34d6776c-f286-4b43-8f5f-d70b5585e635",
+    "oracle_id": "8f1d65ae-7ce5-4bb6-8c00-eace25ff837c",
+    "name": "Measure of Wickedness",
+    "layout": "normal",
+    "set_code": "sok",
+    "set_name": "Saviors of Kamigawa",
+    "collector_number": "82",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your end step, sacrifice this enchantment and you lose 8 life.\nWhenever another card is put into your graveyard from anywhere, target opponent gains control of this enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2005-06-03",
+    "artist": "Daren Bader",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "6c37f680-770b-4d0e-8bf7-44ba3449d419",
+    "oracle_id": "d6ee6cc1-902d-4f56-afa5-6fa4813bfbbc",
+    "name": "Typhoid Rats",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "497",
+    "rarity": "common",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Rat",
+    "oracle_text": "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Deathtouch"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Dave Kendall",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "5eddac86-947e-48c1-9f02-4634a7918c98",
+    "oracle_id": "a98c2d81-4add-4292-bbdd-e1b69ff936d4",
+    "name": "Planar Cleansing",
+    "layout": "normal",
+    "set_code": "m20",
+    "set_name": "Core Set 2020",
+    "collector_number": "33",
+    "rarity": "rare",
+    "mana_cost": "{3}{W}{W}{W}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Destroy all nonland permanents.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2019-07-12",
+    "artist": "Michael Komarck",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "aed4cfec-5cea-4987-890e-825b2802e9f9",
+    "oracle_id": "446a9d7e-9c1a-4e83-8342-2ed5acae2eed",
+    "name": "Tome Scour",
+    "layout": "normal",
+    "set_code": "m14",
+    "set_name": "Magic 2014",
+    "collector_number": "75",
+    "rarity": "common",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target player mills five cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2013-07-19",
+    "artist": "Steven Belledin",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "a3e23275-2261-4d6d-88d8-124342334391",
+    "oracle_id": "dc65bb62-4ba2-4ec1-b3b9-9c51e64cbfc8",
+    "name": "Narcomoeba",
+    "layout": "normal",
+    "set_code": "grn",
+    "set_name": "Guilds of Ravnica",
+    "collector_number": "47",
+    "rarity": "rare",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Illusion",
+    "oracle_text": "Flying\nWhen this card is put into your graveyard from your library, you may put it onto the battlefield.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-10-05",
+    "artist": "Howard Lyon",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "3faaa657-8b02-41a9-8a99-31a223d2caa5",
+    "oracle_id": "0f071f64-b69b-4fa0-999c-5028429e3cfb",
+    "name": "Bridge from Below",
+    "layout": "normal",
+    "set_code": "uma",
+    "set_name": "Ultimate Masters",
+    "collector_number": "87",
+    "rarity": "rare",
+    "mana_cost": "{B}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever a nontoken creature is put into your graveyard from the battlefield, if this card is in your graveyard, create a 2/2 black Zombie creature token.\nWhen a creature is put into an opponent's graveyard from the battlefield, if this card is in your graveyard, exile this card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-12-07",
+    "artist": "Daarken",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "096e8ff7-3cb7-4ef9-a480-76d664924cff",
+        "name": "Zombie",
+        "type_line": "Token Creature \u2014 Zombie"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "2d8bceff-81c3-43b9-ac0a-4e7157373e41",
+        "name": "Corpseweaver Prodigy",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  }
+]

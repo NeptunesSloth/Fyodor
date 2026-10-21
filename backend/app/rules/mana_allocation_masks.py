@@ -19,6 +19,8 @@ from app.rules.mana_requirement_rows import (
 def requirements(cost: M.ManaCost, mode: str | None = None) -> RequirementPlan:
     """Stage matching changes without replacing a colored symbol by a generic origin."""
     def matches(symbols: tuple[str, ...]) -> tuple[str, ...]:
+        if mode == 'white_red' and 'R' in symbols:
+            return tuple(dict.fromkeys((*symbols, 'W')))
         if mode == 'colorless_color' and any(c in M.COLORS for c in symbols):
             return tuple(dict.fromkeys((*symbols, 'C')))
         if mode in ('type', 'color'):

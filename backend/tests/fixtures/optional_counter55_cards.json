@@ -1,0 +1,112 @@
+[
+  {
+    "id": "81e82915-e734-4754-829f-f5da6a7c550d",
+    "oracle_id": "6d972501-4174-4bf0-a26b-2edef31b3a0c",
+    "name": "Slumbering Walker",
+    "layout": "normal",
+    "set_code": "ecl",
+    "set_name": "Lorwyn Eclipsed",
+    "collector_number": "35",
+    "rarity": "rare",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Giant Warrior",
+    "oracle_text": "This creature enters with two -1/-1 counters on it.\nAt the beginning of your end step, you may remove a counter from this creature. When you do, return target creature card with power 2 or less from your graveyard to the battlefield.",
+    "power": "4",
+    "toughness": "7",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-01-23",
+    "artist": "Jakub Kasper",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "745b5a3b-6fbb-467c-91a8-ebc2bfe144c4",
+    "oracle_id": "ee9b606a-a1fe-43c8-84d0-9bf7b012cc75",
+    "name": "Leatherhead, Swamp Stalker",
+    "layout": "normal",
+    "set_code": "tmt",
+    "set_name": "Teenage Mutant Ninja Turtles",
+    "collector_number": "272",
+    "rarity": "rare",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Crocodile Mutant Rogue",
+    "oracle_text": "Trample\nLeatherhead enters with a hexproof counter on her.\nWhenever Leatherhead deals combat damage to a player, you may remove a counter from her. When you do, destroy target artifact or enchantment that player controls.",
+    "power": "5",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-03-06",
+    "artist": "Lie Setiawan",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "3a2c84e9-b63f-4683-a1be-93567b1cf991",
+    "oracle_id": "a3a1f149-febe-4ff6-9e34-8b82ef21c2ee",
+    "name": "Fear of Sleep Paralysis",
+    "layout": "normal",
+    "set_code": "dsc",
+    "set_name": "Duskmourn: House of Horror Commander",
+    "collector_number": "43",
+    "rarity": "rare",
+    "mana_cost": "{5}{U}",
+    "cmc": 6.0,
+    "type_line": "Enchantment Creature \u2014 Nightmare",
+    "oracle_text": "Flying\nEerie \u2014 Whenever this creature or another enchantment you control enters and whenever you fully unlock a Room, tap up to one target creature and put a stun counter on it.\nStun counters can't be removed from permanents your opponents control. (They won't untap if they have stun counters.)",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Eerie"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-09-27",
+    "artist": "Joshua Raphael",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

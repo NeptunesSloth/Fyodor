@@ -1273,7 +1273,7 @@ class RulesMana(Base):
     add_units: list[dict[str, Any]] = Field(default_factory=list, max_length=100000)
     empty_units: bool = False
     keep_units: list[int] = Field(default_factory=list, max_length=100000)
-    label: str = Field(default="", max_length=200)  # "paid {1}{G} for Llanowar Elves"
+    label: str = ""  # Generated payment descriptions can include the complete repeated cost.
 
 
 class CommanderHit(BaseModel):

@@ -88,6 +88,9 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who.startswith(selectors.PREFIX):  # "each opponent", "each player" … as a selector
         sel = selectors.from_key(who)
         return [p for p in plan.live() if selectors.matches_player(plan, sel, p, me)] if sel.player else []
+    if who == "target_owner":
+        original = values._object(plan, ctx, "target")
+        return [original[0].owner] if original is not None and original[0].owner in plan.live() else []
     if who == "you":
         return [me]
     if who.startswith(player_relative.TP):  # -- player-relative selectors (wave 53A) -- the player (or the permanent's controller) a target group names
@@ -179,6 +182,9 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
 
 
 def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
+    if who == 'all_targets':
+        return list(dict.fromkeys(cid for i in range(len(ctx.get('groups') or []))
+                                  for cid in _cards(plan, ctx, f'target:{i}')))
     if who == "bandmates":
         from app.rules import banding
 
@@ -1159,6 +1165,10 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
     -- replacement effects stage 2 (wave 2E) -- Through the token choke point (app/rules/replace.py:
     614.16, 616.1 per creating player in APNAP order). ``then``: how a caller other than the
     resolver goes on after a paused choice (the resolver itself: its effects continue)."""
+    if e.get('investigate78'):
+        from app.rules import first_event_receipts78
+
+        return first_event_receipts78.investigate(plan, ctx, e)
     t = e["token"]
     count = _amount(plan, ctx, e["n"])
     if count <= 0 and not e.get("more"):  # (wave 34C: a list of kinds is judged kind by kind below: "create X A tokens and two B tokens", X = 0)
@@ -1226,6 +1236,8 @@ def add_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # "Other" excludes the original object, not a new incarnation after a blink.
         recipient_ctx = {**ctx, "source_card": None}
     cards = _cards(plan, recipient_ctx, e["who"])
+    if e.get("exclude"):
+        cards = [cid for cid in cards if cid not in context.objects(plan, ctx, e["exclude"])]
     _remember(plan, ctx, e, cards)
     shares = divided(ctx, e)
     if shares is not None:  # "distribute N counters among …" (601.2d): each target its share
@@ -2045,6 +2057,7 @@ def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     counts = replace.mill_counts(plan, wants, then=replace.rerun_then(ctx, e), ctx=ctx)  # (run again with the answers, not continued)
     if counts is None:
         return False
+    complete = bool(counts) and all(count > 0 and len(plan.state.zones.get(zone_key(pid, "library"), [])) >= count for pid, count in counts)
     start = plan.rules.batch
     for pid, count in counts:
         library = plan.state.zones.get(zone_key(pid, "library"), [])
@@ -2063,6 +2076,8 @@ def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     _one_batch(plan, start)
     _moved(plan, ctx, e, before)  # "cards milled this way": the new objects in the graveyards (400.7j)
+    if e.get("did"):
+        context.bind_payment(ctx, e["did"], complete)
     if e.get("look"):  # -- if you do (wave 10C) -- "Mill three cards. You may put a land card from among them into your hand."
         # (701.17a: the cards are put into the graveyard; "them" are the ones this mill put there — a card a replacement sent
         # elsewhere isn't "milled" — and they are public, so the pick that follows works on them like a look's)
@@ -2836,6 +2851,7 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
     entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else (_players(plan, ctx, e["under"]) or [plan.state.cards[cid].owner])[0]
                 if str(e.get("under")).startswith("ref:") else plan.state.cards[cid].owner,
                 "actor": ctx["controller"], "tapped": bool(e.get("tapped")),
+                **({"tapped_if_land": True} if e.get("tapped_if_land") else {}),
                 **({"host_choice": e["host_choice"]} if e.get("host_choice") else {}),
                 **({"transformed": True} if e.get("transformed") else {}),  # (-- transform, wave 11A -- 712.14a)
                 **({"counter": e["counter"], **({"counter_if": e["counter_if"]} if e.get("counter_if") else {})} if e.get("counter") and entry_counter_applies else {}),
@@ -2857,6 +2873,11 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
     if e.get("host"):  # -- refused zones/sized (wave 3R4) -- "attached to this creature / that creature"
         entries = _attached_entries(plan, ctx, e["host"], entries)
         cards = [x["card"] for x in entries]
+    if e.get("entry_receipt56"):
+        from app.rules import entry_receipt56
+
+        entry_receipt56.begin(plan, ctx, e["entry_receipt56"], cards)
+        entries = [{**entry, "via": ctx.get("source_object")} for entry in entries]
     done = attachments.enter(plan, entries, ctx)
     if done:  # (an Aura choosing what it enchants pauses: the binding then keeps what they were)
         _moved(plan, ctx, e, before)  # the permanents they became: new objects (400.7)
@@ -3000,9 +3021,13 @@ PRIMITIVES: dict[str, Callable[[Plan, Context, dict[str, Any]], bool]] = {
 }
 # -- copy system (wave 2F): copying spells, abilities and permanents (CR 707; app/rules/copying.py,
 # which imports this module lazily) --
-from app.rules import copying  # noqa: E402
+from app.rules import copying, graveyard_cost_grants57  # noqa: E402
 
+PRIMITIVES.update(graveyard_cost_grants57.PRIMITIVES)
 PRIMITIVES.update(copying.PRIMITIVES)
+from app.rules import kicked_target_outcomes60  # noqa: E402
+
+PRIMITIVES.update(kicked_target_outcomes60.PRIMITIVES)
 from app.rules import crew_saddle, phasing  # noqa: E402
 
 PRIMITIVES.update(phasing.PRIMITIVES)  # -- phasing (wave 13D) -- 702.26
@@ -3420,7 +3445,7 @@ def to_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     (401.4)."""
     cards = ([t["id"] for group in ctx.get("groups", []) for t in group if t] if e["who"] == "all_targets" else _cards(plan, ctx, e["who"]))
     before = _remember(plan, ctx, e, cards)
-    if e["place"] == "choice" and len(cards) > 1:
+    if len(cards) > 1 and (e["place"] == "choice" or (e["place"] in ("top", "bottom") and not e.get("chooser"))):
         from app.rules import library_placements
 
         return library_placements.start(plan, ctx, e, cards, before)
@@ -3760,6 +3785,12 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import conditions
     from app.rules.triggers import _add  # (triggers imports this module)
 
+    if e.get("entry_receipt56"):
+        from app.rules import entry_receipt56
+
+        entry_receipt56.finish(plan, ctx, e["entry_receipt56"])
+        if entry_receipt56.suppressed(plan, ctx, e):
+            return True
     if bool(ctx.get("dice")) if e.get("roll_result") else conditions.holds(plan, ctx, e["cond"]):
         # (-- resolution memory (wave 22D) -- "cond_ref": the objects the counted "… this way" instruction acted on: "When you discard a card
         # this way, … that card's mana value")
@@ -3909,6 +3940,9 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
             # an illegal target keeps its place (None), so the division stays as announced (115.7f)
             together = relation_ok(plan, gspec, refs)  # (wave 51A) "that share a creature type": no longer so, all of the group's targets are illegal (608.2b; Shifting Loyalties ruling)
             what = player_relative.bind_what(plan, gspec, entry.groups)  # (-- player-relative selectors (wave 53A) -- "that player controls": the player group ``of`` names, as it last was)
+            dependency = gspec.get('requires_legal_group')
+            if dependency is not None:
+                together = together and 0 <= dependency < len(groups) and any(groups[dependency])
             groups.append([t.model_dump() if together and still_legal(plan, what, entry.controller, t, src, entry.source_card, attacker, source_object=entry.source_object)
                            else None for t in refs])
         chosen = sum(len(refs) for refs in entry.groups)
@@ -4470,6 +4504,8 @@ CHOICE_LABELS = {"second color": "Chosen second color", "second basic land type"
                  "card type other than creature or land": "Chosen card type", "card type other than creature": "Chosen card type", "artifact, creature, enchantment, instant, or sorcery": "Chosen card type",
                  "number between 1 and 10": "Chosen number", "odd or even": "Chosen quality",  # (wave 49B: Talion, the Kindly Lord; wave 50J: Gollum, Riddle Master)
                  "two abilities from among first strike, vigilance, and lifelink": "Chosen abilities"}  # (wave 49B: Greymond, Avacyn's Stalwart)
+CHOICE_OPTIONS["direction"] = ["left", "right"]
+CHOICE_LABELS["direction"] = "Chosen direction"
 CHOICE_LABELS.update(entry_forms.CHOICE_LABELS)  # -- entry forms (wave 5F) -- "a color other than blue"
 CHOICE_LABELS.update({w: card_names.LABEL for w in card_names.ALL_WHATS})  # -- card names (wave 22B) -- 201.4
 
@@ -4541,6 +4577,9 @@ def choose_value(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         options = _choice_options(plan, ctx, e["what"])
     if e.get("options"):  # -- chosen type (wave 51C) -- "choose Elemental, Elf, …": only the creature types it lists
         options = [o for o in options if o.id in e["options"]]
+    from app.rules import player_counter_instructions75
+
+    options = player_counter_instructions75.remaining_players(plan, ctx, e, options)
     if not options:
         return True  # (no opponent left to choose: 800.4)
     if e["what"] == MOST_LIFE and len(options) == 1:  # (one player has the most life: nothing to choose)
@@ -6510,6 +6549,32 @@ PRIMITIVES['exile_cast_outcome45'] = _exile_cast_outcomes45.run
 RESUME['exile_cast_outcome45'] = _exile_cast_outcomes45.resume
 RESUME['exile_cast_extract45'] = _exile_cast_outcomes45.resume_extract
 
+from app.rules import exile_spell_choices49 as _exile_spell_choices49  # noqa: E402
+from app.rules import exile_sphinx49 as _exile_sphinx49  # noqa: E402
+
+PRIMITIVES.update(_exile_spell_choices49.PRIMITIVES)
+RESUME.update(_exile_spell_choices49.RESUME)
+PRIMITIVES.update(_exile_sphinx49.PRIMITIVES)
+
+from app.rules import delayed_blinks50 as _delayed_blinks50  # noqa: E402
+from app.rules import delayed_combat_blinks50 as _delayed_combat_blinks50  # noqa: E402
+from app.rules import delayed_entry_blinks50 as _delayed_entry_blinks50  # noqa: E402
+from app.rules import delayed_loyalty_blinks50 as _delayed_loyalty_blinks50  # noqa: E402
+from app.rules import delayed_self_blinks50 as _delayed_self_blinks50  # noqa: E402
+
+PRIMITIVES.update(_delayed_blinks50.PRIMITIVES)
+PRIMITIVES.update(_delayed_combat_blinks50.PRIMITIVES)
+PRIMITIVES.update(_delayed_entry_blinks50.PRIMITIVES)
+PRIMITIVES.update(_delayed_loyalty_blinks50.PRIMITIVES)
+PRIMITIVES.update(_delayed_self_blinks50.PRIMITIVES)
+RESUME.update(_delayed_loyalty_blinks50.RESUME)
+
+
+from app.rules import outside_research50 as _outside_research50  # noqa: E402
+
+PRIMITIVES.update(_outside_research50.PRIMITIVES)
+RESUME.update(_outside_research50.RESUME)
+
 
 def _register_adjacent_counter_consumers45() -> None:
     from app.rules import graveyard_payments45, reprieve_payment45, urge_payment45
@@ -6546,3 +6611,74 @@ RESUME.update(_random_vehicle_crash45.RESUME)
 from app.rules import quoted_prevention_loss47 as _quoted_prevention_loss47  # noqa: E402
 
 PRIMITIVES.update(_quoted_prevention_loss47.PRIMITIVES)
+
+from app.rules import mana_persistent_replacements48 as _mana_persistent_replacements48  # noqa: E402
+
+PRIMITIVES.update(_mana_persistent_replacements48.PRIMITIVES)
+
+
+from app.rules import counter_alternatives50 as _counter_alternatives50  # noqa: E402
+
+PRIMITIVES.update(_counter_alternatives50.PRIMITIVES)
+
+from app.rules import trigger_leaf54_staged as _trigger_leaf54  # noqa: E402
+
+PRIMITIVES["arbiter_highest54"] = _trigger_leaf54.arbiter_highest
+
+from app.rules import trigger_leaf57_staged as _trigger_leaf57  # noqa: E402
+
+PRIMITIVES["lammasu_unsuspect57"] = _trigger_leaf57.unsuspect
+
+
+from app.rules import counter_event_packets50 as _counter_event_packets50  # noqa: E402
+
+PRIMITIVES.update(_counter_event_packets50.PRIMITIVES)
+
+
+from app.rules import trigger_attached_artifact67 as _trigger_attached_artifact67  # noqa: E402
+
+PRIMITIVES.update(_trigger_attached_artifact67.PRIMITIVES)
+
+
+from app.rules import ring_counter_packets67 as _ring_counter_packets67  # noqa: E402
+
+PRIMITIVES.update(_ring_counter_packets67.PRIMITIVES)
+
+from app.rules import combat_teyo66 as _combat_teyo66  # noqa: E402
+
+PRIMITIVES.update(_combat_teyo66.PRIMITIVES)
+
+
+from app.rules import entry_counter_kind_choices68 as _entry_counter_kind_choices68  # noqa: E402
+
+PRIMITIVES.update(_entry_counter_kind_choices68.PRIMITIVES)
+
+from app.rules import attacker_reselection73 as _attacker_reselection73  # noqa: E402
+
+PRIMITIVES['attacker_reselect73'] = _attacker_reselection73.effect
+
+from app.rules import manifest_aura74 as _manifest_aura74  # noqa: E402
+
+PRIMITIVES['manifest_aura74'] = _manifest_aura74.become_aura
+
+
+from app.rules import saddled_receipts76 as _saddled_receipts76  # noqa: E402
+
+PRIMITIVES.update({"mount_vehicle76": _saddled_receipts76.mount_vehicle,
+                   "saddle_contributors76": _saddled_receipts76.contributors,
+                   "mount_cohort76": _saddled_receipts76.cohort})
+
+
+from app.rules import targeting_sources77 as _targeting_sources77  # noqa: E402
+
+PRIMITIVES['targeting_actor_damage77'] = _targeting_sources77.damage_actor
+
+
+from app.rules import conditional_free_casts68 as _conditional_free_casts68  # noqa: E402
+
+PRIMITIVES["next_free_cast68"] = _conditional_free_casts68.next_free
+
+
+from app.rules import first_event_receipts78 as _first_event78  # noqa: E402
+
+PRIMITIVES['investigate_complete78'] = _first_event78.complete

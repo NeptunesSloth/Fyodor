@@ -1,0 +1,7 @@
+# Bribe Taker: one optional native choice per distinct counter kind
+
+Production whole-card checks: 15 passed, including a fresh-process restore midway through the independent choices. Another 51 native counter-choice and counter-event checks passed. The canonical text and sole official ruling were read; evidence is `/tmp/counter68-bribe-production-manifest.json`. The leaf SHA-256 matches root frozen snapshot51 exactly, whose full 799-source mypy check passed. This typing evidence covers the leaf bytes; later hooks are exercised by production tests and remain for root's next full snapshot typing. A fresh combined graph attempt was blocked by an unrelated pre-existing conditional_counters.py:91 type error. Source/test Ruff passed.
+
+The exact enters ability snapshots the distinct kinds of positive counters on the ability controller's battlefield permanents once, as the ability resolves. The source itself counts if it has counters then. Each kind contributes one optional native choice: +1/+1, that kind, or decline. A +1/+1 kind presents only one placement alternative. Later counters added during these choices do not grow the original set. Native choices, frozen source identity, counter prohibitions, replacement effects, and the original ability controller retain authority.
+
+Proofs cover quantity and repeated-kind deduplication, independently declining choices, opponent and nonbattlefield exclusions, resolution-time changes, controller change, source leaving and reentering, Solemnity, Doubling Season, and the printed trample ability in actual combat.

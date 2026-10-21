@@ -22,7 +22,8 @@ def start(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], cards: list[str], 
         roots.append({'id': cid, 'oid': plan.oid(c), 'zone': c.zone, 'owner': c.owner, 'name': c.name, 'parts': parts})
     request = {'ctx': ctx, 'e': e, 'before': [r.model_dump(mode='json') for r in before], 'roots': roots,
                'owners': [p for p in plan.apnap() if any(r['owner'] == p for r in roots)],
-               'places': {}, 'ordered': {}, 'commander_done': []}
+               'places': {x['id']: e['place'] for x in roots} if e['place'] in ('top', 'bottom') else {},
+               'ordered': {}, 'commander_done': []}
     return _next(plan, request)
 
 

@@ -103,6 +103,14 @@ def players_of(plan: Plan, refs: list[Any]) -> list[str]:
 
 def bind_what(plan: Plan, spec: dict[str, Any], groups: list[list[Any]]) -> str:
     """The selector of a group with "that player" bound to the player group ``of`` names (unbound — nothing matches — when there isn't exactly one)."""
+    if spec.get('controller_opponents_of') is not None:
+        from app.rules import attacker_reselection73
+
+        return attacker_reselection73.bind_opponents(plan, spec, groups)
+    if spec.get('object_of') is not None:
+        from app.rules import dependent_object_targets65
+
+        return dependent_object_targets65.bind(plan, spec, groups)
     if spec.get('relative_quality'):
         from app.rules import permanent_exchanges
 
