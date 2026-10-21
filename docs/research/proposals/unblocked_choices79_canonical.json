@@ -1,0 +1,112 @@
+[
+  {
+    "id": "ffd68fe1-5cfc-44cf-8dfe-3488278cdcef",
+    "oracle_id": "d135c457-9be5-4a6e-a6fb-5b35cfb70cb0",
+    "name": "Master of Cruelties",
+    "layout": "normal",
+    "set_code": "rvr",
+    "set_name": "Ravnica Remastered",
+    "collector_number": "198",
+    "rarity": "mythic",
+    "mana_cost": "{3}{B}{R}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Demon",
+    "oracle_text": "First strike, deathtouch\nThis creature can only attack alone.\nWhenever this creature attacks a player and isn't blocked, that player's life total becomes 1. This creature assigns no combat damage this combat.",
+    "power": "1",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [
+      "First strike",
+      "Deathtouch"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-01-12",
+    "artist": "Chase Stone",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "207bb4cd-4525-47e0-b412-0d0e29717d44",
+    "oracle_id": "13b5c9ef-d0e3-453d-ae5e-8de4f310cc38",
+    "name": "Bone Dancer",
+    "layout": "normal",
+    "set_code": "wth",
+    "set_name": "Weatherlight",
+    "collector_number": "62",
+    "rarity": "rare",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Zombie",
+    "oracle_text": "Whenever this creature attacks and isn't blocked, you may put the top creature card of defending player's graveyard onto the battlefield under your control. If you do, this creature assigns no combat damage this turn.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1997-06-09",
+    "artist": "Scott Kirschner",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0cf8cecc-449f-4cc6-ac4d-440722df0ab9",
+    "oracle_id": "b7aa0625-c691-4219-b099-3798b349d09c",
+    "name": "Stromgald Spy",
+    "layout": "normal",
+    "set_code": "all",
+    "set_name": "Alliances",
+    "collector_number": "62",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Rogue",
+    "oracle_text": "Whenever this creature attacks and isn't blocked, you may have defending player play with their hand revealed for as long as this creature remains on the battlefield. If you do, this creature assigns no combat damage this turn.",
+    "power": "2",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1996-06-10",
+    "artist": "Zak Plucinski",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

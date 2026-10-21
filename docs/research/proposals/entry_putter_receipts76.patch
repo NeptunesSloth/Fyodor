@@ -1,0 +1,383 @@
+--- a/backend/app/rules/entry_putter_receipts76.py
++++ b/backend/app/rules/entry_putter_receipts76.py
+@@ -0,0 +1,54 @@
++"""Committed entry putters remain distinct from permanent controllers."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import TYPE_CHECKING, Any
++
++if TYPE_CHECKING:
++    from app.rules.characteristics import Characteristics
++    from app.rules.oracle import AbilityText
++    from app.rules.plan import Plan
++
++
++TEXTS = {
++    "Whenever a player puts a Forest onto the battlefield, ~ deals 3 damage to that player unless they put a -1/-1 counter on a creature they control.": 'Forest',
++    "Whenever a player puts a Swamp onto the battlefield, ~ deals 3 damage to that player unless the player puts a -1/-1 counter on a creature they control.": 'Swamp',
++}
++
++
++def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | None:
++    from app.rules import optional_payment, scripts
++
++    subtype = TEXTS.get(scripts.self_text(ability.text, ch.name))
++    if subtype is None:
++        return None
++    native = scripts.define(replace(ability, text=f'Whenever a {subtype} enters, ~ deals 3 damage to that player.'), ch)
++    cost = optional_payment.cost_text('put a -1/-1 counter on a creature you control')
++    assert native is not None and cost is not None
++    return {**native, 'cond': {**native['cond'], 'event': 'put_battlefield'}, 'effects': [
++        {'do': 'optional_payment', 'who': 'event_player', 'cost': cost, 'bind': 'entry76_paid'},
++        {'do': 'only_if', 'cond': {'succeeded': 'entry76_paid', 'negate': True}, 'skip': 1},
++        *native['effects']]}
++
++
++def return_putter(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], cid: str) -> str:
++    return plan.state.cards[cid].owner if e.get('entry_putter') == 'owner' else str(ctx['controller'])
++
++
++def owner_returns(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    """Retain the actor of the existing 'each player returns all' native rewrite."""
++    from app.rules import scripts
++
++    matches = list(scripts._EACH_RETURNS.finditer(body))
++    if len(matches) != 1 or matches[0]['d'] != 'the battlefield':
++        return None
++    rewritten = scripts._split_tails(body, event_player)
++    parsed = scripts.parse_effects(rewritten, it, event_player=event_player)
++    if parsed is None:
++        return None
++    effects, target, optional = parsed
++    returns = [i for i, e in enumerate(effects) if e.get('do') == 'return_card' and e.get('to') == 'battlefield']
++    if len(returns) != 1:
++        return None
++    index = returns[0]
++    return ([{**e, 'entry_putter': 'owner'} if i == index else e for i, e in enumerate(effects)], target, optional)
+--- a/backend/app/rules/simultaneous_moves.py
++++ b/backend/app/rules/simultaneous_moves.py
+@@ -114,6 +114,8 @@
+             plan.rules.exile_if_graveyard = [o for o in plan.rules.exile_if_graveyard if o != request['oid']]
+         plan.rules.exile_if_leaves = [o for o in plan.rules.exile_if_leaves if o != request['oid']]
+     payload: dict[str, Any] = {'type': 'move', 'card_ids': list(routes), 'to': {'zone': 'battlefield'}, 'routes': routes}
++    payload['entry_putters'] = {c.id: putter for e, c, _ in planned
++                                if isinstance(putter := e.get('putter', e['actor']), str)}
+     if forms:
+         payload['entry_characteristics'] = forms
+     tapped = [c.id for _, c, ep in planned if ep.get('tapped')]
+--- a/backend/app/rules/entry_harvest45.py
++++ b/backend/app/rules/entry_harvest45.py
+@@ -150,7 +150,8 @@
+         assert card is not None
+         prepared[card.id] = plan.ch(card.model_copy(update={'zone': f'{frame.controller}:battlefield',
+                                                             'controller': frame.controller}))
+-    plan.do({'type': 'move', 'card_ids': cards, 'to': {'player': frame.controller, 'zone': 'battlefield'}},
++    plan.do({'type': 'move', 'card_ids': cards, 'to': {'player': frame.controller, 'zone': 'battlefield'},
++             'entry_putters': {cid: frame.controller for cid in cards}},
+             actor=frame.controller)
+     for entry in frame.incoming:
+         # Reuse native entry setup without re-reading an already sealed quantity.
+--- a/backend/app/rules/grouped_discard.py
++++ b/backend/app/rules/grouped_discard.py
+@@ -51,7 +51,7 @@
+     incoming = [e for e in request['cards'] if _selected(request, e).get('candidate', {}).get('outcome') == 'battlefield']
+     if incoming:
+         ctx['simultaneous_move'] = request
+-        return attachments.enter(plan, [{'card': e['card'], 'player': e['owner'], 'actor': request['actor'], 'tapped': False}
++        return attachments.enter(plan, [{'card': e['card'], 'player': e['owner'], 'actor': request['actor'], 'putter': e['owner'], 'tapped': False}
+                                         for e in incoming], ctx)
+     commit(plan, [], request)
+     return True
+@@ -107,6 +107,8 @@
+         plan.do({'type': 'reveal', 'card_ids': list(routes)}, actor=actor)
+         history.note_discards(plan, [cid for cid, c, _ in selected if c is not None])
+         payload: dict[str, Any] = {'type': 'move', 'card_ids': list(routes), 'to': {'zone': 'graveyard'}, 'routes': routes}
++        payload['entry_putters'] = {c.id: putter for e, c, _ in planned
++                                    if isinstance(putter := e.get('putter', e['actor']), str)}
+         tapped = [c.id for _, c, ep in planned if ep.get('tapped')]
+         if tapped:
+             payload['tapped_ids'] = tapped
+--- a/backend/app/rules/triggers.py
++++ b/backend/app/rules/triggers.py
+@@ -647,6 +647,8 @@
+             entered: dict[str, Any] = {"oid": e.new_object_id, "snap": None if live else r.lki.get(e.new_object_id or ""),
+                                        "entered_from": e.from_zone}  # (wave 22E: "enters from your graveyard")
+             out.append(("enter", got[0], got[1], got[0].controller, entered))
++            if e.entry_putter in plan.live():
++                out.append(("put_battlefield", got[0], got[1], e.entry_putter, {**entered, "actor": e.entry_putter}))
+             if e.from_zone is None and got[0].is_token:  # 111.2: a token was created
+                 out.append(("create_token", got[0], got[1], got[0].controller,
+                             {**entered, "actor": got[0].controller, "amount": 1}))
+--- a/backend/app/rules/this_way.py
++++ b/backend/app/rules/this_way.py
+@@ -608,7 +608,7 @@
+         return None
+     return [{"do": "exile", "who": cards.key(), "as": "swap0"},
+             {"do": "sacrifice", "who": perms.key(), "by": "controller"},
+-            {"do": "return_card", "who": "ref:swap0", "to": "battlefield", "tapped": False, "under": "owner"}]
++            {"do": "return_card", "who": "ref:swap0", "to": "battlefield", "tapped": False, "under": "owner", "entry_putter": "owner"}]
+
+
+ # -- "Tap any number of untapped creatures you control. … for each creature tapped this way" ----------------------
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -2653,8 +2653,11 @@
+
+
+ def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import entry_putter_receipts76
+     from app.rules import graveyard_return57
+
++    if (putter76 := entry_putter_receipts76.owner_returns(body, it, event_player)) is not None:
++        return putter76
+     if (returned57 := graveyard_return57.parse(body, it)) is not None:
+         return returned57
+     from app.rules import immediate_cast_pools67
+@@ -5721,8 +5724,11 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import entry_putter_receipts76
+     from app.rules import first_event_receipts78
+
++    if (putter76 := entry_putter_receipts76.definition(ability, ch)) is not None:
++        return putter76
+     if (first78 := first_event_receipts78.definition(ability, ch)) is not None:
+         return first78
+     from app.rules import graveyard_return57
+@@ -7648,6 +7654,8 @@
+
+ def _has_player(cond: dict[str, Any]) -> bool:
+     """Does the event name a player ("that player")? The player who acted, or who was dealt damage."""
++    if cond.get('event') == 'put_battlefield':
++        return True  # The explicit committed receipt names the actual putter.
+     if cond.get("cause") == "opponent":
+         return cond["event"] == "discard"  # -- discard causes (wave 50E) -- "that player loses 5 life": the opponent whose spell or ability caused it (triggers._fire_generic)
+     if cond.get("subject") == "player" or cond["event"] in _PLAYER_EVENTS:
+--- a/backend/app/rules/replacements.py
++++ b/backend/app/rules/replacements.py
+@@ -821,6 +821,8 @@
+     back = [c.id for e, c, _ in planned if e.get("transformed") or e.get("modal_back")]  # (modal_back: wave 28A, 712.12)
+     if back:
+         payload["back_ids"] = back
++    payload["entry_putters"] = {c.id: putter for e, c, _ in planned
++                                if isinstance(putter := e.get("putter", e["actor"]), str)}
+     if any(e["player"] != first["player"] for e, _, _ in planned):
+         payload["controllers"] = {c.id: e["player"] for e, c, _ in planned}
+     plan.put_via = first.get("via")  # (-- trigger other (wave 51E) -- Entry.via)
+@@ -1367,7 +1369,8 @@
+     card = plan.state.cards[cid]
+     owner = card.owner
+     if outcome in ("exile", "battlefield"):  # (review 23D: battlefield, a discard's "put it onto the battlefield instead")
+-        plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": outcome}}, actor=actor)
++        plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": outcome},
++                 **({"entry_putters": {cid: owner}} if outcome == "battlefield" else {})}, actor=actor)
+         return
+     where = outcome.split(":", 1)[1]
+     if where == "shuffle":  # 701.24 (shuffle), "reveal": its name is public as it goes (a card from a hidden zone shows itself)
+--- a/backend/app/rules/player_choices.py
++++ b/backend/app/rules/player_choices.py
+@@ -73,7 +73,7 @@
+     n = _NUM[q.removeprefix("up to ")]
+     kind = "battlefield" if "battlefield" in m["to"] else "hand"
+     who = "that_player" if m["who"] == "that player" else _WHO[m["who"].removeprefix("each ")]  # (that player: Skullwinder, bound to the opponent chosen before)
+-    move = {"do": "return_card", "who": "it" if who == "that_player" and n == 1 else "them", "to": kind, "under": "owner", **({"tapped": False} if kind == "battlefield" else {})}
++    move = {"do": "return_card", "who": "it" if who == "that_player" and n == 1 else "them", "to": kind, "under": "owner", **({"tapped": False, "entry_putter": "owner"} if kind == "battlefield" else {})}
+     return [{"do": "player_chooses", "who": who, "sel": _graveyard_selector(m["sel"]), "n": n, "label": m["sel"], "zone": "graveyard",
+              **({"upto": True, "optional": True} if upto else {})}, move], None
+
+@@ -101,7 +101,7 @@
+     sel = selectors.parse(re.sub(r"\bcards\b", "card", m["sel"]) + " in your graveyard " + m["tail"])
+     if sel is None or not sel.card or sel.player is not None or sel.zones != ("graveyard",) or not any(x.startswith("put_there:") for x in sel.extras):
+         raise _NoMatch
+-    return [{"do": "return_card", "who": replace(sel, zone_owner=None).key(), "to": "battlefield", "tapped": False, "under": "owner"}], None
++    return [{"do": "return_card", "who": replace(sel, zone_owner=None).key(), "to": "battlefield", "tapped": False, "under": "owner", "entry_putter": "owner"}], None
+
+
+ TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_FOR_EACH, _for_each), (_EACH, _each), (_CHOOSES, _chooses), (_SUNRISE, _sunrise)]
+@@ -278,7 +278,7 @@
+
+ def _typed(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+     sel = _graveyard_selector("creature cards")
+-    return [{"do": "return_card", "who": f"typed:{BINDING}|{sel}", "to": "battlefield", "tapped": False, "under": "owner"}], None
++    return [{"do": "return_card", "who": f"typed:{BINDING}|{sel}", "to": "battlefield", "tapped": False, "under": "owner", "entry_putter": "owner"}], None
+
+
+ TEMPLATES.extend([(_EACH_TYPE, _each_type), (_TYPED, _typed)])
+--- a/backend/app/rules/plan.py
++++ b/backend/app/rules/plan.py
+@@ -141,7 +141,7 @@
+                     was, self.began[cid] = self.began.get(cid, False), down_public(c)
+                     self.moved[cid] = self.moved.get(cid, False) or seen_move(zone, c.zone, was)
+         track(self.state, before, actor=resolved.actor or None, group=getattr(resolved, "group", 0),
+-              put_by=wither_put_by(resolved), declared=getattr(resolved, "declared", False))  # (5H, 7C, 17D; 45C: the attack declaration's tap)
++              put_by=wither_put_by(resolved), declared=getattr(resolved, "declared", False), entry_putters=getattr(resolved, "entry_putters", None))  # (5H, 7C, 17D; 45C: the attack declaration's tap)
+         if self.rules.madness_declined:
+             from app.rules import discarded_references
+
+--- a/backend/app/rules/group_choice.py
++++ b/backend/app/rules/group_choice.py
+@@ -769,11 +769,13 @@
+     if m is None or not _THIS_WAY.search(m["rest"]):
+         return None
+     rest = _THIS_WAY.sub(lambda t: f"of the chosen {t['w']}", m["rest"])
++    owner_returns = bool(_EACH_RETURNS.search(rest))
+     rest = _EACH_RETURNS.sub(r"Return all \1 from all graveyards to the battlefield under their owners' control.", rest)  # (each returns their own cards: all of them, 101.4)
+     found = parse(rest)
+     if found is None or found[1] is not None or found[2] or "chosen_" not in json.dumps(found[0]):
+         return None
+-    return [{"do": "gc_choose", "who": "each_player", "what": m["what"], "as": "gc", "bind": True}, *found[0]], None, False
++    returned = [{**e, "entry_putter": "owner"} if owner_returns and e.get("do") == "return_card" and e.get("to") == "battlefield" else e for e in found[0]]
++    return [{"do": "gc_choose", "who": "each_player", "what": m["what"], "as": "gc", "bind": True}, *returned], None, False
+
+
+ def _words(text: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
+--- a/backend/app/rules/facedown.py
++++ b/backend/app/rules/facedown.py
+@@ -50,6 +50,7 @@
+                                                   "zone": zone_key(player, "battlefield"), "controller": player})
+     ep = replacements.entry_plan(plan, probe, player)
+     payload: dict[str, Any] = {"type": "move", "card_ids": [card_id], "to": {"player": player, "zone": "battlefield"},
++                               "entry_putters": {card_id: actor},
+                                "face_down": True, "face_down_kind": kind, "face_down_as": spec}
+     if ep.get("tapped") or tapped:
+         payload["tapped"] = True
+--- a/backend/app/rules/exiled_with.py
++++ b/backend/app/rules/exiled_with.py
+@@ -45,7 +45,7 @@
+
+ def _owners_return(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+     return [{'do': 'return_card', 'who': WHO, 'to': 'battlefield' if m['where'] == 'the battlefield' else 'hand',
+-             'under': 'owner', 'tapped': False}], None
++             'under': 'owner', 'tapped': False, 'entry_putter': 'owner'}], None
+
+
+ # -- review (wave 6R) -- "Exile target creature. Return the exiled card to the battlefield under its owner's control at the
+--- a/backend/app/rules/engine.py
++++ b/backend/app/rules/engine.py
+@@ -1356,6 +1356,7 @@
+         return
+     # -- end entering for a cost (wave 5G) --
+     payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"},
++                               "entry_putters": {card.id: plan.actor},
+                                "tapped": bool(ep["tapped"]) or bool(grant is not None and grant.enters and grant.enters.get("tapped"))}  # (wave 51D: "If you do, it enters tapped", 614.1d)
+     if a.x is not None and a.y is not None:
+         payload.update(x=a.x, y=a.y)
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -2155,7 +2155,8 @@
+         card = plan.state.cards[cid]
+         back = plan.rules.linked_exile_from.pop(ref, None)  # -- resolution memory (wave 22D) -- 610.3: back to the hand it came from
+         if card.zone.endswith(":exile") and card.owner in live:
+-            entries.append({"card": cid, "player": card.owner, "actor": card.owner, **({"to": "hand"} if back == "hand" else {})})
++            entries.append({"card": cid, "player": card.owner, "actor": card.owner, "putter": None,
++                            **({"to": "hand"} if back == "hand" else {})})
+     return entries
+
+
+@@ -2848,9 +2849,12 @@
+
+     form = entry_characteristics.prepare_return(plan, ctx, e)
+     # -- commanders (wave 50C) -- "return it to the battlefield under an opponent's control" (Zuko, Sol'Kanar): under = "ref:<the opponent chosen before>"
++    from app.rules import entry_putter_receipts76
++
+     entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else (_players(plan, ctx, e["under"]) or [plan.state.cards[cid].owner])[0]
+                 if str(e.get("under")).startswith("ref:") else plan.state.cards[cid].owner,
+-                "actor": ctx["controller"], "tapped": bool(e.get("tapped")),
++                "actor": ctx["controller"], "putter": entry_putter_receipts76.return_putter(plan, ctx, e, cid),
++                "tapped": bool(e.get("tapped")),
+                 **({"tapped_if_land": True} if e.get("tapped_if_land") else {}),
+                 **({"host_choice": e["host_choice"]} if e.get("host_choice") else {}),
+                 **({"transformed": True} if e.get("transformed") else {}),  # (-- transform, wave 11A -- 712.14a)
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -447,6 +447,7 @@
+     types: list[str] | None = None  # exerted: card types when the action happened
+     object_id: str | None = None  # the object as it was (for zone changes: the old object, see ``lki``)
+     new_object_id: str | None = None  # zone changes: the object it became
++    entry_putter: str | None = None  # Explicit committed entry receipt; absent in legacy events.
+     card: str | None = None
+     player: str | None = None  # the player affected (life, player counters, damage to a player)
+     source: str | None = None  # the source object's id, when known
+@@ -1954,7 +1955,8 @@
+
+
+ def track(state: GameState, before: Capture | None = None, *, manual: bool = False, actor: str | None = None,
+-          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None, declared: bool = False) -> None:
++          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None, declared: bool = False,
++          entry_putters: dict[str, str] | None = None) -> None:
+     """Deterministic bookkeeping after every applied step (sandbox or rules): whose turn started
+     when, when each permanent came under its controller's control, which physical card is which
+     rules object, last known information, and the step's events as one simultaneous batch.
+@@ -1982,7 +1984,7 @@
+     for card_id in [c for c in rules.controlled_since if c not in on_battlefield]:
+         del rules.controlled_since[card_id]
+     if before is not None:
+-        _diff(state, rules, before, manual, actor, group, put_by, declared)  # (actor: wave 5H, group: wave 7C)
++        _diff(state, rules, before, manual, actor, group, put_by, declared, entry_putters)  # (actor: wave 5H, group: wave 7C)
+     pending = [e for e in rules.events if e.batch > rules.batch]
+     if pending:
+         rules.batch += 1
+@@ -2051,7 +2053,8 @@
+
+
+ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, actor: str | None = None,
+-          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None, declared: bool = False) -> None:
++          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None, declared: bool = False,
++          entry_putters: dict[str, str] | None = None) -> None:
+     departures = state.departures()
+     if state.renames():  # -- review (face-down ids) -- a card renumbered in this step is the same card: follow it
+         names = state.renames()
+@@ -2150,7 +2153,8 @@
+             _attach_event(state, "unattached", card_id, old_oid, snap.attached_to, snap.attached_player, before.snaps)  # -- attachment events (wave 30S) -- 701.3d
+         emit(state, "zone_change", object_id=old_oid, new_object_id=new_oid, card=card_id,
+              player=(card.controller if card is not None else snap.controller if snap else None),
+-             from_zone=old_zone, to_zone=new_zone, actor=actor)  # (wave 23D: who moved it: a discard an opponent's effect caused, 701.9)
++             from_zone=old_zone, to_zone=new_zone,
++             actor=actor, entry_putter=(entry_putters or {}).get(card_id) if new_name == 'battlefield' and not manual else None)  # (wave 23D: who moved it: a discard an opponent's effect caused, 701.9)
+     # -- review (wave 18D) -- 730.3 / 712.21: the cards of a merged permanent that left (other than the one its instance became) were
+     # never objects of their own: each is put into the zone from the battlefield, a new object there (not one more permanent leaving)
+     pile = {p["id"]: snap for snap in before.snaps.values() for p in snap.merged}
+@@ -2161,7 +2165,9 @@
+                 rules.next_object += 1
+                 rules.objects[card_id] = rules.next_object
+             emit(state, "zone_change", new_object_id=rules.object_id(card_id), card=card_id, player=card.controller,
+-                 to_zone=card.zone, **({"from_zone": shell.zone} if shell is not None else {}))  # created: a token, a copy, an ability on the stack
++                 to_zone=card.zone, actor=actor,
++                 entry_putter=actor if _zone_name(card.zone) == "battlefield" and not manual else None,
++                 **({"from_zone": shell.zone} if shell is not None else {}))  # created: a token, a copy, an ability on the stack
+             if shell is not None and _zone_name(card.zone) == "graveyard" and (log := turn_log_now(state)) is not None:
+                 log.entered_graveyard.append(Arrival(card=card_id, owner=card.owner, object_id=rules.object_id(card_id), from_zone="battlefield",
+                                                      combat=_combat_now(state, rules)))  # (-- graveyard history (wave 36A) --)
+--- a/backend/app/game/engine.py
++++ b/backend/app/game/engine.py
+@@ -165,6 +165,6 @@
+             # Automation isn't running: the bookkeeping may drift from the table. Resuming or
+             # turning automation back on reconciles (app/rules/reconcile.py).
+             rules.unsynced = True
+-        track(state, before, manual=manual, actor=action.actor, put_by=wither_put_by(action))  # (actor: wave 5H)
++        track(state, before, manual=manual, actor=action.actor, put_by=wither_put_by(action), entry_putters=getattr(action, "entry_putters", None))  # (actor: wave 5H)
+     state.departures().clear()
+     state.renames().clear()
+--- a/backend/app/game/actions.py
++++ b/backend/app/game/actions.py
+@@ -99,6 +99,7 @@
+     routes: dict[Id, ZoneRef] | None = None
+     tapped_ids: list[Id] | None = Field(default=None, max_length=250)
+     controllers: dict[Id, Id] | None = None
++    entry_putters: dict[Id, Id] | None = None  # Actual per-card putters in one simultaneous entry move.
+     entry_characteristics: dict[Id, EntryCharacteristics] | None = None
+     # -- transform (wave 11A) -- 712.14a: the double-faced cards among them that enter the battlefield transformed (back face up)
+     back_ids: list[Id] | None = Field(default=None, max_length=250)
+--- a/backend/app/game/handlers/rules.py
++++ b/backend/app/game/handlers/rules.py
+@@ -37,7 +37,7 @@
+             raise ActionError("Invalid rules step")
+         before = capture(state) if step.type != "renumber" else None  # (a renumbered card is no zone change)
+         HANDLERS[step.type](state, step)
+-        track(state, before, actor=step.actor or None, group=getattr(step, "group", 0), put_by=wither_put_by(step))  # (5H, 7C, 17D)
++        track(state, before, actor=step.actor or None, group=getattr(step, "group", 0), put_by=wither_put_by(step), entry_putters=getattr(step, "entry_putters", None))  # (5H, 7C, 17D)
+         state.renames().clear()
+
+

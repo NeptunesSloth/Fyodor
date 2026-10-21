@@ -1,12 +1,14 @@
-Current review: [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). PR #18 was already merged; later work remained safely pushed on the same branch and is now included in the open continuation PR. Historical PR18 references below refer to that shared branch and earlier review.
+Wrap-up requested: verified implementation stops at checkpoint57. Uninstalled proposals are preserved separately and excluded from production admissions.
 
-## CHECKPOINT57 VERIFIED — CONTINUING
+Verified implementation was merged in [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). The wrap-up branch `codex/card-automation-wrap-up` preserves the remaining uninstalled research. PR #18 and PR #19 references below describe historical implementation reviews.
+
+## CHECKPOINT57 VERIFIED — WRAPPED UP
 
 Latest full catalog classification: **29,715 FULL / 2,353 PARTIAL**, among32,068 Commander-legal cards. **13 exact expected promotions** from checkpoint56; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **253 of1,500 additional completions verified;1,247 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
 
 Evidence: [checkpoint57-coverage.json](research/checkpoint57-coverage.json) and [830-module source hashes](research/checkpoint57-source-hashes.json). Original frozen source passes full mypy830, configured Ruff and54 core engine/history/privacy tests. The13 comprise7 static casting-permission cards,3 conditional kicker target/mode cards and3 first-event receipt cards. Every admission has closed native whole-card, negative, saved-game and relevant regression evidence. Unknown legacy history uses explicit native handling rather than invented first events. Additional costs, bound Aluren timing, genuine investigate actions and zero-mode payment continuations are exercised.
 
-Hojo's trustworthy fresh-turn1 marker repair and existing Abundance/Ruin zero-mode quality repairs are included without extra card counts. Current review is PR19, with ongoing work continuously pushed. Six workers continue text changes, original entry putters, optional-payment continuations, top-library permissions, remaining kicker foundations and unblocked combat. Later changes remain outside these totals until another audit; all remaining automation and the1,500-card target remain unfinished.
+Hojo's trustworthy fresh-turn1 marker repair and existing Abundance/Ruin zero-mode quality repairs are included without extra card counts. The user requested a wrap-up and PR. Six workers have been asked to stop implementation and preserve uninstalled text-change, entry-putter, optional-payment, top-library, kicker and combat proposals as research. These proposals are uncounted; all remaining automation and the 1,500-card target remain unfinished.
 
 ## CHECKPOINT56 VERIFIED — CONTINUING
 

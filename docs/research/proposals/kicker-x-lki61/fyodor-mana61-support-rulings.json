@@ -1,0 +1,51 @@
+[
+  {
+    "name": "Silver-Inlaid Dagger",
+    "rulings": []
+  },
+  {
+    "name": "Sol Ring",
+    "rulings": []
+  },
+  {
+    "name": "Darksteel Myr",
+    "rulings": []
+  },
+  {
+    "name": "River Boa",
+    "rulings": []
+  },
+  {
+    "name": "Omniscience",
+    "rulings": [
+      {
+        "object": "ruling",
+        "oracle_id": "730e39e6-c61d-48b5-8827-bfd952bf1be7",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "You must follow the normal timing permissions and restrictions of each spell you cast."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "730e39e6-c61d-48b5-8827-bfd952bf1be7",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "If you cast a spell \"without paying its mana cost,\" you can't choose to cast it for any alternative costs. You can, however, pay additional costs, such as kicker costs. If the card has any mandatory additional costs, such as that of Tormenting Voice, those must be paid to cast the spell."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "730e39e6-c61d-48b5-8827-bfd952bf1be7",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "If a spell has {X} in its mana cost, you must choose 0 as the value of X when casting it without paying its mana cost."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "730e39e6-c61d-48b5-8827-bfd952bf1be7",
+        "source": "wotc",
+        "published_at": "2018-07-13",
+        "comment": "Once you cast Omniscience, if it's your turn, you'll have priority immediately after it resolves. You can cast another spell before any player can attempt to remove Omniscience with spells or abilities."
+      }
+    ]
+  }
+]

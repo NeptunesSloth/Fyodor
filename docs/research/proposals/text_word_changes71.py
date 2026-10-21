@@ -18,12 +18,13 @@ LANDS = frozenset(BASIC_LAND_MANA)
 
 # A reference to a specific card is not a type/color word (612.2). Explicit native
 # source names must be supplied; named-card clauses protect their full noun phrase.
-_NAMED_START = re.compile(r'\bnamed\s+', re.IGNORECASE)
+_NAMED_START = re.compile(r'\bnamed\s+|\bpartner with\s+|\b(?:meld|transforms?|converts?)\b[^.;\n]{0,80}?\binto\s+', re.IGNORECASE)
+_KEYWORD_NAMES = re.compile(r"\b(?:Doctor['’]s companion|more than meets the eye)\b", re.IGNORECASE)
 _SYMBOL = re.compile(r'\{[^}]*\}')
 
 
 def protected_spans(text: str, names: tuple[str, ...], catalog_names: tuple[str, ...], name_at: Callable[[str, int], str | None] | None = None) -> list[tuple[int, int]]:
-    out = [m.span() for m in _SYMBOL.finditer(text)]
+    out = [m.span() for m in _SYMBOL.finditer(text)] + [m.span() for m in _KEYWORD_NAMES.finditer(text)]
     for name in names:
         if name:
             out.extend(m.span() for m in re.finditer(re.escape(name), text))
@@ -110,6 +111,12 @@ def ability_text(ability: AbilityText, change: TextChange71, names: tuple[str, .
 def apply(ch: Characteristics, change: TextChange71, name_at: Callable[[str, int], str | None] | None = None) -> Characteristics:
     """Layer3 own/copied abilities only; call before native layer6 grants."""
 
+    if change.all_colors:
+        if change.category != 'color' or change.new not in COLORS:
+            return ch
+        for word in sorted(COLORS - {change.new}):
+            ch = apply(ch, TextChange71(category='color', old=word, new=change.new), name_at)
+        return ch
     valid = COLORS if change.category == 'color' else LANDS if change.category == 'basic_land' else CREATURE_TYPES
     if change.old not in valid or change.new not in valid or change.old == change.new:
         return ch

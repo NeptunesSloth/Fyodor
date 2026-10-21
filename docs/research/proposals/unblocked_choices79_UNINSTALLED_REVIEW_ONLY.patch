@@ -1,0 +1,121 @@
+--- a/backend/app/rules/declaration_groups.py
++++ b/backend/app/rules/declaration_groups.py
+@@ -13,13 +13,15 @@
+ # The profile records only facts required by this grammar, never an unbounded subset.
+ # count<=3, highest power, greatest power needing a stronger companion,
+ # minimum group size, black/green count<=2, required black/green companions.
+-Profile = tuple[int, int | None, int | None, int, int, int]
+-EMPTY: Profile = (0, None, None, 0, 0, 0)
++Profile = tuple[int, int | None, int | None, int, int, int, bool]
++EMPTY: Profile = (0, None, None, 0, 0, 0, False)
+
+
+ def parse(text: str) -> dict[str, Any] | None:
+     from app.rules import statics
+
++    if text in ('This creature can only attack alone.', '~ can only attack alone.'):
++        return statics._definition('self', None, [], rules=['declaration_group:attack:alone'])
+     m = re.fullmatch(r"(?:~|[Tt]his creature) can't (?P<mode>attack|block) unless (?P<condition>a creature with greater power also (?:attacks|blocks)|at least two other creatures (?:attack|block)|a black or green creature also attacks)\.", text)
+     if m:
+         condition = m['condition']
+@@ -43,7 +45,7 @@
+ def add(plan: Plan, profile: Profile, cid: str, mode: str) -> Profile:
+     from app.rules.combat import _power
+
+-    count, highest, needed_power, minimum, colored, need_color = profile
++    count, highest, needed_power, minimum, colored, need_color, must_solo = profile
+     ch = plan.ch(plan.state.cards[cid])
+     own = rules(plan, cid)
+     p = _power(ch)
+@@ -56,12 +58,12 @@
+         minimum = max(minimum, 2)
+     if f'declaration_group:{mode}:black_green' in own:
+         need_color = max(need_color, 1 + int(qualifies))
+-    return min(3, count + 1), p if highest is None else max(highest, p), needed_power, minimum, min(2, colored + qualifies), need_color
++    return min(3, count + 1), p if highest is None else max(highest, p), needed_power, minimum, min(2, colored + qualifies), need_color, must_solo or f'declaration_group:{mode}:alone' in own
+
+
+ def valid(profile: Profile) -> bool:
+-    count, highest, needed_power, minimum, colored, need_color = profile
+-    return count >= minimum and colored >= need_color and (needed_power is None or (highest is not None and highest > needed_power))
++    count, highest, needed_power, minimum, colored, need_color, must_solo = profile
++    return (not must_solo or count <= 1) and count >= minimum and colored >= need_color and (needed_power is None or (highest is not None and highest > needed_power))
+
+
+ def legal(plan: Plan, ids: set[str], mode: str) -> bool:
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -1223,6 +1223,14 @@
+     source: str | None = None
+     label: str = Field(default="", max_length=120)
+     amount: int = 0  # -- cant restrictions (wave 46A) -- keyword "cost": the generic mana it takes off ("The next spell you cast this turn costs {1} less to cast.", 601.2f, 118.7a)
++
++
++class SourceHandReveal79(BaseModel):
++    """A resolved reveal fixes its player and original source object for its duration."""
++
++    player: str
++    source_card: str
++    source_object: str
+
+
+ class TopReveal(BaseModel):
+@@ -1630,6 +1638,7 @@
+     permissions: list[Permission] = Field(default_factory=list)
+     cost_modifiers: list[CostModifier] = Field(default_factory=list)
+     next_spell_grants: list[NextSpellGrant] = Field(default_factory=list)  # -- spell grants (wave 28C) --
++    source_hand_reveals79: list[SourceHandReveal79] = Field(default_factory=list)
+     top_reveals: list[TopReveal] = Field(default_factory=list)
+     # -- conditional / instead clauses (wave 1B) --  this turn's and last turn's history (TurnLog)
+     turn_log: TurnLog = Field(default_factory=TurnLog)
+--- a/backend/app/game/visibility.py
++++ b/backend/app/game/visibility.py
+@@ -73,8 +73,13 @@
+     every player, spectators too): while a source that has it is on a battlefield, face up and automated, the hands it names are open. The source's
+     controller is "you" / "your opponents" (``RulesState.top_reveals``, refreshed by the engine)."""
+     rules = state.rules
+-    if rules is None or not rules.top_reveals:
++    if rules is None:
+         return False
++    for grant in rules.source_hand_reveals79:
++        source = state.cards.get(grant.source_card)
++        if (grant.player == card.owner and source is not None and source.zone.endswith(':battlefield')
++                and rules.object_id(source.id) == grant.source_object):
++            return True
+     owner = card.owner
+     for reveal in rules.top_reveals:
+         source = state.cards.get(reveal.source)
+--- a/backend/app/rules/delayed.py
++++ b/backend/app/rules/delayed.py
+@@ -616,6 +616,8 @@
+     table change: the source left, changed controller or untapped)."""
+     from app.rules import phase_lifetimes43, timed_damage_replacements
+
++    plan.rules.source_hand_reveals79 = [r for r in plan.rules.source_hand_reveals79
++        if _source_ok(plan, 'source_on_battlefield', r.source_card, r.source_object, None)]
+     phase_lifetimes43.expire(plan)
+     timed_damage_replacements.expire_source_records(plan)
+     r = plan.rules
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5721,6 +5721,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import unblocked_choices79
++
++    if (unblocked79 := unblocked_choices79.definition(ability, ch)) is not None:
++        return unblocked79
+     from app.rules import first_event_receipts78
+
+     if (first78 := first_event_receipts78.definition(ability, ch)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6682,3 +6682,7 @@
+ from app.rules import first_event_receipts78 as _first_event78  # noqa: E402
+
+ PRIMITIVES['investigate_complete78'] = _first_event78.complete
++
++from app.rules import unblocked_choices79 as _unblocked79  # noqa: E402
++
++PRIMITIVES.update({'bone_entry79': _unblocked79.bone_entry, 'bone_finish79': _unblocked79.bone_finish, 'spy_reveal79': _unblocked79.spy_reveal})

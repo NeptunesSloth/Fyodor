@@ -1,0 +1,75 @@
+[
+  {
+    "name": "Master of Cruelties",
+    "mana_cost": "{3}{B}{R}",
+    "type_line": "Creature \u2014 Demon",
+    "oracle_text": "First strike, deathtouch\nThis creature can only attack alone.\nWhenever this creature attacks a player and isn't blocked, that player's life total becomes 1. This creature assigns no combat damage this combat.",
+    "power": "1",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [
+      "First strike",
+      "Deathtouch"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Bone Dancer",
+    "mana_cost": "{1}{B}{B}",
+    "type_line": "Creature \u2014 Zombie",
+    "oracle_text": "Whenever this creature attacks and isn't blocked, you may put the top creature card of defending player's graveyard onto the battlefield under your control. If you do, this creature assigns no combat damage this turn.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Stromgald Spy",
+    "mana_cost": "{3}{B}",
+    "type_line": "Creature \u2014 Human Rogue",
+    "oracle_text": "Whenever this creature attacks and isn't blocked, you may have defending player play with their hand revealed for as long as this creature remains on the battlefield. If you do, this creature assigns no combat damage this turn.",
+    "power": "2",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Grafdigger's Cage",
+    "mana_cost": "{1}",
+    "type_line": "Artifact",
+    "oracle_text": "Creature cards in graveyards and libraries can't enter the battlefield.\nPlayers can't cast spells from graveyards or libraries.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "card_faces": null
+  }
+]

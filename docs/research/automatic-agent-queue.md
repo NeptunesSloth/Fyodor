@@ -1,10 +1,12 @@
 # Automatic card-rule work queue
 
+Current status: user-requested wrap-up at checkpoint57. Automatic reassignment is paused; workers are preserving uninstalled proposals for review. The instructions below describe the earlier work queue.
+
 The user explicitly requests automatic reassignment to the next biggest remaining groups when agents finish. Keep this instruction across checkpoints. The target remains at least 1,500 additional verified completions from checkpoint48; checkpoint57 verifies 253 cumulatively from checkpoint48, leaving 1,247 toward that target.
 
 Use the newest verified catalog inventory to choose coherent shared rule gaps. Broad family counts overlap and do not establish how many cards an implementation completes. Prefer reusable semantics with concrete whole-card candidates, rather than choosing individual cards solely for popularity.
 
-Current ownership (six active agents):
+Historical ownership (six workers, now wrapping up):
 
 - `resume_mana`: activation costs and mana metadata, then spending permissions and could-produce foundations.
 - `resume_exile`: relative damage receipts and casting continuations, then remaining exile/copy families.

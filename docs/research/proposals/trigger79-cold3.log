@@ -1,0 +1,77 @@
+..F                                                                      [100%]
+=================================== FAILURES ===================================
+_________ test_genuine_cold_native_unblocked_resolution[Stromgald Spy] _________
+
+cards = <app.cards.repository.CardRepository object at 0x7fc499857f50>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-6158/test_genuine_cold_native_unblo2')
+name = 'Stromgald Spy'
+
+    @pytest.mark.parametrize('name', NAMES)
+    def test_genuine_cold_native_unblocked_resolution(cards, tmp_path, name):
+        import subprocess
+        import sys
+        import app
+        s, source = setup79(cards, name)
+        hidden = put(s, 'Forest', 'hand', 'p2')
+        elf = put(s, 'Llanowar Elves', 'graveyard', 'p2')
+        from tests.test_rules_wave30m_durations import stops
+        stops(s, 'main1', 'declare_attackers', 'declare_blockers', 'combat_damage', 'end_combat')
+        to_phase(s, 'declare_attackers', turn=4)
+        attack(s, (source, 'p2'))
+        to_phase(s, 'declare_blockers', turn=4)
+        # Native blockers submission commits the unblocked event and leaves actual trigger pending.
+        if s.state.rules.decision is not None:
+            act(s, 'p2', type='declare_blockers', blocks=[])
+        assert s.state.zones.get('stack')
+        saved = tmp_path / 'unblocked.json'
+        saved.write_text(s.state.model_dump_json())
+        code = r'''
+    import sys
+    from pathlib import Path
+    from app.cards.images import ImageStore
+    from app.cards.repository import CardRepository
+    from app.game.session import GameSession
+    from app.game.state import GameState
+    from app.game.visibility import can_see,SPECTATOR
+    from tests.game_helpers import act
+    from tests.test_rules_library_look import settle
+    from tests.test_rules_wave6c_tokens_pumps import chars
+    r=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+    s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=r)
+    name,source,hidden,elf=sys.argv[3:]
+    settle(s)
+    if name!='Master of Cruelties':
+     d=s.state.rules.decision
+     assert d and d.kind=='confirm'
+     act(s,d.player,type='choose',decision_id=d.id,option_ids=['yes'])
+     settle(s)
+    assert 'assign_none' in chars(s,s.state.cards[source]).imposed
+    if name=='Master of Cruelties':assert s.state.players['p2'].life==1
+    elif name=='Bone Dancer':assert s.state.cards[elf].zone=='p1:battlefield'
+    else:assert can_see(s.state,s.state.cards[hidden],SPECTATOR)
+    assert s.state.rules.decision is None
+    '''
+        result = subprocess.run([sys.executable, '-c', code, str(saved), str(cards.db_path), name, source.id, hidden.id, elf.id],
+            capture_output=True, text=True, timeout=90, cwd=Path(app.__file__).resolve().parents[1])
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 24, in <module>
+E           File "/tmp/trigger79-unblocked-stage/app/game/visibility.py", line 38, in can_see
+E             return _sees(state, card, viewer) or (
+E                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           File "/tmp/trigger79-unblocked-stage/app/game/visibility.py", line 58, in _sees
+E             return (zone == "library" and top_revealed(state, card, viewer)) or (zone == "hand" and hand_revealed(state, card))
+E                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           File "/tmp/trigger79-unblocked-stage/app/game/visibility.py", line 78, in hand_revealed
+E             for grant in rules.source_hand_grants79:
+E                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           File "/workspace/Fyodor/backend/.venv/lib/python3.12/site-packages/pydantic/main.py", line 1105, in __getattr__
+E             raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+E         AttributeError: 'RulesState' object has no attribute 'source_hand_grants79'. Did you mean: 'source_hand_reveals79'?
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python', '-c', "\nimport sys\nfrom pathlib import Path\nfr...uteError: \'RulesState\' object has no attribute \'source_hand_grants79\'. Did you mean: \'source_hand_reveals79\'?\n').returncode
+
+tests/test_rules_unblocked_choices79.py:208: AssertionError
+=========================== short test summary info ============================
+FAILED ../../workspace/Fyodor/backend::test_genuine_cold_native_unblocked_resolution[Stromgald Spy]

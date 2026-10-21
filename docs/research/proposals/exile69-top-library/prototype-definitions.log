@@ -1,0 +1,10 @@
+The Belligerent PARTIAL
+{}
+Falco Spara, Pactweaver FULL
+{1: {'kind': 'replacement', 'replacement': 'enters_with_counters', 'counter': 'shield', 'n': 1, 'effects': []}, 2: {'kind': 'static', 'static': 'top_reveal', 'to': 'owner', 'effects': []}, 3: {'kind': 'static', 'static': 'permission', 'zone': 'library_top', 'once': False, 'flash': False, 'self': False, 'play': False, 'cast': True, 'filter': None, 'effects': [], 'extra': 'Remove a counter from a creature you control'}}
+Into the Pit FULL
+{0: {'kind': 'static', 'static': 'top_reveal', 'to': 'owner', 'effects': []}, 1: {'kind': 'static', 'static': 'permission', 'zone': 'library_top', 'once': False, 'flash': False, 'self': False, 'play': False, 'cast': True, 'filter': None, 'effects': [], 'extra': 'Sacrifice a nonland permanent'}}
+Isu the Abominable FULL
+{0: {'kind': 'static', 'static': 'top_reveal', 'to': 'owner', 'effects': []}, 1: {'kind': 'static', 'static': 'permission', 'zone': 'library_top', 'once': False, 'flash': False, 'self': False, 'play': True, 'cast': True, 'filter': 'sel:{"supertypes":["Snow"],"zones":["stack"]}', 'effects': [], 'land_filter': 'sel:{"supertypes":["Snow"],"zones":["stack"]}'}, 2: {'kind': 'triggered', 'trigger': 'event', 'effects': [{'do': 'optional_payment', 'who': 'you', 'bind': 'pay0', 'alts': ['{G}', '{W}', '{U}']}, {'do': 'only_if', 'cond': {'succeeded': 'pay0'}, 'skip': 1}, {'do': 'add_counters', 'who': 'self', 'kind': '+1/+1', 'n': 1}], 'optional': False, 'target': None, 'cond': {'event': 'enter', 'subject': 'sel', 'sel': 'sel:{"controller":"you","other":true,"supertypes":["Snow"]}', 'aggregate': False}}}
+The Fourth Doctor FULL
+{0: {'kind': 'static', 'static': 'top_reveal', 'to': 'owner', 'effects': []}, 1: {'kind': 'static', 'static': 'permission', 'zone': 'library_top', 'once': True, 'flash': False, 'self': False, 'play': True, 'cast': True, 'filter': 'sel:{"extras":["historic"],"zones":["stack"]}', 'effects': [], 'once_any': True, 'land_filter': 'historic', 'use_trigger': 'create_food69'}}

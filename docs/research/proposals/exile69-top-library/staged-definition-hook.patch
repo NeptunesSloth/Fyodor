@@ -1,0 +1,14 @@
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -6064,6 +6064,11 @@
+
+     if (torch_exile65 := torch_exile_receipts65.definition(ability, ch)) is not None:
+         return torch_exile65
++    from app.rules import top_library_authorities69
++
++    if (top69 := top_library_authorities69.definition(ability, ch)) is not None:
++        return top69
++
+     from app.rules import conditional_free_casts68
+
+     if (conditional68 := conditional_free_casts68.definition(ability, ch)) is not None:

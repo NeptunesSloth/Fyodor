@@ -289,3 +289,85 @@ GameState.model_validate_json(s.state.model_dump_json())
     result = subprocess.run([sys.executable, '-c', code, str(saved), str(cards.db_path), recipient.id],
                             capture_output=True, text=True, timeout=90)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_patriarchs_bidding_actual_type_choices_preserve_both_putters(cards):
+    s = setup(cards)
+    put(s, NAMES[0], 'battlefield', 'p3')
+    a = put(s, 'Dryad Arbor', 'graveyard')
+    b = put(s, 'Dryad Arbor', 'graveyard', 'p2')
+    source = put(s, "Patriarch's Bidding", 'hand')
+    mana(s, C=3, B=2)
+    act(s, 'p1', type='cast_spell', card_id=source.id)
+    for who in ['p1', 'p2', 'p3']:
+        settle(s)
+        d = s.state.rules.decision
+        assert d and d.player == who and 'Dryad' in [o.id for o in d.options]
+        act(s, who, type='choose', decision_id=d.id, option_ids=['Dryad'])
+    assert sorted(decline_all(s)) == ['p1', 'p2']
+    assert a.zone == 'p1:battlefield' and b.zone == 'p2:battlefield'
+    assert s.state.players['p1'].life == s.state.players['p2'].life == 37
+    roundtrip(s)
+
+
+def test_parallax_tide_explicit_each_owner_return_has_distinct_putters(cards):
+    s = setup(cards)
+    put(s, NAMES[0], 'battlefield', 'p3')
+    a = put(s, 'Forest', 'battlefield')
+    b = put(s, 'Forest', 'battlefield', 'p2')
+    put(s, 'Grizzly Bears', 'battlefield')
+    put(s, 'Grizzly Bears', 'battlefield', 'p2')
+    source = put(s, 'Parallax Tide', 'hand')
+    mana(s, C=2, U=2)
+    act(s, 'p1', type='cast_spell', card_id=source.id)
+    settle(s)
+    for target in [a, b]:
+        wait_priority(s, 'p1')
+        act(s, 'p1', type='activate_ability', card_id=source.id, ability=1, targets=[target.id])
+        settle(s)
+        assert target.zone.endswith(':exile')
+    removal = put(s, 'Disenchant', 'hand')
+    wait_priority(s, 'p1')
+    mana(s, C=1, W=1)
+    act(s, 'p1', type='cast_spell', card_id=removal.id, targets=[source.id])
+    assert sorted(decline_all(s)) == ['p1', 'p2']
+    assert a.zone == 'p1:battlefield' and b.zone == 'p2:battlefield'
+    assert s.state.players['p1'].life == s.state.players['p2'].life == 37
+    roundtrip(s)
+
+
+def test_true_cold_pending_mixed_return_keeps_serialized_owner_instructions(cards, tmp_path):
+    import subprocess
+    import sys
+
+    s = setup(cards)
+    put(s, NAMES[0], 'battlefield', 'p3')
+    a = put(s, 'Dryad Arbor', 'graveyard')
+    b = put(s, 'Dryad Arbor', 'graveyard', 'p2')
+    source = put(s, 'Exhume', 'hand')
+    act(s, 'p1', type='set_prefs', hold_priority=True)
+    mana(s, C=1, B=1)
+    act(s, 'p1', type='cast_spell', card_id=source.id)
+    assert source.zone.endswith(':stack') and a.zone.endswith(':graveyard')
+    saved = tmp_path / 'mixed76.json'
+    saved.write_text(s.state.model_dump_json())
+    code = r"""
+import sys
+from pathlib import Path
+from app.cards.images import ImageStore
+from app.cards.repository import CardRepository
+from app.game.session import GameSession
+from app.game.state import GameState
+from tests.test_rules_entry_putter_receipts76 import decline_all
+repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
+assert sorted(decline_all(s))==['p1','p2']
+assert s.state.cards[sys.argv[3]].zone=='p1:battlefield'
+assert s.state.cards[sys.argv[4]].zone=='p2:battlefield'
+assert s.state.players['p1'].life==s.state.players['p2'].life==37
+assert s.state.players['p3'].life==40
+GameState.model_validate_json(s.state.model_dump_json())
+"""
+    result = subprocess.run([sys.executable, '-c', code, str(saved), str(cards.db_path), a.id, b.id],
+                            capture_output=True, text=True, timeout=90)
+    assert result.returncode == 0, result.stdout + result.stderr

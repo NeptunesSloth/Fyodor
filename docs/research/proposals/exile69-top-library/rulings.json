@@ -1,0 +1,214 @@
+{
+  "The Belligerent": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "9a0c9023-9431-4f98-b167-ab4c7215319c",
+        "source": "wotc",
+        "published_at": "2023-11-10",
+        "comment": "Once The Belligerent's triggered ability resolves, you can look at the top card of your library whenever you want until end of turn (with one restriction; see below), even if you don't have priority. This action doesn't use the stack. Knowing what that card is becomes part of the information you have access to, just like you can look at the cards in your hand."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "9a0c9023-9431-4f98-b167-ab4c7215319c",
+        "source": "wotc",
+        "published_at": "2023-11-10",
+        "comment": "If the top card of your library changes while you're casting a spell, playing a land, or activating an ability, you can't look at the new top card until you finish doing so. This means that if you cast a spell from the top of your library, you can't look at the next one until you're done paying for that spell."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "9a0c9023-9431-4f98-b167-ab4c7215319c",
+        "source": "wotc",
+        "published_at": "2023-11-10",
+        "comment": "If the top card of your library has an Adventure, you can cast the Adventure spell this way."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "9a0c9023-9431-4f98-b167-ab4c7215319c",
+        "source": "wotc",
+        "published_at": "2023-11-10",
+        "comment": "You must pay all costs and follow all timing rules for spells cast and lands played from the top of your library this way."
+      }
+    ]
+  },
+  "Falco Spara, Pactweaver": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "b9c1ca24-5696-4777-8465-13a8f78e4fb5",
+        "source": "wotc",
+        "published_at": "2022-04-29",
+        "comment": "Removing a counter from a creature is an additional cost of casting the spell and may be combined with other additional costs or alternative costs that spell may have, such as casualty."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "b9c1ca24-5696-4777-8465-13a8f78e4fb5",
+        "source": "wotc",
+        "published_at": "2022-04-29",
+        "comment": "If you cast a spell with casualty this way, you can pay the costs in any order, which means that you may remove a counter from a creature then sacrifice it to pay the casualty cost. Bear in mind that removing a +1/+1 counter this way will reduce a creature's power, which might prevent you from paying the casualty cost with that creature."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "b9c1ca24-5696-4777-8465-13a8f78e4fb5",
+        "source": "wotc",
+        "published_at": "2022-04-29",
+        "comment": "Shield counters don't prevent players from sacrificing creatures."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "b9c1ca24-5696-4777-8465-13a8f78e4fb5",
+        "source": "wotc",
+        "published_at": "2022-04-29",
+        "comment": "Removing a shield counter in this way isn't the same as regenerating a creature."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "b9c1ca24-5696-4777-8465-13a8f78e4fb5",
+        "source": "wotc",
+        "published_at": "2022-04-29",
+        "comment": "If a permanent that would be dealt damage has more than one shield counter on it, that damage is prevented and only one shield counter is removed."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "b9c1ca24-5696-4777-8465-13a8f78e4fb5",
+        "source": "wotc",
+        "published_at": "2022-04-29",
+        "comment": "If a permanent with a shield counter is dealt unpreventable damage, that damage will be dealt and a shield counter will still be removed."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "b9c1ca24-5696-4777-8465-13a8f78e4fb5",
+        "source": "wotc",
+        "published_at": "2022-04-29",
+        "comment": "A creature with a shield counter on it may still be destroyed by state-based actions if it has damage marked on it equal to its toughness or has been dealt unpreventable damage by a source with deathtouch."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "b9c1ca24-5696-4777-8465-13a8f78e4fb5",
+        "source": "wotc",
+        "published_at": "2022-04-29",
+        "comment": "\"Shield\" is not an ability that creatures have and shield counters are not keyword counters. If a creature with a shield counter loses its abilities, the shield counter will still protect it as normal."
+      }
+    ]
+  },
+  "Into the Pit": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "e330412f-46a1-4e7c-8766-f644606049e0",
+        "source": "wotc",
+        "published_at": "2024-09-20",
+        "comment": "While you control Into the Pit, you can look at the top card of your library whenever you want (with one restriction; see below), even if you don't have priority. This action doesn't use the stack. Knowing what that card is becomes part of the information you have access to, just like you can look at the cards in your hand."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e330412f-46a1-4e7c-8766-f644606049e0",
+        "source": "wotc",
+        "published_at": "2024-09-20",
+        "comment": "If the top card of your library changes while you're casting a spell, playing a land, activating an ability, or taking a special action, you can't look at the new top card until you finish doing so. This means that if you cast a spell from the top of your library, you can't look at the next one until you're done paying for that spell."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e330412f-46a1-4e7c-8766-f644606049e0",
+        "source": "wotc",
+        "published_at": "2024-09-20",
+        "comment": "You pay all costs and follow all timing rules for spells cast from the top of your library this way."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e330412f-46a1-4e7c-8766-f644606049e0",
+        "source": "wotc",
+        "published_at": "2024-09-20",
+        "comment": "While you control Into the Pit, if the top card of your library has disguise or morph, you may cast it face down from the top of your library by paying {3} and sacrificing a nonland permanent."
+      }
+    ]
+  },
+  "Isu the Abominable": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "b34823a3-7bee-4e71-a3df-9b533c8ddf15",
+        "source": "wotc",
+        "published_at": "2022-12-02",
+        "comment": "You must pay all costs and follow all timing rules for cards played from the top of your library this way. For example, you may play a snow land this way only while the stack is empty during one of your own main phases, and only if you haven't played a land yet this turn."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "b34823a3-7bee-4e71-a3df-9b533c8ddf15",
+        "source": "wotc",
+        "published_at": "2022-12-02",
+        "comment": "The top card of your library is still in your library and not in your hand. You can't discard cards from the top of your library or activate abilities of cards on top of your library that normally work in your hand."
+      }
+    ]
+  },
+  "The Fourth Doctor": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "c19fdee3-5fbc-4e2d-ac23-85b46eacafdc",
+        "source": "wotc",
+        "published_at": "2024-11-08",
+        "comment": "Food is an artifact type. Even though it appears on some creatures, it's never a creature type."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "c19fdee3-5fbc-4e2d-ac23-85b46eacafdc",
+        "source": "wotc",
+        "published_at": "2024-11-08",
+        "comment": "You can't sacrifice a Food to pay multiple costs. For example, you can't sacrifice a Food token to activate its own ability and also to activate Maraleaf Rider's ability."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "c19fdee3-5fbc-4e2d-ac23-85b46eacafdc",
+        "source": "wotc",
+        "published_at": "2024-11-08",
+        "comment": "Whatever you do, don't eat the delicious cards."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "c19fdee3-5fbc-4e2d-ac23-85b46eacafdc",
+        "source": "wotc",
+        "published_at": "2023-10-13",
+        "comment": "Neither \"Time\" nor \"Lord\" are creature types. Some older cards were printed with the subtype \"Lord,\" but all of those cards have updated Oracle card text that removed that type."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "c19fdee3-5fbc-4e2d-ac23-85b46eacafdc",
+        "source": "wotc",
+        "published_at": "2023-10-13",
+        "comment": "Essentially, The Fourth Doctor lets you play with the top card of your library revealed only to you. Knowing what that card is becomes part of the information you have access to, just like you can look at the cards in your hand. You may look at the top card of your library whenever you want, even if you don't have priority. This action doesn't use the stack."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "c19fdee3-5fbc-4e2d-ac23-85b46eacafdc",
+        "source": "wotc",
+        "published_at": "2023-10-13",
+        "comment": "If an effect instructs you to choose a creature type, you may choose Time Lord."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "c19fdee3-5fbc-4e2d-ac23-85b46eacafdc",
+        "source": "wotc",
+        "published_at": "2023-10-13",
+        "comment": "If the top card of your library changes during the process of casting a spell or activating an ability, you can't look at the new top card until the process of casting the spell or activating the ability ends (all targets are chosen, all costs are paid, and so on)."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "c19fdee3-5fbc-4e2d-ac23-85b46eacafdc",
+        "source": "wotc",
+        "published_at": "2023-10-13",
+        "comment": "Unlike other creature types in Magic that are each only one word, the two words \"Time Lord\" represent a single creature subtype. Time Lord is the only two-word creature type."
+      }
+    ]
+  }
+}

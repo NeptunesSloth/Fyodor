@@ -1,0 +1,25 @@
+.....F...                                                                [100%]
+=================================== FAILURES ===================================
+___________ test_bone_current_top_creature_ignores_noncreature[True] ___________
+
+cards = <app.cards.repository.CardRepository object at 0x7f3d687b79e0>
+yes = True
+
+    @pytest.mark.parametrize('yes', [True, False])
+    def test_bone_current_top_creature_ignores_noncreature(cards, yes):
+        s, source = setup79(cards, 'Bone Dancer')
+        bear = put(s, 'Grizzly Bears', 'graveyard', 'p2')
+        elf = put(s, 'Llanowar Elves', 'graveyard', 'p2')
+        put(s, 'Forest', 'graveyard', 'p2')
+        unblocked79(s, source)
+        answer79(s, yes)
+        assert s.state.cards[bear.id].zone == 'p2:graveyard'
+        assert s.state.cards[elf.id].zone == ('p1:battlefield' if yes else 'p2:graveyard')
+>       assert ('assign_none' in chars(s, source).imposed) is yes
+E       AssertionError: assert ('assign_none' in frozenset()) is True
+E        +  where frozenset() = Characteristics(name='Bone Dancer', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Zombie...2, 2), granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=0).imposed
+E        +    where Characteristics(name='Bone Dancer', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Zombie...2, 2), granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=0) = chars(<app.game.session.GameSession object at 0x7f3d687b7e00>, CardInstance(borrow_identity=None, id='399f63769a3e', card_id='bedb9563-005c-5396-ad25-27d99d6eb3a3', name='Bone Dance...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False))
+
+tests/test_rules_unblocked_choices79.py:100: AssertionError
+=========================== short test summary info ============================
+FAILED ../../workspace/Fyodor/backend::test_bone_current_top_creature_ignores_noncreature[True]

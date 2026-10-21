@@ -49,7 +49,7 @@ def definition(plan: Plan, card_id: str, entry: StackEntry) -> dict[str, Any]:
         base_name = layers.copiable(plan.state, card, plan.info).name
         extra = tuple(replace(a, text=renamed(a.text, receipt.name, base_name)) for a in extra)
         extra_ch = Characteristics(name=base_name, types=frozenset({'Instant'}), abilities=extra)
-        extra_ch = layers.name_changes(extra_ch, layers.affecting(plan.state, card, plan.info), [], plan.info)
+        extra_ch = layers.name_changes(extra_ch, layers.affecting(plan.state, card, plan.info), [], plan.info, plan.state, card)
         offset = max((a.index for a in ch.abilities), default=-1) + 1
         ch = replace(ch, abilities=(*ch.abilities, *(replace(a, index=offset + i) for i, a in enumerate(extra_ch.abilities))))
     result = scripts.spell_definition(ch)
@@ -91,7 +91,9 @@ def refresh(plan: Plan, card_id: str, entry: StackEntry) -> StackEntry | None:
     if entry.kind != 'spell':
         return entry
     card = plan.state.cards[card_id]
-    if not any(e.layer == '3' and e.text_change71 is not None for e in layers.affecting(plan.state, card, plan.info)):
+    from app.rules import text_global_word71
+
+    if not any(e.layer == '3' and e.text_change71 is not None for e in layers.affecting(plan.state, card, plan.info)) and not text_global_word71.global_changes(plan.state, card, plan.info):
         return entry
     try:
         d = fixed_scopes(definition(plan, card_id, entry), entry)

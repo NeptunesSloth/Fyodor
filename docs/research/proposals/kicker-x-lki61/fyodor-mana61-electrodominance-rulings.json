@@ -1,0 +1,81 @@
+{
+  "canonical": {
+    "id": "85e29bdc-938e-4132-813e-70c5e922efaf",
+    "oracle_id": "4a59d86e-405d-4c70-b2a5-c64f5cecfd9e",
+    "name": "Electrodominance",
+    "layout": "normal",
+    "set_code": "tdc",
+    "set_name": "Tarkir: Dragonstorm Commander",
+    "collector_number": "212",
+    "rarity": "rare",
+    "mana_cost": "{X}{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Electrodominance deals X damage to any target. You may cast a spell with mana value X or less from your hand without paying its mana cost.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-04-11",
+    "artist": "Dmitry Burmak",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  "rulings": [
+    {
+      "object": "ruling",
+      "oracle_id": "4a59d86e-405d-4c70-b2a5-c64f5cecfd9e",
+      "source": "wotc",
+      "published_at": "2024-04-12",
+      "comment": "If the target is illegal as Electrodominance tries to resolve, it won't resolve and none of its effects will happen. You won't get to cast a spell from your hand."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "4a59d86e-405d-4c70-b2a5-c64f5cecfd9e",
+      "source": "wotc",
+      "published_at": "2024-04-12",
+      "comment": "Effects that allow you to cast a spell don't allow you to play a land."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "4a59d86e-405d-4c70-b2a5-c64f5cecfd9e",
+      "source": "wotc",
+      "published_at": "2024-04-12",
+      "comment": "If the target is dealt lethal damage this way, it will still be on the battlefield while you cast a spell from your hand. It won't die until after Electrodominance is finished resolving. If any of its abilities trigger while you cast that spell, those abilities will trigger but won't resolve until after the target has died."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "4a59d86e-405d-4c70-b2a5-c64f5cecfd9e",
+      "source": "wotc",
+      "published_at": "2024-04-12",
+      "comment": "You cast the spell during the resolution of Electrodominance. Ignore timing restrictions based on the spell's type."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "4a59d86e-405d-4c70-b2a5-c64f5cecfd9e",
+      "source": "wotc",
+      "published_at": "2024-04-12",
+      "comment": "If you cast a spell \"without paying its mana cost,\" you can't choose to cast it for any alternative costs. You can, however, pay additional costs, such as kicker costs. If the spell has any mandatory additional costs, such as that of Bankrupt in Blood, those must be paid to cast the card."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "4a59d86e-405d-4c70-b2a5-c64f5cecfd9e",
+      "source": "wotc",
+      "published_at": "2024-04-12",
+      "comment": "If a spell has {X} in its mana cost, you must choose 0 as the value of X when casting it without paying its mana cost."
+    }
+  ]
+}
