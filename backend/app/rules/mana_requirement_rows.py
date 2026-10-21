@@ -8,6 +8,7 @@ from enum import StrEnum
 class ProducerRequirement(StrEnum):
     CREATURE_PERMANENT = 'creature_permanent'
     BASIC_LAND = 'basic_land'
+    TREASURE_PERMANENT = 'treasure_permanent'
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,8 @@ def producer_allowed(fact: ProducerFact | None, requirement: ProducerRequirement
         return True
     if fact is None or fact.zone is None or fact.zone.partition(':')[2] != 'battlefield':
         return False
+    if requirement is ProducerRequirement.TREASURE_PERMANENT:
+        return 'Treasure' in fact.tags
     return ('Creature' in fact.tags if requirement is ProducerRequirement.CREATURE_PERMANENT
             else {'Basic', 'Land'} <= set(fact.tags))
 

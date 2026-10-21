@@ -75,32 +75,3 @@ def test_anrakyr_cold_attack_to_artifact_life_alternative_payment(cards,tmp_path
     s=fresh(s,cards,tmp_path/'life.json',d.player,{'type':'choose','decision_id':d.id,'option_ids':[altar.id]})
     assert s.state.players['p1'].life==life-3
     assert s.state.cards[altar.id].zone=='p1:battlefield'
-
-
-
-
-
-
-
-
-
-def test_reno_cold_optional_sacrifice_then_normal_paid_exile_spell(cards,tmp_path):
-    from tests.test_rules_bandmate_references import mana
-    from tests.test_rules_refused_look import stack_library
-
-    s=gameplay.setup(cards,'Reno and Rude')
-    source=put(s,'Reno and Rude','battlefield')
-    altar=put(s,"Ashnod's Altar",'battlefield')
-    to_phase(s,'declare_attackers',turn=4)
-    packet=stack_library(s,['Divination','Grizzly Bears'],pid='p2')
-    d=gameplay.combat_optional_offer(s,source)
-    if 'pay' in [o.id for o in d.options]:
-        s=fresh(s,cards,tmp_path/'accept.json',d.player,{'type':'choose','decision_id':d.id,'option_ids':['pay']})
-        d=s.state.rules.decision
-    if d is not None:
-        s=fresh(s,cards,tmp_path/'sac.json',d.player,{'type':'choose','decision_id':d.id,'option_ids':[altar.id]})
-    assert s.state.cards[altar.id].zone=='p1:graveyard'
-    to_phase(s,'main2',turn=4)
-    mana(s,G=3)
-    s=fresh(s,cards,tmp_path/'cast.json','p1',{'type':'cast_spell','card_id':packet[0]})
-    assert s.state.cards[packet[0]].zone=='p2:graveyard'

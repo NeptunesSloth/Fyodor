@@ -1204,7 +1204,7 @@ def find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo
     except ActionError as exc:
         if purpose.producer_requirement is not None:
             producer = ('creatures on the battlefield' if purpose.producer_requirement is M.ProducerRequirement.CREATURE_PERMANENT
-                        else 'basic lands')
+                        else 'Treasures' if purpose.producer_requirement is M.ProducerRequirement.TREASURE_PERMANENT else 'basic lands')
             unknown = bool(state.players[player].mana) or any(unit.production_zone is None
                 for unit in state.players[player].mana_units)
             detail = " Mana of unknown origin can't pay this cost." if unknown else ''
@@ -3151,7 +3151,8 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
                                targets=_hint_targets(ch), selected_costs=selected_costs)
         if any(can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
                                                                 spell_object=_spell_reference(state, card),
-                                                                selected_cost_has_x=cost_x, alternative=offer.tag),
+                                                                selected_cost_has_x=cost_x, alternative=offer.tag,
+                                                                producer_requirement=offer.producer_requirement),
                        reserve=(extra.life if extra is not None else 0) + life_due)
                for (cost, life_due), cost_x in zip(ways, selected_costs, strict=True)):
             out.append({"id": offer.key, "label": offer.label, **({"x": True} if (offer.alt.mana_cost.x or getattr(offer.alt, "nonmana_x", False)) else {})})
@@ -3685,7 +3686,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     from_oid = plan.oid(card)  # -- as long as (wave 37A) -- the object it is before it becomes the spell (400.7): "until this card is cast from exile"
     purpose = Purpose(spell=ch, zone=origin, player=plan.actor, kicked=bool(kicked), x_payment=x_payment,
                       **{'spell_object': _spell_reference(plan.state, card),
-                         **(plan.locked_payment_context or {'alternative':alt_offer.tag if alt_offer else None, 'cost_colorless':cost_colorless,
+                         **(plan.locked_payment_context or {'alternative':alt_offer.tag if alt_offer else None,
+                                                          'producer_requirement':alt_offer.producer_requirement if alt_offer else None, 'cost_colorless':cost_colorless,
                                                           'selected_cost_has_x':prepared[0].selected_cost_has_x})})
     announced_cost = cost if a.mana_symbols is not None else announce_phyrexian(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=purpose, trusted=was_locked)  # (wave 50B: 601.2b)
     if announced_cost is None:

@@ -296,6 +296,7 @@ class Offer:
     escape: bool = False  # -- escape (wave 5I) -- 702.138a: a cast from the graveyard (app/rules/escape.py)
     tag: str | None = None  # -- keywords (wave 15E) -- "blitz": cast for its blitz cost (702.152a)
     flash: bool = False  # Timing permission belongs only to this actual alternative cost.
+    producer_requirement: M.ProducerRequirement | None = None  # Frozen from the actual selected definition.
 
 
 def sneak_timing(state: GameState, player: str) -> bool:
@@ -364,7 +365,8 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
                 continue
         alt = parse_cost(d["cost"], x_ok=d.get("tag") in X_KEYWORDS)
         if alt is not None:
-            out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}" + (f" ({d['tag']})" if d.get("tag") in ("mutate", "evoke") else ""), alt, tag=d.get("tag")))
+            out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}" + (f" ({d['tag']})" if d.get("tag") in ("mutate", "evoke") else ""), alt, tag=d.get("tag"),
+                             producer_requirement=M.ProducerRequirement(d["producer_requirement"]) if d.get("producer_requirement") else None))
     given = r.foretell_costs.get(card.id)  # -- hidden exile (wave 18A) -- 702.143d: a foretell cost an effect gave it
     if given and card.zone == f"{player}:foretell" and card.owner == player and r.foretold.get(card.id, 0) < state.turn.number \
             and (alt := parse_cost(f"pay {given}")) is not None:

@@ -1,3 +1,13 @@
+## CHECKPOINT47 VERIFIED — CONTINUING REMAINING CARDS
+
+Latest full catalog classification: **29,457 FULL / 2,611 PARTIAL**, 32,068 Commander-legal cards. All5 expected promotions appeared: Bogardan Phoenix, Rix Maadi Guildmage, Security Rhox, Reno and Rude, Diluvian Primordial. Zero prior FULL losses and no unexpected or missing promotions. Permanent audit summary: [checkpoint47-coverage.json](research/checkpoint47-coverage.json). Stable native audit snapshot `/tmp/fyodor-catalog47-snapshot`,711 parsed modules with SHA256 map; native inventory `/tmp/fyodor-fortyseventh-inventory.json`. Automation remains incomplete; these are coverage classifications.
+
+The large colored-multikicker boundary is repaired: internally generated RulesMana labels and exact PaymentRecord.total_cost no longer reject valid costs merely for exceeding200characters. Numeric limits, action mana deltas and the existing bounded display prompt remain intact. The former strict-xfail is now three passing native tests:67 and1000 actual colored multikickers, and a genuine cold SELF1000 payment with full exact cost/mana receipt. Related payment/quantity/privacy35PASS; schemas2 scoped typesPASS. Anrakyr's previously recorded colored-cost closure hold is resolved.
+
+New cards: root Phoenix11 focused (2cold), Rix9 focused (1cold) plus66 parser/selector regressions; Security Rhox13 production (2cold) plus220 related and4 scoped types; Reno11 production and Diluvian15 production (24 native, including2cold, plus2 canonical gates). Shared full app/tools mypy711PASS, core54PASS, app/toolsRuffPASS. Per-stream counts overlap, not a deduplicated global test count. See code/tests and audit summary; /tmp logs are session-local supporting artifacts.
+
+Batch48 continues: Quarum Trench Gnomes typed persistent mana-replacement staging; Flotsam // Jetsam native per-opponent freecasting staging; Wicked Akuba source-incarnation targeting research. Hall of Gemstone remains held for a correct World-rule foundation. This checkpoint does not mean all cards are finished. Older sections below are historical snapshots and may describe issues since resolved.
+
 ## PR handoff — work preserved, automation remains incomplete
 
 Latest completed full catalog classification audit: **29,452 FULL / 2,616 PARTIAL**, 32,068 Commander-legal cards. All18 expected promotions from checkpoint45 appeared, with zero prior FULL losses, unexpected or missing promotions. Permanent audit summary: [checkpoint46-coverage.json](research/checkpoint46-coverage.json). Classification FULL is not a claim that every card rule is finished.

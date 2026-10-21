@@ -155,7 +155,10 @@ def test_diluvian_actual_per_opponent_announced_targets_cast_once_each_with_exil
     answer(s,[first.id])
     answer(s,[second.id])
     assert s.state.rules.decision.resume['step']=='free_cast_pick'
+    assert first.id in [o.id for o in s.state.rules.decision.options]
+    assert second.id not in [o.id for o in s.state.rules.decision.options]
     answer(s,[first.id])
+    assert s.state.cards[first.id].zone=='stack'
     assert s.state.rules.decision.resume['step']=='free_cast_pick'
     answer(s,[second.id])
     if s.state.rules.decision is not None:
@@ -1789,4 +1792,331 @@ def test_reno_actual_empty_library_still_allows_optional_sacrifice_without_minti
         answer(s,[altar.id])
     assert s.state.cards[altar.id].zone=='p1:graveyard'
     assert not s.state.rules.permissions
+    roundtrip(s)
+
+
+def test_reno_whole_canonical_staged(cards):
+    test_staged_all_printed_lines_compile_without_fallback(cards,'Reno and Rude')
+
+
+@pytest.mark.parametrize('choose_first',[False,True])
+def test_diluvian_actual_target_card_types_opponent_groups_and_up_to_zero(cards,choose_first):
+    s=setup(cards,'Diluvian Primordial','Two-Handed Axe // Sweeping Cleave')
+    own=put(s,'Divination','graveyard')
+    first=put(s,'Divination','graveyard',pid='p2')
+    adventure=put(s,'Two-Handed Axe // Sweeping Cleave','graveyard',pid='p2')
+    second=put(s,'Giant Growth','graveyard',pid='p3')
+    cast(s,'Diluvian Primordial')
+    ids=[o.id for o in s.state.rules.decision.options]
+    assert first.id in ids and all(c.id not in ids for c in (own,adventure,second))
+    answer(s,[first.id] if choose_first else [])
+    assert second.id in [o.id for o in s.state.rules.decision.options]
+    answer(s,[])
+    if choose_first:
+        assert s.state.rules.decision.resume['step']=='free_cast_pick'
+        answer(s,[first.id])
+    assert s.state.cards[first.id].zone==('p2:exile' if choose_first else 'p2:graveyard')
+    assert s.state.cards[second.id].zone=='p3:graveyard'
+    assert s.state.cards[own.id].zone=='p1:graveyard'
+    roundtrip(s)
+
+
+@pytest.mark.parametrize('response',['Stifle','Cremate','Murder'])
+def test_diluvian_actual_announced_targets_response_recheck_and_source_departure(cards,response):
+    s=setup(cards,'Diluvian Primordial',response)
+    first=put(s,'Divination','graveyard',pid='p2')
+    second=put(s,'Giant Growth','graveyard',pid='p3')
+    bear=put(s,'Grizzly Bears','battlefield')
+    cast(s,'Diluvian Primordial')
+    source=next(c for c in s.state.cards.values() if c.name=='Diluvian Primordial' and c.zone=='p1:battlefield')
+    answer(s,[first.id])
+    d=s.state.rules.decision
+    act(s,d.player,type='choose',decision_id=d.id,option_ids=[second.id])
+    trigger=next(k for k,e in s.state.rules.stack.items() if e.kind=='trigger' and e.source_card==source.id)
+    cast(s,response,targets=[trigger if response=='Stifle' else first.id if response=='Cremate' else source.id])
+    if response=='Stifle':
+        assert s.state.rules.decision is None
+        assert s.state.cards[first.id].zone=='p2:graveyard'
+        assert s.state.cards[second.id].zone=='p3:graveyard'
+    else:
+        if response=='Murder':
+            assert s.state.cards[source.id].zone=='p1:graveyard'
+            answer(s,[first.id])
+        assert s.state.rules.decision.resume['step']=='free_cast_pick'
+        assert second.id in [o.id for o in s.state.rules.decision.options]
+        answer(s,[second.id])
+        if s.state.rules.decision is not None:
+            answer(s,[bear.id])
+        assert s.state.cards[first.id].zone=='p2:exile'
+        assert s.state.cards[second.id].zone=='p3:exile'
+    roundtrip(s)
+
+
+@pytest.mark.parametrize('counter',['Counterspell','Memory Lapse'])
+def test_diluvian_actual_cast_spell_countered_exiles_only_if_actual_destination_is_graveyard(cards,counter):
+    s=setup(cards,'Diluvian Primordial',counter)
+    spell=put(s,'Divination','graveyard',pid='p2')
+    put(s,'Giant Growth','graveyard',pid='p3')
+    cast(s,'Diluvian Primordial')
+    answer(s,[spell.id])
+    answer(s,[])
+    d=s.state.rules.decision
+    act(s,d.player,type='choose',decision_id=d.id,option_ids=[spell.id])
+    assert s.state.cards[spell.id].zone=='stack'
+    cast(s,counter,targets=[spell.id])
+    assert s.state.cards[spell.id].zone==('p2:exile' if counter=='Counterspell' else 'p2:library')
+    roundtrip(s)
+
+
+def test_diluvian_actual_foreign_x_spell_uses_zero_and_mandatory_discard_is_paid_by_caster(cards):
+    s=setup(cards,'Diluvian Primordial','Earthquake','Cathartic Reunion','Murder')
+    first=put(s,'Earthquake','graveyard',pid='p2')
+    second=put(s,'Cathartic Reunion','graveyard',pid='p3')
+    murder=put(s,'Murder','hand')
+    spare=put(s,'Grizzly Bears','hand')
+    before={p:s.state.players[p].life for p in ('p1','p2','p3')}
+    cast(s,'Diluvian Primordial')
+    answer(s,[first.id])
+    answer(s,[second.id])
+    answer(s,[first.id])
+    answer(s,[second.id])
+    if s.state.rules.decision is not None:
+        assert s.state.rules.decision.resume['step']=='ability_cost'
+        answer(s,[murder.id,spare.id])
+    assert all(s.state.players[p].life==n for p,n in before.items())
+    assert all(s.state.cards[c.id].zone=='p1:graveyard' for c in (murder,spare))
+    assert s.state.cards[first.id].zone=='p2:exile'
+    assert s.state.cards[second.id].zone=='p3:exile'
+    roundtrip(s)
+
+
+@pytest.mark.parametrize('pay',[False,True])
+def test_diluvian_actual_free_spell_still_pays_cost_increase_or_cancellation_leaves_card_in_graveyard(cards,pay):
+    s=setup(cards,'Diluvian Primordial','Thalia, Guardian of Thraben')
+    put(s,'Thalia, Guardian of Thraben','battlefield')
+    spell=put(s,'Divination','graveyard',pid='p2')
+    put(s,'Giant Growth','graveyard',pid='p3')
+    cast(s,'Diluvian Primordial')
+    answer(s,[spell.id])
+    answer(s,[])
+    act(s,'p1',type='clear_mana',player='p1')
+    act(s,'p1',type='set_prefs',payment='self')
+    answer(s,[spell.id])
+    assert s.state.rules.decision.resume['step']=='pay_mana'
+    if pay:
+        mana(s,C=1)
+    answer(s,['pay' if pay else 'cancel'])
+    assert s.state.cards[spell.id].zone==('p2:exile' if pay else 'p2:graveyard')
+    assert s.state.rules.free_cast_then is None and not s.state.rules.permissions
+    roundtrip(s)
+
+
+def test_diluvian_actual_printed_flying_forbids_ground_blocker_and_accepts_flying_blocker(cards):
+    from app.game.errors import ActionError
+
+    s=setup(cards,'Diluvian Primordial','Serra Angel')
+    source=put(s,'Diluvian Primordial','battlefield')
+    ground=put(s,'Grizzly Bears','battlefield',pid='p2')
+    flyer=put(s,'Serra Angel','battlefield',pid='p2')
+    to_phase(s,'declare_attackers',turn=4)
+    act(s,'p1',type='declare_attackers',attackers=[{'card_id':source.id,'target':'p2'}])
+    to_phase(s,'declare_blockers',turn=4)
+    with pytest.raises(ActionError):
+        act(s,'p2',type='declare_blockers',blocks=[{'blocker_id':ground.id,'attacker_id':source.id}])
+    act(s,'p2',type='declare_blockers',blocks=[{'blocker_id':flyer.id,'attacker_id':source.id}])
+    roundtrip(s)
+
+
+def test_diluvian_actual_targeted_uncastable_counterspell_stays_in_graveyard_and_can_decline_legal_spell(cards):
+    s=setup(cards,'Diluvian Primordial','Counterspell')
+    counter=put(s,'Counterspell','graveyard',pid='p2')
+    second=put(s,'Giant Growth','graveyard',pid='p3')
+    cast(s,'Diluvian Primordial')
+    answer(s,[counter.id])
+    answer(s,[second.id])
+    d=s.state.rules.decision
+    if d is not None and d.resume.get('step')=='free_cast_pick' and second.id not in [o.id for o in d.options]:
+        assert counter.id not in [o.id for o in d.options]
+        answer(s,[])
+    assert s.state.rules.decision.resume['step']=='free_cast_pick'
+    assert second.id in [o.id for o in s.state.rules.decision.options]
+    answer(s,[])
+    assert s.state.cards[counter.id].zone=='p2:graveyard'
+    assert s.state.cards[second.id].zone=='p3:graveyard'
+    assert s.state.rules.free_cast_then is None and not s.state.rules.permissions
+    roundtrip(s)
+
+
+def test_jetsam_actual_all_opponents_mill_before_any_cast_then_one_preexisting_spell_from_each_graveyard(cards):
+    from tests.test_rules_refused_look import stack_library
+
+    name='Flotsam // Jetsam'
+    s=setup(cards,name,'Disenchant')
+    first=put(s,"Ashnod's Altar",'graveyard',pid='p2')
+    second=put(s,'Divination','graveyard',pid='p3')
+    top2=stack_library(s,['Grizzly Bears','Giant Growth','Rivaz of the Claw'],pid='p2')
+    top3=stack_library(s,['Grizzly Bears','Giant Growth','Rivaz of the Claw'],pid='p3')
+    source=put(s,name,'hand')
+    mana(s,U=2,C=4)
+    act(s,'p1',type='cast_spell',card_id=source.id,face=1)
+    settle(s)
+    assert all(s.state.cards[cid].zone==f'{pid}:graveyard' for pid,packet in [('p2',top2),('p3',top3)] for cid in packet)
+    assert s.state.rules.decision.resume['step']=='free_cast_pick'
+    assert first.id in [o.id for o in s.state.rules.decision.options]
+    assert second.id not in [o.id for o in s.state.rules.decision.options]
+    answer(s,[first.id])
+    assert s.state.cards[first.id].zone=='stack'
+    assert s.state.rules.decision.resume['step']=='free_cast_pick'
+    assert second.id in [o.id for o in s.state.rules.decision.options]
+    assert all(o.card_id!=first.id for o in s.state.rules.decision.options)
+    answer(s,[second.id])
+    assert s.state.cards[first.id].zone=='p1:battlefield'
+    assert s.state.cards[first.id].owner=='p2'
+    assert s.state.cards[second.id].zone=='p3:exile'
+    cast(s,'Disenchant',targets=[first.id])
+    assert s.state.cards[first.id].zone=='p2:graveyard'
+    roundtrip(s)
+
+
+def test_flotsam_actual_paid_front_mills_three_then_creates_real_clue_with_paid_sacrifice_draw(cards):
+    s=setup(cards,'Flotsam // Jetsam')
+    source=put(s,'Flotsam // Jetsam','hand')
+    library=list(s.state.zones['p1:library'])
+    mana(s,G=1,C=1)
+    act(s,'p1',type='cast_spell',card_id=source.id,face=0)
+    settle(s)
+    assert len(set(library)&set(s.state.zones['p1:graveyard']))==3
+    clue=next(c for c in s.state.cards.values() if c.is_token and c.zone=='p1:battlefield' and c.name=='Clue')
+    before=len(s.state.zones['p1:hand'])
+    mana(s,C=2)
+    act(s,'p1',type='activate_ability',card_id=clue.id,ability=0)
+    settle(s)
+    assert clue.id not in s.state.cards or s.state.cards[clue.id].zone!='p1:battlefield'
+    assert len(s.state.zones['p1:hand'])==before+1
+    assert s.state.cards[source.id].zone=='p1:graveyard'
+    roundtrip(s)
+
+
+def test_flotsam_jetsam_whole_canonical_staged(cards):
+    test_staged_all_printed_lines_compile_without_fallback(cards,'Flotsam // Jetsam')
+
+
+@pytest.mark.parametrize('face',[0,1])
+def test_flotsam_jetsam_actual_cast_half_characteristics_and_cannot_fuse(cards,face):
+    from app.game.errors import ActionError
+    from app.rules import stack_interaction
+    from app.rules.plan import Plan
+
+    s=setup(cards,'Flotsam // Jetsam')
+    source=put(s,'Flotsam // Jetsam','hand')
+    plan=Plan(s.state,'p1',cards,None)
+    assert stack_interaction.mana_value(source,plan.ch(source))==8
+    mana(s,U=4,G=1,C=8)
+    with pytest.raises(ActionError):
+        act(s,'p1',type='cast_spell',card_id=source.id,fuse=True)
+    act(s,'p1',type='cast_spell',card_id=source.id,face=face)
+    actual=s.state.cards[source.id]
+    ch=Plan(s.state,'p1',cards,None).ch(actual)
+    assert ('Instant' in ch.types)==(face==0)
+    assert ('Sorcery' in ch.types)==(face==1)
+    assert stack_interaction.mana_value(actual,ch)==(2 if face==0 else 6)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize('face',[0,1])
+def test_flotsam_jetsam_actual_mill_replacement_to_exile_preserves_front_investigate_and_no_back_gy_offer(cards,face):
+    s=setup(cards,'Flotsam // Jetsam','Rest in Peace')
+    put(s,'Rest in Peace','battlefield')
+    source=put(s,'Flotsam // Jetsam','hand')
+    before={p:set(s.state.zones[p+':exile']) for p in ('p1','p2','p3')}
+    mana(s,U=2,C=4)
+    act(s,'p1',type='cast_spell',card_id=source.id,face=face)
+    settle(s)
+    assert s.state.rules.decision is None
+    assert s.state.cards[source.id].zone=='p1:exile'
+    if face==0:
+        assert len(set(s.state.zones['p1:exile'])-before['p1'])==4
+        assert any(c.is_token and c.name=='Clue' and c.zone=='p1:battlefield' for c in s.state.cards.values())
+    else:
+        assert all(len(set(s.state.zones[p+':exile'])-before[p])==3 for p in ('p2','p3'))
+        assert s.state.rules.free_cast_then is None and not s.state.rules.permissions
+    roundtrip(s)
+
+
+def test_jetsam_actual_each_graveyard_chosen_spell_face_can_be_permanent_or_adventure_instant(cards):
+    s=setup(cards,'Flotsam // Jetsam','Cosima, God of the Voyage // The Omenkeel','Two-Handed Axe // Sweeping Cleave')
+    first=put(s,'Cosima, God of the Voyage // The Omenkeel','graveyard',pid='p2')
+    second=put(s,'Two-Handed Axe // Sweeping Cleave','graveyard',pid='p3')
+    bear=put(s,'Grizzly Bears','battlefield')
+    source=put(s,'Flotsam // Jetsam','hand')
+    mana(s,U=2,C=4)
+    act(s,'p1',type='cast_spell',card_id=source.id,face=1)
+    settle(s)
+    assert all(first.id+suffix in [o.id for o in s.state.rules.decision.options] for suffix in ('@0','@1'))
+    answer(s,[first.id+'@1'])
+    assert all(second.id+suffix in [o.id for o in s.state.rules.decision.options] for suffix in ('@0','@1'))
+    answer(s,[second.id+'@1'])
+    if s.state.rules.decision is not None:
+        answer(s,[bear.id])
+    assert s.state.cards[first.id].zone=='p1:battlefield'
+    assert s.state.cards[first.id].face==1
+    assert s.state.cards[second.id].zone=='p3:exile'
+    roundtrip(s)
+
+
+def test_jetsam_actual_first_cast_additional_cost_can_supply_next_opponents_current_graveyard(cards):
+    s=setup(cards,'Flotsam // Jetsam','Shrapnel Blast')
+    first=put(s,'Shrapnel Blast','graveyard',pid='p2')
+    altar=put(s,"Ashnod's Altar",'battlefield',pid='p3')
+    act(s,'p1',type='set_controller',card_ids=[altar.id],player='p1')
+    source=put(s,'Flotsam // Jetsam','hand')
+    mana(s,U=2,C=4)
+    act(s,'p1',type='cast_spell',card_id=source.id,face=1)
+    settle(s)
+    answer(s,[first.id])
+    if s.state.rules.decision is not None and s.state.rules.decision.resume['step']!='free_cast_pick':
+        assert 'p3' in [o.id for o in s.state.rules.decision.options]
+        answer(s,['p3'])
+    if s.state.rules.decision is not None and s.state.rules.decision.resume['step']=='ability_cost':
+        answer(s,[altar.id])
+    assert s.state.cards[altar.id].zone=='p3:graveyard'
+    assert s.state.cards[first.id].zone=='stack'
+    assert s.state.players['p3'].life==40
+    assert s.state.rules.decision.resume['step']=='free_cast_pick'
+    assert altar.id in [o.id for o in s.state.rules.decision.options]
+    answer(s,[altar.id])
+    assert s.state.cards[altar.id].zone=='p1:battlefield'
+    assert s.state.cards[first.id].zone=='p2:exile'
+    assert s.state.players['p3'].life==35
+    roundtrip(s)
+
+
+@pytest.mark.parametrize('counter',['Counterspell','Memory Lapse'])
+def test_jetsam_actual_free_spell_counter_uses_exact_stack_departure_destination(cards,counter):
+    s=setup(cards,'Flotsam // Jetsam',counter)
+    first=put(s,'Divination','graveyard',pid='p2')
+    put(s,'Giant Growth','graveyard',pid='p3')
+    source=put(s,'Flotsam // Jetsam','hand')
+    mana(s,U=2,C=4)
+    act(s,'p1',type='cast_spell',card_id=source.id,face=1)
+    settle(s)
+    answer(s,[first.id])
+    d=s.state.rules.decision
+    act(s,d.player,type='choose',decision_id=d.id,option_ids=[])
+    assert s.state.cards[first.id].zone=='stack'
+    cast(s,counter,targets=[first.id])
+    assert s.state.cards[first.id].zone==('p2:exile' if counter=='Counterspell' else 'p2:library')
+    roundtrip(s)
+
+
+def test_jetsam_actual_countering_source_prevents_all_mill_and_cast_choices(cards):
+    s=setup(cards,'Flotsam // Jetsam','Counterspell')
+    before={p:list(s.state.zones[p+':library']) for p in ('p2','p3')}
+    source=put(s,'Flotsam // Jetsam','hand')
+    mana(s,U=2,C=4)
+    act(s,'p1',type='cast_spell',card_id=source.id,face=1)
+    cast(s,'Counterspell',targets=[source.id])
+    assert all(s.state.zones[p+':library']==ids for p,ids in before.items())
+    assert s.state.cards[source.id].zone=='p1:graveyard'
+    assert s.state.rules.decision is None and s.state.rules.free_cast_then is None
     roundtrip(s)

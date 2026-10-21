@@ -1019,7 +1019,7 @@ class PaymentRecord(BaseModel):
 
     card: str = Field(max_length=64)
     controller: str = Field(max_length=64)
-    total_cost: str = Field(default="", max_length=200)  # the locked-in total cost, e.g. "{3}{G}{G}"
+    total_cost: str = ""  # Exact locked-in cost, including repeated additional colored costs.
     resolved_x: int | None = None  # Actual permanent spell X at resolution; paid/announced x stays separate.
     cast_greatest_power: int | None = None  # Server-captured as-cast value; unknown in old payment records.
     activation_cost_has_x: bool | None = None  # Original activation cost before reductions/X substitution.

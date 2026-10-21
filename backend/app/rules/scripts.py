@@ -1612,6 +1612,13 @@ def _target_loses(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "lose_life", "who": "target", "n": num(m["n"])}], "player"
 
 
+@effect(r"target player who lost life this turn loses {N} life")
+def _target_loses_after_loss(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    target = selectors.parse("player who lost life this turn")
+    assert target is not None
+    return [{"do": "lose_life", "who": "target", "n": num(m["n"])}], target.key()
+
+
 # -- life lost (wave 8B) -- "Each opponent loses life equal to the life they lost this turn." (Wound Reflection): each
 # opponent's own total (the turn's log, 119.3), read for them as the instruction is carried out (608.2h)
 @effect(r"each opponent loses life equal to the life (?:they|that player) lost this turn")
@@ -5666,6 +5673,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (mana_followthrough := mana_followthrough_profiles.definition(ability, ch)) is not None:
         return mana_followthrough
+    from app.rules import mana_security_rhox47
+
+    if (rhox := mana_security_rhox47.definition(ability, ch)) is not None:
+        return rhox
     from app.rules import mana_producer_profiles45
 
     if (producer := mana_producer_profiles45.definition(ability, ch)) is not None:
