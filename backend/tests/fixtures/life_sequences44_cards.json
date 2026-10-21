@@ -3617,5 +3617,42 @@
     "related_tokens": [],
     "related_cards": [],
     "card_faces": []
+  },
+  {
+    "id": "3bdcc637-8f96-40a5-b815-f90bcc38d908",
+    "oracle_id": "a6079dff-9479-4665-aba5-2cddefb9a2bc",
+    "name": "Blood for the Blood God!",
+    "layout": "normal",
+    "set_code": "40k",
+    "set_name": "Warhammer 40,000 Commander",
+    "collector_number": "108★",
+    "rarity": "rare",
+    "mana_cost": "{8}{B}{B}{R}",
+    "cmc": 11.0,
+    "type_line": "Instant",
+    "oracle_text": "This spell costs {1} less to cast for each creature that died this turn.\nDiscard your hand, then draw eight cards. Blood for the Blood God! deals 8 damage to each opponent. Exile Blood for the Blood God!",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-10-07",
+    "artist": "Artur Nakhodkin",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
   }
 ]

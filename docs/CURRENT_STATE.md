@@ -1,5 +1,7 @@
 ## CHECKPOINT48 VERIFIED — CONTINUING BATCH49
 
+Batch49 root audit in progress: frozen716 parsed app/tools modules `/tmp/fyodor-catalog49-root-snapshot`, SHA256 map `/tmp/fyodor-catalog49-root-source-hashes.json`; exact expected4 promotions Lashwhip Predator, Lumbering Megasloth, Closing Statement, Blood for the Blood God!. Final catalog counts remain checkpoint48 until full diff closes. Blood for the Blood God! five focused cases PASS including genuine cold, native all-player death-history discount and whole discard/draw/damage/self-exile sequence;33 parser regressions PASS. A narrow self-name normalization retains terminal sentence punctuation when the printed name itself ends in! or?.
+
 Post-snapshot Closing Statement: seven focused native/canonical cases PASS including genuine cold, own-end-step discount, own main phases/opponent end-step full cost, destruction and optional counter target.113 shared cost/condition regressions PASS; two scoped types and owned Ruff PASS. Actual database canonical read; official rulings fetch returned HTTP400, so no new ruling source is claimed. Exact current-step condition is evaluated alongside active-player ownership. Outside checkpoint48 audited totals.
 
 User target: complete at least **1,500 additional cards** from checkpoint48; target **30,962 FULL / at most1,106 PARTIAL**. Planning groups and deduplicated affected-card lists are in [remaining1500-plan.json](research/remaining1500-plan.json); these are priorities, not completed work.

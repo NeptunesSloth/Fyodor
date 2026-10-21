@@ -404,6 +404,10 @@ def self_text(text: str, name: str) -> str:
     out = re.sub(r"(\btarget creature(?: you control)? gets [+-]\d+/[+-]\d+ until end of turn for each [^,.]+?) and (can't be blocked this turn)\.", r"\1. It \2.", out)
     out = re.sub(r"(\btarget [^,.]+? defending player controls), and creatures that player controls (without [a-z]+ can't block this turn)\.",
                  r"\1. Creatures defending player controls \2.", out)
+    # A terminal name punctuation mark also terminates the printed sentence.
+    # Replacing that name must retain the sentence boundary for effect parsing.
+    if name.endswith(("!", "?")) and text.rstrip().endswith(name) and out.rstrip().endswith("~"):
+        out = out.rstrip() + "."
     return _counter_threshold(_language.base_become(out))  # (-- layers (wave 30O) -- "~'s base power and toughness become …")
 
 
