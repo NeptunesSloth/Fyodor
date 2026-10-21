@@ -934,6 +934,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if cond.get("own_untap") and not (info.get("step_phase") == "untap" and info.get("active_player") == watcher.controller):
         return False
+    if cond.get("aura_controller57"):
+        from app.rules import graveyard_return57
+
+        if not graveyard_return57.enchanted_before(you, info):
+            return False
     if not _other_ok(plan, cond, watcher, info, obj):
         return False
     if cond.get("mana_source") == "self" and plan.oid(watcher) not in info.get("mana_sources", []):
@@ -1823,6 +1828,8 @@ def graveyard_trigger_ok(d: dict[str, Any]) -> bool:
     if d.get("kind") != "triggered" or not (trigger in _GY_TRIGGERS or trigger.startswith("step:")):
         return False
     cond = d.get("cond") or {}
+    if trigger == "event" and cond.get("event") == "either":
+        return bool(cond.get("conds")) and all(graveyard_trigger_ok({**d, "cond": child}) for child in cond["conds"])
     return trigger != "event" or (cond.get("event") not in _GY_LOOK_BACK
                                   and cond.get("subject") not in ("self", "self_or", "host", "self_or_host")) \
         or arrives_in_graveyard(d)

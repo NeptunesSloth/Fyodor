@@ -129,6 +129,9 @@ class Plan:
         before = capture(self.state) if resolved.type != "renumber" else None
         if before is not None:  # (the turn log: what a permanent was as it left, layers applied)
             before.types = self._battlefield_types(payload)
+            from app.rules import graveyard_return57
+
+            graveyard_return57.freeze_attachments(self, before)
         entered_before = (self.state.turn.number, len(self.rules.turn_log.entered)) if self.state.rules else None
         gy_seen = graveyard_order.before(self, payload)
         HANDLERS[resolved.type](self.state, resolved)

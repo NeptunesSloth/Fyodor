@@ -2649,6 +2649,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import graveyard_return57
+
+    if (returned57 := graveyard_return57.parse(body, it)) is not None:
+        return returned57
     from app.rules import immediate_cast_pools67
 
     if (immediate := immediate_cast_pools67.parse(body)) is not None:
@@ -2774,6 +2778,11 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (creature_damage := creature_damage_followups.parse(body)) is not None:
         return creature_damage
+
+    from app.rules import kicked_spell_outcomes59
+
+    if (kicked_outcome := kicked_spell_outcomes59.parse(body)) is not None:
+        return kicked_outcome
 
     from app.rules import kicked_spell_riders
 
@@ -5703,6 +5712,10 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import graveyard_return57
+
+    if (return57 := graveyard_return57.definition(ability, ch)) is not None:
+        return return57
     from app.rules import player_counter_instructions75
 
     if (players75 := player_counter_instructions75.definition(ability, ch)) is not None:
@@ -6008,6 +6021,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (dynamic_keyword_cost := dynamic_keyword_costs55.definition(ability, ch)) is not None:
         return dynamic_keyword_cost
+
+    from app.rules import kicked_spell_outcomes59
+
+    if (kicked_keyword := kicked_spell_outcomes59.definition(ability, ch)) is not None:
+        return kicked_keyword
 
     from app.rules import first_target_activation_cost58
 
@@ -8168,7 +8186,7 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
              and not own_card_event_ability(defs.get(ab.index))  # (wave 36A: cycling / discard triggers of the card itself)
              and defs.get(ab.index, {}).get("trigger") != "cast_self"  # -- spell copies (wave 31D) -- 601.2i: "When you cast this spell, …" triggers
              and defs.get(ab.index, {}).get("replacement") != "shuffle_instead"  # -- zone replacements (wave 51C) -- Nexus of Fate: where the spell card goes (614.1), not what it does
-             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional", "x_cap", "escape", "draft_only", "cant_be_copied", "self_uncounterable", "x_mana_restriction")  # (escape: wave 52C, 702.138a; draft_only: wave 52C; x_cap: wave 51C; own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
+             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional", "x_cap", "escape", "draft_only", "cant_be_copied", "self_uncounterable", "x_mana_restriction", "own_spell_kicked_keyword59")  # (escape: wave 52C, 702.138a; draft_only: wave 52C; x_cap: wave 51C; own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
                       and (defs[ab.index].get("free") or defs[ab.index].get("zone") in ("graveyard", "exile")
                            or defs[ab.index].get("flash")))]  # (wave 17C: retrace, 702.81a; wave 22F: "cast this spell as though it had flash if …", 601.3d)

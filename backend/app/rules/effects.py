@@ -1232,6 +1232,8 @@ def add_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         # "Other" excludes the original object, not a new incarnation after a blink.
         recipient_ctx = {**ctx, "source_card": None}
     cards = _cards(plan, recipient_ctx, e["who"])
+    if e.get("exclude"):
+        cards = [cid for cid in cards if cid not in context.objects(plan, ctx, e["exclude"])]
     _remember(plan, ctx, e, cards)
     shares = divided(ctx, e)
     if shares is not None:  # "distribute N counters among …" (601.2d): each target its share

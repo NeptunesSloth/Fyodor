@@ -137,3 +137,44 @@ def test_changed_spell_keeps_old_target_and_rechecks_new_selector(cards):
     assert bear.zone == 'p1:battlefield'
     assert death.zone == 'p2:graveyard'
     roundtrip(s)
+
+
+def modified_knight(cards):
+    s, _, _ = setup(cards)
+    knight = put(s, 'Black Knight', 'hand')
+    mana(s, B=2)
+    wait_priority(s, 'p1')
+    act(s, 'p1', type='cast_spell', card_id=knight.id, targets=[], sources=[])
+    old = s.state.rules.object_id(knight.id)
+    source = put(s, 'Sleight of Mind', 'hand')
+    mana(s, U=1)
+    wait_priority(s, 'p1')
+    act(s, 'p1', type='cast_spell', card_id=source.id, targets=[knight.id], sources=[])
+    settle(s)
+    choose(s, 'white')
+    choose(s, 'green')
+    return s, knight, old
+
+
+def test_modified_permanent_spell_keeps_change_on_resolution(cards):
+    s, knight, old = modified_knight(cards)
+    ch = Plan(s.state, 'p1', s.cards, None).ch(knight)
+    assert knight.zone == 'p1:battlefield' and ch.colors == frozenset({'B'}) and ch.name == 'Black Knight'
+    assert any('protection from green' in a.text.lower() for a in ch.abilities)
+    assert old != s.state.rules.object_id(knight.id)
+    assert any(e.text_change71 is not None and s.state.rules.object_id(knight.id) in e.affected for e in s.state.rules.effects)
+    roundtrip(s)
+
+
+def test_native_copy_excludes_layer3_text_change_and_blink_resets_it(cards):
+    s, knight, _ = modified_knight(cards)
+    copied = cast(s, 'Phyrexian Metamorph', [])
+    choose(s, knight.id)
+    copych = Plan(s.state, 'p1', s.cards, None).ch(copied)
+    assert any('protection from white' in a.text.lower() for a in copych.abilities)
+    assert not any('protection from green' in a.text.lower() for a in copych.abilities)
+    cast(s, 'Cloudshift', [knight.id])
+    ch = Plan(s.state, 'p1', s.cards, None).ch(knight)
+    assert any('protection from white' in a.text.lower() for a in ch.abilities)
+    assert not any('protection from green' in a.text.lower() for a in ch.abilities)
+    roundtrip(s)

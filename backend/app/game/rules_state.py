@@ -298,6 +298,13 @@ class EntryCharacteristics(BaseModel):
     label: str = ""
 
 
+class AttachedObjectFact(BaseModel):
+    object_id: str
+    controller: str
+    types: list[str] = Field(default_factory=list)
+    subtypes: list[str] = Field(default_factory=list)
+
+
 class ObjectSnapshot(BaseModel):
     """An object as it last existed in a public zone (Last Known Information, rule 608.2h).
     Recorded *before* it left, never reconstructed from where it went."""
@@ -347,6 +354,7 @@ class ObjectSnapshot(BaseModel):
     attached_to: str | None = None
     attached_object: str | None = None  # exact host as this Aura/Equipment last existed (608.2h); absent in older saves
     attached_player: str | None = None  # -- attached events (wave 4L) -- the player an Aura enchanted (a Curse)
+    attachments_before: list[AttachedObjectFact] | None = None  # Native pre-departure types/controllers; None in older saves.
     # -- sagas & attached-object triggers (wave 3S) -- the permanents (card ids) attached to it as it
     # last existed: "When enchanted creature dies" looks back in time (603.10a)
     attached: list[str] = Field(default_factory=list)

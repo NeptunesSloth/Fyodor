@@ -168,6 +168,10 @@ def parse_condition(cond: str) -> Condition | None:
         assert sel is not None
         return {'event': 'deal_combat_damage_player', 'combat_recipient': 'player', 'subject': 'self_or', 'sel': sel.key(), 'aggregate': False}
     """The part between "When/Whenever" and the comma → a condition, or None."""
+    from app.rules import graveyard_return57
+
+    if (returned57 := graveyard_return57.event(cond)) is not None:
+        return returned57
     # -- attached events (wave 25D) -- the Genju: "When enchanted Forest is put into a graveyard" — what an Aura is attached to is on the battlefield,
     # so being put into a graveyard is dying (700.4); "enchanted Forest" is the land it's attached to
     if cond.endswith(" without being played"):

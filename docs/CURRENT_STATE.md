@@ -1,5 +1,13 @@
 Current review: [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). PR #18 was already merged; later work remained safely pushed on the same branch and is now included in the open continuation PR. Historical PR18 references below refer to that shared branch and earlier review.
 
+## CHECKPOINT55 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,688 FULL / 2,380 PARTIAL**, among 32,068 Commander-legal cards. **12 exact expected promotions** from checkpoint54; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **226 of 1,500 additional completions verified; 1,274 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
+
+Evidence: [checkpoint55-coverage.json](research/checkpoint55-coverage.json) and [825-module source hashes](research/checkpoint55-source-hashes.json). Original frozen source passes full mypy825, configured Ruff and 54 core engine/history/privacy tests. The 12 cover targeting source provenance, first qualifying activation costs, player-selected counter/tap instructions and immediate casting pools. Admissions have closed native whole-card, negative, multiplayer, saved-game and relevant regression proofs, including original stack-face type, owner/controller distinctions and uncounterable spell behavior.
+
+Current continuation review is PR19; branch work is pushed. Six agents continue graveyard returns, conditional kicked effects, first-event history, entry putters, static casting permissions and text-changing semantics. Later changes remain outside these totals until another audit. All remaining automation and the 1,500-card target remain unfinished.
+
 ## CHECKPOINT54 VERIFIED — CONTINUING
 
 Latest full catalog classification: **29,676 FULL / 2,392 PARTIAL**, among 32,068 Commander-legal cards. **15 exact expected promotions** from checkpoint53; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **214 of 1,500 additional completions verified; 1,286 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.

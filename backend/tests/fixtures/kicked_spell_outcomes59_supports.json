@@ -134,5 +134,83 @@
     "commander_legal": "legal",
     "related_tokens": [],
     "related_cards": []
+  },
+  {
+    "id": "14c2be6a-9ca6-4d3a-8dd0-db4ea40799f8",
+    "oracle_id": "342199e0-15b6-4824-83da-25caef2592b3",
+    "name": "Hill Giant",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "212",
+    "rarity": "common",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Giant",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "Kev Walker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "702c4781-670b-49ae-b511-90ed119841b0",
+    "oracle_id": "711eea87-0fa3-46e0-a42b-fa5a86455f04",
+    "name": "Shivan Dragon",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "763",
+    "rarity": "uncommon",
+    "mana_cost": "{4}{R}{R}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Dragon",
+    "oracle_text": "Flying\n{R}: This creature gets +1/+0 until end of turn.",
+    "power": "5",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-04-24",
+    "artist": "Donato Giancola",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "2a43b352-d84b-4714-bbcd-3ad282c8aa9d",
+        "name": "Sarkhan, Wanderer to Shiv",
+        "component": "combo_piece"
+      }
+    ]
   }
 ]

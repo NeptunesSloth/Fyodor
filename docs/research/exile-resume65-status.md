@@ -54,3 +54,10 @@ New-only manifest: `/tmp/exile-resume65-static2-admitted-manifest.json`. Runeswo
 Both cards are production FULL after concrete source/ruling review. Native original-object and successful exile packets compose existing card-copy and immediate free-cast continuations. Chandra has all three loyalty abilities, a relative optional creature group, and 0–3 copies from only this ultimate’s packet. Stranger announces one required target for each qualifying graveyard and copies one native random successful exile only if at least two moved.
 
 Production 37 whole/negative/cold tests and focused five regressions passed. Mypy passed three affected sources; Ruff passed owned leaf, shared scoped sources, and tests. Proof manifest: `/tmp/exile-resume66-admitted-manifest.json`. This is later than checkpoint53; no adapter or classifier-only admission. Cumulative owned closed cards:25.
+
+
+## Immediate-cast67: six whole cards
+
+Aetherflux Conduit, Chandra Ablaze, Ashiok, Nightmare Muse, Counterlash, Brain in a Jar, and Tetsuo, Imperial Champion are production FULL after concrete canonical/ruling and source review. Existing native free-cast continuations handle filtered hand/graveyard/exile pools, original target spell-face types, original source counter LKI, max attached Equipment value, normal additional costs, and X0. Ashiok’s bounced permanent’s **owner** exiles from their hand; a differing former controller does not. Counterlash’s free cast remains available when its legal target cannot be countered.
+
+Production 34 whole/negative/cold cases and two native legacy event-type regressions passed. Four affected sources passed mypy; owned and shared scoped sources/tests passed Ruff. Six cold cases reopen pending choices in a fresh Python process. Proof manifest: `/tmp/exile-resume67-admitted-manifest.json`. These six belong to the checkpoint55 queue, after checkpoint54. Cumulative owned closed cards:31. No adapters or classifier-only promotions.
