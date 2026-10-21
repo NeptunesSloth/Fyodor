@@ -93,10 +93,9 @@ def test_the_cards_are_full(cards, name):
     assert cov.level == "FULL", (name, [f.label for f in cov.features if not f.supported])
 
 
-def test_laughing_jasper_flint_static_is_read_but_its_upkeep_ability_is_not(cards):
+def test_laughing_jasper_flint_static_and_upkeep_are_supported(cards):
     cov = coverage.of_card_data(cards.resolve("Laughing Jasper Flint"))
-    missing = [f.label for f in cov.features if not f.supported]
-    assert len(missing) == 1 and missing[0].startswith("At the beginning of your upkeep, exile the top X")  # (the Mercenaries line is read)
+    assert cov.level == "FULL"
     found = type_statics.parse("Creatures you control but don't own are Mercenaries in addition to their other types.")
     assert found is not None and found["layer4"]["add_subtypes"] == ["Mercenary"]  # (the plural "Mercenaries" is the type Mercenary, 205.3m)
 
@@ -434,9 +433,9 @@ def test_an_ability_another_static_grants_ends_the_evasion_of_a_creature_with_no
     check(s)
 
 
-# -- Muraganda Petroglyphs: "Creatures with no abilities get +2/+2." (kept manual: the subject of a layer 6-7 grant doesn't wait for other statics' granted abilities) --
-def test_a_pump_of_creatures_with_no_abilities_is_not_read_but_a_rule_is():
-    assert statics.parse("Creatures with no abilities get +2/+2.") is None
+# -- Pure layer-7 subjects read completed layer 6; ability-sensitive layer-6 grants remain refused. --
+def test_ability_sensitive_pt_and_rules_are_read_but_keyword_grants_are_not():
+    assert statics.parse("Creatures with no abilities get +2/+2.") is not None
     assert statics.parse("Creatures you control with no abilities have flying.") is None
     assert statics.parse("Creatures you control with no abilities can't be blocked by creatures with abilities.") is not None
 

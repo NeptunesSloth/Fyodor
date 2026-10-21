@@ -1,0 +1,60 @@
+[
+  {
+    "name": "Full Throttle",
+    "oracle_text": "After this main phase, there are two additional combat phases.\nAt the beginning of each combat this turn, untap all creatures that attacked this turn.",
+    "type_line": "Sorcery",
+    "mana_cost": "{4}{R}{R}",
+    "layout": "normal",
+    "cmc": 6.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ornithopter",
+    "oracle_text": "Flying",
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "mana_cost": "{0}",
+    "layout": "normal",
+    "power": "0",
+    "toughness": "2",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Vedalken Orrery",
+    "oracle_text": "You may cast spells as though they had flash.",
+    "type_line": "Artifact",
+    "mana_cost": "{4}",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  }
+]

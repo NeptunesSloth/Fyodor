@@ -1,0 +1,141 @@
+[
+  {
+    "id": "0cccd328-457a-48ab-97fb-4bc319db2e60",
+    "oracle_id": "b592568b-11b0-4081-90a7-30cfb9c1ba80",
+    "name": "Suppression Ray // Orderly Plaza",
+    "layout": "modal_dfc",
+    "set_code": "mh3",
+    "set_name": "Modern Horizons 3",
+    "collector_number": "260",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{W/U}{W/U} // ",
+    "cmc": 5.0,
+    "type_line": "Sorcery // Land",
+    "oracle_text": "Tap all creatures target player controls. You may pay any amount of {E}. If you do, choose up to that many creatures tapped this way. Put a stun counter on each of them. (If a permanent with a stun counter would become untapped, remove one from it instead.)\n//\nThis land enters tapped.\n{T}: Add {W} or {U}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [
+      {
+        "name": "Suppression Ray",
+        "mana_cost": "{3}{W/U}{W/U}",
+        "type_line": "Sorcery",
+        "oracle_text": "Tap all creatures target player controls. You may pay any amount of {E}. If you do, choose up to that many creatures tapped this way. Put a stun counter on each of them. (If a permanent with a stun counter would become untapped, remove one from it instead.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "U",
+          "W"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "Orderly Plaza",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "This land enters tapped.\n{T}: Add {W} or {U}.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [],
+        "image_face": 1
+      }
+    ],
+    "double_faced": true,
+    "image_faces": 2,
+    "has_image": false,
+    "released_at": "2024-06-14",
+    "artist": "Gabor Szikszai",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "1c516212-ad39-4396-8e05-ae57f100309f",
+        "name": "Energy Reserve",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "0a71fb62-acbd-49f5-842f-0fc9fa48afea",
+    "oracle_id": "f0b4331b-ddd3-4f11-ba16-67c651c8954c",
+    "name": "Solemnity",
+    "layout": "normal",
+    "set_code": "hou",
+    "set_name": "Hour of Devastation",
+    "collector_number": "22",
+    "rarity": "rare",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-07-14",
+    "artist": "Greg Opalinski",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "4892c152-1f4a-4616-8e7f-0ca4911e621a",
+    "oracle_id": "ad97333e-733c-402f-8ca3-e836c96b843c",
+    "name": "Pili-Pala",
+    "layout": "normal",
+    "set_code": "shm",
+    "set_name": "Shadowmoor",
+    "collector_number": "258",
+    "rarity": "common",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact Creature \u2014 Scarecrow",
+    "oracle_text": "Flying\n{2}, {Q}: Add one mana of any color. ({Q} is the untap symbol.)",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2008-05-02",
+    "artist": "Ron Spencer",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

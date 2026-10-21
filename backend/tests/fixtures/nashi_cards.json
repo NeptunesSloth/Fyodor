@@ -1,0 +1,381 @@
+[
+  {
+    "name": "Nashi, Moon Sage's Scion",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Rat Ninja",
+    "oracle_text": "Ninjutsu {3}{B} ({3}{B}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever Nashi deals combat damage to a player, exile the top card of each player's library. Until end of turn, you may play one of those cards. If you cast a spell this way, pay life equal to its mana value rather than paying its mana cost.",
+    "power": "3",
+    "toughness": "2",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Ninjutsu"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Lightning Bolt",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Forest",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Island",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Blaze",
+    "mana_cost": "{X}{R}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Blaze deals X damage to any target.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Ancestral Vision",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Suspend 4\u2014{U} (Rather than cast this card from your hand, pay {U} and exile it with four time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)\nTarget player draws three cards.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Suspend"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Fire // Ice",
+    "mana_cost": "{1}{R} // {1}{U}",
+    "cmc": 4.0,
+    "type_line": "Instant // Instant",
+    "oracle_text": "Fire deals 2 damage divided as you choose among one or two targets.\n//\nTap target permanent.\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "layout": "split",
+    "card_faces": [
+      {
+        "name": "Fire",
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant",
+        "oracle_text": "Fire deals 2 damage divided as you choose among one or two targets."
+      },
+      {
+        "name": "Ice",
+        "mana_cost": "{1}{U}",
+        "type_line": "Instant",
+        "oracle_text": "Tap target permanent.\nDraw a card."
+      }
+    ]
+  },
+  {
+    "name": "Valakut Awakening // Valakut Stoneforge",
+    "mana_cost": "{2}{R} // ",
+    "cmc": 3.0,
+    "type_line": "Instant // Land",
+    "oracle_text": "Put any number of cards from your hand on the bottom of your library, then draw that many cards plus one.\n//\nThis land enters tapped.\n{T}: Add {R}.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "modal_dfc",
+    "card_faces": [
+      {
+        "name": "Valakut Awakening",
+        "mana_cost": "{2}{R}",
+        "type_line": "Instant",
+        "oracle_text": "Put any number of cards from your hand on the bottom of your library, then draw that many cards plus one.",
+        "colors": [
+          "R"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/2/1/216f8ab4-8ec7-4ba2-97a1-fc6af0cd9324.jpg?1783916574",
+          "normal": "https://cards.scryfall.io/normal/front/2/1/216f8ab4-8ec7-4ba2-97a1-fc6af0cd9324.jpg?1783916574",
+          "large": "https://cards.scryfall.io/large/front/2/1/216f8ab4-8ec7-4ba2-97a1-fc6af0cd9324.jpg?1783916574",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/2/1/216f8ab4-8ec7-4ba2-97a1-fc6af0cd9324.jpg?1783916574"
+        }
+      },
+      {
+        "name": "Valakut Stoneforge",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "This land enters tapped.\n{T}: Add {R}.",
+        "colors": [],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/2/1/216f8ab4-8ec7-4ba2-97a1-fc6af0cd9324.jpg?1783916574",
+          "normal": "https://cards.scryfall.io/normal/back/2/1/216f8ab4-8ec7-4ba2-97a1-fc6af0cd9324.jpg?1783916574",
+          "large": "https://cards.scryfall.io/large/back/2/1/216f8ab4-8ec7-4ba2-97a1-fc6af0cd9324.jpg?1783916574",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/2/1/216f8ab4-8ec7-4ba2-97a1-fc6af0cd9324.jpg?1783916574"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Bonecrusher Giant // Stomp",
+    "mana_cost": "{2}{R} // {1}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Giant // Instant \u2014 Adventure",
+    "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.\n//\nDamage can't be prevented this turn. Stomp deals 2 damage to any target.",
+    "power": "4",
+    "toughness": "3",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "adventure",
+    "card_faces": [
+      {
+        "name": "Bonecrusher Giant",
+        "mana_cost": "{2}{R}",
+        "type_line": "Creature \u2014 Giant",
+        "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.",
+        "power": "4",
+        "toughness": "3"
+      },
+      {
+        "name": "Stomp",
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant \u2014 Adventure",
+        "oracle_text": "Damage can't be prevented this turn. Stomp deals 2 damage to any target."
+      }
+    ]
+  },
+  {
+    "name": "Angel of Jubilation",
+    "mana_cost": "{1}{W}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Angel",
+    "oracle_text": "Flying\nOther nonblack creatures you control get +1/+1.\nPlayers can't pay life or sacrifice creatures to cast spells or activate abilities.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Platinum Emperion",
+    "mana_cost": "{8}",
+    "cmc": 8.0,
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "Your life total can't change. (You can't gain or lose life. You can't pay any amount of life except 0.)",
+    "power": "8",
+    "toughness": "8",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Trinisphere",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "As long as this artifact is untapped, each spell that would cost less than three mana to cast costs three mana to cast. (Additional mana in the cost may be paid with any color of mana or colorless mana. For example, a spell that would cost {1}{B} to cast costs {2}{B} to cast instead.)",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Thalia, Guardian of Thraben",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Human Soldier",
+    "oracle_text": "First strike\nNoncreature spells cost {1} more to cast.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "First strike"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Burst Lightning",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Kicker {4} (You may pay an additional {4} as you cast this spell.)\nBurst Lightning deals 2 damage to any target. If this spell was kicked, it deals 4 damage instead.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Kicker"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Force of Will",
+    "mana_cost": "{3}{U}{U}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "You may pay 1 life and exile a blue card from your hand rather than pay this spell's mana cost.\nCounter target spell.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Platinum Angel",
+    "mana_cost": "{7}",
+    "cmc": 7.0,
+    "type_line": "Artifact Creature \u2014 Angel",
+    "oracle_text": "Flying\nYou can't lose the game and your opponents can't win the game.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Strionic Resonator",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{2}, {T}: Copy target triggered ability you control. You may choose new targets for the copy. (A triggered ability uses the words \"when,\" \"whenever,\" or \"at.\")",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Ephemerate",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return it to the battlefield under its owner's control.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Rebound"
+    ],
+    "layout": "normal"
+  }
+]

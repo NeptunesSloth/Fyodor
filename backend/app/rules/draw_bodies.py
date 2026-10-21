@@ -24,15 +24,17 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 BODY_OK = frozenset({"look_top", "pick_looked", "rest_looked", "exile_top", "grant_play", "return_choice", "only_if", "draw",
-                     "lose_life", "gain_life", "mill", "scry", "surveil", "add_counters", "create_token", "discard", "pile_top_hand"})
+                     "lose_life", "gain_life", "mill", "scry", "surveil", "add_counters", "create_token", "discard", "pile_top_hand", "choose_land_nonland", "reveal_chosen_kind", "draw_sequence_body"})
 _WHO_OK = ("you", "ref:", "self", "each_opponent")
 
 
 def parse(text: str) -> list[dict[str, Any]] | None:
     """The body's instructions, or None when the grammar doesn't read them all, one needs a target or says something else."""
-    from app.rules import scripts
+    from app.rules import chosen_library_kind, scripts
 
     text = text if text.endswith(".") else text + "."
+    if (chosen_kind := chosen_library_kind.parse(text)) is not None:
+        return chosen_kind
     if text.endswith(" If you can't, you lose the game."):  # (Forbidden Crypt, Out of the Tombs: 104.3e; checked by the previous instruction)
         got = parse(text[: -len(" If you can't, you lose the game.")])
         return None if got is None or got[-1]["do"] != "return_choice" else [*got[:-1], {**got[-1], "lose_if_none": True}]
@@ -60,7 +62,8 @@ def run(plan: Plan, ev: dict[str, Any], then: dict[str, Any]) -> None:
     from app.rules import effects
 
     ctx: dict[str, Any] = {"controller": ev["controller"], "source_card": ev.get("source_card"), "source_object": ev.get("source_oid"),
-                           "name": ev.get("label") or "A replacement effect", "targets": [], "stack_id": None, "kind": "replacement",
-                           "effects": copy.deepcopy(ev["effects"]), "next": 0, "x": 0, "event": None,
-                           "repl_applied": list(ev.get("applied") or []), "body_done": then}
+                           "name": ev.get("label") or "A replacement effect", "targets": copy.deepcopy(ev.get("targets") or []), "stack_id": None, "kind": "replacement",
+                           "effects": copy.deepcopy(ev["effects"]), "next": 0, "x": int(ev.get("x", 0)), "event": None,
+                           "repl_applied": list(ev.get("applied") or []), "drawer": ev["player"],
+                           "replacement_controller": ev.get("replacement_controller", ev["controller"]), "body_done": then}
     effects.continue_effects(plan, ctx)

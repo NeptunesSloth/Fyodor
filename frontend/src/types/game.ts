@@ -89,7 +89,9 @@ interface CardBase {
   flipped?: boolean;
   counters?: Record<string, number>;
   attacking?: AttackTarget;
+  attacking_without_target?: string;
   blocking?: string;
+  blocking_without_attacker?: boolean;
   blocking_more?: string[]; // 509.1a: further attackers a creature that can block several blocks
   /** Manual table markers (public on the battlefield / stack, even when face down). */
   effects?: CardEffect[];
@@ -379,9 +381,11 @@ export interface RulesView {
   paused: boolean;
   priority: string | null;
   passed: string[];
+  attacking_bands?: string[][]; // Public card IDs; bands last until their members leave combat.
   conceded: string[];
   lost: Record<string, string>;
   winner: string | null;
+  draw_reason?: string | null;
   overrides: number;
   decision: DecisionView | null;
   prefs: RulesPrefs | null;
@@ -472,6 +476,7 @@ export interface LobbySettings {
 }
 
 export interface LobbyDeckSummary {
+  offline?: import("../services/games").PersonalDeck;
   card_count: number;
   name?: string;
   commanders?: string[];
@@ -519,6 +524,8 @@ export interface LobbyView {
 }
 
 export interface CardStats {
+  /** Private special-action costs for a face-down permanent this viewer controls. */
+  turn_up?: { method: "morph" | "disguise" | "mana_cost"; cost: string }[];
   pt?: [number, number];
   base?: [string | null, string | null];  // printed power/toughness
   gained?: string[];

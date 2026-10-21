@@ -100,7 +100,7 @@ def _endpoint(state: GameState, ref: str) -> str:
     if ref in state.players:
         return state.players[ref].name
     c = ops.card(state, ref)
-    if not publicly_visible(state, c) and not (c.face_down and ops.zone_name(c.zone) == "battlefield"):
+    if not publicly_visible(state, c) and not (c.face_down and ops.zone_name(c.zone) in ("battlefield", "stack")):
         raise ActionError("Arrows connect public objects and players")
     return c.name if publicly_visible(state, c) else "a face-down card"
 

@@ -5,10 +5,10 @@
   and "If damage would be dealt to this permanent, prevent that damage and remove a shield counter from it."
 * Destruction by lethal damage or by deathtouch (704.5g/h) isn't "as the result of an effect" — the damage was
   prevented already. Indestructible permanents aren't destroyed, so they keep the counter.
-* All the damage one simultaneous event batch (120.4b) deals to the permanent is prevented and one counter comes off
-  (one prevention effect). Damage that can't be prevented (615.12) is dealt and the counter stays. Other prevention
-  and replacement effects are applied first (the permanent's controller would choose them to keep the counter);
-  the shield then prevents what is left.
+* One native prevention candidate protects the permanent during a simultaneous damage batch.
+  Its controller chooses its order with other replacement/prevention effects (616.1).
+  Unpreventable damage is dealt, but the additional counter removal still happens (615.12).
+  Counter removal commits once per batch immediately after the original damage, before SBAs.
 """
 
 from __future__ import annotations
@@ -25,18 +25,16 @@ def _shielded(plan: Plan, card_id: str) -> bool:
         and not plan.manual(card)
 
 
-def prevent_damage(plan: Plan, result: list[dict[str, Any]]) -> list[str]:
-    """The damage events (final, after the other effects) to shielded permanents become prevented; the permanents
-    whose shield counter is used (once each: one batch is one event) are returned."""
-    used: list[str] = []
-    for ev in result:
-        if ev["amount"] > 0 and not ev.get("unpreventable") and _shielded(plan, ev["target"]):
-            ev["prevented"] = int(ev.get("prevented") or 0) + int(ev["amount"])
-            ev["amount"] = 0
-            ev["why"] = [*(ev.get("why") or []), "a shield counter"]
-            if ev["target"] not in used:
-                used.append(ev["target"])
-    return used
+def damage_candidates(plan: Plan) -> list[Any]:
+    from app.rules.replace import Candidate
+
+    return [Candidate(id=f"shieldcounter:{plan.oid(card)}", event="damage",
+                      match={"to": {"objects": {"oids": [plan.oid(card)]}}},
+                      op={"do": "prevent_all", "prevention": True, "consume_unpreventable": True,
+                          "shield_counter": card.id}, controller=card.controller,
+                      source_card=card.id, source_oid=plan.oid(card), seq=(0, 5, i),
+                      label=f"{plan.ch(card).name}: shield counter")
+            for i, card in enumerate(plan.state.cards.values()) if _shielded(plan, card.id)]
 
 
 def remove(plan: Plan, card_ids: list[str], actor: str | None) -> None:

@@ -1,0 +1,811 @@
+[
+  {
+    "name": "Benalish Hero",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Banding"
+    ]
+  },
+  {
+    "name": "Mesa Pegasus",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Pegasus",
+    "oracle_text": "Flying; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Banding"
+    ]
+  },
+  {
+    "name": "Kjeldoran Warrior",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Human Warrior",
+    "oracle_text": "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Banding"
+    ]
+  },
+  {
+    "name": "Pikemen",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "First strike; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "First strike",
+      "Banding"
+    ]
+  },
+  {
+    "name": "Kjeldoran Skyknight",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Knight",
+    "oracle_text": "Flying; first strike; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "First strike",
+      "Banding"
+    ]
+  },
+  {
+    "name": "Shield Bearer",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "0",
+    "toughness": "3",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Banding"
+    ]
+  },
+  {
+    "name": "Kjeldoran Knight",
+    "mana_cost": "{W}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Knight",
+    "oracle_text": "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\n{1}{W}: This creature gets +1/+0 until end of turn.\n{W}{W}: This creature gets +0/+2 until end of turn.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Banding"
+    ]
+  },
+  {
+    "name": "Teremko Griffin",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Griffin",
+    "oracle_text": "Flying; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Banding"
+    ]
+  },
+  {
+    "name": "Wall of Shields",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact Creature \u2014 Wall",
+    "oracle_text": "Defender (This creature can't attack.)\nBanding (If any creatures with banding you control are blocking a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by.)",
+    "power": "0",
+    "toughness": "4",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Banding",
+      "Defender"
+    ]
+  },
+  {
+    "name": "Benalish Infantry",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Banding"
+    ]
+  },
+  {
+    "name": "Timber Wolves",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Wolf",
+    "oracle_text": "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Banding"
+    ]
+  },
+  {
+    "name": "War Elephant",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Elephant",
+    "oracle_text": "Trample; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Banding",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Noble Elephant",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Elephant",
+    "oracle_text": "Trample; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Banding",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Kjeldoran Escort",
+    "mana_cost": "{2}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Banding"
+    ]
+  },
+  {
+    "name": "Kjeldoran Skycaptain",
+    "mana_cost": "{4}{W}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "Flying; first strike; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "First strike",
+      "Banding"
+    ]
+  },
+  {
+    "name": "Knights of Thorn",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Knight",
+    "oracle_text": "Protection from red; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Protection",
+      "Banding"
+    ]
+  },
+  {
+    "name": "Icatian Phalanx",
+    "mana_cost": "{4}{W}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "2",
+    "toughness": "4",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Banding"
+    ]
+  },
+  {
+    "name": "Kjeldoran Phalanx",
+    "mana_cost": "{5}{W}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "First strike; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "2",
+    "toughness": "5",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "First strike",
+      "Banding"
+    ]
+  },
+  {
+    "name": "Nalathni Dragon",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Dragon",
+    "oracle_text": "Flying; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\n{R}: This creature gets +1/+0 until end of turn. If this ability has been activated four or more times this turn, sacrifice this creature at the beginning of the next end step.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying",
+      "Banding"
+    ]
+  },
+  {
+    "name": "Volunteer Reserves",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\nCumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)",
+    "power": "2",
+    "toughness": "4",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Banding",
+      "Cumulative upkeep"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Runeclaw Bear",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Gigantosaurus",
+    "mana_cost": "{G}{G}{G}{G}{G}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Dinosaur",
+    "oracle_text": "",
+    "power": "10",
+    "toughness": "10",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Giant Spider",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Spider",
+    "oracle_text": "Reach (This creature can block creatures with flying.)",
+    "power": "2",
+    "toughness": "4",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Reach"
+    ]
+  },
+  {
+    "name": "Birds of Paradise",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Bird",
+    "oracle_text": "Flying\n{T}: Add one mana of any color.",
+    "power": "0",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Giant Growth",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lignify",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Kindred Enchantment \u2014 Treefolk Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature is a Treefolk with base power and toughness 0/4 and loses all abilities.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Lure",
+    "mana_cost": "{1}{G}{G}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nAll creatures able to block enchanted creature do so.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Rancor",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +2/+0 and has trample.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Courtly Provocateur",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "{T}: Target creature attacks this turn if able.\n{T}: Target creature blocks this turn if able.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Curtain of Light",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Cast this spell only during combat after blockers are declared.\nTarget unblocked attacking creature becomes blocked. (This spell works on creatures that can't be blocked.)\nDraw a card.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Baton of Morale",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{2}: Target creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding a player controls are blocking or being blocked by a creature, that player divides that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Helm of Chatzuk",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{1}, {T}: Target creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding a player controls are blocking or being blocked by a creature, that player divides that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Soraya the Falconer",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human",
+    "oracle_text": "Bird creatures get +1/+1.\n{1}{W}: Target Bird creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding a player controls are blocking or being blocked by a creature, that player divides that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Fortified Area",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Wall creatures you control get +1/+0 and have banding. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cooperation",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature has banding. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding a player controls are blocking or being blocked by a creature, that player divides that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Icatian Infantry",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "{1}: This creature gains first strike until end of turn.\n{1}: This creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Errand of Duty",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Create a 1/1 white Knight creature token with banding. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Dire Wolves",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Wolf",
+    "oracle_text": "This creature has banding as long as you control a Plains. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Beast Walkers",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Beast Soldier",
+    "oracle_text": "{G}: This creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Formation",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding a player controls are blocking or being blocked by a creature, that player divides that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\nDraw a card at the beginning of the next turn's upkeep.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Wall of Omens",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Wall",
+    "oracle_text": "Defender\nWhen this creature enters, draw a card.",
+    "power": "0",
+    "toughness": "4",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Defender"
+    ]
+  },
+  {
+    "name": "Fog",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Prevent all combat damage that would be dealt this turn.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Master Warcraft",
+    "mana_cost": "{2}{R/W}{R/W}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Cast this spell only before attackers are declared.\nYou choose which creatures attack this turn.\nYou choose which creatures block this turn and how those creatures block.",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ovinize",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, target creature loses all abilities and has base power and toughness 0/1.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Boggart Brute",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Goblin Warrior",
+    "oracle_text": "Menace (This creature can't be blocked except by two or more creatures.)",
+    "power": "3",
+    "toughness": "2",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Menace"
+    ]
+  },
+  {
+    "name": "Ghostly Prison",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Brave the Sands",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures you control have vigilance.\nEach creature you control can block an additional creature each combat.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Plains",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Plains",
+    "oracle_text": "({T}: Add {W}.)",
+    "colors": [],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  }
+]

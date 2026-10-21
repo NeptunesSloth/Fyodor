@@ -14,6 +14,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
 from app.game.macros import MacroDef
+from app.game.rules_state import EntryCharacteristics
 from app.game.state import PHASES, PLAYER_ZONES, STACK, AttackTarget, Playmat, TokenDef
 from app.textutil import clean_text
 
@@ -54,6 +55,7 @@ class Base(BaseModel):
 class ShuffleData(BaseModel):
     perm: list[int]  # new_order[i] = old_order[perm[i]]
     new_ids: list[str]  # fresh ids for the shuffled cards, in new order
+    retained_indices: list[int] = Field(default_factory=list, exclude_if=lambda value: not value)  # Server-owned same-instruction library placements (701.24g).
 
 
 class NewIds(BaseModel):
@@ -81,17 +83,23 @@ class Move(Base):
     card_ids: IdList
     to: ZoneRef
     position: Literal["top", "bottom"] | None = None  # for ordered zones; default: top (library: top)
+    library_positions: dict[Id, Literal["top", "bottom"]] | None = None  # simultaneous mixed library destinations
+    library_order: list[Id] | None = None  # private physical-card order, including merged components
     index: int | None = Field(default=None, ge=0, le=10000)  # explicit position (library: from top)
     x: Coord | None = None
     y: Coord | None = None
     face_down: bool | None = None
+    blind: bool = False  # face-down exile without permission for anyone to look (406.3a)
     face_down_kind: FaceDownKind | None = None  # morph / disguise / manifest / cloak …
     face_down_as: str | None = Field(default=None, max_length=80)  # -- hidden exile (wave 18A) -- 708.2a: see FaceDown
     tapped: bool = False  # enters the battlefield tapped (a replacement effect, not a tap afterwards)
     # Permanents entering the battlefield at once (one event, 603.6a / 614.12) whose replacements
     # differ: the ones among them that enter tapped, and whose battlefield each enters (default: ``to``)
+    # Prepared simultaneous zone changes whose individual destinations differ.
+    routes: dict[Id, ZoneRef] | None = None
     tapped_ids: list[Id] | None = Field(default=None, max_length=250)
     controllers: dict[Id, Id] | None = None
+    entry_characteristics: dict[Id, EntryCharacteristics] | None = None
     # -- transform (wave 11A) -- 712.14a: the double-faced cards among them that enter the battlefield transformed (back face up)
     back_ids: list[Id] | None = Field(default=None, max_length=250)
     # -- merged permanents (wave 18D) -- 903.9c: a merged or melded commander put into the command zone instead of its owner's hand or
@@ -198,6 +206,7 @@ class Reveal(Base):
 class Hide(Base):
     type: Literal["hide"] = "hide"
     card_ids: IdList
+    viewers: list[Id] | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class LookTop(Base):
@@ -304,6 +313,8 @@ class TokenSpec(BaseModel):
 
 
 class CreateToken(Base):
+    embalmed: bool = False  # Actual native embalm creation, never a copied characteristic.
+    zone: Literal["exile"] | None = None  # entry replaced before the token reaches the battlefield
     type: Literal["create_token"] = "create_token"
     player: Id | None = None  # controller
     token: TokenSpec
@@ -609,6 +620,7 @@ class Life(Base):
     type: Literal["life"] = "life"
     player: Id | None = None
     delta: int = Field(ge=-100000, le=100000)
+    group: int = Field(default=0, ge=0)  # Native simultaneous life-loss operation receipt.
 
 
 class SetLife(Base):
@@ -622,6 +634,8 @@ class Resource(Base):
     player: Id | None = None
     key: str = Field(min_length=1, max_length=30)
     delta: int = Field(default=1, ge=-100000, le=100000)
+
+    group: int = Field(default=0, ge=0)  # CR 122.6: counter kinds put by one instruction.
 
     @field_validator("key")
     @classmethod
@@ -739,7 +753,8 @@ class NextTurn(Base):
 class Attack(Base):
     type: Literal["attack"] = "attack"
     card_ids: IdList
-    target: AttackTarget | None = None  # None = stop attacking
+    target: AttackTarget | None = None  # None normally stops attacking.
+    attacking_without_target: Id | None = None  # 506.4c; former defender for blocking only.
 
 
 class Block(Base):
@@ -966,6 +981,8 @@ class CostChoice(BaseModel):
 
 
 class CastSpell(_Intent):
+    mana_symbols: list[str] | None = Field(default=None, max_length=40)  # concrete hybrid/Phyrexian announcements, 601.2b
+    flashback_choice: int | None = Field(default=None, ge=0, le=1000)
     type: Literal["cast_spell"] = "cast_spell"
     card_id: Id
     face: int | None = Field(default=None, ge=0, le=3)
@@ -994,7 +1011,7 @@ class CastSpell(_Intent):
     # only when the rest of the total cost is paid (601.2h: no partial payments).
     contributions: list[Contribution] = Field(default_factory=list, max_length=60)
     # 702.33: pay the kicker cost this many times (1 for kicker; any number for multikicker)
-    kicker: int = Field(default=0, ge=0, le=20)
+    kicker: int = Field(default=0, ge=0, le=1000)  # platform numeric range, like x_value; not a rules maximum
     # (wave 3$) the objects chosen for the parts of an additional cost ("As an additional cost to cast this spell,
     # sacrifice a creature"); anything missing is asked for as a decision
     cost_choices: list[CostChoice] = Field(default_factory=list, max_length=10)
@@ -1058,7 +1075,7 @@ class ActivateAbility(_Intent):
     card_id: Id
     # index into the card's abilities (app/rules/oracle.py): printed 0…99, granted by a static ability 100…, granted
     # by a resolved effect 10 000 + 16 × its timestamp + k (app/rules/granted.py ``index_of``, ``MAX_INDEX``)
-    ability: int = Field(ge=0, le=10_000_000)  # (borrowed abilities, app/rules/abilities_of.py: 2 000 000 + 32 × the lender's object number + k)
+    ability: int = Field(ge=0, le=9_007_199_254_740_991)  # (borrowed abilities, app/rules/abilities_of.py: 2 000 000 + 32 × the lender's object number + k)
     targets: list[Id] = Field(default_factory=list, max_length=MAX_TARGETS * MAX_GROUPS)
     target_counts: TargetCounts = Field(default_factory=list)  # (see CastSpell)
     division: Division = Field(default_factory=list)
@@ -1089,6 +1106,9 @@ class AttackDeclaration(BaseModel):
 class DeclareAttackers(_Intent):
     type: Literal["declare_attackers"] = "declare_attackers"
     attackers: list[AttackDeclaration] = Field(default_factory=list, max_length=100)
+    bands: list[Annotated[list[Id], Field(max_length=100)]] = Field(default_factory=list, max_length=100)
+    cost_choices: list[CostChoice] = Field(default_factory=list, max_length=200)
+    cost_order: list[Annotated[int, Field(ge=0)]] = Field(default_factory=list, max_length=200)
     sources: list[Id] | None = Field(default=None, max_length=60)  # -- combat (wave 5C) -- MANUAL PAY of an attack cost
 
 
@@ -1101,6 +1121,9 @@ class BlockDeclaration(BaseModel):
 class DeclareBlockers(_Intent):
     type: Literal["declare_blockers"] = "declare_blockers"
     blocks: list[BlockDeclaration] = Field(default_factory=list, max_length=100)
+    cost_choices: list[CostChoice] = Field(default_factory=list, max_length=200)
+    cost_order: list[Annotated[int, Field(ge=0)]] = Field(default_factory=list, max_length=200)
+    sources: list[Id] | None = Field(default=None, max_length=60)
 
 
 PASS_UNTIL = ("next_action", "stack_changes", "stack_empty", "next_step", "next_turn", "my_turn", "combat")
@@ -1246,10 +1269,10 @@ class RulesMana(Base):
     empty_all: bool = False
     # -- mana provenance (wave 18B) -- pool units spent (ids), units added (ManaUnit fields without the id), units of the pool that
     # stay (``keep_units``: with ``empty_units``, every other unit empties)
-    spend_units: list[int] = Field(default_factory=list, max_length=100)
-    add_units: list[dict[str, Any]] = Field(default_factory=list, max_length=100)
+    spend_units: list[int] = Field(default_factory=list, max_length=100000)
+    add_units: list[dict[str, Any]] = Field(default_factory=list, max_length=100000)
     empty_units: bool = False
-    keep_units: list[int] = Field(default_factory=list, max_length=100)
+    keep_units: list[int] = Field(default_factory=list, max_length=100000)
     label: str = Field(default="", max_length=200)  # "paid {1}{G} for Llanowar Elves"
 
 
@@ -1268,6 +1291,20 @@ class Renumber(Base):
     card_ids: IdList
 
 
+class LifeDelta(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    player: Id
+    delta: int
+
+
+class RulesLifeChanges(Base):
+    """Server-built simultaneous life events; final events remain distinct."""
+
+    type: Literal['rules_life_changes'] = 'rules_life_changes'
+    changes: list[LifeDelta] = Field(default_factory=list)
+    group: int = Field(default=0, ge=0)
+
+
 class RulesDamage(Base):
     """Server-built only: all combat damage of one damage step, dealt simultaneously."""
 
@@ -1281,6 +1318,7 @@ class RulesDamage(Base):
     # -- triggers (wave 17D) -- 120.3d: card -> the player who puts those counters (its source's controller) -> how many
     wither_by: dict[str, dict[str, Annotated[int, Field(ge=0, le=100000)]]] = Field(default_factory=dict)
     poison: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # player -> poison counters
+    poison_by: dict[str, dict[str, Annotated[int, Field(ge=0, le=100000)]]] = Field(default_factory=dict)
     first_strike: bool = False
     combat: bool = True  # False: damage from a spell or ability
     dealt: list[DamageDealt] = Field(default_factory=list, max_length=500)  # who dealt what to whom (events)
@@ -1289,6 +1327,9 @@ class RulesDamage(Base):
 class DamageDealt(BaseModel):
     model_config = ConfigDict(extra="forbid")
     source: Annotated[str, Field(max_length=64)]  # source object id
+    creature_names: list[str] = Field(default_factory=list)  # Damage-time names, replay-safe public receipt.
+    source_controller: Id | None = None  # Frozen as damage is dealt; absent in legacy actions.
+    attacking_player: Id | None = None  # Actual combat attacking player, absent in legacy actions.
     target: Id  # card id or player id
     target_object: Annotated[str, Field(max_length=64)] | None = None
     amount: int = Field(ge=0, le=100000)
@@ -1310,7 +1351,7 @@ INTENT_TYPES = frozenset(
      "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door",
      "miracle_reveal", "end_effect"}
 )
-SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage", "renumber"})
+SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage", "rules_life_changes", "renumber"})
 
 
 Action = Annotated[
@@ -1427,6 +1468,7 @@ Action = Annotated[
     | RulesSync
     | RulesMana
     | RulesDamage
+    | RulesLifeChanges
     | Renumber
     | RulesLog,
     Field(discriminator="type"),

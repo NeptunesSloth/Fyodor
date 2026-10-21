@@ -1,0 +1,646 @@
+[
+  {
+    "name": "Coin of Fate",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "When this artifact enters, surveil 1.\n{3}{W}, {T}, Exile two creature cards from your graveyard, Sacrifice this artifact: An opponent chooses one of the exiled cards. You put that card on the bottom of your library and return the other to the battlefield tapped. You become the monarch.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Surveil"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Trial of Agony",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose two target creatures controlled by the same opponent. That player chooses one of those creatures. Trial of Agony deals 5 damage to that creature, and the other can't block this turn.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Incriminate",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose two target creatures controlled by the same player. That player sacrifices one of them of their choice.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Wake to Slaughter",
+    "mana_cost": "{3}{B}{R}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose up to two target creature cards in your graveyard. An opponent chooses one of them. Return that card to your hand. Return the other to the battlefield under your control. It gains haste. Exile it at the beginning of the next end step.\nFlashback {4}{B}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [
+      "Flashback"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Barrin's Spite",
+    "mana_cost": "{2}{U}{B}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose two target creatures controlled by the same player. Their controller chooses and sacrifices one of them. Return the other to its owner's hand.",
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Retribution",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose two target creatures controlled by the same opponent. That player chooses and sacrifices one of those creatures. Put a -1/-1 counter on the other.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "The Kami War // O-Kagachi Made Manifest",
+    "mana_cost": "{1}{W}{U}{B}{R}{G} // ",
+    "cmc": 6.0,
+    "type_line": "Enchantment \u2014 Saga // Enchantment Creature \u2014 Dragon Spirit",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter.)\nI \u2014 Exile target nonland permanent an opponent controls.\nII \u2014 Return up to one other target nonland permanent to its owner's hand. Then each opponent discards a card.\nIII \u2014 Exile this Saga, then return it to the battlefield transformed under your control.\n//\nO-Kagachi Made Manifest is all colors.\nFlying, trample\nWhenever this creature attacks, defending player chooses a nonland card in your graveyard. Return that card to your hand. This creature gets +X/+0 until end of turn, where X is the mana value of that card.",
+    "colors": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Transform",
+      "Trample"
+    ],
+    "layout": "transform",
+    "card_faces": [
+      {
+        "name": "The Kami War",
+        "mana_cost": "{1}{W}{U}{B}{R}{G}",
+        "type_line": "Enchantment \u2014 Saga",
+        "oracle_text": "(As this Saga enters and after your draw step, add a lore counter.)\nI \u2014 Exile target nonland permanent an opponent controls.\nII \u2014 Return up to one other target nonland permanent to its owner's hand. Then each opponent discards a card.\nIII \u2014 Exile this Saga, then return it to the battlefield transformed under your control.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "B",
+          "G",
+          "R",
+          "U",
+          "W"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "O-Kagachi Made Manifest",
+        "mana_cost": "",
+        "type_line": "Enchantment Creature \u2014 Dragon Spirit",
+        "oracle_text": "O-Kagachi Made Manifest is all colors.\nFlying, trample\nWhenever this creature attacks, defending player chooses a nonland card in your graveyard. Return that card to your hand. This creature gets +X/+0 until end of turn, where X is the mana value of that card.",
+        "power": "6",
+        "toughness": "6",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "B",
+          "G",
+          "R",
+          "U",
+          "W"
+        ],
+        "image_face": 1
+      }
+    ]
+  },
+  {
+    "name": "Neyam Shai Murad",
+    "mana_cost": "{2}{W}{B}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Human Rogue",
+    "oracle_text": "Rogue Trader \u2014 Whenever Neyam Shai Murad deals combat damage to a player, you may have that player return target permanent card from their graveyard to their hand. If you do, that player chooses a permanent card in your graveyard, then you put it onto the battlefield under your control.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": [
+      "Rogue Trader"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Fortunate Few",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose a nonland permanent you don't control, then each other player chooses a nonland permanent they don't control that hasn't been chosen this way. Destroy all other nonland permanents.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Monomania",
+    "mana_cost": "{3}{B}{B}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target player chooses a card in their hand and discards the rest.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Goblin War Cry",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target opponent chooses a creature they control. Other creatures they control can't block this turn.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Eunuchs' Intrigues",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target opponent chooses a creature they control. Other creatures they control can't block this turn.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Teferi, Temporal Pilgrim",
+    "mana_cost": "{3}{U}{U}",
+    "cmc": 5.0,
+    "type_line": "Legendary Planeswalker \u2014 Teferi",
+    "oracle_text": "Whenever you draw a card, put a loyalty counter on Teferi.\n0: Draw a card.\n\u22122: Create a 2/2 blue Spirit creature token with vigilance and \"Whenever you draw a card, put a +1/+1 counter on this token.\"\n\u221212: Target opponent chooses a permanent they control and returns it to its owner's hand. Then they shuffle each nonland permanent they control into its owner's library.",
+    "loyalty": "4",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Llanowar Elves",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Doubling Season",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{4}{G}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 5.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rest in Peace",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Hardened Scales",
+    "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{G}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 1.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal"
+  },
+  {
+    "name": "Centaur Courser",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Centaur Warrior",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Narset, Parter of Veils",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker \u2014 Narset",
+    "oracle_text": "Each opponent can't draw more than one card each turn.\n\u22122: Look at the top four cards of your library. You may reveal a noncreature, nonland card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "loyalty": "5"
+  },
+  {
+    "name": "Memnite",
+    "oracle_text": "",
+    "mana_cost": "{0}",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Doom Blade",
+    "layout": "normal",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target nonblack creature.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 1.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Solemnity",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{W}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 3.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Lightning Greaves",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature has haste and shroud. (It can't be the target of spells or abilities.)\nEquip {0}",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Disenchant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{W}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 2.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Giant Growth",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "type_line": "Instant",
+    "mana_cost": "{G}",
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Counterspell",
+    "oracle_text": "Counter target spell.",
+    "type_line": "Instant",
+    "mana_cost": "{U}{U}",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Island",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Reverberate",
+    "layout": "normal",
+    "mana_cost": "{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "keywords": [],
+    "color_identity": [
+      "R"
+    ],
+    "defense": null
+  },
+  {
+    "name": "Siege Mastodon",
+    "mana_cost": "{4}{W}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Elephant",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "5",
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Darksteel Myr",
+    "oracle_text": "Indestructible (Damage and effects that say \"destroy\" don't destroy this creature. If its toughness is 0 or less, it still dies.)",
+    "type_line": "Artifact Creature \u2014 Myr",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "power": "0",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Indestructible"
+    ]
+  },
+  {
+    "name": "Assault Suit",
+    "layout": "normal",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +2/+2, has haste, can't attack you or planeswalkers you control, and can't be sacrificed.\nAt the beginning of each opponent's upkeep, you may have that player gain control of equipped creature until end of turn. If you do, untap it.\nEquip {3}",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ]
+  },
+  {
+    "name": "Safe Passage",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Prevent all damage that would be dealt to you and creatures you control this turn.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Winding Constrictor",
+    "mana_cost": "{B}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Snake",
+    "oracle_text": "If one or more counters would be put on an artifact or creature you control, that many plus one of each of those kinds of counters are put on that permanent instead.\nIf you would get one or more counters, you get that many plus one of each of those kinds of counters instead.",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": []
+  }
+]

@@ -26,7 +26,7 @@ from app.rules import coverage, protection, statics, triggers
 from app.rules.combat import block_problem
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_attachments import build, ch, mana, named, to_hand, token
 from tests.test_rules_conditionals import attack, settle, through_combat, until
 from tests.test_rules_effects import replay_matches
@@ -69,10 +69,9 @@ FULL = ["Sword of Feast and Famine", "Spirit Mantle", "Lavaspur Boots", "Kenrith
         "Lignify", "Colossus Hammer", "Wild Growth", "Fertile Ground", "Shiny Impetus", "Sword of Body and Mind",
         "Prosthetic Injector", "Curse of Opulence", "Curse of Verbosity", "Vow of Duty", "Carapace", "Sinister Possession",
         "Amorphous Axe", "Ghoulflesh", "Sinister Strength", "Viridian Longbow", "Paradise Mantle",
-        "Song of the Dryads", "Flickering Ward", "Super-Soldier Serum"]  # (wave 30S: its attach trigger, tests/test_rules_wave30s_attach_effects.py; wave 25D: the chosen color is the Aura's own recorded choice; wave 22A: a basic land type set, 305.7: tests/test_rules_wave22a_layers.py)
+        "Song of the Dryads", "Flickering Ward", "Super-Soldier Serum", "Witness Protection"]  # (wave 30S: its attach trigger, tests/test_rules_wave30s_attach_effects.py; wave 25D: the chosen color is the Aura's own recorded choice; wave 22A: a basic land type set, 305.7: tests/test_rules_wave22a_layers.py)
 STILL_MANUAL = {
     "Elvish Guidance": "for each Elf",  # a counted extra
-    "Witness Protection": "named",  # a name change, two colors
     "Curse of Bounty": "untaps all nonland permanents they control",  # (not "does the same")
 }
 
@@ -142,8 +141,6 @@ def test_definitions_of_the_full_cards():
 
 @pytest.mark.parametrize("text", [
     "Enchanted creature is an Island.",  # (an Island land type on a non-land: wave 12D reads only "Enchanted land")
-    "Enchanted creature loses all abilities and is a green and white Citizen creature with base power and toughness 1/1 "
-    "named Legitimate Businessperson.",
     "Creatures you control lose all abilities.",  # (only an Aura's or Equipment's)
     "As long as you control an Elf, enchanted creature loses all abilities.",  # (conditional: not read)
     "Enchanted creature gets +2/+2 and has ripple 4.",
@@ -345,8 +342,8 @@ def test_wild_growth_adds_an_additional_green(cards):
     cast(s, "Wild Growth", targets=[forest.id], G=1)
     settle(s)
     act(s, "p1", type="activate_ability", card_id=forest.id, ability=0)
-    assert s.state.players["p1"].mana == {"G": 2}
-    act(s, "p1", type="add_mana", player="p1", mana={"G": -2})
+    assert mana_pool(s, "p1") == {"G": 2}
+    act(s, "p1", type="clear_mana", player="p1")
     act(s, "p1", type="tap", card_ids=[forest.id], tapped=False)
     bears = to_hand(s, "Grizzly Bears")
     act(s, "p1", type="cast_spell", card_id=bears.id)  # {1}{G}: the one enchanted Forest pays it all
@@ -367,7 +364,7 @@ def test_fertile_ground_any_color_and_a_restricted_ability(cards):
     assert d is not None and len(d.options) == 5  # {G} plus one of the five colors
     red = next(o for o in d.options if "R" in o.label)
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[red.id])
-    assert s.state.players["p1"].mana == {"G": 1, "R": 1}
+    assert mana_pool(s, "p1") == {"G": 1, "R": 1}
     # Wild Growth on Eldrazi Temple: its plain {C} carries the extra {G}; the restricted {C}{C} is left to the player
     temple = put(s, "Eldrazi Temple")
     cast(s, "Wild Growth", targets=[temple.id], G=1)

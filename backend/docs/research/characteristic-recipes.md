@@ -1,0 +1,11 @@
+# Resolved characteristic recipes
+
+The native `become` effect carries noncopiable type, color, ability and base power/toughness changes through their existing layers and durations. Default-empty `ContinuousEffect.remove_types` and `remove_subtypes` remove precisely the named characteristic; they do not replace unrelated characteristics or alter the printed/copy recipe. Subtype compatibility is checked after type removal (CR205.1,205.3).
+
+Optional animation follows preceding counters or control changes through ordinary effects and `may_rest`; counters are still placed when Crawling Barrens declines animation. Nightcreep fixes its affected objects at resolution (611.2c), whereas the safe own-turn/counter-conditioned Kaito and Warden statics apply continuously. Safe self layer4 dictionary discovery requires the existing `_layer4_safe` condition validator. Kaito and Warden use native layered self nodes: exact source identity supplies their group membership, and the existing solver retains all parts after a later ability wipe (613.6). Ordinary derivation does not preapply these nodes a second time; prospective incoming derivation retains the safe own-effect path required by614.12.
+
+Resolved quoted native self keyword/rule statics are discovered using exact affected object identities and the granting effect's original timestamp tuple. They retain current-controller conditions and disappear when a later ability-removal effect wipes the grant. Discovery excludes type changes, base setters, pumps and nested grants: those require a larger dependency model and are not approximated by timestamp guesses.
+
+Neurok Transmuter is intentionally excluded pending an actual resolved/static layer4 dependency solution. Its official March of the Machines ruling requires an older March to stop animating the permanent after the Artifact type is removed, potentially leaving no card types. Merely adding a type-removal field is insufficient to automate that interaction.
+
+Parameterized keywords retain native ability text: Flayer grants `Annihilator 2.` and Dancing Sword grants `Ward {1}.`. Opaque strings in `add_keywords` would display a label without supplying the numeric trigger/cost. Actual attacker declarations and opposing targeting verify both native triggered abilities.

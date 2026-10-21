@@ -21,7 +21,7 @@ from app.game.session import GameSession
 from app.game.state import GameState
 from app.rules import coverage, scripts
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act, deck, enable, zone
+from tests.game_helpers import act, deck, enable, mana_pool, zone
 from tests.test_rules_conditionals import (
     creature,
     life,
@@ -177,6 +177,9 @@ def test_wordings():
     assert skite is not None and skite[0][0]["to"] == "self" and "spell_or_ability" in skite[1]
     hydro = scripts.parse_effects("You may change the target of target instant or sorcery spell with a single target to this creature.")
     assert hydro is not None and hydro[2] is True
+    hybrid = scripts.parse_effects("Copy target spell or ability.")
+    assert hybrid is not None and hybrid[0] == [{"do": "copy_spell", "who": "target", "hybrid": True}]
+    assert '"ability":"spell_or_ability"' in hybrid[1]
 
 
 @pytest.mark.parametrize("text", [
@@ -185,7 +188,6 @@ def test_wordings():
     "Change the target of target spell that targets only a single creature to this creature.",  # Muck Drubb
     "Change the target of target spell that targets only a player. The new target must be a player.",  # Rebound
     "Change the target of target spell or ability that targets only this creature. The new target must be a creature.",
-    "Copy target spell or ability.",  # (the copy grammar doesn't read "spell or ability")
     "Add an amount of {C} equal to that spell's mana value.",  # (no spell to bind "that spell" to)
 ])
 def test_refused(text):
@@ -313,9 +315,9 @@ def test_mana_drain_adds_the_mana_at_bobs_next_main_phase(cards):
     assert life(s, "p2") == 40 and len(s.state.rules.delayed) == 1
     roundtrip(s)
     to_turn(s, 2, "upkeep")
-    assert s.state.players["p2"].mana.get("C", 0) == 0  # (not yet: his upkeep)
+    assert mana_pool(s, "p2").get("C", 0) == 0  # (not yet: his upkeep)
     to_turn(s, 2, "main1")
-    assert s.state.players["p2"].mana.get("C", 0) == 4 and not s.state.rules.delayed  # (X=3 counted: 202.3e)
+    assert mana_pool(s, "p2").get("C", 0) == 4 and not s.state.rules.delayed  # (X=3 counted: 202.3e)
     roundtrip(s)
 
 

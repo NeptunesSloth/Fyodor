@@ -1,0 +1,229 @@
+[
+  {
+    "name": "Icatian Skirmishers",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "First strike; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\nWhenever this creature attacks, all creatures banded with it gain first strike until end of turn.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "First strike",
+      "Banding"
+    ]
+  },
+  {
+    "name": "Urza's Engine",
+    "mana_cost": "{5}",
+    "cmc": 5.0,
+    "type_line": "Artifact Creature \u2014 Juggernaut",
+    "oracle_text": "Trample\n{3}: This creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\n{3}: Attacking creatures banded with this creature gain trample until end of turn.",
+    "power": "1",
+    "toughness": "5",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Trample"
+    ]
+  },
+  {
+    "name": "Camel",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Camel",
+    "oracle_text": "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\nAs long as this creature is attacking, prevent all damage Deserts would deal to this creature and to creatures banded with this creature.",
+    "power": "0",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Banding"
+    ]
+  },
+  {
+    "name": "Battering Ram",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "At the beginning of combat on your turn, this creature gains banding until end of combat. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's blocking.)\nWhenever this creature becomes blocked by a Wall, destroy that Wall at end of combat.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Desert",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land \u2014 Desert",
+    "oracle_text": "{T}: Add {C}.\n{T}: This land deals 1 damage to target attacking creature. Activate only during the end of combat step.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Natural Affinity",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "All lands become 2/2 creatures until end of turn. They're still lands.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Soul's Fire",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature you control deals damage equal to its power to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Skullcrack",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Players can't gain life this turn. Damage can't be prevented this turn. Skullcrack deals 3 damage to target player or planeswalker.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Prodigal Pyromancer",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "{T}: This creature deals 1 damage to any target.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Benalish Hero",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Banding"
+    ]
+  },
+  {
+    "name": "Wall of Omens",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Wall",
+    "oracle_text": "Defender\nWhen this creature enters, draw a card.",
+    "power": "0",
+    "toughness": "4",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Defender"
+    ]
+  },
+  {
+    "name": "Gigantosaurus",
+    "mana_cost": "{G}{G}{G}{G}{G}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Dinosaur",
+    "oracle_text": "",
+    "power": "10",
+    "toughness": "10",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ovinize",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, target creature loses all abilities and has base power and toughness 0/1.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Withstand Death",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it. If its toughness is 0 or less, it still dies.)",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  }
+]

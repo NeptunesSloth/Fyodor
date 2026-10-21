@@ -1,0 +1,63 @@
+[
+  {
+    "name": "Angel of Suffering",
+    "mana_cost": "{3}{B}{B}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Nightmare Angel",
+    "oracle_text": "Flying\nIf damage would be dealt to you, prevent that damage and mill twice that many cards.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying",
+      "Mill"
+    ],
+    "layout": "normal",
+    "power": "5",
+    "toughness": "3"
+  },
+  {
+    "name": "Gatta and Luzzu",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Soldier",
+    "oracle_text": "Flash\nWhen Gatta and Luzzu enters, choose target creature you control. If damage would be dealt to that creature this turn, prevent that damage and put that many +1/+1 counters on it.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "layout": "normal",
+    "power": "1",
+    "toughness": "1"
+  },
+  {
+    "name": "Sokrates, Athenian Teacher",
+    "mana_cost": "{1}{W}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Advisor",
+    "oracle_text": "Defender\nSokrates has hexproof as long as it's untapped.\nSokratic Dialogue \u2014 {T}: Until end of turn, target creature gains \"If this creature would deal combat damage to a player, prevent that damage. This creature's controller and that player each draw half that many cards, rounded down.\"",
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Sokratic Dialogue",
+      "Defender"
+    ],
+    "layout": "normal",
+    "power": "0",
+    "toughness": "4"
+  }
+]

@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 ANY_PLAYER = "Any player may activate this ability."
+OPPONENTS_ONLY = "Only your opponents may activate this ability."
 # -- activated sweep (wave 17B) -- "Any player may activate this ability but only as a sorcery / during their draw step." (Scandalmonger,
 # Well of Knowledge): the restriction is about the player who activates it (602.5)
 ANY_PLAYER_BUT = re.compile(r"^Any player may activate this ability but only (?P<rest>.+)\.$")
@@ -37,8 +38,25 @@ _NO_DEFENDER = re.compile(r"~ doesn't have (?P<kw>defender)")
 def any_player(ability: Any, cost: Any) -> bool:
     """Does this activated ability say any player may activate it (and cost nothing only its controller can pay)?"""
     text = ability.text.rstrip()
-    return ability.kind == "activated" and (text.endswith(ANY_PLAYER) or ANY_PLAYER_BUT.search(text.split(". ")[-1]) is not None) \
-        and not cost.tap and not cost.sacrifice_self and not cost.untap
+    return (ability.kind in ('activated', 'mana')
+            and (text.endswith(ANY_PLAYER) or ANY_PLAYER_BUT.search(text.split('. ')[-1]) is not None)
+            and not cost.tap and not cost.sacrifice_self and not cost.untap)
+
+
+
+def opponents_only(ability: Any) -> bool:
+    return ability.kind == "activated" and ability.text.rstrip().endswith(OPPONENTS_ONLY)
+
+
+def actor_allowed(ability: Any, cost: Any, controller: str, player: str, *, owner: str | None = None) -> bool:
+    """602.2: actor permission is relative to the permanent's current controller."""
+    if (reserved := getattr(ability, "activation_player", None)) is not None:
+        return player == reserved and (player == controller or not (cost.tap or cost.untap or cost.sacrifice_self))
+    if re.search(r"Only (?:this (?:creature|permanent)|~)['’]s owner may activate this ability\.$", ability.text):
+        return player == owner and (player == controller or not (cost.tap or cost.untap or cost.sacrifice_self))
+    if opponents_only(ability):
+        return player != controller and not cost.tap and not cost.sacrifice_self and not cost.untap
+    return player == controller or any_player(ability, cost)
 
 
 def condition(text: str) -> dict[str, Any] | None:
@@ -70,6 +88,8 @@ def _base(text: str) -> dict[str, Any] | None:
     """The generic grammar, plus what it says of the source itself ("~ is a creature", "~'s power is 4 or greater")."""
     from app.rules import conditions
 
+    if text == 'there are at least three Zombie creature cards in your graveyard':
+        text = 'there are three or more Zombie creature cards in your graveyard'
     found = conditions.parse(text)
     if found is None:
         found = conditions.parse(text, objects=True)
@@ -101,8 +121,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is None or not src.zone.endswith(":battlefield"):
             return False
-        states = {"attacking": src.attacking is not None, "blocking": bool(src.blocking),
-                  "blocked": src.attacking is not None and src.id in plan.rules.blocked}  # (509.1h: stays blocked)
+        states = {"attacking": src.is_attacking, "blocking": src.is_blocking,
+                  "blocked": src.is_attacking and src.id in plan.rules.blocked}  # (509.1h: stays blocked)
         return any(states[s] for s in cond["any"])
     raise ValueError(f"unknown activation condition {cond!r}")
 

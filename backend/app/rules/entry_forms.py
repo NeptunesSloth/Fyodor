@@ -83,6 +83,7 @@ def enters_as(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         for entry in log.entered if log is not None else []:
             if entry.card == cid and entry.object_id == plan.oid(card):
                 entry.types, entry.subtypes = sorted(now.types), sorted(now.subtypes)
+                entry.colors = sorted(now.colors)
     return True
 
 

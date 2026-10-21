@@ -32,10 +32,12 @@ _PLAIN_EXTIRPATE = re.compile(r"Choose target card in a graveyard other than a b
                               r"Then that player shuffles\.")
 _SHUFFLE_TAIL = re.compile(r"(and exile them)\. Then that player shuffles\.")
 _SHUFFLE_DRAW = re.compile(r"(and exile them)\. That player shuffles, then draws a card for each card exiled from their hand this way\.")
+_SHUFFLE_ZOMBIES = re.compile(r"(and exile them)\. That player shuffles, then creates a 2/2 black Zombie creature token for each card exiled from their hand this way\.")
 ZONES = ("graveyard", "hand", "library")
 PATTERN = (r"search (?:(?P<pron>its controller's|its owner's) graveyard, hand, and library|the graveyard, hand, and library of the "
            r"owner of (?P<t>target nonbasic card in a graveyard)) for (?P<q>all|any number of) cards with the same name as "
-           r"that (?:card|spell|creature|land|artifact|enchantment|permanent) and exile them, then that player shuffles")
+           r"that (?:card|spell|creature|land|artifact|enchantment|permanent) and exile them, then that player shuffles"
+           r"(?P<draw>, then draws a card for each card exiled from their hand this way)?")
 
 
 def rewrite(body: str) -> str:
@@ -45,6 +47,7 @@ def rewrite(body: str) -> str:
                                           f"for {m[1]} cards with the same name as that card and exile them, then that player shuffles.",
                                 body)
     body = _SHUFFLE_DRAW.sub(r"\1, then that player shuffles, then draws a card for each card exiled from their hand this way.", body)
+    body = _SHUFFLE_ZOMBIES.sub(r"\1, then that player shuffles, then creates a 2/2 black Zombie creature token for each card exiled from their hand this way.", body)
     return _SHUFFLE_TAIL.sub(r"\1, then that player shuffles.", body)
 
 
@@ -56,7 +59,7 @@ def rewrite(body: str) -> str:
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 NAMED_PATTERN = (r"search (?:target (?P<w>player|opponent)|(?P<again>the targeted player))'s graveyard, hand, and library for (?P<q>all|any number of|up to (?P<n>one|two|three|four|five)) "
                  r"cards with (?:that|the chosen) name and exile them, then that player shuffles(?P<draw>, then draws a card for each card exiled "
-                 r"from their hand this way)?")
+                 r"from their hand this way)?(?P<zombies>, then creates a 2/2 black Zombie creature token for each card exiled from their hand this way)?")
 
 
 def build_named(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
@@ -66,7 +69,7 @@ def build_named(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if sel is None:
         raise language._Fail
     return [{"do": "name_search", "by": "named", "sel": sel.key(), "all": m["q"] == "all", "max": _NUMBERS[m["n"]] if m["n"] else None,
-             "draw": bool(m["draw"])}], None if m["again"] else language._one(language.target_group(f"target {m['w']}"))  # (wave 53B: "the targeted player", the one target an earlier sentence made: chosen.rewrite)
+             "draw": bool(m["draw"]), "zombies": bool(m["zombies"])}], None if m["again"] else language._one(language.target_group(f"target {m['w']}"))  # (wave 53B: "the targeted player", the one target an earlier sentence made: chosen.rewrite)
 
 
 def build(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
@@ -74,12 +77,46 @@ def build(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
     by = "owner" if m["t"] or m["pron"] == "its owner's" else "controller"
     group = language.target_group(m["t"]) if m["t"] else None
-    return [{"do": "name_search", "by": by, "all": m["q"] == "all"}], language._one(group)
+    return [{"do": "name_search", "by": by, "all": m["q"] == "all", "draw": bool(m["draw"])}], language._one(group)
+
+
+_HAND_SEARCH = re.compile(
+    r"(?P<first>(?:Target player reveals their hand, then you choose a card other than a basic land card from it|"
+    r"That player reveals their hand\. You choose a nonland card from it))\. "
+    r"Search that player's graveyard, hand, and library for all cards with the same name as (?:the chosen|that) card "
+    r"and exile them(?:\. Then|, then) that player shuffles\.", re.IGNORECASE)
+
+
+def parse_hand(body: str, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import scripts
+
+    m = _HAND_SEARCH.fullmatch(body)
+    if m is None:
+        return None
+    first = m['first'].replace(', then you choose', '. You choose')
+    first = first.replace('a card other than a basic land card', 'a nonbasic card')
+    first = first[:1].upper() + first[1:]
+    parsed = scripts._parse_effects_plain(first + '.', event_player=event_player)
+    if parsed is None:
+        return None
+    effects, targets, optional = parsed
+    return [*effects, {"do": "name_search", "by": "chosen_hand", "all": True}], targets, optional
 
 
 def _subject(plan: Plan, ctx: Context, e: dict[str, Any]) -> tuple[str, str] | None:
     """(the name, the player whose zones are searched) of the one target, as it was when it left (608.2h)."""
     from app.rules import effects
+
+    if e['by'] == 'bound':
+        from app.rules import context
+
+        players = context.players(plan, ctx, e['player'])
+        return (' // '.join(e['names']), players[0]) if e['names'] and players else None
+    if e['by'] == 'chosen_hand':
+        chosen = ctx.get('revealed') or []
+        if len(chosen) != 1 or (card := plan.state.cards.get(chosen[0])) is None or not card.zone.endswith(':hand'):
+            return None
+        return plan.ch(card).name, card.zone.split(':')[0]
 
     refs = effects.target_refs(ctx, "target")
     if len(refs) != 1:
@@ -105,7 +142,7 @@ def _matches(plan: Plan, name: str, pid: str, library: bool = True, depth: int |
     from app.rules import card_names
 
     return [c for z in ZONES if library or z != "library" for c in plan.state.zones.get(zone_key(pid, z), [])[:depth if z == "library" else None]
-            if plan.ch(plan.state.cards[c]).name == name or card_names.has_name(plan.ch(plan.state.cards[c]), name)]  # (709.4a; wave 43B: Aven Mindcensor, the top four)
+            if any(card_names.has_name(plan.ch(plan.state.cards[c]), n.strip()) for n in name.split(' // '))]  # (709.4a; wave 43B: Aven Mindcensor, the top four)
 
 
 def _library_banned(plan: Plan, searcher: str, ctx: Context) -> bool:
@@ -144,22 +181,34 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules import prohibitions
 
     allowed = set(_matches(plan, d.resume["name"], pid, not _library_banned(plan, d.player, d.resume["ctx"]), prohibitions.search_depth(plan, d.player)))
-    if finish(plan, d.resume["ctx"], pid, [c for c in chosen if c in allowed], bool((d.resume.get("e") or {}).get("draw"))):
+    e = d.resume.get('e') or {}
+    if finish(plan, d.resume["ctx"], pid, [c for c in chosen if c in allowed], bool(e.get("draw")), zombies=bool(e.get('zombies')), bind=e.get('as')):
         continue_effects(plan, d.resume["ctx"])
 
 
-def finish(plan: Plan, ctx: Context, pid: str, cards: list[str], draws: bool = False) -> bool:
+def finish(plan: Plan, ctx: Context, pid: str, cards: list[str], draws: bool = False, *, zombies: bool = False, bind: str | None = None) -> bool:
     """Exile what was found (each to its owner's exile, all at once), then the library's owner shuffles (701.24) [and draws a card for each
     one exiled from their hand: Lost Legacy]."""
-    library = [c for c in cards if plan.state.cards[c].zone == zone_key(pid, "library")]
-    from_hand = sum(1 for c in cards if plan.state.cards[c].zone == zone_key(pid, "hand"))
+    agents = player_control.search_exile(plan, pid) if pid == ctx["controller"] and not _library_banned(plan, pid, ctx) else []
+    from_hand = 0 if agents else sum(1 for c in cards if plan.state.cards[c].zone == zone_key(pid, "hand"))
+    from app.rules import context
+
+    before = [ref for c in ([] if agents else cards) if (ref := context.ref_of(plan, c)) is not None] if bind else []
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=ctx["controller"])
-    if pid == ctx["controller"]:  # (wave 18H) Opposition Agent: what they find in their own library its controller may play
-        player_control.permit_exiled(plan, player_control.search_exile(plan, pid), library)
+    if bind:
+        context.bind_moved(plan, ctx, bind, before)
+    if agents:  # A combined library search replaces finds in every searched zone.
+        player_control.permit_exiled(plan, agents, cards)
     plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
     if draws and from_hand:  # (-- card names (wave 22B) -- through the draw choke point, 121.2)
         from app.rules import replace
 
         return replace.draw_cards(plan, [pid], from_hand, then={"do": "continue", "ctx": ctx}, ctx=ctx)
+    if zombies and from_hand:
+        from app.rules.effects import create_token
+
+        return create_token(plan, ctx, {"do": "create_token", "who": f"player:{pid}", "n": from_hand,
+            "token": {"name": "Zombie", "type_line": "Token Creature — Zombie", "power": "2", "toughness": "2", "colors": ["B"]}},
+            then={"do": "continue", "ctx": ctx})
     return True

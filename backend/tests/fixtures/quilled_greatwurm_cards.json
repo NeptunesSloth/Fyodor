@@ -1,0 +1,178 @@
+[
+  {
+    "name": "Quilled Greatwurm",
+    "layout": "normal",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Wurm",
+    "oracle_text": "Trample\nWhenever a creature you control deals combat damage during your turn, put that many +1/+1 counters on it. (It must survive to get the counters.)\nYou may cast this card from your graveyard by removing six counters from among creatures you control in addition to paying its other costs.",
+    "power": "7",
+    "toughness": "7",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Walking Ballista",
+    "layout": "normal",
+    "mana_cost": "{X}{X}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "This creature enters with X +1/+1 counters on it.\n{4}: Put a +1/+1 counter on this creature.\nRemove a +1/+1 counter from this creature: It deals 1 damage to any target.",
+    "power": "0",
+    "toughness": "0",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Everflowing Chalice",
+    "layout": "normal",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact",
+    "oracle_text": "Multikicker {2} (You may pay an additional {2} any number of times as you cast this spell.)\nThis artifact enters with a charge counter on it for each time it was kicked.\n{T}: Add {C} for each charge counter on this artifact.",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Multikicker"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Counterspell",
+    "layout": "normal",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Rest in Peace",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Dress Down",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Flash\nWhen this enchantment enters, draw a card.\nCreatures lose all abilities.\nAt the beginning of the end step, sacrifice this enchantment.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Solemnity",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Scavenging Ooze",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Ooze",
+    "oracle_text": "{G}: Exile target card from a graveyard. If it was a creature card, put a +1/+1 counter on this creature and you gain 1 life.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "faces": []
+  }
+]

@@ -1,0 +1,159 @@
+[
+  {
+    "name": "Regenerations Restored",
+    "layout": "normal",
+    "mana_cost": "{W}{U}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Vanishing 12 (This enchantment enters with twelve time counters on it. At the beginning of your upkeep, remove a time counter from it. When the last is removed, sacrifice it.)\nWhenever one or more time counters are removed from this enchantment, scry 1 and you gain 1 life. Then if this enchantment has no time counters on it, exile it. When you do, take an extra turn after this one.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Vanishing",
+      "Scry"
+    ]
+  },
+  {
+    "name": "Timecrafting",
+    "layout": "normal",
+    "mana_cost": "{X}{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose one \u2014\n\u2022 Remove X time counters from target permanent or suspended card.\n\u2022 Put X time counters on target permanent with a time counter on it or suspended card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Vampire Hexmage",
+    "layout": "normal",
+    "mana_cost": "{B}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Vampire Shaman",
+    "oracle_text": "First strike\nSacrifice this creature: Remove all counters from target permanent.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "First strike"
+    ]
+  },
+  {
+    "name": "Stifle",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Disenchant",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Clockspinning",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nChoose a counter on target permanent or suspended card. Remove that counter from that permanent or card or put another of those counters on it.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Buyback"
+    ]
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Island",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  }
+]

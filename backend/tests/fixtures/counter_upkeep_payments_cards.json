@@ -1,0 +1,204 @@
+[
+  {
+    "name": "Primordial Ooze",
+    "oracle_text": "This creature attacks each combat if able.\nAt the beginning of your upkeep, put a +1/+1 counter on this creature. Then you may pay {X}, where X is the number of +1/+1 counters on it. If you don't, tap this creature and it deals X damage to you.",
+    "type_line": "Creature \u2014 Ooze",
+    "mana_cost": "{R}",
+    "layout": "normal",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rogue Skycaptain",
+    "oracle_text": "Flying\nAt the beginning of your upkeep, put a wage counter on this creature. You may pay {2} for each wage counter on it. If you don't, remove all wage counters from this creature and an opponent gains control of it.",
+    "type_line": "Creature \u2014 Human Rogue Mercenary",
+    "mana_cost": "{2}{R}",
+    "layout": "normal",
+    "power": "3",
+    "toughness": "4",
+    "loyalty": null,
+    "cmc": 3.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Phantasmal Sphere",
+    "oracle_text": "Flying\nAt the beginning of your upkeep, put a +1/+1 counter on this creature, then sacrifice this creature unless you pay {1} for each +1/+1 counter on it.\nWhen this creature leaves the battlefield, target opponent creates an X/X blue Orb creature token with flying, where X is the number of +1/+1 counters on this creature.",
+    "type_line": "Creature \u2014 Illusion",
+    "mana_cost": "{1}{U}",
+    "layout": "normal",
+    "power": "0",
+    "toughness": "1",
+    "loyalty": null,
+    "cmc": 2.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Cyclone",
+    "oracle_text": "At the beginning of your upkeep, put a wind counter on this enchantment, then sacrifice this enchantment unless you pay {G} for each wind counter on it. If you pay, this enchantment deals damage equal to the number of wind counters on it to each creature and each player.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{G}{G}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 4.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Delaying Shield",
+    "oracle_text": "If damage would be dealt to you, put that many delay counters on this enchantment instead.\nAt the beginning of your upkeep, remove all delay counters from this enchantment. For each delay counter removed this way, you lose 1 life unless you pay {1}{W}.",
+    "type_line": "Enchantment",
+    "mana_cost": "{3}{W}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 4.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Solemnity",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{W}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 3.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Doubling Season",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{4}{G}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 5.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "type_line": "Basic Land \u2014 Forest",
+    "mana_cost": "",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shock",
+    "oracle_text": "Shock deals 2 damage to any target.",
+    "type_line": "Instant",
+    "mana_cost": "{R}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Vilis, Broker of Blood",
+    "oracle_text": "Flying\n{B}, Pay 2 life: Target creature gets -1/-1 until end of turn.\nWhenever you lose life, draw that many cards. (Damage causes loss of life.)",
+    "type_line": "Legendary Creature \u2014 Demon",
+    "mana_cost": "{5}{B}{B}{B}",
+    "layout": "normal",
+    "power": "8",
+    "toughness": "8",
+    "loyalty": null,
+    "cmc": 8.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  }
+]

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Assault Suit",
+    "layout": "normal",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +2/+2, has haste, can't attack you or planeswalkers you control, and can't be sacrificed.\nAt the beginning of each opponent's upkeep, you may have that player gain control of equipped creature until end of turn. If you do, untap it.\nEquip {3}",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ]
+  },
+  {
+    "name": "Wings of Velis Vel",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Kindred Instant \u2014 Shapeshifter",
+    "oracle_text": "Changeling (This card is every creature type.)\nUntil end of turn, target creature has base power and toughness 4/4, gains all creature types, and gains flying.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Changeling"
+    ]
+  }
+]

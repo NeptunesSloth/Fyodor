@@ -15,7 +15,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, PrivateAttr
 
-from app.game.rules_state import AutomationLevel, AutomationOptions, RulesState
+from app.game.rules_state import AutomationLevel, AutomationOptions, EntryCharacteristics, RulesState
 
 ALL = "*"  # marker in ``revealed_to`` meaning "every player"
 
@@ -157,6 +157,7 @@ class AttackTarget(BaseModel):
 
 
 class CardInstance(BaseModel):
+    borrow_identity: str | None = None  # Server-private physical identity retained across privacy-only renumbering.
     id: str
     card_id: str | None = None  # printing id in the card DB; None for custom tokens / abilities
     name: str = ""  # cached display name (the engine has no DB access)
@@ -194,16 +195,33 @@ class CardInstance(BaseModel):
     # There is deliberately no memory of who saw a card earlier (see docs/SECURITY.md).
     revealed_to: list[str] = Field(default_factory=list)
     attacking: AttackTarget | None = None
+    attacking_without_target: str | None = None  # 506.4c: former defender may block, but no object is attacked.
+    attack_defender_lost: bool = False  # Last combat association was targetless, even after actual removal.
+    entry_characteristics: EntryCharacteristics | None = None
+    embalmed: bool = False  # Noncopiable creation provenance, available during entry.
+
+    @property
+    def is_attacking(self) -> bool:
+        return self.attacking is not None or self.attacking_without_target is not None
+
     blocking: str | None = None  # attacker instance id
     blocking_more: list[str] = Field(default_factory=list)  # -- multiple blocks (wave 13B) -- 509.1a: the other attackers it blocks
+
+    blocking_without_attacker: bool = False  # 506.4b: still blocking after every blocked attacker leaves.
+
+    @property
+    def is_blocking(self) -> bool:
+        return self.blocking is not None or bool(self.blocking_more) or self.blocking_without_attacker
 
     def blocks(self, attacker_id: str) -> bool:
         return self.blocking == attacker_id or attacker_id in self.blocking_more
 
     def unblock(self, attacker_id: str | None = None) -> None:
         """Stop blocking ``attacker_id`` (506.4: it left combat), or everything (None)."""
+        was_blocking = self.is_blocking
         rest = [] if attacker_id is None else [x for x in (self.blocking, *self.blocking_more) if x and x != attacker_id]
         self.blocking, self.blocking_more = (rest[0] if rest else None), rest[1:]
+        self.blocking_without_attacker = attacker_id is not None and was_blocking and not rest
     # --- tabletop object behaviour (see docs/3D_DIRECTION.md §5) ---
     rotation: float = 0.0  # free rotation in degrees, independent of tapping
     locked: bool = False  # cannot be moved until unlocked
@@ -245,6 +263,8 @@ class ManaUnit(BaseModel):
     only: str | None = Field(default=None, max_length=2000)  # a spending restriction (casting.spend_allowed)
     note: str = Field(default="", max_length=300)  # the restriction as Oracle words, for the pool display
     riders: list[dict[str, Any]] = Field(default_factory=list, max_length=8)  # effects when it is spent (mana_units.RIDERS)
+    generic_allowed: bool = True
+    production_zone: str | None = None
 
 
 class PlayerState(BaseModel):
@@ -275,6 +295,7 @@ class TurnState(BaseModel):
     number: int = 1
     active_player: str
     phase: str = "untap"
+    starting_life: dict[str, int] | None = None  # Actual native boundary receipt; legacy absence stays unknown.
 
 
 class Playmat(BaseModel):
@@ -407,6 +428,15 @@ class LogEntry(BaseModel):
     folded: bool = False  # shown collapsed under the following summary line (a repeated sequence)
 
 
+class CollectionCard(BaseModel):
+    """An owned card outside the game (CR 400.11); metadata, never a game-zone object."""
+
+    printing_id: str
+    oracle_id: str
+    name: str
+    quantity: int = Field(ge=1)
+
+
 class GameState(BaseModel):
     format_version: int = 1
     id: str
@@ -419,6 +449,7 @@ class GameState(BaseModel):
     seat_order: list[str]
     cards: dict[str, CardInstance] = Field(default_factory=dict)
     zones: dict[str, list[str]] = Field(default_factory=dict)
+    collections: dict[str, list[CollectionCard]] = Field(default_factory=dict)
     turn: TurnState
     table: TableState = Field(default_factory=TableState)
     views: list[ViewContext] = Field(default_factory=list)

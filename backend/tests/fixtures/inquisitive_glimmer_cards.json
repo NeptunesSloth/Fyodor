@@ -1,0 +1,225 @@
+[
+  {
+    "name": "Inquisitive Glimmer",
+    "layout": "normal",
+    "mana_cost": "{W}{U}",
+    "cmc": 2.0,
+    "type_line": "Enchantment Creature \u2014 Fox Glimmer",
+    "oracle_text": "Enchantment spells you cast cost {1} less to cast.\nUnlock costs you pay cost {1} less.",
+    "power": "2",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grand Entryway // Elegant Rotunda",
+    "layout": "split",
+    "mana_cost": "{1}{W} // {2}{W}",
+    "cmc": 5.0,
+    "type_line": "Enchantment \u2014 Room // Enchantment \u2014 Room",
+    "oracle_text": "When you unlock this door, create a 1/1 white Glimmer enchantment creature token.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)\n//\nWhen you unlock this door, put a +1/+1 counter on each of up to two target creatures.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Grand Entryway",
+        "mana_cost": "{1}{W}",
+        "type_line": "Enchantment \u2014 Room",
+        "oracle_text": "When you unlock this door, create a 1/1 white Glimmer enchantment creature token.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null
+      },
+      {
+        "name": "Elegant Rotunda",
+        "mana_cost": "{2}{W}",
+        "type_line": "Enchantment \u2014 Room",
+        "oracle_text": "When you unlock this door, put a +1/+1 counter on each of up to two target creatures.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null
+      }
+    ]
+  },
+  {
+    "name": "Training Grounds",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Activated abilities of creatures you control cost {2} less to activate. This effect can't reduce the mana in that cost to less than one mana.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Starfield Mystic",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Cleric",
+    "oracle_text": "Enchantment spells you cast cost {1} less to cast.\nWhenever an enchantment you control is put into a graveyard from the battlefield, put a +1/+1 counter on this creature.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Dress Down",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Flash\nWhen this enchantment enters, draw a card.\nCreatures lose all abilities.\nAt the beginning of the end step, sacrifice this enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flash"
+    ]
+  },
+  {
+    "name": "Disenchant",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Island",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Abundance",
+    "layout": "normal",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If you would draw a card, you may instead choose land or nonland and reveal cards from the top of your library until you reveal a card of the chosen kind. Put that card into your hand and put all other cards revealed this way on the bottom of your library in any order.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Payment Test Spring",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {W}.",
+    "colors": [],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  }
+]

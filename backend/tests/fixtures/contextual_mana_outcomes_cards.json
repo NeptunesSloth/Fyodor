@@ -1,0 +1,975 @@
+[
+  {
+    "name": "Altar of the Pantheon",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "Your devotion to each color and each combination of colors is increased by one.\n{T}: Add one mana of any color. If you control a God, a Demigod, or a legendary enchantment, you gain 1 life.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Trenzalore Clocktower",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Legendary Land",
+    "oracle_text": "{T}: Add {U}. Put a time counter on Trenzalore Clocktower.\n{1}{U}, {T}, Remove twelve time counters from Trenzalore Clocktower and exile it: Shuffle your graveyard and hand into your library, then draw seven cards. Activate only if you control a Time Lord.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Tarnation Vista",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "This land enters tapped. As it enters, choose a color.\n{T}: Add one mana of the chosen color.\n{1}, {T}: For each color among monocolored permanents you control, add one mana of that color.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Titans' Nest",
+    "layout": "normal",
+    "mana_cost": "{1}{B}{G}{U}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, surveil 1. (Look at the top card of your library. You may put that card into your graveyard.)\nExile a card from your graveyard: Add {C}. Spend this mana only to cast a spell that's one or more colors without {X} in its mana cost.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B",
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "U"
+    ],
+    "keywords": [
+      "Surveil"
+    ]
+  },
+  {
+    "name": "Niko Defies Destiny",
+    "layout": "saga",
+    "mana_cost": "{1}{W}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 You gain 2 life for each foretold card you own in exile.\nII \u2014 Add {W}{U}. Spend this mana only to foretell cards or cast spells that have foretell.\nIII \u2014 Return target card with foretell from your graveyard to your hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Smoky Lounge // Misty Salon",
+    "layout": "split",
+    "mana_cost": "{2}{R} // {3}{U}",
+    "cmc": 7.0,
+    "type_line": "Enchantment \u2014 Room // Enchantment \u2014 Room",
+    "oracle_text": "At the beginning of your first main phase, add {R}{R}. Spend this mana only to cast Room spells and unlock doors.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)\n//\nWhen you unlock this door, create an X/X blue Spirit creature token with flying, where X is the number of unlocked doors among Rooms you control.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Smoky Lounge",
+        "mana_cost": "{2}{R}",
+        "type_line": "Enchantment \u2014 Room",
+        "oracle_text": "At the beginning of your first main phase, add {R}{R}. Spend this mana only to cast Room spells and unlock doors.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      },
+      {
+        "name": "Misty Salon",
+        "mana_cost": "{3}{U}",
+        "type_line": "Enchantment \u2014 Room",
+        "oracle_text": "When you unlock this door, create an X/X blue Spirit creature token with flying, where X is the number of unlocked doors among Rooms you control.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      }
+    ]
+  },
+  {
+    "name": "Mana Short",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Tap all lands target player controls and that player loses all unspent mana.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Power Sink",
+    "layout": "normal",
+    "mana_cost": "{X}{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell unless its controller pays {X}. If that player doesn't, they tap all lands with mana abilities they control and lose all unspent mana.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Energy Tap",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Tap target untapped creature you control. If you do, add an amount of {C} equal to that creature's mana value.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Plasm Capture",
+    "layout": "normal",
+    "mana_cost": "{G}{G}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell. At the beginning of your next first main phase, add X mana in any combination of colors, where X is that spell's mana value.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Conduit of Storms // Conduit of Emrakul",
+    "layout": "transform",
+    "mana_cost": "{2}{R} // ",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Werewolf Horror // Creature \u2014 Eldrazi Werewolf",
+    "oracle_text": "Whenever this creature attacks, add {R} at the beginning of your next main phase this turn.\n{3}{R}{R}: Transform this creature.\n//\nWhenever this creature attacks, add {C}{C} at the beginning of your next main phase this turn.",
+    "power": "2",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Transform"
+    ],
+    "card_faces": [
+      {
+        "name": "Conduit of Storms",
+        "mana_cost": "{2}{R}",
+        "type_line": "Creature \u2014 Werewolf Horror",
+        "oracle_text": "Whenever this creature attacks, add {R} at the beginning of your next main phase this turn.\n{3}{R}{R}: Transform this creature.",
+        "power": "2",
+        "toughness": "3",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "R"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "Conduit of Emrakul",
+        "mana_cost": "",
+        "type_line": "Creature \u2014 Eldrazi Werewolf",
+        "oracle_text": "Whenever this creature attacks, add {C}{C} at the beginning of your next main phase this turn.",
+        "power": "5",
+        "toughness": "4",
+        "loyalty": null,
+        "defense": null,
+        "colors": [],
+        "image_face": 1
+      }
+    ]
+  },
+  {
+    "name": "Open the Omenpaths",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose one \u2014\n\u2022 Add two mana of any one color and two mana of any other color. Spend this mana only to cast creature or enchantment spells.\n\u2022 Creatures you control get +1/+0 until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Blood on the Snow",
+    "layout": "normal",
+    "mana_cost": "{4}{B}{B}",
+    "cmc": 6.0,
+    "type_line": "Snow Sorcery",
+    "oracle_text": "Choose one \u2014\n\u2022 Destroy all creatures.\n\u2022 Destroy all planeswalkers.\nThen return a creature or planeswalker card with mana value X or less from your graveyard to the battlefield, where X is the amount of {S} spent to cast this spell. ({S} is mana from a snow source.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Undiscovered Paradise",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "{T}: Add one mana of any color. During your next untap step, as you untap your permanents, return this land to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Upwelling",
+    "layout": "normal",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Players don't lose unspent mana as steps and phases end.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mountain",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Mountain",
+    "oracle_text": "({T}: Add {R}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Snow-Covered Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Snow Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Snow-Covered Swamp",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Snow Land \u2014 Swamp",
+    "oracle_text": "({T}: Add {B}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Trained Armodon",
+    "layout": "normal",
+    "mana_cost": "{1}{G}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Elephant",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Llanowar Elves",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Counterspell",
+    "layout": "normal",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Dark Ritual",
+    "layout": "normal",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Add {B}{B}{B}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "The First Doctor",
+    "layout": "normal",
+    "mana_cost": "{1}{W}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Time Lord Doctor",
+    "oracle_text": "When The First Doctor enters, search your library and/or graveyard for a card named TARDIS, reveal it, and put it into your hand. If you search your library this way, shuffle.\nWhenever you cast a spell with cascade, put a +1/+1 counter on target artifact or creature.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Thassa, God of the Sea",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Enchantment Creature \u2014 God",
+    "oracle_text": "Indestructible\nAs long as your devotion to blue is less than five, Thassa isn't a creature. (Each {U} in the mana costs of permanents you control counts toward your devotion to blue.)\nAt the beginning of your upkeep, scry 1.\n{1}{U}: Target creature you control can't be blocked this turn.",
+    "power": "5",
+    "toughness": "5",
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Indestructible",
+      "Scry"
+    ]
+  },
+  {
+    "name": "Behold the Multiverse",
+    "layout": "normal",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Scry 2, then draw two cards.\nForetell {1}{U} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Foretell",
+      "Scry"
+    ]
+  },
+  {
+    "name": "Saw It Coming",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.\nForetell {1}{U} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Foretell"
+    ]
+  },
+  {
+    "name": "Doomskar",
+    "layout": "normal",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Destroy all creatures.\nForetell {1}{W}{W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Foretell"
+    ]
+  },
+  {
+    "name": "Secret Door",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Artifact Creature \u2014 Wall",
+    "oracle_text": "Defender\n{4}{U}: Venture into the dungeon. Activate only as a sorcery. (Enter the first room or advance to the next room.)",
+    "power": "0",
+    "toughness": "4",
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Defender",
+      "Venture into the dungeon"
+    ]
+  },
+  {
+    "name": "Green Sun's Zenith",
+    "layout": "normal",
+    "mana_cost": "{X}{G}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Search your library for a green creature card with mana value X or less, put it onto the battlefield, then shuffle. Shuffle Green Sun's Zenith into its owner's library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Black Lotus",
+    "layout": "normal",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}, Sacrifice this artifact: Add three mana of any one color.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Fervor",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures you control have haste. (They can attack and {T} as soon as they come under your control.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Garruk Wildspeaker",
+    "layout": "normal",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Legendary Planeswalker \u2014 Garruk",
+    "oracle_text": "+1: Untap two target lands.\n\u22121: Create a 3/3 green Beast creature token.\n\u22124: Creatures you control get +3/+3 and gain trample until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "3",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Doubling Season",
+    "layout": "normal",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Chronatog",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Atog",
+    "oracle_text": "{0}: This creature gets +3/+3 until end of turn. You skip your next turn. Activate only once each turn.",
+    "power": "1",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Stasis",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Players skip their untap steps.\nAt the beginning of your upkeep, sacrifice this enchantment unless you pay {U}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Reality Ripple",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Target artifact, creature, or land phases out. (While it's phased out, it's treated as though it doesn't exist. It phases in before its controller untaps during their next untap step.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Savor the Moment",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Take an extra turn after this one. Skip the untap step of that turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cyclonus, the Saboteur // Cyclonus, Cybertronian Fighter",
+    "layout": "transform",
+    "mana_cost": "{2}{U}{B} // ",
+    "cmc": 4.0,
+    "type_line": "Legendary Artifact Creature \u2014 Robot // Legendary Artifact \u2014 Vehicle",
+    "oracle_text": "More Than Meets the Eye {5}{U}{B} (You may cast this card converted for {5}{U}{B}.)\nFlying\nWhenever Cyclonus deals combat damage to a player, it connives. Then if Cyclonus's power is 5 or greater, convert it. (To have a creature connive, draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on that creature.)\n//\nLiving metal (During your turn, this Vehicle is also a creature.)\nFlying\nWhenever Cyclonus deals combat damage to a player, convert it. If you do, there is an additional beginning phase after this phase. (The beginning phase includes the untap, upkeep, and draw steps.)",
+    "power": "2",
+    "toughness": "5",
+    "loyalty": null,
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Living metal",
+      "Convert",
+      "More Than Meets the Eye",
+      "Connive"
+    ],
+    "card_faces": [
+      {
+        "name": "Cyclonus, the Saboteur",
+        "mana_cost": "{2}{U}{B}",
+        "type_line": "Legendary Artifact Creature \u2014 Robot",
+        "oracle_text": "More Than Meets the Eye {5}{U}{B} (You may cast this card converted for {5}{U}{B}.)\nFlying\nWhenever Cyclonus deals combat damage to a player, it connives. Then if Cyclonus's power is 5 or greater, convert it. (To have a creature connive, draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on that creature.)",
+        "power": "2",
+        "toughness": "5",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "B",
+          "U"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "Cyclonus, Cybertronian Fighter",
+        "mana_cost": "",
+        "type_line": "Legendary Artifact \u2014 Vehicle",
+        "oracle_text": "Living metal (During your turn, this Vehicle is also a creature.)\nFlying\nWhenever Cyclonus deals combat damage to a player, convert it. If you do, there is an additional beginning phase after this phase. (The beginning phase includes the untap, upkeep, and draw steps.)",
+        "power": "5",
+        "toughness": "5",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "B",
+          "U"
+        ],
+        "image_face": 1
+      }
+    ]
+  },
+  {
+    "name": "Marwyn, the Nurturer",
+    "layout": "normal",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Elf Druid",
+    "oracle_text": "Whenever another Elf you control enters, put a +1/+1 counter on Marwyn.\n{T}: Add an amount of {G} equal to Marwyn's power.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shadow of the Second Sun",
+    "layout": "normal",
+    "mana_cost": "{4}{U}{U}",
+    "cmc": 6.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant player\nAt the beginning of each of enchanted player's postcombat main phases, there is an additional beginning phase after this phase. (The end step happens after the added untap, upkeep, and draw steps.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Humility",
+    "layout": "normal",
+    "mana_cost": "{2}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "All creatures lose all abilities and have base power and toughness 1/1.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Blossoming Defense",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature you control gets +2/+2 and gains hexproof until end of turn. (It can't be the target of spells or abilities your opponents control.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Kruphix, God of Horizons",
+    "layout": "normal",
+    "mana_cost": "{3}{G}{U}",
+    "cmc": 5.0,
+    "type_line": "Legendary Enchantment Creature \u2014 God",
+    "oracle_text": "Indestructible\nAs long as your devotion to green and blue is less than seven, Kruphix isn't a creature.\nYou have no maximum hand size.\nIf you would lose unspent mana, that mana becomes colorless instead.",
+    "power": "4",
+    "toughness": "7",
+    "loyalty": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [
+      "Indestructible"
+    ]
+  },
+  {
+    "name": "Boseiju, Who Shelters All",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Legendary Land",
+    "oracle_text": "Boseiju enters tapped.\n{T}, Pay 2 life: Add {C}. If that mana is spent on an instant or sorcery spell, that spell can't be countered.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Nykthos, Shrine to Nyx",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Legendary Land",
+    "oracle_text": "{T}: Add {C}.\n{2}, {T}: Choose a color. Add an amount of mana of that color equal to your devotion to that color. (Your devotion to a color is the number of mana symbols of that color in the mana costs of permanents you control.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "March of the Machines",
+    "layout": "normal",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Each noncreature artifact is an artifact creature with power and toughness each equal to its mana value. (Equipment that's a creature can't equip a creature.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  }
+]

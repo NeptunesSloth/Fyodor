@@ -1,0 +1,168 @@
+[
+  {
+    "name": "Nighthowler",
+    "oracle_text": "Bestow {2}{B}{B} (If you cast this card for its bestow cost, it's an Aura spell with enchant creature. It becomes a creature again if it's not attached.)\nThis creature and enchanted creature each get +X/+X, where X is the number of creature cards in all graveyards.",
+    "type_line": "Enchantment Creature \u2014 Horror",
+    "mana_cost": "{1}{B}{B}",
+    "layout": "normal",
+    "cmc": 3.0,
+    "power": "0",
+    "toughness": "0",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Bestow"
+    ]
+  },
+  {
+    "name": "Eidolon of Countless Battles",
+    "oracle_text": "Bestow {2}{W}{W} (If you cast this card for its bestow cost, it's an Aura spell with enchant creature. It becomes a creature again if it's not attached.)\nThis creature and enchanted creature each get +1/+1 for each creature you control and +1/+1 for each Aura you control.",
+    "type_line": "Enchantment Creature \u2014 Spirit",
+    "mana_cost": "{1}{W}{W}",
+    "layout": "normal",
+    "cmc": 3.0,
+    "power": "0",
+    "toughness": "0",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Bestow"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Colossal Dreadmaw",
+    "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+    "type_line": "Creature \u2014 Dinosaur",
+    "mana_cost": "{4}{G}{G}",
+    "layout": "normal",
+    "cmc": 6.0,
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ]
+  },
+  {
+    "name": "Rancor",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +2/+0 and has trample.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{G}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Pacifism",
+    "oracle_text": "Enchant creature\nEnchanted creature can't attack or block.",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{1}{W}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Murder",
+    "oracle_text": "Destroy target creature.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{B}{B}",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Humility",
+    "oracle_text": "All creatures lose all abilities and have base power and toughness 1/1.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{W}{W}",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Animate Artifact",
+    "oracle_text": "Enchant artifact\nAs long as enchanted artifact isn't a creature, it's an artifact creature with power and toughness each equal to its mana value.",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{3}{U}",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Mycosynth Lattice",
+    "oracle_text": "All permanents are artifacts in addition to their other types.\nAll cards that aren't on the battlefield, spells, and permanents are colorless.\nPlayers may spend mana as though it were mana of any color.",
+    "type_line": "Artifact",
+    "mana_cost": "{6}",
+    "layout": "normal",
+    "cmc": 6.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  }
+]

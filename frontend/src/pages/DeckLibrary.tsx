@@ -5,12 +5,14 @@ import { toast, toastError } from "../components/Toasts";
 import { navigate } from "../hooks/useHashRoute";
 import { createDeck, deleteDeck, duplicateDeck, listDecks } from "../services/decks";
 import { ImportDialog } from "./ImportDialog";
+import { BulkImportDialog } from "./BulkImportDialog";
 import { useCard } from "../state/cardCache";
 import type { DeckSummary } from "../types/decks";
 
 export function DeckLibrary() {
   const [decks, setDecks] = useState<DeckSummary[] | null>(null);
   const [importing, setImporting] = useState(false);
+  const [bulkImporting, setBulkImporting] = useState(false);
   const refresh = useCallback(() => listDecks().then(setDecks, toastError), []);
   useEffect(() => void refresh(), [refresh]);
 
@@ -34,6 +36,7 @@ export function DeckLibrary() {
         <h1 style={{ margin: 0 }}>Decks</h1>
         <span className="spacer" />
         <button className="btn" onClick={onNew}>New empty deck</button>
+        <button className="btn" onClick={() => setBulkImporting(true)}>Import multiple decks</button>
         <button className="btn primary" onClick={() => setImporting(true)}>Import from Archidekt</button>
       </div>
       {decks && decks.length === 0 && (
@@ -48,6 +51,7 @@ export function DeckLibrary() {
           <DeckTile key={d.id} deck={d} onDelete={() => onDelete(d)} onDuplicate={() => onDuplicate(d)} />
         ))}
       </div>
+      {bulkImporting && <BulkImportDialog onClose={() => setBulkImporting(false)} onSaved={() => void refresh()} />}
       {importing && (
         <ImportDialog
           onClose={() => setImporting(false)}

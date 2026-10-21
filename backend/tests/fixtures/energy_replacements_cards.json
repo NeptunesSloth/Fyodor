@@ -1,0 +1,169 @@
+[
+  {
+    "name": "Izzet Generatorium",
+    "mana_cost": "{U}{R}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "If you would get one or more {E} (energy counters), you get that many plus one {E} instead.\n{T}: Draw a card. Activate only if you've paid or lost four or more {E} this turn.",
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Aether Refinery",
+    "mana_cost": "{4}{R}{R}",
+    "cmc": 6.0,
+    "type_line": "Artifact",
+    "oracle_text": "If you would get one or more {E} (energy counters), you get twice that many {E} instead.\n{T}: You get {E}, then you may pay one or more {E}. If you do, create an X/X black Aetherborn creature token, where X is the amount of {E} paid this way.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Attune with Aether",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Search your library for a basic land card, reveal it, put it into your hand, then shuffle. You get {E}{E} (two energy counters).",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Prologue to Phyresis",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Each opponent gets a poison counter.\nDraw a card.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Winding Constrictor",
+    "mana_cost": "{B}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Snake",
+    "oracle_text": "If one or more counters would be put on an artifact or creature you control, that many plus one of each of those kinds of counters are put on that permanent instead.\nIf you would get one or more counters, you get that many plus one of each of those kinds of counters instead.",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Territorial Aetherkite",
+    "mana_cost": "{4}{R}{R}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Cat Dragon",
+    "oracle_text": "Flying, haste\nWhen this creature enters, you get {E}{E} (two energy counters). Then you may pay one or more {E}. When you do, this creature deals that much damage to each other creature.",
+    "power": "6",
+    "toughness": "5",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying",
+      "Haste"
+    ]
+  },
+  {
+    "name": "Localized Destruction",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "You get {E} (an energy counter), then you may pay one or more {E}. If you do, each creature you control with power equal to the amount of {E} paid this way gains indestructible until end of turn.\nDestroy all creatures.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Die Young",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose target creature. You get {E}{E} (two energy counters), then you may pay any amount of {E}. The creature gets -1/-1 until end of turn for each {E} paid this way.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Aether Spike",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose target spell. You get {E}{E} (two energy counters), then you may pay any amount of {E}. Counter that spell unless its controller pays {1} for each {E} paid this way.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Wrath of the Skies",
+    "mana_cost": "{X}{W}{W}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "You get X {E} (energy counters), then you may pay any amount of {E}. Destroy each artifact, creature, and enchantment with mana value less than or equal to the amount of {E} paid this way.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Hill Giant",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Giant",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  }
+]

@@ -159,6 +159,7 @@ def stack_adjust(state: GameState, a: A.StackAdjust) -> None:
 def _clone(c: CardInstance, new_id: str, quantity: int, dx: float, dy: float) -> CardInstance:
     clone = c.model_copy(deep=True)
     clone.id = new_id
+    clone.borrow_identity = None
     clone.quantity = quantity
     clone.x, clone.y = c.x + dx, c.y + dy
     clone.attached_to = None
@@ -226,7 +227,7 @@ def add_mana(state: GameState, a: A.AddMana) -> None:
     pool = state.players[pid].mana
     for color, amount in a.mana.items():
         short = -(pool.get(color, 0) + amount)  # (review 18B: views show unrestricted units as plain mana; removing it takes them too)
-        for u in [u for u in state.players[pid].mana_units if u.sym == color and not u.only and not u.riders][:max(0, short)]:
+        for u in [u for u in state.players[pid].mana_units if u.sym == color and not u.only and not u.riders and u.generic_allowed][:max(0, short)]:
             state.players[pid].mana_units.remove(u)
         value = max(0, pool.get(color, 0) + amount)
         if value:

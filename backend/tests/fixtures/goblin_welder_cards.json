@@ -1,0 +1,460 @@
+[
+  {
+    "name": "Goblin Welder",
+    "oracle_text": "{T}: Choose target artifact a player controls and target artifact card in that player's graveyard. If both targets are still legal as this ability resolves, that player simultaneously sacrifices the artifact and returns the artifact card to the battlefield.",
+    "type_line": "Creature \u2014 Goblin Artificer",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Ornithopter",
+    "oracle_text": "Flying",
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "power": "0",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Grafdigger's Cage",
+    "oracle_text": "Creature cards in graveyards and libraries can't enter the battlefield.\nPlayers can't cast spells from graveyards or libraries.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Investigator's Journal",
+    "oracle_text": "This artifact enters with a number of suspect counters on it equal to the greatest number of creatures a player controls.\n{2}, {T}, Remove a suspect counter from this artifact: Draw a card.\n{2}, Sacrifice this artifact: Draw a card.",
+    "type_line": "Artifact \u2014 Book Clue",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Marionette Master",
+    "oracle_text": "Fabricate 3 (When this creature enters, put three +1/+1 counters on it or create three 1/1 colorless Servo artifact creature tokens.)\nWhenever an artifact you control is put into a graveyard from the battlefield, target opponent loses life equal to this creature's power.",
+    "type_line": "Creature \u2014 Human Artificer",
+    "mana_cost": "{4}{B}{B}",
+    "cmc": 6.0,
+    "power": "1",
+    "toughness": "3",
+    "layout": "normal",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Fabricate"
+    ]
+  },
+  {
+    "name": "Golden Egg",
+    "oracle_text": "When this artifact enters, draw a card.\n{1}, {T}, Sacrifice this artifact: Add one mana of any color.\n{2}, {T}, Sacrifice this artifact: You gain 3 life.",
+    "type_line": "Artifact \u2014 Food",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Solemn Simulacrum",
+    "oracle_text": "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nWhen this creature dies, you may draw a card.",
+    "type_line": "Artifact Creature \u2014 Golem",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Blightsteel Colossus",
+    "oracle_text": "Trample, infect, indestructible\nIf Blightsteel Colossus would be put into a graveyard from anywhere, reveal Blightsteel Colossus and shuffle it into its owner's library instead.",
+    "type_line": "Artifact Creature \u2014 Phyrexian Golem",
+    "mana_cost": "{12}",
+    "cmc": 12.0,
+    "power": "11",
+    "toughness": "11",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Indestructible",
+      "Trample",
+      "Infect"
+    ]
+  },
+  {
+    "name": "Rest in Peace",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "layout": "normal",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Tajuru Preserver",
+    "oracle_text": "Spells and abilities your opponents control can't cause you to sacrifice permanents.",
+    "type_line": "Creature \u2014 Elf Shaman",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "power": "2",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Phyrexian Revoker",
+    "oracle_text": "As this creature enters, choose a nonland card name.\nActivated abilities of sources with the chosen name can't be activated.",
+    "type_line": "Artifact Creature \u2014 Phyrexian Horror",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "power": "2",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Soul-Guide Lantern",
+    "oracle_text": "When this artifact enters, exile target card from a graveyard.\n{T}, Sacrifice this artifact: Exile each opponent's graveyard.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Duplicant",
+    "oracle_text": "Imprint \u2014 When this creature enters, you may exile target nontoken creature.\nAs long as a card exiled with this creature is a creature card, this creature has the power, toughness, and creature types of the last creature card exiled with it. It's still a Shapeshifter.",
+    "type_line": "Artifact Creature \u2014 Shapeshifter",
+    "mana_cost": "{6}",
+    "cmc": 6.0,
+    "power": "2",
+    "toughness": "4",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Imprint"
+    ]
+  },
+  {
+    "name": "Myr Retriever",
+    "oracle_text": "When this creature dies, return another target artifact card from your graveyard to your hand.",
+    "type_line": "Artifact Creature \u2014 Myr",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Myrsmith",
+    "oracle_text": "Whenever you cast an artifact spell, you may pay {1}. If you do, create a 1/1 colorless Myr artifact creature token.",
+    "type_line": "Creature \u2014 Human Artificer",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "power": "2",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Junk Diver",
+    "oracle_text": "Flying\nWhen this creature dies, return another target artifact card from your graveyard to your hand.",
+    "type_line": "Artifact Creature \u2014 Bird",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Nimble Obstructionist",
+    "oracle_text": "Flash\nFlying\nCycling {2}{U} ({2}{U}, Discard this card: Draw a card.)\nWhen you cycle this card, counter target activated or triggered ability you don't control.",
+    "type_line": "Creature \u2014 Bird Wizard",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "power": "3",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Flash",
+      "Cycling"
+    ]
+  },
+  {
+    "name": "Liquimetal Coating",
+    "oracle_text": "{T}: Target permanent becomes an artifact in addition to its other types until end of turn.",
+    "type_line": "Artifact",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Solemnity",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "layout": "normal",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Doubling Season",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mycosynth Lattice",
+    "oracle_text": "All permanents are artifacts in addition to their other types.\nAll cards that aren't on the battlefield, spells, and permanents are colorless.\nPlayers may spend mana as though it were mana of any color.",
+    "type_line": "Artifact",
+    "mana_cost": "{6}",
+    "cmc": 6.0,
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Arcbound Worker",
+    "oracle_text": "Modular 1 (This creature enters with a +1/+1 counter on it. When it dies, you may put its +1/+1 counters on target artifact creature.)",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "power": "0",
+    "toughness": "0",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Modular"
+    ]
+  },
+  {
+    "name": "Encroaching Mycosynth",
+    "oracle_text": "Nonland permanents you control are artifacts in addition to their other types. The same is true for permanent spells you control and nonland permanent cards you own that aren't on the battlefield.",
+    "type_line": "Artifact",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Myr Sire",
+    "oracle_text": "When this creature dies, create a 1/1 colorless Phyrexian Myr artifact creature token.",
+    "type_line": "Artifact Creature \u2014 Phyrexian Myr",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "The Ozolith",
+    "oracle_text": "Whenever a creature you control leaves the battlefield, if it had counters on it, put those counters on The Ozolith.\nAt the beginning of combat on your turn, if The Ozolith has counters on it, you may move all counters from The Ozolith onto target creature.",
+    "type_line": "Legendary Artifact",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Scrap Trawler",
+    "oracle_text": "Whenever this creature dies or another artifact you control is put into a graveyard from the battlefield, return to your hand target artifact card in your graveyard with lesser mana value.",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "power": "3",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Torpor Orb",
+    "oracle_text": "Creatures entering don't cause abilities to trigger.",
+    "type_line": "Artifact",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Skyscanner",
+    "oracle_text": "Flying\nWhen this creature enters, draw a card.",
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Reckless Fireweaver",
+    "oracle_text": "Whenever an artifact you control enters, this creature deals 1 damage to each opponent.",
+    "type_line": "Creature \u2014 Human Artificer",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "power": "1",
+    "toughness": "3",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "The Gitrog Monster",
+    "oracle_text": "Deathtouch\nAt the beginning of your upkeep, sacrifice The Gitrog Monster unless you sacrifice a land.\nYou may play an additional land on each of your turns.\nWhenever one or more land cards are put into your graveyard from anywhere, draw a card.",
+    "type_line": "Legendary Creature \u2014 Frog Horror",
+    "mana_cost": "{3}{B}{G}",
+    "cmc": 5.0,
+    "power": "6",
+    "toughness": "6",
+    "layout": "normal",
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [
+      "Deathtouch"
+    ]
+  },
+  {
+    "name": "Darksteel Citadel",
+    "oracle_text": "Indestructible\n{T}: Add {C}.",
+    "type_line": "Artifact Land",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Indestructible"
+    ]
+  }
+]

@@ -1,0 +1,1013 @@
+[
+  {
+    "name": "Conspiracy Theorist",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Shaman",
+    "oracle_text": "Whenever this creature attacks, you may pay {1} and discard a card. If you do, draw a card.\nWhenever you discard one or more nonland cards, you may exile one of them from your graveyard. If you do, you may cast it this turn.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Tinybones, Bauble Burglar",
+    "layout": "normal",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Skeleton Rogue",
+    "oracle_text": "Whenever an opponent discards a card, exile it from their graveyard with a stash counter on it.\nDuring your turn, you may play cards you don't own with stash counters on them from exile, and mana of any type can be spent to cast those spells.\n{3}{B}, {T}: Each opponent discards a card. Activate only as a sorcery.",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rivaz of the Claw",
+    "layout": "normal",
+    "mana_cost": "{1}{B}{R}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Lizard Warlock",
+    "oracle_text": "Menace\n{T}: Add two mana in any combination of colors. Spend this mana only to cast Dragon creature spells.\nOnce during each of your turns, you may cast a Dragon creature spell from your graveyard.\nWhenever you cast a Dragon creature spell from your graveyard, it gains \"When this creature dies, exile it.\"",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [
+      "Menace"
+    ]
+  },
+  {
+    "name": "Gale, Waterdeep Prodigy",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Wizard",
+    "oracle_text": "Whenever you cast an instant or sorcery spell from your hand, you may cast up to one target card of the other type from your graveyard. If a spell cast from your graveyard this way would be put into your graveyard, exile it instead.\nChoose a Background (You can have a Background as a second commander.)",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Choose a background"
+    ]
+  },
+  {
+    "name": "Ob Nixilis, Captive Kingpin",
+    "layout": "normal",
+    "mana_cost": "{2}{B}{R}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Demon",
+    "oracle_text": "Flying, trample\nWhenever one or more opponents each lose exactly 1 life, put a +1/+1 counter on Ob Nixilis. Exile the top card of your library. Until your next end step, you may play that card.",
+    "power": "4",
+    "toughness": "3",
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [
+      "Flying",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Lifestream's Blessing",
+    "layout": "normal",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Instant",
+    "oracle_text": "Draw X cards, where X is the greatest power among creatures you controlled as you cast this spell. If this spell was cast from exile, you gain twice X life.\nForetell {4}{G} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Foretell"
+    ]
+  },
+  {
+    "name": "Ensnared by the Mara",
+    "layout": "normal",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Each opponent faces a villainous choice \u2014 They exile cards from the top of their library until they exile a nonland card, then you may cast that card without paying its mana cost, or that player exiles the top four cards of their library and Ensnared by the Mara deals damage equal to the total mana value of those exiled cards to that player.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Dance with Calamity",
+    "layout": "normal",
+    "mana_cost": "{7}{R}",
+    "cmc": 8.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Shuffle your library. As many times as you choose, you may exile the top card of your library. If the total mana value of the cards exiled this way is 13 or less, you may cast any number of spells from among those cards without paying their mana costs.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Wand of Wonder",
+    "layout": "normal",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "{4}, {T}: Roll a d20. Each opponent exiles cards from the top of their library until they exile an instant or sorcery card, then shuffles the rest into their library. You may cast up to X instant and/or sorcery spells from among cards exiled this way without paying their mana costs.\n1\u20149 | X is one.\n10\u201419 | X is two.\n20 | X is three.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Share the Spoils",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters and whenever an opponent loses the game, exile the top card of each player's library.\nDuring each player's turn, that player may play a land or cast a spell from among cards exiled with this enchantment, and they may spend mana as though it were mana of any color to cast that spell. When they do, exile the top card of their library.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lobelia, Defender of Bag End",
+    "layout": "normal",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Halfling Citizen",
+    "oracle_text": "When Lobelia enters, look at the top card of each opponent's library and exile those cards face down.\n{T}, Sacrifice an artifact: Choose one \u2014\n\u2022 Until end of turn, you may play a card exiled with Lobelia without paying its mana cost.\n\u2022 Each opponent loses 2 life and you gain 2 life.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Intellect Devourer",
+    "layout": "normal",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Horror",
+    "oracle_text": "Devour Intellect \u2014 When this creature enters, each opponent exiles a card from their hand until this creature leaves the battlefield.\nBody Thief \u2014 You may play lands and cast spells from among cards exiled with this creature. If you cast a spell this way, you may spend mana as though it were mana of any color to cast it.",
+    "power": "2",
+    "toughness": "4",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Devour Intellect",
+      "Body Thief"
+    ]
+  },
+  {
+    "name": "King Narfi's Betrayal",
+    "layout": "saga",
+    "mana_cost": "{1}{U}{B}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 Each player mills four cards. Then you may exile a creature or planeswalker card from each graveyard.\nII, III \u2014 Until end of turn, you may cast spells from among cards exiled with this Saga, and you may spend mana as though it were mana of any color to cast those spells.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "The Ruinous Powers",
+    "layout": "normal",
+    "mana_cost": "{2}{B}{R}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, choose an opponent at random. Exile the top card of that player's library. Until end of turn, you may play that card and you may spend mana as though it were mana of any color to cast it. When you cast a spell this way, its owner loses life equal to its mana value.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Quintorius, Loremaster",
+    "layout": "normal",
+    "mana_cost": "{3}{R}{W}",
+    "cmc": 5.0,
+    "type_line": "Legendary Creature \u2014 Elephant Cleric",
+    "oracle_text": "Vigilance\nAt the beginning of your end step, exile target noncreature, nonland card from your graveyard. Create a 3/2 red and white Spirit creature token.\n{1}{R}{W}, {T}, Sacrifice a Spirit: Choose target card exiled with Quintorius. You may cast that card this turn without paying its mana cost. If that spell would be put into a graveyard, put it on the bottom of its owner's library instead.",
+    "power": "3",
+    "toughness": "5",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": [
+      "Vigilance"
+    ]
+  },
+  {
+    "name": "Monk Class",
+    "layout": "class",
+    "mana_cost": "{W}{U}",
+    "cmc": 2.0,
+    "type_line": "Enchantment \u2014 Class",
+    "oracle_text": "(Gain the next level as a sorcery to add its ability.)\nThe second spell you cast each turn costs {1} less to cast.\n{W}{U}: Level 2\nWhen this Class becomes level 2, return up to one target nonland permanent to its owner's hand.\n{1}{W}{U}: Level 3\nAt the beginning of your upkeep, exile the top card of your library. For as long as it remains exiled, it has \"You may cast this card from exile as long as you've cast another spell this turn.\"",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Season of the Bold",
+    "layout": "normal",
+    "mana_cost": "{3}{R}{R}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose up to five {P} worth of modes. You may choose the same mode more than once.\n{P} \u2014 Create a tapped Treasure token.\n{P}{P} \u2014 Exile the top two cards of your library. Until the end of your next turn, you may play them.\n{P}{P}{P} \u2014 Until the end of your next turn, whenever you cast a spell, Season of the Bold deals 2 damage to up to one target creature.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Treasure"
+    ]
+  },
+  {
+    "name": "Grolnok, the Omnivore",
+    "layout": "normal",
+    "mana_cost": "{2}{G}{U}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Frog",
+    "oracle_text": "Whenever a Frog you control attacks, mill three cards.\nWhenever a permanent card is put into your graveyard from your library, exile it with a croak counter on it.\nYou may play lands and cast spells from among cards you own in exile with croak counters on them.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Twincast",
+    "layout": "normal",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Dragon Whelp",
+    "layout": "normal",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Dragon",
+    "oracle_text": "Flying\n{R}: This creature gets +1/+0 until end of turn. If this ability has been activated four or more times this turn, sacrifice this creature at the beginning of the next end step.",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Ashnod's Altar",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "Sacrifice a creature: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Stolen Goods",
+    "layout": "normal",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target opponent exiles cards from the top of their library until they exile a nonland card. Until end of turn, you may cast that card without paying its mana cost.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Memnite",
+    "layout": "normal",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "",
+    "power": "1",
+    "toughness": "1",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Strionic Resonator",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{2}, {T}: Copy target triggered ability you control. You may choose new targets for the copy. (A triggered ability uses the words \"when,\" \"whenever,\" or \"at.\")",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Allure of the Unknown",
+    "layout": "normal",
+    "mana_cost": "{3}{B}{R}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Reveal the top six cards of your library. An opponent exiles a nonland card from among them, then you put the rest into your hand. That opponent may cast the exiled card without paying its mana cost.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Double Major",
+    "layout": "normal",
+    "mana_cost": "{G}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target creature spell you control, except it isn't legendary if the spell is legendary. (A copy of a creature spell becomes a token.)",
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cathartic Reunion",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "As an additional cost to cast this spell, discard two cards.\nDraw three cards.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rest in Peace",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Spear Spewer",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Goblin Warrior",
+    "oracle_text": "Defender\n{T}: This creature deals 1 damage to each player.",
+    "power": "0",
+    "toughness": "2",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Defender"
+    ]
+  },
+  {
+    "name": "Earthquake",
+    "layout": "normal",
+    "mana_cost": "{X}{R}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Earthquake deals X damage to each creature without flying and each player.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Urza's Armor",
+    "layout": "normal",
+    "mana_cost": "{6}",
+    "cmc": 6.0,
+    "type_line": "Artifact",
+    "oracle_text": "If a source would deal damage to you, prevent 1 of that damage.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Blood Celebrant",
+    "layout": "normal",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Human Cleric",
+    "oracle_text": "{B}, Pay 1 life: Add one mana of any color.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Unearth",
+    "layout": "normal",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Return target creature card with mana value 3 or less from your graveyard to the battlefield.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Cycling"
+    ]
+  },
+  {
+    "name": "Spatial Contortion",
+    "layout": "normal",
+    "mana_cost": "{1}{C}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "({C} represents colorless mana.)\nTarget creature gets +3/-3 until end of turn.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Disenchant",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Divination",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Draw two cards.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Night Shift of the Living Dead",
+    "layout": "normal",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "After you roll a die, you may pay 1 life. If you do, increase or decrease the result by 1. Do this only once each turn.\nWhenever you roll a 6, create a 2/2 black Zombie Employee creature token.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Thalia, Guardian of Thraben",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Human Soldier",
+    "oracle_text": "First strike\nNoncreature spells cost {1} more to cast.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "First strike"
+    ]
+  },
+  {
+    "name": "Cremate",
+    "layout": "normal",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target card from a graveyard.\nDraw a card.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Pulse Tracker",
+    "layout": "normal",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Vampire Rogue",
+    "oracle_text": "Whenever this creature attacks, each opponent loses 1 life.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Bloodletter of Aclazotz",
+    "layout": "normal",
+    "mana_cost": "{1}{B}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Vampire Demon",
+    "oracle_text": "Flying\nIf an opponent would lose life during your turn, they lose twice that much life instead. (Damage causes loss of life.)",
+    "power": "2",
+    "toughness": "4",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Bontu's Monument",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Legendary Artifact",
+    "oracle_text": "Black creature spells you cast cost {1} less to cast.\nWhenever you cast a creature spell, each opponent loses 1 life and you gain 1 life.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Spectral Sailor",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Spirit Pirate",
+    "oracle_text": "Flash (You may cast this spell any time you could cast an instant.)\nFlying\n{3}{U}: Draw a card.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Flash"
+    ]
+  },
+  {
+    "name": "Brazen Borrower // Petty Theft",
+    "layout": "adventure",
+    "mana_cost": "{1}{U}{U} // {1}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Faerie Rogue // Instant \u2014 Adventure",
+    "power": "3",
+    "toughness": "1",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Flash"
+    ],
+    "card_faces": [
+      {
+        "object": "card_face",
+        "name": "Brazen Borrower",
+        "mana_cost": "{1}{U}{U}",
+        "type_line": "Creature \u2014 Faerie Rogue",
+        "oracle_text": "Flash\nFlying\nThis creature can block only creatures with flying.",
+        "power": "3",
+        "toughness": "1",
+        "artist": "Eric Deschamps",
+        "artist_id": "37970e22-9cee-44c1-af44-5ee27cf26b76",
+        "illustration_id": "7561a5ca-8e49-4f91-80f3-96124a7e10f5"
+      },
+      {
+        "object": "card_face",
+        "name": "Petty Theft",
+        "mana_cost": "{1}{U}",
+        "type_line": "Instant \u2014 Adventure",
+        "oracle_text": "Return target nonland permanent an opponent controls to its owner's hand.",
+        "artist": "Eric Deschamps",
+        "artist_id": "37970e22-9cee-44c1-af44-5ee27cf26b76"
+      }
+    ]
+  },
+  {
+    "name": "Fae of Wishes // Granted",
+    "layout": "adventure",
+    "mana_cost": "{1}{U} // {3}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Faerie Wizard // Sorcery \u2014 Adventure",
+    "power": "1",
+    "toughness": "4",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "card_faces": [
+      {
+        "object": "card_face",
+        "name": "Fae of Wishes",
+        "mana_cost": "{1}{U}",
+        "type_line": "Creature \u2014 Faerie Wizard",
+        "oracle_text": "Flying\n{1}{U}, Discard two cards: Return this creature to its owner's hand.",
+        "power": "1",
+        "toughness": "4",
+        "artist": "Magali Villeneuve",
+        "artist_id": "9e6a55ae-be4d-4c23-a2a5-135737ffd879",
+        "illustration_id": "032171ae-a3d5-4211-aaf3-2626404c5936"
+      },
+      {
+        "object": "card_face",
+        "name": "Granted",
+        "mana_cost": "{3}{U}",
+        "type_line": "Sorcery \u2014 Adventure",
+        "oracle_text": "You may reveal a noncreature card you own from outside the game and put it into your hand.",
+        "artist": "Magali Villeneuve",
+        "artist_id": "9e6a55ae-be4d-4c23-a2a5-135737ffd879"
+      }
+    ]
+  },
+  {
+    "name": "Commit // Memory",
+    "layout": "split",
+    "mana_cost": "{3}{U} // {4}{U}{U}",
+    "cmc": 10.0,
+    "type_line": "Instant // Sorcery",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Aftermath"
+    ],
+    "card_faces": [
+      {
+        "object": "card_face",
+        "name": "Commit",
+        "mana_cost": "{3}{U}",
+        "type_line": "Instant",
+        "oracle_text": "Put target spell or nonland permanent into its owner's library second from the top.",
+        "artist": "Ryan Alexander Lee",
+        "artist_id": "f4d194b4-958a-4830-8d87-1a84e0b9ffbc",
+        "illustration_id": "f99e2092-e035-4043-b813-9dd1d32de0a0"
+      },
+      {
+        "object": "card_face",
+        "name": "Memory",
+        "mana_cost": "{4}{U}{U}",
+        "type_line": "Sorcery",
+        "oracle_text": "Aftermath (Cast this spell only from your graveyard. Then exile it.)\nEach player shuffles their hand and graveyard into their library, then draws seven cards.",
+        "artist": "Ryan Alexander Lee",
+        "artist_id": "f4d194b4-958a-4830-8d87-1a84e0b9ffbc"
+      }
+    ]
+  },
+  {
+    "name": "Stifle",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Candlekeep Sage",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Enchantment \u2014 Background",
+    "oracle_text": "Commander creatures you own have \"When this creature enters or leaves the battlefield, draw a card.\"",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Triskaidekaphobia",
+    "layout": "normal",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, choose one \u2014\n\u2022 Each player with exactly 13 life loses the game, then each player gains 1 life.\n\u2022 Each player with exactly 13 life loses the game, then each player loses 1 life.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Tainted Remedy",
+    "layout": "normal",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an opponent would gain life, that player loses that much life instead.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Boon Reflection",
+    "layout": "normal",
+    "mana_cost": "{4}{W}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If you would gain life, you gain twice that much life instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Control Magic",
+    "layout": "normal",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nYou control enchanted creature.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Flicker of Fate",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature or enchantment, then return it to the battlefield under its owner's control.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Confiscate",
+    "layout": "normal",
+    "mana_cost": "{4}{U}{U}",
+    "cmc": 6.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant permanent\nYou control enchanted permanent.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Memory Lapse",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell. If that spell is countered this way, put it on top of its owner's library instead of into that player's graveyard.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "oracle_text": "+2: Discard up to two cards, then draw that many cards.\n\u22122: Sacrifice an artifact. If you do, return target artifact card from your graveyard to the battlefield.\n\u221210: You get an emblem with \"Whenever an artifact is put into your graveyard from the battlefield, return that card to the battlefield at the beginning of the next end step.\"\nDaretti, Scrap Savant can be your commander.",
+    "type_line": "Legendary Planeswalker \u2014 Daretti",
+    "colors": [
+      "R"
+    ],
+    "keywords": [],
+    "cmc": 4.0,
+    "loyalty": "3",
+    "color_identity": [
+      "R"
+    ],
+    "layout": "normal",
+    "mana_cost": "{3}{R}",
+    "name": "Daretti, Scrap Savant"
+  }
+]

@@ -26,7 +26,7 @@ from app.rules import coverage, scripts
 from app.rules.casting import mana_abilities
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act, deck, enable, zone
+from tests.game_helpers import act, deck, enable, mana_pool, zone
 from tests.test_rules_conditionals import creature, life, on_field, to_hand, to_turn, until_asked
 from tests.test_rules_effects import mana, replay_matches
 
@@ -87,6 +87,10 @@ EXTRA = [
            "your hand. If you're the monarch, return that permanent card to the battlefield instead.", ["W"],
            number="X717"),
 ]
+# Printed P/T is needed for state-based actions (CR 208.5, 704.5f).
+for name, power, toughness in (("Leafkin Druid", "0", "3"), ("Ilysian Caryatid", "1", "1"),
+                                ("Goldnight Castigator", "4", "9")):
+    next(c for c in EXTRA if c["name"] == name).update(power=power, toughness=toughness)
 EXTRA[11]["loyalty"] = "3"
 FULL = ["Burst Lightning", "Saproling Migration", "Tear Asunder", "Rite of Replication", "Jilt", "Blood Beckoning",
         "Heroic Charge", "Leafkin Druid", "Ilysian Caryatid", "Goldnight Castigator", "Jace's Triumph", "Dega Sanctuary",
@@ -359,7 +363,7 @@ def test_leafkin_druid_adds_two_with_four_creatures(cards):
     assert dict(mana_abilities(s.state, s.state.cards[druid.id], s.cards))[0].options == (("G", "G"),)
     to_turn(s, 3)
     act(s, "p1", type="activate_ability", card_id=druid.id, ability=0)
-    assert dict(s.state.players["p1"].mana) == {"G": 2}
+    assert mana_pool(s) == {"G": 2}
     roundtrip(s)
 
 
@@ -376,7 +380,7 @@ def test_ilysian_caryatid_needs_a_big_creature(cards):
     act(s, "p1", type="activate_ability", card_id=caryatid.id, ability=0)
     d = s.state.rules.decision  # (which color: two of one color)
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[str(list(options).index(("R", "R")))])
-    assert dict(s.state.players["p1"].mana) == {"R": 2}
+    assert mana_pool(s) == {"R": 2}
     roundtrip(s)
 
 

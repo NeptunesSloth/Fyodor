@@ -1,0 +1,41 @@
+[
+  {
+    "name": "Bothersome Quasit",
+    "oracle_text": "Menace\nGoaded creatures your opponents control can't block.\nWhenever you cast a noncreature spell, goad target creature an opponent controls. (Until your next turn, that creature attacks each combat if able and attacks a player other than you if able.)",
+    "type_line": "Creature \u2014 Demon",
+    "mana_cost": "{2}{R}",
+    "power": "3",
+    "toughness": "2",
+    "layout": "normal"
+  },
+  {
+    "name": "Bloodthirsty Blade",
+    "oracle_text": "Equipped creature gets +2/+0 and is goaded. (It attacks each combat if able and attacks a player other than you if able.)\n{1}: Attach this Equipment to target creature an opponent controls. Activate only as a sorcery.",
+    "type_line": "Artifact \u2014 Equipment",
+    "mana_cost": "{2}",
+    "layout": "normal"
+  },
+  {
+    "name": "Disrupt Decorum",
+    "oracle_text": "Goad all creatures you don't control. (Until your next turn, those creatures attack each combat if able and attack a player other than you if able.)",
+    "type_line": "Sorcery",
+    "mana_cost": "{2}{R}{R}",
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal"
+  },
+  {
+    "name": "Shiny Impetus",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +2/+2 and is goaded. (It attacks each combat if able and attacks a player other than you if able.)\nWhenever enchanted creature attacks, you create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{2}{R}",
+    "layout": "normal"
+  }
+]

@@ -42,6 +42,7 @@ from functools import cache
 from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DecisionOption
+from app.rules import token_attack_continuations as _token_attack_continuations
 from app.rules.plan import decide
 
 if TYPE_CHECKING:
@@ -54,6 +55,7 @@ Effects = list[dict[str, Any]]
 
 TAX = "attack_tax"
 TAX_PW = "attack_tax_pw"  # (also attacking a planeswalker the player controls)
+BLOCK_TAX = "block_tax"
 OTHER_THAN = "attack_other_than"
 ATTACK_PLAYER = "attack_player"  # -- casting extras (wave 18E) -- "attacks that opponent this turn if able" (encore, 702.141a): ``attack_player:<player>``
 CANT_BLOCK_CTRL = "cant_block_ctrl"
@@ -78,9 +80,26 @@ _LIMIT_ALL_RE = re.compile(r"No more than (?P<n>one|two|three|four|five) creatur
 
 def static_definition(text: str) -> Definition | None:
     """One static ability (the card's own name written as ~) of this module, or None."""
-    from app.rules import statics
+    from app.rules import attack_destinations, creature_combat_costs, nonmana_combat_costs, statics
 
+    if (destination := attack_destinations.static_definition(text)) is not None:
+        return destination
+
+    if (nonmana := nonmana_combat_costs.parse(text)) is not None:
+        return nonmana
+
+    if (own_cost := creature_combat_costs.parse(text)) is not None:
+        return own_cost
     t = text.strip()
+    blocked = re.fullmatch(r"(?P<sub>.+?) can't block unless their controller pays (?P<cost>(?:\{[^}]+\})+) for each of those creatures\.", t)
+    if blocked:
+        from app.rules import mana as M
+
+        who, _ = statics._subject(blocked['sub'])
+        cost = M.parse_cost(blocked['cost'])
+        if who is None or who in ('self', 'attached') or cost.unsupported or cost.x or cost.is_free:
+            return None
+        return statics._definition(who, None, [], rules=[f"{BLOCK_TAX}:{blocked['cost']}:@src"])
     held = re.fullmatch(r"As long as ~ is (un)?tapped, ([Nn]o more than .+)", t)  # -- commander sweep (wave 49B) -- 611.3a: "As long as Mirri is tapped, no more than one creature can attack you each combat."
     if held:
         own = static_definition(held[2][0].upper() + held[2][1:])
@@ -121,9 +140,11 @@ def static_definition(text: str) -> Definition | None:
             who, _ = statics._subject("Creatures")
             rule = f"{CANT_BLOCK_CTRL_POWER}:@you:@src"
         else:
-            who, _ = statics._subject(m["sub"])
+            who, kind = statics._subject(m["sub"])
+            if who == "attached" and kind != "creature":
+                return None
             rule = f"{CANT_BLOCK_CTRL}:@you"
-        if who is None or who in ("self", "attached"):
+        if who is None or who == "self":
             return None
         return statics._definition(who, None, [], rules=[rule])
     return None
@@ -187,9 +208,11 @@ def attack_cost(plan: Plan, declared: list[tuple[str, str]]) -> str:
         each = M.parse_cost(cost)
         generic += each.generic * n
         symbols += [s for s in re.findall(r"\{[^}]+\}", cost) if not s[1:-1].isdigit()] * n
-    if not generic and not symbols:
-        return ""
-    return (f"{{{generic}}}" if generic else "") + "".join(symbols)
+    from app.rules import creature_combat_costs
+
+    extra = creature_combat_costs.total(plan, [cid for cid, _ in declared], defenders=dict(declared))
+    combined = M.parse_cost((f"{{{generic}}}" if generic else "") + "".join(symbols) + extra.text())
+    return "" if combined.is_free else combined.text()
 
 
 def attack_life(plan: Plan, declared: list[tuple[str, str]]) -> int:
@@ -214,8 +237,29 @@ def _tax_x(plan: Plan, source: str) -> int:
     return 0
 
 
-def taxed(plan: Plan, ch: Characteristics, target: str) -> bool:
-    return bool(taxes(plan, ch, target))
+def taxed(plan: Plan, ch: Characteristics, target: str, card_id: str | None = None, *, declared: bool = False) -> bool:
+    """Whether reaching this defender requires a cost not accepted by the declaration."""
+    from app.rules import creature_combat_costs, nonmana_combat_costs
+    return bool(taxes(plan, ch, target)) or (card_id is not None and (
+        not creature_combat_costs.total(plan, [card_id], defenders={card_id: target}, destination_only=declared).is_free
+        or not declared and nonmana_combat_costs.has_cost(plan, card_id, 'attack')))
+
+
+def block_taxes(ch: Characteristics) -> set[tuple[str, str]]:
+    return {(p[1], p[2]) for r in ch.imposed if len(p := r.split(':')) == 3 and p[0] == BLOCK_TAX}
+
+
+def block_cost(plan: Plan, blockers: set[str]) -> str:
+    from app.rules import creature_combat_costs
+    from app.rules import mana as M
+
+    fixed = "".join(cost for cid in sorted(blockers) for cost, _ in sorted(block_taxes(plan.ch(plan.state.cards[cid]))))
+    return M.parse_cost(fixed + creature_combat_costs.total(plan, list(blockers), mode="block").text()).text()
+
+
+def has_block_cost(plan: Plan, card_id: str, ch: Characteristics) -> bool:
+    from app.rules import creature_combat_costs, nonmana_combat_costs
+    return bool(block_taxes(ch)) or not creature_combat_costs.total(plan, [card_id], mode="block").is_free or nonmana_combat_costs.has_cost(plan, card_id, 'block')
 
 
 # -- attack limits (508.1c) ------------------------------------------------------------------------------------------
@@ -264,22 +308,15 @@ def requirements_problem(plan: Plan, eligible: set[str], places: dict[str, list[
     """508.1d over the whole declaration when some player limits how many creatures attack them: the number of
     requirements obeyed must be the most any declaration obeying the restrictions could obey. ``places``: for each
     creature with requirements, where it could attack without a restriction or a cost (508.1d)."""
-    from app.rules import scripts
-    from app.rules.keyword_actions import goaded_by
 
-    live = set(plan.live())
     weights: list[dict[str | None, int]] = []
     obeyed = 0
     for cid in sorted(places):
         ch = plan.ch(plan.state.cards[cid])
-        attack = len(goaded_by(ch) & live) + (1 if "must_attack" in scripts.statics(ch) else 0)
-        others = (goaded_by(ch) | other_than(ch)) & live
-        wants = attack_players(ch) & live
+        from app.rules import attack_requirements
 
-        def score(place: str | None, attack: int = attack, others: set[str] = others, wants: set[str] = wants) -> int:
-            if place is None:
-                return 0
-            return attack + (place in wants) + sum(1 for g in others if place in plan.state.players and place != g)
+        def score(place: str | None, ch: Characteristics = ch) -> int:
+            return attack_requirements.score(plan, ch, place)
 
         weights.append({None: 0, **{t: score(t) for t in places[cid]}})
         obeyed += score(declared.get(cid))
@@ -353,11 +390,38 @@ def extra_phases(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             id=tag, controller=ctx["controller"], source_card=ctx.get("source_card"), source_object=ctx.get("source_object"), name=ctx.get("name") or "",
             when={"kind": "step", "step": "begin_combat", "whose": "next", "tag": tag}, effects=e["then"], turn=plan.state.turn.number, step=phase,
             until_turn=plan.state.turn.number))
-    added = ["begin_combat" + (f"@{tag}" if tag else "")] + (["main2"] if e.get("main") else [])
+    count = int(e.get("count", 1))
+    added = ["begin_combat" + (f"@{tag}" if tag else "")] * count + (["main2"] if e.get("main") else [])
     r.extra_phases = added + (list(r.extra_phases) or [_NATURAL[current]])
-    plan.note(f"{ctx.get('name') or 'An effect'}: an additional combat phase"
+    combats = "an additional combat phase" if count == 1 else f"{count} additional combat phases"
+    plan.note(f"{ctx.get('name') or 'An effect'}: {combats}"
               + (" and an additional main phase" if e.get("main") else "") + " after this phase (500.8)",
               actor=ctx["controller"])
+    return True
+
+
+def extra_steps(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    phase = plan.state.turn.phase
+    current = "combat" if phase in ("begin_combat", "declare_attackers", "declare_blockers", "combat_damage", "end_combat") else phase
+    if e["kind"] == "beginning" and current in (*_MAIN, "combat"):
+        plan.rules.extra_phases = ["untap", *(plan.rules.extra_phases or [_NATURAL[current]])]
+    elif e["kind"] == "upkeep":
+        from app.rules import effects, values
+
+        recipients = effects._players(plan, ctx, e.get("who", "you"))
+        if plan.active not in recipients:
+            return True  # CR 500.10a: "you get" cannot add steps to another player's turn.
+        count = max(0, values.evaluate(plan, ctx, e.get("n", 1)))
+        if not count:
+            return True
+        if e.get("after") == "phase":
+            if current in _NATURAL:
+                plan.rules.extra_phases = ["upkeep@upkeep_only"] * count + (plan.rules.extra_phases or [_NATURAL[current]])
+        elif phase in ("upkeep", "draw"):
+            resume = "phase" if plan.rules.upkeep_only or (phase == "draw" and plan.rules.extra_beginning) else "draw" if phase == "upkeep" else "main1"
+            plan.rules.extra_steps = ["upkeep"] * count + (plan.rules.extra_steps or [resume])
+    elif e["kind"] == "end" and phase == "end":
+        plan.rules.extra_phases = ["end", *(plan.rules.extra_phases or ["cleanup"])]
     return True
 
 
@@ -372,19 +436,24 @@ def next_phase(plan: Plan) -> str | None:
 
 def new_turn(plan: Plan) -> None:
     plan.rules.extra_phases = []
+    plan.rules.extra_steps = []
+    plan.rules.upkeep_only = False
+    plan.rules.extra_beginning = False
     plan.rules.combat_tag = ""
     plan.rules.combats = 0
 
 
 def combat_began(plan: Plan) -> None:
     plan.rules.combats += 1
+    from app.rules import last_combat_receipts44
+
+    last_combat_receipts44.combat_began(plan)
 
 
 # -- effects ---------------------------------------------------------------------------------------------------------
 _EXTRA = re.compile(r"(?:after this (?:(?P<main>main )|(?P<combat>combat ))?phase, there is an additional combat phase"
-                    r"(?P<and> followed by an additional main phase)?"
                     r"|there(?: is|'s) an additional combat phase after this (?:(?P<main2>main )|(?P<combat2>combat ))?phase)"  # (wave 49B: "there's", Moraug)
-                    r"(?: \[at the beginning of that combat, (?P<then>untap all creatures[^\]]*)\])?")
+                    r"(?P<and>,? followed by an additional main phase)?(?: \[at the beginning of that combat, (?P<then>untap all creatures[^\]]*)\])?")
 _EXTRA_THEN = re.compile(r"(?P<x>(?:[Aa]fter this (?:main |combat )?phase, there is|[Tt]here(?: is|'s)) an additional combat phase"
                          r"(?: after this (?:main |combat )?phase)?)\. At the beginning of that combat, (?P<u>untap all creatures[^.]*)\.")
 
@@ -428,6 +497,18 @@ _THAT_PLAYER = re.compile(r"(?P<create>create .+? tokens? that(?:'s| are) tapped
 
 def clause(text: str) -> tuple[Effects, Any] | None:
     """One instruction of this module (lower-cased first word, no final period), or None."""
+    war = re.fullmatch(r"this turn, creatures can't (?P<mode>attack|block) unless their controller pays \{X\} for each (?:attacking|blocking) creature they control", text, re.IGNORECASE)
+    if war:
+        return [{'do': 'restrict', 'who': 'each_creature', 'rules': [f"declaration_cost:{war['mode'].lower()}:{'{@x}'}:@cost_instance"]}], None
+    upkeep = re.fullmatch(r"(?P<p>you get|that player gets) (?P<n>an|that many) additional upkeep steps? after this (?P<after>step|phase)", text)
+    if upkeep:
+        return [{"do": "extra_steps", "kind": "upkeep", "who": "you" if upkeep["p"] == "you get" else "event_player",
+                 "n": {"event_amount": 1} if upkeep["n"] == "that many" else 1, "after": upkeep["after"]}], None
+    if text in ("there is an additional beginning phase after this phase", "there is an additional end step after this step"):
+        return [{"do": "extra_steps", "kind": "beginning" if "beginning" in text else "end"}], None
+    if (many := re.fullmatch(r"after this main phase, there are (?P<n>two|three|four) additional combat phases", text)) is not None:
+        return [{"do": "extra_phases", "after": "main", "main": False,
+                 "count": {"two": 2, "three": 3, "four": 4}[many["n"]]}], None
     m = _EXTRA.fullmatch(text)
     if m:
         after = "main" if m["main"] or m["main2"] else "combat" if m["combat"] or m["combat2"] else "phase"
@@ -586,23 +667,25 @@ def create_attacking_each(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) ->
         players = [defended] if defended in plan.live() and defended != me else []
     else:
         players = [p for p in plan.apnap() if p != me and p in plan.live()]
-    attacking = plan.state.turn.phase in _ATTACKING_PHASES and me == plan.active
-    asks: list[dict[str, Any]] = []
-    for pid in players:
-        before = set(plan.state.cards)
-        effects.create_token(plan, ctx, {"do": "create_token", "who": "you", "n": e["n"], "token": e["token"],
-                                         "tapped": True})
-        new = [cid for cid, c in plan.state.cards.items() if cid not in before and c.controller == me
-               and c.zone.endswith(":battlefield")]
-        if not new or not attacking or pid not in plan.live():
-            continue
-        walkers = [c.id for c in plan.state.cards.values() if e.get("pw") and c.zone.endswith(":battlefield")
-                   and c.controller == pid and plan.in_game(c) and "Planeswalker" in plan.ch(c).types]
-        if walkers:
-            asks.append({"player": pid, "cards": new, "walkers": walkers})
-        else:
-            _attack(plan, new, pid, me)
-    return _ask_next(plan, ctx, asks)
+    if not e.get("pw"):
+        from app.rules import replace, values
+
+        source = ctx.get("source_card")
+        requests = [(me, e["token"], values.evaluate(plan, ctx, e["n"]), source, True) for _ in players]
+        made = replace.create_token_batch(plan, requests, ctx=ctx, bind=None, then=effects._then(ctx, e),
+                                         recipient_refs=players, creation_atoms=["opponent:" + pid for pid in players])
+        return made is not None
+    from app.rules import replace, token_attack_continuations, values
+
+    continuation = token_attack_continuations.terminal(ctx, players)
+    requests = [(me, {**e["token"], '_effect_tapped': True}, values.evaluate(plan, ctx, e["n"]),
+                 ctx.get("source_card"), True) for _ in players]
+    made = replace.create_token_batch(plan, requests, ctx=ctx, bind=None, then=continuation,
+                                     creation_atoms=["opponent:" + pid for pid in players],
+                                     receipt_bind=token_attack_continuations.BINDING)
+    if made is None:
+        return False
+    return token_attack_continuations.finish(plan, continuation)
 
 
 def _attack(plan: Plan, cards: list[str], target: str, actor: str) -> None:
@@ -647,10 +730,10 @@ def remove_from_combat(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bo
         card = plan.state.cards[cid]
         if not card.zone.endswith(":battlefield"):
             continue
-        if card.attacking is not None:
+        if card.is_attacking:
             plan.do({"type": "attack", "card_ids": [cid], "target": None}, actor=ctx["controller"])
             plan.rules.blocked = [c for c in plan.rules.blocked if c != cid]
-        if card.blocking:
+        if card.is_blocking:
             plan.do({"type": "block", "card_id": cid, "attacker_id": None}, actor=ctx["controller"])
     return True
 
@@ -702,14 +785,10 @@ def _myriad_next(plan: Plan, ctx: dict[str, Any], remaining: list[str], picked: 
         if pid not in plan.live():
             remaining = remaining[1:]
             continue
-        walkers = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller == pid
-                   and plan.in_game(c) and "Planeswalker" in plan.ch(c).types]
         options = [DecisionOption(id="none", label=f"No token for {plan.name(pid)}"),
-                   DecisionOption(id=pid, label=f"A token attacking {plan.name(pid)}"),
-                   *(DecisionOption(id=c, label=f"A token attacking {plan.state.cards[c].name or 'a planeswalker'}", card_id=c)
-                     for c in walkers)]
+                   DecisionOption(id=pid, label=f"Create a token for {plan.name(pid)}")]
         decide(plan, player=me, kind="choose_one",
-               prompt=f"{ctx.get('name') or 'Myriad'}: create a token copy attacking {plan.name(pid)} or a planeswalker they control?",
+               prompt=f"{ctx.get('name') or 'Myriad'}: create a token copy for {plan.name(pid)}?",
                options=options, resume={"step": "myriad_pick", "ctx": ctx, "remaining": remaining[1:], "picked": picked})
         return False
     ctx["myriad"] = picked
@@ -726,28 +805,45 @@ def resume_myriad(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 def myriad_create(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    from app.rules import context, copying
+    from app.rules import copying, replace, token_attack_continuations
 
-    picked = [t for t in ctx.get("myriad") or [] if t in plan.state.players and t in plan.live()
-              or (t in plan.state.cards and plan.state.cards[t].zone.endswith(":battlefield"))]
-    if not picked:
+    # Older saved decisions may name a planeswalker. Resolve that old choice
+    # only to its opponent's action; each actual output chooses its defender.
+    players = [target if target in plan.state.players else plan.state.cards[target].controller
+               for target in ctx.get("myriad") or []
+               if target in plan.live() or target in plan.state.cards and plan.state.cards[target].zone.endswith(':battlefield')]
+    if not players:
         return True
-    if not copying.token_copy(plan, ctx, {"do": "token_copy", "who": "self", "n": len(picked), "tapped": True,
-                                          "as": e.get("as")}):
+    continuation = token_attack_continuations.terminal(ctx, players)
+    if not copying.token_copy(plan, ctx, {"do": "token_copy", "who": "self", "n": 1, "tapped": True,
+                                          "as": e.get("as"), "creation_recipients": players,
+                                          "receipt_bind": token_attack_continuations.BINDING},
+                              then=replace.rerun_then(ctx, e)):
         return False
-    for token, target in zip(context.objects(plan, ctx, str(e.get("as"))), picked, strict=False):
-        _attack(plan, [token], target, ctx["controller"])  # 508.4: attacking, never declared as an attacker
-    return True
+    return token_attack_continuations.finish(plan, continuation)
 
 
 def encore_attack(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """-- casting extras (wave 18E) -- 702.141a: "For each opponent, create a token that's a copy of this card that attacks that
-    opponent this turn if able": one token was made for each opponent (one creation event); each is paired with one of them (the
-    tokens are identical, so which is which is no choice) and must attack that player this turn if able (508.1d)."""
-    from app.rules import effects, layers
+    opponent this turn if able": each printed opponent action retains the exact objects created by it, including replacements and must attack that player this turn if able (508.1d)."""
+    from app.rules import context, effects, layers, token_attack_continuations
 
-    tokens = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
-    for cid, pid in zip(tokens, [p for p in plan.apnap() if p != ctx["controller"] and p in plan.live()], strict=False):
+    receipts = ctx.pop('_encore_created', None)
+    if receipts is not None:
+        pairs: list[tuple[str, str]] = []
+        for raw in receipts:
+            atom = token_attack_continuations.CreatedAtom.model_validate(raw)
+            pid = atom.atom.removeprefix('opponent:')
+            if pid not in plan.live():
+                continue
+            pairs.extend((card.id, pid) for ref in atom.objects
+                         if (card := context._same(plan, ref)) is not None and card.zone.endswith(':battlefield'))
+    else:
+        # Preserve native pre-extension saves whose already-created tokens have
+        # no typed receipt. Fresh instructions always supply exact atom refs.
+        tokens = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+        pairs = list(zip(tokens, [p for p in plan.apnap() if p != ctx["controller"] and p in plan.live()], strict=False))
+    for cid, pid in pairs:
         layers.add_effect(plan, affected=[plan.oid(plan.state.cards[cid])], layer="6", source=ctx.get("source_object"),
                           controller=ctx["controller"], imposes=(f"{ATTACK_PLAYER}:{pid}",), label="Attacks that player if able",
                           source_card=ctx.get("source_card"))
@@ -797,7 +893,13 @@ def enter_blocking(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"enter_blocking": enter_blocking, "block_cap": block_cap, "encore_attack": encore_attack, "extra_phases": extra_phases, "create_attacking_each": create_attacking_each,
+PRIMITIVES = {"extra_steps": extra_steps, "enter_blocking": enter_blocking, "block_cap": block_cap, "encore_attack": encore_attack, "extra_phases": extra_phases, "create_attacking_each": create_attacking_each,
               "remove_from_combat": remove_from_combat, "double_pt": double_pt,
               "myriad_choose": myriad_choose, "myriad_create": myriad_create}
-RESUME = {"attack_each_opponent": resume_attack_each, "myriad_pick": resume_myriad}
+RESUME: dict[str, Any] = {"attack_each_opponent": resume_attack_each, "myriad_pick": resume_myriad}
+
+
+# Saved native post-creation choices are registered on every fresh process load.
+
+_token_attack_continuations.register()
+RESUME['token_attack_created'] = _token_attack_continuations.resume

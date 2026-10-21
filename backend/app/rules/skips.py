@@ -106,11 +106,11 @@ def skip_next(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     name = ctx.get("name") or "An effect"
     for pid in _players(plan, ctx, e["who"]):
         for _ in range(int(e.get("n") or 1)):
-            plan.rules.skips.append({"id": secrets.token_hex(4), "player": pid, "what": e["what"], "label": name})
+            plan.rules.skips.append({"id": secrets.token_hex(4), "player": pid, "what": e["what"], "label": name, **({"turn": plan.state.turn.number} if e.get("this_turn") else {})})
         n = int(e.get("n") or 1)
         what = _LABEL[e["what"]] + ("s" if n > 1 else "")
-        plan.note(f"{plan.name(pid)} will skip their next {f'{n} ' if n > 1 else ''}{what} ({name}, 614.10)",
-                  actor=ctx["controller"])
+        timing = f"their {what} this turn" if e.get("this_turn") else f"their next {f'{n} ' if n > 1 else ''}{what}"
+        plan.note(f"{plan.name(pid)} will skip {timing} ({name}, 614.10)", actor=ctx["controller"])
     return True
 
 
@@ -139,13 +139,15 @@ def take(plan: Plan, player: str, what: str) -> str | None:
     for this occurrence is used up."""
     if player not in plan.live():
         return None
+    plan.rules.skips[:] = [rec for rec in plan.rules.skips if rec.get("turn", plan.state.turn.number) == plan.state.turn.number]
     found = _static(plan, player, what) if what != "turn" else None
     if found is not None:
         return found
     r = plan.rules
     for i, rec in enumerate(r.skips):
         if rec.get("player") == player and rec.get("what") == what:
-            del r.skips[i]
+            if "turn" not in rec:
+                del r.skips[i]
             return str(rec.get("label") or "an effect")
     return None
 
@@ -178,7 +180,7 @@ def untap_skipped(plan: Plan, player: str) -> list[str] | None:
 def skip_steps(plan: Plan) -> None:
     """The step (or the combat phase) the turn just moved into is skipped: on to the next one, with
     nothing of it happening (614.10a)."""
-    for _ in range(4):
+    for _ in range(4 + len(plan.rules.extra_steps) + len(plan.rules.extra_phases)):
         phase = plan.state.turn.phase
         what = {"upkeep": "upkeep", "draw": "draw", "begin_combat": "combat"}.get(phase)
         if what is None:
@@ -188,10 +190,17 @@ def skip_steps(plan: Plan) -> None:
             return
         plan.note(f"{plan.name(plan.active)} skips their {_LABEL[what]} ({label}, 614.10)", actor=plan.active)
         to = "next"
-        if what == "combat":  # -- combat (wave 5C) -- after a skipped combat phase: the phase added after it, if any (500.8)
+        r = plan.rules
+        inserted = r.extra_steps.pop(0) if r.extra_steps else None
+        if inserted is not None and inserted != "phase":
+            to = inserted
+        elif inserted == "phase" or what == "combat" or (what == "upkeep" and r.upkeep_only) or (what == "draw" and r.extra_beginning):
             from app.rules import combat_rules
 
-            to = combat_rules.next_phase(plan) or "main2"
+            fallback = "main2" if what == "combat" or r.upkeep_only else "end" if r.extra_beginning else "main1"
+            to = combat_rules.next_phase(plan) or fallback
+            r.extra_beginning = to == "untap"
+            r.upkeep_only = to == "upkeep" and r.combat_tag == "upkeep_only"
         plan.do({"type": "phase", "to": to, "force": True}, actor=plan.active)
 
 

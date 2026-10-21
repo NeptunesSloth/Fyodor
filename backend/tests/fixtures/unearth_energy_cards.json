@@ -1,0 +1,57 @@
+[
+  {
+    "name": "Salvation Colossus",
+    "oracle_text": "Flying, vigilance, trample\nWhenever you attack, other creatures you control get +2/+2 and gain indestructible until end of turn.\nUnearth\u2014Pay eight {E}. (Pay eight energy counters: Return this card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.)",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "mana_cost": "{6}{W}{W}",
+    "power": "9",
+    "toughness": "9",
+    "layout": "normal"
+  },
+  {
+    "name": "Hellspark Elemental",
+    "oracle_text": "Trample, haste\nAt the beginning of the end step, sacrifice this creature.\nUnearth {1}{R} ({1}{R}: Return this card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.)",
+    "type_line": "Creature \u2014 Elemental",
+    "mana_cost": "{1}{R}",
+    "power": "3",
+    "toughness": "1",
+    "layout": "normal"
+  },
+  {
+    "name": "Suppression Field",
+    "oracle_text": "Activated abilities cost {2} more to activate unless they're mana abilities.",
+    "type_line": "Enchantment",
+    "mana_cost": "{1}{W}",
+    "layout": "normal"
+  },
+  {
+    "name": "Counterspell",
+    "oracle_text": "Counter target spell.",
+    "type_line": "Instant",
+    "mana_cost": "{U}{U}",
+    "layout": "normal"
+  },
+  {
+    "name": "Stifle",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "type_line": "Instant",
+    "mana_cost": "{U}",
+    "layout": "normal"
+  },
+  {
+    "name": "Unsummon",
+    "oracle_text": "Return target creature to its owner's hand.",
+    "type_line": "Instant",
+    "mana_cost": "{U}",
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal"
+  }
+]

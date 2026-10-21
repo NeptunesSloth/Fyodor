@@ -1,0 +1,11 @@
+# Claim Jumper: repeat an optional search once
+
+Oracle and official rulings: https://api.scryfall.com/cards/11bda4c5-099f-489e-b64b-f4719241cf9d/rulings, checked 2026-10-19. Rules: CR 603.4 (intervening if), 608.2c/d/h (instruction order, choices and live information), 701.23 (search) and 701.24 (shuffle).
+
+The ability triggers only if at least one opponent controls more lands, and checks that intervening condition again before resolving. The first optional search happens, then the repeated condition is evaluated against the current battlefield. After a Plains enters, a different opponent can still have more lands; the official ruling explicitly gives the three/four/five-land example. The repeat happens at most once, even if the player is still behind afterward.
+
+The search itself remains optional each time. Declining the first search leaves the later condition and second optional search intact. Searching but finding no card still counts as searching a hidden zone for a stated quality. If either search occurred, shuffle once at the end; do not shuffle between searches. Declining both or being prohibited from choosing to search produces no shuffle.
+
+The reusable typed implementation parses a native library-search instruction and native condition. It preserves a leading only-if gate for the existing intervening-if trigger recognition. A bounded search-round instruction asks each optional choice; its saved continuation inserts the ordinary native search and, if required, one more round into the effect stream. Native search handles private candidate filtering, finding nothing, entering tapped, nonbasic Plains, entry replacements and search restrictions. A saved boolean records an accepted search and the final instruction conditionally runs the ordinary shuffle. No change to the native search implementation or card-name checks is required.
+
+Actual Oracle fixture tests cover different qualifying opponents; catching up after the first land; first decline/second accept; both declines; failed finds; second decline after a successful first search; bounded repetition while far behind; no qualifying opponent on entry or resolution; Ashiok's search prohibition; source departure; nonbasic Plains and invalid non-Plains selection; exactly-once shuffle; and replay/save-load at each paused search stage.

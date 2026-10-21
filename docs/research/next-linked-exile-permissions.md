@@ -1,0 +1,15 @@
+# Permissions until the next card exiled with the source
+
+Unstable Amulet, Furious Rise, and Superior Foes of Spider-Man share the duration “until you exile another card with this [permanent].” Canonical English Oracle data and complete characteristics are saved in the focused fixture from `data/cards.sqlite`.
+
+The permission uses the existing exact-object, permanent-duration cast/play implementation with normal timing, land limits, and full costs. A typed `Permission.stop_on_linked_exile` records the granting source object and borrowed-link scope. A later actual new-card exile through that same source and by the permission's original player irrevocably removes it. An empty library, declined optional exile, countered ability, or a prevented move does not end the earlier permission. A token is not a card. The linked registry's length is unsuitable as an epoch because departed objects are pruned.
+
+The source's departure, ability loss, or control change does not itself end the permission. A new object created by blink has separate linkage. “You” refers to the player granted the permission; another controller exiling a card does not end that original player's duration, while an old-controller ability still on the stack does. The narrow optional-exile/“if you do” grammar rewrite preserves this: the subsequent grant already requires an original card actually exiled by its preceding instruction.
+
+## Borrowed ability identity
+
+This family exposed an existing collision in borrowed-link scopes: erasing instance ID prefixes conflated different initial library cards with object incarnation zero. Borrowed granting paths now hash their full physical identities. A private `CardInstance.borrow_identity` is initially absent and is set once before real privacy renumbering. It is preserved across later renumbering and saves, excluded from generic ID rewrite, and omitted from explicit player views. Read operations allocate no identity or mutable registry. New physical token clones reset it. Actual object references and colored-mana borrowing still use current IDs.
+
+Old saved normalized scopes are retained only when recoverable without ambiguity: every path object incarnation must be positive, an old linked registry must exist, and no modern full-path registry may exist. Global positive object numbers identify those public objects uniquely. A derived per-ability override selects the legacy scope before targets or costs are announced; saved pending abilities therefore continue to use the same registry. Legacy zero-incarnation scopes already lost donor identity and are never attributed to a different new donor.
+
+Focused canonical gameplay tests cover all three cards, cleanup persistence, native energy and cast-from-exile damage, mana/timing/land limits, empty/declined/countered exiles, intervening-if checks, queued resolution order, source departure/blink/control transfer, exact stale references, actual cold resume, separate Skill Borrower donors, positive legacy recovery, ambiguous legacy isolation, actual native renumber with read-only hint parity and replay/save continuation, view privacy, and new physical token splits.

@@ -140,6 +140,10 @@ def applicable(specs: list[dict[str, Any]], kicked: int) -> list[dict[str, Any]]
     no targets (cast "as though it did not require those targets")."""
     out = []
     for spec in specs:
+        if "per_kick_targets" in spec:
+            more = int(spec["per_kick_targets"]) * kicked
+            spec = {k: v for k, v in spec.items() if k != "per_kick_targets"} | {
+                "min": int(spec.get("min", 1)) + more, "max": int(spec.get("max", 1)) + more}
         if "kicked" in spec and spec["kicked"] != (kicked > 0):  # (nothing to divide among no targets either: 601.2d)
             spec = {k: v for k, v in spec.items() if k != "divide"} | {"min": 0, "max": 0}
         out.append(spec)
@@ -148,7 +152,7 @@ def applicable(specs: list[dict[str, Any]], kicked: int) -> list[dict[str, Any]]
 
 def has_kicked_groups(definition: dict[str, Any] | None) -> bool:
     """Does a definition have target groups that depend on the kicker?"""
-    return any("kicked" in g for g in (definition or {}).get("targets") or [])
+    return any("kicked" in g or "per_kick_targets" in g for g in (definition or {}).get("targets") or [])
 
 
 _TARGET_REF = re.compile(r"^target(?::(?P<g>\d+))?(?![a-z_])")

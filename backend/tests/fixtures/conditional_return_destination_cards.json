@@ -1,0 +1,313 @@
+[
+  {
+    "name": "Emeria Shepherd",
+    "oracle_text": "Flying\nLandfall \u2014 Whenever a land you control enters, you may return target nonland permanent card from your graveyard to your hand. If that land is a Plains, you may return that nonland permanent card to the battlefield instead.",
+    "type_line": "Creature \u2014 Angel",
+    "mana_cost": "{5}{W}{W}",
+    "layout": "normal",
+    "cmc": 7.0,
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Landfall",
+      "Flying"
+    ]
+  },
+  {
+    "name": "Plains",
+    "oracle_text": "({T}: Add {W}.)",
+    "type_line": "Basic Land \u2014 Plains",
+    "mana_cost": "",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "type_line": "Basic Land \u2014 Forest",
+    "mana_cost": "",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rancor",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +2/+0 and has trample.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{G}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Containment Priest",
+    "oracle_text": "Flash\nIf a nontoken creature would enter and it wasn't cast, exile it instead.",
+    "type_line": "Creature \u2014 Human Cleric",
+    "mana_cost": "{1}{W}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flash"
+    ]
+  },
+  {
+    "name": "Disenchant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{W}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Swords to Plowshares",
+    "oracle_text": "Exile target creature. Its controller gains life equal to its power.",
+    "type_line": "Instant",
+    "mana_cost": "{W}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sylvan Safekeeper",
+    "oracle_text": "Sacrifice a land: Target creature you control gains shroud until end of turn. (It can't be the target of spells or abilities.)",
+    "type_line": "Creature \u2014 Human Wizard",
+    "mana_cost": "{G}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cyclonic Rift",
+    "oracle_text": "Return target nonland permanent you don't control to its owner's hand.\nOverload {6}{U} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+    "type_line": "Instant",
+    "mana_cost": "{1}{U}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Overload"
+    ]
+  },
+  {
+    "name": "Spreading Seas",
+    "oracle_text": "Enchant land\nWhen this Aura enters, draw a card.\nEnchanted land is an Island.",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{1}{U}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Invasion of Zendikar // Awakened Skyclave",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.\n//\nVigilance, haste\nAs long as this creature is on the battlefield, it's a land in addition to its other types.\n{T}: Add one mana of any color.",
+    "type_line": "Battle \u2014 Siege // Creature \u2014 Elemental",
+    "mana_cost": "{3}{G} // ",
+    "layout": "transform",
+    "cmc": 4.0,
+    "defense": "3",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Vigilance",
+      "Transform",
+      "Haste"
+    ],
+    "card_faces": [
+      {
+        "name": "Invasion of Zendikar",
+        "mana_cost": "{3}{G}",
+        "type_line": "Battle \u2014 Siege",
+        "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.",
+        "defense": "3",
+        "colors": [
+          "G"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+          "normal": "https://cards.scryfall.io/normal/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+          "large": "https://cards.scryfall.io/large/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973"
+        }
+      },
+      {
+        "name": "Awakened Skyclave",
+        "mana_cost": "",
+        "type_line": "Creature \u2014 Elemental",
+        "oracle_text": "Vigilance, haste\nAs long as this creature is on the battlefield, it's a land in addition to its other types.\n{T}: Add one mana of any color.",
+        "power": "4",
+        "toughness": "4",
+        "colors": [
+          "G"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+          "normal": "https://cards.scryfall.io/normal/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+          "large": "https://cards.scryfall.io/large/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Daybreak Coronet",
+    "oracle_text": "Enchant creature with another Aura attached to it\nEnchanted creature gets +3/+3 and has first strike, vigilance, and lifelink. (Damage dealt by the creature also causes its controller to gain that much life.)",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{W}{W}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Lightning Greaves",
+    "oracle_text": "Equipped creature has haste and shroud. (It can't be the target of spells or abilities.)\nEquip {0}",
+    "type_line": "Artifact \u2014 Equipment",
+    "mana_cost": "{2}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ]
+  },
+  {
+    "name": "Alchemist's Refuge",
+    "oracle_text": "{T}: Add {C}.\n{G}{U}, {T}: You may cast spells this turn as though they had flash.",
+    "type_line": "Land",
+    "mana_cost": "",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Phantasmal Terrain",
+    "oracle_text": "Enchant land\nAs this Aura enters, choose a basic land type.\nEnchanted land is the chosen type.",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{U}{U}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Boomerang",
+    "oracle_text": "Return target permanent to its owner's hand.",
+    "type_line": "Instant",
+    "mana_cost": "{U}{U}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  }
+]

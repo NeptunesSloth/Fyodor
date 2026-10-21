@@ -1,0 +1,130 @@
+[
+  {
+    "name": "Nomad Mythmaker",
+    "oracle_text": "{W}, {T}: Put target Aura card from a graveyard onto the battlefield under your control attached to a creature you control.",
+    "type_line": "Creature \u2014 Human Nomad Cleric",
+    "mana_cost": "{2}{W}",
+    "layout": "normal",
+    "cmc": 3.0,
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rancor",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +2/+0 and has trample.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{G}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Arrest",
+    "oracle_text": "Enchant creature\nEnchanted creature can't attack or block, and its activated abilities can't be activated.",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{2}{W}",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Curse of Opulence",
+    "oracle_text": "Enchant player\nWhenever enchanted player is attacked, create a Gold token. Each opponent attacking that player does the same. (A Gold token is an artifact with \"Sacrifice this token: Add one mana of any color.\")",
+    "type_line": "Enchantment \u2014 Aura Curse",
+    "mana_cost": "{R}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Daybreak Coronet",
+    "oracle_text": "Enchant creature with another Aura attached to it\nEnchanted creature gets +3/+3 and has first strike, vigilance, and lifelink. (Damage dealt by the creature also causes its controller to gain that much life.)",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{W}{W}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Lightning Greaves",
+    "oracle_text": "Equipped creature has haste and shroud. (It can't be the target of spells or abilities.)\nEquip {0}",
+    "type_line": "Artifact \u2014 Equipment",
+    "mana_cost": "{2}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ]
+  },
+  {
+    "name": "Plains",
+    "oracle_text": "({T}: Add {W}.)",
+    "type_line": "Basic Land \u2014 Plains",
+    "mana_cost": "",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  }
+]

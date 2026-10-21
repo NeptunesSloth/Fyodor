@@ -1,0 +1,347 @@
+[
+  {
+    "name": "Retraced Image",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Reveal a card in your hand, then put that card onto the battlefield if it has the same name as a permanent.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Mitotic Manipulation",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Look at the top seven cards of your library. You may put one of those cards onto the battlefield if it has the same name as a permanent. Put the rest on the bottom of your library in any order.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Spellweaver Helix",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "Imprint \u2014 When this artifact enters, you may exile two target sorcery cards from a single graveyard.\nWhenever a player casts a card, if it has the same name as one of the cards exiled with this artifact, you may copy the other. If you do, you may cast the copy without paying its mana cost.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Imprint"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Harness the Storm",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever you cast an instant or sorcery spell from your hand, you may cast target card with the same name as that spell from your graveyard. (You still pay its costs.)",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Kotose, the Silent Spider",
+    "mana_cost": "{3}{U}{B}",
+    "cmc": 5.0,
+    "type_line": "Legendary Creature \u2014 Human Ninja",
+    "oracle_text": "When Kotose enters, exile target card other than a basic land card from an opponent's graveyard. Search that player's graveyard, hand, and library for any number of cards with the same name as that card and exile them. Then that player shuffles. For as long as you control Kotose, you may play one of the exiled cards, and you may spend mana as though it were mana of any color to cast it.",
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "power": "4",
+    "toughness": "4"
+  },
+  {
+    "name": "Dual Nature",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever a nontoken creature enters, its controller creates a token that's a copy of that creature.\nWhenever a nontoken creature leaves the battlefield, exile all tokens with the same name as that creature.\nWhen this enchantment leaves the battlefield, exile all tokens created with this enchantment.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Jester's Scepter",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "When this artifact enters, exile the top five cards of target player's library face down. You may look at those cards for as long as they remain exiled.\n{2}, {T}, Put a card exiled with this artifact into its owner's graveyard: Counter target spell if it has the same name as that card.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Mindreaver",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "Heroic \u2014 Whenever you cast a spell that targets this creature, exile the top three cards of target player's library.\n{U}{U}, Sacrifice this creature: Counter target spell with the same name as a card exiled with this creature.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Heroic"
+    ],
+    "layout": "normal",
+    "power": "2",
+    "toughness": "1"
+  },
+  {
+    "name": "Search the City",
+    "mana_cost": "{4}{U}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile the top five cards of your library.\nWhenever you play a card with the same name as one of the exiled cards, you may put one of those cards with that name into its owner's hand. Then if there are no cards exiled with this enchantment, sacrifice it. If you do, take an extra turn after this one.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Hint of Insanity",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target player reveals their hand. That player discards all nonland cards with the same name as another card in their hand.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Minamo's Meddling",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell. That spell's controller reveals their hand, then discards each card with the same name as a card spliced onto that spell.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Key to the Side-Door",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{2}, {T}: Target creature can't be blocked this turn.\n{1}, {T}, Discard a legendary card with the same name as a legendary permanent you control: Draw two cards.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Pirated Copy",
+    "mana_cost": "{4}{U}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Shapeshifter Pirate",
+    "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield, except it's a Pirate in addition to its other types and it has \"Whenever this creature or another creature with the same name deals combat damage to a player, you draw a card.\"",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "power": "0",
+    "toughness": "0"
+  },
+  {
+    "name": "Yenna, Redtooth Regent",
+    "mana_cost": "{2}{G}{W}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Elf Noble",
+    "oracle_text": "{2}, {T}: Choose target enchantment you control that doesn't have the same name as another permanent you control. Create a token that's a copy of it, except it isn't legendary. If the token is an Aura, untap Yenna, then scry 2. Activate only as a sorcery.",
+    "colors": [
+      "G",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "keywords": [
+      "Scry"
+    ],
+    "layout": "normal",
+    "power": "4",
+    "toughness": "4"
+  },
+  {
+    "name": "Scalpelexis",
+    "mana_cost": "{4}{U}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Beast",
+    "oracle_text": "Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhenever this creature deals combat damage to a player, that player exiles the top four cards of their library. If two or more of those cards have the same name, repeat this process.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal",
+    "power": "1",
+    "toughness": "5"
+  },
+  {
+    "name": "Twinning Glass",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "{1}, {T}: You may cast a spell from your hand without paying its mana cost if it has the same name as a spell that was cast this turn.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Fervor",
+    "oracle_text": "Creatures you control have haste. (They can attack and {T} as soon as they come under your control.)",
+    "mana_cost": "{2}{R}",
+    "type_line": "Enchantment",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 3.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Ornithopter",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "oracle_text": "Flying",
+    "power": "0",
+    "toughness": "2",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Bonecrusher Giant // Stomp",
+    "layout": "adventure",
+    "mana_cost": "{2}{R} // {1}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Giant // Instant \u2014 Adventure",
+    "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.\n//\nDamage can't be prevented this turn. Stomp deals 2 damage to any target.",
+    "power": "4",
+    "toughness": "3",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Bonecrusher Giant",
+        "mana_cost": "{2}{R}",
+        "type_line": "Creature \u2014 Giant",
+        "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.",
+        "power": "4",
+        "toughness": "3"
+      },
+      {
+        "name": "Stomp",
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant \u2014 Adventure",
+        "oracle_text": "Damage can't be prevented this turn. Stomp deals 2 damage to any target."
+      }
+    ]
+  },
+  {
+    "name": "Thassa, God of the Sea",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Enchantment Creature \u2014 God",
+    "oracle_text": "Indestructible\nAs long as your devotion to blue is less than five, Thassa isn't a creature. (Each {U} in the mana costs of permanents you control counts toward your devotion to blue.)\nAt the beginning of your upkeep, scry 1.\n{1}{U}: Target creature you control can't be blocked this turn.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Indestructible",
+      "Scry"
+    ],
+    "layout": "normal",
+    "power": "5",
+    "toughness": "5"
+  },
+  {
+    "name": "Cackling Counterpart",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Create a token that's a copy of target creature you control.\nFlashback {5}{U}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flashback"
+    ],
+    "layout": "normal"
+  }
+]

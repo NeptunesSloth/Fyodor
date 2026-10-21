@@ -1,0 +1,407 @@
+[
+  {
+    "name": "Murktide Regent",
+    "mana_cost": "{5}{U}{U}",
+    "cmc": 7.0,
+    "type_line": "Creature \u2014 Dragon",
+    "oracle_text": "Delve (Each card you exile from your graveyard while casting this spell pays for {1}.)\nFlying\nThis creature enters with a +1/+1 counter on it for each instant and sorcery card exiled with it.\nWhenever an instant or sorcery card leaves your graveyard, put a +1/+1 counter on this creature.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Delve"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Sheriff of Safe Passage",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Knight",
+    "oracle_text": "This creature enters with a +1/+1 counter on it plus an additional +1/+1 counter on it for each other creature you control.\nPlot {1}{W} (You may pay {1}{W} and exile this card from your hand. Cast it as a sorcery on a later turn without paying its mana cost. Plot only as a sorcery.)",
+    "power": "0",
+    "toughness": "0",
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Plot"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Thought Sponge",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Sponge",
+    "oracle_text": "Flash\nThis creature enters with a number of +1/+1 counters on it equal to the greatest number of cards an opponent has drawn this turn.\nWhen this creature dies, draw cards equal to its power.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Slumbering Trudge",
+    "mana_cost": "{X}{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Plant Beast",
+    "oracle_text": "This creature enters with a number of stun counters on it equal to three minus X. If X is 2 or less, it enters tapped. (If a permanent with a stun counter would become untapped, remove one from it instead.)",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Canker Abomination",
+    "mana_cost": "{2}{B/G}{B/G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Treefolk Horror",
+    "oracle_text": "As this creature enters, choose an opponent. This creature enters with a -1/-1 counter on it for each creature that player controls.",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Hill Giant",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Giant",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Air Elemental",
+    "mana_cost": "{3}{U}{U}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Elemental",
+    "oracle_text": "Flying",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Reanimate",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card's mana value.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Solemnity",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Doubling Season",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Lightning Bolt",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Divination",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Draw two cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Blue Sun's Zenith",
+    "mana_cost": "{X}{U}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Target player draws X cards. Shuffle Blue Sun's Zenith into its owner's library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Sign in Blood",
+    "mana_cost": "{B}{B}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target player draws two cards and loses 2 life.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Pull from Eternity",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Put target face-up exiled card into its owner's graveyard.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Double Major",
+    "mana_cost": "{G}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target creature spell you control, except it isn't legendary if the spell is legendary. (A copy of a creature spell becomes a token.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Vedalken Orrery",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "You may cast spells as though they had flash.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Damnation",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Destroy all creatures. They can't be regenerated.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Unsummon",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Return target creature to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Living Death",
+    "mana_cost": "{3}{B}{B}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Murder",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  }
+]

@@ -1,0 +1,423 @@
+[
+  {
+    "name": "Tsabo's Assassin",
+    "oracle_text": "{T}: Destroy target creature if it shares a color with the most common color among all permanents or a color tied for most common. A creature destroyed this way can't be regenerated.",
+    "mana_cost": "{2}{B}{B}",
+    "type_line": "Creature \u2014 Phyrexian Zombie Assassin",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 4.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Barrin's Unmaking",
+    "oracle_text": "Return target permanent to its owner's hand if that permanent shares a color with the most common color among all permanents or a color tied for most common.",
+    "mana_cost": "{1}{U}",
+    "type_line": "Instant",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 2.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Heroic Defiance",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +3/+3 unless it shares a color with the most common color among all permanents or a color tied for most common.",
+    "mana_cost": "{1}{W}",
+    "type_line": "Enchantment \u2014 Aura",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 2.0,
+    "keywords": [
+      "Enchant"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Jaded Response",
+    "oracle_text": "Counter target spell if it shares a color with a creature you control.",
+    "mana_cost": "{1}{U}",
+    "type_line": "Instant",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 2.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Call to Arms",
+    "oracle_text": "As this enchantment enters, choose a color and an opponent.\nWhite creatures get +1/+1 as long as the chosen color is the most common color among nontoken permanents the chosen player controls but isn't tied for most common.\nWhen the chosen color isn't the most common color among nontoken permanents the chosen player controls or is tied for most common, sacrifice this enchantment.",
+    "mana_cost": "{1}{W}",
+    "type_line": "Enchantment",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 2.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 2.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Fervor",
+    "oracle_text": "Creatures you control have haste. (They can attack and {T} as soon as they come under your control.)",
+    "mana_cost": "{2}{R}",
+    "type_line": "Enchantment",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 3.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Lightning Bolt",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "mana_cost": "{1}",
+    "type_line": "Artifact",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Ornithopter",
+    "oracle_text": "Flying",
+    "mana_cost": "{0}",
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "power": "0",
+    "toughness": "2",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 0.0,
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Mossbridge Troll",
+    "oracle_text": "If this creature would be destroyed, regenerate it.\nTap any number of untapped creatures you control other than this creature with total power 10 or greater: This creature gets +20/+20 until end of turn.",
+    "mana_cost": "{5}{G}{G}",
+    "type_line": "Creature \u2014 Troll",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 7.0,
+    "keywords": [
+      "Regenerate"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Prodigal Pyromancer",
+    "oracle_text": "{T}: This creature deals 1 damage to any target.",
+    "mana_cost": "{2}{R}",
+    "type_line": "Creature \u2014 Human Wizard",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 3.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Merfolk of the Pearl Trident",
+    "oracle_text": "",
+    "mana_cost": "{U}",
+    "type_line": "Creature \u2014 Merfolk",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Savannah Lions",
+    "oracle_text": "",
+    "mana_cost": "{W}",
+    "type_line": "Creature \u2014 Cat",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Baleful Strix",
+    "oracle_text": "Flying, deathtouch\nWhen this creature enters, draw a card.",
+    "mana_cost": "{U}{B}",
+    "type_line": "Artifact Creature \u2014 Bird",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "cmc": 2.0,
+    "keywords": [
+      "Deathtouch",
+      "Flying"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Thoughtlace",
+    "oracle_text": "Target spell or permanent becomes blue. (Mana symbols on that permanent remain unchanged.)",
+    "mana_cost": "{U}",
+    "type_line": "Instant",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Cerulean Wisps",
+    "oracle_text": "Target creature becomes blue until end of turn. Untap that creature.\nDraw a card.",
+    "mana_cost": "{U}",
+    "type_line": "Instant",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Crimson Wisps",
+    "oracle_text": "Target creature becomes red and gains haste until end of turn. (It can attack and {T} this turn.)\nDraw a card.",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Painter's Servant",
+    "oracle_text": "As this creature enters, choose a color.\nAll cards that aren't on the battlefield, spells, and permanents are the chosen color in addition to their other colors.",
+    "mana_cost": "{2}",
+    "type_line": "Artifact Creature \u2014 Scarecrow",
+    "power": "1",
+    "toughness": "3",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 2.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Stifle",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "mana_cost": "{U}",
+    "type_line": "Instant",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Flicker of Fate",
+    "oracle_text": "Exile target creature or enchantment, then return it to the battlefield under its owner's control.",
+    "mana_cost": "{1}{W}",
+    "type_line": "Instant",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 2.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Wear // Tear",
+    "mana_cost": "{1}{R} // {W}",
+    "type_line": "Instant // Instant",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "cmc": 3.0,
+    "keywords": [
+      "Fuse"
+    ],
+    "layout": "split",
+    "card_faces": [
+      {
+        "object": "card_face",
+        "name": "Wear",
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant",
+        "oracle_text": "Destroy target artifact.\nFuse (You may cast one or both halves of this card from your hand.)",
+        "artist": "Ryan Pancoast",
+        "artist_id": "89cc9475-dda2-4d13-bf88-54b92867a25c",
+        "illustration_id": "35dc8f1e-5c26-4f3f-98eb-62123968a04f"
+      },
+      {
+        "object": "card_face",
+        "name": "Tear",
+        "mana_cost": "{W}",
+        "type_line": "Instant",
+        "oracle_text": "Destroy target enchantment.\nFuse (You may cast one or both halves of this card from your hand.)",
+        "artist": "Ryan Pancoast",
+        "artist_id": "89cc9475-dda2-4d13-bf88-54b92867a25c"
+      }
+    ]
+  },
+  {
+    "name": "Runed Halo",
+    "oracle_text": "As this enchantment enters, choose a card name.\nYou have protection from the chosen card name. (You can't be targeted, dealt damage, or enchanted by anything with that name.)",
+    "mana_cost": "{W}{W}",
+    "type_line": "Enchantment",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 2.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Spectral Sailor",
+    "oracle_text": "Flash (You may cast this spell any time you could cast an instant.)\nFlying\n{3}{U}: Draw a card.",
+    "mana_cost": "{U}",
+    "type_line": "Creature \u2014 Spirit Pirate",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 1.0,
+    "keywords": [
+      "Flying",
+      "Flash"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Copy Enchantment",
+    "oracle_text": "You may have this enchantment enter as a copy of any enchantment on the battlefield.",
+    "mana_cost": "{2}{U}",
+    "type_line": "Enchantment",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 3.0,
+    "keywords": [],
+    "layout": "normal"
+  }
+]

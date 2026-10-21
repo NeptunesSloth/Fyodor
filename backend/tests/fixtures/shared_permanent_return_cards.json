@@ -1,0 +1,64 @@
+[
+  {
+    "name": "Cloudstone Curio",
+    "oracle_text": "Whenever a nonartifact permanent you control enters, you may return another permanent you control that shares a permanent type with it to its owner's hand.",
+    "type_line": "Artifact",
+    "mana_cost": "{3}",
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal"
+  },
+  {
+    "name": "Llanowar Elves",
+    "oracle_text": "{T}: Add {G}.",
+    "type_line": "Creature \u2014 Elf Druid",
+    "mana_cost": "{G}",
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal"
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal"
+  },
+  {
+    "name": "Propaganda",
+    "oracle_text": "Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{U}",
+    "layout": "normal"
+  },
+  {
+    "name": "Courser of Kruphix",
+    "oracle_text": "Play with the top card of your library revealed.\nYou may play lands from the top of your library.\nLandfall \u2014 Whenever a land you control enters, you gain 1 life.",
+    "type_line": "Enchantment Creature \u2014 Centaur",
+    "mana_cost": "{1}{G}{G}",
+    "power": "2",
+    "toughness": "4",
+    "layout": "normal"
+  },
+  {
+    "name": "Darksteel Citadel",
+    "oracle_text": "Indestructible\n{T}: Add {C}.",
+    "type_line": "Artifact Land",
+    "mana_cost": "",
+    "layout": "normal"
+  },
+  {
+    "name": "Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "type_line": "Basic Land \u2014 Island",
+    "mana_cost": "",
+    "layout": "normal"
+  }
+]

@@ -99,6 +99,18 @@ def rules_mana(state: GameState, a: A.RulesMana) -> None:
             ops.move_card(state, card, f"{card.owner}:graveyard")
 
 
+def rules_life_changes(state:GameState,action:A.RulesLifeChanges)->None:
+    from app.game import ops
+    from app.game.handlers.players import change_life
+
+    pieces=[]
+    for change in action.changes:
+        pid=ops.player(state,change.player,action.actor)
+        before=change_life(state,pid,state.players[pid].life+change.delta,group=action.group)
+        pieces.extend([ops.pname(state,pid),ops.text(f' {"gains" if change.delta>0 else "loses"} {abs(change.delta)} life ({before} → {state.players[pid].life}); ')])
+    ops.log(state,action.actor,action.ts,[ops.text('Life totals: '),*pieces],kind='life')
+
+
 def rules_damage(state: GameState, a: A.RulesDamage) -> None:
     # Damage is an event of its own (not "change life"): a player dealt damage also loses that
     # much life, a creature gets marked damage, a planeswalker loses loyalty. All of one step's
@@ -106,7 +118,12 @@ def rules_damage(state: GameState, a: A.RulesDamage) -> None:
     for d in a.dealt:
         emit(state, "damage", object_id=d.target_object, card=d.target if d.target in state.cards else None,
              player=d.target if d.target in state.players else None, source=d.source, amount=d.amount, combat=a.combat,
-             excess=d.excess)
+             excess=d.excess, actor=d.source_controller, attacking_player=d.attacking_player if a.combat else None)
+        if a.combat and d.amount > 0 and d.target in state.players and state.rules is not None:
+            for name in d.creature_names:
+                named_hits = state.rules.named_combat_damage.setdefault(name, [])
+                if d.target not in named_hits:
+                    named_hits.append(d.target)
         if d.amount > 0 and d.source and state.rules is not None:  # -- as long as (wave 35D) -- 120.3: "hasn't dealt (combat) damage yet"
             for mark in (d.source, d.source + "+combat" if a.combat else ""):
                 if mark and mark not in state.rules.dealt_damage:

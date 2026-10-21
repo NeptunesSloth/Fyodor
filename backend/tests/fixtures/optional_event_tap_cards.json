@@ -1,0 +1,43 @@
+[
+  {
+    "name": "Charismatic Conqueror",
+    "oracle_text": "Vigilance\nWhenever an artifact or creature an opponent controls enters untapped, they may tap that permanent. If they don't, you create a 1/1 white Vampire creature token with lifelink.",
+    "type_line": "Creature \u2014 Vampire Soldier",
+    "mana_cost": "{1}{W}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal"
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal"
+  },
+  {
+    "name": "Walking Ballista",
+    "oracle_text": "This creature enters with X +1/+1 counters on it.\n{4}: Put a +1/+1 counter on this creature.\nRemove a +1/+1 counter from this creature: It deals 1 damage to any target.",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "mana_cost": "{X}{X}",
+    "power": "0",
+    "toughness": "0",
+    "layout": "normal"
+  },
+  {
+    "name": "Authority of the Consuls",
+    "oracle_text": "Creatures your opponents control enter tapped.\nWhenever a creature an opponent controls enters, you gain 1 life.",
+    "type_line": "Enchantment",
+    "mana_cost": "{W}",
+    "layout": "normal"
+  }
+]

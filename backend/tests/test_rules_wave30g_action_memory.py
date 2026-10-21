@@ -270,7 +270,9 @@ def test_neheb_draws_and_adds_as_many_as_it_discarded_not_as_much_as_it_dealt(ca
     answer(s)
     assert life(s, "p2") == 35  # (Neheb dealt 5)
     assert sum(1 for c in held if s.state.cards[c.id].zone == "p1:graveyard") == discard
-    assert s.state.players["p1"].mana.get("R", 0) == discard
+    from tests.game_helpers import mana_pool
+
+    assert mana_pool(s, "p1").get("R", 0) == discard
     hand = [c for c in s.state.zones["p1:hand"]]
     assert len(hand) == 3 - discard + discard  # (the cards drawn replace the ones discarded)
     check(s)

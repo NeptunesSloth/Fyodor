@@ -1,0 +1,143 @@
+[
+  {
+    "name": "Abundant Harvest",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose land or nonland. Reveal cards from the top of your library until you reveal a card of the chosen kind. Put that card into your hand and the rest on the bottom of your library in a random order.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Vexing Arcanix",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "{3}, {T}: Target player chooses a card name, then reveals the top card of their library. If that card has the chosen name, that player puts it into their hand. Otherwise, they put it into their graveyard and this artifact deals 2 damage to them.",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Zimone's Hypothesis",
+    "mana_cost": "{3}{U}{U}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "You may put a +1/+1 counter on a creature. Then choose odd or even. Return each creature with power of the chosen quality to its owner's hand. (Zero is even.)",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Storm Crow",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bird",
+    "oracle_text": "Flying (This creature can't be blocked except by creatures with flying or reach.)",
+    "power": "1",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Scryb Sprites",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Faerie",
+    "oracle_text": "Flying",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Isamaru, Hound of Konda",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Legendary Creature \u2014 Dog",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Slippery Bogle",
+    "layout": "normal",
+    "mana_cost": "{G/U}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Beast",
+    "oracle_text": "Hexproof (This creature can't be the target of spells or abilities your opponents control.)",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [
+      "Hexproof"
+    ]
+  }
+]

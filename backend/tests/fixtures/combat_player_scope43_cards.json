@@ -1,0 +1,118 @@
+[
+  {
+    "name": "Fire Giant's Fury",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target Giant you control gets +2/+2 and gains trample until end of turn. Whenever it deals combat damage to a player this turn, exile that many cards from the top of your library. Until the end of your next turn, you may play those cards.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Hill Giant",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Giant",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Lyra, Tolarian Archangel",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Angel Wizard",
+    "oracle_text": "Flying\nAt the beginning of each end step, if you've drawn three or more cards this turn, create a 3/3 blue Angel creature token with flying.\n{3}{U}{U}: Until end of turn, whenever Lyra deals combat damage to a player, draw two cards.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Human Torch",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Human Hero",
+    "oracle_text": "At the beginning of combat on your turn, if you've cast a noncreature spell this turn, Human Torch gains flying, double strike, and haste until end of turn.\nWhenever Human Torch attacks, you may pay {R}{G}{W}{U}. If you do, until end of turn, whenever he deals combat damage to an opponent, he deals that much damage to each other opponent.",
+    "power": "3",
+    "toughness": "2",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Surge to Victory",
+    "mana_cost": "{4}{R}{R}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Exile target instant or sorcery card from your graveyard. Creatures you control get +X/+0 until end of turn, where X is that card's mana value. Whenever a creature you control deals combat damage to a player this turn, copy the exiled card. You may cast the copy without paying its mana cost.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Coastal Piracy",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever a creature you control deals combat damage to an opponent, you may draw a card.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Spiritualize",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, whenever target creature deals damage, you gain that much life.\nDraw a card.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "faces": []
+  }
+]

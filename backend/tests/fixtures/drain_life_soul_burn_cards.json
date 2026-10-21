@@ -1,0 +1,300 @@
+[
+  {
+    "name": "Drain Life",
+    "layout": "normal",
+    "mana_cost": "{X}{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Spend only black mana on X.\nDrain Life deals X damage to any target. You gain life equal to the damage dealt, but not more life than the player's life total before the damage was dealt, the planeswalker's loyalty before the damage was dealt, or the creature's toughness.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Soul Burn",
+    "layout": "normal",
+    "mana_cost": "{X}{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Spend only black and/or red mana on X.\nSoul Burn deals X damage to any target. You gain life equal to the damage dealt, but not more than the amount of {B} spent on X, the player's life total before the damage was dealt, the planeswalker's loyalty before the damage was dealt, or the creature's toughness.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Jace Beleren",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker \u2014 Jace",
+    "oracle_text": "+2: Each player draws a card.\n\u22121: Target player draws a card.\n\u221210: Target player mills twenty cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "3",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Everlasting Torment",
+    "layout": "normal",
+    "mana_cost": "{2}{B/R}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Players can't gain life.\nDamage can't be prevented.\nAll damage is dealt as though its source had wither. (A source with wither deals damage to creatures in the form of -1/-1 counters.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Furnace of Rath",
+    "layout": "normal",
+    "mana_cost": "{1}{R}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If a source would deal damage to a permanent or player, it deals double that damage to that permanent or player instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Double"
+    ]
+  },
+  {
+    "name": "Healing Salve",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose one \u2014\n\u2022 Target player gains 3 life.\n\u2022 Prevent the next 3 damage that would be dealt to any target this turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Doubling Season",
+    "layout": "normal",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Boon Reflection",
+    "layout": "normal",
+    "mana_cost": "{4}{W}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If you would gain life, you gain twice that much life instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Harm's Way",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "The next 2 damage that a source of your choice would deal to you and/or permanents you control this turn is dealt to any target instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Pariah",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nAll damage that would be dealt to you is dealt to enchanted creature instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Gideon Blackblade",
+    "layout": "normal",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker \u2014 Gideon",
+    "oracle_text": "During your turn, Gideon Blackblade is a 4/4 Human Soldier creature with indestructible that's still a planeswalker.\nPrevent all damage that would be dealt to Gideon Blackblade during your turn.\n+1: Up to one other target creature you control gains your choice of vigilance, lifelink, or indestructible until end of turn.\n\u22126: Exile target nonland permanent.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "4",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sulfuric Vortex",
+    "layout": "normal",
+    "mana_cost": "{1}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of each player's upkeep, this enchantment deals 2 damage to that player.\nIf a player would gain life, that player gains no life instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Flaring Pain",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Damage can't be prevented this turn.\nFlashback {R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flashback"
+    ]
+  },
+  {
+    "name": "Tainted Remedy",
+    "layout": "normal",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an opponent would gain life, that player loses that much life instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Reverberate",
+    "layout": "normal",
+    "mana_cost": "{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  }
+]

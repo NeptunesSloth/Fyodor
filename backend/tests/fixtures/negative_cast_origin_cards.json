@@ -1,0 +1,188 @@
+[
+  {
+    "name": "Ghostly Pilferer",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Spirit Rogue",
+    "oracle_text": "Whenever this creature becomes untapped, you may pay {2}. If you do, draw a card.\nWhenever an opponent casts a spell from anywhere other than their hand, draw a card.\nDiscard a card: This creature can't be blocked this turn.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Mindleech Mass",
+    "layout": "normal",
+    "mana_cost": "{5}{U}{B}{B}",
+    "cmc": 8.0,
+    "type_line": "Creature \u2014 Horror",
+    "oracle_text": "Trample\nWhenever this creature deals combat damage to a player, you may look at that player's hand. If you do, you may cast a spell from among those cards without paying its mana cost.",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [
+      "Trample"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Staggershock",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Staggershock deals 2 damage to any target.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Rebound"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Deep Analysis",
+    "layout": "normal",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target player draws two cards.\nFlashback\u2014{1}{U}, Pay 3 life. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flashback"
+    ],
+    "faces": []
+  },
+  {
+    "name": "One with the Multiverse",
+    "layout": "normal",
+    "mana_cost": "{6}{U}{U}",
+    "cmc": 8.0,
+    "type_line": "Enchantment",
+    "oracle_text": "You may look at the top card of your library any time.\nYou may play lands and cast spells from the top of your library.\nOnce during each of your turns, you may cast a spell from your hand or the top of your library without paying its mana cost.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Doomskar",
+    "layout": "normal",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Destroy all creatures.\nForetell {1}{W}{W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Foretell"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Island",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  }
+]

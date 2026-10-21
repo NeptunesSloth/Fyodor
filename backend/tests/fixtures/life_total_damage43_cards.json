@@ -1,0 +1,398 @@
+[
+  {
+    "name": "Celestial Mantle",
+    "mana_cost": "{3}{W}{W}{W}",
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +3/+3.\nWhenever enchanted creature deals combat damage to a player, double its controller's life total.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ]
+  },
+  {
+    "name": "Phyrexian Unlife",
+    "mana_cost": "{2}{W}",
+    "type_line": "Enchantment",
+    "oracle_text": "You don't lose the game for having 0 or less life.\nAs long as you have 0 or less life, all damage is dealt to you as though its source had infect. (Damage is dealt to you in the form of poison counters.)",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ]
+  },
+  {
+    "name": "Runeclaw Bear",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ]
+  },
+  {
+    "name": "High Alert",
+    "mana_cost": "{1}{W}{U}",
+    "type_line": "Enchantment",
+    "oracle_text": "Each creature you control assigns combat damage equal to its toughness rather than its power.\nCreatures you control can attack as though they didn't have defender.\n{2}{W}{U}: Untap target creature.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U",
+      "W"
+    ]
+  },
+  {
+    "name": "Alhammarret's Archive",
+    "mana_cost": "{5}",
+    "type_line": "Legendary Artifact",
+    "oracle_text": "If you would gain life, you gain twice that much life instead.\nIf you would draw a card except the first one you draw in each of your draw steps, draw two cards instead.",
+    "power": null,
+    "toughness": null,
+    "colors": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ]
+  },
+  {
+    "name": "Giant Growth",
+    "mana_cost": "{G}",
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ]
+  },
+  {
+    "name": "Disenchant",
+    "mana_cost": "{1}{W}",
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ]
+  },
+  {
+    "name": "Murder",
+    "mana_cost": "{1}{B}{B}",
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B"
+    ]
+  },
+  {
+    "name": "Act of Aggression",
+    "mana_cost": "{3}{R/P}{R/P}",
+    "type_line": "Instant",
+    "oracle_text": "({R/P} can be paid with either {R} or 2 life.)\nGain control of target creature an opponent controls until end of turn. Untap that creature. It gains haste until end of turn.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ]
+  },
+  {
+    "name": "Cloudshift",
+    "mana_cost": "{W}",
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ]
+  },
+  {
+    "name": "Gaseous Form",
+    "mana_cost": "{2}{U}",
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nPrevent all combat damage that would be dealt to and dealt by enchanted creature.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ]
+  },
+  {
+    "name": "Platinum Angel",
+    "mana_cost": "{7}",
+    "type_line": "Artifact Creature \u2014 Angel",
+    "oracle_text": "Flying\nYou can't lose the game and your opponents can't win the game.",
+    "power": "4",
+    "toughness": "4",
+    "colors": []
+  },
+  {
+    "name": "Ajani's Pridemate",
+    "mana_cost": "{1}{W}",
+    "type_line": "Creature \u2014 Cat Soldier",
+    "oracle_text": "Whenever you gain life, put a +1/+1 counter on this creature.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ]
+  },
+  {
+    "name": "Fervor",
+    "mana_cost": "{2}{R}",
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures you control have haste. (They can attack and {T} as soon as they come under your control.)",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ]
+  },
+  {
+    "name": "Vampire Nighthawk",
+    "mana_cost": "{1}{B}{B}",
+    "type_line": "Creature \u2014 Vampire Shaman",
+    "oracle_text": "Flying\nDeathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+      "B"
+    ]
+  },
+  {
+    "name": "Archon of Coronation",
+    "mana_cost": "{4}{W}{W}",
+    "type_line": "Creature \u2014 Archon",
+    "oracle_text": "Flying\nWhen this creature enters, you become the monarch.\nAs long as you're the monarch, damage doesn't cause you to lose life. (When a creature deals combat damage to you, its controller still becomes the monarch.)",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+      "W"
+    ]
+  },
+  {
+    "name": "Glistener Elf",
+    "mana_cost": "{G}",
+    "type_line": "Creature \u2014 Phyrexian Elf Warrior",
+    "oracle_text": "Infect (This creature deals damage to creatures in the form of -1/-1 counters and to players in the form of poison counters.)",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ]
+  },
+  {
+    "name": "Angel of Vitality",
+    "mana_cost": "{2}{W}",
+    "type_line": "Creature \u2014 Angel",
+    "oracle_text": "Flying\nIf you would gain life, you gain that much life plus 1 instead.\nThis creature gets +2/+2 as long as you have 25 or more life.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ]
+  },
+  {
+    "name": "Solemnity",
+    "mana_cost": "{2}{W}",
+    "type_line": "Enchantment",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ]
+  },
+  {
+    "name": "Sign in Blood",
+    "mana_cost": "{B}{B}",
+    "type_line": "Sorcery",
+    "oracle_text": "Target player draws two cards and loses 2 life.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B"
+    ]
+  },
+  {
+    "name": "Sheoldred, the Apocalypse",
+    "mana_cost": "{2}{B}{B}",
+    "type_line": "Legendary Creature \u2014 Phyrexian Praetor",
+    "oracle_text": "Deathtouch\nWhenever you draw a card, you gain 2 life.\nWhenever an opponent draws a card, they lose 2 life.",
+    "power": "4",
+    "toughness": "5",
+    "colors": [
+      "B"
+    ]
+  },
+  {
+    "name": "Healing Salve",
+    "mana_cost": "{W}",
+    "type_line": "Instant",
+    "oracle_text": "Choose one \u2014\n\u2022 Target player gains 3 life.\n\u2022 Prevent the next 3 damage that would be dealt to any target this turn.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ]
+  },
+  {
+    "name": "Aura Finesse",
+    "mana_cost": "{U}",
+    "type_line": "Instant",
+    "oracle_text": "Attach target Aura you control to target creature.\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ]
+  },
+  {
+    "name": "Lava Axe",
+    "mana_cost": "{4}{R}",
+    "type_line": "Sorcery",
+    "oracle_text": "Lava Axe deals 5 damage to target player or planeswalker.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ]
+  },
+  {
+    "name": "Winding Constrictor",
+    "mana_cost": "{B}{G}",
+    "type_line": "Creature \u2014 Snake",
+    "oracle_text": "If one or more counters would be put on an artifact or creature you control, that many plus one of each of those kinds of counters are put on that permanent instead.\nIf you would get one or more counters, you get that many plus one of each of those kinds of counters instead.",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+      "B",
+      "G"
+    ]
+  },
+  {
+    "name": "Vorinclex, Monstrous Raider",
+    "mana_cost": "{4}{G}{G}",
+    "type_line": "Legendary Creature \u2014 Phyrexian Praetor",
+    "oracle_text": "Trample, haste\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead.\nIf an opponent would put one or more counters on a permanent or player, they put half that many of each of those kinds of counters on that permanent or player instead, rounded down.",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "G"
+    ]
+  },
+  {
+    "name": "Captain's Maneuver",
+    "mana_cost": "{X}{R}{W}",
+    "type_line": "Instant",
+    "oracle_text": "The next X damage that would be dealt to target creature, planeswalker, or player this turn is dealt to another target creature, planeswalker, or player instead.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R",
+      "W"
+    ]
+  },
+  {
+    "name": "Greed",
+    "mana_cost": "{3}{B}",
+    "type_line": "Enchantment",
+    "oracle_text": "{B}, Pay 2 life: Draw a card.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B"
+    ]
+  },
+  {
+    "name": "Hatred",
+    "mana_cost": "{3}{B}{B}",
+    "type_line": "Instant",
+    "oracle_text": "As an additional cost to cast this spell, pay X life.\nTarget creature gets +X/+0 until end of turn.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B"
+    ]
+  },
+  {
+    "name": "Bond of Agony",
+    "mana_cost": "{X}{B}",
+    "type_line": "Sorcery",
+    "oracle_text": "As an additional cost to cast this spell, pay X life.\nEach other player loses X life.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B"
+    ]
+  },
+  {
+    "name": "Holy Day",
+    "mana_cost": "{W}",
+    "type_line": "Instant",
+    "oracle_text": "Prevent all combat damage that would be dealt this turn.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ]
+  },
+  {
+    "name": "Scroll Thief",
+    "mana_cost": "{2}{U}",
+    "type_line": "Creature \u2014 Merfolk Rogue",
+    "oracle_text": "Whenever this creature deals combat damage to a player, draw a card.",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+      "U"
+    ]
+  },
+  {
+    "name": "Prodigal Pyromancer",
+    "mana_cost": "{2}{R}",
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "{T}: This creature deals 1 damage to any target.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "R"
+    ]
+  },
+  {
+    "name": "Sleeper's Robe",
+    "mana_cost": "{U}{B}",
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature has fear. (It can't be blocked except by artifact creatures and/or black creatures.)\nWhenever enchanted creature deals combat damage to an opponent, you may draw a card.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B",
+      "U"
+    ]
+  }
+]

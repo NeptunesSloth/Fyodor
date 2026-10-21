@@ -37,7 +37,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.state import COMBAT_PHASES, PHASES, STACK
 from app.rules import activation_words
-from app.rules.activation_words import ANY_PLAYER, ANY_PLAYER_BUT
+from app.rules.activation_words import ANY_PLAYER, ANY_PLAYER_BUT, OPPONENTS_ONLY
 
 if TYPE_CHECKING:
     from app.game.rules_state import RulesState
@@ -50,7 +50,7 @@ MAIN_PHASES = ("main1", "main2")
 _BEFORE_ATTACKERS = tuple(PHASES[: PHASES.index("declare_attackers")])
 
 # The sentence(s) that carry an activation restriction, at the end of an activated ability's text.
-_RESTRICTION_SENTENCE = re.compile(r"^(?:Activate (?:this ability )?only|Activate no more than) (?P<rest>.+)\.$")
+_RESTRICTION_SENTENCE = re.compile(r"^(?:Activate (?:this ability )?only|Activate no more than|You can't activate this ability) (?P<rest>.+)\.$")
 # Trigger limits (the last sentence of a triggered ability's text)
 TRIGGER_LIMIT_ONCE = "This ability triggers only once each turn."
 # 603.2h: "Do this only once each turn." — the ability triggers only if its source's controller has
@@ -68,6 +68,7 @@ def limit_kind(sentence: str) -> str:
 _TIMES = {"once": 1, "twice": 2, "three times": 3, "four times": 4}
 _STEPS = {
     "your upkeep": ("upkeep", "you"),
+    "an opponent's upkeep": ("upkeep", "opponent"),
     "any upkeep step": ("upkeep", None),
     "an upkeep step": ("upkeep", None),
     "combat": (tuple(sorted(COMBAT_PHASES, key=PHASES.index)), None),
@@ -92,7 +93,7 @@ def split(body: str) -> tuple[str, str | None]:
     None). The restriction sentences are the trailing ones that start with "Activate only …"."""
     sentences = _sentences(body)
     found: list[str] = []
-    while sentences and (_RESTRICTION_SENTENCE.match(sentences[-1]) or sentences[-1] == ANY_PLAYER
+    while sentences and (_RESTRICTION_SENTENCE.match(sentences[-1]) or sentences[-1] in (ANY_PLAYER, OPPONENTS_ONLY)
                          or ANY_PLAYER_BUT.match(sentences[-1])):  # (ANY_PLAYER: wave 7B; ANY_PLAYER_BUT: wave 17B)
         found.insert(0, sentences.pop())
     if not found:
@@ -141,6 +142,9 @@ def parse(text: str) -> list[Restriction] | None:
         return exhaust
     out: list[Restriction] = list(exhaust)
     for sentence in _sentences(found):
+        if sentence == OPPONENTS_ONLY:
+            out.append({"kind": "any_player", "opponents_only": True})
+            continue
         if sentence == ANY_PLAYER:  # -- activation wordings (wave 7B) -- 602.2
             out.append({"kind": "any_player"})
             continue
@@ -149,6 +153,11 @@ def parse(text: str) -> list[Restriction] | None:
             out.append({"kind": "any_player"})
         m = _RESTRICTION_SENTENCE.match(sentence) if but is None else but
         assert m is not None  # (split only keeps matching sentences)
+        if sentence == "You can't activate this ability during combat.":
+            out.append({'kind': 'if', 'cond': {'not': {'combat_phase': 'any'}}, 'text': "it is not combat"})
+            continue
+        if sentence.startswith("You can't activate"):
+            return None
         rest = m["rest"]
         if sentence.startswith("Activate no more than"):
             rest = "no more than " + rest
@@ -170,6 +179,10 @@ def _clause(clause: str) -> Restriction | None:
     m = re.fullmatch(r"(?:no more than )?(?P<times>once|twice|three times|four times) each turn", clause)
     if m:
         return {"kind": "per_turn", "n": _TIMES[m["times"]]}
+    if clause in ('during your turn before the end step', 'during their turn before the end step'):
+        from app.game.state import PHASES
+
+        return {'kind': 'step', 'phases': [p for p in PHASES if p not in ('end', 'cleanup')], 'whose': 'you'}
     if clause in ("during your turn", "during their turn"):  # (wave 17B: "their": the activator's, any player may activate it)
         return {"kind": "your_turn"}
     if clause == "during an opponent's turn":
@@ -194,10 +207,18 @@ def _clause(clause: str) -> Restriction | None:
 def _condition(text: str) -> dict[str, Any] | None:
     from app.rules import conditions, selectors
 
+    if text == 'it has no time counters on it':
+        text = '~ has no time counters on it'
     # -- activated other (wave 34B) -- "Activate only if this artifact or another artifact entered the battlefield under your control this turn." (Master's
     # Guide-Mural): the source is one of those artifacts too, so it is "an artifact entered …" (the turn's history reads every permanent that entered)
     text = re.sub(r"^~ or another (\w+) (entered the battlefield under your control this turn)$",
                   lambda m: f"{'an' if m[1][0] in 'aeiou' else 'a'} {m[1]} {m[2]}", text)
+    if hand_sizes := re.fullmatch(r"you have exactly (?P<a>\w+) or (?P<b>\w+) cards in (?:your )?hand", text):
+        first_n = 0 if hand_sizes['a'] == 'zero' else conditions._num(hand_sizes['a'])
+        second_n = 0 if hand_sizes['b'] == 'zero' else conditions._num(hand_sizes['b'])
+        if first_n is not None and second_n is not None:
+            return {'any': [{'value': {'hand': 'you'}, 'op': '==', 'n': amount} for amount in (first_n, second_n)]}
+        return None
     cond = conditions.parse(text) or activation_words.condition(text)  # (wave 7B)
     if cond is not None:
         return cond

@@ -14,7 +14,7 @@ import pytest
 
 from app.game.errors import ActionError
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_conditionals import creature, pick, until_asked
 from tests.wave9c_kit import build, card_named, check, put, reloaded, to_hand, zone_of
 
@@ -89,7 +89,7 @@ def test_ashnods_altar_pays_part_of_a_spell_while_paying(cards):
     assert gone(s, bear)  # (601.2h: sacrificed as it's paid)
     d = s.state.rules.decision
     assert d is not None and d.resume["step"] == "pay_mana" and s.state.rules.payment_outer is None  # (back in the payment)
-    assert s.state.players["p1"].mana.get("C") == 2
+    assert mana_pool(s, "p1").get("C") == 2
     check(s)
 
 
@@ -125,7 +125,7 @@ def test_the_color_is_chosen_after_the_sacrifice_and_survives_a_load(cards):
     for sess in (s, t):
         d = sess.state.rules.decision
         act(sess, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "{G}")])
-        assert sess.state.players["p1"].mana.get("G") == 1 and sess.state.rules.payment_outer is None
+        assert mana_pool(sess).get("G") == 1 and sess.state.rules.payment_outer is None
         assert sess.state.rules.decision.resume["step"] == "pay_mana"
     check(t)
 
@@ -140,7 +140,7 @@ def test_cancelling_the_choice_returns_to_the_payment(cards):
     pick(s)  # (none: the altar isn't activated)
     d = s.state.rules.decision
     assert d is not None and d.resume["step"] == "pay_mana" and s.state.rules.payment_outer is None
-    assert alive(s, bear) and s.state.players["p1"].mana.get("C", 0) == 0
+    assert alive(s, bear) and mana_pool(s, "p1").get("C", 0) == 0
     check(s)
 
 
@@ -150,7 +150,7 @@ def test_a_lone_creature_is_sacrificed_without_asking(cards):
     bear = creature(s, "p1", "Bear")
     cast_giant(s)
     use(s, "Ashnod's Altar")
-    assert gone(s, bear) and s.state.players["p1"].mana.get("C") == 2
+    assert gone(s, bear) and mana_pool(s, "p1").get("C") == 2
     assert s.state.rules.payment_outer is None and s.state.rules.decision.resume["step"] == "pay_mana"
     check(s)
 
@@ -188,7 +188,7 @@ def test_cancelling_the_spell_after_a_nested_activation(cards):
     d = s.state.rules.decision
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["cancel"])
     assert s.state.rules.decision is None and s.state.cards[spell.id].zone == "p1:hand"  # (the spell isn't cast; the mana stays: 106.4)
-    assert s.state.players["p1"].mana.get("C") == 2
+    assert mana_pool(s, "p1").get("C") == 2
     check(s)
 
 
@@ -242,10 +242,10 @@ def test_a_payment_prompt_of_an_unless_cost_takes_a_nested_altar_too(cards):
     pick(s, cub.id)
     d = s.state.rules.decision
     assert d.resume["step"] == "pay_or_sacrifice" and [o.id for o in d.options] == ["pay", "decline"] and s.state.rules.payment_outer is None
-    assert s.state.players["p2"].mana.get("C") == 3 and cub.id not in s.state.cards
+    assert mana_pool(s, "p2").get("C") == 3 and cub.id not in s.state.cards
     check(s)
     before = len(hand(s, "p1"))
     pick(s, "pay")
     until_asked(s)
-    assert s.state.players["p2"].mana.get("C", 0) == 2 and len(hand(s, "p1")) == before  # (paid {1}: Alice doesn't draw)
+    assert mana_pool(s, "p2").get("C", 0) == 2 and len(hand(s, "p1")) == before  # (paid {1}: Alice doesn't draw)
     check(s)

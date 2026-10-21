@@ -56,8 +56,8 @@ def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
-def test_modular_with_a_keyword_count_stays_manual(cards):
-    assert coverage.of_card_data(cards.resolve("Arcbound Wanderer")).level != "FULL"  # "Modular—Sunburst"
+def test_modular_with_sunburst_count_is_automated(cards):
+    assert coverage.of_card_data(cards.resolve("Arcbound Wanderer")).level == "FULL"  # "Modular—Sunburst"
 
 
 def counters(s, c):

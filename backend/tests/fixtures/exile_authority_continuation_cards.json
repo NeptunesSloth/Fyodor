@@ -1,0 +1,432 @@
+[
+  {
+    "name": "Mnemonic Betrayal",
+    "mana_cost": "{1}{U}{B}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Exile all opponents' graveyards. You may cast spells from among those cards this turn, and mana of any type can be spent to cast them. At the beginning of the next end step, if any of those cards remain exiled, return them to their owners' graveyards.\nExile Mnemonic Betrayal.",
+    "layout": "normal",
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Hex Magic",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery \u2014 Arcane",
+    "oracle_text": "Exile all the cards from your hand, then draw that many cards. Until the end of your next turn, you may play cards exiled this way.",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rocco, Street Chef",
+    "mana_cost": "{R}{G}{W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Elf Druid",
+    "oracle_text": "At the beginning of your end step, each player exiles the top card of their library. Until your next end step, each player may play the card they exiled this way.\nWhenever a player plays a land from exile or casts a spell from exile, you put a +1/+1 counter on target creature and create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
+    "power": "2",
+    "toughness": "4",
+    "layout": "normal",
+    "colors": [
+      "G",
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "R",
+      "W"
+    ],
+    "keywords": [
+      "Food"
+    ]
+  },
+  {
+    "name": "Visions of Phyrexia",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, exile the top card of your library. You may play that card this turn.\nAt the beginning of your end step, if you didn't play a card from exile this turn, create a tapped Powerstone token. (It's an artifact with \"{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.\")",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Galvanic Relay",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Exile the top card of your library. During your next turn, you may play that card.\nStorm (When you cast this spell, copy it for each spell cast before it this turn.)",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Storm"
+    ]
+  },
+  {
+    "name": "Brazen Cannonade",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever an attacking creature you control dies, this enchantment deals 2 damage to each opponent.\nRaid \u2014 At the beginning of each of your postcombat main phases, if you attacked this turn, exile the top card of your library. Until end of combat on your next turn, you may play that card.",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Raid"
+    ]
+  },
+  {
+    "name": "Breeches, Brazen Plunderer",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Goblin Pirate",
+    "oracle_text": "Menace\nWhenever one or more Pirates you control deal damage to your opponents, exile the top card of each of those opponents' libraries. You may play those cards this turn, and you may spend mana as though it were mana of any color to cast those spells.\nPartner (You can have two commanders if both have partner.)",
+    "power": "3",
+    "toughness": "3",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Partner",
+      "Menace"
+    ]
+  },
+  {
+    "name": "Primordial Mist",
+    "mana_cost": "{4}{U}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your end step, you may manifest the top card of your library. (Put it onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)\nExile a face-down permanent you control face up: You may play that card this turn. (You still pay its costs. Timing rules still apply.)",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Manifest"
+    ]
+  },
+  {
+    "name": "Flameskull",
+    "mana_cost": "{1}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Skeleton",
+    "oracle_text": "Flying\nThis creature can't block.\nRejuvenation \u2014 When this creature dies, exile it. If you do, exile the top card of your library. Until the end of your next turn, you may play one of those cards. (If you cast Flameskull this way, you can't play the other card, and vice versa.)",
+    "power": "3",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Allure of the Unknown",
+    "mana_cost": "{3}{B}{R}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Reveal the top six cards of your library. An opponent exiles a nonland card from among them, then you put the rest into your hand. That opponent may cast the exiled card without paying its mana cost.",
+    "layout": "normal",
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Feral Encounter",
+    "mana_cost": "{G}{G}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Look at the top five cards of your library. You may exile a creature card from among them. Put the rest on the bottom of your library in a random order. You may cast the exiled card this turn. At the beginning of the next combat phase this turn, target creature you control deals damage equal to its power to up to one target creature you don't control.",
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Chiss-Goria, Forge Tyrant",
+    "mana_cost": "{6}{R}{R}{R}",
+    "cmc": 9.0,
+    "type_line": "Legendary Creature \u2014 Dragon",
+    "oracle_text": "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)\nFlying, haste\nWhenever Chiss-Goria attacks, exile the top five cards of your library. You may cast an artifact spell from among them this turn. If you do, it has affinity for artifacts.",
+    "power": "5",
+    "toughness": "4",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying",
+      "Affinity",
+      "Haste"
+    ]
+  },
+  {
+    "name": "Durnan of the Yawning Portal",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Human Warrior",
+    "oracle_text": "Whenever Durnan attacks, look at the top four cards of your library. You may exile a creature card from among them. Put the rest on the bottom of your library in any order. For as long as that card remains exiled, you may cast it. That spell has undaunted. (It costs {1} less to cast for each opponent.)\nChoose a Background (You can have a Background as a second commander.)",
+    "power": "3",
+    "toughness": "3",
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Choose a background"
+    ]
+  },
+  {
+    "name": "Bismuth Mindrender",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Eldrazi",
+    "oracle_text": "Devoid (This card has no color.)\nMenace\nWhenever this creature deals combat damage to a player, that player exiles cards from the top of their library until they exile a nonland card. You may cast that card by paying life equal to the spell's mana value rather than paying its mana cost.",
+    "power": "4",
+    "toughness": "3",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Devoid",
+      "Menace"
+    ]
+  },
+  {
+    "name": "The Infamous Cruelclaw",
+    "mana_cost": "{1}{B}{R}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Weasel Mercenary",
+    "oracle_text": "Menace\nWhenever The Infamous Cruelclaw deals combat damage to a player, exile cards from the top of your library until you exile a nonland card. You may cast that card by discarding a card rather than paying its mana cost.",
+    "power": "3",
+    "toughness": "3",
+    "layout": "normal",
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [
+      "Menace"
+    ]
+  },
+  {
+    "name": "Xander's Pact",
+    "mana_cost": "{4}{B}{B}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Casualty 2 (As you cast this spell, you may sacrifice a creature with power 2 or greater. When you do, copy this spell.)\nEach opponent exiles the top card of their library. You may cast spells from among those cards this turn. If you cast a spell this way, pay life equal to that spell's mana value rather than pay its mana cost.",
+    "layout": "normal",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Casualty"
+    ]
+  },
+  {
+    "name": "Abstruse Appropriation",
+    "mana_cost": "{2}{W}{B}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Devoid (This card has no color.)\nExile target nonland permanent. You may cast that card for as long as it remains exiled, and you may spend colorless mana as though it were mana of any color to cast that spell.",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": [
+      "Devoid"
+    ]
+  },
+  {
+    "name": "Cruelclaw's Heist",
+    "mana_cost": "{B}{B}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Gift a card (You may promise an opponent a gift as you cast this spell. If you do, they draw a card before its other effects.)\nTarget opponent reveals their hand. You choose a nonland card from it. Exile that card. If the gift was promised, you may cast that card for as long as it remains exiled, and mana of any type can be spent to cast it.",
+    "layout": "normal",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Gift"
+    ]
+  },
+  {
+    "name": "Soulfire Eruption",
+    "mana_cost": "{6}{R}{R}{R}",
+    "cmc": 9.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose any number of target creatures, planeswalkers, and/or players. For each of them, exile the top card of your library, then Soulfire Eruption deals damage equal to that card's mana value to that permanent or player. You may play the exiled cards until the end of your next turn.",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Fire Giant's Fury",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target Giant you control gets +2/+2 and gains trample until end of turn. Whenever it deals combat damage to a player this turn, exile that many cards from the top of your library. Until the end of your next turn, you may play those cards.",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Memnite",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "",
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Myr Enforcer",
+    "mana_cost": "{7}",
+    "cmc": 7.0,
+    "type_line": "Artifact Creature \u2014 Myr",
+    "oracle_text": "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)",
+    "power": "4",
+    "toughness": "4",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Affinity"
+    ]
+  },
+  {
+    "name": "Hill Giant",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Giant",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Raised by Giants",
+    "layout": "normal",
+    "mana_cost": "{5}{G}",
+    "cmc": 6.0,
+    "type_line": "Legendary Enchantment \u2014 Background",
+    "oracle_text": "Commander creatures you own have base power and toughness 10/10 and are Giants in addition to their other types.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Birthing Pod",
+    "layout": "normal",
+    "mana_cost": "{3}{G/P}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "({G/P} can be paid with either {G} or 2 life.)\n{1}{G/P}, {T}, Sacrifice a creature: Search your library for a creature card with mana value equal to 1 plus the sacrificed creature's mana value, put that card onto the battlefield, then shuffle. Activate only as a sorcery.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  }
+]

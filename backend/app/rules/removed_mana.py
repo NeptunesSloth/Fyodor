@@ -6,8 +6,7 @@ artifact: Add {G}, then add an additional {G} for each charge counter removed th
 
 CR 2026-09-25: 107.1c — "any number" is any positive number or zero; the number is chosen as the cost is paid
 (601.2h via 602.2b, 605.3a: a mana ability is activated and resolves at once, so the mana it adds is the number just
-removed); 118.3 — no more counters than the source has can be removed (122.8: a counter that isn't there can't be
-removed). A cost isn't an effect: the removal is the cost (no replacement applies to it).
+removed); 118.3 — no more counters than the source has can be removed. A cost isn't an effect: the removal is the cost (no replacement applies to it).
 
 -- activated sweep (wave 17B) -- also "Remove X storage counters from this land: Add X mana in any combination of {B} and/or {R}."
 (the other storage lands), "…: Add X mana of any one color." (Petalmane Baku, Haruspex), "…: Add X mana in any combination of colors."
@@ -19,7 +18,9 @@ one option (106.1: each mana's color is chosen as it's produced; the mix is the 
 The engine reads such an ability as a counted mana ability (``ManaAbility.count = "removed:<kind>:<base>"``): each
 number the player could choose is one option of the "Which mana should … add?" choice (base + n symbols for n counters,
 n from 1 for the storage lands — removing none adds nothing — and from 0 for the Batteries), and ``casting.produce``
-removes the n counters before the mana is added. The auto-payer never uses it (the number is the player's choice: it's
+removes the n counters before the mana is added. “One or more” and “Add that much {C}” reuse the positive-number options (Rasputin).
+Named self-costs are normalized only with the actual source name (201.5, 201.5c).
+The auto-payer never uses it (the number is the player's choice: it's
 activated by hand, like the other mana abilities whose cost is a choice).
 """
 
@@ -29,7 +30,8 @@ import re
 from itertools import combinations_with_replacement
 
 PREFIX = "removed:"
-_COST = re.compile(r"^Remove (?:any number of|(?P<x>X)) (?P<kind>[a-z]+|\+1/\+1) counters from (?:this \w+|~|it)$")
+_COST = re.compile(r"^Remove (?:any number of|one or more|(?P<x>X)) (?P<kind>[a-z]+|\+1/\+1) counters from (?:this \w+|~|it)$")
+_THAT_MUCH = re.compile(r"^Add that much \{(?P<sym>[WUBRGC])\}$")
 _X_ONE = re.compile(r"^Add X mana of any one color$")
 _X_COMBO = re.compile(r"^Add X mana in any combination of (?:(?P<colors>colors)|\{(?P<a>[WUBRGC])\} and/or \{(?P<b>[WUBRGC])\})$")
 _X_PLUS = re.compile(r"^Add an amount of \{(?P<sym>[WUBRGC])\} equal to X plus one$")
@@ -57,6 +59,8 @@ def first_sentence(first: str, kind: str | None) -> tuple[str, tuple[tuple[str, 
         return None
     if (m := _EACH.fullmatch(first)) and m["kind"] == kind:
         return f"{PREFIX}{kind}:0", ((m["sym"],),)
+    if (m := _THAT_MUCH.fullmatch(first)) is not None:
+        return f"{PREFIX}{kind}:0", ((m["sym"],),)  # CR 605.3a: one mana for each counter just paid
     if (m := _BATTERY.fullmatch(first)) and m["kind"] == kind and m["sym"] == m["more"]:
         return f"{PREFIX}{kind}:1", ((m["sym"],),)
     return None

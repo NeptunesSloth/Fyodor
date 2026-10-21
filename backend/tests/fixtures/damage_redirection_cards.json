@@ -1,0 +1,687 @@
+[
+  {
+    "name": "Mirror Strike",
+    "layout": "normal",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "All combat damage that would be dealt to you this turn by target unblocked creature is dealt to its controller instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ascent of the Worthy",
+    "layout": "saga",
+    "mana_cost": "{1}{W}{B}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI, II \u2014 Choose a creature you control. Until your next turn, all damage that would be dealt to creatures you control is dealt to that creature instead.\nIII \u2014 Return target creature card from your graveyard to the battlefield with a flying counter on it. That creature is an Angel Warrior in addition to its other types.",
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Martyrdom",
+    "layout": "normal",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, target creature you control gains \"{0}: The next 1 damage that would be dealt to target creature, planeswalker, or player this turn is dealt to this creature instead.\" Only you may activate this ability.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Kor Dirge",
+    "layout": "normal",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "All damage that would be dealt this turn to target creature you control by a source of your choice is dealt to another target creature instead.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Kor Chant",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "All damage that would be dealt this turn to target creature you control by a source of your choice is dealt to another target creature instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Captain's Maneuver",
+    "layout": "normal",
+    "mana_cost": "{X}{R}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "The next X damage that would be dealt to target creature, planeswalker, or player this turn is dealt to another target creature, planeswalker, or player instead.",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Turn the Tables",
+    "layout": "normal",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "All combat damage that would be dealt to you this turn is dealt to target attacking creature instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Kjeldoran Royal Guard",
+    "layout": "normal",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "{T}: All combat damage that would be dealt to you by unblocked creatures this turn is dealt to this creature instead.",
+    "power": "2",
+    "toughness": "5",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Reverberation",
+    "layout": "normal",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "All damage that would be dealt this turn by target sorcery spell is dealt to that spell's controller instead.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Oracle's Attendants",
+    "layout": "normal",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "{T}: All damage that would be dealt to target creature this turn by a source of your choice is dealt to this creature instead.",
+    "power": "1",
+    "toughness": "5",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shimian Night Stalker",
+    "layout": "normal",
+    "mana_cost": "{3}{B}{B}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Nightstalker",
+    "oracle_text": "{B}, {T}: All damage that would be dealt to you this turn by target attacking creature is dealt to this creature instead.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Hazduhr the Abbot",
+    "layout": "normal",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Legendary Creature \u2014 Human Cleric",
+    "oracle_text": "{X}, {T}: The next X damage that would be dealt this turn to target white creature you control is dealt to Hazduhr instead.",
+    "power": "2",
+    "toughness": "5",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Personal Incarnation",
+    "layout": "normal",
+    "mana_cost": "{3}{W}{W}{W}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Avatar Incarnation",
+    "oracle_text": "{0}: The next 1 damage that would be dealt to this creature this turn is dealt to its owner instead. Only this creature's owner may activate this ability.\nWhen this creature dies, its owner loses half their life, rounded up.",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Flaming Gambit",
+    "layout": "normal",
+    "mana_cost": "{X}{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Flaming Gambit deals X damage to target player or planeswalker. That player or that planeswalker's controller may choose a creature they control and have Flaming Gambit deal that damage to it instead.\nFlashback {X}{R}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flashback"
+    ]
+  },
+  {
+    "name": "Razia, Boros Archangel",
+    "layout": "normal",
+    "mana_cost": "{4}{R}{R}{W}{W}",
+    "cmc": 8.0,
+    "type_line": "Legendary Creature \u2014 Angel",
+    "oracle_text": "Flying, vigilance, haste\n{T}: The next 3 damage that would be dealt to target creature you control this turn is dealt to another target creature instead.",
+    "power": "6",
+    "toughness": "3",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Vigilance",
+      "Haste"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Runeclaw Bear",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Centaur Courser",
+    "layout": "normal",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Centaur Warrior",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Colossal Dreadmaw",
+    "layout": "normal",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Dinosaur",
+    "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ]
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shock",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Shock deals 2 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Flame Rift",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Flame Rift deals 4 damage to each player.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Prodigal Pyromancer",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "{T}: This creature deals 1 damage to any target.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Furnace of Rath",
+    "layout": "normal",
+    "mana_cost": "{1}{R}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If a source would deal damage to a permanent or player, it deals double that damage to that permanent or player instead.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Double"
+    ]
+  },
+  {
+    "name": "Safe Passage",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Prevent all damage that would be dealt to you and creatures you control this turn.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cloudshift",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Murder",
+    "layout": "normal",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Giant Growth",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Turn to Frog",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, target creature loses all abilities and becomes a blue Frog with base power and toughness 1/1.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mountain",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Mountain",
+    "oracle_text": "({T}: Add {R}.)",
+    "colors": [],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Glorious Anthem",
+    "layout": "normal",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures you control get +1/+1.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Counterspell",
+    "layout": "normal",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Fervor",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures you control have haste. (They can attack and {T} as soon as they come under your control.)",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Reverberate",
+    "layout": "normal",
+    "mana_cost": "{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Platinum Angel",
+    "layout": "normal",
+    "mana_cost": "{7}",
+    "cmc": 7.0,
+    "type_line": "Artifact Creature \u2014 Angel",
+    "oracle_text": "Flying\nYou can't lose the game and your opponents can't win the game.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Healer's Hawk",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Bird",
+    "oracle_text": "Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Lifelink"
+    ]
+  },
+  {
+    "name": "Black Knight",
+    "layout": "normal",
+    "mana_cost": "{B}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Knight",
+    "oracle_text": "First strike (This creature deals combat damage before creatures without first strike.)\nProtection from white (This creature can't be blocked, targeted, dealt damage, or enchanted by anything white.)",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "First strike",
+      "Protection"
+    ]
+  },
+  {
+    "name": "Rumbling Baloth",
+    "layout": "normal",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Beast",
+    "oracle_text": "",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Touch of Darkness",
+    "layout": "normal",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "One or more target creatures become black until end of turn.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "White Knight",
+    "layout": "normal",
+    "mana_cost": "{W}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Knight",
+    "oracle_text": "First strike (This creature deals combat damage before creatures without first strike.)\nProtection from black (This creature can't be blocked, targeted, dealt damage, or enchanted by anything black.)",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "First strike",
+      "Protection"
+    ]
+  },
+  {
+    "name": "Experiment Kraj",
+    "layout": "normal",
+    "mana_cost": "{2}{G}{G}{U}{U}",
+    "cmc": 6.0,
+    "type_line": "Legendary Creature \u2014 Ooze Mutant",
+    "oracle_text": "Experiment Kraj has all activated abilities of each other creature with a +1/+1 counter on it.\n{T}: Put a +1/+1 counter on target creature.",
+    "power": "4",
+    "toughness": "6",
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": []
+  }
+]

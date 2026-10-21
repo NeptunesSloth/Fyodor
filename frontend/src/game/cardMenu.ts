@@ -100,16 +100,16 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
       submenu: [
         ...opponents.map((p) => ({ label: players.find((x) => x.id === p)?.name ?? p, onClick: () => void send({ type: "attack", card_ids: ids, target: { kind: "player", id: p } }) })),
         ...attackableCards(view, me).map((c) => ({ label: `${c.name}`, onClick: () => void send({ type: "attack", card_ids: ids, target: { kind: "card", id: c.id } }) })),
-        ...(card.attacking ? ["separator" as const, { label: "Stop attacking", onClick: () => void send({ type: "attack", card_ids: ids, target: null }) }] : []),
+        ...(card.attacking || card.attacking_without_target ? ["separator" as const, { label: "Stop attacking", onClick: () => void send({ type: "attack", card_ids: ids, target: null }) }] : []),
       ],
     });
-    const attackers = Object.values(view.cards).filter((c) => c.attacking && c.controller !== card.controller);
-    if (!multi && (attackers.length || card.blocking)) {
+    const attackers = Object.values(view.cards).filter((c) => (c.attacking || c.attacking_without_target) && c.controller !== card.controller);
+    if (!multi && (attackers.length || card.blocking || card.blocking_without_attacker)) {
       items.push({
         label: "Block",
         submenu: [
           ...attackers.map((a) => ({ label: isVisible(a) ? a.name : "Face-down creature", onClick: () => void send({ type: "block", card_id: card.id, attacker_id: a.id }) })),
-          ...(card.blocking ? ["separator" as const, { label: "Stop blocking", onClick: () => void send({ type: "block", card_id: card.id, attacker_id: null }) }] : []),
+          ...((card.blocking || card.blocking_without_attacker) ? ["separator" as const, { label: "Stop blocking", onClick: () => void send({ type: "block", card_id: card.id, attacker_id: null }) }] : []),
         ],
       });
     }

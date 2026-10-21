@@ -1,0 +1,68 @@
+[
+  {
+    "name": "Ayesha Tanaka",
+    "mana_cost": "{W}{W}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Human Artificer",
+    "oracle_text": "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\n{T}: Counter target activated ability from an artifact source unless that ability's controller pays {W}. (Mana abilities can't be targeted.)",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Banding"
+    ]
+  },
+  {
+    "name": "Mind Stone",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Prodigal Pyromancer",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "{T}: This creature deals 1 damage to any target.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ichor Wellspring",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "When this artifact enters or is put into a graveyard from the battlefield, draw a card.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  }
+]

@@ -71,7 +71,7 @@ def why_not(plan: Plan, player: str) -> str | None:
     for rec in plan.rules.cant_gain:
         if rec.get("player") == player and rec.get("turn") in (None, turn) and rec.get("controller") in plan.live():
             return str(rec.get("label") or "an effect")
-    from app.rules import scripts
+    from app.rules import scripts, static_pairs
     from app.rules.replace import conditional_lines
 
     for c in plan.state.cards.values():
@@ -81,7 +81,8 @@ def why_not(plan: Plan, player: str) -> str | None:
         if "Room" in ch.subtypes:
             continue  # (a Room door is unlocked or not: not modelled)
         skip = conditional_lines(ch)  # (a leveler's / Class's level lines: the level isn't tracked)
-        for i, d in scripts.definitions(ch).items():
+        entries = scripts.definitions(ch)
+        for i, d in ((index, part) for index, definition in entries.items() for part in static_pairs.parts(definition)):
             if i in skip or d.get("kind") != "static" or d.get("static") != "cant_gain_life":
                 continue
             if d.get("who") == "each" or (d.get("who") == "opponents" and player != c.controller) \

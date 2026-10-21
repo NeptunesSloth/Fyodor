@@ -47,6 +47,7 @@ def ability(ch: Characteristics, index: int) -> AbilityText | None:
                 return None
             kw, cost = found
             return AbilityText(index=index, kind="activated", cost=f"{cost}, Exile this card from your graveyard",
+                               special='embalm' if kw == 'embalm' else None,
                                text=f"{cost}, Exile this card from your graveyard: {_EFFECT[kw]}")
     return None
 

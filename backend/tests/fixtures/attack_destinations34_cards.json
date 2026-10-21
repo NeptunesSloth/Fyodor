@@ -1,0 +1,512 @@
+[
+  {
+    "name": "Ravener",
+    "oracle_text": "Flash\nRavenous (This creature enters with X +1/+1 counters on it. If X is 5 or more, draw a card when it enters.)\nWhen this creature enters, target creature attacks target opponent this turn if able.",
+    "mana_cost": "{X}{G}{U}",
+    "type_line": "Creature \u2014 Tyranid",
+    "power": "0",
+    "toughness": "0",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [
+      "Ravenous",
+      "Flash"
+    ]
+  },
+  {
+    "name": "Dulcet Sirens",
+    "oracle_text": "{U}, {T}: Target creature attacks target opponent this turn if able.\nMorph {U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    "mana_cost": "{2}{U}",
+    "type_line": "Creature \u2014 Siren",
+    "power": "1",
+    "toughness": "3",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Morph"
+    ]
+  },
+  {
+    "name": "Public Enemy",
+    "oracle_text": "Enchant creature\nAll creatures attack enchanted creature's controller each combat if able.\nWhen enchanted creature dies, draw a card.",
+    "mana_cost": "{2}{U}",
+    "type_line": "Enchantment \u2014 Aura",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Galactus, Devourer of Worlds",
+    "oracle_text": "Flying, trample, indestructible\nWhen Galactus enters, exile target permanent.\nInsatiable Hunger \u2014 Galactus attacks an opponent with the most life among your opponents each combat if able unless you control a creature named Silver Surfer, Galactus's Herald.",
+    "mana_cost": "{10}",
+    "type_line": "Legendary Creature \u2014 Elder Alien",
+    "power": "12",
+    "toughness": "12",
+    "layout": "normal",
+    "cmc": 10.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying",
+      "Indestructible",
+      "Insatiable Hunger",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Ursine Monstrosity",
+    "oracle_text": "Trample\nAt the beginning of combat on your turn, mill a card and choose an opponent at random. This creature attacks that player this combat if able. Until end of turn, this creature gains indestructible and gets +1/+1 for each card type among cards in your graveyard.",
+    "mana_cost": "{2}{G}",
+    "type_line": "Creature \u2014 Bear Mutant",
+    "power": "3",
+    "toughness": "3",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample",
+      "Mill"
+    ]
+  },
+  {
+    "name": "Trench Behemoth",
+    "oracle_text": "Return a land you control to its owner's hand: Untap this creature. It gains hexproof until end of turn.\nLandfall \u2014 Whenever a land you control enters, target creature an opponent controls attacks during its controller's next combat phase if able.",
+    "mana_cost": "{5}{U}{U}",
+    "type_line": "Creature \u2014 Kraken",
+    "power": "7",
+    "toughness": "7",
+    "layout": "normal",
+    "cmc": 7.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Landfall"
+    ]
+  },
+  {
+    "name": "Silver Surfer, Galactus's Herald",
+    "oracle_text": "Flying\nWhen Silver Surfer enters, you may search your library for a card named Galactus, Devourer of Worlds, reveal it, put it into your hand, then shuffle.\nWhenever Silver Surfer deals combat damage to a player, until the end of your next turn, target creature attacks that player each combat if able.",
+    "mana_cost": "{5}",
+    "type_line": "Legendary Creature \u2014 Alien Hero",
+    "power": "4",
+    "toughness": "5",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "The Brothers' War",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 Create two tapped Powerstone tokens.\nII \u2014 Choose two target players. Until your next turn, each creature they control attacks the other chosen player each combat if able.\nIII \u2014 This Saga deals X damage to any target and X damage to any other target, where X is the number of artifacts you control.",
+    "mana_cost": "{3}{R}",
+    "type_line": "Enchantment \u2014 Saga",
+    "layout": "saga",
+    "cmc": 4.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Gideon Jura",
+    "oracle_text": "+2: During target opponent's next turn, creatures that player controls attack Gideon Jura if able.\n\u22122: Destroy target tapped creature.\n0: Until end of turn, Gideon Jura becomes a 6/6 Human Soldier creature that's still a planeswalker. Prevent all damage that would be dealt to him this turn.",
+    "mana_cost": "{3}{W}{W}",
+    "type_line": "Legendary Planeswalker \u2014 Gideon",
+    "loyalty": "6",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Furygale Flocking",
+    "oracle_text": "This spell costs {1} less to cast for each instant and sorcery card in your graveyard.\nFor each opponent, create two 3/3 blue and red Elemental creature tokens with flying that attack that opponent this turn if able. They gain haste until end of turn.",
+    "mana_cost": "{8}{R}{R}",
+    "type_line": "Sorcery",
+    "layout": "normal",
+    "cmc": 10.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Bident of Thassa",
+    "oracle_text": "Whenever a creature you control deals combat damage to a player, you may draw a card.\n{1}{U}, {T}: Creatures your opponents control attack this turn if able.",
+    "mana_cost": "{2}{U}{U}",
+    "type_line": "Legendary Enchantment Artifact",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Silent Arbiter",
+    "oracle_text": "No more than one creature can attack each combat.\nNo more than one creature can block each combat.",
+    "mana_cost": "{4}",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "power": "1",
+    "toughness": "5",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Incite",
+    "oracle_text": "Target creature becomes red until end of turn and attacks this turn if able.",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Runeclaw Bear",
+    "oracle_text": "",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Goblin War Paint",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +2/+2 and has haste.",
+    "mana_cost": "{1}{R}",
+    "type_line": "Enchantment \u2014 Aura",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Bloodshed Fever",
+    "oracle_text": "Enchant creature\nEnchanted creature attacks each combat if able.",
+    "mana_cost": "{R}",
+    "type_line": "Enchantment \u2014 Aura",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Fervor",
+    "oracle_text": "Creatures you control have haste. (They can attack and {T} as soon as they come under your control.)",
+    "mana_cost": "{2}{R}",
+    "type_line": "Enchantment",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ghostly Prison",
+    "oracle_text": "Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.",
+    "mana_cost": "{2}{W}",
+    "type_line": "Enchantment",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cloudshift",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "mana_cost": "{W}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Act of Treason",
+    "oracle_text": "Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn. (It can attack and {T} this turn.)",
+    "mana_cost": "{2}{R}",
+    "type_line": "Sorcery",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Humble",
+    "oracle_text": "Until end of turn, target creature loses all abilities and has base power and toughness 0/1.",
+    "mana_cost": "{1}{W}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Plains",
+    "oracle_text": "({T}: Add {W}.)",
+    "mana_cost": "",
+    "type_line": "Basic Land \u2014 Plains",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "mana_cost": "",
+    "type_line": "Basic Land \u2014 Island",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "mana_cost": "",
+    "type_line": "Basic Land \u2014 Forest",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Memnite",
+    "oracle_text": "",
+    "mana_cost": "{0}",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Relentless Assault",
+    "oracle_text": "Untap all creatures that attacked this turn. After this main phase, there is an additional combat phase followed by an additional main phase.",
+    "mana_cost": "{2}{R}{R}",
+    "type_line": "Sorcery",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Juggernaut",
+    "oracle_text": "This creature attacks each combat if able.\nThis creature can't be blocked by Walls.",
+    "mana_cost": "{4}",
+    "type_line": "Artifact Creature \u2014 Juggernaut",
+    "power": "5",
+    "toughness": "3",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Pacifism",
+    "oracle_text": "Enchant creature\nEnchanted creature can't attack or block.",
+    "mana_cost": "{1}{W}",
+    "type_line": "Enchantment \u2014 Aura",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Goblin Diplomats",
+    "oracle_text": "{T}: Each creature attacks this turn if able.",
+    "mana_cost": "{1}{R}",
+    "type_line": "Creature \u2014 Goblin",
+    "power": "2",
+    "toughness": "1",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Darksteel Mutation",
+    "oracle_text": "Enchant creature\nEnchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types.",
+    "mana_cost": "{1}{W}",
+    "type_line": "Enchantment \u2014 Aura",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Mogg Flunkies",
+    "oracle_text": "This creature can't attack or block alone.",
+    "mana_cost": "{1}{R}",
+    "type_line": "Creature \u2014 Goblin",
+    "power": "3",
+    "toughness": "3",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  }
+]

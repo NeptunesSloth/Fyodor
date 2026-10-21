@@ -129,6 +129,8 @@ def test_unknown_sentences_stay_manual(text):
      {"p": 1, "t": 1, "value": {"counters": "charge", "on": "self"}}),
     ("Enchanted creature gets +1/+1 for each other creature you control.", "attached",
      {"p": 1, "t": 1, "value": {"count": key("other creatures you control")}}),
+    ("Equipped creature gets +1/+1 for each +1/+1 counter on it.", "attached",
+     {"p": 1, "t": 1, "value": {"counters": "+1/+1", "on": "host"}}),
     ("~ gets +X/+X, where X is your life total.", "self", {"p": 1, "t": 1, "value": {"life": "you"}}),
     ("Enchanted creature gets -X/-0, where X is the number of cards in your graveyard.", "attached",
      {"p": -1, "t": 0, "value": {"count": key("cards in your graveyard")}}),
@@ -158,7 +160,6 @@ def test_parse_cda(text, p, t):
 
 @pytest.mark.parametrize("text", [
     "Equipped creature gets +1/+1 for each Aura attached to another creature.",  # (wave 8D: "attached to it" is read)
-    "Equipped creature gets +1/+1 for each +1/+1 counter on it.",  # "it" is the equipped creature, not the source
     "Creatures you control get +1/+1 for each counter on it.",
     "~ gets +1/+1 for each creature that attacked last turn.",
     "~ gets +X/+X.",  # no X defined

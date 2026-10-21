@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Reality Ripple",
+    "oracle_text": "Target artifact, creature, or land phases out. (While it's phased out, it's treated as though it doesn't exist. It phases in before its controller untaps during their next untap step.)",
+    "type_line": "Instant",
+    "mana_cost": "{1}{U}",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  }
+]

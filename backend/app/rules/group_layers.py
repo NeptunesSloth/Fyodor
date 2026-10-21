@@ -42,6 +42,8 @@ _END = (10**9, 0, 0)
 
 def first_layer(d: dict[str, Any]) -> int:
     """The layer a layered static begins to apply in (613.6): 4 (types), 5 (colors) or 6 (abilities, then 7)."""
+    if d.get("set_name"):
+        return 3
     if d.get("layer4"):
         return 4
     if "set_colors" in d or "add_colors" in d or d.get("chosen_color"):
@@ -74,18 +76,10 @@ def _colors(state: GameState, st: Static) -> dict[str, Any] | None:
 def solve(state: GameState, info: CardInfo, table: list[Static], tkey: tuple) -> tuple[list[Static], dict[str, tuple[int, int, int]]]:
     """The table with each layered static's members found and the statics of permanents that lost their abilities left out, and the
     permanents that lost all abilities here (card id → the ordering key of the latest such effect, as ``attached_types.wipes``)."""
-    layered = [st for st in table if st.definition.get("layered") and st.gate is None]
-    if not layered:
-        return table, {}
-    from app.rules import layers as L
+    from app.rules.layer_dependency_graph import solve_field
 
-    L._T.solving.append(table)  # (review 29A: this thread's derivation)
-    L._T.depth += 1
-    try:
-        return _Solver(state, info, table, tkey, layered).run()
-    finally:
-        L._T.depth -= 1
-        L._T.solving.pop()
+    solved = solve_field(state, info, table)
+    return solved.table, solved.wiped
 
 
 class _Solver:
@@ -115,7 +109,7 @@ class _Solver:
         from app.rules import layers as L
 
         card = self.cards[cid]
-        self.base[cid] = L.prepared(self.state, card, chars.of(card, self.info), self.info)
+        self.base[cid] = L.subtype_cdas(card, L.prepared(self.state, card, chars.of(card, self.info), self.info))
         self.effects[cid] = L.affecting(self.state, card)
         attached = L._attached45(self.state, card, self.info, self.table)
         self.own4[cid] = L._own_layer4(self.state, card, self.info, self.table) + attached
@@ -137,6 +131,8 @@ class _Solver:
         return out
 
     def _matches(self, st: Static, cid: str, ch: Characteristics) -> bool:
+        if st.definition["who"] == "self":
+            return cid == st.source
         return selectors.matches(self.view, selectors.from_key(st.definition["who"]), self.cards[cid], ch, st.controller, st.source)
 
     def _begin(self, st: Static, layer: int) -> bool:

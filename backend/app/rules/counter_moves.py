@@ -21,9 +21,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from pydantic import BaseModel, Field
+
 from app.game.errors import ActionError
-from app.game.rules_state import DecisionOption
+from app.game.rules_state import DecisionOption, ObjectRef
 from app.rules import replace
+from app.rules.counter_receipts import CounterPlacement
 from app.rules.plan import decide
 
 if TYPE_CHECKING:
@@ -34,7 +37,7 @@ STEP = "move_counters"
 
 
 def move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    from app.rules import effects
+    from app.rules import context, effects, prohibitions
 
     if e.get("from"):
         sources = [c for c in effects._cards(plan, ctx, e["from"]) if plan.state.cards[c].zone.endswith(":battlefield")]
@@ -43,14 +46,16 @@ def move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     to = effects._cards(plan, ctx, e["who"])
     effects._remember(plan, ctx, e, to)
     if len(to) != 1 or not plan.state.cards[to[0]].zone.endswith(":battlefield"):
+        _record_receipt(ctx, e, CounterMoveReceipt())
         return True  # 122.5: the second object is gone (or was never chosen): nothing moves
     sources = [c for c in sources if c != to[0]]  # (122.5: never the same object)
     have: dict[str, int] = {}
     for c in sources:
         for k, v in plan.state.cards[c].counters.items():
-            if v > 0 and (not e.get("kind") or k == e["kind"]):
+            if v > 0 and (not e.get("kind") or k == e["kind"]) and not prohibitions.cant_remove_counters(plan, c, k):
                 have[k] = have.get(k, 0) + v
     if not have:
+        _record_receipt(ctx, e, CounterMoveReceipt())
         return True
     n = e.get("n", "all")
     if n == "all":
@@ -58,7 +63,13 @@ def move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if n == "any" and not e.get("kind"):  # -- counter kinds (wave 24C) -- "any number of counters": how many of each kind, in turn
         from app.rules import counter_kinds
 
-        return counter_kinds.ask_amounts(plan, ctx, e, have, {"do": "move", "from": sources, "to": to[0]})
+        target_ref = context.ref_of(plan, to[0])
+        if target_ref is None:
+            _record_receipt(ctx, e, CounterMoveReceipt())
+            return True
+        return counter_kinds.ask_amounts(plan, ctx, e, have, {"do": "move", "from": sources, "to": to[0],
+            "source_refs": [ref.model_dump(mode='json') for cid in sources if (ref := context.ref_of(plan, cid)) is not None],
+            "destination_ref": target_ref.model_dump(mode='json')})
     if len(have) > 1:  # "a counter": which kind (the controller's choice)
         decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Move'}: choose a kind of counter",
                options=[DecisionOption(id=k, label=f"{k} counter") for k in sorted(have)], resume={"step": STEP, "ctx": ctx, "e": e})
@@ -72,25 +83,113 @@ def move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return _do(plan, ctx, e, sources, to[0], {kind: min(int(n), total)})
 
 
-def finish(plan: Plan, ctx: Context, e: dict[str, Any], sources: list[str], to: str, amounts: dict[str, int]) -> bool:
-    return _do(plan, ctx, e, sources, to, amounts)
+def finish(plan: Plan, ctx: Context, e: dict[str, Any], sources: list[str], to: str, amounts: dict[str, int], *,
+           source_refs: list[ObjectRef] | None = None, destination_ref: ObjectRef | None = None) -> bool:
+    return _do(plan, ctx, e, sources, to, amounts, source_refs=source_refs, destination_ref=destination_ref)
 
 
-def _do(plan: Plan, ctx: Context, e: dict[str, Any], sources: list[str], to: str, amounts: dict[str, int]) -> bool:
-    """Remove from the sources (the first object's counters first), then put them on the second (122.5)."""
+class CounterTransfer(BaseModel):
+    source: ObjectRef
+    destination: ObjectRef
+    kind: str
+    amount: int
+
+
+class CounterMoveReceipt(BaseModel):
+    """Performed removals and placements, deliberately separate quantities.
+
+    A put replacement can add, multiply, or contract the destination quantity.
+    No consumer may silently equate either field to "counters moved this way".
+    """
+    removed: list[CounterTransfer] = Field(default_factory=list)
+    placed: list[CounterPlacement] = Field(default_factory=list)
+
+
+class CounterMoveFrame(BaseModel):
+    ctx: dict[str, Any]
+    effect: dict[str, Any]
+    transfers: list[CounterTransfer] = Field(default_factory=list)
+
+
+def _record_receipt(ctx: Context, effect: dict[str, Any], receipt: CounterMoveReceipt) -> None:
+    if effect.get('receipt'):
+        ctx.setdefault('counter_move_receipts', {})[effect['receipt']] = receipt.model_dump(mode='json')
+
+
+def _do(plan: Plan, ctx: Context, e: dict[str, Any], sources: list[str], to: str, amounts: dict[str, int], *,
+        source_refs: list[ObjectRef] | None = None, destination_ref: ObjectRef | None = None) -> bool:
+    """122.5: plan a permitted remove+put before performing either action."""
+    from app.rules import context
+
+    target = destination_ref or context.ref_of(plan, to)
+    refs = source_refs if source_refs is not None else [ref for cid in dict.fromkeys(sources)
+                                                      if (ref := context.ref_of(plan, cid)) is not None]
+    transfers = []
+    if target is not None:
+        for kind, want in amounts.items():
+            for ref in refs:
+                source = context._same(plan, ref)
+                if source is None or not source.zone.endswith(':battlefield') or ref.object_id == target.object_id:
+                    continue
+                took = min(max(0, want), max(0, source.counters.get(kind, 0)))
+                if took:
+                    transfers.append(CounterTransfer(source=ref, destination=target, kind=kind, amount=took))
+                    want -= took
+    frame = CounterMoveFrame(ctx=ctx, effect=e, transfers=transfers)
+    frame.ctx = ctx  # Preserve the resolver's live context on synchronous completion.
+    return _perform(plan, frame, replace._ctx_answers(ctx))
+
+
+def _perform(plan: Plan, frame: CounterMoveFrame, answers: dict[str, str]) -> bool:
+    from app.rules import context, counter_removal_results, prohibitions
+
+    live: list[CounterTransfer] = []
+    puts: dict[tuple[str, str], int] = {}
+    for transfer in frame.transfers:
+        source = context._same(plan, transfer.source)
+        target = context._same(plan, transfer.destination)
+        if (source is None or target is None or not source.zone.endswith(':battlefield')
+                or not target.zone.endswith(':battlefield') or source.id == target.id):
+            continue
+        if (prohibitions.cant_remove_counters(plan, source.id, transfer.kind)
+                or prohibitions.cant_counters(plan, target.id, None, transfer.kind)):
+            continue  # Neither action is possible: keep the original counters.
+        amount = min(transfer.amount, max(0, source.counters.get(transfer.kind, 0)))
+        if amount <= 0:
+            continue
+        actual = transfer.model_copy(update={'amount': amount})
+        live.append(actual)
+        key = (target.id, transfer.kind)
+        puts[key] = puts.get(key, 0) + amount
+    receipt = CounterMoveReceipt()
+    if not live:
+        _record_receipt(frame.ctx, frame.effect, receipt)
+        return True
+    planned = replace.plan_counters(plan, [(cid, kind, n) for (cid, kind), n in puts.items()],
+                                    by=frame.ctx['controller'], effect=True, entering=None, answers=answers, ask=True)
+    if isinstance(planned, replace.Ask):
+        replace.ask(plan, planned, answers, {'site': 'counter_move_commit',
+                                            'request': {'frame': frame.model_dump(mode='json')}})
+        return False
+    # No legal game action happens during replacement choices. The exact refs
+    # above also make cold restored/table-edited choices safe to finish.
+    for transfer in live:
+        removed = counter_removal_results.remove(plan, transfer.source.card, transfer.kind,
+                                                 transfer.amount, by=frame.ctx['controller'])
+        if removed != transfer.amount:
+            raise ActionError('The selected counters can no longer be moved')
+        receipt.removed.append(transfer)
+    replace.do_counters(plan, planned, by=frame.ctx['controller'], receipt=receipt.placed)
+    _record_receipt(frame.ctx, frame.effect, receipt)
+    return True
+
+
+def _resume_move(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
     from app.rules import effects
 
-    puts = []
-    for kind, want in amounts.items():
-        for c in sources:
-            took = min(want, plan.state.cards[c].counters.get(kind, 0))
-            if took > 0:
-                plan.do({"type": "counter", "card_ids": [c], "kind": kind, "delta": -took}, actor=ctx["controller"])
-                want -= took
-                puts.append((to, kind, took))
-    if not puts:
-        return True
-    return replace.put_counters(plan, puts, by=ctx["controller"], then=effects._then(ctx, e), ctx=ctx)
+    frame = CounterMoveFrame.model_validate(request['frame'])
+    if _perform(plan, frame, answers):
+        effects.continue_effects(plan, frame.ctx)
 
 
 def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -114,3 +213,4 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 PRIMITIVES = {"move_counters": move}
+replace.SITES["counter_move_commit"] = _resume_move

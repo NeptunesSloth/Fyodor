@@ -1,0 +1,395 @@
+[
+  {
+    "name": "Twinning Staff",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "If you would copy a spell one or more times, instead copy it that many times plus an additional time. You may choose new targets for the additional copy.\n{7}, {T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "keywords": [],
+    "color_identity": [],
+    "defense": null
+  },
+  {
+    "name": "Reverberate",
+    "layout": "normal",
+    "mana_cost": "{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "keywords": [],
+    "color_identity": [
+      "R"
+    ],
+    "defense": null
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "keywords": [],
+    "color_identity": [
+      "R"
+    ],
+    "defense": null
+  },
+  {
+    "name": "Grapeshot",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Grapeshot deals 1 damage to any target.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "keywords": [
+      "Storm"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "defense": null
+  },
+  {
+    "name": "Zada, Hedron Grinder",
+    "layout": "normal",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Goblin Ally",
+    "oracle_text": "Whenever you cast an instant or sorcery spell that targets only Zada, copy that spell for each other creature you control that the spell could target. Each copy targets a different one of those creatures.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "keywords": [],
+    "color_identity": [
+      "R"
+    ],
+    "defense": null
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "keywords": [],
+    "color_identity": [
+      "G"
+    ],
+    "defense": null
+  },
+  {
+    "name": "Llanowar Elves",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "keywords": [],
+    "color_identity": [
+      "G"
+    ],
+    "defense": null
+  },
+  {
+    "name": "Sol Ring",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "keywords": [],
+    "color_identity": [],
+    "defense": null
+  },
+  {
+    "name": "Fork",
+    "layout": "normal",
+    "mana_cost": "{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target instant or sorcery spell, except that the copy is red. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "keywords": [],
+    "color_identity": [
+      "R"
+    ],
+    "defense": null
+  },
+  {
+    "name": "Strionic Resonator",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{2}, {T}: Copy target triggered ability you control. You may choose new targets for the copy. (A triggered ability uses the words \"when,\" \"whenever,\" or \"at.\")",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "keywords": [],
+    "color_identity": [],
+    "defense": null
+  },
+  {
+    "name": "Harmonic Prodigy",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "Prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\nIf a triggered ability of a Shaman or another Wizard you control triggers, that ability triggers an additional time.",
+    "power": "1",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "keywords": [
+      "Prowess"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "defense": null
+  },
+  {
+    "name": "Ob Nixilis, the Adversary",
+    "layout": "normal",
+    "mana_cost": "{1}{B}{R}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker \u2014 Nixilis",
+    "oracle_text": "Casualty X. The copy isn't legendary and has starting loyalty X. (As you cast this spell, you may sacrifice a creature with power X. When you do, copy this spell. The copy becomes a token.)\n+1: Each opponent loses 2 life unless they discard a card. If you control a Demon or Devil, you gain 2 life.\n\u22122: Create a 1/1 red Devil creature token with \"When this token dies, it deals 1 damage to any target.\"\n\u22127: Target player draws seven cards and loses 7 life.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "3",
+    "colors": [
+      "B",
+      "R"
+    ],
+    "keywords": [
+      "Casualty"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "defense": null
+  },
+  {
+    "name": "Clever Impersonator",
+    "layout": "normal",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Shapeshifter",
+    "oracle_text": "You may have this creature enter as a copy of any nonland permanent on the battlefield.",
+    "power": "0",
+    "toughness": "0",
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "keywords": [],
+    "color_identity": [
+      "U"
+    ],
+    "defense": null
+  },
+  {
+    "name": "God-Eternal Kefnet",
+    "layout": "normal",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Zombie God",
+    "oracle_text": "Flying\nYou may reveal the first card you draw each turn as you draw it. Whenever you reveal an instant or sorcery card this way, copy that card and you may cast the copy. That copy costs {2} less to cast.\nWhen God-Eternal Kefnet dies or is put into exile from the battlefield, you may put it into its owner's library third from the top.",
+    "power": "4",
+    "toughness": "5",
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "defense": null
+  },
+  {
+    "name": "Opt",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "keywords": [
+      "Scry"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "defense": null
+  },
+  {
+    "name": "Dualcaster Mage",
+    "layout": "normal",
+    "mana_cost": "{1}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "Flash\nWhen this creature enters, copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "defense": null
+  },
+  {
+    "name": "Lithoform Engine",
+    "layout": "normal",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Legendary Artifact",
+    "oracle_text": "{2}, {T}: Copy target activated or triggered ability you control. You may choose new targets for the copy.\n{3}, {T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy.\n{4}, {T}: Copy target permanent spell you control. (The copy becomes a token.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "keywords": [],
+    "color_identity": [],
+    "defense": null
+  },
+  {
+    "name": "Isochron Scepter",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "Imprint \u2014 When this artifact enters, you may exile an instant card with mana value 2 or less from your hand.\n{2}, {T}: You may copy the exiled card. If you do, you may cast the copy without paying its mana cost.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "keywords": [
+      "Imprint"
+    ],
+    "color_identity": [],
+    "defense": null
+  },
+  {
+    "name": "Solemn Simulacrum",
+    "layout": "normal",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nWhen this creature dies, you may draw a card.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [],
+    "keywords": [],
+    "color_identity": [],
+    "defense": null
+  },
+  {
+    "name": "Counterspell",
+    "layout": "normal",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "keywords": [],
+    "color_identity": [
+      "U"
+    ],
+    "defense": null
+  },
+  {
+    "name": "Mirrorwing Dragon",
+    "layout": "normal",
+    "mana_cost": "{3}{R}{R}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Dragon",
+    "oracle_text": "Flying\nWhenever a player casts an instant or sorcery spell that targets only this creature, that player copies that spell for each other creature they control that the spell could target. Each copy targets a different one of those creatures.",
+    "power": "4",
+    "toughness": "5",
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "defense": null
+  }
+]

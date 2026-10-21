@@ -1,0 +1,361 @@
+[
+  {
+    "name": "Sarulf, Realm Eater",
+    "oracle_text": "Whenever a permanent an opponent controls is put into a graveyard from the battlefield, put a +1/+1 counter on Sarulf.\nAt the beginning of your upkeep, if Sarulf has one or more +1/+1 counters on it, you may remove all of them. If you do, exile each other nonland permanent with mana value less than or equal to the number of counters removed this way.",
+    "type_line": "Legendary Creature \u2014 Wolf",
+    "mana_cost": "{1}{B}{G}",
+    "layout": "normal",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "cmc": 3.0,
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lightning Coils",
+    "oracle_text": "Whenever a nontoken creature you control dies, put a charge counter on this artifact.\nAt the beginning of your upkeep, if this artifact has five or more charge counters on it, remove all of them from it and create that many 3/1 red Elemental creature tokens with haste. Exile them at the beginning of the next end step.",
+    "type_line": "Artifact",
+    "mana_cost": "{3}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 3.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Lily Bowen, Raging Grandma",
+    "oracle_text": "Vigilance\nLily Bowen enters with two +1/+1 counters on it.\nAt the beginning of your upkeep, double the number of +1/+1 counters on Lily Bowen if its power is 16 or less. Otherwise, remove all but one +1/+1 counter from it, then you gain 1 life for each +1/+1 counter removed this way.",
+    "type_line": "Legendary Creature \u2014 Mutant Warrior",
+    "mana_cost": "{3}{G}",
+    "layout": "normal",
+    "power": "0",
+    "toughness": "0",
+    "loyalty": null,
+    "cmc": 4.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Vigilance",
+      "Double"
+    ]
+  },
+  {
+    "name": "Sage of Hours",
+    "oracle_text": "Heroic \u2014 Whenever you cast a spell that targets this creature, put a +1/+1 counter on it.\nRemove all +1/+1 counters from this creature: For each five counters removed this way, take an extra turn after this one.",
+    "type_line": "Creature \u2014 Human Wizard",
+    "mana_cost": "{1}{U}",
+    "layout": "normal",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "cmc": 2.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Heroic"
+    ]
+  },
+  {
+    "name": "Nuclear Fallout",
+    "oracle_text": "Each creature gets twice -X/-X until end of turn. Each player gets X rad counters.",
+    "type_line": "Sorcery",
+    "mana_cost": "{X}{B}{B}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 2.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 1.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "type_line": "Basic Land \u2014 Forest",
+    "mana_cost": "",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shalai, Voice of Plenty",
+    "oracle_text": "Flying\nYou, planeswalkers you control, and other creatures you control have hexproof.\n{4}{G}{G}: Put a +1/+1 counter on each creature you control.",
+    "type_line": "Legendary Creature \u2014 Angel",
+    "mana_cost": "{3}{W}",
+    "layout": "normal",
+    "power": "3",
+    "toughness": "4",
+    "loyalty": null,
+    "cmc": 4.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Doubling Season",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{4}{G}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 5.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Hardened Scales",
+    "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{G}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 1.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Vorinclex, Monstrous Raider",
+    "oracle_text": "Trample, haste\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead.\nIf an opponent would put one or more counters on a permanent or player, they put half that many of each of those kinds of counters on that permanent or player instead, rounded down.",
+    "type_line": "Legendary Creature \u2014 Phyrexian Praetor",
+    "mana_cost": "{4}{G}{G}",
+    "layout": "normal",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "cmc": 6.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Haste",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Solemnity",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{W}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 3.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shock",
+    "oracle_text": "Shock deals 2 damage to any target.",
+    "type_line": "Instant",
+    "mana_cost": "{R}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Giant Growth",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "type_line": "Instant",
+    "mana_cost": "{G}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 1.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rings of Brighthearth",
+    "oracle_text": "Whenever you activate an ability, if it isn't a mana ability, you may pay {2}. If you do, copy that ability. You may choose new targets for the copy.",
+    "type_line": "Artifact",
+    "mana_cost": "{3}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 3.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Necrotic Ooze",
+    "oracle_text": "As long as this creature is on the battlefield, it has all activated abilities of all creature cards in all graveyards.",
+    "type_line": "Creature \u2014 Ooze",
+    "mana_cost": "{2}{B}{B}",
+    "layout": "normal",
+    "power": "4",
+    "toughness": "3",
+    "loyalty": null,
+    "cmc": 4.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Reverberate",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "type_line": "Instant",
+    "mana_cost": "{R}{R}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 2.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Boon Reflection",
+    "oracle_text": "If you would gain life, you gain twice that much life instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{4}{W}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 5.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Tainted Remedy",
+    "oracle_text": "If an opponent would gain life, that player loses that much life instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{B}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 3.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  }
+]

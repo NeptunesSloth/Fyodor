@@ -102,6 +102,7 @@ def expanded(plan: Plan, controller: str, source_card: str | None, ab: dict[str,
         key = (replace(sel, zone_owner=f"player:{p}") if sel.zone_owner == "opponent" else replace(sel, controller=f"player:{p}")).key()
         if group["min"] and not legal_targets(plan, key, controller, source_of(plan, source_card, ab.get("kind") == "spell"), source_card):
             continue
-        effects += _renumber(ab["effects"][first:], [len(groups)])
+        effects += _renumber([e for e in ab["effects"][first:] if not e.get("opponent_aggregate")], [len(groups)])
         groups.append({k: v for k, v in group.items() if k not in (FLAG, "from")} | {"what": key})
-    return {**ab, "effects": [*ab["effects"][:first], *effects], "targets": groups}
+    aggregate = [{k: v for k, v in e.items() if k != "opponent_aggregate"} for e in ab["effects"][first:] if e.get("opponent_aggregate")]
+    return {**ab, "effects": [*ab["effects"][:first], *effects, *aggregate], "targets": groups}

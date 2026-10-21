@@ -20,7 +20,7 @@ from app.rules.mana import parse_mana_ability
 from app.rules.oracle import parse_abilities
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_effects import mana, pass_until_stack_empty, replay_matches
 from tests.test_rules_permissions import build, put
 
@@ -120,7 +120,7 @@ def test_mox_opal_needs_three_artifacts(cards):
         act(s, "p1", type="activate_ability", card_id=opal.id, ability=0, mana_choice="U")
     tok(s, "Thopter B", "Token Artifact Creature — Thopter", "1/1")  # Mox Opal itself is the third artifact
     act(s, "p1", type="activate_ability", card_id=opal.id, ability=0, mana_choice="U")
-    assert s.state.players["p1"].mana == {"U": 1}
+    assert mana_pool(s) == {"U": 1}
     roundtrip(s)
 
 
@@ -139,7 +139,7 @@ def test_whisperer_of_the_wilds_ferocious(cards):
         act(s, "p1", type="activate_ability", card_id=whisperer.id, ability=ferocious)
     tok(s, "Big", pt="4/1")
     act(s, "p1", type="activate_ability", card_id=whisperer.id, ability=ferocious)
-    assert s.state.players["p1"].mana == {"G": 2}
+    assert mana_pool(s) == {"G": 2}
     roundtrip(s)
 
 

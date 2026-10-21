@@ -1,0 +1,96 @@
+[
+  {
+    "name": "Ornithopter",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "oracle_text": "Flying",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ],
+    "power": "0",
+    "toughness": "2"
+  },
+  {
+    "name": "Kozilek, the Great Distortion",
+    "mana_cost": "{8}{C}{C}",
+    "cmc": 10.0,
+    "type_line": "Legendary Creature \u2014 Eldrazi",
+    "oracle_text": "When you cast this spell, if you have fewer than seven cards in hand, draw cards equal to the difference.\nMenace\nDiscard a card with mana value X: Counter target spell with mana value X.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Menace"
+    ],
+    "power": "12",
+    "toughness": "12"
+  },
+  {
+    "name": "Osgir, the Reconstructor",
+    "mana_cost": "{2}{R}{W}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Giant Artificer",
+    "oracle_text": "Vigilance\n{1}, Sacrifice an artifact: Target creature you control gets +2/+0 until end of turn.\n{X}, {T}, Exile an artifact card with mana value X from your graveyard: Create two tokens that are copies of the exiled card. Activate only as a sorcery.",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": [
+      "Vigilance"
+    ],
+    "power": "4",
+    "toughness": "4"
+  },
+  {
+    "name": "Dollhouse of Horrors",
+    "mana_cost": "{5}",
+    "cmc": 5.0,
+    "type_line": "Artifact",
+    "oracle_text": "{1}, {T}, Exile a creature card from your graveyard: Create a token that's a copy of the exiled card, except it's a 0/0 Construct artifact in addition to its other types and it has \"This token gets +1/+1 for each Construct you control.\" It gains haste until end of turn. Activate only as a sorcery.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "power": null,
+    "toughness": null
+  },
+  {
+    "name": "Tawnos, Solemn Survivor",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Human Artificer",
+    "oracle_text": "{2}, {T}: Create a token that's a copy of up to one target artifact token you control. Mill two cards.\n{1}{W}{U}{B}, {T}, Sacrifice two artifact tokens, Exile an artifact or creature card from your graveyard: Create a token that's a copy of the exiled card, except it's an artifact in addition to its other types. Activate only as a sorcery.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "power": "1",
+    "toughness": "3"
+  },
+  {
+    "name": "Knollspine Invocation",
+    "mana_cost": "{1}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "{X}, Discard a card with mana value X: This enchantment deals X damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  }
+]

@@ -1,0 +1,164 @@
+[
+  {
+    "name": "Vivien's Talent",
+    "layout": "normal",
+    "mana_cost": "{1}{G}{G}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant planeswalker\nEnchanted planeswalker has \"[+1]: Look at the top four cards of your library. You may reveal a creature or land card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.\"\nWhenever a nontoken creature you control enters, put a loyalty counter on enchanted planeswalker.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Jace Beleren",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker \u2014 Jace",
+    "oracle_text": "+2: Each player draws a card.\n\u22121: Target player draws a card.\n\u221210: Target player mills twenty cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "3",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mountain",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Mountain",
+    "oracle_text": "({T}: Add {R}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shock",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Shock deals 2 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Raise the Alarm",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Create two 1/1 white Soldier creature tokens.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Disenchant",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Stifle",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  }
+]

@@ -344,6 +344,10 @@ def each_may(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     players = [p for p in plan.apnap() if p in effects._players(plan, ctx, e["who"])]
     cost = e.get("cost")
+    if "per" in e:  # Shared “unless any player pays {X}”: fixed for this resolution.
+        from app.rules import unless_pays
+
+        cost = unless_pays.concrete_cost(plan, ctx, e)
     if e.get("shares_type"):
         cost = _shared_cost(plan, ctx, e["shares_type"])
         if cost is None:  # (no card type to share: no payment can be made — every player "doesn't")
@@ -373,6 +377,8 @@ def each_may(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     else:
         for _, p, name in slots:
             pay: dict[str, Any] = {"do": "optional_payment", "who": f"player:{p}", "cost": cost if cost is not None else e["alts"][0], "bind": name}
+            if 'cost_has_x' in e:
+                pay['cost_has_x'] = e['cost_has_x']
             if e.get("alts") and cost is None:
                 pay["alts"] = list(e["alts"])
             if defer:
@@ -381,11 +387,18 @@ def each_may(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if defer and slots:
             added.append({"do": "pay_deferred", "binds": [name for _, _, name in slots]})
     answered = "flag" if acting else "succeeded"  # (the answer of each: a recorded verdict, or a payment made)
+    if e.get("verdict"):
+        # Flat continuations let the grammar bind pronouns to earlier instructions.
+        added.append({"do": "only_if", "cond": {"any": [{answered: name} for _, _, name in slots]},
+                      "bind": e["verdict"], "skip": 0})
     if e.get("any") and e.get("effects"):  # -- trigger other (wave 39A) -- once, if any player (or, "none", no player) paid: the controller's own instructions
         paid = {"any": [{answered: f"{tag}{i}"} for i in range(len(players))]}
         added += [{"do": "only_if", "cond": paid if e["any"] == "some" else {"not": paid}, "skip": len(e["effects"])}, *copy.deepcopy(e["effects"])]
+    if e.get('group_life_loss'):
+        added.append({'do': 'each_unpaid_life', 'slots': [[p, name] for _, p, name in slots],
+                      'n': e['effects'][0]['n']})
     for _, p, name in slots:
-        inner = [] if e.get("any") else _for(e.get("effects") or [], p)
+        inner = [] if e.get("any") or e.get('group_life_loss') else _for(e.get("effects") or [], p)
         if inner:
             added += [{"do": "only_if", "cond": {answered: name, "negate": True}, "skip": len(inner)}, *inner]
         for key in ("then", "then_opp"):  # -- each player may (wave 23A) -- the players who paid: "Each player who discarded a card this way draws a card"
@@ -397,7 +410,15 @@ def each_may(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
-PRIMITIVES = {"each_may": each_may}
+def each_unpaid_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import conditions, effects, replace
+
+    losses = [(pid, effects._amount(plan, {**ctx, 'recipient': pid}, e['n'])) for pid, binding in e['slots']
+              if pid in plan.live() and not conditions.holds(plan, ctx, {'succeeded': binding})]
+    return replace.lose_life(plan, losses, actor=ctx['controller'], then=effects._then(ctx, e), ctx=ctx)
+
+
+PRIMITIVES = {"each_may": each_may, 'each_unpaid_life': each_unpaid_life}
 
 
 def _pay_deferred(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:  # -- review (wave 6R) --
@@ -407,3 +428,14 @@ def _pay_deferred(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:  # -- re
 
 
 PRIMITIVES["pay_deferred"] = _pay_deferred
+
+
+def repeated_discard(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """Repeat the entire simultaneous opponent operation, not one payer at a time."""
+    m = re.fullmatch(r"Each (?P<who>opponent|player) may discard a card\. If they don't, they lose (?P<n>\d+) life\. Repeat this process (?P<times>one|two|three|four|five|six|seven|eight|nine|ten) more times\.", body.strip())
+    if m is None:
+        return None
+    numbers = {'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10}
+    return ([{'do': 'each_may', 'who': _WHO[m['who']], 'cost': 'Discard a card',
+              'effects': [{'do': 'lose_life', 'who': 'event_player', 'n': int(m['n'])}],
+              'rounds': numbers[m['times']] + 1, 'group_life_loss': True}], None, False)

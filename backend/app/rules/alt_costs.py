@@ -50,7 +50,7 @@ SELF = re.compile(r"^(?:if (?P<c1>[^,]+), )?you may (?P<cost>.+?) rather than pa
 TABLE = re.compile(r"^(?P<once>once each turn, )?you may pay (?P<pay>(?:\{[^}]+\})+|\w+ \{E\}) rather than pay the mana cost "
                    r"for (?:(?:a|an) )?(?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spells? you cast"
                    r"(?P<zone> from your hand| from exile)?(?: with mana value X or less, where X is (?P<mv>.+))?$")
-_EXILE_HAND = re.compile(r"^Exile (?P<n>a|an|one|two|three) (?P<what>(?:[\w\-]+ )*cards?(?: with mana value \d+ or less)?) from your hand$")
+_EXILE_HAND = re.compile(r"^Exile (?P<n>a|an|one|two|three) (?P<what>(?:[\w\-]+ )*cards?(?: with mana value \d+ or (?:less|greater))?) from your hand$")
 _PART_SPLIT = re.compile(r" and (?=(?:pay|exile|sacrifice|return|tap|discard) )")
 _WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3}
 
@@ -58,6 +58,10 @@ _WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3}
 def _part(text: str, x_ok: bool = False) -> C.CostComponent | str | None:
     """One part of an alternative cost: a mana string ("{W}{U}{B}{R}{G}") or a cost component, or None. ``x_ok`` (-- cast keywords (wave 43D) --
     107.3a): the mana may have {X} (harmonize, overload, surge, warp, bestow, miracle: the X announced for the spell is the cost's too)."""
+    from app.rules import opponent_gain_costs44
+
+    if (gain_cost := opponent_gain_costs44.component(text)) is not None:
+        return gain_cost
     part = text[:1].upper() + text[1:]
     m = re.fullmatch(r"Pay (?P<mana>(?:\{[^}]+\})+)", part)
     if m:
@@ -94,6 +98,10 @@ class AltCost:
 
 def parse_cost(text: str, x_ok: bool = False) -> AltCost | None:
     """"pay 1 life and exile a blue card from your hand" → the parts, or None when one isn't read."""
+    from app.rules import shoal_nonmana_x
+
+    if (nonmana_x := shoal_nonmana_x.parse(text)) is not None:
+        return nonmana_x
     if re.search(r"\bx\b", text.replace("{X}", "") if x_ok else text, re.IGNORECASE) or "," in text:
         return None
     mana = ""
@@ -122,6 +130,10 @@ def _cond(text: str | None) -> Any:
 
 def define(t: str, x_ok: bool = False) -> dict[str, Any] | None:
     """The definition of an alternative-cost line (``t``: lowercased first letter, name as ~), or None."""
+    from app.rules import opponent_gain_costs44
+
+    if (gain_cost := opponent_gain_costs44.definition(t)) is not None:
+        return gain_cost
     # -- cost alt (wave 16F) -- 118.9: "If an opponent controls a Forest and you control a Swamp, you may cast this spell without paying
     # its mana cost." (the Legates) is an alternative cost of {0}, used under that condition
     t = re.sub(r"^(if [^,]+), you may cast (?:this spell|~) without paying its mana cost$", r"\1, you may pay {0} rather than pay "
@@ -283,6 +295,7 @@ class Offer:
     once_key: str | None = None
     escape: bool = False  # -- escape (wave 5I) -- 702.138a: a cast from the graveyard (app/rules/escape.py)
     tag: str | None = None  # -- keywords (wave 15E) -- "blitz": cast for its blitz cost (702.152a)
+    flash: bool = False  # Timing permission belongs only to this actual alternative cost.
 
 
 def sneak_timing(state: GameState, player: str) -> bool:
@@ -378,7 +391,7 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue  # (wave 17C: prowl — read about the spell being cast)
         alt = parse_cost(d["cost"])
         if alt is not None:
-            out.append(Offer(f"{src.id}:{index}", f"{src.name}: {d['cost']}", alt, once_key=key if d["once"] else None, tag=d.get("tag")))
+            out.append(Offer(f"{src.id}:{index}", f"{src.name}: {d['cost']}", alt, once_key=key if d["once"] else None, tag=d.get("tag"), flash=bool(d.get("flash"))))
     # -- escape (wave 5I) -- printed and granted escape costs (702.138a), for a card in its owner's graveyard
     from app.rules import escape
 

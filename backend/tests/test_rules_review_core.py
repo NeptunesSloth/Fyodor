@@ -6,17 +6,17 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from pathlib import Path
 
 import pytest
 
+from app.config import load_settings
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import answer
 from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, reloaded, to_hand, zone_of
 
-REAL_DB = Path("/home/user/Fyodor/data/cards.sqlite")
+REAL_DB = load_settings().cards_db_path
 NAMES = ["Blood Artist", "Zulaport Cutthroat", "Wrath of God", "Kiki-Jiki, Mirror Breaker", "Deceiver Exarch", "Mana Drain",
          "Rest in Peace", "Glen Elendra Archmage", "Platinum Angel", "Thassa's Oracle", "Elesh Norn, Grand Cenobite",
          "Night of Souls' Betrayal", "Stifle", "Solemn Simulacrum", "Path to Exile", "Strionic Resonator", "Darksteel Plate",
@@ -257,7 +257,9 @@ def test_mana_drain_adds_mana_at_the_next_main_phase_across_a_save(cards):
             break
         act(s, s.state.rules.priority, type="pass_priority")
     assert s.state.turn.active_player == "p2" and s.state.turn.phase == "main1", (s.state.turn.active_player, s.state.turn.phase)
-    assert s.state.players["p2"].mana.get("C", 0) == 2, s.state.players["p2"].mana
+    from tests.game_helpers import mana_pool
+
+    assert mana_pool(s, "p2").get("C", 0) == 2, mana_pool(s, "p2")
     check(s)
 
 

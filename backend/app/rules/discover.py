@@ -8,8 +8,9 @@ otherwise puts it into their hand; the other exiled cards go to the bottom of th
 (608.2h); a "where X is …" X is the ability's own (107.3c).
 
 It is cascade's process (effects.cascade: the same free-cast offer, 608.2g) with "N or less" and a hand instead of the
-bottom for the card that isn't cast. Only an instruction that ends its ability is read (the cast happens as the ability
-finishes, like cascade's): scripts.define refuses a discover followed by anything else ("If the discovered card's …").
+bottom for the card that isn't cast. Ordinary discover instructions still finish their ability as before. A typed
+follow-up may opt into continuing the original resolution after casting, declining, or cancelling the discovered card;
+the discovered binding keeps its last public mana value, and a successful cast can be found under CR 400.7h.
 Researched against CR 2026-09-25.
 """
 
@@ -48,6 +49,10 @@ def discover(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules import effects
 
     pid = ctx["controller"]
+    if e.get("as"):
+        from app.rules import context
+
+        context.bind_objects(plan, ctx, e["as"], [])
     n = effects._amount(plan, ctx, e["n"])
     missed: list[str] = []
     hit: str | None = None
@@ -66,10 +71,18 @@ def discover(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     if hit is None:
         plan.note(f"Discover {n} found nothing")
         return True
+    if e.get("as"):
+        from app.rules import context
+
+        context.bind_objects(plan, ctx, e["as"], [hit])
+        context.refs(ctx)[e["as"]]["discovered_mv"] = ch.mana_value
     # -- granted casts (wave 29B) -- "if the resulting spell's mana value is less than or equal to N" (701.57a): each half / face
     from app.rules import granted_casts
 
-    return granted_casts.ask(plan, ctx, player=pid, cid=hit, head=f"Discover {n}", no="Put it into your hand", decline="hand", at_most=n)
+    done = granted_casts.ask(plan, ctx, player=pid, cid=hit, head=f"Discover {n}", no="Put it into your hand", decline="hand", at_most=n)
+    if not done and e.get("continue_resolution") and plan.rules.decision is not None and plan.rules.decision.resume is not None:
+        plan.rules.decision.resume["continue_resolution"] = True
+    return done
 
 
 PRIMITIVES = {"discover": discover}

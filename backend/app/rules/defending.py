@@ -3,10 +3,11 @@
 508.5: an ability of an attacking creature that refers to "defending player" means the player that creature is
 attacking, the controller of the planeswalker it's attacking, or the protector of the battle it's attacking (310.9d);
 if it's no longer attacking, the player it was attacking before it was removed from combat. 508.5a: in multiplayer
-that is one specific player, determined for each attacking creature. So the trigger event of an attacking creature
-(its "attacks", "attacks and isn't blocked", "becomes blocked" event) captures that player as it triggers
-(TriggerEvent.defended: whom it attacks can't change while it stays attacking, and a creature removed from combat
-afterwards keeps the player it was attacking, 508.5), and ``who: "defending_player"`` reads it at resolution.
+that is one specific player, determined for each attacking creature. Target selection binds that role as the
+ability goes on the stack. Resolution-only instructions inspect the exact attacker's current role or its last
+known information (608.2h). An attacker whose planeswalker/battle left combat still attacks NO object (506.4c):
+it has no defending player, but the original defending player may block it. Actual removal of the creature uses
+its last association (508.5), including a last association with no defending player.
 
 Read only in the triggered abilities of the attacking creature — this one ("Whenever ~ attacks"), the one a
 condition names ("Whenever a creature you control attacks", "Whenever equipped creature attacks"), one creature
@@ -64,8 +65,20 @@ def defended(plan: Any, card: Any) -> str | None:
 
 
 def players(plan: Any, ctx: dict[str, Any]) -> list[str]:
-    """``who: "defending_player"`` at resolution: the player the trigger event captured, while they're in the game."""
-    pid = (ctx.get("event") or {}).get("defended")
+    """The exact attacking creature's current/last defending player; targetless is not actual combat removal."""
+    event = ctx.get("event") or {}
+    obj = next(iter(event.get("objects") or []), None) or {}
+    card = plan.state.cards.get(obj.get("card"))
+    oid = obj.get("object_id")
+    if card is not None and card.zone.endswith((":battlefield", ":phased")) and plan.oid(card) == oid:
+        if card.attack_defender_lost:
+            return []
+        pid = defended(plan, card) if card.attacking is not None else event.get("defended")
+    else:
+        snap = plan.rules.lki.get(oid or "")
+        if snap is not None and snap.attack_defender_lost:
+            return []
+        pid = event.get("defended")
     return [pid] if pid and pid in plan.live() else []
 
 

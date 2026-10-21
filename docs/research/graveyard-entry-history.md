@@ -1,0 +1,9 @@
+# Physical-card graveyard entry history
+
+Fraying Sanity and Ravenous Trap look back at physical cards entering a particular player's graveyard this turn (CR 608.2i). Count arrival events, regardless of card type or origin zone. Count repeated entries of one physical card again. Later reanimation, bouncing, or exile does not erase those events. Graveyard ownership follows the destination graveyard, including the death of a stolen creature. Tokens and spell/permanent copies are not cards, even if their implementation carries a real printing id (CR 108.2, 111.1, 707.10).
+
+The existing TurnLog.entered_graveyard supplies the events; a filtered history utility requires a physical card, excluding is_token and ability objects. The same count supports a typed resolution amount and an opponent historical threshold condition. Ravenous Trap's existing conditional alternative-cost path evaluates that condition at announcement and can target another player's graveyard; resolution does not recheck whether the qualifying opponent remains.
+
+Fraying's explicit enchanted player differs from the player whose end step generated the trigger. Existing per-recipient quantities read its historical count for the actual recipient. Resolve the Aura's current attachment if it is the same source object, otherwise its exact last-known source attachment. Returning the physical Aura as a new object attached elsewhere cannot rebind the old trigger. Reuse that attachment helper for existing Curse sharing effects.
+
+Canonical cases cover all common origin zones, repeat entries, multiple Fraying triggers seeing earlier resolutions, cards exiled later, cards replaced into exile, physical-card versus token/copy distinctions, stolen creature ownership, new-turn reset, zero-cost Trap timing and per-opponent thresholds, and actual Disenchant/Flicker of Fate pending-source cases. Every gameplay case checks replay and save/load. No new history storage or casting behavior is needed.

@@ -45,6 +45,12 @@ def _value(phrase: str, its: str | None) -> Any:
     """A quantity phrase as a value, or None. ``its``: what "its" names (the target spell for a
     "counter target spell unless its controller pays …"), None when it can't be bound."""
     p = phrase.strip()
+    if p in ("{E} paid this way", "the amount of {E} paid this way"):
+        return {"ref_amount": "energy_paid"}  # CR 118.12a: the prior resolution payment sets this cost.
+    from app.rules import this_way
+
+    if (revealed := this_way.parse(p)) is not None:
+        return revealed
     m = _SELF_STAT.match(p)
     if m:
         return {_STATS[m["stat"]]: "self"}
@@ -60,11 +66,11 @@ def sized_cost(phrase: str, its: str | None = None) -> dict[str, Any] | None:
     """"{X}" / "{X}, where X is …" / "{N} for each …" / "{A} plus an additional {B} for each …" →
     ``{"cost": base mana text ("" if none), "per": mana text, "n": value}``, or None."""
     if phrase.strip() == "twice {X}":  # -- most-played modal spells (wave 50I) -- "pays twice {X}" (Thassa's Intervention): twice the amount {X} stands for, i.e. {2} for each X (107.3a)
-        return {"cost": "", "per": "{2}", "n": {"x": 1}}
+        return {"cost": "", "per": "{2}", "n": {"x": 1}, "cost_has_x": True}
     m = _X.match(phrase.strip())
     if m:
         n = {"x": 1} if m["v"] is None else _value(m["v"], its)
-        return {"cost": "", "per": "{1}", "n": n} if n is not None else None
+        return {"cost": "", "per": "{1}", "n": n, "cost_has_x": True} if n is not None else None
     m = re.fullmatch(r"mana equal to (?P<v>.+)", phrase.strip())  # -- unless pays (wave 20E) -- "pays mana equal to the greatest power among creatures you control"
     if m:
         n = _value(m["v"], its)
@@ -139,7 +145,17 @@ def may_rest(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import effects
     from app.rules.engine import remembered  # engine imports effects → this module
 
-    pid = ctx["controller"]
+    players = effects._players(plan, ctx, e["who"]) if e.get("who") else [ctx["controller"]]
+    pid = players[0] if len(players) == 1 else None
+    if pid is None:
+        ctx["next"] += e.get("skip") or len(ctx["effects"])
+        return True
+    if e.get("require_life_gain"):
+        from app.rules import cant_gain
+
+        if cant_gain.why_not(plan, pid):
+            ctx["next"] += e.get("skip") or len(ctx["effects"])
+            return True
     if ctx["next"] < len(ctx["effects"]) and effects.barred_search(plan, ctx, ctx["effects"][ctx["next"]]):  # -- prohibitions (wave 24D) -- can't choose to search: skip it
         ctx["next"] += e.get("skip") or len(ctx["effects"])
         return True
@@ -153,7 +169,7 @@ def may_rest(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True
     if answer == "yes":
         return True
-    decide(plan, player=pid, kind="confirm", prompt=f"{ctx.get('name') or 'It'}: {effects.describe(rest)}?",
+    decide(plan, player=pid, kind="confirm", prompt=f"{ctx.get('name') or 'It'}: {e.get('label') or effects.describe(rest)}?",
            options=[DecisionOption(id="yes", label="Yes"), DecisionOption(id="no", label="No")],
            resume={"step": "may", "ctx": ctx}, memory_key=key)
     return False

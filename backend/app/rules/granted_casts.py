@@ -70,7 +70,7 @@ def faces(plan: Plan, player: str, cid: str, *, below: int | None = None, at_mos
 
 
 def ask(plan: Plan, ctx: dict[str, Any], *, player: str, cid: str, head: str, no: str, decline: str | None = None,
-        below: int | None = None, at_most: int | None = None, group: list[str] | None = None, play: bool = False, back: bool = False) -> bool:
+        below: int | None = None, at_most: int | None = None, group: list[str] | None = None, play: bool = False, back: bool = False, object_id: str | None = None) -> bool:
     """Ask ``player`` whether to cast the card, offering every way to cast it (``faces``). True when nothing was asked because the card can't be
     cast, its declined outcome (``decline``, effects.leave_uncast) already done; False while the question is pending (resume: "suspend_cast").
     ``group``: the cards already put on the bottom of the library with it in mind (cascade: a declined card joins them in a random order)."""
@@ -89,7 +89,7 @@ def ask(plan: Plan, ctx: dict[str, Any], *, player: str, cid: str, head: str, no
                for face, ch in found]
     decide(plan, player=player, kind="choose_one", prompt=f"{head}: cast {card.name}{' transformed' if back else ''} without paying its mana cost?",
            options=[*options, DecisionOption(id="no", label=no)],
-           resume={"step": "suspend_cast", "ctx": ctx, "card": cid, **({"decline": decline} if decline else {}), **({"group": group} if group else {})},
+           resume={"step": "suspend_cast", "ctx": ctx, "card": cid, **({"object": object_id} if object_id else {}), **({"decline": decline} if decline else {}), **({"group": group} if group else {})},
            source=card)
     return False
 

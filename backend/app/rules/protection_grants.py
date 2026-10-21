@@ -95,6 +95,10 @@ def clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         raise L._Fail  # (a player gaining protection: app/rules/player_shields.py)
     who = L._who(kind, key)
     q = m["q"]
+    if q in ("each of that permanent's colors", "each of that creature's colors") and not m["kw"]:
+        return [{"do": "derived_protection", "colors": "target", "who": who}], L._one(group)
+    if q == "each of your opponents" and not m["kw"]:
+        return [{"do": "player_protection_grant", "players": "each_opponent", "who": who}], L._one(group)
     kws = re.split(r", and |, | and ", m["kw"]) if m["kw"] else []
     if kws and (not all(re.fullmatch(L.GRANT_KEYWORDS, k) for k in kws) or (line := fixed_line(q)) is None):
         raise L._Fail  # -- most-played modal spells (wave 50I) -- "gain lifelink, indestructible, and protection from each color" (Akroma's Will): one grant, 613.1f; a choice stays apart

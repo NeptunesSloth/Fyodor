@@ -1,0 +1,150 @@
+[
+  {
+    "name": "Display of Power",
+    "layout": "normal",
+    "mana_cost": "{1}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "This spell can't be copied.\nCopy any number of target instant and/or sorcery spells. You may choose new targets for the copies.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Opt",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Scry"
+    ]
+  },
+  {
+    "name": "Twinning Staff",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "If you would copy a spell one or more times, instead copy it that many times plus an additional time. You may choose new targets for the additional copy.\n{7}, {T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Reverberate",
+    "layout": "normal",
+    "mana_cost": "{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Counterspell",
+    "layout": "normal",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mizzix's Mastery",
+    "layout": "normal",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Exile target card that's an instant or sorcery from your graveyard. For each card exiled this way, copy it, and you may cast the copy without paying its mana cost. Exile Mizzix's Mastery.\nOverload {5}{R}{R}{R} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Overload"
+    ]
+  }
+]

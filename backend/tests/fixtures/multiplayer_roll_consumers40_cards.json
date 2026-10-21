@@ -1,0 +1,299 @@
+[
+  {
+    "id": "08219fbc-c155-4d1d-a08c-d2546c44bccc",
+    "oracle_id": "a04f46b4-b0b0-4aef-907f-1df1a2e261de",
+    "name": "Chaos Dragon",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "clb",
+    "set_name": "Commander Legends: Battle for Baldur's Gate",
+    "set_type": "draft_innovation",
+    "collector_number": "784",
+    "released_at": "2022-06-10",
+    "rarity": "rare",
+    "mana_cost": "{1}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Dragon",
+    "oracle_text": "Flying, haste\nThis creature attacks each combat if able.\nAt the beginning of combat on your turn, each player rolls a d20. If one or more opponents had the highest result, this creature can't attack those players or planeswalkers they control this combat.",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying",
+      "Haste"
+    ],
+    "produced_mana": null,
+    "card_faces": null,
+    "all_parts": null,
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/0/8/08219fbc-c155-4d1d-a08c-d2546c44bccc.jpg?1783922430",
+      "normal": "https://cards.scryfall.io/normal/front/0/8/08219fbc-c155-4d1d-a08c-d2546c44bccc.jpg?1783922430",
+      "large": "https://cards.scryfall.io/large/front/0/8/08219fbc-c155-4d1d-a08c-d2546c44bccc.jpg?1783922430",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/0/8/08219fbc-c155-4d1d-a08c-d2546c44bccc.jpg?1783922430"
+    },
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "not_legal",
+      "timeless": "not_legal",
+      "gladiator": "not_legal",
+      "pioneer": "not_legal",
+      "modern": "not_legal",
+      "legacy": "legal",
+      "pauper": "not_legal",
+      "vintage": "legal",
+      "penny": "not_legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "not_legal",
+      "competitivebrawl": "not_legal",
+      "alchemy": "not_legal",
+      "paupercommander": "not_legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "not_legal",
+      "predh": "not_legal",
+      "tlr": "legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Grzegorz Rutkowski",
+    "edhrec_rank": 4033
+  },
+  {
+    "id": "1aa7b481-9332-4140-9a46-11e4e384d8f1",
+    "oracle_id": "058f74f6-eeed-4ee8-8574-f95fea8d8f14",
+    "name": "Celebr-8000",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "unf",
+    "set_name": "Unfinity",
+    "set_type": "funny",
+    "collector_number": "185",
+    "released_at": "2022-10-07",
+    "rarity": "rare",
+    "mana_cost": "{5}",
+    "cmc": 5.0,
+    "type_line": "Artifact Creature \u2014 Clown Robot",
+    "oracle_text": "At the beginning of combat on your turn, roll two six-sided dice. For each result of 1, this creature gets +1/+1 until end of turn. For each other result, it gains the indicated ability until end of turn. If you rolled doubles, it also gains double strike until end of turn.\n\u2022 2 \u2014 menace\n\u2022 3 \u2014 vigilance\n\u2022 4 \u2014 lifelink\n\u2022 5 \u2014 flying\n\u2022 6 \u2014 indestructible",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying",
+      "Lifelink",
+      "Indestructible",
+      "Vigilance",
+      "Menace"
+    ],
+    "produced_mana": null,
+    "card_faces": null,
+    "all_parts": null,
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/1/a/1aa7b481-9332-4140-9a46-11e4e384d8f1.jpg?1783920532",
+      "normal": "https://cards.scryfall.io/normal/front/1/a/1aa7b481-9332-4140-9a46-11e4e384d8f1.jpg?1783920532",
+      "large": "https://cards.scryfall.io/large/front/1/a/1aa7b481-9332-4140-9a46-11e4e384d8f1.jpg?1783920532",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/1/a/1aa7b481-9332-4140-9a46-11e4e384d8f1.jpg?1783920532"
+    },
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "not_legal",
+      "timeless": "not_legal",
+      "gladiator": "not_legal",
+      "pioneer": "not_legal",
+      "modern": "not_legal",
+      "legacy": "legal",
+      "pauper": "not_legal",
+      "vintage": "legal",
+      "penny": "not_legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "not_legal",
+      "competitivebrawl": "not_legal",
+      "alchemy": "not_legal",
+      "paupercommander": "not_legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "not_legal",
+      "predh": "not_legal",
+      "tlr": "not_legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Ralph Horsley",
+    "edhrec_rank": 7357
+  },
+  {
+    "id": "5128cc33-05e3-4b2b-8b24-7f574d3f0d53",
+    "oracle_id": "d1f36c19-ef39-4204-b126-8ea051bde0d2",
+    "name": "Slight Malfunction",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "unf",
+    "set_name": "Unfinity",
+    "set_type": "funny",
+    "collector_number": "123",
+    "released_at": "2022-10-07",
+    "rarity": "common",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose one \u2014\n\u2022 Destroy target artifact.\n\u2022 Roll a six-sided die. When you do, Slight Malfunction deals 1 damage to each of up to X target creatures, where X is the result.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "produced_mana": null,
+    "card_faces": null,
+    "all_parts": null,
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/5/1/5128cc33-05e3-4b2b-8b24-7f574d3f0d53.jpg?1783920561",
+      "normal": "https://cards.scryfall.io/normal/front/5/1/5128cc33-05e3-4b2b-8b24-7f574d3f0d53.jpg?1783920561",
+      "large": "https://cards.scryfall.io/large/front/5/1/5128cc33-05e3-4b2b-8b24-7f574d3f0d53.jpg?1783920561",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/5/1/5128cc33-05e3-4b2b-8b24-7f574d3f0d53.jpg?1783920561"
+    },
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "not_legal",
+      "timeless": "not_legal",
+      "gladiator": "not_legal",
+      "pioneer": "not_legal",
+      "modern": "not_legal",
+      "legacy": "legal",
+      "pauper": "legal",
+      "vintage": "legal",
+      "penny": "not_legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "not_legal",
+      "competitivebrawl": "not_legal",
+      "alchemy": "not_legal",
+      "paupercommander": "legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "not_legal",
+      "predh": "not_legal",
+      "tlr": "legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Greg Bobrowski",
+    "edhrec_rank": 13717
+  },
+  {
+    "name": "Wyll, Blade of Frontiers",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Human Warlock",
+    "oracle_text": "If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.\nWhenever you roll one or more dice, put a +1/+1 counter on Wyll.\nChoose a Background (You can have a Background as a second commander.)",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Choose a background"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Stifle",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Pixie Guide",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Faerie",
+    "oracle_text": "Flying\nGrant an Advantage \u2014 If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Kaito, Bane of Nightmares",
+    "mana_cost": "{2}{U}{B}",
+    "cmc": 4.0,
+    "type_line": "Legendary Planeswalker \u2014 Kaito",
+    "oracle_text": "Ninjutsu {1}{U}{B} ({1}{U}{B}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nDuring your turn, as long as Kaito has one or more loyalty counters on him, he's a 3/4 Ninja creature and has hexproof.\n+1: You get an emblem with \"Ninjas you control get +1/+1.\"\n0: Surveil 2. Then draw a card for each opponent who lost life this turn.\n\u22122: Tap target creature. Put two stun counters on it.",
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [
+      "Surveil",
+      "Ninjutsu"
+    ],
+    "layout": "normal",
+    "loyalty": "4"
+  },
+  {
+    "name": "Narset's Reversal",
+    "layout": "normal",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target instant or sorcery spell, then return it to its owner's hand. You may choose new targets for the copy.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  }
+]

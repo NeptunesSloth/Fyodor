@@ -1,0 +1,141 @@
+[
+  {
+    "name": "Arcbound Wanderer",
+    "oracle_text": "Modular\u2014Sunburst (This creature enters with a +1/+1 counter on it for each color of mana spent to cast it. When it dies, you may put its +1/+1 counters on target artifact creature.)",
+    "type_line": "Artifact Creature \u2014 Golem",
+    "mana_cost": "{6}",
+    "power": "0",
+    "toughness": "0",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 6.0,
+    "keywords": [
+      "Modular",
+      "Sunburst"
+    ]
+  },
+  {
+    "name": "Arcbound Worker",
+    "oracle_text": "Modular 1 (This creature enters with a +1/+1 counter on it. When it dies, you may put its +1/+1 counters on target artifact creature.)",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "mana_cost": "{1}",
+    "power": "0",
+    "toughness": "0",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 1.0,
+    "keywords": [
+      "Modular"
+    ]
+  },
+  {
+    "name": "Ornithopter",
+    "oracle_text": "Flying",
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "mana_cost": "{0}",
+    "power": "0",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 0.0,
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Vorinclex, Monstrous Raider",
+    "oracle_text": "Trample, haste\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead.\nIf an opponent would put one or more counters on a permanent or player, they put half that many of each of those kinds of counters on that permanent or player instead, rounded down.",
+    "type_line": "Legendary Creature \u2014 Phyrexian Praetor",
+    "mana_cost": "{4}{G}{G}",
+    "power": "6",
+    "toughness": "6",
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 6.0,
+    "keywords": [
+      "Haste",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Solemnity",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{W}",
+    "layout": "normal",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 3.0,
+    "keywords": []
+  },
+  {
+    "name": "Murder",
+    "oracle_text": "Destroy target creature.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{B}{B}",
+    "layout": "normal",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 3.0,
+    "keywords": []
+  },
+  {
+    "name": "Reanimate",
+    "oracle_text": "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card's mana value.",
+    "type_line": "Sorcery",
+    "mana_cost": "{B}",
+    "layout": "normal",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 1.0,
+    "keywords": []
+  }
+]

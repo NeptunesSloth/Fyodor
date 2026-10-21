@@ -1,0 +1,783 @@
+[
+  {
+    "name": "Negative Zone Portal",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{2}, {T}: Exile target card from an opponent's graveyard. If it's a creature card, draw a card.\nAt the beginning of your upkeep, if there are four or more creature cards exiled with this artifact, flip a coin. If you lose the flip, sacrifice this artifact and return a card exiled with it at random to its owner's hand.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Colfenor's Urn",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "Whenever a creature with toughness 4 or greater is put into your graveyard from the battlefield, you may exile it.\nAt the beginning of the end step, if three or more cards have been exiled with this artifact, sacrifice it. If you do, return those cards to the battlefield under their owner's control.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Profane Procession // Tomb of the Dusk Rose",
+    "layout": "transform",
+    "mana_cost": "{1}{W}{B} // ",
+    "cmc": 3.0,
+    "type_line": "Legendary Enchantment // Legendary Land",
+    "oracle_text": "{3}{W}{B}: Exile target creature. Then if there are three or more cards exiled with Profane Procession, transform it.\n//\n(Transforms from Profane Procession.)\n{T}: Add one mana of any color.\n{2}{W}{B}, {T}: Put a creature card exiled with this permanent onto the battlefield under your control.",
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": [
+      "Transform"
+    ],
+    "card_faces": [
+      {
+        "name": "Profane Procession",
+        "mana_cost": "{1}{W}{B}",
+        "type_line": "Legendary Enchantment",
+        "oracle_text": "{3}{W}{B}: Exile target creature. Then if there are three or more cards exiled with Profane Procession, transform it.",
+        "colors": [
+          "B",
+          "W"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/1/d/1d94ff37-f04e-48ee-8253-d62ab07f0632.jpg?1783935277",
+          "normal": "https://cards.scryfall.io/normal/front/1/d/1d94ff37-f04e-48ee-8253-d62ab07f0632.jpg?1783935277",
+          "large": "https://cards.scryfall.io/large/front/1/d/1d94ff37-f04e-48ee-8253-d62ab07f0632.jpg?1783935277",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/1/d/1d94ff37-f04e-48ee-8253-d62ab07f0632.jpg?1783935277"
+        }
+      },
+      {
+        "name": "Tomb of the Dusk Rose",
+        "mana_cost": "",
+        "type_line": "Legendary Land",
+        "oracle_text": "(Transforms from Profane Procession.)\n{T}: Add one mana of any color.\n{2}{W}{B}, {T}: Put a creature card exiled with this permanent onto the battlefield under your control.",
+        "colors": [],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/1/d/1d94ff37-f04e-48ee-8253-d62ab07f0632.jpg?1783935277",
+          "normal": "https://cards.scryfall.io/normal/back/1/d/1d94ff37-f04e-48ee-8253-d62ab07f0632.jpg?1783935277",
+          "large": "https://cards.scryfall.io/large/back/1/d/1d94ff37-f04e-48ee-8253-d62ab07f0632.jpg?1783935277",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/1/d/1d94ff37-f04e-48ee-8253-d62ab07f0632.jpg?1783935277"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Azor's Gateway // Sanctum of the Sun",
+    "layout": "transform",
+    "mana_cost": "{2} // ",
+    "cmc": 2.0,
+    "type_line": "Legendary Artifact // Legendary Land",
+    "oracle_text": "{1}, {T}: Draw a card, then exile a card from your hand. If cards with five or more different mana values are exiled with Azor's Gateway, you gain 5 life, untap Azor's Gateway, and transform it.\n//\n(Transforms from Azor's Gateway.)\n{T}: Add X mana of any one color, where X is your life total.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Transform"
+    ],
+    "card_faces": [
+      {
+        "name": "Azor's Gateway",
+        "mana_cost": "{2}",
+        "type_line": "Legendary Artifact",
+        "oracle_text": "{1}, {T}: Draw a card, then exile a card from your hand. If cards with five or more different mana values are exiled with Azor's Gateway, you gain 5 life, untap Azor's Gateway, and transform it.",
+        "colors": [],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/3/0/303d51ab-b9c4-4647-950f-291daabe7b81.jpg?1783935273",
+          "normal": "https://cards.scryfall.io/normal/front/3/0/303d51ab-b9c4-4647-950f-291daabe7b81.jpg?1783935273",
+          "large": "https://cards.scryfall.io/large/front/3/0/303d51ab-b9c4-4647-950f-291daabe7b81.jpg?1783935273",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/3/0/303d51ab-b9c4-4647-950f-291daabe7b81.jpg?1783935273"
+        }
+      },
+      {
+        "name": "Sanctum of the Sun",
+        "mana_cost": "",
+        "type_line": "Legendary Land",
+        "oracle_text": "(Transforms from Azor's Gateway.)\n{T}: Add X mana of any one color, where X is your life total.",
+        "colors": [],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/3/0/303d51ab-b9c4-4647-950f-291daabe7b81.jpg?1783935273",
+          "normal": "https://cards.scryfall.io/normal/back/3/0/303d51ab-b9c4-4647-950f-291daabe7b81.jpg?1783935273",
+          "large": "https://cards.scryfall.io/large/back/3/0/303d51ab-b9c4-4647-950f-291daabe7b81.jpg?1783935273",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/3/0/303d51ab-b9c4-4647-950f-291daabe7b81.jpg?1783935273"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Lumbering Battlement",
+    "layout": "normal",
+    "mana_cost": "{4}{W}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Beast",
+    "oracle_text": "Vigilance\nWhen this creature enters, exile any number of other nontoken creatures you control until it leaves the battlefield.\nThis creature gets +2/+2 for each card exiled with it.",
+    "power": "4",
+    "toughness": "5",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Vigilance"
+    ]
+  },
+  {
+    "name": "The Kenriths' Royal Funeral",
+    "layout": "normal",
+    "mana_cost": "{2}{W}{B}",
+    "cmc": 4.0,
+    "type_line": "Legendary Enchantment",
+    "oracle_text": "When The Kenriths' Royal Funeral enters, exile up to two target legendary creature cards from your graveyard. You draw X cards and you lose X life, where X is the greatest mana value among cards exiled this way.\nLegendary spells you cast cost {1} less to cast for each card exiled with The Kenriths' Royal Funeral.",
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cemetery Prowler",
+    "layout": "normal",
+    "mana_cost": "{1}{G}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Wolf",
+    "oracle_text": "Vigilance\nWhenever this creature enters or attacks, exile a card from a graveyard.\nSpells you cast cost {1} less to cast for each card type they share with cards exiled with this creature.",
+    "power": "3",
+    "toughness": "4",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Vigilance"
+    ]
+  },
+  {
+    "name": "Cemetery Illuminator",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Spirit",
+    "oracle_text": "Flying\nWhenever this creature enters or attacks, exile a card from a graveyard.\nYou may look at the top card of your library any time.\nOnce each turn, you may cast a spell from the top of your library if it shares a card type with a card exiled with this creature.",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Duplicant",
+    "layout": "normal",
+    "mana_cost": "{6}",
+    "cmc": 6.0,
+    "type_line": "Artifact Creature \u2014 Shapeshifter",
+    "oracle_text": "Imprint \u2014 When this creature enters, you may exile target nontoken creature.\nAs long as a card exiled with this creature is a creature card, this creature has the power, toughness, and creature types of the last creature card exiled with it. It's still a Shapeshifter.",
+    "power": "2",
+    "toughness": "4",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Imprint"
+    ]
+  },
+  {
+    "name": "Redemptor Dreadnought",
+    "layout": "normal",
+    "mana_cost": "{5}",
+    "cmc": 5.0,
+    "type_line": "Artifact Creature \u2014 Astartes Dreadnought",
+    "oracle_text": "Fallen Warrior \u2014 As an additional cost to cast this spell, you may exile a creature card from your graveyard.\nTrample\nPlasma Incinerator \u2014 Whenever this creature attacks, if a card is exiled with it, it gets +X/+X until end of turn, where X is the power of the exiled card.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Trample",
+      "Plasma Incinerator",
+      "Fallen Warrior"
+    ]
+  },
+  {
+    "name": "Hostile Hostel // Creeping Inn",
+    "layout": "transform",
+    "mana_cost": " // ",
+    "cmc": 0.0,
+    "type_line": "Land // Artifact Creature \u2014 Horror Construct",
+    "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice a creature: Put a soul counter on this land. Then if there are three or more soul counters on it, remove those counters, transform it, then untap it. Activate only as a sorcery.\n//\nWhenever this creature attacks, you may exile a creature card from your graveyard. If you do, each opponent loses X life and you gain X life, where X is the number of creature cards exiled with this creature.\n{4}: This creature phases out.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Transform"
+    ],
+    "card_faces": [
+      {
+        "name": "Hostile Hostel",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice a creature: Put a soul counter on this land. Then if there are three or more soul counters on it, remove those counters, transform it, then untap it. Activate only as a sorcery.",
+        "colors": [],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/1/4/14d27a38-6ed1-499e-ab30-26e04a56c071.jpg?1783925493",
+          "normal": "https://cards.scryfall.io/normal/front/1/4/14d27a38-6ed1-499e-ab30-26e04a56c071.jpg?1783925493",
+          "large": "https://cards.scryfall.io/large/front/1/4/14d27a38-6ed1-499e-ab30-26e04a56c071.jpg?1783925493",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/1/4/14d27a38-6ed1-499e-ab30-26e04a56c071.jpg?1783925493"
+        }
+      },
+      {
+        "name": "Creeping Inn",
+        "mana_cost": "",
+        "type_line": "Artifact Creature \u2014 Horror Construct",
+        "oracle_text": "Whenever this creature attacks, you may exile a creature card from your graveyard. If you do, each opponent loses X life and you gain X life, where X is the number of creature cards exiled with this creature.\n{4}: This creature phases out.",
+        "power": "3",
+        "toughness": "7",
+        "colors": [
+          "B"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/1/4/14d27a38-6ed1-499e-ab30-26e04a56c071.jpg?1783925493",
+          "normal": "https://cards.scryfall.io/normal/back/1/4/14d27a38-6ed1-499e-ab30-26e04a56c071.jpg?1783925493",
+          "large": "https://cards.scryfall.io/large/back/1/4/14d27a38-6ed1-499e-ab30-26e04a56c071.jpg?1783925493",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/1/4/14d27a38-6ed1-499e-ab30-26e04a56c071.jpg?1783925493"
+        }
+      }
+    ]
+  },
+  {
+    "name": "River Song's Diary",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact \u2014 Book",
+    "oracle_text": "Imprint \u2014 Whenever a player casts an instant or sorcery spell from their hand, exile it instead of putting it into a graveyard as it resolves.\nAt the beginning of your upkeep, if there are four or more cards exiled with this artifact, choose one of them at random. You may cast it without paying its mana cost.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Imprint"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Llanowar Elves",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Counterspell",
+    "layout": "normal",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Murder",
+    "layout": "normal",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Naturalize",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Clone",
+    "layout": "normal",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Shapeshifter",
+    "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield.",
+    "power": "0",
+    "toughness": "0",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cloudshift",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Dominate",
+    "layout": "normal",
+    "mana_cost": "{X}{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Gain control of target creature with mana value X or less.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rest in Peace",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Tormod's Crypt",
+    "layout": "normal",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}, Sacrifice this artifact: Exile target player's graveyard.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Tarmogoyf",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Lhurgoyf",
+    "oracle_text": "Tarmogoyf's power is equal to the number of card types among cards in all graveyards and its toughness is equal to that number plus 1.",
+    "power": "*",
+    "toughness": "1+*",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Siege Mastodon",
+    "layout": "normal",
+    "mana_cost": "{4}{W}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Elephant",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "5",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Craw Wurm",
+    "layout": "normal",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Wurm",
+    "oracle_text": "",
+    "power": "6",
+    "toughness": "4",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Colossal Dreadmaw",
+    "layout": "normal",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Dinosaur",
+    "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ]
+  },
+  {
+    "name": "Isamaru, Hound of Konda",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Legendary Creature \u2014 Dog",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ghalta, Primal Hunger",
+    "layout": "normal",
+    "mana_cost": "{10}{G}{G}",
+    "cmc": 12.0,
+    "type_line": "Legendary Creature \u2014 Elder Dinosaur",
+    "oracle_text": "This spell costs {X} less to cast, where X is the total power of creatures you control.\nTrample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+    "power": "12",
+    "toughness": "12",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ]
+  },
+  {
+    "name": "Deathpact Angel",
+    "layout": "normal",
+    "mana_cost": "{3}{W}{B}{B}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Angel",
+    "oracle_text": "Flying\nWhen this creature dies, create a 1/1 white and black Cleric creature token. It has \"{3}{W}{B}{B}, {T}, Sacrifice this token: Return a card named Deathpact Angel from your graveyard to the battlefield.\"",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Memnite",
+    "layout": "normal",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "",
+    "power": "1",
+    "toughness": "1",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Voltaic Key",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{1}, {T}: Untap target artifact.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Platinum Emperion",
+    "layout": "normal",
+    "mana_cost": "{8}",
+    "cmc": 8.0,
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "Your life total can't change. (You can't gain or lose life. You can't pay any amount of life except 0.)",
+    "power": "8",
+    "toughness": "8",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Underworld Breach",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Each nonland card in your graveyard has escape. The escape cost is equal to the card's mana cost plus exile three other cards from your graveyard. (You may cast cards from your graveyard for their escape cost.)\nAt the beginning of the end step, sacrifice this enchantment.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Unsummon",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Return target creature to its owner's hand.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Pull from Eternity",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Put target face-up exiled card into its owner's graveyard.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Plains",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Plains",
+    "oracle_text": "({T}: Add {W}.)",
+    "colors": [],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Smirking Spelljacker",
+    "layout": "normal",
+    "mana_cost": "{4}{U}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Djinn Wizard Rogue",
+    "oracle_text": "Flash\nFlying\nWhen this creature enters, exile target spell an opponent controls.\nWhenever this creature attacks, if a card is exiled with it, you may cast the exiled card without paying its mana cost.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Flash"
+    ]
+  },
+  {
+    "name": "Commit // Memory",
+    "layout": "split",
+    "mana_cost": "{3}{U} // {4}{U}{U}",
+    "cmc": 10.0,
+    "type_line": "Instant // Sorcery",
+    "oracle_text": "Put target spell or nonland permanent into its owner's library second from the top.\n//\nAftermath (Cast this spell only from your graveyard. Then exile it.)\nEach player shuffles their hand and graveyard into their library, then draws seven cards.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Aftermath"
+    ],
+    "card_faces": [
+      {
+        "name": "Commit",
+        "mana_cost": "{3}{U}",
+        "type_line": "Instant",
+        "oracle_text": "Put target spell or nonland permanent into its owner's library second from the top."
+      },
+      {
+        "name": "Memory",
+        "mana_cost": "{4}{U}{U}",
+        "type_line": "Sorcery",
+        "oracle_text": "Aftermath (Cast this spell only from your graveyard. Then exile it.)\nEach player shuffles their hand and graveyard into their library, then draws seven cards."
+      }
+    ]
+  },
+  {
+    "name": "Sea Gate Restoration // Sea Gate, Reborn",
+    "layout": "modal_dfc",
+    "mana_cost": "{4}{U}{U}{U} // ",
+    "cmc": 7.0,
+    "type_line": "Sorcery // Land",
+    "oracle_text": "Draw cards equal to the number of cards in your hand plus one. You have no maximum hand size for the rest of the game.\n//\nAs this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {U}.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Sea Gate Restoration",
+        "mana_cost": "{4}{U}{U}{U}",
+        "type_line": "Sorcery",
+        "oracle_text": "Draw cards equal to the number of cards in your hand plus one. You have no maximum hand size for the rest of the game.",
+        "colors": [
+          "U"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/1/9/193071fe-180b-4d35-ba78-9c16675c29fc.jpg?1783929396",
+          "normal": "https://cards.scryfall.io/normal/front/1/9/193071fe-180b-4d35-ba78-9c16675c29fc.jpg?1783929396",
+          "large": "https://cards.scryfall.io/large/front/1/9/193071fe-180b-4d35-ba78-9c16675c29fc.jpg?1783929396",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/1/9/193071fe-180b-4d35-ba78-9c16675c29fc.jpg?1783929396"
+        }
+      },
+      {
+        "name": "Sea Gate, Reborn",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {U}.",
+        "colors": [],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/1/9/193071fe-180b-4d35-ba78-9c16675c29fc.jpg?1783929396",
+          "normal": "https://cards.scryfall.io/normal/back/1/9/193071fe-180b-4d35-ba78-9c16675c29fc.jpg?1783929396",
+          "large": "https://cards.scryfall.io/large/back/1/9/193071fe-180b-4d35-ba78-9c16675c29fc.jpg?1783929396",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/1/9/193071fe-180b-4d35-ba78-9c16675c29fc.jpg?1783929396"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Ornithopter",
+    "layout": "normal",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "oracle_text": "Flying",
+    "power": "0",
+    "toughness": "2",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ]
+  }
+]

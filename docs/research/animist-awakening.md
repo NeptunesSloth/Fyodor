@@ -1,0 +1,17 @@
+# Animist’s Awakening — exact entered-land references
+
+Canonical eleven-card fixture backend/tests/fixtures/animist_awakening_cards.json copies complete Oracle metadata from current local database.
+
+Oracle: Reveal the top X cards of your library. Put all land cards from among them onto the battlefield tapped and the rest on the bottom of your library in a random order. Spell mastery — If there are two or more instant and/or sorcery cards in your graveyard, untap those lands.
+
+Checks confirmed scripts.parse_effects already returns native look_top(X,revealtrue), pick_looked(allLand,battlefield_tapped), rest_looked(bottom_random). conditions.parse already reads exact spell-mastery predicate as count of Instant-or-Sorcery cards in ownGY>=2 (union count, not one ofeach). No mana/X/payment engine gap.
+
+Parser-only implementation: isolated parse module recognizes this exact two-paragraph shape (with ability-word label), assembles the same native typed effects, annotates its pick_looked with as=awakened_lands; appends native only_if mastery skip1, then native untap who=ref:awakened_lands|<battlefield Land selector>. The filtered-ref spelling is ALREADY SUPPORTED by effects._cards and this_way.filtered; it prevents untapping a replacement destination (DryadArbor exiled by Priest) and keeps only exact new battlefield OIDs. Rest_looked does not overwrite explicitly named pick binding. No production runtime edits: only parser hook and module, with no effect registration.
+
+Spell mastery evaluated after land entry and random-bottom instructions while Awakening itself is still resolving on stack, so Awakening does NOT count as one of the two GY spells. It asks two total Instant/Sorcery cards, not one ofeach. Existing tapped lands outside revealed batch must stay tapped; every newly entered qualifying land untaps, including ones with enter-tapped text (LotusField). Entry replacements and enter costs remain native; do not untap blocked/redirected cards. Entry triggers such as Lotus Field/Amulet wait until spell finishes; their native stack prompts are resolved after own spellmastery step. Simultaneous land entry and persistent as-entry pauses should retain binding and reveal/rest state. X=0 still checks mastery but untaps none.
+
+Tests: actual paid XG cast with exact X reveal; top beyondX left on top, restbottomrandom deterministicreplay; X0; fewerlibrarythanX; allnonlands; two same-type Sorceries in GY qualifies; oneInstant+oneSorcery qualifies; oneGYspell+Awakening onstack doesnot; opponentGYexcluded; oldtappedForest unchanged; basiclandsnewBFuntappedunder mastery; no mastery tapped; LotusField nativeETB/counters etc; DryadArbor+Priestexile no phantomuntap; LakeoftheDead as-entry sacrifice pause roundtrip while saving exact chosen lands; actualAmulet trigger afterwards not mistaken forspellmastery; replay+JSON at every persistent entry choice. Fixture needs duplicate Sorcery/Instant deck copies as needed, not fake Oracle edits.
+
+Thirteen canonical gameplay cases cover these boundaries. Native Scorched Ruins multi-object entry costs remain outside this scope; supported Lake of the Dead exercises a real persistent as-entry cost choice instead. Ordinary Swamp verifies that existing tapped lands are excluded from the exact binding.
+
+Verification: all 125 combined focused and related cases pass, exit 0, including the final thirteen canonical Animist cases. Scoped Ruff and diff checks pass.

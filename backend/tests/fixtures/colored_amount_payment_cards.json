@@ -1,0 +1,132 @@
+[
+  {
+    "name": "Leyline Tyrant",
+    "layout": "normal",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Dragon",
+    "oracle_text": "Flying\nYou don't lose unspent red mana as steps and phases end.\nWhen this creature dies, you may pay any amount of {R}. When you do, it deals that much damage to any target.",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Murder",
+    "layout": "normal",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shock",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Shock deals 2 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Stifle",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Deflecting Palm",
+    "layout": "normal",
+    "mana_cost": "{R}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "The next time a source of your choice would deal damage to you this turn, prevent that damage. If damage is prevented this way, Deflecting Palm deals that much damage to that source's controller.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Dark Ritual",
+    "layout": "normal",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Add {B}{B}{B}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  }
+]

@@ -1,0 +1,562 @@
+[
+  {
+    "name": "Ajani Steadfast",
+    "layout": "normal",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Legendary Planeswalker \u2014 Ajani",
+    "oracle_text": "+1: Until end of turn, up to one target creature gets +1/+1 and gains first strike, vigilance, and lifelink.\n\u22122: Put a +1/+1 counter on each creature you control and a loyalty counter on each other planeswalker you control.\n\u22127: You get an emblem with \"If a source would deal damage to you or a planeswalker you control, prevent all but 1 of that damage.\"",
+    "loyalty": "4",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shield of the Avatar",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "If a source would deal damage to equipped creature, prevent X of that damage, where X is the number of creatures you control.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ]
+  },
+  {
+    "name": "Spore Cloud",
+    "layout": "normal",
+    "mana_cost": "{1}{G}{G}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Tap all blocking creatures. Prevent all combat damage that would be dealt this turn. Each attacking creature and each blocking creature doesn't untap during its controller's next untap step.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Plated Pegasus",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Pegasus",
+    "oracle_text": "Flash (You may cast this spell any time you could cast an instant.)\nFlying\nIf a spell would deal damage to a permanent or player, prevent 1 damage that spell would deal to that permanent or player.",
+    "power": "1",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Flash"
+    ]
+  },
+  {
+    "name": "Well-Laid Plans",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Prevent all damage that would be dealt to a creature by another creature if they share a color.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Bronze Horse",
+    "layout": "normal",
+    "mana_cost": "{7}",
+    "cmc": 7.0,
+    "type_line": "Artifact Creature \u2014 Horse",
+    "oracle_text": "Trample\nAs long as you control another creature, prevent all damage that would be dealt to this creature by spells that target it.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Trample"
+    ]
+  },
+  {
+    "name": "Callous Giant",
+    "layout": "normal",
+    "mana_cost": "{4}{R}{R}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Giant",
+    "oracle_text": "If a source would deal 3 or less damage to this creature, prevent that damage.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Protective Sphere",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "{1}, Pay 1 life: Prevent all damage that would be dealt to you this turn by a source of your choice that shares a color with the mana spent on this activation cost. (Colorless mana prevents no damage.)",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mourner's Shield",
+    "layout": "normal",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "Imprint \u2014 When this artifact enters, you may exile target card from a graveyard.\n{2}, {T}: Prevent all damage that would be dealt this turn by a source of your choice that shares a color with the exiled card.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Imprint"
+    ]
+  },
+  {
+    "name": "Guard Dogs",
+    "layout": "normal",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Dog",
+    "oracle_text": "{2}{W}, {T}: Choose a permanent you control. Prevent all combat damage target creature would deal this turn if it shares a color with that permanent.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Circle of Protection: Shadow",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "{1}: The next time a creature of your choice with shadow would deal damage to you this turn, prevent that damage.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Orim's Touch",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Kicker {1} (You may pay an additional {1} as you cast this spell.)\nPrevent the next 2 damage that would be dealt to any target this turn. If this spell was kicked, prevent the next 4 damage that would be dealt to that permanent or player this turn instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Kicker"
+    ]
+  },
+  {
+    "name": "Elvish Healer",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Elf Cleric",
+    "oracle_text": "{T}: Prevent the next 1 damage that would be dealt to any target this turn. If it's a green creature, prevent the next 2 damage instead.",
+    "power": "1",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Pollen Remedy",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Kicker\u2014Sacrifice a land. (You may sacrifice a land in addition to any other costs as you cast this spell.)\nPrevent the next 3 damage that would be dealt this turn to any number of targets, divided as you choose. If this spell was kicked, prevent the next 6 damage this way instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Kicker"
+    ]
+  },
+  {
+    "name": "Balduvian Hydra",
+    "layout": "normal",
+    "mana_cost": "{X}{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Hydra",
+    "oracle_text": "This creature enters with X +1/+0 counters on it.\nRemove a +1/+0 counter from this creature: Prevent the next 1 damage that would be dealt to it this turn.\n{R}{R}{R}: Put a +1/+0 counter on this creature. Activate only during your upkeep.",
+    "power": "0",
+    "toughness": "1",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shock",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Shock deals 2 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Flame Rift",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Flame Rift deals 4 damage to each player.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Thrashing Wumpus",
+    "layout": "normal",
+    "mana_cost": "{3}{B}{B}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Beast",
+    "oracle_text": "{B}: This creature deals 1 damage to each creature and each player.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Prodigal Pyromancer",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "{T}: This creature deals 1 damage to any target.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Centaur Courser",
+    "layout": "normal",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Centaur Warrior",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Runeclaw Bear",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Furnace of Rath",
+    "layout": "normal",
+    "mana_cost": "{1}{R}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If a source would deal damage to a permanent or player, it deals double that damage to that permanent or player instead.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Double"
+    ]
+  },
+  {
+    "name": "Searing Spear",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Searing Spear deals 3 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Turn to Frog",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, target creature loses all abilities and becomes a blue Frog with base power and toughness 1/1.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Dauthi Marauder",
+    "layout": "normal",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Dauthi Minion",
+    "oracle_text": "Shadow (This creature can block or be blocked by only creatures with shadow.)",
+    "power": "3",
+    "toughness": "1",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Shadow"
+    ]
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mountain",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Mountain",
+    "oracle_text": "({T}: Add {R}.)",
+    "colors": [],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Reverberate",
+    "layout": "normal",
+    "mana_cost": "{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Giant Growth",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rancor",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +2/+0 and has trample.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Ajani, the Greathearted",
+    "layout": "normal",
+    "mana_cost": "{2}{G}{W}",
+    "cmc": 4.0,
+    "type_line": "Legendary Planeswalker \u2014 Ajani",
+    "oracle_text": "Creatures you control have vigilance.\n+1: You gain 3 life.\n\u22122: Put a +1/+1 counter on each creature you control and a loyalty counter on each other planeswalker you control.",
+    "loyalty": "5",
+    "colors": [
+      "G",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Crystal Spray",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Change the text of target spell or permanent by replacing all instances of one color word with another or one basic land type with another until end of turn.\nDraw a card.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Colorful Feiyi Sparrow",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bird",
+    "oracle_text": "Flying (This creature can't be blocked except by creatures with flying or reach.)",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  }
+]

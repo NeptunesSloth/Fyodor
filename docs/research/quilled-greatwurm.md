@@ -1,0 +1,7 @@
+# Quilled Greatwurm: graveyard additional counter cost
+
+The canonical card's graveyard permission requires removing six counters from among creatures its controller controls, in addition to paying the spell's normal costs. This is an additional cost, so ordinary casting timing remains in force and countering the spell does not refund its payment (CR 601.2b, 601.2f–h, 118.8).
+
+The native graveyard permission now normalizes `removing` to `remove`. The additional-cost parser accepts the already typed, fixed positive `REMOVE_COUNTER` component only when it has an explicit permanent selector and `among=True`. Source-self, variable-X, and optional any-number counter costs remain refused. No new payment implementation is used: the existing counter token chooser counts each counter separately, across eligible creatures and kinds, validates the whole payment, then removes exactly the selected counters. Noncreature permanents and opponents' creatures do not qualify.
+
+Canonical fixture metadata comes from the imported Oracle database. Tests cover six counters plus mana, mixed kinds on multiple creatures with a saved pending choice, insufficiency without partial payment, opponent/noncreature exclusions, ordinary hand casting, countering and recasting, sorcery timing, Dress Down not affecting graveyard abilities, and replay/save verification. Existing among-counter activation and graveyard permission suites exercise the reused pipeline.

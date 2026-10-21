@@ -30,7 +30,7 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, to_hand, zone_of
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave34b_cards.json").read_text("utf-8"))
@@ -446,7 +446,7 @@ def test_black_tom_gains_life_only_with_another_mutant(cards):
     tom = put(s, "Black Tom Cassidy")
     next_turn(s)
     activate(s, "p1", tom)
-    assert s.state.players["p1"].mana.get("G") == 1 and life(s) == 40  # he is a Mutant, but not "another"
+    assert mana_pool(s, "p1").get("G") == 1 and life(s) == 40  # he is a Mutant, but not "another"
     put(s, "Cloudfin Raptor")
     act(s, "p1", type="tap", card_ids=[tom.id], tapped=False)
     activate(s, "p1", tom)
@@ -487,7 +487,7 @@ def test_red_death_goads_gives_its_controller_a_card_and_adds_red(cards):
     activate(s, "p1", red_death, targets=[giant.id])
     settle(s)
     assert len(s.state.zones["p2:hand"]) == hand + 1  # "that player": the goaded creature's controller
-    assert s.state.players["p1"].mana.get("R") == 1
+    assert mana_pool(s, "p1").get("R") == 1
     assert "goaded:p1" in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[giant.id]).imposed
     check(s)
 
@@ -668,9 +668,9 @@ def test_jace_does_not_win_with_cards_left(cards):
     check(s)
 
 
-@pytest.mark.parametrize("name", ["Soraya the Falconer", "Asmodeus the Archfiend", "Diaochan, Artful Beauty"])
+@pytest.mark.parametrize("name", ["Asmodeus the Archfiend", "Diaochan, Artful Beauty"])
 def test_still_manual(cards, name):
-    """Banding isn't modelled (Soraya); Asmodeus' "exiled with" link needs the draw replacement to be the exiling ability; (Tinder Wall is FULL since wave 52D: the creature it
+    """Asmodeus' "exiled with" link needs the draw replacement to be the exiling ability; (Tinder Wall is FULL since wave 52D: the creature it
     blocks is its last known information, 608.2b); (Ice Cream Kitty is FULL since wave 50G: "another" covers the token too);
     Diaochan's second target is chosen by an opponent."""
     assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL", name

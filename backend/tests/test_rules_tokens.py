@@ -68,7 +68,6 @@ def test_parse_token_forms(text, expected):
 
 
 @pytest.mark.parametrize("text", [
-    "Create a 1/1 white Knight creature token with banding.",  # a keyword the engine doesn't implement (wave 6C: decayed now is)
     "Create a 1/1 blue Faerie creature token with flying for each spell you cast this turn.",  # (no such count)
     'Create a 1/1 white Human creature token with "{2}: Transform this token."',  # an ability the engine can't run
     "Create a 1/1 green Foo creature token.",  # not a creature type

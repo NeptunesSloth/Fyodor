@@ -1,0 +1,297 @@
+[
+  {
+    "id": "13a4c124-216b-44b1-b49a-3db3f033e4cd",
+    "oracle_id": "00909d51-3da8-41eb-a535-0c325fedc59f",
+    "name": "Summon the School",
+    "layout": "normal",
+    "set_code": "lrw",
+    "set_name": "Lorwyn",
+    "collector_number": "42",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Kindred Sorcery \u2014 Merfolk",
+    "oracle_text": "Create two 1/1 blue Merfolk Wizard creature tokens.\nTap four untapped Merfolk you control: Return this card from your graveyard to your hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-10-12",
+    "artist": "Dave Dorman",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "526da544-23dd-42b8-8c00-c3609eea4489",
+        "name": "Merfolk Wizard",
+        "type_line": "Token Creature \u2014 Merfolk Wizard"
+      }
+    ],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "a8645e4f-eaa8-4420-a6a3-eb53c311fab1",
+    "oracle_id": "9e8de3e1-1159-460f-99b7-1043e5814597",
+    "name": "Whiteout",
+    "layout": "normal",
+    "set_code": "ice",
+    "set_name": "Ice Age",
+    "collector_number": "275",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "All creatures lose flying until end of turn.\nSacrifice a snow land: Return this card from your graveyard to your hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1995-06-03",
+    "artist": "N\u00e9N\u00e9 Thomas",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "5996feb4-02ac-45e8-a7f2-966cf74391dc",
+    "oracle_id": "a1f55890-31c5-4ed4-a2cd-7a4a9f05f8ca",
+    "name": "Reverberate",
+    "layout": "normal",
+    "set_code": "m13",
+    "set_name": "Magic 2013",
+    "collector_number": "145",
+    "rarity": "rare",
+    "mana_cost": "{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2012-07-13",
+    "artist": "jD",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "a360fe4e-c9a6-42fa-a97a-8b5a0c19ef93",
+    "oracle_id": "218d9277-c179-4de3-9c7f-79b5a6d4fa38",
+    "name": "Merfolk of the Pearl Trident",
+    "layout": "normal",
+    "set_code": "m13",
+    "set_name": "Magic 2013",
+    "collector_number": "60",
+    "rarity": "common",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Merfolk",
+    "oracle_text": "",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2012-07-13",
+    "artist": "Ray Lago",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "5e227a63-abea-494e-9d66-6ff0a3da14ca",
+    "oracle_id": "d6ffdaf0-ac08-4de9-bbce-2eab2f86bcca",
+    "name": "Wind Drake",
+    "layout": "normal",
+    "set_code": "kld",
+    "set_name": "Kaladesh",
+    "collector_number": "70",
+    "rarity": "common",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Drake",
+    "oracle_text": "Flying",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2016-09-30",
+    "artist": "Todd Lockwood",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "838c915d-8153-43c2-b513-dfbe4e9388a5",
+    "oracle_id": "5f0d3be8-e63e-4ade-ae58-6b0c14f2ce6d",
+    "name": "Snow-Covered Forest",
+    "layout": "normal",
+    "set_code": "csp",
+    "set_name": "Coldsnap",
+    "collector_number": "155",
+    "rarity": "common",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Snow Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2006-07-21",
+    "artist": "Jim Nelson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "6abf0692-07d1-4b72-af06-93d0e338589d",
+    "oracle_id": "5b2460a5-6ae5-4cad-ba94-1a9e98e6e4c0",
+    "name": "Snow-Covered Island",
+    "layout": "normal",
+    "set_code": "csp",
+    "set_name": "Coldsnap",
+    "collector_number": "152",
+    "rarity": "common",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Snow Land \u2014 Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2006-07-21",
+    "artist": "Franz Vohwinkel",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "390c40ba-2464-44ae-8d67-93c72ab3c425",
+    "oracle_id": "bdb3ca68-ec1f-4e16-81cc-d23f8f52c728",
+    "name": "Naturalize",
+    "layout": "normal",
+    "set_code": "m19",
+    "set_name": "Core Set 2019",
+    "collector_number": "190",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-07-13",
+    "artist": "Daniel Ljunggren",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "90cacb16-c18c-44bb-87b9-267da816f51d",
+        "name": "Wingbane Vantasaur",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7d6fc254-dfdc-425c-9795-ef4e10459b70",
+        "name": "You Line Up the Shot",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  }
+]

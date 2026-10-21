@@ -1,0 +1,398 @@
+{
+  "summary": {
+    "cards": 32068,
+    "levels": {
+      "FULL": 29452,
+      "PARTIAL": 2616
+    },
+    "commanders": 3502,
+    "commanders_full": 3128,
+    "lines": {
+      "supported": 58414,
+      "parsed": 202,
+      "unparsed": 3124
+    },
+    "lines_pct": {
+      "supported": 94.61,
+      "parsed": 0.33,
+      "unparsed": 5.06
+    },
+    "classified_pct": 94.94,
+    "collateral_lines": 196,
+    "non_full_by_blocking_lines": {
+      "1": 2218,
+      "2": 305,
+      "3": 67,
+      "4": 19,
+      "5": 6,
+      "6": 1
+    },
+    "single_family": [
+      {
+        "family": "static_other",
+        "cards": 432,
+        "commanders": 20
+      },
+      {
+        "family": "trigger_other",
+        "cards": 350,
+        "commanders": 49
+      },
+      {
+        "family": "if_you_do",
+        "cards": 264,
+        "commanders": 52
+      },
+      {
+        "family": "counters",
+        "cards": 129,
+        "commanders": 27
+      },
+      {
+        "family": "activated_other",
+        "cards": 111,
+        "commanders": 10
+      },
+      {
+        "family": "this_turn_state",
+        "cards": 108,
+        "commanders": 18
+      },
+      {
+        "family": "attached_events",
+        "cards": 103,
+        "commanders": 3
+      },
+      {
+        "family": "x_value",
+        "cards": 90,
+        "commanders": 9
+      },
+      {
+        "family": "instead",
+        "cards": 79,
+        "commanders": 9
+      },
+      {
+        "family": "as_long_as_static",
+        "cards": 69,
+        "commanders": 8
+      },
+      {
+        "family": "ability_word",
+        "cards": 67,
+        "commanders": 7
+      },
+      {
+        "family": "damage_sized",
+        "cards": 65,
+        "commanders": 9
+      },
+      {
+        "family": "reanimation",
+        "cards": 63,
+        "commanders": 6
+      },
+      {
+        "family": "free_cast",
+        "cards": 43,
+        "commanders": 14
+      },
+      {
+        "family": "unless_pays",
+        "cards": 37,
+        "commanders": 1
+      },
+      {
+        "family": "cost_changer",
+        "cards": 33,
+        "commanders": 5
+      },
+      {
+        "family": "cost_alt",
+        "cards": 31,
+        "commanders": 6
+      },
+      {
+        "family": "control_change",
+        "cards": 27,
+        "commanders": 4
+      },
+      {
+        "family": "saga",
+        "cards": 21,
+        "commanders": 1
+      },
+      {
+        "family": "death_trigger",
+        "cards": 21,
+        "commanders": 4
+      },
+      {
+        "family": "activation_cost",
+        "cards": 17,
+        "commanders": 8
+      },
+      {
+        "family": "cost_self_reduction",
+        "cards": 16,
+        "commanders": 2
+      },
+      {
+        "family": "transform",
+        "cards": 12,
+        "commanders": 3
+      },
+      {
+        "family": "attack_restriction",
+        "cards": 11,
+        "commanders": 2
+      },
+      {
+        "family": "chosen_type",
+        "cards": 11,
+        "commanders": 4
+      },
+      {
+        "family": "kicked_instead",
+        "cards": 9,
+        "commanders": 0
+      },
+      {
+        "family": "token_copy",
+        "cards": 8,
+        "commanders": 1
+      },
+      {
+        "family": "cant_restrictions",
+        "cards": 8,
+        "commanders": 2
+      },
+      {
+        "family": "player_counters",
+        "cards": 8,
+        "commanders": 3
+      },
+      {
+        "family": "face_down",
+        "cards": 8,
+        "commanders": 3
+      },
+      {
+        "family": "attach_on_entry",
+        "cards": 7,
+        "commanders": 1
+      },
+      {
+        "family": "tutor",
+        "cards": 7,
+        "commanders": 0
+      },
+      {
+        "family": "copy_keywords",
+        "cards": 6,
+        "commanders": 2
+      },
+      {
+        "family": "enter_as_copy_other",
+        "cards": 6,
+        "commanders": 1
+      },
+      {
+        "family": "look_top",
+        "cards": 6,
+        "commanders": 3
+      },
+      {
+        "family": "counter_rider",
+        "cards": 4,
+        "commanders": 0
+      },
+      {
+        "family": "cast_restriction",
+        "cards": 3,
+        "commanders": 1
+      },
+      {
+        "family": "enters_untapped_or_tapped",
+        "cards": 1,
+        "commanders": 0
+      },
+      {
+        "family": "mana_rider",
+        "cards": 1,
+        "commanders": 0
+      },
+      {
+        "family": "feature:engine",
+        "cards": 1,
+        "commanders": 0
+      },
+      {
+        "family": "protection_choice",
+        "cards": 1,
+        "commanders": 0
+      },
+      {
+        "family": "untap_rider",
+        "cards": 1,
+        "commanders": 0
+      },
+      {
+        "family": "keyword:cumulative upkeep",
+        "cards": 1,
+        "commanders": 0
+      },
+      {
+        "family": "keyword:splice",
+        "cards": 1,
+        "commanders": 0
+      }
+    ],
+    "multi_family_top": [
+      {
+        "families": "static_other + trigger_other",
+        "cards": 31
+      },
+      {
+        "families": "if_you_do + static_other",
+        "cards": 14
+      },
+      {
+        "families": "damage_sized + static_other",
+        "cards": 11
+      },
+      {
+        "families": "chosen_type + static_other",
+        "cards": 10
+      },
+      {
+        "families": "activated_other + trigger_other",
+        "cards": 10
+      },
+      {
+        "families": "static_other + x_value",
+        "cards": 8
+      },
+      {
+        "families": "free_cast + static_other",
+        "cards": 8
+      },
+      {
+        "families": "activated_other + static_other",
+        "cards": 6
+      },
+      {
+        "families": "instead + static_other",
+        "cards": 6
+      },
+      {
+        "families": "static_other + this_turn_state",
+        "cards": 6
+      },
+      {
+        "families": "as_long_as_static + trigger_other",
+        "cards": 6
+      },
+      {
+        "families": "attached_events + static_other",
+        "cards": 5
+      },
+      {
+        "families": "counters + static_other + trigger_other",
+        "cards": 5
+      },
+      {
+        "families": "as_long_as_static + static_other",
+        "cards": 5
+      },
+      {
+        "families": "if_you_do + trigger_other",
+        "cards": 4
+      },
+      {
+        "families": "counters + x_value",
+        "cards": 4
+      },
+      {
+        "families": "counters + trigger_other",
+        "cards": 4
+      },
+      {
+        "families": "reanimation + static_other",
+        "cards": 4
+      },
+      {
+        "families": "activation_cost + static_other",
+        "cards": 4
+      },
+      {
+        "families": "trigger_other + x_value",
+        "cards": 4
+      },
+      {
+        "families": "counters + static_other",
+        "cards": 4
+      },
+      {
+        "families": "attack_restriction + static_other",
+        "cards": 3
+      },
+      {
+        "families": "counters + instead",
+        "cards": 3
+      },
+      {
+        "families": "cost_changer + trigger_other",
+        "cards": 3
+      },
+      {
+        "families": "free_cast + trigger_other",
+        "cards": 3
+      },
+      {
+        "families": "activation_cost + trigger_other",
+        "cards": 3
+      },
+      {
+        "families": "this_turn_state + trigger_other",
+        "cards": 3
+      },
+      {
+        "families": "keyword:cumulative upkeep + trigger_other",
+        "cards": 3
+      },
+      {
+        "families": "static_other + transform",
+        "cards": 3
+      },
+      {
+        "families": "control_change + if_you_do",
+        "cards": 2
+      }
+    ]
+  },
+  "promotions": [
+    "Anrakyr the Traveller",
+    "Black Widow, Super Spy",
+    "Brine Hag",
+    "Captain Rex Nebula",
+    "Cyclopean Giant",
+    "Dromoka's Command",
+    "Extract Brain",
+    "Glittering Lion",
+    "Glittering Lynx",
+    "Haunted Angel",
+    "Imperiosaur",
+    "In Search of Greatness",
+    "Mistmoon Griffin",
+    "Myr Superion",
+    "Sorcerous Squall",
+    "Talent of the Telepath",
+    "Tangled Colony",
+    "Winds of Qal Sisma"
+  ],
+  "unexpected": [],
+  "missing": [],
+  "losses": []
+}

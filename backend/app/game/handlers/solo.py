@@ -83,6 +83,7 @@ def restart_game(state: GameState, a: A.RestartGame) -> None:
         _reset(state, pid, a.r.get(pid), reset_life=True, draw=a.draw)
     state.turn.number = 1
     state.turn.phase = "untap"
+    state.turn.starting_life = {pid: p.life for pid, p in state.players.items()}
     state.table.monarch = None
     state.table.initiative = None
     state.table.day_night = None

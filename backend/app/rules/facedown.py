@@ -286,8 +286,12 @@ def _exile_hand(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, cards: li
     before = effects._remember(plan, ctx, e, cards)
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"player": pid, "zone": "exile"}, "face_down": True,
-                 "face_down_kind": "exile"}, actor=pid)
+                 "face_down_kind": "exile", "blind": bool(e.get("blind"))}, actor=pid)
         plan.note(f"{plan.name(pid)} exiles {len(cards)} card{'s' if len(cards) != 1 else ''} from their hand face down")
+    if e.get("link"):
+        from app.rules import exiled_with
+
+        exiled_with.record(plan, ctx, cards)
     effects._moved(plan, ctx, e, before)
 
 

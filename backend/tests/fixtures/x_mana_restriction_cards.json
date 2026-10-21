@@ -1,0 +1,486 @@
+[
+  {
+    "name": "Crypt Rats",
+    "layout": "normal",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Rat",
+    "oracle_text": "{X}: This creature deals X damage to each creature and each player. Spend only black mana on X.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Consume Spirit",
+    "layout": "normal",
+    "mana_cost": "{X}{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Spend only black mana on X.\nConsume Spirit deals X damage to any target and you gain X life.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Crimson Hellkite",
+    "layout": "normal",
+    "mana_cost": "{6}{R}{R}{R}",
+    "cmc": 9.0,
+    "type_line": "Creature \u2014 Dragon",
+    "oracle_text": "Flying\n{X}, {T}: This creature deals X damage to target creature. Spend only red mana on X.",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Atalya, Samite Master",
+    "layout": "normal",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Legendary Creature \u2014 Human Cleric",
+    "oracle_text": "{X}, {T}: Choose one \u2014\n\u2022 Prevent the next X damage that would be dealt to target creature this turn. Spend only white mana on X.\n\u2022 You gain X life. Spend only white mana on X.",
+    "power": "2",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Training Grounds",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Activated abilities of creatures you control cost {2} less to activate. This effect can't reduce the mana in that cost to less than one mana.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Jet Medallion",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "Black spells you cast cost {1} less to cast.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Sphere of Resistance",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "Spells cost {1} more to cast.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Trinisphere",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "As long as this artifact is untapped, each spell that would cost less than three mana to cast costs three mana to cast. (Additional mana in the cost may be paid with any color of mana or colorless mana. For example, a spell that would cost {1}{B} to cast costs {2}{B} to cast instead.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "K'rrik, Son of Yawgmoth",
+    "layout": "normal",
+    "mana_cost": "{4}{B/P}{B/P}{B/P}",
+    "cmc": 7.0,
+    "type_line": "Legendary Creature \u2014 Phyrexian Horror Minion",
+    "oracle_text": "({B/P} can be paid with either {B} or 2 life.)\nLifelink\nFor each {B} in a cost, you may pay 2 life rather than pay that mana.\nWhenever you cast a black spell, put a +1/+1 counter on K'rrik.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Lifelink"
+    ]
+  },
+  {
+    "name": "Mycosynth Lattice",
+    "layout": "normal",
+    "mana_cost": "{6}",
+    "cmc": 6.0,
+    "type_line": "Artifact",
+    "oracle_text": "All permanents are artifacts in addition to their other types.\nAll cards that aren't on the battlefield, spells, and permanents are colorless.\nPlayers may spend mana as though it were mana of any color.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Wand of the Worldsoul",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "This artifact enters tapped.\n{T}: Add {W}.\n{T}: The next spell you cast this turn has convoke.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Memnite",
+    "layout": "normal",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Swamp",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Swamp",
+    "oracle_text": "({T}: Add {B}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Island",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mountain",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Mountain",
+    "oracle_text": "({T}: Add {R}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Plains",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Plains",
+    "oracle_text": "({T}: Add {W}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Omniscience",
+    "layout": "normal",
+    "mana_cost": "{7}{U}{U}{U}",
+    "cmc": 10.0,
+    "type_line": "Enchantment",
+    "oracle_text": "You may cast spells from your hand without paying their mana costs.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Counterspell",
+    "layout": "normal",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Dimir Guildgate",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land \u2014 Gate",
+    "oracle_text": "This land enters tapped.\n{T}: Add {U} or {B}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Helm of Awakening",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "Spells cost {1} less to cast.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Fanning the Flames",
+    "layout": "normal",
+    "mana_cost": "{X}{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nFanning the Flames deals X damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Buyback"
+    ]
+  },
+  {
+    "name": "The Tale of Tamiyo",
+    "layout": "saga",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Enchantment \u2014 Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after IV.)\nI, II, III \u2014 Mill two cards. If two cards that share a card type were milled this way, draw a card and repeat this process.\nIV \u2014 Exile any number of target instant, sorcery, and/or Tamiyo planeswalker cards from your graveyard. Copy them. You may cast any number of the copies.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Contentious Plan",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Proliferate"
+    ]
+  },
+  {
+    "name": "Krark-Clan Ironworks",
+    "layout": "normal",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "Sacrifice an artifact: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  }
+]

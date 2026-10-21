@@ -1,0 +1,26 @@
+# Ezuri's Predation: simultaneous captured token fights
+
+Current Oracle: "For each creature your opponents control, create a 4/4 green Phyrexian Beast creature token. Each of those tokens fights a different one of those creatures."
+
+The [official rulings](https://api.scryfall.com/cards/9a6cd6f6-ae6e-4a77-95ca-64c6882357d5/rulings), November 4, 2015, explicitly establish:
+
+- The spell's controller chooses which Beast fights which opposing creature.
+- **Every fight happens simultaneously.**
+- No player can cast spells or activate abilities between token creation and fighting; entry triggers wait until the spell finishes resolving.
+- With Doubling Season or another token multiplier, extra tokens do not fight additional creatures.
+
+Relevant comprehensive rules: 608.2d (choices during resolution), 608.2f (simultaneous actions), 608.2g (no ordinary spells/activations during resolution), 614.16 and 616.1 (token replacements and their order), 701.14a–d (fight), 704.4 (no state-based actions during resolution). The current local CR is 2026-09-25.
+
+The implementation captures the opposing creature **object references** before creating tokens, using the existing selector/layer machinery, excluding phased-out permanents. The token count comes from that captured set, not a later battlefield recount. It creates the entire token batch through `effects.create_token` / `replace.create_token_batch`, with a context binding for all resulting objects and the existing resumable replacement ordering. The existing `note_group` metadata captures the opposing object references before the shared `create_token` primitive. Its ordinary `as` binding captures all replacement-created token objects. A typed `token_fight_pairs` instruction then assigns the two bound groups. Both references use `ref:` so the shared spell-line binding namespace machinery prefixes producers and consumers together.
+
+After creation the controller chooses a one-to-one assignment between at most the original number of captured opponents and distinct created creature tokens. Token multipliers increase the available token choices, not the number of fights. Noncreature token replacements cannot fight (701.14b). If fewer created creatures remain available, choose which captured opposing creatures receive the available fights; otherwise all captured creatures are assigned. Sequential per-opponent fighter choices avoid generating factorially many complete pairings. Persist object IDs, available choices, and selected pairs in the resolution context, validate duplicates on every answer, and make no damage changes until all pairs are chosen. No targets are involved, so hexproof/shroud do not prevent assignments; protection can prevent fight damage normally.
+
+For the actual fights, gather both creatures' current power and damage-source characteristics for **all** pairs before committing damage. Call `effects._deal` once with the full list of both directions' hits. Looping over `effects.fight` would create separate damage events and must not be used. The shared damage choke point already handles protection, lifelink, deathtouch, wither, damage replacements, and resumable replacement ordering. Cache completed pair selections so a replacement-order rerun does not ask for assignments again. Validate battlefield/object identity and creature status per pair under 701.14b.
+
+Verified gameplay coverage (11 focused tests, plus 69 existing token replacement/provenance regressions): no opposing creatures; several opponents and exclusion of own creatures; explicit cross-pairing; captured set fixed before token entry; all damage sharing one simultaneous batch; shroud/hexproof assignments; protection prevention; deathtouch/lifelink; token multipliers with exactly the original number of fights and unassigned extras; token replacement (e.g. Divine Visitation); replacement-order interruption; save/load and replay at assignment decisions; no priority or entry-trigger resolution between creation and fighting.
+
+Additional-type token replacements such as Chatterfang deserve an explicit fixture: the existing token choke point binds every resulting token, including replacement-created satellites. Its documented rule is that later instructions apply to both original tokens and added tokens. The numerical cap still comes from captured opposing creatures, so no extra fight is allowed. Do not filter the created binding by the original token name, because Divine Visitation's Angels must still be eligible.
+
+The Vigor plus Furnace of Rath scenario pauses for damage replacement ordering after every pair is chosen: no fight damage or counters are applied yet. It then doubles damage before Vigor prevention, places eight counters, and completes all fights together without asking for pair assignments again. Each of four opposing-direction creature damage facts shares the same batch in the simultaneous-fight scenario. All pairing and replacement decisions are checked for replay and JSON save/load.
+
+Research artifacts: `/tmp/fyodor-ezuri-predation-oracle.json`, `/tmp/fyodor-ezuri-predation-rulings.json`. Research was completed without application edits during the central inventory freeze; implementation began after the parent released that freeze.

@@ -30,9 +30,12 @@ def phase_out(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def untap_step(plan: Plan, player: str) -> None:
     """702.26a: before ``player`` untaps, their phased-in permanents with phasing phase out and, simultaneously, the
     permanents that phased out under their control phase in (the ones phased out indirectly come along with their host)."""
+    from app.rules import phase_lifetimes43
+
     state = plan.state
     out = [c for c in state.zones.get(zone_key(player, "battlefield"), []) if "phasing" in plan.ch(state.cards[c]).keywords]
-    back = [c for c in state.zones.get(zone_key(player, "phased"), []) if not state.cards[c].phased_indirect]
+    back = [c for c in state.zones.get(zone_key(player, "phased"), [])
+            if not state.cards[c].phased_indirect and not phase_lifetimes43.held(plan, c)]
     if back:
         from app.game.rules_state import emit
 

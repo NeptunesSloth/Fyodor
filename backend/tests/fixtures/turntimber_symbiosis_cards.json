@@ -1,0 +1,188 @@
+[
+  {
+    "name": "Turntimber Symbiosis // Turntimber, Serpentine Wood",
+    "mana_cost": "{4}{G}{G}{G} // ",
+    "cmc": 7.0,
+    "type_line": "Sorcery // Land",
+    "oracle_text": "Look at the top seven cards of your library. You may put a creature card from among them onto the battlefield. If that card has mana value 3 or less, it enters with three additional +1/+1 counters on it. Put the rest on the bottom of your library in a random order.\n//\nAs this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {G}.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "modal_dfc",
+    "card_faces": [
+      {
+        "name": "Turntimber Symbiosis",
+        "mana_cost": "{4}{G}{G}{G}",
+        "type_line": "Sorcery",
+        "oracle_text": "Look at the top seven cards of your library. You may put a creature card from among them onto the battlefield. If that card has mana value 3 or less, it enters with three additional +1/+1 counters on it. Put the rest on the bottom of your library in a random order.",
+        "colors": [
+          "G"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/4/d/4da2428b-bc93-4612-a59e-eb0f8ac9f080.jpg?1783929095",
+          "normal": "https://cards.scryfall.io/normal/front/4/d/4da2428b-bc93-4612-a59e-eb0f8ac9f080.jpg?1783929095",
+          "large": "https://cards.scryfall.io/large/front/4/d/4da2428b-bc93-4612-a59e-eb0f8ac9f080.jpg?1783929095",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/4/d/4da2428b-bc93-4612-a59e-eb0f8ac9f080.jpg?1783929095"
+        }
+      },
+      {
+        "name": "Turntimber, Serpentine Wood",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {G}.",
+        "colors": [],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/4/d/4da2428b-bc93-4612-a59e-eb0f8ac9f080.jpg?1783929095",
+          "normal": "https://cards.scryfall.io/normal/back/4/d/4da2428b-bc93-4612-a59e-eb0f8ac9f080.jpg?1783929095",
+          "large": "https://cards.scryfall.io/large/back/4/d/4da2428b-bc93-4612-a59e-eb0f8ac9f080.jpg?1783929095",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/4/d/4da2428b-bc93-4612-a59e-eb0f8ac9f080.jpg?1783929095"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Centaur Courser",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Centaur Warrior",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Llanowar Elves",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Ravenous Chupacabra",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Beast Horror",
+    "oracle_text": "When this creature enters, destroy target creature an opponent controls.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Walking Ballista",
+    "mana_cost": "{X}{X}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "This creature enters with X +1/+1 counters on it.\n{4}: Put a +1/+1 counter on this creature.\nRemove a +1/+1 counter from this creature: It deals 1 damage to any target.",
+    "power": "0",
+    "toughness": "0",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Doubling Season",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Solemnity",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Containment Priest",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Cleric",
+    "oracle_text": "Flash\nIf a nontoken creature would enter and it wasn't cast, exile it instead.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Grafdigger's Cage",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "Creature cards in graveyards and libraries can't enter the battlefield.\nPlayers can't cast spells from graveyards or libraries.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  }
+]

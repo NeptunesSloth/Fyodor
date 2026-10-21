@@ -1,0 +1,204 @@
+[
+  {
+    "name": "Mutational Advantage",
+    "layout": "normal",
+    "mana_cost": "{1}{G}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Permanents you control with counters on them gain hexproof and indestructible until end of turn. Prevent all damage that would be dealt to those permanents this turn. Proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [
+      "Proliferate"
+    ]
+  },
+  {
+    "name": "Wall of Stone",
+    "layout": "normal",
+    "mana_cost": "{1}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Wall",
+    "oracle_text": "Defender (This creature can't attack.)",
+    "power": "0",
+    "toughness": "8",
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Defender"
+    ]
+  },
+  {
+    "name": "Fortress Crab",
+    "layout": "normal",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Crab",
+    "oracle_text": "",
+    "power": "1",
+    "toughness": "6",
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Shock",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Shock deals 2 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Pyroclasm",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Pyroclasm deals 2 damage to each creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ghostly Flicker",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile two target artifacts, creatures, and/or lands you control, then return those cards to the battlefield under your control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Murder",
+    "layout": "normal",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Skullcrack",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Players can't gain life this turn. Damage can't be prevented this turn. Skullcrack deals 3 damage to target player or planeswalker.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Solemnity",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Scheming Aspirant",
+    "layout": "normal",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Phyrexian Advisor",
+    "oracle_text": "Whenever you proliferate, each opponent loses 2 life and you gain 2 life.",
+    "power": "1",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Proliferate"
+    ]
+  }
+]

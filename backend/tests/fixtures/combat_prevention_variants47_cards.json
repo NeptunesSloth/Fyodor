@@ -1,0 +1,72 @@
+[
+  {
+    "name": "Dromoka's Command",
+    "mana_cost": "{G}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose two \u2014\n\u2022 Prevent all damage target instant or sorcery spell would deal this turn.\n\u2022 Target player sacrifices an enchantment of their choice.\n\u2022 Put a +1/+1 counter on target creature.\n\u2022 Target creature you control fights target creature you don't control.",
+    "colors": [
+      "G",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "keywords": [
+      "Fight"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Winds of Qal Sisma",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Prevent all combat damage that would be dealt this turn.\nFerocious \u2014 If you control a creature with power 4 or greater, instead prevent all combat damage that would be dealt this turn by creatures your opponents control.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Ferocious"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Glittering Lynx",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Cat",
+    "oracle_text": "Prevent all damage that would be dealt to this creature.\n{2}: Until end of turn, this creature loses \"Prevent all damage that would be dealt to this creature.\" Any player may activate this ability.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Glittering Lion",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Cat",
+    "oracle_text": "Prevent all damage that would be dealt to this creature.\n{3}: Until end of turn, this creature loses \"Prevent all damage that would be dealt to this creature.\" Any player may activate this ability.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  }
+]

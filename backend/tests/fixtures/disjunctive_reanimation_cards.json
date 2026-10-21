@@ -1,0 +1,51 @@
+[
+  {
+    "name": "Overlord of the Balemurk",
+    "oracle_text": "Impending 5\u2014{1}{B} (If you cast this spell for its impending cost, it enters with five time counters and isn't a creature until the last is removed. At the beginning of your end step, remove a time counter from it.)\nWhenever this permanent enters or attacks, mill four cards, then you may return a non-Avatar creature card or a planeswalker card from your graveyard to your hand.",
+    "type_line": "Enchantment Creature \u2014 Avatar Horror",
+    "mana_cost": "{3}{B}{B}",
+    "power": "5",
+    "toughness": "5",
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal"
+  },
+  {
+    "name": "Serra Avatar",
+    "oracle_text": "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from anywhere, shuffle it into its owner's library.",
+    "type_line": "Creature \u2014 Avatar",
+    "mana_cost": "{4}{W}{W}{W}",
+    "power": "*",
+    "toughness": "*",
+    "layout": "normal"
+  },
+  {
+    "name": "Gideon Jura",
+    "oracle_text": "+2: During target opponent's next turn, creatures that player controls attack Gideon Jura if able.\n\u22122: Destroy target tapped creature.\n0: Until end of turn, Gideon Jura becomes a 6/6 Human Soldier creature that's still a planeswalker. Prevent all damage that would be dealt to him this turn.",
+    "type_line": "Legendary Planeswalker \u2014 Gideon",
+    "mana_cost": "{3}{W}{W}",
+    "loyalty": "6",
+    "layout": "normal"
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal"
+  },
+  {
+    "name": "Rest in Peace",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{1}{W}",
+    "layout": "normal"
+  }
+]

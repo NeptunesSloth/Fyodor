@@ -1,0 +1,457 @@
+[
+  {
+    "name": "Drana and Linvala",
+    "layout": "normal",
+    "mana_cost": "{1}{W}{W}{B}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Vampire Angel",
+    "oracle_text": "Flying, vigilance\nActivated abilities of creatures your opponents control can't be activated.\nDrana and Linvala has all activated abilities of all creatures your opponents control. You may spend mana as though it were mana of any color to activate those abilities.",
+    "power": "3",
+    "toughness": "4",
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Vigilance"
+    ]
+  },
+  {
+    "name": "Llanowar Elves",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Goblin Fireslinger",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Goblin Warrior",
+    "oracle_text": "{T}: This creature deals 1 damage to target player or planeswalker.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cudgel Troll",
+    "layout": "normal",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Troll",
+    "oracle_text": "{G}: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+    "power": "4",
+    "toughness": "3",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Heal",
+      "Regenerate"
+    ]
+  },
+  {
+    "name": "Paradise Mantle",
+    "layout": "normal",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature has \"{T}: Add one mana of any color.\"\nEquip {1}",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ]
+  },
+  {
+    "name": "Pemmin's Aura",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\n{U}: Untap enchanted creature.\n{U}: Enchanted creature gains flying until end of turn.\n{U}: Enchanted creature gains shroud until end of turn. (It can't be the target of spells or abilities.)\n{1}: Enchanted creature gets +1/-1 or -1/+1 until end of turn.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Darksteel Mutation",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Witness Protection",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature loses all abilities and is a green and white Citizen creature with base power and toughness 1/1 named Legitimate Businessperson. (It loses all other colors, card types, creature types, and names.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Experiment Kraj",
+    "layout": "normal",
+    "mana_cost": "{2}{G}{G}{U}{U}",
+    "cmc": 6.0,
+    "type_line": "Legendary Creature \u2014 Ooze Mutant",
+    "oracle_text": "Experiment Kraj has all activated abilities of each other creature with a +1/+1 counter on it.\n{T}: Put a +1/+1 counter on target creature.",
+    "power": "4",
+    "toughness": "6",
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Necrotic Ooze",
+    "layout": "normal",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Ooze",
+    "oracle_text": "As long as this creature is on the battlefield, it has all activated abilities of all creature cards in all graveyards.",
+    "power": "4",
+    "toughness": "3",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Marvin, Murderous Mimic",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Legendary Artifact Creature \u2014 Toy",
+    "oracle_text": "Marvin has all activated abilities of creatures you control that don't have the same name as this creature.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Quicksilver Elemental",
+    "layout": "normal",
+    "mana_cost": "{3}{U}{U}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Elemental",
+    "oracle_text": "{U}: This creature gains all activated abilities of target creature until end of turn. (If any of the abilities use that creature's name, use this creature's name instead.)\nYou may spend blue mana as though it were mana of any color to pay the activation costs of this creature's abilities.",
+    "power": "3",
+    "toughness": "4",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Agatha's Soul Cauldron",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Legendary Artifact",
+    "oracle_text": "You may spend mana as though it were mana of any color to activate abilities of creatures you control.\nCreatures you control with +1/+1 counters on them have all activated abilities of all creature cards exiled with Agatha's Soul Cauldron.\n{T}: Exile target card from a graveyard. When a creature card is exiled this way, put a +1/+1 counter on target creature you control.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Walking Ballista",
+    "layout": "normal",
+    "mana_cost": "{X}{X}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "This creature enters with X +1/+1 counters on it.\n{4}: Put a +1/+1 counter on this creature.\nRemove a +1/+1 counter from this creature: It deals 1 damage to any target.",
+    "power": "0",
+    "toughness": "0",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Devoted Druid",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.\nPut a -1/-1 counter on this creature: Untap this creature.",
+    "power": "0",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mikaeus, the Lunarch",
+    "layout": "normal",
+    "mana_cost": "{X}{W}",
+    "cmc": 1.0,
+    "type_line": "Legendary Creature \u2014 Human Cleric",
+    "oracle_text": "Mikaeus enters with X +1/+1 counters on it.\n{T}: Put a +1/+1 counter on Mikaeus.\n{T}, Remove a +1/+1 counter from Mikaeus: Put a +1/+1 counter on each other creature you control.",
+    "power": "0",
+    "toughness": "0",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Royal Assassin",
+    "layout": "normal",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Assassin",
+    "oracle_text": "{T}: Destroy target tapped creature.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Goblin Welder",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Goblin Artificer",
+    "oracle_text": "{T}: Choose target artifact a player controls and target artifact card in that player's graveyard. If both targets are still legal as this ability resolves, that player simultaneously sacrifices the artifact and returns the artifact card to the battlefield.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Dress Down",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Flash\nWhen this enchantment enters, draw a card.\nCreatures lose all abilities.\nAt the beginning of the end step, sacrifice this enchantment.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flash"
+    ]
+  },
+  {
+    "name": "Humble",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, target creature loses all abilities and has base power and toughness 0/1.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Linvala, Keeper of Silence",
+    "layout": "normal",
+    "mana_cost": "{2}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Angel",
+    "oracle_text": "Flying\nActivated abilities of creatures your opponents control can't be activated.",
+    "power": "3",
+    "toughness": "4",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Dragon Mantle",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature has \"{R}: This creature gets +1/+0 until end of turn.\"",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Orochi Leafcaller",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Snake Shaman",
+    "oracle_text": "{G}: Add one mana of any color.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Fate Transfer",
+    "layout": "normal",
+    "mana_cost": "{1}{U/B}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Move all counters from target creature onto another target creature.",
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Freed from the Real",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\n{U}: Tap enchanted creature.\n{U}: Untap enchanted creature.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Moltensteel Dragon",
+    "layout": "normal",
+    "mana_cost": "{4}{R/P}{R/P}",
+    "cmc": 6.0,
+    "type_line": "Artifact Creature \u2014 Phyrexian Dragon",
+    "oracle_text": "({R/P} can be paid with either {R} or 2 life.)\nFlying\n{R/P}: This creature gets +1/+0 until end of turn.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Angel of Jubilation",
+    "layout": "normal",
+    "mana_cost": "{1}{W}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Angel",
+    "oracle_text": "Flying\nOther nonblack creatures you control get +1/+1.\nPlayers can't pay life or sacrifice creatures to cast spells or activate abilities.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  }
+]

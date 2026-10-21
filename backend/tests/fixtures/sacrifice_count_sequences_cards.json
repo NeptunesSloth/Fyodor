@@ -1,0 +1,134 @@
+[
+  {
+    "name": "Pitiless Carnage",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Sacrifice any number of permanents you control, then draw that many cards.\nPlot {1}{B}{B} (You may pay {1}{B}{B} and exile this card from your hand. Cast it as a sorcery on a later turn without paying its mana cost. Plot only as a sorcery.)",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Plot"
+    ]
+  },
+  {
+    "name": "Malevolent Witchkite",
+    "mana_cost": "{4}{B}{B}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Dragon Warlock",
+    "oracle_text": "Flying\nWhen this creature enters, sacrifice any number of artifacts, enchantments, and/or tokens, then draw that many cards.",
+    "power": "5",
+    "toughness": "4",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Lich-Knights' Conquest",
+    "mana_cost": "{4}{B}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Sacrifice any number of artifacts, enchantments, and/or tokens. Return that many creature cards from your graveyard to the battlefield.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rest in Peace",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Glorious Anthem",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures you control get +1/+1.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Ornithopter",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "oracle_text": "Flying",
+    "power": "0",
+    "toughness": "2",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Sakura-Tribe Elder",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Snake Shaman",
+    "oracle_text": "Sacrifice this creature: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Blood Artist",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Vampire",
+    "oracle_text": "Whenever this creature or another creature dies, target player loses 1 life and you gain 1 life.",
+    "power": "0",
+    "toughness": "1",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  }
+]

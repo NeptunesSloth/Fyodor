@@ -1,0 +1,363 @@
+[
+  {
+    "name": "Hinder",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell. If that spell is countered this way, put that card on your choice of the top or bottom of its owner's library instead of into that player's graveyard.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Power of Persuasion",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose target creature an opponent controls, then roll a d20.\n1\u20149 | Return it to its owner's hand.\n10\u201419 | Its owner puts it on their choice of the top or bottom of their library.\n20 | Gain control of it until the end of your next turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Memory Lapse",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell. If that spell is countered this way, put it on top of its owner's library instead of into that player's graveyard.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Spell Crumple",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell. If that spell is countered this way, put it on the bottom of its owner's library instead of into that player's graveyard. Put Spell Crumple on the bottom of its owner's library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Dissipate",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell. If that spell is countered this way, exile it instead of putting it into its owner's graveyard.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Carnage Tyrant",
+    "layout": "normal",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Dinosaur",
+    "oracle_text": "This spell can't be countered.\nTrample, hexproof",
+    "power": "7",
+    "toughness": "6",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Hexproof",
+      "Trample"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Think Twice",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Draw a card.\nFlashback {2}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flashback"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Krenko, Mob Boss",
+    "layout": "normal",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Goblin Warrior",
+    "oracle_text": "{T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Commandeer",
+    "layout": "normal",
+    "mana_cost": "{5}{U}{U}",
+    "cmc": 7.0,
+    "type_line": "Instant",
+    "oracle_text": "You may exile two blue cards from your hand rather than pay this spell's mana cost.\nGain control of target noncreature spell. You may choose new targets for it. (If that spell is an artifact, enchantment, or planeswalker, the permanent enters under your control.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Pixie Guide",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Faerie",
+    "oracle_text": "Flying\nGrant an Advantage \u2014 If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.",
+    "power": "1",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Barbarian Class",
+    "layout": "class",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Enchantment \u2014 Class",
+    "oracle_text": "(Gain the next level as a sorcery to add its ability.)\nIf you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.\n{1}{R}: Level 2\nWhenever you roll one or more dice, target creature you control gets +2/+0 and gains menace until end of turn.\n{2}{R}: Level 3\nCreatures you control have haste.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Act of Treason",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn. (It can attack and {T} this turn.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Stifle",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Reanimate",
+    "layout": "normal",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card's mana value.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Atraxa, Praetors' Voice",
+    "layout": "normal",
+    "mana_cost": "{G}{W}{U}{B}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Phyrexian Angel Horror",
+    "oracle_text": "Flying, vigilance, deathtouch, lifelink\nAt the beginning of your end step, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "colors": [
+      "B",
+      "G",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Deathtouch",
+      "Flying",
+      "Lifelink",
+      "Vigilance",
+      "Proliferate"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Counterspell",
+    "layout": "normal",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  }
+]

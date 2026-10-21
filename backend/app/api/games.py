@@ -29,7 +29,7 @@ from app.assistant import AssistantUnavailable, build_context
 from app.decks import archidekt
 from app.decks import service as deck_service
 from app.decks.models import DeckEntry, DeckImportRequest, DeckIn
-from app.decks.parser import DeckTextTooLarge
+from app.decks.parser import DeckTextTooLarge, format_deck_text
 from app.decks.repository import DeckNotFound
 from app.game import actions as A
 from app.game.errors import ActionError
@@ -37,7 +37,7 @@ from app.game.factory import DeckCard, PlayerSetup, new_game
 from app.game.mulligan import resolve_policy
 from app.game.rules_state import AUTOMATION_PRESETS, AutomationLevel, start_rules
 from app.game.session import GameSession
-from app.game.state import GameSettings, MulliganPolicy
+from app.game.state import CollectionCard, GameSettings, MulliganPolicy
 from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room
@@ -571,6 +571,9 @@ class LobbyDeckIn(BaseModel):
         default=None, max_length=64
     )  # a deck in the host's library (host computer only)
 
+    collection: list[DeckEntry] = Field(default_factory=list, max_length=20000)
+    companion_id: str | None = Field(default=None, max_length=64)
+
     model_config = {"populate_by_name": True}
 
 
@@ -692,6 +695,12 @@ def _submitted(
         warnings=warnings,
         coverage=levels,
         commander_ids=commander_ids,
+        offline={"name": clean_text(name, 120) or "Deck",
+                 "text": format_deck_text([e.model_dump() for e in entries]),
+                 "entries": [e.model_dump() for e in entries],
+                 "commanders": [c.name for c in cards if c.section == "commander"],
+                 "companions": [{"name": cd["name"], "printing_id": cid} for cid, cd in card_data.items()
+                                if commander_rules.companion_condition(cd.get("oracle_text")) is not None]},
     )
 
 
@@ -742,6 +751,101 @@ def _import_for_lobby(services: Services, body: LobbyDeckIn, local: bool) -> Sub
     )
 
 
+def _bind_collection(services: Services, deck: SubmittedDeck, body: LobbyDeckIn, fmt: str,
+                     existing: list[CollectionCard] | None = None) -> None:
+    entries = deck_service.resolve_entries([e for e in body.collection if e.section not in ("tokens", "maybeboard")], services.cards)
+    data = services.cards.get_many([e.printing_id for e in entries if e.printing_id])
+    owned: dict[str, CollectionCard] = {c.oracle_id: c.model_copy(deep=True) for c in existing or []} if "collection" not in body.model_fields_set else {}
+    for entry in entries:
+        cd = data.get(entry.printing_id or "")
+        if cd is None or cd.get("is_token"):
+            raise HTTPException(422, "The collection contains unresolved cards; import those decks again")
+        oid = cd["oracle_id"]
+        if oid in owned:
+            owned[oid].quantity += entry.quantity
+        else:
+            owned[oid] = CollectionCard(printing_id=cd["id"], oracle_id=oid, name=cd["name"], quantity=entry.quantity)
+    if body.companion_id:
+        requested = services.cards.get(body.companion_id)
+        chosen = owned.get(requested["oracle_id"]) if requested else None
+        if chosen is None:
+            raise HTTPException(422, "Choose a companion from your imported collection")
+        cd = services.cards.get(chosen.printing_id)
+        if cd is None:
+            raise HTTPException(422, "Import that companion again to resolve its card definition")
+        starting = [c for c in deck.cards if c.section in ("main", "commander")]
+        starting_data = services.cards.get_many([c.printing_id for c in starting if c.printing_id])
+        if any(c.printing_id is None for c in starting):
+            raise HTTPException(422, "Resolve your starting deck before choosing a companion")
+        why = commander_rules.companion_problem(cd, [starting_data[c.printing_id] for c in starting if c.printing_id for _ in range(c.quantity)])
+        if why:
+            raise HTTPException(422, why)
+        if fmt == "commander" and (cd.get("commander_legal") != "legal"
+                or not set(cd.get("color_identity") or []) <= set(deck.color_identity)
+                or any(c.name == chosen.name for c in starting)):
+            raise HTTPException(422, "That companion does not meet Commander color identity, legality, or singleton rules")
+        deck.cards = [c for c in deck.cards if c.section != "companion"]
+        deck.cards.append(DeckCard("companion", 1, chosen.name, chosen.printing_id))
+        deck.card_count = sum(c.quantity for c in deck.cards if c.section in ("main", "commander", "companion"))
+    deck.collection = list(owned.values())
+
+
+class CollectionIn(BaseModel):
+    collection: list[DeckEntry] = Field(max_length=20000)
+
+
+@router.post("/games/{game_id}/lobby/collection")
+async def sync_collection(game_id: str, body: CollectionIn, services: ServicesDep,
+                          x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    room = _lobby_room(services, game_id)
+    viewer, host = _lobby_who(room, x_seat_token)
+    resolved = SubmittedDeck(name="Collection", cards=[], commanders=[], color_identity=[], card_count=0)
+    await run_in_threadpool(_bind_collection, services, resolved, LobbyDeckIn(collection=body.collection),
+                            (room.lobby or LobbySettings()).format)
+    async with room.lock:
+        if room.started or room.seat_for_token(x_seat_token) != viewer:
+            raise HTTPException(409, "Your seat changed while the collection was loading")
+        info = room.lobby_seats.setdefault(viewer, LobbySeatInfo())
+        if info.collection != resolved.collection:
+            info.collection = resolved.collection
+            if info.deck is not None:
+                info.deck.collection = list(resolved.collection)
+            info.ready = False
+    await _lobby_changed(services, room)
+    return _lobby_response(room, viewer, host)
+
+
+@router.get("/games/{game_id}/collection")
+def own_collection(game_id: str, request: Request, response: Response, services: ServicesDep,
+                   x_seat_token: Annotated[str | None, Header()] = None, viewer: str | None = None) -> list[dict[str, Any]]:
+    room = _room(services, game_id)
+    who, _ = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=viewer, as_player=None)
+    # CR 723.4: a controller of this player never inherits access to their outside cards.
+    response.headers["Cache-Control"] = "private, no-store"
+    return [c.model_dump() for c in room.session.state.collections.get(who, [])]
+
+
+@router.post("/games/{game_id}/lobby/import")
+async def import_personal_deck(game_id: str, body: LobbyDeckIn, request: Request, services: ServicesDep,
+                               x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """Resolve a personal import without replacing the selected deck or publishing its contents."""
+    room = _lobby_room(services, game_id)
+    viewer, _ = _lobby_who(room, x_seat_token)
+    info = room.lobby_seats.setdefault(viewer, LobbySeatInfo())
+    if body.archidekt:
+        now = time.monotonic()
+        if now - info.last_fetch < ARCHIDEKT_COOLDOWN:
+            raise HTTPException(429, "Wait a moment before fetching another deck", headers={"Retry-After": str(ARCHIDEKT_COOLDOWN)})
+        info.last_fetch = now
+    try:
+        deck = await run_in_threadpool(_import_for_lobby, services, body, is_local_request(request))
+    except DeckTooLarge as exc:
+        raise HTTPException(413, str(exc)) from exc
+    if room.started or room.seat_for_token(x_seat_token) != viewer:
+        raise HTTPException(409, "Your seat changed while the deck was loading")
+    return deck.offline
+
+
 @router.post("/games/{game_id}/lobby/deck")
 async def submit_deck(
     game_id: str,
@@ -761,6 +865,7 @@ async def submit_deck(
         info.last_fetch = now
     try:
         deck = await run_in_threadpool(_import_for_lobby, services, body, is_local_request(request))
+        await run_in_threadpool(_bind_collection, services, deck, body, (room.lobby or LobbySettings()).format, info.collection)
     except DeckTooLarge as exc:
         raise HTTPException(413, str(exc)) from exc
     async with room.lock:
@@ -768,6 +873,7 @@ async def submit_deck(
             raise HTTPException(409, "Your seat changed while the deck was loading")
         info = room.lobby_seats.setdefault(viewer, LobbySeatInfo())
         info.deck = deck
+        info.collection = list(deck.collection)
         info.ready = False
     await _lobby_changed(services, room)
     return _lobby_response(room, viewer, host)
@@ -927,6 +1033,7 @@ async def start_game(
                     color=info.color,
                     deck_name=deck.name if deck else None,
                     cards=list(deck.cards) if deck else [],
+                    collection=list(info.collection),
                 )
             )
         first: int | None = None

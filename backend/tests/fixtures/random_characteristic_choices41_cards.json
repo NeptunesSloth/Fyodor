@@ -1,0 +1,306 @@
+[
+  {
+    "name": "Outlaws' Merriment",
+    "mana_cost": "{1}{R}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, choose one at random. Create a red and white creature token with those characteristics.\n\u2022 3/1 Human Warrior with trample and haste.\n\u2022 2/1 Human Cleric with lifelink and haste.\n\u2022 1/2 Human Rogue with haste and \"When this token enters, it deals 1 damage to any target.\"",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Molten Sentry",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Elemental",
+    "oracle_text": "As this creature enters, flip a coin. If the coin comes up heads, this creature enters as a 5/2 creature with haste. If it comes up tails, this creature enters as a 2/5 creature with defender.",
+    "power": "*",
+    "toughness": "*",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ydwen Efreet",
+    "mana_cost": "{R}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Efreet",
+    "oracle_text": "Whenever this creature blocks, flip a coin. If you lose the flip, remove this creature from combat and it can't block this turn. Creatures it was blocking that had become blocked by only this creature this combat become unblocked.",
+    "power": "3",
+    "toughness": "6",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Krark's Thumb",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Legendary Artifact",
+    "oracle_text": "If you would flip a coin, instead flip two coins and ignore one.",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Entangler",
+    "mana_cost": "{2}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature can block any number of creatures.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Parallel Lives",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Strionic Resonator",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{2}, {T}: Copy target triggered ability you control. You may choose new targets for the copy. (A triggered ability uses the words \"when,\" \"whenever,\" or \"at.\")",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Clone",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Shapeshifter",
+    "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield.",
+    "power": "0",
+    "toughness": "0",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cytoshape",
+    "mana_cost": "{1}{G}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose a nonlegendary creature on the battlefield. Target creature becomes a copy of that creature until end of turn.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cloudshift",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Authority of the Consuls",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures your opponents control enter tapped.\nWhenever a creature an opponent controls enters, you gain 1 life.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Humility",
+    "mana_cost": "{2}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "All creatures lose all abilities and have base power and toughness 1/1.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mirrorweave",
+    "mana_cost": "{2}{W/U}{W/U}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Each other creature becomes a copy of target nonlegendary creature until end of turn.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cackling Counterpart",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Create a token that's a copy of target creature you control.\nFlashback {5}{U}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flashback"
+    ]
+  },
+  {
+    "name": "Renata, Called to the Hunt",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Legendary Enchantment Creature \u2014 Demigod",
+    "oracle_text": "Renata's power is equal to your devotion to green. (Each {G} in the mana costs of permanents you control counts toward your devotion to green.)\nEach other creature you control enters with an additional +1/+1 counter on it.",
+    "power": "*",
+    "toughness": "3",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Hardened Scales",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Doubling Season",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Chance Encounter",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever you win a coin flip, put a luck counter on this enchantment.\nAt the beginning of your upkeep, if this enchantment has ten or more luck counters on it, you win the game.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Disenchant",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  }
+]

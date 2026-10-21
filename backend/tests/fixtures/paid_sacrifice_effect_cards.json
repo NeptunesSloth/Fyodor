@@ -1,0 +1,881 @@
+[
+  {
+    "name": "Pyre of Heroes",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{2}, {T}, Sacrifice a creature: Search your library for a creature card that shares a creature type with the sacrificed creature and has mana value equal to 1 plus that creature's mana value. Put that card onto the battlefield, then shuffle. Activate only as a sorcery.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Soldevi Adnate",
+    "layout": "normal",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Cleric",
+    "oracle_text": "{T}, Sacrifice a black or artifact creature: Add an amount of {B} equal to the sacrificed creature's mana value.",
+    "power": "1",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Anchor to Reality",
+    "layout": "normal",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice an artifact or creature.\nSearch your library for an Equipment or Vehicle card, put that card onto the battlefield, then shuffle. If it has mana value less than the sacrificed permanent's mana value, scry 2.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Scry"
+    ]
+  },
+  {
+    "name": "Baba Lysaga, Night Witch",
+    "layout": "normal",
+    "mana_cost": "{1}{B}{G}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Warlock",
+    "oracle_text": "{T}, Sacrifice up to three permanents: If there were three or more card types among the sacrificed permanents, each opponent loses 3 life, you gain 3 life, and you draw three cards.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Desperate Plea",
+    "layout": "normal",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Sorcery \u2014 Lesson",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nChoose one or both \u2014\n\u2022 Return target creature card from your graveyard to the battlefield if its power is less than or equal to the sacrificed creature's power.\n\u2022 Destroy target creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Adipose Offspring",
+    "layout": "normal",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Alien",
+    "oracle_text": "Emerge {5}{W} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen this creature enters, create a 2/2 white Alien creature token. If this creature's emerge cost was paid, instead create X of those tokens, where X is the sacrificed creature's toughness.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Emerge"
+    ]
+  },
+  {
+    "name": "Soulblast",
+    "layout": "normal",
+    "mana_cost": "{3}{R}{R}{R}",
+    "cmc": 6.0,
+    "type_line": "Instant",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice all creatures you control.\nSoulblast deals damage to any target equal to the total power of the sacrificed creatures.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Tormented Thoughts",
+    "layout": "normal",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nTarget player discards a number of cards equal to the sacrificed creature's power.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sanguine Praetor",
+    "layout": "normal",
+    "mana_cost": "{6}{B}{B}",
+    "cmc": 8.0,
+    "type_line": "Creature \u2014 Avatar Praetor",
+    "oracle_text": "{B}, Sacrifice a creature: Destroy each creature with the same mana value as the sacrificed creature.",
+    "power": "7",
+    "toughness": "5",
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mind Extraction",
+    "layout": "normal",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nTarget player reveals their hand and discards all cards of each of the sacrificed creature's colors.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Endemic Plague",
+    "layout": "normal",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nDestroy all creatures that share a creature type with the sacrificed creature. They can't be regenerated.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Eye of Yawgmoth",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "{3}, {T}, Sacrifice a creature: Reveal a number of cards from the top of your library equal to the sacrificed creature's power. Put one into your hand and exile the rest.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Freyalise Supplicant",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Cleric",
+    "oracle_text": "{T}, Sacrifice a red or white creature: This creature deals damage to any target equal to half the sacrificed creature's power, rounded down.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Fiery Bombardment",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Chroma \u2014 {2}, Sacrifice a creature: This enchantment deals damage to any target equal to the number of red mana symbols in the sacrificed creature's mana cost.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Chroma"
+    ]
+  },
+  {
+    "name": "Agency Coroner",
+    "layout": "normal",
+    "mana_cost": "{4}{B}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Ogre Cleric",
+    "oracle_text": "{2}{B}, Sacrifice another creature: Draw a card. If the sacrificed creature was suspected, draw two cards instead.",
+    "power": "3",
+    "toughness": "6",
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Trained Armodon",
+    "layout": "normal",
+    "mana_cost": "{1}{G}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Elephant",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Woolly Thoctar",
+    "layout": "normal",
+    "mana_cost": "{R}{G}{W}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Beast",
+    "oracle_text": "",
+    "power": "5",
+    "toughness": "4",
+    "loyalty": null,
+    "colors": [
+      "G",
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "R",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Myr Sire",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact Creature \u2014 Phyrexian Myr",
+    "oracle_text": "When this creature dies, create a 1/1 colorless Phyrexian Myr artifact creature token.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Dryad Arbor",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land Creature \u2014 Forest Dryad",
+    "oracle_text": "(This land isn't a spell, it's affected by summoning sickness, and it has \"{T}: Add {G}.\")",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Giant Growth",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Storm Crow",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bird",
+    "oracle_text": "Flying (This creature can't be blocked except by creatures with flying or reach.)",
+    "power": "1",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Furnace Whelp",
+    "layout": "normal",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Dragon",
+    "oracle_text": "Flying\n{R}: This creature gets +1/+0 until end of turn.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Simian Grunts",
+    "layout": "normal",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Ape",
+    "oracle_text": "Flash\nEcho {2}{G} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)",
+    "power": "3",
+    "toughness": "4",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Flash",
+      "Echo"
+    ]
+  },
+  {
+    "name": "Cathodion",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "When this creature dies, add {C}{C}{C}.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Cryptic Trilobite",
+    "layout": "normal",
+    "mana_cost": "{X}{X}",
+    "cmc": 0.0,
+    "type_line": "Creature \u2014 Trilobite",
+    "oracle_text": "This creature enters with X +1/+1 counters on it.\nRemove a +1/+1 counter from this creature: Add {C}{C}. Spend this mana only to activate abilities.\n{1}, {T}: Put a +1/+1 counter on this creature.",
+    "power": "0",
+    "toughness": "0",
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Worn Powerstone",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "This artifact enters tapped.\n{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Make Your Move",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact, enchantment, or creature with power 4 or greater.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Double Major",
+    "layout": "normal",
+    "mana_cost": "{G}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target creature spell you control, except it isn't legendary if the spell is legendary. (A copy of a creature spell becomes a token.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Reverberate",
+    "layout": "normal",
+    "mana_cost": "{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Unsummon",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Return target creature to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Giant Adephage",
+    "layout": "normal",
+    "mana_cost": "{5}{G}{G}",
+    "cmc": 7.0,
+    "type_line": "Creature \u2014 Insect",
+    "oracle_text": "Trample\nWhenever this creature deals combat damage to a player, create a token that's a copy of this creature.",
+    "power": "7",
+    "toughness": "7",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ]
+  },
+  {
+    "name": "Mass Diminish",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Until your next turn, creatures target player controls have base power and toughness 1/1.\nFlashback {3}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flashback"
+    ]
+  },
+  {
+    "name": "Diminish",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature has base power and toughness 1/1 until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Wandering Archaic // Explore the Vastlands",
+    "layout": "modal_dfc",
+    "mana_cost": "{5} // {3}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Avatar // Sorcery",
+    "oracle_text": "Whenever an opponent casts an instant or sorcery spell, they may pay {2}. If they don't, you may copy that spell. You may choose new targets for the copy.\n//\nEach player looks at the top five cards of their library and may reveal a land card and/or an instant or sorcery card from among them. Each player puts the cards they revealed this way into their hand and the rest on the bottom of their library in a random order. Each player gains 3 life.",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Hard-Hitting Question",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target creature you control deals damage equal to its power to target creature or planeswalker you don't control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Hardened Scales",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Case of the Ransacked Lab",
+    "layout": "case",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Case",
+    "oracle_text": "Instant and sorcery spells you cast cost {1} less to cast.\nTo solve \u2014 You've cast four or more instant and sorcery spells this turn. (If unsolved, solve at the beginning of your end step.)\nSolved \u2014 Whenever you cast an instant or sorcery spell, draw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Solved"
+    ]
+  },
+  {
+    "name": "Alloy Myr",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact Creature \u2014 Myr",
+    "oracle_text": "{T}: Add one mana of any color.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Bonesplitter",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +2/+0.\nEquip {1}",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ]
+  },
+  {
+    "name": "Repeat Offender",
+    "layout": "normal",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Assassin",
+    "oracle_text": "{2}{B}: If this creature is suspected, put a +1/+1 counter on it. Otherwise, suspect it. (A suspected creature has menace and can't block.)",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Suspect"
+    ]
+  },
+  {
+    "name": "Reclaim",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Put target card from your graveyard on top of your library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Imposter Mech",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Artifact \u2014 Vehicle",
+    "oracle_text": "You may have this Vehicle enter as a copy of a creature an opponent controls, except it's a Vehicle artifact with crew 3 and it loses all other card types.\nCrew 3",
+    "power": "3",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Crew"
+    ]
+  },
+  {
+    "name": "Angel of Jubilation",
+    "layout": "normal",
+    "mana_cost": "{1}{W}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Angel",
+    "oracle_text": "Flying\nOther nonblack creatures you control get +1/+1.\nPlayers can't pay life or sacrifice creatures to cast spells or activate abilities.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Dizzy Spell",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets -3/-0 until end of turn.\nTransmute {1}{U}{U} ({1}{U}{U}, Discard this card: Search your library for a card with the same mana value as this card, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Transmute"
+    ]
+  },
+  {
+    "name": "Boros Reckoner",
+    "layout": "normal",
+    "mana_cost": "{R/W}{R/W}{R/W}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Minotaur Wizard",
+    "oracle_text": "Whenever this creature is dealt damage, it deals that much damage to any target.\n{R/W}: This creature gains first strike until end of turn.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": []
+  }
+]

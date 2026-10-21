@@ -464,15 +464,17 @@ def test_a_copy_can_be_countered_and_ceases_to_exist(cards):
 
 def test_a_spell_that_cant_be_copied_isnt(cards):
     """113.6g: "This spell can't be copied." functions on the stack: Reverberate does nothing."""
-    s = build(cards, "Choreographed Sparks", "Reverberate")
+    s = build(cards, "Choreographed Sparks", "Reverberate", "Lightning Bolt")
     responsive(s)
     hold(s)
     sparks, rev = to_hand(s, "Choreographed Sparks"), to_hand(s, "Reverberate")
-    pay(s, R=4)
-    act(s, "p1", type="cast_spell", card_id=sparks.id)  # (resolved by hand: its modes aren't automated)
+    bolt = to_hand(s, "Lightning Bolt")
+    pay(s, R=5)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    act(s, "p1", type="cast_spell", card_id=sparks.id, modes=[0], targets=[bolt.id])
     act(s, "p1", type="cast_spell", card_id=rev.id, targets=[sparks.id])
     resolve_top(s)
-    assert not copies(s) and on_stack(s) == [sparks.id]
+    assert not copies(s) and on_stack(s) == [bolt.id, sparks.id]
     replay_matches(s)
 
 
@@ -861,9 +863,6 @@ def test_copy_cards_are_fully_automated(name):
 
 
 @pytest.mark.parametrize("text", [
-    # 707.9e: a shield counter's replacement isn't automated (Undercover Operative)
-    "You may have this creature enter as a copy of any creature on the battlefield, except it enters with a shield counter on it "
-    "if you control that creature.",
 ])
 def test_unsupported_enter_as_a_copy_wordings_stay_manual(text):
     ch_ = characteristics("Probe", "Creature — Shapeshifter", text)

@@ -1,0 +1,1310 @@
+[
+  {
+    "name": "Light-Paws, Emperor's Voice",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Fox Advisor",
+    "oracle_text": "Whenever an Aura you control enters, if you cast it, you may search your library for an Aura card with mana value less than or equal to that Aura and with a different name than each Aura you control, put that card onto the battlefield attached to Light-Paws, then shuffle.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Auratouched Mage",
+    "layout": "normal",
+    "mana_cost": "{5}{W}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "When this creature enters, search your library for an Aura card that could enchant it. If this creature is still on the battlefield, put that Aura card onto the battlefield attached to it. Otherwise, reveal the Aura card and put it into your hand. Then shuffle.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Sovereigns of Lost Alara",
+    "layout": "normal",
+    "mana_cost": "{4}{W}{U}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Spirit",
+    "oracle_text": "Exalted (Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn.)\nWhenever a creature you control attacks alone, you may search your library for an Aura card that could enchant that creature, put it onto the battlefield attached to that creature, then shuffle.",
+    "power": "4",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Exalted"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Curse of Misfortunes",
+    "layout": "normal",
+    "mana_cost": "{4}{B}",
+    "cmc": 5.0,
+    "type_line": "Enchantment \u2014 Aura Curse",
+    "oracle_text": "Enchant player\nAt the beginning of your upkeep, you may search your library for a Curse card that doesn't have the same name as a Curse attached to enchanted player, put it onto the battlefield attached to that player, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Stonehewer Giant",
+    "layout": "normal",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Giant Warrior",
+    "oracle_text": "Vigilance\n{1}{W}, {T}: Search your library for an Equipment card, put it onto the battlefield, attach it to a creature you control, then shuffle.",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Vigilance"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Quest for the Holy Relic",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever you cast a creature spell, you may put a quest counter on this enchantment.\nRemove five quest counters from this enchantment and sacrifice it: Search your library for an Equipment card, put it onto the battlefield, attach it to a creature you control, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Tallowisp",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Spirit",
+    "oracle_text": "Whenever you cast a Spirit or Arcane spell, you may search your library for an Aura card with enchant creature, reveal it, put it into your hand, then shuffle.",
+    "power": "1",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Phantom Carriage",
+    "layout": "normal",
+    "mana_cost": "{4}{U}{U}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Spirit",
+    "oracle_text": "Flying\nWhen this creature enters, you may search your library for a card with flashback or disturb, put it into your graveyard, then shuffle.",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Mwonvuli Beast Tracker",
+    "layout": "normal",
+    "mana_cost": "{1}{G}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Scout",
+    "oracle_text": "When this creature enters, search your library for a creature card with deathtouch, hexproof, reach, or trample and reveal it. Shuffle and put that card on top.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Reach",
+      "Hexproof"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Forging the Tyrite Sword",
+    "layout": "saga",
+    "mana_cost": "{1}{R}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI, II \u2014 Create a Treasure token.\nIII \u2014 Search your library for a card named Halvar, God of Battle or an Equipment card, reveal it, put it into your hand, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": [
+      "Treasure"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Wild Pair",
+    "layout": "normal",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever a creature enters, if you cast it from your hand, you may search your library for a creature card with the same total power and toughness, put it onto the battlefield, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Evolving Door",
+    "layout": "normal",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "{1}, {T}, Sacrifice a creature: Count the colors of the sacrificed creature, then search your library for a creature card that's exactly that many colors plus one. Exile that card, then shuffle. You may cast the exiled card. Activate only as a sorcery.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Disciple of Deceit",
+    "layout": "normal",
+    "mana_cost": "{U}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Rogue",
+    "oracle_text": "Inspired \u2014 Whenever this creature becomes untapped, you may discard a nonland card. If you do, search your library for a card with the same mana value as that card, reveal it, put it into your hand, then shuffle.",
+    "power": "1",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [
+      "Inspired"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Vivien, Monsters' Advocate",
+    "layout": "normal",
+    "mana_cost": "{3}{G}{G}",
+    "cmc": 5.0,
+    "type_line": "Legendary Planeswalker \u2014 Vivien",
+    "oracle_text": "You may look at the top card of your library any time.\nYou may cast creature spells from the top of your library.\n+1: Create a 3/3 green Beast creature token. Put your choice of a reach counter, a vigilance counter, or a trample counter on it.\n\u22122: When you next cast a creature spell this turn, search your library for a creature card with lesser mana value, put it onto the battlefield, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "3",
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Hiveheart Shaman",
+    "layout": "normal",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Shaman",
+    "oracle_text": "Whenever this creature attacks, you may search your library for a basic land card that doesn't share a land type with a land you control, put that card onto the battlefield, then shuffle.\n{5}{G}: Create a 1/1 green Insect creature token. Put X +1/+1 counters on it, where X is the number of basic land types among lands you control. Activate only as a sorcery.",
+    "power": "3",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Rancor",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +2/+0 and has trample.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Threads of Disloyalty",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature with mana value 2 or less\nYou control enchanted creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Ethereal Armor",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +1/+1 for each enchantment you control and has first strike.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Pacifism",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature can't attack or block.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Darksteel Mutation",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Aqueous Form",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature can't be blocked.\nWhenever enchanted creature attacks, scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant",
+      "Scry"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Shadowspear",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Legendary Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +1/+1 and has trample and lifelink.\n{1}: Permanents your opponents control lose hexproof and indestructible until end of turn.\nEquip {2}",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Batterskull",
+    "layout": "normal",
+    "mana_cost": "{5}",
+    "cmc": 5.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Living weapon (When this Equipment enters, create a 0/0 black Phyrexian Germ creature token, then attach this to it.)\nEquipped creature gets +4/+4 and has vigilance and lifelink.\n{3}: Return this Equipment to its owner's hand.\nEquip {5}",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip",
+      "Living weapon"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Curse of Opulence",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Enchantment \u2014 Aura Curse",
+    "oracle_text": "Enchant player\nWhenever enchanted player is attacked, create a Gold token. Each opponent attacking that player does the same. (A Gold token is an artifact with \"Sacrifice this token: Add one mana of any color.\")",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Curse of Disturbance",
+    "layout": "normal",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Aura Curse",
+    "oracle_text": "Enchant player\nWhenever enchanted player is attacked, create a 2/2 black Zombie creature token. Each opponent attacking that player does the same.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Halvar, God of Battle // Sword of the Realms",
+    "layout": "modal_dfc",
+    "mana_cost": "{2}{W}{W} // {1}{W}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 God // Legendary Artifact \u2014 Equipment",
+    "oracle_text": "Creatures you control that are enchanted or equipped have double strike.\nAt the beginning of each combat, you may attach target Aura or Equipment attached to a creature you control to target creature you control.\n//\nEquipped creature gets +2/+0 and has vigilance.\nWhenever equipped creature dies, return it to its owner's hand.\nEquip {1}{W}",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Equip"
+    ],
+    "card_faces": [
+      {
+        "name": "Halvar, God of Battle",
+        "mana_cost": "{2}{W}{W}",
+        "type_line": "Legendary Creature \u2014 God",
+        "oracle_text": "Creatures you control that are enchanted or equipped have double strike.\nAt the beginning of each combat, you may attach target Aura or Equipment attached to a creature you control to target creature you control.",
+        "power": "4",
+        "toughness": "4",
+        "colors": [
+          "W"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/9/7/97502411-5c93-434c-b77b-ceb2c32feae7.jpg?1783928291",
+          "normal": "https://cards.scryfall.io/normal/front/9/7/97502411-5c93-434c-b77b-ceb2c32feae7.jpg?1783928291",
+          "large": "https://cards.scryfall.io/large/front/9/7/97502411-5c93-434c-b77b-ceb2c32feae7.jpg?1783928291",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/9/7/97502411-5c93-434c-b77b-ceb2c32feae7.jpg?1783928291"
+        }
+      },
+      {
+        "name": "Sword of the Realms",
+        "mana_cost": "{1}{W}",
+        "type_line": "Legendary Artifact \u2014 Equipment",
+        "oracle_text": "Equipped creature gets +2/+0 and has vigilance.\nWhenever equipped creature dies, return it to its owner's hand.\nEquip {1}{W}",
+        "colors": [
+          "W"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/9/7/97502411-5c93-434c-b77b-ceb2c32feae7.jpg?1783928291",
+          "normal": "https://cards.scryfall.io/normal/back/9/7/97502411-5c93-434c-b77b-ceb2c32feae7.jpg?1783928291",
+          "large": "https://cards.scryfall.io/large/back/9/7/97502411-5c93-434c-b77b-ceb2c32feae7.jpg?1783928291",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/9/7/97502411-5c93-434c-b77b-ceb2c32feae7.jpg?1783928291"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Shivan Dragon",
+    "layout": "normal",
+    "mana_cost": "{4}{R}{R}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Dragon",
+    "oracle_text": "Flying\n{R}: This creature gets +1/+0 until end of turn.",
+    "power": "5",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Grist, the Hunger Tide",
+    "layout": "normal",
+    "mana_cost": "{1}{B}{G}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker \u2014 Grist",
+    "oracle_text": "As long as Grist isn't on the battlefield, it's a 1/1 Insect creature in addition to its other types.\n+1: Create a 1/1 black and green Insect creature token, then mill a card. If an Insect card was milled this way, put a loyalty counter on Grist and repeat this process.\n\u22122: You may sacrifice a creature. When you do, destroy target creature or planeswalker.\n\u22125: Each opponent loses life equal to the number of creature cards in your graveyard.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "3",
+    "defense": null,
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Triskelion",
+    "layout": "normal",
+    "mana_cost": "{6}",
+    "cmc": 6.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "This creature enters with three +1/+1 counters on it.\nRemove a +1/+1 counter from this creature: It deals 1 damage to any target.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Giant Growth",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Unsummon",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Return target creature to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Opposition Agent",
+    "layout": "normal",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Rogue",
+    "oracle_text": "Flash\nYou control your opponents while they're searching their libraries.\nWhile an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them.",
+    "power": "3",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Aven Mindcensor",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Bird Wizard",
+    "oracle_text": "Flash\nFlying\nIf an opponent would search a library, that player searches the top four cards of that library instead.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Flash"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Archivist of Oghma",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Halfling Cleric",
+    "oracle_text": "Flash\nWhenever an opponent searches their library, you gain 1 life and draw a card.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Containment Priest",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Cleric",
+    "oracle_text": "Flash\nIf a nontoken creature would enter and it wasn't cast, exile it instead.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Grafdigger's Cage",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "Creature cards in graveyards and libraries can't enter the battlefield.\nPlayers can't cast spells from graveyards or libraries.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Plains",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Plains",
+    "oracle_text": "({T}: Add {W}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Island",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Soul-Guide Lantern",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "When this artifact enters, exile target card from a graveyard.\n{T}, Sacrifice this artifact: Exile each opponent's graveyard.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Faithless Looting",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Draw two cards, then discard two cards.\nFlashback {2}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flashback"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Malevolent Hermit // Benevolent Geist",
+    "layout": "transform",
+    "mana_cost": "{1}{U} // ",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Wizard // Creature \u2014 Spirit Wizard",
+    "oracle_text": "{U}, Sacrifice this creature: Counter target noncreature spell unless its controller pays {3}.\nDisturb {2}{U} (You may cast this card from your graveyard transformed for its disturb cost.)\n//\nFlying\nNoncreature spells you control can't be countered.\nIf Benevolent Geist would be put into a graveyard from anywhere, exile it instead.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Transform",
+      "Disturb"
+    ],
+    "card_faces": [
+      {
+        "name": "Malevolent Hermit",
+        "mana_cost": "{1}{U}",
+        "type_line": "Creature \u2014 Human Wizard",
+        "oracle_text": "{U}, Sacrifice this creature: Counter target noncreature spell unless its controller pays {3}.\nDisturb {2}{U} (You may cast this card from your graveyard transformed for its disturb cost.)",
+        "power": "2",
+        "toughness": "1",
+        "colors": [
+          "U"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/2/5/250f05ad-1006-42cf-8003-b3c1d92ce5cb.jpg?1783922242",
+          "normal": "https://cards.scryfall.io/normal/front/2/5/250f05ad-1006-42cf-8003-b3c1d92ce5cb.jpg?1783922242",
+          "large": "https://cards.scryfall.io/large/front/2/5/250f05ad-1006-42cf-8003-b3c1d92ce5cb.jpg?1783922242",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/2/5/250f05ad-1006-42cf-8003-b3c1d92ce5cb.jpg?1783922242"
+        }
+      },
+      {
+        "name": "Benevolent Geist",
+        "mana_cost": "",
+        "type_line": "Creature \u2014 Spirit Wizard",
+        "oracle_text": "Flying\nNoncreature spells you control can't be countered.\nIf Benevolent Geist would be put into a graveyard from anywhere, exile it instead.",
+        "power": "2",
+        "toughness": "2",
+        "colors": [
+          "U"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/2/5/250f05ad-1006-42cf-8003-b3c1d92ce5cb.jpg?1783922242",
+          "normal": "https://cards.scryfall.io/normal/back/2/5/250f05ad-1006-42cf-8003-b3c1d92ce5cb.jpg?1783922242",
+          "large": "https://cards.scryfall.io/large/back/2/5/250f05ad-1006-42cf-8003-b3c1d92ce5cb.jpg?1783922242",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/2/5/250f05ad-1006-42cf-8003-b3c1d92ce5cb.jpg?1783922242"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Young Pyromancer",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Shaman",
+    "oracle_text": "Whenever you cast an instant or sorcery spell, create a 1/1 red Elemental creature token.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Krenko, Mob Boss",
+    "layout": "normal",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Goblin Warrior",
+    "oracle_text": "{T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Ghalta, Primal Hunger",
+    "layout": "normal",
+    "mana_cost": "{10}{G}{G}",
+    "cmc": 12.0,
+    "type_line": "Legendary Creature \u2014 Elder Dinosaur",
+    "oracle_text": "This spell costs {X} less to cast, where X is the total power of creatures you control.\nTrample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+    "power": "12",
+    "toughness": "12",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Will-o'-the-Wisp",
+    "layout": "normal",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Spirit",
+    "oracle_text": "Flying (This creature can't be blocked except by creatures with flying or reach.)\n{B}: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+    "power": "0",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying",
+      "Heal",
+      "Regenerate"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Gingerbrute",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact Creature \u2014 Food Golem",
+    "oracle_text": "Haste (This creature can attack and {T} as soon as it comes under your control.)\n{1}: This creature can't be blocked this turn except by creatures with haste.\n{2}, {T}, Sacrifice this creature: You gain 3 life.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Haste"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Memnite",
+    "layout": "normal",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Dryad Arbor",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land Creature \u2014 Forest Dryad",
+    "oracle_text": "(This land isn't a spell, it's affected by summoning sickness, and it has \"{T}: Add {G}.\")",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Adaptive Automaton",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "As this creature enters, choose a creature type.\nThis creature is the chosen type in addition to its other types.\nOther creatures you control of the chosen type get +1/+1.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Darksteel Myr",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact Creature \u2014 Myr",
+    "oracle_text": "Indestructible (Damage and effects that say \"destroy\" don't destroy this creature. If its toughness is 0 or less, it still dies.)",
+    "power": "0",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Indestructible"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Sakura-Tribe Elder",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Snake Shaman",
+    "oracle_text": "Sacrifice this creature: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Thalia, Guardian of Thraben",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Human Soldier",
+    "oracle_text": "First strike\nNoncreature spells cost {1} more to cast.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "First strike"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Liquimetal Coating",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Target permanent becomes an artifact in addition to its other types until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Ensoul Artifact",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant artifact\nEnchanted artifact is a creature with base power and toughness 5/5 in addition to its other types.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "White Knight",
+    "layout": "normal",
+    "mana_cost": "{W}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Knight",
+    "oracle_text": "First strike (This creature deals combat damage before creatures without first strike.)\nProtection from black (This creature can't be blocked, targeted, dealt damage, or enchanted by anything black.)",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "First strike",
+      "Protection"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Black Knight",
+    "layout": "normal",
+    "mana_cost": "{B}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Knight",
+    "oracle_text": "First strike (This creature deals combat damage before creatures without first strike.)\nProtection from white (This creature can't be blocked, targeted, dealt damage, or enchanted by anything white.)",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "First strike",
+      "Protection"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Reach Through Mists",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant \u2014 Arcane",
+    "oracle_text": "Draw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Cloudshift",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": null
+  }
+]

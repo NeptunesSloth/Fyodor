@@ -1,0 +1,101 @@
+[
+  {
+    "name": "Overpowering Attack",
+    "oracle_text": "Freerunning {2}{R} (You may cast this spell for its freerunning cost if you dealt combat damage to a player this turn with an Assassin or commander.)\nUntap all creatures you control that attacked this turn. If it's your main phase, there is an additional combat phase after this phase, followed by an additional main phase.",
+    "type_line": "Sorcery",
+    "mana_cost": "{3}{R}{R}",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Freerunning"
+    ]
+  },
+  {
+    "name": "All-Out Assault",
+    "oracle_text": "Creatures you control get +1/+1 and have deathtouch.\nWhen this enchantment enters, if it's your main phase, there is an additional combat phase after this phase followed by an additional main phase. When you next attack this turn, untap each creature you control.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{R}{W}{B}",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [
+      "B",
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "R",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ornithopter",
+    "oracle_text": "Flying",
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "mana_cost": "{0}",
+    "layout": "normal",
+    "power": "0",
+    "toughness": "2",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Vedalken Orrery",
+    "oracle_text": "You may cast spells as though they had flash.",
+    "type_line": "Artifact",
+    "mana_cost": "{4}",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Fervent Champion",
+    "oracle_text": "First strike, haste\nWhenever this creature attacks, another target attacking Knight you control gets +1/+0 until end of turn.\nEquip abilities you activate that target this creature cost {3} less to activate.",
+    "type_line": "Creature \u2014 Human Knight",
+    "mana_cost": "{R}",
+    "layout": "normal",
+    "power": "1",
+    "toughness": "1",
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "First strike",
+      "Haste"
+    ]
+  }
+]

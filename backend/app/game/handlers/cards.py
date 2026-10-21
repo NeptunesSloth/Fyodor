@@ -63,8 +63,11 @@ def phase_shift(state: GameState, a: A.PhaseShift) -> None:
         ops.remove_from_zone(state, c)
         ops.insert(state, c, zone_key(c.controller, there))
         c.phased_indirect = a.out and c.id in indirect
+        if a.out:
+            ops.lose_attack_target(state, c)
         if a.out:  # 506.4 (-- review (wave 14R) -- every block of a blocker of several, 509.1a)
             c.attacking = None
+            c.attacking_without_target = None
             c.unblock()
             for other in state.cards.values():
                 if other.blocks(c.id):
@@ -139,7 +142,7 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
         back=_token_back(a.token.back),  # -- keyword actions & face-down (wave 3F) -- 111.10i
     )
     emblem = spec.type_line == "Emblem"  # -- emblems (wave 13A) -- 114.1: an object in the command zone, not a token (111.7 doesn't apply)
-    key = zone_key(pid, "command" if emblem else "battlefield")
+    key = zone_key(pid, "command" if emblem else a.zone or "battlefield")
     source = None
     if a.source_id:
         src = ops.card(state, a.source_id)
@@ -164,6 +167,7 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
             token=spec.model_copy(),
             quantity=a.count if stacked else 1,
             token_source=source,
+            embalmed=a.embalmed,
         )
         state.cards[new_id] = c
         state.zone(key).append(new_id)
@@ -329,16 +333,24 @@ def set_controller(state: GameState, a: A.SetController) -> None:
     pid = ops.player(state, a.player, a.actor)
     targets = ops.cards(state, a.card_ids)
     for c in targets:
-        if not _on_battlefield(c):
-            raise ActionError(f"{c.name} is not on the battlefield")
+        if not _on_battlefield(c) and not (c.zone == STACK and c.ability is None):
+            raise ActionError(f"{c.name} is not on the battlefield or a spell on the stack")
     dest = zone_key(pid, "battlefield")
     for c in targets:
+        if c.zone == STACK:
+            c.controller = pid
+            entry = state.rules.stack.get(c.id) if state.rules is not None else None
+            if entry is not None and entry.kind == "spell":
+                entry.controller = pid
+            continue
         if c.zone == dest:
             continue
+        ops.lose_attack_target(state, c)
         ops.remove_from_zone(state, c)
         ops.insert(state, c, dest)
         c.controller = pid
         c.attacking = None
+        c.attacking_without_target = None
         c.unblock()
     log(state, a.actor, a.ts, [pname(state, pid), text(" gained control of "), group(state, targets)])
 
@@ -354,10 +366,12 @@ def return_to_owner(state: GameState, a: A.ReturnToOwner) -> None:
             continue
         dest = zone_key(c.owner, zone)
         if zone == "battlefield":
+            ops.lose_attack_target(state, c)
             ops.remove_from_zone(state, c)
             ops.insert(state, c, dest)
             c.controller = c.owner
             c.attacking = None
+            c.attacking_without_target = None
             c.unblock()
         else:
             ops.move_card(state, c, dest)

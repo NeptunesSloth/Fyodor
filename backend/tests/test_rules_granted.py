@@ -6,7 +6,7 @@ from __future__ import annotations
 from app.rules.casting import activatable
 from app.rules.plan import Plan
 from app.rules.view import rules_view
-from tests.game_helpers import act, turn_on, zone
+from tests.game_helpers import act, mana_pool, turn_on, zone
 from tests.test_rules_combat import attack, automate, creature, table
 from tests.test_rules_effects import pass_until_stack_empty, run_until
 
@@ -37,7 +37,7 @@ def test_lands_you_control_have_a_mana_ability(cards):
     turn_on(s)
     act(s, "p1", type="pass_priority")
     act(s, "p1", type="activate_ability", card_id=forest.id, ability=100, mana_choice="R")
-    assert s.state.players["p1"].mana == {"R": 1}
+    assert mana_pool(s, "p1") == {"R": 1}
 
 
 def test_commander_creatures_you_own_get_the_trigger(cards):

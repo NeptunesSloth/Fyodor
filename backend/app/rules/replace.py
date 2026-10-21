@@ -98,10 +98,17 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DecisionOption, turn_log_now
 from app.game.state import CardInstance, zone_key
-from app.rules import card_names, scripts, selectors, stack_interaction, statics  # (card_names: wave 53B)
+
+# Native continuations register while scripts and their leaf modules import.
+# Establish the registry before that cycle, and retain those registrations below.
+THEN: dict[str, Any] = {}
+
+# isort: split
+from app.rules import card_names, scripts, selectors, stack_interaction, statics  # noqa: E402  # (card_names: wave 53B)
 
 if TYPE_CHECKING:
     from app.rules.characteristics import Characteristics
+    from app.rules.counter_receipts import CounterPlacement
     from app.rules.plan import Plan
 
 Event = dict[str, Any]
@@ -164,9 +171,13 @@ def static_candidates(plan: Plan, event: str | tuple[str, ...]) -> list[Candidat
         if not (c.zone.endswith(":battlefield") or emblem) or c.face_down or not plan.in_game(c) or plan.manual(c):
             continue
         ch = plan.ch(c)
+        if "damage" in events:
+            from app.rules import absorb
+
+            out += absorb.candidates(plan, c, ch)
         defs = scripts.definitions(ch)
         wanted = [(i, d) for i, d in defs.items() if d["kind"] == "static" and d.get("static") == "replace"
-                  and d.get("event") in events and (not emblem or d.get("event") == "life_loss")]
+                  and d.get("event") in events and (not emblem or d.get("event") in ("life_loss", "damage"))]
         if not wanted or "Room" in ch.subtypes:  # (a Room's door is unlocked or not: not modelled)
             continue
         skip = conditional_lines(ch)
@@ -184,13 +195,14 @@ def record_candidates(plan: Plan, event: str | tuple[str, ...]) -> list[Candidat
     """This turn's replacement records (``RulesState.replacements`` kind "replace": "Until end of
     turn, if …", 611.2a)."""
     events = (event,) if isinstance(event, str) else event
-    turn = plan.state.turn.number
+    from app.rules.timed_damage_replacements import active
+
     out = []
     for rec in plan.rules.replacements:
-        if rec.get("kind") != "replace" or rec.get("turn") != turn or rec.get("event") not in events:
+        if rec.get("kind") != "replace" or not active(plan, rec) or rec.get("event") not in events:
             continue
-        if rec.get("controller") not in plan.live() or rec.get("spent"):
-            continue  # 800.4a: effects of a player who left the game end (-- replacements: draws (wave 28B) -- "the next time": spent)
+        if (rec.get("controller") not in plan.live() and rec.get("until") not in ("next_turn", "source_on_battlefield")) or rec.get("spent"):
+            continue  # 800.4m: next-turn and source-tracking effects survive their creator departing until their duration ends.
         out.append(Candidate(id=f"r:{rec['id']}", event=rec["event"], match=rec.get("match") or {}, op=rec["op"],
                              controller=rec["controller"], source_card=rec.get("source_card"), source_oid=rec.get("source"),
                              seq=(int(rec.get("seq") or 0), 1, 0), label=rec.get("label") or "an effect",
@@ -257,6 +269,9 @@ class Planner:
     used: list[str] = field(default_factory=list)  # (-- replacements: draws (wave 28B) -- the effects applied to the events, for "the next time")
     opt_n: int = 0  # (optional replacements met so far in this pass: each is its own question, wave 16B)
     gate: Any = None  # (review 37: False for an event that can't happen at all: no replacement effect sees it, 101.2 — draw_cards' draw limit)
+    stop_draw_sequence: bool = False  # 121.6b: finish a body/dredge before planning the next draw
+    stopped: bool = False
+    pending_draws: list[Event] = field(default_factory=list)
 
     # -- kind-specific rules ------------------------------------------------------------------------
     def applies(self, c: Candidate, ev: Event, sim: Sim) -> bool:
@@ -282,9 +297,11 @@ class Planner:
             fn(self.plan, ev, sim)
 
     def applicable(self, ev: Event, sim: Sim) -> list[Candidate]:
-        found = [c for c in self.cands if self.applies(c, ev, sim) and not c.op.get("optional")]
+        found = [c for c in self.cands if self.applies(c, ev, sim) and (not c.op.get("optional") or c.op.get("external_optional"))]
         selfs = [c for c in found if c.self_repl]  # 616.1a: a self-replacement effect first
-        return sorted(selfs or found, key=lambda c: c.seq)
+        creators = [c for c in found if c.event == "tokens" and c.op.get("do") == "set_creator"]
+        # 616.1b: changing whose control a token enters under precedes token multipliers.
+        return sorted(selfs or creators or found, key=lambda c: c.seq)
 
     # -- the loop -----------------------------------------------------------------------------------
     def settle(self, ev: Event, sim: Sim, on_final: Any) -> None:
@@ -295,17 +312,18 @@ class Planner:
             return
         if (opt := self.optional(ev, sim)) is not None:  # -- static_other sweep (wave 16B) -- dredge: the player took it
             self.used.append(opt.id)
-            for nxt in self.apply(opt, ev, sim):
-                self.settle(nxt, sim, on_final)
+            self._children(self.apply(opt, ev, sim), sim, on_final)
             return
         found = self.applicable(ev, sim)
         if not found:
             self.perform(ev, sim)
             on_final(ev)
+            if self.stop_draw_sequence and ev["kind"] in ("body", "dredge"):
+                self.stopped = True
             return
         chosen = found[0]
         if len(found) > 1:
-            outcomes = self._by_first(ev, found, sim)
+            outcomes = None if any(c.op.get("external_optional") for c in found) else self._by_first(ev, found, sim)
             if outcomes is None or len({o for os_ in outcomes.values() for o in os_}) > 1:
                 picked = self.choose(ev, found, sim, outcomes)
                 if picked is None:  # can't pause, nothing remembered: the players apply these
@@ -314,14 +332,32 @@ class Planner:
                     on_final(ev)
                     return
                 chosen = picked
+        if chosen.op.get("external_optional"):
+            self.opt_n += 1
+            fp = f"external{self.opt_n}:{_fingerprint(ev, [chosen])}"
+            said = self.answers.get(fp)
+            if said is None and self.ask and chosen.controller in self.plan.live():
+                raise AskOptional(chosen.controller, fp, ev, [chosen], {})
+            if said != chosen.id:
+                self._children([{**ev, "applied": [*(ev.get("applied") or []), chosen.id]}], sim, on_final)
+                return
         self.used.append(chosen.id)
-        for nxt in self.apply(chosen, ev, sim):
+        self._children(self.apply(chosen, ev, sim), sim, on_final)
+
+    def _children(self, children: list[Event], sim: Sim, on_final: Any) -> None:
+        for i, nxt in enumerate(children):
             self.settle(nxt, sim, on_final)
+            if self.stopped:
+                # 121.6b / 614.5: retain unprocessed draws from a doubler, along
+                # with the effects already applied to them. Plan them only after
+                # the current body finishes, against the resulting game state.
+                self.pending_draws.extend(children[i + 1:])
+                return
 
     def optional(self, ev: Event, sim: Sim) -> Candidate | None:
         """The optional replacement ("you may instead") the affected player applies to this event, if any: asked once per event
         (a recorded answer: the candidate's id, or "decline")."""
-        opts = [c for c in self.cands if c.op.get("optional") and self.applies(c, ev, sim)]
+        opts = [c for c in self.cands if c.op.get("optional") and not c.op.get("external_optional") and self.applies(c, ev, sim)]
         if not opts:
             return None
         self.opt_n += 1
@@ -575,6 +611,11 @@ def resume_site(plan: Plan, r: dict[str, Any], answers: dict[str, str], order: l
         if combat.deal_combat_damage(plan, r["round"], shield_order=order, answers=answers):
             _after_resolution(plan)
         return
+    if site == "mana_damage":
+        from app.rules import damage_rider_continuations
+
+        damage_rider_continuations.resume_mana(plan, r["request"], answers, order)
+        return
     runner = SITES[str(site)]
     runner(plan, r["request"], answers, r.get("then"))
 
@@ -595,7 +636,7 @@ def run_then(plan: Plan, then: dict[str, Any] | None) -> None:
     fn(plan, then)
 
 
-THEN: dict[str, Any] = {"draw_rest": lambda plan, then: _then_draw_rest(plan, then), "noop": lambda plan, then: None}  # continuation name -> fn(plan, then): filled by the sites' modules (-- cast riders (wave 38C) -- "noop": a body with nothing after it)
+THEN.update({"draw_rest": lambda plan, then: _then_draw_rest(plan, then), "noop": lambda plan, then: None})  # Built-ins preserve native registrations made during cyclic imports.
 
 
 def _ctx_answers(ctx: dict[str, Any] | None) -> dict[str, str]:
@@ -635,6 +676,8 @@ def _tokens_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     m = c.match
     if m.get("who") == "you" and ev["player"] != c.controller:
         return False
+    if m.get("who") == "opponent" and ev["player"] == c.controller:
+        return False
     if c.op["do"] == "extra":  # -- refused grants/replacements (wave 3R2) -- app/rules/extra_tokens.py
         from app.rules import extra_tokens
 
@@ -652,6 +695,8 @@ def _token_matches(m: dict[str, Any], token: dict[str, Any]) -> bool:
 
 def _tokens_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     op = c.op
+    if op["do"] == "set_creator":
+        return [{**ev, "player": c.controller}]
     if op["do"] == "extra":  # -- refused grants/replacements (wave 3R2) -- "those tokens plus a Food token" (614.16)
         from app.rules import extra_tokens
 
@@ -674,54 +719,117 @@ def create_tokens(plan: Plan, controller: str, token: dict[str, Any], count: int
 
 def create_token_batch(plan: Plan, requests: list[tuple[str, dict[str, Any], int, str | None, bool]], *,
                        ctx: dict[str, Any] | None, bind: str | None, then: dict[str, Any] | None,
-                       answers: dict[str, str] | None = None) -> list[str] | None:
+                       answers: dict[str, str] | None = None,
+                       recipient_refs: list[str] | None = None,
+                       attachment_refs: list[dict[str, Any] | None] | None = None,
+                       replacement_receipts: list[dict[str, Any]] | None = None,
+                       creation_atoms: list[str] | None = None,
+                       receipt_bind: str | None = None) -> list[str] | None:
     """Several players creating tokens at once ("each player creates a Treasure token"): each
     player's creation is its own event, their choices in APNAP order (616.1). Requests: (player,
     token spec, count, source card, tapped)."""
     answers = answers if answers is not None else _ctx_answers(ctx)
-    planner = Planner(plan, candidates(plan, "tokens"), answers, ask=then is not None)
+    token_candidates = candidates(plan, "tokens")
+    planner = Planner(plan, token_candidates, answers, ask=then is not None)
+    from app.rules import token_creation_replacements as grouped
+
+    grouped_mode = any(c.op.get("group_tokens") for c in token_candidates)
+    receipt_key = "_token_replacement_receipts"
+    receipt_data = (ctx.get(receipt_key) if ctx is not None else replacement_receipts) or []
+    receipts = [grouped.TokenReplacementChoice.model_validate(r) for r in receipt_data]
     order = plan.apnap()
-    reqs = sorted(requests, key=lambda r: order.index(r[0]) if r[0] in order else len(order))  # 616.1: APNAP
+    reqs = sorted(enumerate(requests), key=lambda ir: order.index(ir[1][0]) if ir[1][0] in order else len(order))  # 616.1: APNAP
     finals: list[tuple[Event, list[Event]]] = []
     try:
-        for pid, spec, count, source, tapped in reqs:
+        for request_index, (pid, spec, count, source, tapped) in reqs:
             if count <= 0 or pid not in plan.live():
                 continue
             ev: Event = {"kind": "tokens", "player": pid, "count": int(count), "token": spec, "source": source,
-                         "tapped": bool(tapped), "applied": []}
+                         "tapped": bool(tapped), "applied": [], 'embalmed': bool(spec.get('_embalmed')),
+                         'effect_tapped': bool(spec.get('_effect_tapped', tapped))}
+            if recipient_refs is not None and request_index < len(recipient_refs):
+                ev["recipient_ref"] = recipient_refs[request_index]
+            if attachment_refs is not None and request_index < len(attachment_refs):
+                ev['attachment_ref'] = attachment_refs[request_index]
+            if creation_atoms is not None and request_index < len(creation_atoms):
+                ev["creation_atom"] = creation_atoms[request_index]
             out: list[Event] = []
-            planner.settle(ev, {}, out.append)
-            finals.append((ev, out))
+            if grouped_mode:
+                finals.append((ev, [ev]))
+            else:
+                planner.settle(ev, {}, out.append)
+                finals.append((ev, out))
+        if grouped_mode:
+            groups = grouped.initial_groups(plan, [ev for ev, _ in finals])
+            groups = grouped.creator_groups(plan, "tokens", token_candidates, groups, answers)
+            prior = grouped.prior_creators(plan)
+            finals = [(group.parts[0], grouped.plan_group(plan, "tokens:" + str(i), token_candidates, group, prior, answers, receipts).parts)
+                      for i, group in enumerate(groups)]
+    except grouped.GroupQuestion as group_question:
+        receipt_data = [r.model_dump(mode="json") for r in receipts]
+        if ctx is not None:
+            ctx[receipt_key] = receipt_data
+        resume = _resume_for(then, "tokens", {"requests": [list(r) for r in requests], "bind": bind, "recipient_refs": recipient_refs, "attachment_refs": attachment_refs, "replacement_receipts": receipt_data, "creation_atoms": creation_atoms, "receipt_bind": receipt_bind})
+        if resume is None:
+            raise ValueError("Optional token replacement requires a pausable native instruction") from group_question
+        from app.rules.plan import decide
+
+        decide(plan, player=group_question.player, kind="choose_one", prompt=group_question.prompt, options=group_question.options,
+               resume={**_resume_base(resume, answers), "step": "replace_order", "fp": group_question.fingerprint, "map": group_question.commands})
+        return None
     except Ask as q:
-        resume = _resume_for(then, "tokens", {"requests": [list(r) for r in requests], "bind": bind})
+        resume = _resume_for(then, "tokens", {"requests": [list(r) for r in requests], "bind": bind, "recipient_refs": recipient_refs, "attachment_refs": attachment_refs, "replacement_receipts": receipt_data, "creation_atoms": creation_atoms, "receipt_bind": receipt_bind})
         if _pause(plan, q, answers, resume):
             return None
         raise
+    receipt_data = [r.model_dump(mode="json") for r in receipts]
+    if grouped_mode and ctx is not None:
+        ctx[receipt_key] = receipt_data
     left_to_players(plan, planner)
     # -- token entering choices (wave 34A) -- 614.12a: "As this enters, choose …" of each token (a token copy's copied ability), asked before any is created
     from app.rules import replacements
 
     picks, question = replacements.token_choices(plan, [ev for _, out in finals for ev in out], answers)
     if question is not None:
-        resume = _resume_for(then, "tokens", {"requests": [list(r) for r in requests], "bind": bind})
+        resume = _resume_for(then, "tokens", {"requests": [list(r) for r in requests], "bind": bind, "recipient_refs": recipient_refs, "attachment_refs": attachment_refs, "replacement_receipts": receipt_data, "creation_atoms": creation_atoms, "receipt_bind": receipt_bind})
         if resume is not None:  # (a site that can't pause leaves a copied choice to the players: copying.token_copy)
             from app.rules.plan import decide
 
+            if question.get("coin_form"):
+                from app.rules import copiable_coin_entry
+
+                data = {"caller": "token", "resume": _resume_base(resume, answers),
+                        "answers": dict(answers), "key": question["key"]}
+                if copiable_coin_entry.run_coin(plan, question["player"], data):
+                    copiable_coin_entry.resume(plan, data)
+                return None
             decide(plan, player=question["player"], kind="choose_one", prompt=question["prompt"], options=question["options"],
                    resume={**_resume_base(resume, answers), "step": "replace_order", "fp": question["key"]},
                    source=plan.state.cards.get(question["source"] or ""))
             return None
         picks = []
     made: list[str] = []
+    created_receipts: list[dict[str, Any]] = []
     started: dict[str, int] = {}  # -- review (wave 5R) -- each player's first batch
     i = 0
     for before, out in finals:
         note_applied(plan, before, out, actor=before["player"])
         start = started.setdefault(before["player"], plan.rules.batch)
         for ev in out:
-            made += _make_tokens(plan, ev, picks[i] if i < len(picks) else [])
+            created_ids = _make_tokens(plan, ev, picks[i] if i < len(picks) else [])
+            made += created_ids
+            if receipt_bind is not None:
+                from app.rules import context as token_context
+
+                refs = [ref.model_dump(mode="json") for cid in created_ids
+                        if (ref := token_context.ref_of(plan, cid)) is not None]
+                created_receipts.append({"atom": str(ev.get("creation_atom", "instruction")), "objects": refs})
             i += 1
         _one_batch(plan, start)
+    if grouped_mode and ctx is not None:
+        ctx.pop(receipt_key, None)
+    if receipt_bind is not None and ctx is not None:
+        ctx[receipt_bind] = created_receipts
     if bind and ctx is not None:
         from app.rules import context
 
@@ -746,34 +854,89 @@ def _one_batch(plan: Plan, start: int) -> None:
 
 
 def _make_tokens(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str]:
-    from app.rules import replacements
+    import json
+
+    from app.rules import creature_entry_redirect, replacements, token_copy_entry
 
     pid, left = ev["player"], int(ev["count"])
-    spec = {k: v for k, v in ev["token"].items() if k != "_copy"}
-    recipe = ev["token"].get("_copy")  # a token copy (app/rules/copying.py): its copiable values (707.2)
+    aura_picks = [p for p in picks if token_copy_entry.HOST in p or token_copy_entry.SKIP in p]
+    if aura_picks:
+        picks = [p for p in picks if not p.get(token_copy_entry.SKIP)]
+        left = len(picks)
+    individual = bool(aura_picks) or any(p.get(token_copy_entry.COPY) for p in picks)
     made: list[str] = []
+    receipts: dict[str, dict[str, Any]] = {}
+    diverted_ids: set[str] = set()
+    pick_index = 0
     while left > 0:
-        k = min(left, MAX_TOKENS_STEP)
+        k = 1 if individual else min(left, MAX_TOKENS_STEP)
         left -= k
-        created = plan.do({"type": "create_token", "player": pid, "count": k, "stacked": False, "tapped": bool(ev.get("tapped")),
-                           "source_id": ev.get("source") if ev.get("source") in plan.state.cards else None,
-                           "token": spec}, actor=pid)
-        new_ids = getattr(created, "r", None)
-        made += list(new_ids.ids) if new_ids is not None else []
-    for i, tid in enumerate(made):
-        if recipe is not None:  # the copy effect applies before anything looks at it, then it enters (707.5)
+        pick = picks[pick_index] if pick_index < len(picks) else {}
+        effective = token_copy_entry.effective(ev, pick)
+        diverted = creature_entry_redirect.token_exiles(plan, pid, effective)
+        spec = {key: value for key, value in ev['token'].items() if key not in ('_copy', '_entry_counters', '_embalmed', '_effect_tapped')}
+        incoming = token_copy_entry.probe(plan, pid, effective)
+        prospective = incoming.token.model_dump(mode='json') if incoming.token is not None else effective
+        explicit_tapped = bool(ev.get('effect_tapped', ev.get('tapped'))) or bool(json.loads(pick.get(token_copy_entry.ENTRY, '{}')).get('tapped'))
+        enters_tapped = (explicit_tapped or replacements.token_enters_tapped(plan, pid, prospective)) and not replacements.token_enters_untapped(plan, pid, prospective)
+        created = plan.do({'type': 'create_token', 'player': pid, 'count': k, 'stacked': False, 'tapped': enters_tapped,
+                           'source_id': ev.get('source') if ev.get('source') in plan.state.cards else None,
+                           'token': spec, 'embalmed': bool(ev.get('embalmed')), **({'zone': 'exile'} if diverted else {})}, actor=pid)
+        new_ids = getattr(created, 'r', None)
+        ids = list(new_ids.ids) if new_ids is not None else []
+        made += ids
+        for tid in ids:
+            receipts[tid] = effective
+            if diverted:
+                diverted_ids.add(tid)
+        pick_index += k
+    i_entry = {tid: json.loads(picks[i].get(token_copy_entry.ENTRY, '{}')) if i < len(picks) else {} for i, tid in enumerate(made)}
+    for tid in made:
+        recipe = receipts[tid].get('_copy')
+        if recipe is not None:
             from app.rules import copying
 
-            copying.add_copy_effect(plan, [plan.oid(tid)], copying.CopyRecipe.model_validate(recipe), pid)
+            copying.add_copy_effect(plan, [plan.oid(tid)], copying.CopyRecipe.model_validate(recipe), pid,
+                                    duration='end_of_turn' if i_entry.get(tid, {}).get('duration') == 'end_of_turn' else 'permanent')
+    for i, tid in enumerate(made):
+        if i < len(picks) and picks[i].get(token_copy_entry.HOST) and tid not in diverted_ids:
+            from app.rules import attachments
+
+            attachments.attach(plan, tid, picks[i][token_copy_entry.HOST], pid)
+    for i, tid in enumerate(made):
         # 616.1g: created first, then it enters (its "enters with" counters; -- wave 34A -- what it chose as it entered, 614.12a)
-        replacements.after_entry(plan, tid, pid, newcomers=made, choices=(picks[i] if i < len(picks) else None) or None)
+        extra: dict[str, int] = {}
+        for counter in ev['token'].get('_entry_counters') or []:
+            if counter.get('if_type') and counter['if_type'] not in plan.ch(plan.state.cards[tid]).types:
+                continue
+            extra[counter['counter']] = extra.get(counter['counter'], 0) + int(counter['n'])
+        for counter in i_entry[tid].get('counters') or []:
+            if counter.get('if_type') and counter['if_type'] not in plan.ch(plan.state.cards[tid]).types:
+                continue
+            if counter.get('if_control') and i_entry[tid].get('controller') != pid:
+                continue
+            value = 0 if counter['n'] == 'X' else int(counter['n'])
+            extra[counter['counter']] = extra.get(counter['counter'], 0) + value
+        replacements.after_entry(plan, tid, pid, newcomers=made, choices=({key: value for key, value in picks[i].items() if key not in (token_copy_entry.COPY, token_copy_entry.ENTRY)} if i < len(picks) else None) or None,
+                                 extra_counters=extra or None)
+    recipient = ev.get("recipient_ref")
+    if recipient in plan.live() and pid == plan.active and recipient != pid and plan.state.turn.phase in (
+            "declare_attackers", "declare_blockers", "combat_damage", "end_combat"):
+        from app.rules.token_grammar import _attack_with
+
+        creatures = [cid for cid in made if (card := plan.state.cards.get(cid)) is not None
+                     and card.zone.endswith(":battlefield") and card.controller == pid
+                     and "Creature" in plan.ch(card).types]
+        _attack_with(plan, creatures, recipient, pid)
     return made
 
 
 def _run_tokens(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
     ctx = then.get("ctx") if then else None
     requests = [(r[0], r[1], int(r[2]), r[3], bool(r[4])) for r in request["requests"]]
-    made = create_token_batch(plan, requests, ctx=ctx, bind=request.get("bind"), then=then, answers=answers)
+    made = create_token_batch(plan, requests, ctx=ctx, bind=request.get("bind"), then=then, answers=answers,
+                              recipient_refs=request.get("recipient_refs"), attachment_refs=request.get("attachment_refs"),
+                              replacement_receipts=request.get("replacement_receipts"), creation_atoms=request.get("creation_atoms"), receipt_bind=request.get("receipt_bind"))
     if made is not None:
         run_then(plan, then)
 
@@ -796,6 +959,12 @@ def _object_matches(plan: Plan, spec: dict[str, Any], c: Candidate, card: CardIn
         return oid in spec["oids"]
     if spec.get("counter") and not card.counters.get(spec["counter"]):  # (-- prevention riders (wave 17A) -- "while it has a +1/+1 counter on it")
         return False
+    if spec.get("band_of_source"):
+        from app.rules import banding
+
+        holder = plan.state.cards.get(c.source_card or "")
+        return (holder is not None and plan.oid(holder) == c.source_oid and oid == plan.oid(card)
+                and ch.is_creature and card.id in banding.members(plan.state, holder.id))
     if spec.get("self"):
         return oid is not None and oid == c.source_oid
     if spec.get("attached"):
@@ -867,6 +1036,8 @@ def _putter_ok(c: Candidate, ev: Event) -> bool:
 def _player_counters_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if ev["n"] <= 0:
         return False
+    if c.match.get("counter") and c.match["counter"] != ev["counter"]:
+        return False
     if c.event == "counters":  # -- counter putters (wave 22C) -- "on a permanent or player" / "or on yourself"
         if c.match["players"] == "you" and ev["player"] != c.controller:
             return False
@@ -885,9 +1056,13 @@ def _entering_times(plan: Plan, c: Candidate, ev: Event) -> int:
     times = c.op.get("times")
     if times is None:
         return 1
+    if "entering_mana_value" in times:
+        _, ch = _counter_object(plan, ev)
+        return (1 if ch is not None and ch.mana_value <= times["entering_mana_value"]
+                else int(times["otherwise"]))
     ctx = {"controller": c.controller, "source_card": c.source_card, "source_object": c.source_oid}
     if "mana_from" in times:  # -- mana provenance (wave 18B) -- "for each mana from an artifact source spent to cast it": the entering one
-        ctx["source_object"] = next((k for k, rec in reversed(plan.rules.payments.items()) if rec.card == ev["card"]), "")  # (its latest payment record)
+        ctx["source_object"] = plan.oid(ev["card"])  # The entering incarnation, never an earlier cast of this card.
     if "already" in times:
         fresh = {ev["card"], *(ev.get("newcomers") or ())}
         return sum(1 for cid in selectors.candidates(plan, selectors.from_key(times["already"]), c.controller, c.source_card)
@@ -906,20 +1081,27 @@ def entering_kinds(plan: Plan, cands: list[Candidate]) -> set[str]:
 def put_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effect: bool = True,
                  then: dict[str, Any] | None = None, entering: dict[str, str] | None = None,
                  answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None,
-                 newcomers: list[str] | None = None) -> bool:
+                 newcomers: list[str] | None = None, putters: list[str] | None = None,
+                 receipt_bind: str | None = None) -> bool:
     """THE counter choke point (see the module docstring). Removing counters (negative ``n``)
     isn't a replaceable "put" and passes straight through. False while a choice is open (the
     continuation ``then`` runs after the answer)."""
     answers = answers if answers is not None else _ctx_answers(ctx)
     planned = plan_counters(plan, puts, by=by, effect=effect, entering=entering, answers=answers, ask=then is not None,
-                            newcomers=newcomers)
+                            newcomers=newcomers, putters=putters)
     if isinstance(planned, Ask):
         request = {"puts": [list(p) for p in puts], "by": by, "effect": effect, "entering": entering,
-                   **({"newcomers": newcomers} if newcomers else {})}
+                   "receipt_bind": receipt_bind,
+                   **({"newcomers": newcomers} if newcomers else {}), **({"putters": putters} if putters is not None else {})}
         if _pause(plan, planned, answers, _resume_for(then, "counters", request)):
             return False
         raise planned
-    do_counters(plan, planned, by=by)
+    receipt: list[CounterPlacement] | None = [] if receipt_bind is not None else None
+    do_counters(plan, planned, by=by, receipt=receipt)
+    if receipt_bind is not None and ctx is not None:
+        from app.rules import counter_receipts
+
+        counter_receipts.store(ctx, receipt_bind, receipt or [])
     return True
 
 
@@ -931,7 +1113,8 @@ class CounterPlan:
 
 def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effect: bool,
                   entering: dict[str, str] | None, answers: dict[str, str], ask: bool,
-                  cands: list[Candidate] | None = None, newcomers: list[str] | None = None) -> CounterPlan | Ask:
+                  cands: list[Candidate] | None = None, newcomers: list[str] | None = None,
+                  putters: list[str] | None = None) -> CounterPlan | Ask:
     from app.rules import prohibitions  # -- prohibitions (wave 22B) -- 614.17
 
     planner = Planner(plan, cands if cands is not None else candidates(plan, ("counters", "player_counters")), answers, ask=ask)
@@ -942,12 +1125,13 @@ def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effe
     extra_kinds = entering_kinds(plan, planner.cands) if entering else set()
     puts = list(puts) + [(cid, kind, 0) for cid in (entering or {}) for kind in sorted(extra_kinds)
                          if not any(p[0] == cid and p[1] == kind for p in puts)]
-    for target, kind, n in puts:
+    for i, (target, kind, n) in enumerate(puts):
+        actor = putters[i] if putters is not None and i < len(putters) else by
         if target in plan.state.players:
-            events.append({"kind": "player_counters", "player": target, "counter": kind, "n": int(n), "by": by, "applied": []})
+            events.append({"kind": "player_counters", "player": target, "counter": kind, "n": int(n), "by": actor, "applied": []})
         elif target in plan.state.cards:
             ev: Event = {"kind": "counters", "card": target, "oid": plan.oid(target), "counter": kind, "n": int(n),
-                         "by": by, "effect": bool(effect), "applied": []}
+                         "by": actor, "effect": bool(effect), "applied": []}
             if entering and target in entering:  # given counters as it enters (122.6): asked before it enters (614.12a)
                 ev.update(controller=entering[target], entering=True, oid=None)
                 if newcomers:  # -- counters (wave 5H) -- the permanents entering with it (614.12)
@@ -958,7 +1142,7 @@ def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effe
     try:
         for ev in events:
             out: list[Event] = []
-            if ev["kind"] == "counters" and ev["n"] > 0 and (
+            if ev["kind"] == "counters" and (ev["n"] > 0 or (ev["n"] == 0 and ev.get("entering") and extra_kinds)) and (
                     barred := prohibitions.cant_counters(plan, ev["card"], ev.get("controller") if ev.get("entering") else None, ev["counter"])):
                 ev["prohibited"] = barred  # -- prohibitions (wave 22B) -- 614.17: no event: nothing replaces or triggers on it
             elif ev["kind"] == "player_counters" and ev["n"] > 0 and (barred := prohibitions.cant_get_counters(plan, ev["player"], ev["counter"])):
@@ -973,37 +1157,49 @@ def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effe
     return CounterPlan(finals, planner)
 
 
-def do_counters(plan: Plan, planned: CounterPlan, *, by: str) -> None:
+def do_counters(plan: Plan, planned: CounterPlan, *, by: str, receipt: list[CounterPlacement] | None = None) -> None:
     """The planned counters as table actions: the same kind and number for several objects is one
     step (one event batch), as without replacement effects."""
     left_to_players(plan, planned.planner)
     groups: dict[tuple[str, str, int], list[str]] = {}
+    group = plan.rules.batch + 1
     for before, out in planned.finals:
+        actor = before.get("by") or by
         if before.get("prohibited"):  # -- prohibitions (wave 22B) -- 614.17
             card_id = before.get("card")
             who = plan.name(before["player"]) if card_id is None else plan.state.cards[card_id].name or "a permanent"
-            plan.note(f"{before['prohibited']}: counters can't be put on {who}", [card_id] if card_id else [], actor=by)
-        note_applied(plan, before, out, actor=by)
+            plan.note(f"{before['prohibited']}: counters can't be put on {who}", [card_id] if card_id else [], actor=actor)
+        note_applied(plan, before, out, actor=actor)
         for ev in out:
             if ev["n"] == 0:
                 continue
             if ev["kind"] == "player_counters":
-                plan.do({"type": "resource", "player": ev["player"], "key": ev["counter"], "delta": ev["n"]}, actor=by)
+                plan.do({"type": "resource", "player": ev["player"], "key": ev["counter"], "delta": ev["n"], "group": group}, actor=ev.get("by") or actor)
                 continue
             if ev["card"] in plan.state.cards:
-                groups.setdefault(("card", ev["counter"], ev["n"]), []).append(ev["card"])
+                groups.setdefault((ev.get("by") or actor, ev["counter"], ev["n"]), []).append(ev["card"])
     # -- counters (wave 7C) -- several kinds at once are one instruction: its steps share a group (the batch the first
     # one gets), so "whenever you put one or more counters on a creature" triggers once (122.6)
-    group = plan.rules.batch + 1 if len(groups) > 1 else 0
-    for (_, kind, n), cards in groups.items():
-        plan.do({"type": "counter", "card_ids": cards, "kind": kind, "delta": n, **({"group": group} if group else {})},
-                actor=by)
+    for (actor, kind, n), cards in groups.items():
+        # The instruction and replacement plan are already fixed. Table-action
+        # input bounds do not limit its quantity; every chunk keeps one group.
+        while n:
+            chunk = max(-1000, min(1000, n))
+            plan.do({"type": "counter", "card_ids": cards, "kind": kind, "delta": chunk, **({"group": group} if group else {})},
+                    actor=actor)
+            if receipt is not None and chunk > 0:
+                from app.rules import context, counter_receipts
+
+                receipt.extend(counter_receipts.CounterPlacement(destination=ref, kind=kind, amount=chunk)
+                               for cid in cards if (ref := context.ref_of(plan, cid)) is not None)
+            n -= chunk
 
 
 def _run_counters(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
     puts = [(p[0], p[1], int(p[2])) for p in request["puts"]]
     if put_counters(plan, puts, by=request["by"], effect=bool(request.get("effect", True)), then=then,
-                    entering=request.get("entering"), answers=answers, newcomers=request.get("newcomers")):
+                    entering=request.get("entering"), answers=answers, newcomers=request.get("newcomers"), putters=request.get("putters"),
+                    ctx=then.get("ctx") if then else None, receipt_bind=request.get("receipt_bind")):
         run_then(plan, then)
 
 
@@ -1047,6 +1243,8 @@ def _draw_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
 
         if speed.of(plan, pid) < speed.MAX:  # 702.178a: "as long as you have max speed"
             return False
+    if m.get("draw_step_only") and not (plan.state.turn.phase == "draw" and plan.active == pid):
+        return False
     if m.get("not_first_in_draw_step"):
         # 504.1: the first card they draw in each of their draw steps (the turn-based draw)
         in_their_draw_step = plan.state.turn.phase == "draw" and plan.active == pid
@@ -1091,7 +1289,9 @@ def _draw_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     if op == "draw":
         return [{"kind": "draw", "player": ev["player"]} for _ in range(int(c.op["n"]))]
     if op == "body":  # -- draw bodies (wave 28B) -- run by do_draws once everything before it has happened (app/rules/draw_bodies.py)
-        return [{"kind": "body", "player": ev["player"], "effects": c.op["effects"], "controller": c.controller,
+        return [{"kind": "body", "player": ev["player"], "effects": c.op["effects"],
+                 "controller": ev["player"] if c.op.get("affected_controller") else c.controller,
+                 "replacement_controller": c.controller, "targets": c.op.get("targets", []), "x": c.op.get("x", 0),
                  "source_card": c.source_card, "source_oid": c.source_oid, "label": c.label}]
     return [ev]
 
@@ -1168,7 +1368,7 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
             if c.op.get("once") and (rec := next((r for r in plan.rules.replacements if f"r:{r.get('id')}" == c.id), None)) is not None:
                 rec["spent"] = True
         cands = [c for c in cands if c.op.get("do") != "body"]
-    planner = Planner(plan, cands, answers, ask=then is not None)
+    planner = Planner(plan, cands, answers, ask=then is not None, stop_draw_sequence=True)
     # -- review 37 -- 101.2, 121.2 (Narset, Parter of Veils; Spirit of the Labyrinth): "can't draw more than one card each turn" is read one draw at a time, a
     # replacement's draws too ("draw two cards instead": only the first is allowed); a draw not allowed is ignored and no replacement effect applies to it; a draw a
     # replacement effect replaced (dredge, Notion Thief) was not drawn, so the next one may be (the Narset and Leovold rulings)
@@ -1250,8 +1450,13 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
     # (review 28B: the players of the slots left, not of the instruction — "you and that player each draw a card" adds Alms Collector's controller)
     # (wave 29C: the draws left after a body / a dredge are still the result of the count replacement that applied to their instruction)
     kept = list(dict.fromkeys([*exclude, *(m for ms in marks for m in ms)]))
-    after = {"do": "draw_rest", "players": list(rest), "n": rest, "then": then, "exclude": kept}  # (already counted)
+    after: dict[str, Any] = {"do": "draw_rest", "players": list(rest), "n": rest, "then": then, "exclude": kept}  # (already counted)
+    if planner.pending_draws:
+        after = {"do": "draw_pending", "pending": planner.pending_draws, "then": after}
     if do_draws(plan, actions, after):
+        return False
+    if planner.pending_draws:
+        _then_draw_pending(plan, after)
         return False
     if rest:
         return draw_cards(plan, list(rest), rest, then=then, answers={}, exclude=kept, counted=True)
@@ -1265,6 +1470,22 @@ def _then_draw_rest(plan: Plan, then: dict[str, Any]) -> None:
         run_then(plan, then["then"])
 
 
+def _then_draw_pending(plan: Plan, then: dict[str, Any]) -> None:
+    """121.6b: finish unprocessed draws inside a replacement before the outer sequence."""
+    pending = list(then["pending"])
+    if not pending:
+        run_then(plan, then["then"])
+        return
+    first, rest = pending[0], pending[1:]
+    assert first["kind"] == "draw"
+    after = {"do": "draw_pending", "pending": rest, "then": then["then"]} if rest else then["then"]
+    if draw_cards(plan, [first["player"]], 1, then=after, answers={}, exclude=list(first.get("applied") or []), counted=True):
+        run_then(plan, after)
+
+
+THEN["draw_pending"] = _then_draw_pending
+
+
 def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]], after: dict[str, Any] | None = None) -> bool:
     """The final events of a draw sequence, in order: consecutive draws by one player are one
     table step (each card is still its own "drew" event, 121.2). True when a body (wave 28B) was run last: ``after`` goes on once it is
@@ -1272,19 +1493,26 @@ def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]], after: dict[s
     r = plan.rules
     # (player, how: "replaced" — drawn as a result of a replacement effect, 614.11b, wave 29C; "counted" — by an instruction a replacement
     # effect changed the number of, 121.2a, review 29C; "" — neither)
-    run: list[tuple[str, str]] = []
+    run: list[tuple[str, str, list[str]]] = []
 
     def flush() -> None:
         if not run:
             return
         pid, k = run[0][0], len(run)
-        how = [h for _, h in run]
+        how = [h for _, h, _ in run]
+        ancestry = [applied for _, _, applied in run]
         run.clear()
         library = plan.state.zones.get(zone_key(pid, "library"), [])
         drawn = min(k, len(library))
         if drawn:
             top = list(library[:drawn])
-            plan.do({"type": "draw", "player": pid, "count": drawn}, actor=pid)
+            # A table Draw action carries at most100 cards; the rules instruction
+            # remains one planned sequence with no intervening priority or SBA.
+            for start in range(0, drawn, 100):
+                plan.do({"type": "draw", "player": pid, "count": min(100, drawn - start)}, actor=pid)
+            if (draw_log := turn_log_now(plan.state)) is not None:
+                for c, applied in zip(top, ancestry, strict=False):
+                    draw_log.drawn_applied[plan.rules.object_id(c)] = applied
             if (log := turn_log_now(plan.state)) is not None and any(how[:drawn]):  # -- replaced draws (wave 29C) -- 121.6c, 614.11b:
                 for c, h in zip(top, how, strict=False):  # "reveal them" etc. isn't done to cards a replacement effect drew
                     if h:
@@ -1313,7 +1541,7 @@ def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]], after: dict[s
                 if run and run[0][0] != f["player"]:
                     flush()
                 # (a replaced draw's events carry the effects applied, 616.1; the slot of a changed instruction says so: ``draw_cards``)
-                run.append((f["player"], "counted" if before.get("counted") else "replaced" if f.get("applied") else ""))
+                run.append((f["player"], "counted" if before.get("counted") else "replaced" if f.get("applied") else "", list(f.get("applied") or [])))
             elif f["kind"] == "win":
                 flush()
                 _win(plan, f["player"])
@@ -1360,6 +1588,8 @@ def _run_draw(plan: Plan, request: dict[str, Any], answers: dict[str, str], then
 def _life_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if ev["n"] <= 0 or ev["player"] not in plan.live():
         return False  # 119.10: gaining 0 life isn't a life gain event
+    if c.match.get('players') is not None and ev['player'] not in c.match['players']:
+        return False
     who = c.match.get("who")
     if who == "you" and ev["player"] != c.controller or who == "opponent" and ev["player"] == c.controller:
         return False
@@ -1435,13 +1665,21 @@ def plan_life(plan: Plan, gains: list[tuple[str, int, str]], *, answers: dict[st
     return finals, planner
 
 
+def _life_operation(plan: Plan, operation: int | None) -> int:
+    if operation is not None and operation > 0:
+        return operation
+    plan.rules.next_life_operation += 1
+    return plan.rules.next_life_operation
+
+
 def gain_life(plan: Plan, gains: list[tuple[str, int]], *, actor: str, then: dict[str, Any] | None = None,
-              answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None) -> bool:
+              answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None, operation: int | None = None) -> bool:
     """THE life-gain choke point (see the module docstring). False while a choice is open."""
+    operation = _life_operation(plan, operation)
     answers = answers if answers is not None else _ctx_answers(ctx)
     planned = plan_life(plan, [(p, n, p) for p, n in gains], answers=answers, ask=then is not None)
     if isinstance(planned, Ask):
-        request = {"gains": [list(g) for g in gains], "actor": actor}
+        request = {"gains": [list(g) for g in gains], "actor": actor, "operation": operation}
         if _pause(plan, planned, answers, _resume_for(then, "life", request)):
             return False
         raise planned
@@ -1458,12 +1696,12 @@ def gain_life(plan: Plan, gains: list[tuple[str, int]], *, actor: str, then: dic
                 )
 
                 for pid, n in life_lock.keep(plan, [(ev["player"], ev["n"])], actor=actor):
-                    plan.do({"type": "life", "player": pid, "delta": -n}, actor=actor)
+                    plan.do({"type": "life", "player": pid, "delta": -n, "group": operation}, actor=actor)
     return True
 
 
 def _run_life(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
-    if gain_life(plan, [(g[0], int(g[1])) for g in request["gains"]], actor=request["actor"], then=then, answers=answers):
+    if gain_life(plan, [(g[0], int(g[1])) for g in request["gains"]], actor=request["actor"], then=then, answers=answers, operation=request.get("operation")):
         run_then(plan, then)
 
 
@@ -1490,10 +1728,13 @@ def plan_loss(plan: Plan, losses: list[tuple[str, int]], *, answers: dict[str, s
 
 
 def lose_life(plan: Plan, losses: list[tuple[str, int]], *, actor: str | None = None, then: dict[str, Any] | None = None,
-              answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None, as_gain: bool = False) -> bool:
+              answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None, as_gain: bool = False,
+              receipt: list[int] | None = None, bind: str | None = None, operation: int | None = None) -> bool:
     """THE life-loss choke point (wave 28B): every way a player loses life that isn't damage's own result (effects, a payment of life: 119.4
     "the player loses that much life", 118.11 a payment may be modified by effects) goes through the "would lose life" replacements.
     With none in force, each player just loses it. False while a choice is open."""
+    if receipt is not None:
+        receipt.clear()
     losses = [(p, int(n)) for p, n in losses if n > 0 and p in plan.state.players]
     from app.rules import (
         life_lock,  # -- can't lose life (wave 29D) -- 119.8, 614.17c: a loss that can't happen isn't an event, nothing replaces it
@@ -1502,17 +1743,20 @@ def lose_life(plan: Plan, losses: list[tuple[str, int]], *, actor: str | None = 
     losses = life_lock.keep(plan, losses, actor=actor)
     if not losses:
         return True
+    operation = _life_operation(plan, operation)
     if not candidates(plan, "life_loss"):
         for pid, n in losses:
+            if receipt is not None and not as_gain:
+                receipt.append(n)
             if as_gain:  # -- counters (wave 44C) -- "gain life rather than lose life from radiation" (728.1a): the gain event, through the gain replacements
-                gain_life(plan, [(pid, n)], actor=actor or pid)
+                gain_life(plan, [(pid, n)], actor=actor or pid, operation=operation)
             else:
-                plan.do({"type": "life", "player": pid, "delta": -n}, actor=actor or pid)
+                plan.do({"type": "life", "player": pid, "delta": -n, "group": operation}, actor=actor or pid)
         return True
     answers = answers if answers is not None else _ctx_answers(ctx)
     planned = plan_loss(plan, losses, answers=answers, ask=then is not None)
     if isinstance(planned, Ask):
-        request = {"losses": [list(x) for x in losses], "actor": actor}
+        request = {"losses": [list(x) for x in losses], "actor": actor, "bind": bind, "operation": operation}
         if _pause(plan, planned, answers, _resume_for(then, "loss", request)):
             return False
         raise planned
@@ -1522,10 +1766,12 @@ def lose_life(plan: Plan, losses: list[tuple[str, int]], *, actor: str | None = 
         note_applied(plan, before, out, actor=actor)
         for ev in out:
             if ev["kind"] == "life_loss" and ev["n"] > 0:
+                if receipt is not None and not as_gain:
+                    receipt.append(int(ev["n"]))
                 if as_gain:  # (wave 44C)
-                    gain_life(plan, [(ev["player"], ev["n"])], actor=actor or ev["player"])
+                    gain_life(plan, [(ev["player"], ev["n"])], actor=actor or ev["player"], operation=operation)
                 else:
-                    plan.do({"type": "life", "player": ev["player"], "delta": -ev["n"]}, actor=actor or ev["player"])
+                    plan.do({"type": "life", "player": ev["player"], "delta": -ev["n"], "group": operation}, actor=actor or ev["player"])
     return True
 
 
@@ -1659,7 +1905,13 @@ def keyword_replace(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], kind: st
 
 
 def _run_loss(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
-    if lose_life(plan, [(x[0], int(x[1])) for x in request["losses"]], actor=request["actor"], then=then, answers=answers):
+    receipt: list[int] = []
+    if lose_life(plan, [(x[0], int(x[1])) for x in request["losses"]], actor=request["actor"], then=then, answers=answers,
+                 receipt=receipt, bind=request.get("bind"), operation=request.get("operation")):
+        if request.get("bind") and then is not None and isinstance(then.get("ctx"), dict):
+            from app.rules import context
+
+            context.bind_amount(then["ctx"], request["bind"], sum(receipt))
         run_then(plan, then)
 
 
@@ -1683,6 +1935,7 @@ def source_info(plan: Plan, card_id: str | None, oid: str | None, ch: Any, contr
     return {"card": card_id, "controller": ctrl, "spell": spell, "entered": soid is not None and any(e.object_id == soid for e in log_for(plan, False).entered),
             "colors": sorted(ch.colors) if ch is not None else [], "types": sorted(ch.types) if ch is not None else [],
             "subtypes": sorted(ch.subtypes) if ch is not None else [],
+            "keywords": sorted(ch.keywords) if ch is not None else [],
             "names": card_names.names_of(ch) if ch is not None else [],  # (wave 53B: "sources with the chosen name", 709.4a)
             "counters": {k: n for k, n in counters.items() if n > 0},  # (wave 51C: the kinds, "with a +1/+1 counter on it", Uncivil Unrest)
             "has_counters": any(n > 0 for n in counters.values()),  # (-- counters (wave 41A) -- "a creature you control with a counter on it", Raphael, the Muscle)
@@ -1690,6 +1943,14 @@ def source_info(plan: Plan, card_id: str | None, oid: str | None, ch: Any, contr
 
 
 def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -> bool:
+    from app.rules import scoped_prevention_effects
+
+    if not scoped_prevention_effects.source_matches(plan, spec, ev):
+        return False
+    from app.rules import conditional_prevention_effects
+
+    if not conditional_prevention_effects.source_matches(plan, spec, c, ev):
+        return False
     src = ev.get("src") or {}
     if spec.get("alts"):  # -- as long as (wave 9B) -- "a red or artifact source you control": either description (609.7c)
         return any(_source_matches(plan, alt, c, ev) for alt in spec["alts"])
@@ -1762,6 +2023,10 @@ def _recipient_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event
     if not spec:
         return True
     target = ev["target"]
+    if spec.get("chosen_player_or_controlled"):
+        from app.rules import keyed_player_bindings
+
+        return keyed_player_bindings.recipient(plan, c.source_card, c.source_oid, target)
     if target in plan.state.players:
         if spec.get("pids") is not None:  # (-- prevention riders (wave 17A) -- the player a shield was made for)
             return target in spec["pids"]
@@ -1778,6 +2043,14 @@ def _recipient_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event
     return _object_matches(plan, objects, c, card, plan.ch(card), ev.get("target_oid"))
 
 
+def _finite_prevention_key(candidate: Candidate, event: Event) -> str:
+    if candidate.op.get('budget_scope') == 'source_batch':
+        from app.rules.source_batch_prevention import budget_key
+
+        return budget_key(candidate, event)
+    return 'limited:' + candidate.id
+
+
 def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if ev["amount"] <= 0:
         return False  # 614.7a: a source dealing 0 damage deals no damage: nothing to replace or prevent
@@ -1785,11 +2058,15 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     # prevented prevents none of it and a shield isn't reduced; none the engine applies has an additional effect
     # (app/rules/source_shields.py), so it isn't applied at all. 615.8: a "next time" shield is used up once.
     if (c.prevention or c.legacy is not None) and ev.get("unpreventable") and not (
-            c.op.get("rider") and c.id.startswith("s:")):  # (-- prevention riders (wave 17A) -- a static's additional effect
+            (c.op.get("rider") and c.id.startswith("s:")) or c.op.get("consume_unpreventable")):  # (-- prevention riders (wave 17A) -- a static's additional effect
         return False  # still takes place, 615.12; a record's or shield's riders all count the damage prevented: none)
     if c.op.get("once") and not c.op.get("batch") and f"once:{c.id}" in sim.get("shields", {}):  # (wave 35A: ``batch``, see Planner.applies)
         return False
     # -- end refused grants/replacements (wave 3R2) --
+    if c.op.get("protection_target"):
+        from app.rules import damage_protection
+
+        return damage_protection.applies(plan, c, ev)
     if c.legacy is not None:  # a stage-1 "prevent all …" static or this turn's record
         from app.rules import replacements
 
@@ -1797,10 +2074,14 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if c.op["do"] == "shield":
         # 615.7: a shield prevents only damage to what it protects
         return c.op["key"].split("#")[0] == _shield_key(plan, ev["target"]) and sim.get("shields", {}).get(c.op["key"], 0) > 0
+    if c.op["do"] == "scoped_shield" and sim.get("shields", {}).get(c.op["key"], 0) <= 0:
+        return False
     m = c.match
     if m.get("combat") is not None and bool(m["combat"]) != bool(ev.get("combat")):
         return False
     if m.get("monarch") and plan.state.table.monarch != c.controller:  # (-- prevention riders (wave 17A) -- "while you're the monarch")
+        return False
+    if m.get("attacking") and ((holder := plan.state.cards.get(c.source_card or "")) is None or not holder.is_attacking):
         return False
     if m.get("untapped") and ((holder := plan.state.cards.get(c.source_card or "")) is None or holder.tapped):  # -- redirection statics (wave 50E) -- "As long as this creature is untapped"
         return False
@@ -1809,6 +2090,8 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
 
         if speed.of(plan, c.controller) < speed.MAX:
             return False
+    if m.get("below_value") is not None and ev["amount"] >= _added_value(plan, c, m["below_value"]):
+        return False  # 616.1: another replacement may have raised this event above the current threshold.
     if m.get("at_least") and ev["amount"] < m["at_least"]:
         return False  # -- instead (wave 20B) -- "If a source would deal 4 or more damage …": judged on the amount as it is now (614.6)
     if c.op["do"] == "redirect":  # -- refused grants/replacements (wave 3R2) -- 614.9: nowhere to redirect to: nothing
@@ -1816,8 +2099,13 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
 
         if source_shields.redirect_target(plan, c, ev) is None:
             return False
-        if c.op.get("limit") is not None and sim.get("shields", {}).get(f"redir:{c.id}", c.op["limit"]) <= 0:
+        if c.op.get("limit") is not None and (int(c.op["limit"]) <= 0 or
+                (sim.get("shields", {}).get(f"redir:{c.id}", c.op["limit"]) <= 0 and not c.op.get("allocate"))):
             return False  # (-- prevention riders (wave 17A) -- "the next 1 damage": used up)
+    if c.op["do"] == "finite_prevention":
+        left = sim.get("shields", {}).get(_finite_prevention_key(c, ev), c.op["limit"])
+        if int(c.op["limit"]) <= 0 or (left <= 0 and not c.op.get("allocate")):
+            return False
     return _source_matches(plan, m.get("source") or {}, c, ev) and _recipient_matches(plan, m.get("to") or {}, c, ev)
 
 
@@ -1838,12 +2126,23 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         if op.get("limit") is not None:  # -- prevention riders (wave 17A) -- 614.9, 615.7-like: only the next N damage is redirected
             shields = sim.setdefault("shields", {})
             left = int(shields.get(f"redir:{c.id}", op["limit"]))
-            k = min(k, left)
+            if op.get("allocate"):
+                from app.rules import single_recipient_redirection
+
+                k = single_recipient_redirection.amount(sim, c, ev, left)
+            else:
+                k = min(k, left)
             shields[f"redir:{c.id}"] = left - k
         if op.get("once"):  # (the next time a source would deal damage: used up by this instance, 615.8)
             sim.setdefault("shields", {})[f"once:{c.id}"] = 0
+        if k <= 0:
+            return [dict(ev)]
         moved = source_shields.redirect(plan, c, {**ev, "amount": k})
         return [moved, {**ev, "amount": int(ev["amount"]) - k}] if k < int(ev["amount"]) else [moved]
+    if op.get("shield_counter"):
+        used = sim.setdefault("shield_counter_used", [])
+        if op["shield_counter"] not in used:
+            used.append(op["shield_counter"])
     n = int(ev["amount"])
     kind = op["do"]
     if ev.get("unpreventable") and op.get("prevention"):
@@ -1856,10 +2155,12 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         n = max(0, n - int(op["n"]))
     elif kind == "half":
         n //= 2
+    elif kind == "set_value":
+        n = max(0, _added_value(plan, c, op["value"]))
     elif kind == "cap":  # -- instead (wave 20B) -- "that source deals 3 damage instead" (the threshold was met: the amount is above the cap)
         n = int(op["n"])
     elif kind == "prevent":
-        n = max(0, n - int(op["n"]))
+        n = max(0, n - int(op["n"]) - (_added_value(plan, c, op["value"]) if op.get("value") else 0))
     elif kind == "prevent_half_up":  # -- damage wordings (wave 6B) -- prevent half, rounded up: half rounded down is left
         n //= 2
     elif kind == "prevent_half_down":  # -- one-shot shields (wave 35A) -- Dark Sphere: prevent half, rounded down: the rest is dealt
@@ -1868,7 +2169,16 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         n = min(n, int(op["n"]))
     elif kind == "prevent_all" or kind == "body":  # (-- damage bodies (wave 35C) -- a replaced damage is never dealt, 614.6)
         n = 0
-    elif kind == "shield":  # 615.7: each 1 damage prevented reduces the shield by 1
+    elif kind == "finite_prevention":
+        from app.rules import single_recipient_redirection
+
+        shields = sim.setdefault("shields", {})
+        key = _finite_prevention_key(c, ev)
+        left = int(shields.get(key, op["limit"]))
+        used = single_recipient_redirection.amount(sim, c, ev, left)
+        shields[key] = left - used
+        n -= used
+    elif kind in ("shield", "scoped_shield"):  # 615.7: each 1 damage prevented reduces the shield by 1
         shields = sim.setdefault("shields", {})
         left = int(shields.get(op["key"], 0))
         used = min(left, n)
@@ -1879,19 +2189,28 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     out = {**ev, "amount": n}
     if op.get("prevention"):
         out["prevented"] = int(ev.get("prevented") or 0) + (int(ev["amount"]) - n)
+        if int(ev["amount"]) > n:
+            from app.rules import prevention_receipts
+
+            row = prevention_receipts.receipt(c, ev, int(ev["amount"]) - n)
+            out["prevention_receipts"] = [*(ev.get("prevention_receipts") or []), row]
     if (op.get("prevention") or kind == "body") and op.get("rider"):  # -- prevention riders (wave 17A) -- 615.5: the additional effect, once the damage has been dealt
+        from app.rules import prevention_receipts
+
         out["riders"] = [*(ev.get("riders") or []), {"rider": op["rider"], "n": int(ev["amount"]) - n, "of": int(ev["amount"]), "by": c.controller,
                                                      "card": c.source_card, "oid": c.source_oid, "name": c.label,
-                                                     **({"batch": c.id} if op.get("batch") else {})}]
+                                                     "receipt": prevention_receipts.receipt(c, ev, int(ev["amount"]) - n)["id"],
+                                                     "ev": {k: ev.get(k) for k in ("src", "source_card", "source_oid", "target", "target_oid", "combat")},
+                                                     **({"batch": c.id} if op.get("batch") or op["rider"].get("aggregation") else {})}]
     return [out]
 
 
 def damage_candidates(plan: Plan) -> list[Candidate]:
     """The damage effects in force: replacement and prevention statics, this turn's records, the
     stage-1 "prevent all" statics and records, and 615.7 shields."""
-    from app.rules import replacements
+    from app.rules import damage_protection, replacements, shield_counters
 
-    out = candidates(plan, "damage")
+    out = candidates(plan, "damage") + damage_protection.candidates(plan) + shield_counters.damage_candidates(plan)
     for i, rec in enumerate(replacements._records(plan)):
         src = plan.state.cards.get(rec.get("source_card") or "")
         label = (src.name if src is not None else None) or "a prevention effect"
@@ -1906,6 +2225,10 @@ def damage_candidates(plan: Plan) -> list[Candidate]:
                              op={"do": "shield", "key": key, "prevention": True, **({"rider": info["rider"]} if info else {})},
                              controller=info.get("by", ""), source_card=info.get("card"), source_oid=info.get("oid"),
                              seq=(0, 3, 0), label=info.get("name") or "a prevention shield"))
+    if any(candidate.op.get('frontier_age') for candidate in out):
+        from app.rules import prevention_frontier_cards
+
+        return prevention_frontier_cards.bind_candidates(plan, out)
     return out
 
 
@@ -1945,10 +2268,20 @@ def plan_damage(plan: Plan, events: list[Event], *, answers: dict[str, str], ord
     from app.rules import replacements
 
     cands = cands if cands is not None else damage_candidates(plan)
+    from app.rules import prevention_frontier_bridge as joint_prevention
+
+    if joint_prevention.PREFIX in answers or joint_prevention.eligible(plan, events, cands):
+        return joint_prevention.plan_damage(plan, events, answers=answers, order=order, ask=ask, cands=cands)
     planner = Planner(plan, cands, answers, ask=ask)
     sim: Sim = {"shields": {k: int(v) for k, v in plan.rules.prevention.items()}}
+    from app.rules import single_recipient_redirection
+
+    sim["redirect_allocations"] = single_recipient_redirection.allocations(answers)
     picks = list(order or [])
-    for ev in events:
+    for lineage, ev in enumerate(events):
+        ev.setdefault("_damage_lineage", str(lineage))
+        if any(c.op.get("allocate") for c in cands):
+            ev.setdefault("_redirect_lineage", str(lineage))
         ev["kind"] = "damage"
         ev.setdefault("applied", [])
         ev["prevented"] = int(ev.get("prevented") or 0)
@@ -1983,7 +2316,15 @@ def plan_damage(plan: Plan, events: list[Event], *, answers: dict[str, str], ord
                 # (damage a "prevent all" effect prevents anyway isn't what the shield would prevent)
                 contenders = [e for e in pending if e["amount"] > 0 and not e.get("unpreventable")  # (615.12, wave 3R2)
                               and not any(c.legacy is not None and replacements._applies(plan, c.legacy, e) for c in cands)]
-                if len(contenders) > 1 and _shield_left(sim, key) > 0 \
+                shield_left = _shield_left(sim, key)
+                if shield_left <= 0:
+                    # Scoped budgets share the same 615.7 source-order choice, but only
+                    # between events to which that source/combat-filtered shield applies.
+                    shared = [c for c in cands if c.op["do"] == "scoped_shield"
+                              and sum(_damage_applies(plan, c, event, sim) for event in contenders) > 1]
+                    contenders = [event for event in contenders if any(_damage_applies(plan, c, event, sim) for c in shared)]
+                    shield_left = sum(sim["shields"].get(c.op["key"], 0) for c in shared)
+                if len(contenders) > 1 and shield_left > 0 \
                         and len({replacements._shield_signature(plan, e) for e in contenders}) > 1:
                     # 615.7: which source's damage the shield prevents first
                     mine = [p for p in picks if p.startswith(f"{target}:")]
@@ -1992,7 +2333,7 @@ def plan_damage(plan: Plan, events: list[Event], *, answers: dict[str, str], ord
                         picks.remove(pick)
                         ev = next((e for e in contenders if f"{target}:{e['source_oid']}" == pick), contenders[0])
                     elif ask:
-                        raise ShieldAsk(target, chooser_of(target), contenders, _shield_left(sim, key))
+                        raise ShieldAsk(target, chooser_of(target), contenders, shield_left)
                     else:
                         ev = contenders[0]
                 pending.remove(ev)
@@ -2003,11 +2344,11 @@ def plan_damage(plan: Plan, events: list[Event], *, answers: dict[str, str], ord
         return q
     except ShieldAsk as s:
         return s
+    if ask and (allocation := single_recipient_redirection.validate(plan, sim, cands, answers)) is not None:
+        return allocation
     result = [e for i, ev in enumerate(events) for e in finals.get(i, [ev])]
-    # -- counters (wave 7C) -- 122.1c: what the other effects left, prevented
-    from app.rules import shield_counters
-
-    used = shield_counters.prevent_damage(plan, result)
+    #122.1c: the native prevention candidate projected one counter removal per permanent.
+    used = [str(cid) for cid in sim.get("shield_counter_used") or []]
     notes = []
     for i, before in enumerate(events):
         for after in finals.get(i, [before]):
@@ -2035,6 +2376,7 @@ class DamageOutcome:
     wither: dict[str, int] = field(default_factory=dict)  # -1/-1 counters put (120.3d), after their replacements
     wither_by: dict[str, dict[str, int]] = field(default_factory=dict)  # (wave 17D) ... by the player who puts them (120.3d)
     poison: dict[str, int] = field(default_factory=dict)  # poison counters (120.3b, 702.164c), after their replacements
+    poison_by: dict[str, dict[str, int]] = field(default_factory=dict)
     lifelink: dict[str, int] = field(default_factory=dict)  # life gained per source (702.15e), after its replacements
     losses: list[tuple[str, int]] = field(default_factory=list)  # a lifelink gain replaced by a loss (Tainted Remedy)
     deathtouched: list[str] = field(default_factory=list)
@@ -2044,22 +2386,35 @@ class DamageOutcome:
     counter_finals: list[tuple[Event, list[Event]]] = field(default_factory=list)
     life_finals: list[tuple[Event, list[Event]]] = field(default_factory=list)
     shield_counters: list[str] = field(default_factory=list)  # (wave 7C) 122.1c
+    preventions: list[dict[str, Any]] = field(default_factory=list)
     riders: list[dict[str, Any]] = field(default_factory=list)  # (wave 17A) the additional effects of prevention effects, 615.5
 
 
 def _merged_riders(riders: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """-- one-shot shields (wave 35A) -- 615.5, 615.8: a "next time" shield applies once to the damage dealt at that time (every chunk of it):
-    its additional effect counts all the damage it prevented ("You gain life equal to the damage prevented this way"), so the chunks of
-    one shield add up — unless the effect names the recipient or the source's controller of one chunk."""
+    """Combine only the additional effects belonging to the same logical prevention occurrence."""
     out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    keys: dict[tuple[Any, ...], dict[str, Any]] = {}
     for r in riders:
-        mine = next((m for m in out if r.get("batch") and m.get("batch") == r["batch"]), None)
-        if mine is not None and not re.search(r"ref:to|from_ctrl", json.dumps(r["rider"])):
+        if r.get("receipt"):
+            if r["receipt"] in seen:
+                continue
+            seen.add(r["receipt"])
+        aggregation = r["rider"].get("aggregation")
+        event = r.get("ev") or {}
+        extra = (event.get("source_oid"),) if aggregation == "source" else ((event.get("target_oid") or event.get("target")),) if aggregation == "recipient" else ()
+        key = (r.get("batch"), *extra)
+        merge = bool(r.get("batch")) and (bool(aggregation) or not re.search(r"ref:to|from_ctrl|ref:prevented_source", json.dumps(r["rider"])))
+        mine = keys.get(key) if merge else None
+        if mine is not None:
             mine["n"] += r["n"]
-            if "of" in r:  # (review 39)
+            if "of" in r:
                 mine["of"] = int(mine.get("of", 0)) + int(r["of"])
         else:
-            out.append(dict(r))
+            row = dict(r)
+            out.append(row)
+            if merge:
+                keys[key] = row
     return out
 
 
@@ -2078,8 +2433,14 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
     out = DamageOutcome(events=[ev for ev in planned.events if ev["amount"] > 0], notes=list(planned.notes),
                         shields=planned.shields, left=[planned.planner],
                         shield_counters=planned.shield_counters,
-                        riders=_merged_riders([{**r, "ev": {k: ev.get(k) for k in ("src", "source_card", "source_oid", "target", "target_oid", "combat")}}
+                        riders=_merged_riders([{**r, "ev": r.get("ev") or {k: ev.get(k) for k in ("src", "source_card", "source_oid", "target", "target_oid", "combat")}}
                                                for ev in planned.events for r in ev.get("riders") or []]))
+    from app.rules import prevention_receipts
+
+    out.preventions = prevention_receipts.collect(planned.events)
+    from app.rules import life_total_damage_results43
+
+    infect_players = life_total_damage_results43.infect_players(plan)
     counters: list[tuple[str, str, int, str]] = []  # (target, kind, n, by)
     gains: dict[str, int] = {}
     for ev in out.events:
@@ -2088,7 +2449,7 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
         key = ev["target"]
         by = (ev.get("src") or {}).get("controller") or ""
         if key in plan.state.players:
-            if "infect" in kw:
+            if "infect" in kw or key in infect_players:
                 counters.append((key, "poison", n, by))  # 120.3b
             else:
                 out.players[key] = out.players.get(key, 0) + n
@@ -2124,6 +2485,8 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
                         continue
                     if f["kind"] == "player_counters":
                         out.poison[f["player"]] = out.poison.get(f["player"], 0) + f["n"]
+                        mine = out.poison_by.setdefault(f["player"], {})
+                        mine[by] = mine.get(by, 0) + f["n"]
                     else:
                         out.wither[f["card"]] = out.wither.get(f["card"], 0) + f["n"]
                         mine = out.wither_by.setdefault(f["card"], {})
@@ -2148,12 +2511,15 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
                 elif f["kind"] == "life_loss" and f["n"] > 0:
                     out.losses.append((f["player"], f["n"]))
     from app.rules import (
+        damage_life_results42,
         life_lock,  # -- can't lose life (wave 29D) -- 120.3a: the damage is still dealt (its events stay); the life loss that can't happen is no event
     )
 
     for pid in list(out.players):
         if (why := life_lock.why_not(plan, pid, "lose")) is not None:
             out.notes.append(f"{why}: {plan.name(pid)} can't lose life, so {out.players.pop(pid)} damage dealt to them makes them lose none")
+        elif (why := damage_life_results42.why_not(plan, pid)) is not None:
+            out.notes.append(f"{why}: {out.players.pop(pid)} damage dealt to {plan.name(pid)} doesn't cause life loss")
     if out.players and (loss_cands := candidates(plan, "life_loss")):
         # -- life modifiers (wave 28B) -- 120.3a: the life lost to damage is a life-loss event of its own (the damage dealt stays what it was):
         # "would lose life" replacements change it (Bloodletter of Aclazotz: "Damage causes loss of life.")
@@ -2171,10 +2537,27 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
     return out
 
 
-def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra: dict[str, Any] | None = None) -> None:
+def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra: dict[str, Any] | None = None,
+              then: dict[str, Any] | None = None) -> bool:
+    """Commit damage once, then run immediate riders; false transfers the terminal to a saved body."""
+    _commit_damage(plan, out, actor=actor, combat=combat, extra=extra)
+    if not out.riders:
+        return True
+    from app.rules import damage_rider_continuations
+
+    done = damage_rider_continuations.run(plan, damage_rider_continuations.DamageRiderFrame(out.riders, then or {"do": "noop"}))
+    if not done and then is None:
+        raise ValueError("Suspending prevention body requires a real damage continuation")
+    return done
+
+
+def _commit_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra: dict[str, Any] | None = None) -> None:
     """Record a planned damage batch: one ``rules_damage`` step (one simultaneous event batch),
     then the defense counters removed from battles (120.3h) and any lifelink gain a replacement
     turned into a loss; the 615.7 shields as used; the replacement notes."""
+    from app.rules import prevention_receipts
+
+    prevention_receipts.commit(plan, out.preventions)
     for planner in out.left:
         left_to_players(plan, planner)
     for text in out.notes:
@@ -2185,11 +2568,12 @@ def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra
     # -- counters (wave 7C) --
     from app.rules import shield_counters
 
-    shield_counters.remove(plan, out.shield_counters, actor)
     if not out.events:
-        _run_riders(plan, out.riders)
+        shield_counters.remove(plan, out.shield_counters, actor)
         return
-    dealt = [{"source": ev["source_oid"], "target": ev["target"], "amount": int(ev["amount"]),
+    from app.rules import life_game_history
+
+    dealt = [{"attacking_player": ev.get("attacking_player") if combat else None, "source_controller": (ev.get("src") or {}).get("controller"), "creature_names": life_game_history.damage_names(plan, ev), "source": ev["source_oid"], "target": ev["target"], "amount": int(ev["amount"]),
               **({"target_object": plan.oid(ev["target"])} if ev["target"] in plan.state.cards else {})} for ev in out.events]
     # -- trigger damage (wave 39B) -- 120.10, 120.4a: the excess damage the sources of this batch together dealt to each permanent (above the
     # lethal damage left, as it was before this damage; deathtouch 702.2c), on the first event of that permanent: "is dealt excess damage" triggers
@@ -2203,7 +2587,7 @@ def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra
     for pid in [*out.players, *out.poison, *(d["target"] for d in dealt)]:
         if pid in plan.state.players:
             plan.rules.damaged[pid] = plan.state.turn.number
-    plan.do({"type": "rules_damage", "creatures": out.creatures, "players": out.players, "poison": out.poison,
+    plan.do({"type": "rules_damage", "creatures": out.creatures, "players": out.players, "poison": out.poison, "poison_by": out.poison_by,
              "wither": out.wither, "wither_by": out.wither_by, "planeswalkers": out.walkers, "lifelink": out.lifelink, "combat": combat, "dealt": dealt,
              **(extra or {})}, actor=actor)
     for key, n in out.battles.items():
@@ -2215,14 +2599,7 @@ def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra
     for pid, n in life_lock.keep(plan, out.losses, actor=actor):  # (after the damage: its own step, UNVERIFIED batching)
         plan.do({"type": "life", "player": pid, "delta": -n}, actor=actor)
     plan.rules.deathtouched = list(dict.fromkeys([*plan.rules.deathtouched, *out.deathtouched]))
-    _run_riders(plan, out.riders)
-
-
-def _run_riders(plan: Plan, riders: list[dict[str, Any]]) -> None:
-    from app.rules import source_shields
-
-    for r in riders:
-        source_shields.run_rider(plan, r)
+    shield_counters.remove(plan, out.shield_counters, actor)
 
 
 def commit_shields(plan: Plan, shields: dict[str, int]) -> None:
@@ -2231,12 +2608,13 @@ def commit_shields(plan: Plan, shields: dict[str, int]) -> None:
     # -- refused grants/replacements (wave 3R2) -- 615.8: a "next time" shield that prevented damage is used up
     used = {key[len("once:r:"):] for key in shields if key.startswith("once:r:")}
     for key, left in shields.items():  # -- prevention riders (wave 17A) -- what is left of "the next N damage is dealt to … instead"
-        if key.startswith("redir:r:"):
+        if key.startswith(("redir:r:", "limited:r:")):
+            record_id = key.split(":", 2)[2]
             if left <= 0:
-                used.add(key[len("redir:r:"):])
+                used.add(record_id)
             else:
                 for rec in r.replacements:
-                    if rec.get("id") == key[len("redir:r:"):]:
+                    if rec.get("id") == record_id:
                         rec["op"] = {**rec["op"], "limit": left}
     if used:
         r.replacements = [rec for rec in r.replacements if rec.get("id") not in used]
@@ -2253,9 +2631,17 @@ def commit_shields(plan: Plan, shields: dict[str, int]) -> None:
 
 def ask_shield(plan: Plan, s: ShieldAsk, resume: dict[str, Any], order: list[str]) -> None:
     """The 615.7 choice (a private decision of the shielded player / permanent's controller)."""
-    from app.rules import replacements
+    from app.rules import prevention_frontier_bridge as joint_prevention
+    from app.rules import replacements, single_recipient_redirection
     from app.rules.plan import decide
 
+    if isinstance(s, joint_prevention.JointAsk):
+        joint_prevention.ask(plan, s, resume, order)
+        return
+
+    if isinstance(s, single_recipient_redirection.AllocationAsk):
+        single_recipient_redirection.ask(plan, s, resume, order)
+        return
     options = []
     for e in s.pending:
         src = replacements._source_card(plan, e)
@@ -2281,3 +2667,19 @@ _APPLY: dict[str, Any] = {"tokens": _tokens_apply, "counters": _counters_apply, 
                           "damage": _damage_apply, "scry": _action_apply, "explore": _action_apply, "connive": _action_apply, "proliferate": _action_apply}
 _PERFORM: dict[str, Any] = {"draw": _draw_perform, "dredge": _dredge_perform}
 SITES: dict[str, Any] = {"tokens": _run_tokens, "counters": _run_counters, "draw": _run_draw, "life": _run_life, "loss": _run_loss}
+
+from app.rules import copiable_coin_entry as _copiable_coin_entry  # noqa: E402
+
+THEN.update(_copiable_coin_entry.THEN)
+
+from app.rules import numeric_entry_roll42 as _numeric_entry_roll42  # noqa: E402, I001
+
+THEN.update(_numeric_entry_roll42.THEN)
+
+from app.rules import life_changes44 as _life_changes44  # noqa: E402, I001
+
+SITES['life_changes44'] = _life_changes44.resume
+
+from app.rules import random_cost_roll44 as _random_cost_roll44  # noqa: E402
+
+THEN.update(_random_cost_roll44.THEN)

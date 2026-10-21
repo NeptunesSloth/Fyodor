@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Ashling's Prerogative",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "As this enchantment enters, choose odd or even. (Zero is even.)\nEach creature with mana value of the chosen quality has haste.\nEach creature without mana value of the chosen quality enters tapped.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Walking Ballista",
+    "mana_cost": "{X}{X}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "This creature enters with X +1/+1 counters on it.\n{4}: Put a +1/+1 counter on this creature.\nRemove a +1/+1 counter from this creature: It deals 1 damage to any target.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal",
+    "power": "0",
+    "toughness": "0"
+  },
+  {
+    "name": "Living Lands",
+    "layout": "normal",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "All Forests are 1/1 creatures that are still lands.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  }
+]

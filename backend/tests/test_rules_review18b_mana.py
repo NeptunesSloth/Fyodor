@@ -122,7 +122,7 @@ def test_views_show_remembered_mana_as_plain_mana(cards):
         s = build(cards, "Lightning Bolt", p2=p2)
         t = treasure(s)
         act(s, "p1", type="activate_ability", card_id=t.id, ability=0, mana_choice="R")
-        assert bool(units(s)) == bool(p2)  # (remembered only when a card of the game asks)
+        assert units(s) == [("R", None)]  # every known source is retained, independent of hidden cards
         seen.append(pools(s))
         assert next(p for p in build_view(s.state, OMNISCIENT)["players"] if p["id"] == "p1")["mana_units"] == \
             [u.model_dump() for u in s.state.players["p1"].mana_units]

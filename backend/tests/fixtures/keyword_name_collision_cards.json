@@ -1,0 +1,35 @@
+[
+  {
+    "name": "Unleash Shell",
+    "oracle_text": "Unleash Shell deals 5 damage to target creature or planeswalker and 2 damage to that permanent's controller.",
+    "type_line": "Instant",
+    "mana_cost": "{3}{R}{R}",
+    "layout": "normal"
+  },
+  {
+    "name": "Gore-House Chainwalker",
+    "oracle_text": "Unleash (You may have this creature enter with a +1/+1 counter on it. It can't block as long as it has a +1/+1 counter on it.)",
+    "type_line": "Creature \u2014 Human Warrior",
+    "mana_cost": "{1}{R}",
+    "power": "2",
+    "toughness": "1",
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal"
+  },
+  {
+    "name": "Chandra, Torch of Defiance",
+    "oracle_text": "+1: Exile the top card of your library. You may cast that card. If you don't, Chandra deals 2 damage to each opponent.\n+1: Add {R}{R}.\n\u22123: Chandra deals 4 damage to target creature.\n\u22127: You get an emblem with \"Whenever you cast a spell, this emblem deals 5 damage to any target.\"",
+    "type_line": "Legendary Planeswalker \u2014 Chandra",
+    "mana_cost": "{2}{R}{R}",
+    "loyalty": "4",
+    "layout": "normal"
+  }
+]

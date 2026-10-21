@@ -1,0 +1,328 @@
+[
+  {
+    "name": "Cathedral of Serra",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "White legendary creatures you control have \"bands with other legendary creatures.\" (Any legendary creatures can attack in a band as long as at least one has \"bands with other legendary creatures.\" Bands are blocked as a group. If at least two legendary creatures you control, one of which has \"bands with other legendary creatures,\" are blocking or being blocked by the same creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Adventurers' Guildhouse",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "Green legendary creatures you control have \"bands with other legendary creatures.\" (Any legendary creatures can attack in a band as long as at least one has \"bands with other legendary creatures.\" Bands are blocked as a group. If at least two legendary creatures you control, one of which has \"bands with other legendary creatures,\" are blocking or being blocked by the same creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Mountain Stronghold",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "Red legendary creatures you control have \"bands with other legendary creatures.\" (Any legendary creatures can attack in a band as long as at least one has \"bands with other legendary creatures.\" Bands are blocked as a group. If at least two legendary creatures you control, one of which has \"bands with other legendary creatures,\" are blocking or being blocked by the same creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Unholy Citadel",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "Black legendary creatures you control have \"bands with other legendary creatures.\" (Any legendary creatures can attack in a band as long as at least one has \"bands with other legendary creatures.\" Bands are blocked as a group. If at least two legendary creatures you control, one of which has \"bands with other legendary creatures,\" are blocking or being blocked by the same creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Seafarer's Quay",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "Blue legendary creatures you control have \"bands with other legendary creatures.\" (Any legendary creatures can attack in a band as long as at least one has \"bands with other legendary creatures.\" Bands are blocked as a group. If at least two legendary creatures you control, one of which has \"bands with other legendary creatures,\" are blocking or being blocked by the same creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Master of the Hunt",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human",
+    "oracle_text": "{2}{G}{G}: Create a 1/1 green Wolf creature token named Wolves of the Hunt. It has \"bands with other creatures named Wolves of the Hunt.\" (Any creatures named Wolves of the Hunt can attack in a band as long as at least one has \"bands with other creatures named Wolves of the Hunt.\" Bands are blocked as a group. If at least two creatures named Wolves of the Hunt you control, one of which has \"bands with other creatures named Wolves of the Hunt,\" are blocking or being blocked by the same creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shelkin Brownie",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Ouphe",
+    "oracle_text": "{T}: Target creature loses all \"bands with other\" abilities until end of turn.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Tolaria",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Legendary Land",
+    "oracle_text": "{T}: Add {U}.\n{T}: Target creature loses banding and all \"bands with other\" abilities until end of turn. Activate only during any upkeep step.",
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Isamaru, Hound of Konda",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Legendary Creature \u2014 Dog",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Baral, Chief of Compliance",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Human Wizard",
+    "oracle_text": "Instant and sorcery spells you cast cost {1} less to cast.\nWhenever a spell or ability you control counters a spell, you may draw a card. If you do, discard a card.",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ragavan, Nimble Pilferer",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Legendary Creature \u2014 Monkey Pirate",
+    "oracle_text": "Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card.\nDash {1}{R} (You may cast this spell for its dash cost. If you do, it gains haste, and it's returned from the battlefield to its owner's hand at the beginning of the next end step.)",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Treasure",
+      "Dash"
+    ]
+  },
+  {
+    "name": "Rhys the Redeemed",
+    "mana_cost": "{G/W}",
+    "cmc": 1.0,
+    "type_line": "Legendary Creature \u2014 Elf Warrior",
+    "oracle_text": "{2}{G/W}, {T}: Create a 1/1 green and white Elf Warrior creature token.\n{4}{G/W}{G/W}, {T}: For each creature token you control, create a token that's a copy of that creature.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Thrun, the Last Troll",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Troll Shaman",
+    "oracle_text": "This spell can't be countered.\nHexproof (This creature can't be the target of spells or abilities your opponents control.)\n{1}{G}: Regenerate Thrun.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Hexproof",
+      "Regenerate"
+    ]
+  },
+  {
+    "name": "Kokusho, the Evening Star",
+    "mana_cost": "{4}{B}{B}",
+    "cmc": 6.0,
+    "type_line": "Legendary Creature \u2014 Dragon Spirit",
+    "oracle_text": "Flying\nWhen Kokusho dies, each opponent loses 5 life. You gain life equal to the life lost this way.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Savannah Lions",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Cat",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Gigantosaurus",
+    "mana_cost": "{G}{G}{G}{G}{G}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Dinosaur",
+    "oracle_text": "",
+    "power": "10",
+    "toughness": "10",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Baton of Morale",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{2}: Target creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding a player controls are blocking or being blocked by a creature, that player divides that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Helm of Chatzuk",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{1}, {T}: Target creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding a player controls are blocking or being blocked by a creature, that player divides that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Benalish Hero",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Banding"
+    ]
+  },
+  {
+    "name": "Ovinize",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, target creature loses all abilities and has base power and toughness 0/1.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Plains",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Plains",
+    "oracle_text": "({T}: Add {W}.)",
+    "colors": [],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Leyline of Singularity",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If this card is in your opening hand, you may begin the game with it on the battlefield.\nAll nonland permanents are legendary.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  }
+]

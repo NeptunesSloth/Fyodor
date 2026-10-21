@@ -1,0 +1,98 @@
+[
+  {
+    "name": "Temur Battle Rage",
+    "oracle_text": "Target creature gains double strike until end of turn.\nFerocious \u2014 That creature also gains trample until end of turn if you control a creature with power 4 or greater.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{R}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Ferocious"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "type_line": "Instant",
+    "mana_cost": "{R}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Giant Growth",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "type_line": "Instant",
+    "mana_cost": "{G}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Counterspell",
+    "oracle_text": "Counter target spell.",
+    "type_line": "Instant",
+    "mana_cost": "{U}{U}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Roar of Challenge",
+    "oracle_text": "All creatures able to block target creature this turn do so.\nFerocious \u2014 That creature gains indestructible until end of turn if you control a creature with power 4 or greater.",
+    "type_line": "Sorcery",
+    "mana_cost": "{2}{G}",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Ferocious"
+    ]
+  }
+]

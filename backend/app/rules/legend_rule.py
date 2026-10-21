@@ -27,13 +27,14 @@ _TEXT = re.compile(r'^The "legend rule" doesn\'t apply(?: to (?P<what>permanents
 _KIND = re.compile(r'^The "legend rule" doesn\'t apply to (?P<what>[A-Za-z ]+?) you control\.$')  # (wave 49B) "… to Slivers you control." (Sliver Gravemother), "… to creature tokens you control." (The Master, Multiplied)
 
 
-_NAMED_TWO = re.compile(r'^If there are exactly two permanents named (?:~|this creature) on the battlefield, the "legend rule" doesn\'t apply to them\.$')
+_NAMED_TWO = re.compile(r'^If there are exactly two permanents named (?P<name>~|this creature|[A-Z][^\n]+?) on the battlefield, the "legend rule" doesn\'t apply to them\.$')
 
 
 def static_definition(text: str) -> dict[str, Any] | None:
     t = text.strip().replace("“", '"').replace("”", '"')
-    if _NAMED_TWO.match(t) is not None:
-        return {"kind": "static", "static": KIND, "scope": "named_two", "effects": []}
+    if (named := _NAMED_TWO.match(t)) is not None:
+        return {"kind": "static", "static": KIND, "scope": "named_two", "effects": [],
+                **({'name': named['name']} if named['name'] not in ('~', 'this creature') else {})}
     m = _TEXT.match(t)
     if m is None:
         from app.rules import selectors
@@ -47,10 +48,12 @@ def static_definition(text: str) -> dict[str, Any] | None:
 
 def exempt_cards(plan: Plan, group: list[CardInstance]) -> set[str]:
     """The cards of one same-named group the rule doesn't apply to."""
-    from app.rules import scripts, selectors
+    from app.rules import card_names, scripts, selectors
+    from app.rules.conditional_copy_sources import NO_LEGEND
     from app.rules.replace import conditional_lines
 
-    out: set[str] = set()
+    out: set[str] = {card.id for effect in plan.rules.effects if NO_LEGEND in effect.imposes
+                     for card in group if card.controller == effect.controller}
     for src in plan.state.cards.values():
         if not src.zone.endswith(":battlefield") or src.face_down or not plan.in_game(src) or plan.manual(src):
             continue
@@ -60,7 +63,9 @@ def exempt_cards(plan: Plan, group: list[CardInstance]) -> set[str]:
             if i in skip or d.get("kind") != "static" or d.get("static") != KIND:
                 continue
             if d["scope"] == "named_two":  # (wave 42A) exactly two permanents with the source's name on the battlefield: those two
-                same = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c) and plan.ch(c).name == ch.name]
+                name = d.get('name', ch.name)
+                same = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c)
+                        and name in card_names.names_of(plan.ch(c))]
                 out |= {card.id for card in group if card.id in same} if len(same) == 2 else set()
                 continue
             for card in group:

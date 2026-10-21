@@ -1,0 +1,390 @@
+[
+  {
+    "name": "Tablet of the Guilds",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "As this artifact enters, choose two colors.\nWhenever you cast a spell, if it's at least one of the chosen colors, you gain 1 life for each of the chosen colors it is.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Ajani's Pridemate",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Cat Soldier",
+    "oracle_text": "Whenever you gain life, put a +1/+1 counter on this creature.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Boros Charm",
+    "mana_cost": "{R}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose one \u2014\n\u2022 Boros Charm deals 4 damage to target player or planeswalker.\n\u2022 Permanents you control gain indestructible until end of turn.\n\u2022 Target creature gains double strike until end of turn.",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Opt",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Scry"
+    ]
+  },
+  {
+    "name": "Sol Ring",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Swords to Plowshares",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature. Its controller gains life equal to its power.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Counterspell",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Naturalize",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Flicker",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Exile target nontoken permanent, then return it to the battlefield under its owner's control.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Phyrexian Metamorph",
+    "mana_cost": "{3}{U/P}",
+    "cmc": 4.0,
+    "type_line": "Artifact Creature \u2014 Phyrexian Shapeshifter",
+    "oracle_text": "({U/P} can be paid with either {U} or 2 life.)\nYou may have this creature enter as a copy of any artifact or creature on the battlefield, except it's an artifact in addition to its other types.",
+    "power": "0",
+    "toughness": "0",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Humility",
+    "mana_cost": "{2}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "All creatures lose all abilities and have base power and toughness 1/1.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "March of the Machines",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Each noncreature artifact is an artifact creature with power and toughness each equal to its mana value. (Equipment that's a creature can't equip a creature.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Alhammarret's Archive",
+    "mana_cost": "{5}",
+    "cmc": 5.0,
+    "type_line": "Legendary Artifact",
+    "oracle_text": "If you would gain life, you gain twice that much life instead.\nIf you would draw a card except the first one you draw in each of your draw steps, draw two cards instead.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Cleric Class",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Enchantment \u2014 Class",
+    "oracle_text": "(Gain the next level as a sorcery to add its ability.)\nIf you would gain life, you gain that much life plus 1 instead.\n{3}{W}: Level 2\nWhenever you gain life, put a +1/+1 counter on target creature you control.\n{4}{W}: Level 3\nWhen this Class becomes level 3, return target creature card from your graveyard to the battlefield. You gain life equal to that creature's toughness.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Prismatic Lace",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target permanent becomes the color or colors of your choice. (This effect lasts indefinitely.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Thoughtlace",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target spell or permanent becomes blue. (Mana symbols on that permanent remain unchanged.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cloudshift",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Wastes",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land",
+    "oracle_text": "{T}: Add {C}.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Ghostly Flicker",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile two target artifacts, creatures, and/or lands you control, then return those cards to the battlefield under your control.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Vedalken Orrery",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "You may cast spells as though they had flash.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Disenchant",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mind Bend",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Change the text of target permanent by replacing all instances of one color word with another or one basic land type with another. (For example, you may change \"nonblack creature\" to \"nongreen creature\" or \"forestwalk\" to \"islandwalk.\" This effect lasts indefinitely.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Goblin Electromancer",
+    "mana_cost": "{U}{R}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Goblin Wizard",
+    "oracle_text": "Instant and sorcery spells you cast cost {1} less to cast.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Chaoslace",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target spell or permanent becomes red. (Its mana symbols remain unchanged.)",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Twincast",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mirrorweave",
+    "mana_cost": "{2}{W/U}{W/U}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Each other creature becomes a copy of target nonlegendary creature until end of turn.",
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cackling Counterpart",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Create a token that's a copy of target creature you control.\nFlashback {5}{U}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flashback"
+    ]
+  }
+]

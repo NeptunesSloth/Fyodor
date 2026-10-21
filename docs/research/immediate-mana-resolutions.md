@@ -1,0 +1,15 @@
+# Immediate mana ability resolution
+
+This family uses native serializable effect contexts for the nonmana instructions of activated mana abilities. These contexts never create stack objects. A typed terminal resumes the existing mana-rider/payment continuation, including its original actor and reserved life, exactly once after an effect pauses for a choice or replacement ordering.
+
+The sixteen canonical cards covered are Cryptolith Fragment // Aurora of Emrakul, Tomb of Urami, Foraging Wickermaw, Cryptex, Initiates of the Ebon Hand, Farrelite Priest, Manaforge Cinder, Grinning Ignus, Cadaverous Bloom, Jack-o'-Lantern, Springjack Pasture, Victory Chimes, Spectral Searchlight, Stadium Vendors, Valleymaker, and Radiant Lotus.
+
+Printed player choices are not targets. Victory Chimes, Spectral Searchlight and Valleymaker therefore resolve immediately; the chosen beneficiary receives their mana, while tap-for-mana replacement eligibility and triggered additional mana retain the activator's identity. Spectral Searchlight's beneficiary chooses the color. Stadium Vendors has a normal enters trigger. Radiant Lotus targets a player, so its ability uses the stack and counts the actual direct artifact-sacrifice receipt. Those distinctions follow CR 605.1a–b rather than an `Add` substring alone.
+
+Native costs handle collect evidence, hand exile, returning the source, self-exile from the graveyard, and sacrificing X Goats. The source's original object identity survives costs that move it. Announced X=0 is legal for Springjack Pasture. Grinning Ignus's sorcery restriction also prevents activation while already paying another spell. Jack-o'-Lantern's graveyard ability is available from its owner's graveyard, including nested mana payment, and unavailable from the battlefield.
+
+Every actual mana activation records one use of its original source object and ability index. This supports Manaforge Cinder's three-use restriction and the fourth-activation delayed sacrifice of Initiates of the Ebon Hand and Farrelite Priest. The delayed instruction uses the native original-object reference and end-step queue.
+
+The canonical gameplay suite is `tests/test_rules_immediate_mana_resolutions.py`. Its tests exercise real costs and output for all sixteen cards, no-stack versus ordinary-stack behavior, original-source provenance, optional player/color decisions, zero X, damage and counter replacements, source-zone restrictions, and fresh-process save/replay continuations. In particular, Cryptex with Doubling Season/Winding Constrictor and Tomb of Urami with Furnace of Rath/Urza's Armor pause after mana/cost commitment and resume without repeating either.
+
+The bounded parser does not admit Vexing Puzzlebox, Trenzalore Clocktower, or Mana Cache. Their other unresolved mechanics remain visible as PARTIAL. Foraging Wickermaw's modeled activation has no tap cost; existing tap-for-mana replacements consequently do not change its chosen color. Broader future nontap mana-replacement support must retain the originally chosen color separately from replaced output.

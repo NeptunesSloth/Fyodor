@@ -1,0 +1,240 @@
+[
+  {
+    "name": "Geyadrone Dihada",
+    "oracle_text": "Protection from permanents with corruption counters on them\n+1: Each opponent loses 2 life and you gain 2 life. Put a corruption counter on up to one other target creature or planeswalker.\n\u22123: Gain control of target creature or planeswalker until end of turn. Untap it and put a corruption counter on it. It gains haste until end of turn.\n\u22127: Gain control of each permanent with a corruption counter on it.",
+    "type_line": "Legendary Planeswalker \u2014 Dihada",
+    "mana_cost": "{1}{U}{B}{R}",
+    "loyalty": "4",
+    "layout": "normal",
+    "colors": [
+      "B",
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "R",
+      "U"
+    ],
+    "cmc": 4.0,
+    "keywords": [
+      "Protection"
+    ]
+  },
+  {
+    "name": "Prodigal Sorcerer",
+    "oracle_text": "{T}: This creature deals 1 damage to any target.",
+    "type_line": "Creature \u2014 Human Wizard Sorcerer",
+    "mana_cost": "{2}{U}",
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 3.0,
+    "keywords": []
+  },
+  {
+    "name": "Triskelion",
+    "oracle_text": "This creature enters with three +1/+1 counters on it.\nRemove a +1/+1 counter from this creature: It deals 1 damage to any target.",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "mana_cost": "{6}",
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 6.0,
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "type_line": "Instant",
+    "mana_cost": "{R}",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Stuffy Doll",
+    "oracle_text": "Indestructible\nAs this creature enters, choose a player.\nWhenever this creature is dealt damage, it deals that much damage to the chosen player.\n{T}: This creature deals 1 damage to itself.",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "mana_cost": "{5}",
+    "power": "0",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 5.0,
+    "keywords": [
+      "Indestructible"
+    ]
+  },
+  {
+    "name": "Vulshok Sorcerer",
+    "oracle_text": "Haste\n{T}: This creature deals 1 damage to any target.",
+    "type_line": "Creature \u2014 Human Shaman Sorcerer",
+    "mana_cost": "{1}{R}{R}",
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 3.0,
+    "keywords": [
+      "Haste"
+    ]
+  },
+  {
+    "name": "Basilisk Collar",
+    "oracle_text": "Equipped creature has deathtouch and lifelink. (Any amount of damage it deals to a creature is enough to destroy it. Damage dealt by this creature also causes you to gain that much life.)\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+    "type_line": "Artifact \u2014 Equipment",
+    "mana_cost": "{1}",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 1.0,
+    "keywords": [
+      "Equip"
+    ]
+  },
+  {
+    "name": "Shadowspear",
+    "oracle_text": "Equipped creature gets +1/+1 and has trample and lifelink.\n{1}: Permanents your opponents control lose hexproof and indestructible until end of turn.\nEquip {2}",
+    "type_line": "Legendary Artifact \u2014 Equipment",
+    "mana_cost": "{1}",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 1.0,
+    "keywords": [
+      "Equip"
+    ]
+  },
+  {
+    "name": "Humility",
+    "oracle_text": "All creatures lose all abilities and have base power and toughness 1/1.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{W}{W}",
+    "layout": "normal",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 4.0,
+    "keywords": []
+  },
+  {
+    "name": "Gideon Blackblade",
+    "oracle_text": "During your turn, Gideon Blackblade is a 4/4 Human Soldier creature with indestructible that's still a planeswalker.\nPrevent all damage that would be dealt to Gideon Blackblade during your turn.\n+1: Up to one other target creature you control gains your choice of vigilance, lifelink, or indestructible until end of turn.\n\u22126: Exile target nonland permanent.",
+    "type_line": "Legendary Planeswalker \u2014 Gideon",
+    "mana_cost": "{1}{W}{W}",
+    "loyalty": "4",
+    "layout": "normal",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 3.0,
+    "keywords": []
+  },
+  {
+    "name": "Murder",
+    "oracle_text": "Destroy target creature.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{B}{B}",
+    "layout": "normal",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 3.0,
+    "keywords": []
+  },
+  {
+    "name": "Sarkhan the Masterless",
+    "oracle_text": "Whenever a creature attacks you or a planeswalker you control, each Dragon you control deals 1 damage to that creature.\n+1: Until end of turn, each planeswalker you control becomes a 4/4 red Dragon creature and gains flying.\n\u22123: Create a 4/4 red Dragon creature token with flying.",
+    "type_line": "Legendary Planeswalker \u2014 Sarkhan",
+    "mana_cost": "{3}{R}{R}",
+    "loyalty": "5",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 5.0,
+    "keywords": []
+  },
+  {
+    "name": "Basilisk Collar",
+    "oracle_text": "Equipped creature has deathtouch and lifelink. (Any amount of damage it deals to a creature is enough to destroy it. Damage dealt by this creature also causes you to gain that much life.)\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+    "type_line": "Artifact \u2014 Equipment",
+    "mana_cost": "{1}",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 1.0,
+    "keywords": [
+      "Equip"
+    ]
+  },
+  {
+    "name": "Wind Drake",
+    "oracle_text": "Flying",
+    "type_line": "Creature \u2014 Drake",
+    "mana_cost": "{2}{U}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 3.0,
+    "keywords": [
+      "Flying"
+    ]
+  }
+]

@@ -55,7 +55,8 @@ def before(plan: Plan, payload: dict[str, Any]) -> dict[str, Any] | None:
     if plan.state.rules is None or kind not in ("move", "mill"):
         return None
     to = payload.get("to", "graveyard" if kind == "mill" else None)  # (a mill names a zone, a move a zone reference)
-    if (to.get("zone") if isinstance(to, dict) else to) != "graveyard":
+    if (to.get("zone") if isinstance(to, dict) else to) != "graveyard" and not any(
+            route.get("zone") == "graveyard" for route in (payload.get("routes") or {}).values()):
         return None
     cards = plan.state.cards
     leaving = any((c := cards.get(cid)) is not None and c.zone.endswith(":battlefield") for cid in payload.get("card_ids") or [])

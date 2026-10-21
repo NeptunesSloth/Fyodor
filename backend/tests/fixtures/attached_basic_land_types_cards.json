@@ -1,0 +1,140 @@
+[
+  {
+    "name": "Nylea's Presence",
+    "oracle_text": "Enchant land\nWhen this Aura enters, draw a card.\nEnchanted land is every basic land type in addition to its other types.",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Darksteel Citadel",
+    "oracle_text": "Indestructible\n{T}: Add {C}.",
+    "type_line": "Artifact Land",
+    "mana_cost": "",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Indestructible"
+    ]
+  },
+  {
+    "name": "Urza's Tower",
+    "oracle_text": "{T}: Add {C}. If you control an Urza's Mine and an Urza's Power-Plant, add {C}{C}{C} instead.",
+    "type_line": "Land \u2014 Urza's Tower",
+    "mana_cost": "",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "type_line": "Basic Land \u2014 Forest",
+    "mana_cost": "",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Demystify",
+    "oracle_text": "Destroy target enchantment.",
+    "type_line": "Instant",
+    "mana_cost": "{W}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Blood Moon",
+    "oracle_text": "Nonbasic lands are Mountains.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{R}",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Phantasmal Terrain",
+    "oracle_text": "Enchant land\nAs this Aura enters, choose a basic land type.\nEnchanted land is the chosen type.",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{U}{U}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Emeria Shepherd",
+    "oracle_text": "Flying\nLandfall \u2014 Whenever a land you control enters, you may return target nonland permanent card from your graveyard to your hand. If that land is a Plains, you may return that nonland permanent card to the battlefield instead.",
+    "type_line": "Creature \u2014 Angel",
+    "mana_cost": "{5}{W}{W}",
+    "layout": "normal",
+    "cmc": 7.0,
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Landfall",
+      "Flying"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  }
+]

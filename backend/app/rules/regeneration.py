@@ -19,29 +19,38 @@ def shielded(plan: Plan, card: CardInstance) -> bool:
     return plan.rules.regen_shields.get(oid, 0) > 0 and oid not in plan.rules.no_regen
 
 
-def regenerate(plan: Plan, card: CardInstance) -> None:
-    """Use one shield on ``card`` (it must have one): tap, remove from combat, remove damage."""
+def regenerate(plan: Plan, card: CardInstance, *, consume: bool = True, shield_id: str | None = None) -> None:
+    """Regenerate now, consuming a shield unless an immediate replacement supplies regeneration."""
+    from app.rules import regeneration_riders
+
     oid = plan.oid(card)
-    left = plan.rules.regen_shields.get(oid, 0) - 1
-    if left > 0:
-        plan.rules.regen_shields[oid] = left
-    else:
-        plan.rules.regen_shields.pop(oid, None)
+    rider = next((s for s in regeneration_riders.shields(plan, oid) if s.id == shield_id), None)
+    left = plan.rules.regen_shields.get(oid, 0)
+    if consume and rider is not None:
+        plan.rules.regeneration_riders.remove(rider)
+    if consume:
+        left -= 1
+        if left > 0:
+            plan.rules.regen_shields[oid] = left
+        else:
+            plan.rules.regen_shields.pop(oid, None)
     plan.note(f"{card.name} regenerates", [card.id], actor=card.controller)
-    if left <= 0:
+    if consume and left <= 0:
         for marker in [m for m in card.effects if m.name == "Regeneration shield"]:
             plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=card.controller)
     if not card.tapped:
         plan.do({"type": "tap", "card_ids": [card.id], "tapped": True}, actor=card.controller)
-    if card.attacking is not None:
+    if card.is_attacking:
         plan.do({"type": "attack", "card_ids": [card.id], "target": None}, actor=card.controller)
-    if card.blocking:
+    if card.is_blocking:
         plan.do({"type": "block", "card_id": card.id, "attacker_id": None}, actor=card.controller)
     if card.damage:
         plan.do({"type": "set_damage", "card_ids": [card.id], "value": 0}, actor=card.controller)
     plan.rules.deathtouched = [c for c in plan.rules.deathtouched if c != card.id]
     if card.id in plan.rules.blocked:
         plan.rules.blocked = [c for c in plan.rules.blocked if c != card.id]
+    if consume and rider is not None:
+        regeneration_riders.apply(plan, rider)
 
 
 def umbra_armor(plan: Plan, card: CardInstance) -> CardInstance | None:
@@ -69,8 +78,9 @@ def use_umbra_armor(plan: Plan, card: CardInstance, aura: CardInstance, actor: s
 def survivors(plan: Plan, card_ids: list[str], *, can_regenerate: bool = True, actor: str | None = None) -> list[str]:
     """The cards that are really destroyed: shielded ones regenerate instead (unless they can't)."""
     # -- counters (wave 7C) -- 122.1c: a shield counter is removed instead
-    from app.rules import shield_counters
+    from app.rules import regeneration_choices, shield_counters
 
+    card_ids = regeneration_choices.protect(plan, card_ids, actor)
     card_ids = shield_counters.destroy_survivors(plan, card_ids, actor)
     kept = []
     for cid in card_ids:  # -- keywords (wave 15E) -- umbra armor: not regeneration, so "can't be regenerated" doesn't stop it

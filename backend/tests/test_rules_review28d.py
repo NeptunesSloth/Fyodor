@@ -16,7 +16,7 @@ import pytest
 from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_conditionals import creature, pick
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
 
@@ -413,7 +413,7 @@ def test_a_controlled_player_s_altar_is_used_by_the_controller(cards):
     with pytest.raises(ValueError):  # (ActionError or the 723.5 refusal)
         act(s, "p1", type="choose", decision_id=d.id, option_ids=[cub.id])
     act(s, "p2", type="choose", decision_id=d.id, option_ids=[bear.id])
-    assert bear.id not in s.state.cards and s.state.players["p1"].mana.get("C") == 2
+    assert bear.id not in s.state.cards and mana_pool(s).get("C") == 2
     assert s.state.rules.decision.resume["step"] == "pay_mana" and s.state.rules.payment_outer is None
     check(s)
 
@@ -462,7 +462,7 @@ def test_a_nested_choice_the_table_overtook_goes_back_to_the_payment(cards):
     pick(s, cub.id)
     d = s.state.rules.decision
     assert d is not None and s.state.rules.payment_outer is None and d.resume["step"] == "pay_mana", d and d.prompt
-    assert cub.id not in s.state.cards and s.state.players["p1"].mana.get("C", 0) == 2
+    assert cub.id not in s.state.cards and mana_pool(s).get("C", 0) == 2
     check(s)
 
 
@@ -482,6 +482,6 @@ def test_nothing_else_can_be_activated_while_the_nested_choice_is_open(cards):
             act(s, "p1", type="activate_ability", **again)
     assert s.state.rules.decision.id == nested.id and not s.state.cards[forest.id].tapped
     pick(s, cub.id)
-    assert s.state.players["p1"].mana.get("C") == 2 and s.state.rules.decision.resume["step"] == "pay_mana"
+    assert mana_pool(s).get("C") == 2 and s.state.rules.decision.resume["step"] == "pay_mana"
     assert elf.id in s.state.cards and s.state.rules.payment_outer is None
     check(s)

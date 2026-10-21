@@ -1,0 +1,221 @@
+[
+  {
+    "name": "Ringsight",
+    "mana_cost": "{1}{U}{B}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "The Ring tempts you. Search your library for a card that shares a color with a legendary creature you control, reveal it, put it into your hand, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Cultivate",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Lightning Bolt",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Counterspell",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Forest",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Krenko, Mob Boss",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Goblin Warrior",
+    "oracle_text": "{T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Baral, Chief of Compliance",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Human Wizard",
+    "oracle_text": "Instant and sorcery spells you cast cost {1} less to cast.\nWhenever a spell or ability you control counters a spell, you may draw a card. If you do, discard a card.",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Myr Retriever",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact Creature \u2014 Myr",
+    "oracle_text": "When this creature dies, return another target artifact card from your graveyard to your hand.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "The Great Henge",
+    "mana_cost": "{7}{G}{G}",
+    "cmc": 9.0,
+    "type_line": "Legendary Artifact",
+    "oracle_text": "This spell costs {X} less to cast, where X is the greatest power among creatures you control.\n{T}: Add {G}{G}. You gain 2 life.\nWhenever a nontoken creature you control enters, put a +1/+1 counter on it and draw a card.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Kozilek, the Great Distortion",
+    "mana_cost": "{8}{C}{C}",
+    "cmc": 10.0,
+    "type_line": "Legendary Creature \u2014 Eldrazi",
+    "oracle_text": "When you cast this spell, if you have fewer than seven cards in hand, draw cards equal to the difference.\nMenace\nDiscard a card with mana value X: Counter target spell with mana value X.",
+    "power": "12",
+    "toughness": "12",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Menace"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Balmor, Battlemage Captain",
+    "mana_cost": "{U}{R}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Bird Wizard",
+    "oracle_text": "Flying\nWhenever you cast an instant or sorcery spell, creatures you control get +1/+0 and gain trample until end of turn.",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Kozilek's Return",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Devoid (This card has no color.)\nKozilek's Return deals 2 damage to each creature.\nWhenever you cast an Eldrazi creature spell with mana value 7 or greater, you may exile this card from your graveyard. If you do, this card deals 5 damage to each creature.",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Devoid"
+    ],
+    "layout": "normal"
+  }
+]

@@ -1,0 +1,326 @@
+[
+  {
+    "name": "Nalfeshnee",
+    "layout": "normal",
+    "mana_cost": "{5}{R}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Beast Demon",
+    "oracle_text": "Flying\nWhenever you cast a spell from exile, copy it. You may choose new targets for the copy. If it's a permanent spell, the copy gains haste and \"At the beginning of the end step, sacrifice this permanent.\" (A copy of a permanent spell becomes a token.)",
+    "power": "4",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Reckless Impulse",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Exile the top two cards of your library. Until the end of your next turn, you may play those cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Counterspell",
+    "layout": "normal",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Clone",
+    "layout": "normal",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Shapeshifter",
+    "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield.",
+    "power": "0",
+    "toughness": "0",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Twinning Staff",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "If you would copy a spell one or more times, instead copy it that many times plus an additional time. You may choose new targets for the additional copy.\n{7}, {T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Parallel Lives",
+    "layout": "normal",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Display of Power",
+    "layout": "normal",
+    "mana_cost": "{1}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "This spell can't be copied.\nCopy any number of target instant and/or sorcery spells. You may choose new targets for the copies.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Pestilent Cauldron // Restorative Burst",
+    "layout": "modal_dfc",
+    "mana_cost": "{2}{B} // {3}{G}{G}",
+    "cmc": 3.0,
+    "type_line": "Artifact // Sorcery",
+    "oracle_text": "{T}, Discard a card: Create a 1/1 black and green Pest creature token with \"When this token dies, you gain 1 life.\"\n{1}, {T}: Each opponent mills cards equal to the amount of life you gained this turn.\n{4}, {T}: Exile four target cards from a single graveyard. Draw a card.\n//\nReturn up to two target creature, land, and/or planeswalker cards from your graveyard to your hand. Each player gains 4 life. Exile Restorative Burst.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "card_faces": [
+      {
+        "name": "Pestilent Cauldron",
+        "mana_cost": "{2}{B}",
+        "type_line": "Artifact",
+        "oracle_text": "{T}, Discard a card: Create a 1/1 black and green Pest creature token with \"When this token dies, you gain 1 life.\"\n{1}, {T}: Each opponent mills cards equal to the amount of life you gained this turn.\n{4}, {T}: Exile four target cards from a single graveyard. Draw a card.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "B"
+        ]
+      },
+      {
+        "name": "Restorative Burst",
+        "mana_cost": "{3}{G}{G}",
+        "type_line": "Sorcery",
+        "oracle_text": "Return up to two target creature, land, and/or planeswalker cards from your graveyard to your hand. Each player gains 4 life. Exile Restorative Burst.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "G"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Abrade",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose one \u2014\n\u2022 Abrade deals 3 damage to target creature.\n\u2022 Destroy target artifact.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Stonecoil Serpent",
+    "layout": "normal",
+    "mana_cost": "{X}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Snake",
+    "oracle_text": "Reach, trample, protection from multicolored\nThis creature enters with X +1/+1 counters on it.",
+    "power": "0",
+    "toughness": "0",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Reach",
+      "Protection",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Island",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mountain",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Mountain",
+    "oracle_text": "({T}: Add {R}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  }
+]

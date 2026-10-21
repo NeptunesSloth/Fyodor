@@ -32,6 +32,8 @@ def definition(text: str, ch: Characteristics, index: int) -> dict[str, Any] | N
     """The linked "when you do" ability of an exert line (``text`` with the card's name as ~), or None."""
     from app.rules import scripts  # (scripts imports this module)
 
+    if text.strip() in ("You may exert ~ as it attacks.", "You may exert this creature as it attacks."):
+        return {"kind": "static", "static": "exert_attack", "effects": []}
     m = _EXERT.match(text)
     if m is None:
         return None
@@ -43,9 +45,10 @@ def definition(text: str, ch: Characteristics, index: int) -> dict[str, Any] | N
 
 
 def _exertable(plan: Plan, card: CardInstance) -> bool:
-    from app.rules import triggers
+    from app.rules import scripts, triggers
 
-    return not plan.manual(card) and bool(triggers.abilities(plan, plan.ch(card), TRIGGER))
+    return not plan.manual(card) and (bool(triggers.abilities(plan, plan.ch(card), TRIGGER)) or any(
+        d.get("kind") == "static" and d.get("static") == "exert_attack" for d in scripts.definitions(plan.ch(card)).values()))
 
 
 def _already_exerted(plan: Plan, card: CardInstance) -> bool:
@@ -74,9 +77,7 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     attackers = [plan.state.cards[c] for c in d.resume["attackers"] if c in plan.state.cards]
     exerted = [c for c in attackers if c.id in chosen and c.zone.endswith(":battlefield")]
     for card in exerted:  # 701.43a
-        plan.rules.exerted[plan.oid(card)] = card.controller
-        plan.rules.exerted_turn[plan.oid(card)] = plan.state.turn.number
-        plan.note(f"{plan.name(card.controller)} exerted {card.name or 'it'} as it attacked", [card.id])
+        perform(plan, card, card.controller, attacking=True)
     from app.rules import (
         enlist,  # -- casting extras (wave 18E) -- 702.154a: asked after exert, before the attack triggers (508.1m)
     )
@@ -97,3 +98,13 @@ def finish(plan: Plan, attackers: list[CardInstance], exerted: list[CardInstance
                           index=i, definition=d)
     plan.rules.priority = plan.active
     plan.rules.passed = []
+
+
+def perform(plan: Plan, card: CardInstance, player: str, *, attacking: bool = False) -> None:
+    """701.43: each exert is an action, even if this object was exerted earlier."""
+    from app.game.rules_state import emit
+
+    plan.rules.exerted[plan.oid(card)] = player
+    plan.rules.exerted_turn[plan.oid(card)] = plan.state.turn.number
+    emit(plan.state, "exerted", card=card.id, object_id=plan.oid(card), player=player, actor=player, types=sorted(plan.ch(card).types))
+    plan.note(f"{plan.name(player)} exerted {card.name or 'it'}" + (" as it attacked" if attacking else ""), [card.id])

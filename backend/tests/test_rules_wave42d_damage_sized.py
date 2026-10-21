@@ -17,7 +17,7 @@ Of the 187 cards whose only blocker was one damage line (20 of them commanders) 
 * Ayara, Widow of the Realm: "target opponent or battle" (and Onakke Javelineer's "target player or battle").
 The definition of Sorrow's Path changed too (its second damage sentence no longer takes the first one's recipients as its source; the card stays PARTIAL).
 
-Kept manual: Tellah ("that much" after "eight or more mana was spent": the amount is not stated), Ian the Reckless and Iron Fist (34D), Niv-Mizzet's color pairs,
+Originally kept manual (the MANUAL list below reflects later completed families): Tellah ("that much" after "eight or more mana was spent": the amount is not stated), Ian the Reckless and Iron Fist (34D), Niv-Mizzet's color pairs,
 Lady Loki, Darigaaz, Captain Rex Nebula, Thorin, Donna Noble (paired creatures), Kosei (a conditional granted trigger), Breeches ("When you win the flip"), The Lord of
 Pain ("another target player" than the spell's caster), Vial Smasher (a random opponent, then a player or one of their planeswalkers), Imodane (a spell that "targets
 only a single creature" as the damage source of a trigger).
@@ -57,7 +57,7 @@ EXTRA = [card(c["name"], set_code="w42d", number=f"D{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 FULL = ["Bolg of the North", "Vincent, Vengeful Atoner", "Daredevil, Fearless Fighter", "Dong Zhou, the Tyrant", "Polukranos, World Eater",
         "Ayara, Widow of the Realm // Ayara, Furnace Queen", "Onakke Javelineer", "Living Inferno"]
-MANUAL = ["Tellah, Great Sage", "Iron Fist, Living Weapon", "Imodane, the Pyrohammer", "The Lord of Pain",
+MANUAL = ["Iron Fist, Living Weapon", "Imodane, the Pyrohammer",
           "Breeches, the Blastmaker"]  # (Vial Smasher is FULL since wave 47B: a recorded random opponent; Ian the Reckless since wave 50F: "if it's modified")
 
 

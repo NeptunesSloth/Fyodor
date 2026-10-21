@@ -1,0 +1,256 @@
+[
+  {
+    "name": "Murmurs from Beyond",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant \u2014 Arcane",
+    "oracle_text": "Reveal the top three cards of your library. An opponent chooses one of them. Put that card into your graveyard and the rest into your hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Animal Magnetism",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Reveal the top five cards of your library. An opponent chooses a creature card from among them. Put that card onto the battlefield and the rest into your graveyard.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Thran Tome",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact \u2014 Book",
+    "oracle_text": "{5}, {T}: Reveal the top three cards of your library. Target opponent chooses one of those cards. Put that card into your graveyard, then draw two cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Karn, Scion of Urza",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Legendary Planeswalker \u2014 Karn",
+    "oracle_text": "+1: Reveal the top two cards of your library. An opponent chooses one of them. Put that card into your hand and exile the other with a silver counter on it.\n\u22121: Put a card you own with a silver counter on it from exile into your hand.\n\u22122: Create a 0/0 colorless Construct artifact creature token with \"This token gets +1/+1 for each artifact you control.\"",
+    "power": null,
+    "toughness": null,
+    "loyalty": "5",
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Phyrexian Grimoire",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact \u2014 Book",
+    "oracle_text": "{4}, {T}: Target opponent chooses one of the top two cards of your graveyard. Exile that card and put the other one into your hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Guided Passage",
+    "mana_cost": "{G}{U}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Reveal the cards in your library. An opponent chooses from among them a creature card, a land card, and a noncreature, nonland card. You put the chosen cards into your hand. Then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Shivan Dragon",
+    "mana_cost": "{4}{R}{R}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Dragon",
+    "oracle_text": "Flying\n{R}: This creature gets +1/+0 until end of turn.",
+    "power": "5",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Spirit of the Labyrinth",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment Creature \u2014 Spirit",
+    "oracle_text": "Each player can't draw more than one card each turn.",
+    "power": "3",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Disenchant",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Rest in Peace",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Stifle",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Cloudshift",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Clone",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Shapeshifter",
+    "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield.",
+    "power": "0",
+    "toughness": "0",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  }
+]

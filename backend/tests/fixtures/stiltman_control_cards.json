@@ -1,0 +1,80 @@
+[
+  {
+    "name": "Stilt-Man, Towering Terror",
+    "oracle_text": "Reach\nWhenever one or more Villains you control deal combat damage to a player, gain control of target noncreature, nonland permanent that player controls until the end of your next turn. It gains \"This permanent can't be sacrificed\" until the end of your next turn.",
+    "type_line": "Legendary Creature \u2014 Human Rogue Villain",
+    "mana_cost": "{2}{R}",
+    "layout": "normal",
+    "power": "4",
+    "toughness": "2",
+    "cmc": 3.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Reach"
+    ]
+  },
+  {
+    "name": "Hobgoblin, Mantled Marauder",
+    "oracle_text": "Flying, haste\nWhenever you discard a card, Hobgoblin gets +2/+0 until end of turn.",
+    "type_line": "Legendary Creature \u2014 Goblin Human Villain",
+    "mana_cost": "{1}{R}",
+    "layout": "normal",
+    "power": "1",
+    "toughness": "2",
+    "cmc": 2.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying",
+      "Haste"
+    ]
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Krark-Clan Ironworks",
+    "oracle_text": "Sacrifice an artifact: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{4}",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  }
+]

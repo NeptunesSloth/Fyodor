@@ -36,13 +36,13 @@ can be chosen as it goes on the stack, public — the Umaro ruling), "Each mode 
 player." (every mode targets a player of one kind), "Choose one. If [condition], [you may] choose both
 instead." (checked as it goes on the stack — the Prophetic Titan ruling), reflexive "When you do, choose …"
 (603.12: the modes belong to the reflexive ability, announced as IT goes on the stack). Refused (never
-guessed): "choose X" / "up to X", "choose two at random", a mode with "you may", a division or an X-sized
-target group (an activated ability's mode has one target slot; wave 33B: a *triggered* ability's mode may
-have target groups — "up to two target creatures" — which join into one list once the modes are chosen,
-601.2c, and the ability then goes on the stack as an ordinary one with those groups, 603.3d; with the plain
-"choose one —" header only), a header with anything else after it,
-a limit or restriction line after the modes, and "up to" / "any number" on an activated ability (choosing
-no mode isn't modelled there).
+guessed): "choose X" / "up to X", "choose two at random", a mode with "you may", and a division.
+Fixed-size target groups work for triggered and activated modes: the chosen modes' groups join into
+one list before targets are announced. X-sized groups and totals are supported only for triggered
+modes, using the triggering object's X; activated X-sized groups and totals remain refused.
+Grouped modes use the plain header without additional conditions or instructions. Refused as well:
+a header with anything else after it, a limit or restriction line after the modes, and "up to" / "any number"
+on an activated ability (choosing no mode isn't modelled there).
 
 Definition shape (JSON-able, what ``scripts.definitions`` gives for the header line): the ability's
 ordinary fields (``trigger`` / ``cond`` / ``if`` / ``limit``, or ``cost`` / ``restriction`` / ``loyalty``),
@@ -240,11 +240,17 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
 
 
 def _plain_groups(ab: AbilityText, groups: list[Definition]) -> bool:
-    """-- modal frames (wave 33B) -- a triggered ability's mode may have target groups ("up to two target creatures"): each a selector with
-    whole-number limits, no division (601.2c); -- X from the triggering object (wave 34C) -- or X targets / a total ("up to X target creature cards
-    with total mana value X or less", Orcus: the X of its enters trigger, triggers.cast_x). An activated ability's mode keeps one target slot."""
-    return ab.kind == "triggered" and all(set(g) <= {"what", "min", "max", "x_count", "total"} and isinstance(g.get("min", 1), int)
-                                          and isinstance(g.get("max", 1), int) for g in groups)
+    """Fixed groups work for triggered and activated modes. Only triggers additionally
+    support X-sized counts and totals, read from the object whose event caused the trigger.
+    Activated X/total/divided groups remain unsupported until their mode preflight reads them.
+    """
+    allowed = {"what", "min", "max"}
+    if ab.kind == "triggered":
+        allowed |= {"x_count", "total"}
+    elif ab.kind not in ("activated", "loyalty"):
+        return False
+    return all(set(g) <= allowed and isinstance(g.get("min", 1), int)
+               and isinstance(g.get("max", 1), int) for g in groups)
 
 
 # -- refused modal/conditional (wave 3R1) --
@@ -494,16 +500,16 @@ def put_trigger(plan: Plan, t: PendingTrigger, picks: dict[str, Any] | None = No
     r, d = plan.rules, t.ability
     modes, modal = d["modes"], d["modal"]
     picks = picks or {}
-    src = source_of(plan, t.source_card)
+    src = source_of(plan, t.source_card, object_id=t.source_object)
     attacker = selectors.attacker_of(t.event)
     card = plan.state.cards.get(t.source_card)
 
     def legal(i: int) -> list[str]:
         spec = modes[i]["target"]
-        return legal_targets(plan, spec["what"], t.controller, src, t.source_card, attacker) if spec else []
+        return legal_targets(plan, spec["what"], t.controller, src, t.source_card, attacker, source_object=t.source_object) if spec else []
 
     def choosable(i: int) -> bool:  # 700.2b: a mode with no legal target can't be chosen ("up to" groups need none: -- modal frames (wave 33B) --)
-        return all(len(legal_targets(plan, g["what"], t.controller, src, t.source_card, attacker)) >= g.get("min", 1)
+        return all(len(legal_targets(plan, g["what"], t.controller, src, t.source_card, attacker, source_object=t.source_object)) >= g.get("min", 1)
                    for g in modes[i].get("groups") or ()) and (not modes[i]["target"] or bool(legal(i)))
 
     chosen: list[int] | None = picks.get("modes")
@@ -659,6 +665,8 @@ class Announced:
     @property
     def entry(self) -> dict[str, Any]:
         """The StackEntry fields for it."""
+        if self.targets.groups is not None:
+            return {"effects": self.effects, "modes": self.modes, **self.targets.entry(None)}
         return {"effects": self.effects, "targets": self.targets.flat, "target_spec": None, "modes": self.modes,
                 "slots": self.slots, "slot_specs": self.specs}
 
@@ -676,6 +684,13 @@ def announce(plan: Plan, a: A.ActivateAbility, card: CardInstance, definition: D
     modes = casting.choose_modes(plan, a, definition, what, exclude=done)
     if modes is None:
         return None
+    grouped = casting.modal_groups(definition, modes)
+    if grouped is not None:
+        targets = casting.choose_targets(plan, a, {"targets": grouped}, what)
+        if targets is None:
+            return None
+        return Announced(targets=targets, modes=modes, slots=[], specs=[], effects=casting.modal_effects(definition, modes, True),
+                         definition=definition, index=index)
     specs = [definition["modes"][i]["target"] for i in modes]
     slots = casting.choose_slot_targets(plan, a, specs, what)
     if slots is None:

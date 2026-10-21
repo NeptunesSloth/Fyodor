@@ -30,8 +30,10 @@ def clear_combat_markers(state: GameState) -> int:
     state.arrows = [ar for ar in state.arrows if ar.kind not in ("attack", "block")]
     n = 0
     for c in state.cards.values():
-        if c.attacking or c.blocking:
+        if c.is_attacking or c.is_blocking or c.attack_defender_lost:
             c.attacking = None
+            c.attacking_without_target = None
+            c.attack_defender_lost = False
             c.unblock()
             n += 1
     return n
@@ -71,6 +73,7 @@ def next_turn(state: GameState, a: A.NextTurn) -> None:
     state.turn.number += 1
     state.turn.active_player = nxt
     state.turn.phase = "untap"
+    state.turn.starting_life = {pid: p.life for pid, p in state.players.items()}
     if state.settings.clear_mana_on_step:
         objects.empty_mana_pools(state)
     parts = [text(f"Turn {state.turn.number}: "), pname(state, nxt)]
@@ -93,12 +96,18 @@ def attack(state: GameState, a: A.Attack) -> None:
             raise ActionError(f"{c.name or 'That card'} is not on the battlefield")
     for c in targets:
         c.attacking = a.target.model_copy() if a.target else None
-        if a.target is None:
+        c.attacking_without_target = a.attacking_without_target if a.target is None else None
+        if a.target is not None:
+            c.attack_defender_lost = False
+        elif a.attacking_without_target is not None:
+            c.attack_defender_lost = True
+        if a.target is None and a.attacking_without_target is None:
             for other in state.cards.values():
                 if other.blocks(c.id):
                     other.unblock(c.id)
     if a.target is None:
-        log(state, a.actor, a.ts, [ops.group(state, targets), text(" stopped attacking")])
+        verb = " continue attacking without an attack target" if a.attacking_without_target is not None else " stopped attacking"
+        log(state, a.actor, a.ts, [ops.group(state, targets), text(verb)])
         return
     who = pname(state, a.target.id) if a.target.kind == "player" else ops.card_part(state, state.cards[a.target.id])
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" attacks "), who, text(" with "), ops.group(state, targets)])
@@ -187,6 +196,8 @@ def roll(state: GameState, a: A.Roll) -> None:
 def coin(state: GameState, a: A.Coin) -> None:
     if a.r is None or len(a.r.results) != a.count:
         raise ActionError("unresolved coin flip")
+    if state.rules is not None and a.actor is not None:
+        state.rules.coin_flipped[a.actor] = state.turn.number
     faces = ["heads" if r else "tails" for r in a.r.results]
     msg = f" flipped a coin: {faces[0]}" if a.count == 1 else f" flipped {a.count} coins: {', '.join(faces)} ({sum(a.r.results)} heads)"
     log(state, a.actor, a.ts, [pname(state, a.actor), text(msg)], kind="dice")

@@ -1,0 +1,204 @@
+[
+  {
+    "name": "Teferi, Temporal Archmage",
+    "mana_cost": "{4}{U}{U}",
+    "cmc": 6.0,
+    "type_line": "Legendary Planeswalker \u2014 Teferi",
+    "oracle_text": "+1: Look at the top two cards of your library. Put one of them into your hand and the other on the bottom of your library.\n\u22121: Untap up to four target permanents.\n\u221210: You get an emblem with \"You may activate loyalty abilities of planeswalkers you control on any player's turn any time you could cast an instant.\"\nTeferi, Temporal Archmage can be your commander.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "5",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Narset Transcendent",
+    "mana_cost": "{2}{W}{U}",
+    "cmc": 4.0,
+    "type_line": "Legendary Planeswalker \u2014 Narset",
+    "oracle_text": "+1: Look at the top card of your library. If it's a noncreature, nonland card, you may reveal it and put it into your hand.\n\u22122: When you next cast an instant or sorcery spell from your hand this turn, it gains rebound. (Exile the spell as it resolves. At the beginning of your next upkeep, you may cast that card from exile without paying its mana cost.)\n\u22129: You get an emblem with \"Your opponents can't cast noncreature spells.\"",
+    "power": null,
+    "toughness": null,
+    "loyalty": "6",
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Saheeli, Filigree Master",
+    "mana_cost": "{2}{U}{R}",
+    "cmc": 4.0,
+    "type_line": "Legendary Planeswalker \u2014 Saheeli",
+    "oracle_text": "+1: Scry 1. You may tap an untapped artifact you control. If you do, draw a card.\n\u22122: Create two 1/1 colorless Thopter artifact creature tokens with flying. They gain haste until end of turn.\n\u22124: You get an emblem with \"Artifact creatures you control get +1/+1\" and \"Artifact spells you cast cost {1} less to cast.\"",
+    "power": null,
+    "toughness": null,
+    "loyalty": "3",
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [
+      "Scry"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Jace Beleren",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker \u2014 Jace",
+    "oracle_text": "+2: Each player draws a card.\n\u22121: Target player draws a card.\n\u221210: Target player mills twenty cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "3",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Sarkhan the Masterless",
+    "mana_cost": "{3}{R}{R}",
+    "cmc": 5.0,
+    "type_line": "Legendary Planeswalker \u2014 Sarkhan",
+    "oracle_text": "Whenever a creature attacks you or a planeswalker you control, each Dragon you control deals 1 damage to that creature.\n+1: Until end of turn, each planeswalker you control becomes a 4/4 red Dragon creature and gains flying.\n\u22123: Create a 4/4 red Dragon creature token with flying.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "5",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Lightning Bolt",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Sol Ring",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Myr Retriever",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact Creature \u2014 Myr",
+    "oracle_text": "When this creature dies, return another target artifact card from your graveyard to your hand.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Counterspell",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Balmor, Battlemage Captain",
+    "mana_cost": "{U}{R}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Bird Wizard",
+    "oracle_text": "Flying\nWhenever you cast an instant or sorcery spell, creatures you control get +1/+0 and gain trample until end of turn.",
+    "power": "1",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal"
+  }
+]

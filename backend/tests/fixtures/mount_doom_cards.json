@@ -1,0 +1,128 @@
+[
+  {
+    "name": "Mount Doom",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Legendary Land",
+    "oracle_text": "{T}, Pay 1 life: Add {B} or {R}.\n{1}{B}{R}, {T}: Mount Doom deals 1 damage to each opponent.\n{5}{B}{R}, {T}, Sacrifice Mount Doom and a legendary artifact: Choose up to two creatures, then destroy the rest. Activate only as a sorcery.",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "keywords": [],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "loyalty": null,
+    "defense": null
+  },
+  {
+    "name": "Shadowspear",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Legendary Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +1/+1 and has trample and lifelink.\n{1}: Permanents your opponents control lose hexproof and indestructible until end of turn.\nEquip {2}",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "keywords": [
+      "Equip"
+    ],
+    "color_identity": [],
+    "loyalty": null,
+    "defense": null
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "keywords": [],
+    "color_identity": [
+      "G"
+    ],
+    "loyalty": null,
+    "defense": null
+  },
+  {
+    "name": "Scythe Tiger",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Cat",
+    "oracle_text": "Shroud (This creature can't be the target of spells or abilities.)\nWhen this creature enters, sacrifice it unless you sacrifice a land.",
+    "power": "3",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "keywords": [
+      "Shroud"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "loyalty": null,
+    "defense": null
+  },
+  {
+    "name": "Darksteel Myr",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact Creature \u2014 Myr",
+    "oracle_text": "Indestructible (Damage and effects that say \"destroy\" don't destroy this creature. If its toughness is 0 or less, it still dies.)",
+    "power": "0",
+    "toughness": "1",
+    "colors": [],
+    "keywords": [
+      "Indestructible"
+    ],
+    "color_identity": [],
+    "loyalty": null,
+    "defense": null
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "keywords": [],
+    "color_identity": [
+      "R"
+    ],
+    "loyalty": null,
+    "defense": null
+  },
+  {
+    "name": "Sol Ring",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "keywords": [],
+    "color_identity": [],
+    "loyalty": null,
+    "defense": null
+  }
+]

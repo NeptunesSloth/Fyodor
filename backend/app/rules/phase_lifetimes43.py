@@ -1,0 +1,112 @@
+"""Exact direct phasing packets with an original-source departure duration.
+
+Native phasing, untap and source-departure expiry preserve the same objects.
+"""
+from __future__ import annotations
+
+from typing import Any
+
+from app.game.rules_state import ObjectRef, PhaseLifetime
+from app.rules.plan import Plan
+
+STEP = 'phase_until_source43'
+FINISH = 'phase_until_source_finish43'
+
+
+def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    text = body.strip()
+    text = text[:1].upper() + text[1:]
+    text = text.replace('~', 'this enchantment')
+    if text != ('Untap all creatures, then those creatures phase out until this enchantment leaves the battlefield. '
+                'Put a time counter on this enchantment for each creature that phased out this way.'):
+        return None
+    return ([{'do': STEP}], None, False)
+
+
+def resolve(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    ids = [c.id for c in plan.state.cards.values() if c.zone.endswith(':battlefield') and plan.ch(c).is_creature]
+    context.bind_objects(plan, ctx, '_phase_until43', ids)
+    # "Those creatures" means the original packet, including stunned ones for
+    # which the attempted untap removed a stun counter instead.
+    ctx['effects'][ctx['next']:ctx['next']] = [
+        {'do': 'untap', 'who': 'ref:_phase_until43'}, {'do': FINISH}]
+    return True
+
+
+def finish(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    ids = effects._cards(plan, ctx, 'ref:_phase_until43')
+    source = ObjectRef(card=ctx['source_card'], object_id=ctx['source_object'])
+    actual = phase_out(plan, source, ids, ctx['controller'])
+    if actual:
+        ctx['effects'][ctx['next']:ctx['next']] = [
+            {'do': 'add_counters', 'who': 'self', 'kind': 'time', 'n': len(actual)}]
+    return True
+
+
+def source_present(plan: Plan, ref: ObjectRef) -> bool:
+    card = plan.state.cards.get(ref.card)
+    # A departing controller's control effect may end without this permanent
+    # leaving (800.4a). Ownership departure, unlike that transient controller
+    # state, means the object left the game even if its table record remains.
+    return (card is not None and card.owner in plan.live() and plan.oid(card) == ref.object_id
+            and card.zone.rsplit(':', 1)[-1] in ('battlefield', 'phased'))
+
+
+def held(plan: Plan, card_id: str) -> bool:
+    card = plan.state.cards.get(card_id)
+    if card is None:
+        return False
+    oid = plan.oid(card)
+    return any(source_present(plan, packet.source) and any(r.card == card_id and r.object_id == oid for r in packet.recipients)
+               for packet in plan.rules.phase_lifetimes)
+
+
+def phase_out(plan: Plan, source: ObjectRef, card_ids: list[str], actor: str) -> list[ObjectRef]:
+    """610.3b: a duration already over never starts; preserve native indirect phasing."""
+    if not source_present(plan, source):
+        return []
+    refs = [ObjectRef(card=cid, object_id=plan.oid(card), zone=card.zone)
+            for cid in card_ids if (card := plan.state.cards.get(cid)) is not None and plan.in_game(card)
+            and card.zone.endswith(':battlefield')]
+    if not refs:
+        return []
+    # Install before the native action: a source that is itself among the
+    # creatures stays present as a phased object, with precisely the same OID.
+    packet = PhaseLifetime(source=source, recipients=refs)
+    plan.rules.phase_lifetimes.append(packet)
+    plan.do({'type': 'phase_shift', 'card_ids': [r.card for r in refs], 'out': True}, actor=actor)
+    packet.recipients = [r for r in refs if (c := plan.state.cards.get(r.card)) is not None
+                         and plan.oid(c) == r.object_id and c.zone.endswith(':phased') and not c.phased_indirect]
+    return packet.recipients
+
+
+def expire(plan: Plan) -> None:
+    ended = [p for p in plan.rules.phase_lifetimes if not source_present(plan, p.source)]
+    if not ended:
+        return
+    # Remove before actions or characteristic queries can recursively expire.
+    plan.rules.phase_lifetimes = [p for p in plan.rules.phase_lifetimes if p not in ended]
+    back = list(dict.fromkeys(r.card for p in ended for r in p.recipients
+                             if (c := plan.state.cards.get(r.card)) is not None
+                             and c.owner in plan.live() and plan.oid(c) == r.object_id and c.zone.endswith(':phased')
+                             and not c.phased_indirect and not held(plan, c.id)))
+    if back:
+        from app.game.rules_state import emit
+
+        for cid in back:
+            emit(plan.state, 'designation', counter='phase_in', card=cid,
+                 object_id=plan.oid(cid), player=plan.state.cards[cid].controller)
+        plan.do({'type': 'phase_shift', 'card_ids': back, 'out': False})
+        from app.rules import keyword_actions
+
+        for cid in back:
+            card = plan.state.cards[cid]
+            if plan.oid(card) in plan.rules.prepared:
+                keyword_actions.become_prepared(plan, card)
+
+
+PRIMITIVES = {STEP: resolve, FINISH: finish}

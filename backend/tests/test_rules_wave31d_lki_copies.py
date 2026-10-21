@@ -66,7 +66,8 @@ def storm_scene(cards):
 def test_thousand_year_storm_still_copies_a_spell_that_was_countered_before_its_trigger_resolved(cards):
     s, second = storm_scene(cards)
     counter_in_response(s, second)
-    assert len(s.state.rules.stack_lki) == 1 and next(iter(s.state.rules.stack_lki.values())).entry.targets[0].id == "p2"  # how it was there
+    remembered = [m for m in s.state.rules.stack_lki.values() if m.card == second.id and m.entry is not None]
+    assert len(remembered) == 1 and remembered[0].entry is not None and remembered[0].entry.targets[0].id == "p2"  # how this spell was there
     resolve_one(s)  # the trigger: one spell was cast before the second Bolt — one copy, made from the countered Bolt (608.2h, 707.10)
     d = s.state.rules.decision
     assert d is not None and d.prompt.startswith("Copy of Lightning Bolt")

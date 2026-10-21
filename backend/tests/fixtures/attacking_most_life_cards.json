@@ -1,0 +1,130 @@
+[
+  {
+    "name": "Scourge of the Throne",
+    "oracle_text": "Flying\nDethrone (Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1 counter on it.)\nWhenever this creature attacks for the first time each turn, if it's attacking the player with the most life or tied for most life, untap all attacking creatures. After this phase, there is an additional combat phase.",
+    "type_line": "Creature \u2014 Dragon",
+    "mana_cost": "{4}{R}{R}",
+    "layout": "normal",
+    "power": "5",
+    "toughness": "5",
+    "cmc": 6.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying",
+      "Dethrone"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ornithopter",
+    "oracle_text": "Flying",
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "mana_cost": "{0}",
+    "layout": "normal",
+    "power": "0",
+    "toughness": "2",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Jace Beleren",
+    "oracle_text": "+2: Each player draws a card.\n\u22121: Target player draws a card.\n\u221210: Target player mills twenty cards.",
+    "type_line": "Legendary Planeswalker \u2014 Jace",
+    "mana_cost": "{1}{U}{U}",
+    "layout": "normal",
+    "loyalty": "3",
+    "cmc": 3.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Relentless Assault",
+    "oracle_text": "Untap all creatures that attacked this turn. After this main phase, there is an additional combat phase followed by an additional main phase.",
+    "type_line": "Sorcery",
+    "mana_cost": "{2}{R}{R}",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Invasion of Zendikar // Awakened Skyclave",
+    "type_line": "Battle \u2014 Siege // Creature \u2014 Elemental",
+    "mana_cost": "{3}{G} // ",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.\n//\nVigilance, haste\nAs long as this creature is on the battlefield, it's a land in addition to its other types.\n{T}: Add one mana of any color.",
+    "layout": "transform",
+    "card_faces": [
+      {
+        "name": "Invasion of Zendikar",
+        "mana_cost": "{3}{G}",
+        "type_line": "Battle \u2014 Siege",
+        "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.",
+        "defense": "3",
+        "colors": [
+          "G"
+        ]
+      },
+      {
+        "name": "Awakened Skyclave",
+        "mana_cost": "",
+        "type_line": "Creature \u2014 Elemental",
+        "oracle_text": "Vigilance, haste\nAs long as this creature is on the battlefield, it's a land in addition to its other types.\n{T}: Add one mana of any color.",
+        "power": "4",
+        "toughness": "4",
+        "colors": [
+          "G"
+        ]
+      }
+    ],
+    "defense": "3",
+    "cmc": 4.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Vigilance",
+      "Transform",
+      "Haste"
+    ]
+  }
+]

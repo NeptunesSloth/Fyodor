@@ -1,0 +1,299 @@
+[
+  {
+    "name": "Bane Alley Broker",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{B}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Rogue",
+    "oracle_text": "{T}: Draw a card, then exile a card from your hand face down.\nYou may look at cards exiled with this creature.\n{U}{B}, {T}: Return a card exiled with this creature to its owner's hand.",
+    "power": "0",
+    "toughness": "3",
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Colfenor's Plans",
+    "layout": "normal",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile the top seven cards of your library face down.\nYou may look at the cards exiled with this enchantment, and you may play lands and cast spells from among those cards.\nSkip your draw step.\nYou can't cast more than one spell each turn.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Kheru Mind-Eater",
+    "layout": "normal",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Vampire",
+    "oracle_text": "Menace\nWhenever this creature deals combat damage to a player, that player exiles a card from their hand face down.\nYou may look at cards exiled with this creature, and you may play lands and cast spells from among those cards.",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Menace"
+    ]
+  },
+  {
+    "name": "Three Wishes",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile the top three cards of your library face down. You may look at those cards for as long as they remain exiled. Until your next turn, you may play those cards. At the beginning of your next upkeep, put any of those cards you didn't play into your graveyard.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ixhel, Scion of Atraxa",
+    "layout": "normal",
+    "mana_cost": "{1}{W}{B}{G}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Phyrexian Angel",
+    "oracle_text": "Flying, vigilance, toxic 2\nCorrupted \u2014 At the beginning of your end step, each opponent who has three or more poison counters exiles the top card of their library face down. You may look at and play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast those spells.",
+    "power": "2",
+    "toughness": "5",
+    "colors": [
+      "B",
+      "G",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Toxic",
+      "Vigilance",
+      "Corrupted"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Counterspell",
+    "layout": "normal",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Unsummon",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Return target creature to its owner's hand.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Naturalize",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Word of Seizing",
+    "layout": "normal",
+    "mana_cost": "{3}{R}{R}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "Split second (As long as this spell is on the stack, players can't cast spells or activate abilities that aren't mana abilities.)\nUntap target permanent and gain control of it until end of turn. It gains haste until end of turn.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Split second"
+    ]
+  },
+  {
+    "name": "Song of the Dryads",
+    "layout": "normal",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant permanent\nEnchanted permanent is a colorless Forest land.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Cloudshift",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Phyrexian Metamorph",
+    "layout": "normal",
+    "mana_cost": "{3}{U/P}",
+    "cmc": 4.0,
+    "type_line": "Artifact Creature \u2014 Phyrexian Shapeshifter",
+    "oracle_text": "({U/P} can be paid with either {U} or 2 life.)\nYou may have this creature enter as a copy of any artifact or creature on the battlefield, except it's an artifact in addition to its other types.",
+    "power": "0",
+    "toughness": "0",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Clone",
+    "layout": "normal",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Shapeshifter",
+    "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield.",
+    "power": "0",
+    "toughness": "0",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Pull from Eternity",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Put target face-up exiled card into its owner's graveyard.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Tormod's Crypt",
+    "layout": "normal",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}, Sacrifice this artifact: Exile target player's graveyard.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Skill Borrower",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Artifact Creature \u2014 Human Wizard",
+    "oracle_text": "Play with the top card of your library revealed.\nAs long as the top card of your library is an artifact or creature card, this creature has all activated abilities of that card. (If any of the abilities use that card's name, use this creature's name instead.)",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  }
+]

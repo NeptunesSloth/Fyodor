@@ -10,7 +10,7 @@ import pytest
 
 from app.rules import coverage
 from app.rules.plan import Plan
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_conditionals import until
 from tests.test_rules_wave12a_counters_keywords import answer, on_top
 from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand, zone_of
@@ -488,10 +488,10 @@ def test_anointed_peacekeeper_taxes_the_opponents_spells_and_the_named_sources_a
     mana(s, "p1", C=1)
     act(s, "p1", type="activate_ability", card_id=first.id, ability=0, targets=["p2"])
     answer(s)
-    assert life(s, "p2") == before - 1 and s.state.players["p1"].mana == {}
+    assert life(s, "p2") == before - 1 and mana_pool(s) == {}
     second = next(c for c in on_field(s, "Probe Pinger") if c.id != first.id)
     act(s, "p1", type="activate_ability", card_id=second.id, ability=1)  # its mana ability is not charged (605.1a)
-    assert s.state.cards[second.id].tapped and s.state.players["p1"].mana == {"C": 1}
+    assert s.state.cards[second.id].tapped and mana_pool(s) == {"C": 1}
     check(s)
 
 

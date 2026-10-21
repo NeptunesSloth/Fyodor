@@ -1,0 +1,1452 @@
+[
+  {
+    "name": "Abundance",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If you would draw a card, you may instead choose land or nonland and reveal cards from the top of your library until you reveal a card of the chosen kind. Put that card into your hand and put all other cards revealed this way on the bottom of your library in any order.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Revitalize",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "You gain 3 life.\nDraw a card.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Divination",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Draw two cards.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Chromatic Sphere",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{1}, {T}, Sacrifice this artifact: Add one mana of any color. Draw a card. (Activate only as an instant.)",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Sylvan Library",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your draw step, you may draw two additional cards. If you do, choose two cards in your hand drawn this turn. For each of those cards, pay 4 life or put the card on top of your library.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Words of Worship",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "{1}: The next time you would draw a card this turn, you gain 5 life instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Notion Thief",
+    "mana_cost": "{2}{U}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature — Human Rogue",
+    "oracle_text": "Flash\nIf an opponent would draw a card except the first one they draw in each of their draw steps, instead that player skips that draw and you draw a card.",
+    "power": "3",
+    "toughness": "1",
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Narset, Parter of Veils",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker — Narset",
+    "oracle_text": "Each opponent can't draw more than one card each turn.\n−2: Look at the top four cards of your library. You may reveal a noncreature, nonland card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "loyalty": "5"
+  },
+  {
+    "name": "Laboratory Maniac",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature — Human Wizard",
+    "oracle_text": "If you would draw a card while your library has no cards in it, you win the game instead.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land — Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Island",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land — Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature — Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Prosperity",
+    "mana_cost": "{X}{U}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Each player draws X cards.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Nihil Spellbomb",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}, Sacrifice this artifact: Exile target player's graveyard.\nWhen this artifact is put into a graveyard from the battlefield, you may pay {B}. If you do, draw a card.",
+    "colors": [],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Tolarian Terror",
+    "mana_cost": "{6}{U}",
+    "cmc": 7.0,
+    "type_line": "Creature — Serpent",
+    "oracle_text": "This spell costs {1} less to cast for each instant and sorcery card in your graveyard.\nWard {2} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.)",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Ward"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Mirror Strike",
+    "layout": "normal",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "All combat damage that would be dealt to you this turn by target unblocked creature is dealt to its controller instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ascent of the Worthy",
+    "layout": "saga",
+    "mana_cost": "{1}{W}{B}",
+    "cmc": 3.0,
+    "type_line": "Enchantment — Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI, II — Choose a creature you control. Until your next turn, all damage that would be dealt to creatures you control is dealt to that creature instead.\nIII — Return target creature card from your graveyard to the battlefield with a flying counter on it. That creature is an Angel Warrior in addition to its other types.",
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Martyrdom",
+    "layout": "normal",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, target creature you control gains \"{0}: The next 1 damage that would be dealt to target creature, planeswalker, or player this turn is dealt to this creature instead.\" Only you may activate this ability.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Kor Dirge",
+    "layout": "normal",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "All damage that would be dealt this turn to target creature you control by a source of your choice is dealt to another target creature instead.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Kor Chant",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "All damage that would be dealt this turn to target creature you control by a source of your choice is dealt to another target creature instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Captain's Maneuver",
+    "layout": "normal",
+    "mana_cost": "{X}{R}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "The next X damage that would be dealt to target creature, planeswalker, or player this turn is dealt to another target creature, planeswalker, or player instead.",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Turn the Tables",
+    "layout": "normal",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "All combat damage that would be dealt to you this turn is dealt to target attacking creature instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Kjeldoran Royal Guard",
+    "layout": "normal",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Creature — Human Soldier",
+    "oracle_text": "{T}: All combat damage that would be dealt to you by unblocked creatures this turn is dealt to this creature instead.",
+    "power": "2",
+    "toughness": "5",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Reverberation",
+    "layout": "normal",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "All damage that would be dealt this turn by target sorcery spell is dealt to that spell's controller instead.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Oracle's Attendants",
+    "layout": "normal",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature — Human Soldier",
+    "oracle_text": "{T}: All damage that would be dealt to target creature this turn by a source of your choice is dealt to this creature instead.",
+    "power": "1",
+    "toughness": "5",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shimian Night Stalker",
+    "layout": "normal",
+    "mana_cost": "{3}{B}{B}",
+    "cmc": 5.0,
+    "type_line": "Creature — Nightstalker",
+    "oracle_text": "{B}, {T}: All damage that would be dealt to you this turn by target attacking creature is dealt to this creature instead.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Hazduhr the Abbot",
+    "layout": "normal",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Legendary Creature — Human Cleric",
+    "oracle_text": "{X}, {T}: The next X damage that would be dealt this turn to target white creature you control is dealt to Hazduhr instead.",
+    "power": "2",
+    "toughness": "5",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Personal Incarnation",
+    "layout": "normal",
+    "mana_cost": "{3}{W}{W}{W}",
+    "cmc": 6.0,
+    "type_line": "Creature — Avatar Incarnation",
+    "oracle_text": "{0}: The next 1 damage that would be dealt to this creature this turn is dealt to its owner instead. Only this creature's owner may activate this ability.\nWhen this creature dies, its owner loses half their life, rounded up.",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Flaming Gambit",
+    "layout": "normal",
+    "mana_cost": "{X}{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Flaming Gambit deals X damage to target player or planeswalker. That player or that planeswalker's controller may choose a creature they control and have Flaming Gambit deal that damage to it instead.\nFlashback {X}{R}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flashback"
+    ]
+  },
+  {
+    "name": "Razia, Boros Archangel",
+    "layout": "normal",
+    "mana_cost": "{4}{R}{R}{W}{W}",
+    "cmc": 8.0,
+    "type_line": "Legendary Creature — Angel",
+    "oracle_text": "Flying, vigilance, haste\n{T}: The next 3 damage that would be dealt to target creature you control this turn is dealt to another target creature instead.",
+    "power": "6",
+    "toughness": "3",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Vigilance",
+      "Haste"
+    ]
+  },
+  {
+    "name": "Runeclaw Bear",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature — Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Centaur Courser",
+    "layout": "normal",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature — Centaur Warrior",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Colossal Dreadmaw",
+    "layout": "normal",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Creature — Dinosaur",
+    "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ]
+  },
+  {
+    "name": "Shock",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Shock deals 2 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Flame Rift",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Flame Rift deals 4 damage to each player.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Prodigal Pyromancer",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature — Human Wizard",
+    "oracle_text": "{T}: This creature deals 1 damage to any target.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Furnace of Rath",
+    "layout": "normal",
+    "mana_cost": "{1}{R}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If a source would deal damage to a permanent or player, it deals double that damage to that permanent or player instead.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Double"
+    ]
+  },
+  {
+    "name": "Safe Passage",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Prevent all damage that would be dealt to you and creatures you control this turn.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cloudshift",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Murder",
+    "layout": "normal",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Giant Growth",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Turn to Frog",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, target creature loses all abilities and becomes a blue Frog with base power and toughness 1/1.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mountain",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land — Mountain",
+    "oracle_text": "({T}: Add {R}.)",
+    "colors": [],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Glorious Anthem",
+    "layout": "normal",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures you control get +1/+1.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Counterspell",
+    "layout": "normal",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Fervor",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures you control have haste. (They can attack and {T} as soon as they come under your control.)",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Reverberate",
+    "layout": "normal",
+    "mana_cost": "{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Platinum Angel",
+    "layout": "normal",
+    "mana_cost": "{7}",
+    "cmc": 7.0,
+    "type_line": "Artifact Creature — Angel",
+    "oracle_text": "Flying\nYou can't lose the game and your opponents can't win the game.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Healer's Hawk",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Creature — Bird",
+    "oracle_text": "Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Lifelink"
+    ]
+  },
+  {
+    "name": "Black Knight",
+    "layout": "normal",
+    "mana_cost": "{B}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature — Human Knight",
+    "oracle_text": "First strike (This creature deals combat damage before creatures without first strike.)\nProtection from white (This creature can't be blocked, targeted, dealt damage, or enchanted by anything white.)",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "First strike",
+      "Protection"
+    ]
+  },
+  {
+    "name": "Rumbling Baloth",
+    "layout": "normal",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature — Beast",
+    "oracle_text": "",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Touch of Darkness",
+    "layout": "normal",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "One or more target creatures become black until end of turn.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "White Knight",
+    "layout": "normal",
+    "mana_cost": "{W}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature — Human Knight",
+    "oracle_text": "First strike (This creature deals combat damage before creatures without first strike.)\nProtection from black (This creature can't be blocked, targeted, dealt damage, or enchanted by anything black.)",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "First strike",
+      "Protection"
+    ]
+  },
+  {
+    "name": "Experiment Kraj",
+    "layout": "normal",
+    "mana_cost": "{2}{G}{G}{U}{U}",
+    "cmc": 6.0,
+    "type_line": "Legendary Creature — Ooze Mutant",
+    "oracle_text": "Experiment Kraj has all activated abilities of each other creature with a +1/+1 counter on it.\n{T}: Put a +1/+1 counter on target creature.",
+    "power": "4",
+    "toughness": "6",
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cover of Winter",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Snow Enchantment",
+    "oracle_text": "Cumulative upkeep {S} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it. {S} can be paid with one mana from a snow source.)\nIf a creature would deal combat damage to you and/or one or more creatures you control, prevent X of that damage, where X is the number of age counters on this enchantment.\n{S}: Put an age counter on this enchantment.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Cumulative upkeep"
+    ]
+  },
+  {
+    "name": "Harm's Way",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "The next 2 damage that a source of your choice would deal to you and/or permanents you control this turn is dealt to any target instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shining Shoal",
+    "layout": "normal",
+    "mana_cost": "{X}{W}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant — Arcane",
+    "oracle_text": "You may exile a white card with mana value X from your hand rather than pay this spell's mana cost.\nThe next X damage that a source of your choice would deal to you and/or creatures you control this turn is dealt to any target instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Blood of the Martyr",
+    "layout": "normal",
+    "mana_cost": "{W}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, if damage would be dealt to any creature, you may have that damage dealt to you instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Nova Pentacle",
+    "layout": "normal",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "{3}, {T}: The next time a source of your choice would deal damage to you this turn, that damage is dealt to target creature of an opponent's choice instead.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Comeuppance",
+    "layout": "normal",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Prevent all damage that would be dealt to you and planeswalkers you control this turn by sources you don't control. If damage from a creature source is prevented this way, Comeuppance deals that much damage to that creature. If damage from a noncreature source is prevented this way, Comeuppance deals that much damage to the source's controller.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Phyrexian Vindicator",
+    "layout": "normal",
+    "mana_cost": "{W}{W}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature — Phyrexian Horror",
+    "oracle_text": "Flying\nIf damage would be dealt to this creature, prevent that damage. When damage is prevented this way, this creature deals that much damage to any other target.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Selfless Squire",
+    "layout": "normal",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature — Human Soldier",
+    "oracle_text": "Flash\nWhen this creature enters, prevent all damage that would be dealt to you this turn.\nWhenever damage that would be dealt to you is prevented, put that many +1/+1 counters on this creature.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flash"
+    ]
+  },
+  {
+    "name": "New Way Forward",
+    "layout": "normal",
+    "mana_cost": "{2}{U}{R}{W}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "The next time a source of your choice would deal damage to you this turn, prevent that damage. When damage is prevented this way, New Way Forward deals that much damage to that source's controller and you draw that many cards.",
+    "colors": [
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Judgment of Alexander",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Prevent all damage that would be dealt to you this turn by sources your opponents control. Whenever damage from a creature is prevented this way, each commander creature you control deals damage equal to its power to that creature.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Hallow",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Prevent all damage target spell would deal this turn. You gain life equal to the damage prevented this way.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Acolyte's Reward",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Prevent the next X damage that would be dealt to target creature this turn, where X is your devotion to white. If damage is prevented this way, Acolyte's Reward deals that much damage to any target. (Each {W} in the mana costs of permanents you control counts toward your devotion to white.)",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Divine Deflection",
+    "layout": "normal",
+    "mana_cost": "{X}{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Prevent the next X damage that would be dealt to you and/or permanents you control this turn. If damage is prevented this way, Divine Deflection deals that much damage to any target.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Channel Harm",
+    "layout": "normal",
+    "mana_cost": "{5}{W}",
+    "cmc": 6.0,
+    "type_line": "Instant",
+    "oracle_text": "Prevent all damage that would be dealt to you and permanents you control this turn by sources you don't control. If damage is prevented this way, you may have Channel Harm deal that much damage to target creature.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Vengeful Archon",
+    "layout": "normal",
+    "mana_cost": "{4}{W}{W}{W}",
+    "cmc": 7.0,
+    "type_line": "Creature — Archon",
+    "oracle_text": "Flying\n{X}: Prevent the next X damage that would be dealt to you this turn. If damage is prevented this way, this creature deals that much damage to target player or planeswalker.",
+    "power": "7",
+    "toughness": "7",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Brace for Impact",
+    "layout": "normal",
+    "mana_cost": "{4}{W}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "Prevent all damage that would be dealt to target multicolored creature this turn. For each 1 damage prevented this way, put a +1/+1 counter on that creature.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Scars of the Veteran",
+    "layout": "normal",
+    "mana_cost": "{4}{W}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "You may exile a white card from your hand rather than pay this spell's mana cost.\nPrevent the next 7 damage that would be dealt to any target this turn. If it's a creature, put a +0/+1 counter on it for each 1 damage prevented this way at the beginning of the next end step.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Samite Ministration",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Prevent all damage that would be dealt to you this turn by a source of your choice. Whenever damage from a black or red source is prevented this way this turn, you gain that much life.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Refraction Trap",
+    "layout": "normal",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Instant — Trap",
+    "oracle_text": "If an opponent cast a red instant or sorcery spell this turn, you may pay {W} rather than pay this spell's mana cost.\nPrevent the next 3 damage that a source of your choice would deal to you and/or permanents you control this turn. If damage is prevented this way, Refraction Trap deals that much damage to any target.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shadowbane",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "The next time a source of your choice would deal damage to you and/or creatures you control this turn, prevent that damage. If damage from a black source is prevented this way, you gain that much life.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sacred Boon",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Prevent the next 3 damage that would be dealt to target creature this turn. At the beginning of the next end step, put a +0/+1 counter on that creature for each 1 damage prevented this way.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Immortal Coil",
+    "layout": "normal",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}, Exile two cards from your graveyard: Draw a card.\nIf damage would be dealt to you, prevent that damage. Exile a card from your graveyard for each 1 damage prevented this way.\nWhen there are no cards in your graveyard, you lose the game.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Pestilence",
+    "layout": "normal",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of the end step, if no creatures are on the battlefield, sacrifice this enchantment.\n{B}: This enchantment deals 1 damage to each creature and each player.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Llanowar Wastes",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "{T}: Add {C}.\n{T}: Add {B} or {G}. This land deals 1 damage to you.",
+    "colors": [],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [],
+    "produced_mana": [
+      "B",
+      "C",
+      "G"
+    ]
+  },
+  {
+    "name": "Thornwood Falls",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {G} or {U}.",
+    "colors": [],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [],
+    "produced_mana": [
+      "G",
+      "U"
+    ]
+  },
+  {
+    "name": "Throne of the High City",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "{T}: Add {C}.\n{4}, {T}, Sacrifice this land: You become the monarch.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "produced_mana": [
+      "C"
+    ]
+  },
+  {
+    "name": "Soul Warden",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Creature — Human Cleric",
+    "oracle_text": "Whenever another creature enters, you gain 1 life.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Boon of Safety",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Put a shield counter on target creature. (If it would be dealt damage or destroyed, remove a shield counter from it instead.)\nScry 1.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Scry"
+    ]
+  },
+  {
+    "name": "Skullcrack",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Players can't gain life this turn. Damage can't be prevented this turn. Skullcrack deals 3 damage to target player or planeswalker.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Stifle",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "type_line": "Instant",
+    "mana_cost": "{U}",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Ashnod's Altar",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "Sacrifice a creature: Add {C}{C}.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Krark-Clan Ironworks",
+    "layout": "normal",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "Sacrifice an artifact: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Slippery Bogle",
+    "mana_cost": "{G/U}",
+    "type_line": "Creature — Beast",
+    "oracle_text": "Hexproof (This creature can't be the target of spells or abilities your opponents control.)",
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "cmc": 1.0,
+    "keywords": [
+      "Hexproof"
+    ],
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal"
+  },
+  {
+    "name": "Lithoform Engine",
+    "layout": "normal",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Legendary Artifact",
+    "oracle_text": "{2}, {T}: Copy target activated or triggered ability you control. You may choose new targets for the copy.\n{3}, {T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy.\n{4}, {T}: Copy target permanent spell you control. (The copy becomes a token.)",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "card_faces": []
+  },
+  {
+    "name": "Song of the Dryads",
+    "layout": "normal",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Enchantment — Aura",
+    "oracle_text": "Enchant permanent\nEnchanted permanent is a colorless Forest land.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Vedalken Orrery",
+    "oracle_text": "You may cast spells as though they had flash.",
+    "type_line": "Artifact",
+    "mana_cost": "{4}",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  }
+]

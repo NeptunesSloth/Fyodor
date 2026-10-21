@@ -22,6 +22,7 @@ LAEZEL = ("If you would put one or more counters on a creature or planeswalker y
 PIR = ("If one or more counters would be put on a permanent your team controls, that many plus one of each of those kinds "
        "of counters are put on that permanent instead.")
 FEED = "{1}: Put a +1/+1 counter on target creature."
+# The named creature sources below use their real P/T: omitted P/T means 0/0 (208.5), so SBA would remove the replacement.
 
 
 def feeder(s, pid, text=FEED):
@@ -30,7 +31,7 @@ def feeder(s, pid, text=FEED):
 
 def test_vorinclex_and_hardened_scales_ask_the_affected_player_and_both_orders_differ(cards):
     s = build(cards)
-    permanent(s, "p1", "Vorinclex", "Creature", VORINCLEX)
+    creature(s, "p1", "Vorinclex", "6/6", VORINCLEX)
     permanent(s, "p1", "Hardened Scales", "Enchantment", HARDENED_SCALES)
     bear = token(s, "p1", "Bear")
     activate(s, feeder(s, "p1"), targets=[bear.id])
@@ -54,7 +55,7 @@ def test_vorinclex_and_hardened_scales_ask_the_affected_player_and_both_orders_d
 
 def test_vorinclex_doubles_what_you_put_on_any_permanent(cards):
     s = build(cards)
-    permanent(s, "p1", "Vorinclex", "Creature", VORINCLEX)
+    creature(s, "p1", "Vorinclex", "6/6", VORINCLEX)
     mine, theirs = token(s, "p1", "Bear"), token(s, "p2", "Wolf")
     activate(s, feeder(s, "p1"), targets=[mine.id])
     activate(s, feeder(s, "p1"), targets=[theirs.id])  # you put them on an opponent's creature: doubled too
@@ -64,7 +65,7 @@ def test_vorinclex_doubles_what_you_put_on_any_permanent(cards):
 
 def test_vorinclex_halves_three_to_one_for_an_opponent_and_energy_is_put_by_the_player(cards):
     s = build(cards)
-    permanent(s, "p2", "Vorinclex", "Creature", VORINCLEX)
+    creature(s, "p2", "Vorinclex", "6/6", VORINCLEX)
     bear = token(s, "p2", "Bear")
     three = token(s, "p1", "Triple", text="{1}: Put three +1/+1 counters on target creature.")
     battery = token(s, "p1", "Battery", text="{1}: You get {E}{E}{E}.")
@@ -79,7 +80,7 @@ def test_vorinclex_halves_three_to_one_for_an_opponent_and_energy_is_put_by_the_
 
 def test_vorinclex_doubles_energy_you_get(cards):
     s = build(cards)
-    permanent(s, "p1", "Vorinclex", "Creature", VORINCLEX)
+    creature(s, "p1", "Vorinclex", "6/6", VORINCLEX)
     activate(s, token(s, "p1", "Battery", text="{1}: You get {E}{E}."))
     assert s.state.players["p1"].resources.get("energy") == 4
     replay_matches(s)
@@ -87,7 +88,7 @@ def test_vorinclex_doubles_energy_you_get(cards):
 
 def test_laezel_adds_one_for_your_creatures_and_yourself_only(cards):
     s = build(cards)
-    permanent(s, "p1", "Laezel", "Creature", LAEZEL)
+    creature(s, "p1", "Laezel", "3/3", LAEZEL)
     mine, theirs = token(s, "p1", "Bear"), token(s, "p2", "Wolf")
     activate(s, feeder(s, "p1"), targets=[mine.id])
     activate(s, feeder(s, "p1"), targets=[theirs.id])
@@ -99,7 +100,7 @@ def test_laezel_adds_one_for_your_creatures_and_yourself_only(cards):
 
 def test_pir_gives_one_more_counter_on_your_permanents(cards):
     s = build(cards)
-    permanent(s, "p1", "Pir", "Creature", PIR)
+    creature(s, "p1", "Pir", "1/1", PIR)
     mine, theirs = token(s, "p1", "Bear"), token(s, "p2", "Wolf")
     activate(s, feeder(s, "p1"), targets=[mine.id])
     activate(s, feeder(s, "p1"), targets=[theirs.id])
@@ -110,13 +111,13 @@ def test_pir_gives_one_more_counter_on_your_permanents(cards):
 def test_vorinclex_counts_counters_you_give_another_player_as_put(cards):
     """Review 22C: "gets" / "gives" counters are put (122.6, 701.34a), by the effect's controller (608.2c)."""
     s = build(cards)
-    permanent(s, "p1", "Vorinclex", "Creature", VORINCLEX)
+    creature(s, "p1", "Vorinclex", "6/6", VORINCLEX)
     activate(s, token(s, "p1", "Poisoner", text="{1}: Target opponent gets two poison counters."), targets=["p2"])
     assert s.state.players["p2"].resources.get("poison") == 4
     assert reload(s, cards).state.players["p2"].resources.get("poison") == 4
     replay_matches(s)
     s2 = build(cards)
-    permanent(s2, "p2", "Vorinclex", "Creature", VORINCLEX)
+    creature(s2, "p2", "Vorinclex", "6/6", VORINCLEX)
     activate(s2, token(s2, "p1", "Poisoner", text="{1}: Target opponent gets three poison counters."), targets=["p2"])
     assert s2.state.players["p2"].resources.get("poison") == 1  # p1 is Vorinclex's opponent: half of 3, rounded down
     replay_matches(s2)
@@ -125,7 +126,7 @@ def test_vorinclex_counts_counters_you_give_another_player_as_put(cards):
 def test_vorinclex_doubles_infect_poison_its_controller_gives(cards):
     """120.3b: the infect source's controller gives (puts) the poison counters, so Vorinclex doubles them."""
     s = table(cards)
-    permanent(s, "p1", "Vorinclex", "Creature", VORINCLEX)
+    creature(s, "p1", "Vorinclex", "6/6", VORINCLEX)
     elf = creature(s, "p1", "Elf", "2/2", "Infect")
     automate(s)
     attack(s, (elf, "p2"))

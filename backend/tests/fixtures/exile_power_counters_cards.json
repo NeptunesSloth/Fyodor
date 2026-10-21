@@ -1,0 +1,69 @@
+[
+  {
+    "name": "Astarion's Thirst",
+    "oracle_text": "Exile target creature. Put X +1/+1 counters on a commander creature you control, where X is the power of the creature exiled this way.",
+    "type_line": "Instant",
+    "mana_cost": "{3}{B}",
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal"
+  },
+  {
+    "name": "Giant Growth",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "type_line": "Instant",
+    "mana_cost": "{G}",
+    "layout": "normal"
+  },
+  {
+    "name": "Vorinclex, Monstrous Raider",
+    "oracle_text": "Trample, haste\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead.\nIf an opponent would put one or more counters on a permanent or player, they put half that many of each of those kinds of counters on that permanent or player instead, rounded down.",
+    "type_line": "Legendary Creature \u2014 Phyrexian Praetor",
+    "mana_cost": "{4}{G}{G}",
+    "power": "6",
+    "toughness": "6",
+    "layout": "normal"
+  },
+  {
+    "name": "Solemnity",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{W}",
+    "layout": "normal"
+  },
+  {
+    "name": "Lightning Greaves",
+    "oracle_text": "Equipped creature has haste and shroud. (It can't be the target of spells or abilities.)\nEquip {0}",
+    "type_line": "Artifact \u2014 Equipment",
+    "mana_cost": "{2}",
+    "layout": "normal"
+  },
+  {
+    "name": "Dismember",
+    "oracle_text": "({B/P} can be paid with either {B} or 2 life.)\nTarget creature gets -5/-5 until end of turn.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{B/P}{B/P}",
+    "layout": "normal"
+  },
+  {
+    "name": "Downsize",
+    "oracle_text": "Target creature you don't control gets -4/-0 until end of turn.\nOverload {2}{U} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+    "type_line": "Instant",
+    "mana_cost": "{U}",
+    "layout": "normal"
+  },
+  {
+    "name": "Raise the Alarm",
+    "oracle_text": "Create two 1/1 white Soldier creature tokens.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{W}",
+    "layout": "normal"
+  }
+]

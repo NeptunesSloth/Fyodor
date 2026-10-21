@@ -1,0 +1,98 @@
+[
+  {
+    "name": "Razorfield Ripper",
+    "oracle_text": "Whenever this creature or equipped creature attacks, you get {E} (an energy counter), then it gets +X/+X until end of turn, where X is the amount of {E} you have.\nReconfigure\u2014Pay {2} or {E}{E}{E}. (Pay {2} or {E}{E}{E}: Attach to target creature you control; or unattach from a creature. Reconfigure only as a sorcery. While attached, this isn't a creature.)",
+    "type_line": "Artifact Creature \u2014 Equipment Rhino",
+    "mana_cost": "{2}{W}",
+    "power": "3",
+    "toughness": "3",
+    "layout": "normal",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 3.0,
+    "keywords": [
+      "Reconfigure"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Suppression Field",
+    "oracle_text": "Activated abilities cost {2} more to activate unless they're mana abilities.",
+    "type_line": "Enchantment",
+    "mana_cost": "{1}{W}",
+    "layout": "normal",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Training Grounds",
+    "oracle_text": "Activated abilities of creatures you control cost {2} less to activate. This effect can't reduce the mana in that cost to less than one mana.",
+    "type_line": "Enchantment",
+    "mana_cost": "{U}",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Stifle",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "type_line": "Instant",
+    "mana_cost": "{U}",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Unsummon",
+    "oracle_text": "Return target creature to its owner's hand.",
+    "type_line": "Instant",
+    "mana_cost": "{U}",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 1.0,
+    "keywords": []
+  }
+]

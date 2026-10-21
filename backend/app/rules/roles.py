@@ -15,6 +15,7 @@ attached to it" stays manual.
 from __future__ import annotations
 
 import re
+from dataclasses import replace as dc_replace
 from functools import cache
 from typing import Any
 
@@ -105,7 +106,7 @@ def create_role(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Create the Role attached to the object (see the module docstring)."""
     from app.rules import attachments, context, effects, replace
 
-    role_ch = _characteristics(e["role"])
+    role_ch = dc_replace(_characteristics(e["role"]), object_controller=ctx["controller"], object_owner=ctx["controller"])
     hosts = [c for c in effects._cards(plan, ctx, e["who"]) if _host_ok(plan, plan.state.cards[c], role_ch)]
     name = e.get("did")  # -- block events (wave 53C) -- "Create a Monster Role token attached to target creature you control. When you do, …" (603.12): done if a Role is attached to it
     if len(hosts) != 1:

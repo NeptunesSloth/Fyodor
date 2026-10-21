@@ -1,0 +1,647 @@
+[
+  {
+    "name": "Maddening Hex",
+    "layout": "normal",
+    "mana_cost": "{1}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Aura Curse",
+    "oracle_text": "Enchant player\nWhenever enchanted player casts a noncreature spell, roll a d6. This Aura deals damage to that player equal to the result. Then attach this Aura to another one of your opponents chosen at random.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Zurzoth, Chaos Rider",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Devil",
+    "oracle_text": "Whenever an opponent draws their first card each turn, if it's not their turn, you create a 1/1 red Devil creature token with \"When this token dies, it deals 1 damage to any target.\"\nWhenever one or more Devils you control attack one or more players, you and those players each draw a card, then discard a card at random.",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Game of Chaos",
+    "layout": "normal",
+    "mana_cost": "{R}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Flip a coin. If you win the flip, you gain 1 life and target opponent loses 1 life, and you decide whether to flip again. If you lose the flip, you lose 1 life and that opponent gains 1 life, and that player decides whether to flip again. Double the life stakes with each flip.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Double"
+    ]
+  },
+  {
+    "name": "Outlaws' Merriment",
+    "layout": "normal",
+    "mana_cost": "{1}{R}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, choose one at random. Create a red and white creature token with those characteristics.\n\u2022 3/1 Human Warrior with trample and haste.\n\u2022 2/1 Human Cleric with lifelink and haste.\n\u2022 1/2 Human Rogue with haste and \"When this token enters, it deals 1 damage to any target.\"",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Scrambleverse",
+    "layout": "normal",
+    "mana_cost": "{6}{R}{R}",
+    "cmc": 8.0,
+    "type_line": "Sorcery",
+    "oracle_text": "For each nonland permanent, choose a player at random. Then each player gains control of each permanent for which they were chosen. Untap those permanents.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mogg Assassin",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Goblin Assassin",
+    "oracle_text": "{T}: You choose target creature an opponent controls, and that opponent chooses target creature. Flip a coin. If you win the flip, destroy the creature you chose. If you lose the flip, destroy the creature your opponent chose.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Tyrant of Discord",
+    "layout": "normal",
+    "mana_cost": "{4}{R}{R}{R}",
+    "cmc": 7.0,
+    "type_line": "Creature \u2014 Elemental",
+    "oracle_text": "When this creature enters, target opponent chooses a permanent they control at random and sacrifices it. If a nonland permanent is sacrificed this way, repeat this process.",
+    "power": "7",
+    "toughness": "7",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Molten Sentry",
+    "layout": "normal",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Elemental",
+    "oracle_text": "As this creature enters, flip a coin. If the coin comes up heads, this creature enters as a 5/2 creature with haste. If it comes up tails, this creature enters as a 2/5 creature with defender.",
+    "power": "*",
+    "toughness": "*",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Infectious Rage",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +2/-1.\nWhen enchanted creature dies, choose a creature at random this Aura can enchant. Return this card to the battlefield attached to that creature.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Haphazard Bombardment",
+    "layout": "normal",
+    "mana_cost": "{5}{R}",
+    "cmc": 6.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, choose four nonenchantment permanents you don't control and put an aim counter on each of them.\nAt the beginning of your end step, if two or more permanents you don't control have an aim counter on them, destroy one of those permanents at random.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Fossil Find",
+    "layout": "normal",
+    "mana_cost": "{R/G}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Return a card at random from your graveyard to your hand, then reorder your graveyard as you choose.",
+    "colors": [
+      "G",
+      "R"
+    ],
+    "color_identity": [
+      "G",
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rise // Fall",
+    "layout": "split",
+    "mana_cost": "{U}{B} // {B}{R}",
+    "cmc": 4.0,
+    "type_line": "Sorcery // Sorcery",
+    "oracle_text": "Return target creature card from a graveyard and target creature on the battlefield to their owners' hands.\n//\nTarget player reveals two cards at random from their hand, then discards each nonland card revealed this way.",
+    "colors": [
+      "B",
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Rise",
+        "mana_cost": "{U}{B}",
+        "type_line": "Sorcery",
+        "oracle_text": "Return target creature card from a graveyard and target creature on the battlefield to their owners' hands."
+      },
+      {
+        "name": "Fall",
+        "mana_cost": "{B}{R}",
+        "type_line": "Sorcery",
+        "oracle_text": "Target player reveals two cards at random from their hand, then discards each nonland card revealed this way."
+      }
+    ]
+  },
+  {
+    "name": "Rag Man",
+    "layout": "normal",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Minion",
+    "oracle_text": "{B}{B}{B}, {T}: Target opponent reveals their hand and discards a creature card at random. Activate only during your turn.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Flowstone Flood",
+    "layout": "normal",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Buyback\u2014Pay 3 life, Discard a card at random. (You may pay 3 life and discard a card at random in addition to any other costs as you cast this spell. If you do, put this card into your hand as it resolves.)\nDestroy target land.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Buyback"
+    ]
+  },
+  {
+    "name": "Search for Survivors",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Reorder your graveyard at random. An opponent chooses a card at random in your graveyard. If it's a creature card, put it onto the battlefield. Otherwise, exile it.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cloak of Confusion",
+    "layout": "normal",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature you control\nWhenever enchanted creature attacks and isn't blocked, you may have it assign no combat damage this turn. If you do, defending player discards a card at random.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Ydwen Efreet",
+    "layout": "normal",
+    "mana_cost": "{R}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Efreet",
+    "oracle_text": "Whenever this creature blocks, flip a coin. If you lose the flip, remove this creature from combat and it can't block this turn. Creatures it was blocking that had become blocked by only this creature this combat become unblocked.",
+    "power": "3",
+    "toughness": "6",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Planeswalker's Favor",
+    "layout": "normal",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "{3}{G}: Target opponent reveals a card at random from their hand. Target creature gets +X/+X until end of turn, where X is the revealed card's mana value.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Barbarian Bully",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Barbarian",
+    "oracle_text": "Discard a card at random: This creature gets +2/+2 until end of turn unless a player has this creature deal 4 damage to them. Activate only once each turn.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Wand of Ith",
+    "layout": "normal",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "{3}, {T}: Target player reveals a card at random from their hand. If it's a land card, that player discards it unless they pay 1 life. If it isn't a land card, the player discards it unless they pay life equal to its mana value. Activate only during your turn.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Planeswalker's Scorn",
+    "layout": "normal",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "{3}{B}: Target opponent reveals a card at random from their hand. Target creature gets -X/-X until end of turn, where X is the revealed card's mana value. Activate only as a sorcery.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Flay",
+    "layout": "normal",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target player discards a card at random. Then that player discards another card at random unless they pay {1}.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lithoform Engine",
+    "layout": "normal",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Legendary Artifact",
+    "oracle_text": "{2}, {T}: Copy target activated or triggered ability you control. You may choose new targets for the copy.\n{3}, {T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy.\n{4}, {T}: Copy target permanent spell you control. (The copy becomes a token.)",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "card_faces": []
+  },
+  {
+    "name": "Counterspell",
+    "layout": "normal",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": []
+  },
+  {
+    "name": "True-Name Nemesis",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Merfolk Rogue",
+    "oracle_text": "As this creature enters, choose a player.\nThis creature has protection from the chosen player.",
+    "power": "3",
+    "toughness": "1",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": []
+  },
+  {
+    "name": "Containment Priest",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Cleric",
+    "oracle_text": "Flash\nIf a nontoken creature would enter and it wasn't cast, exile it instead.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "card_faces": []
+  },
+  {
+    "name": "Krark's Thumb",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Legendary Artifact",
+    "oracle_text": "If you would flip a coin, instead flip two coins and ignore one.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "card_faces": []
+  },
+  {
+    "name": "Rest in Peace",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": []
+  },
+  {
+    "name": "Obstinate Baloth",
+    "layout": "normal",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Beast",
+    "oracle_text": "When this creature enters, you gain 4 life.\nIf a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield instead of putting it into your graveyard.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": []
+  },
+  {
+    "name": "Reach Through Mists",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant \u2014 Arcane",
+    "oracle_text": "Draw a card.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": []
+  },
+  {
+    "name": "Sigarda, Host of Herons",
+    "layout": "normal",
+    "mana_cost": "{2}{G}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Legendary Creature \u2014 Angel",
+    "oracle_text": "Flying, hexproof\nSpells and abilities your opponents control can't cause you to sacrifice permanents.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+      "G",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Hexproof"
+    ],
+    "card_faces": []
+  },
+  {
+    "name": "Darksteel Ingot",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "Indestructible (Effects that say \"destroy\" don't destroy this artifact.)\n{T}: Add one mana of any color.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Indestructible"
+    ],
+    "card_faces": []
+  },
+  {
+    "name": "Jace Beleren",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker \u2014 Jace",
+    "oracle_text": "+2: Each player draws a card.\n\u22121: Target player draws a card.\n\u221210: Target player mills twenty cards.",
+    "loyalty": "3",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "card_faces": []
+  },
+  {
+    "name": "Blightsteel Colossus",
+    "mana_cost": "{12}",
+    "cmc": 12.0,
+    "type_line": "Artifact Creature \u2014 Phyrexian Golem",
+    "oracle_text": "Trample, infect, indestructible\nIf Blightsteel Colossus would be put into a graveyard from anywhere, reveal Blightsteel Colossus and shuffle it into its owner's library instead.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Indestructible",
+      "Trample",
+      "Infect"
+    ],
+    "power": "11",
+    "toughness": "11",
+    "layout": "normal"
+  },
+  {
+    "name": "Progenitus",
+    "mana_cost": "{W}{W}{U}{U}{B}{B}{R}{R}{G}{G}",
+    "cmc": 10.0,
+    "type_line": "Legendary Creature \u2014 Hydra Avatar",
+    "oracle_text": "Protection from everything\nIf Progenitus would be put into a graveyard from anywhere, reveal Progenitus and shuffle it into its owner's library instead.",
+    "colors": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Protection"
+    ],
+    "power": "10",
+    "toughness": "10",
+    "layout": "normal"
+  },
+  {
+    "name": "Fireball",
+    "layout": "normal",
+    "mana_cost": "{X}{R}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "This spell costs {1} more to cast for each target beyond the first.\nFireball deals X damage divided evenly, rounded down, among any number of targets.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ancestral Vision",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Suspend 4\u2014{U} (Rather than cast this card from your hand, pay {U} and exile it with four time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)\nTarget player draws three cards.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Suspend"
+    ]
+  },
+  {
+    "name": "Platinum Emperion",
+    "layout": "normal",
+    "mana_cost": "{8}",
+    "cmc": 8.0,
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "Your life total can't change. (You can't gain or lose life. You can't pay any amount of life except 0.)",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "power": "8",
+    "toughness": "8"
+  }
+]

@@ -1,0 +1,260 @@
+[
+  {
+    "id": "27a0a736-450d-4136-9528-6f6d97e7a0d6",
+    "oracle_id": "fca3545a-2956-49f9-8465-1c8937deb294",
+    "name": "Goldberry, River-Daughter",
+    "layout": "normal",
+    "set_code": "ltr",
+    "set_name": "The Lord of the Rings: Tales of Middle-earth",
+    "collector_number": "503",
+    "rarity": "rare",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Nymph",
+    "oracle_text": "{T}: Move a counter of each kind not on Goldberry from another target permanent you control onto Goldberry.\n{U}, {T}: Move one or more counters from Goldberry onto another target permanent you control. If you do, draw a card.",
+    "power": "1",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-11-03",
+    "artist": "Marie Magny",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "92613468-205e-488b-930d-11908477e9f8",
+    "oracle_id": "5a3fdf5a-bff8-4896-b288-3f43f9a72d9b",
+    "name": "Vorinclex, Monstrous Raider",
+    "layout": "normal",
+    "set_code": "khm",
+    "set_name": "Kaldheim",
+    "collector_number": "199",
+    "rarity": "mythic",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Legendary Creature \u2014 Phyrexian Praetor",
+    "oracle_text": "Trample, haste\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead.\nIf an opponent would put one or more counters on a permanent or player, they put half that many of each of those kinds of counters on that permanent or player instead, rounded down.",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Haste",
+      "Trample"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-02-05",
+    "artist": "Daarken",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0a71fb62-acbd-49f5-842f-0fc9fa48afea",
+    "oracle_id": "f0b4331b-ddd3-4f11-ba16-67c651c8954c",
+    "name": "Solemnity",
+    "layout": "normal",
+    "set_code": "hou",
+    "set_name": "Hour of Devastation",
+    "collector_number": "22",
+    "rarity": "rare",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-07-14",
+    "artist": "Greg Opalinski",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "36959f2b-75b5-4d68-b193-ada980822fd9",
+    "oracle_id": "b1544f21-7e98-461b-aed5-e748b0168c52",
+    "name": "Swords to Plowshares",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "53",
+    "rarity": "uncommon",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature. Its controller gains life equal to its power.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Jesper Ejsing",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "name": "Abundance",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If you would draw a card, you may instead choose land or nonland and reveal cards from the top of your library until you reveal a card of the chosen kind. Put that card into your hand and put all other cards revealed this way on the bottom of your library in any order.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "id": "3a2c84e9-b63f-4683-a1be-93567b1cf991",
+    "oracle_id": "a3a1f149-febe-4ff6-9e34-8b82ef21c2ee",
+    "name": "Fear of Sleep Paralysis",
+    "layout": "normal",
+    "set_code": "dsc",
+    "set_name": "Duskmourn: House of Horror Commander",
+    "collector_number": "43",
+    "rarity": "rare",
+    "mana_cost": "{5}{U}",
+    "cmc": 6.0,
+    "type_line": "Enchantment Creature \u2014 Nightmare",
+    "oracle_text": "Flying\nEerie \u2014 Whenever this creature or another enchantment you control enters and whenever you fully unlock a Room, tap up to one target creature and put a stun counter on it.\nStun counters can't be removed from permanents your opponents control. (They won't untap if they have stun counters.)",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Eerie"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-09-27",
+    "artist": "Joshua Raphael",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "6dc0c976-26d2-40c9-a571-c370e9139d1d",
+    "oracle_id": "6879f5ce-7a1b-4606-bad1-885779b0d456",
+    "name": "Cloudshift",
+    "layout": "normal",
+    "set_name": "Avatar: The Last Airbender Eternal",
+    "collector_number": "152",
+    "rarity": "common",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": null,
+    "released_at": "2025-11-21",
+    "artist": "Devin Elle Kurtz",
+    "faces": [],
+    "set_code": "tle"
+  },
+  {
+    "id": "97021da6-7008-4271-a83b-459e5c9691fa",
+    "oracle_id": "1f91297a-ec2b-4ea8-9198-aa1daac20ff8",
+    "name": "Metallic Mimic",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "269",
+    "rarity": "rare",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact Creature \u2014 Shapeshifter",
+    "oracle_text": "As this creature enters, choose a creature type.\nThis creature is the chosen type in addition to its other types.\nEach other creature you control of the chosen type enters with an additional +1/+1 counter on it.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Zack Stella",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

@@ -465,7 +465,7 @@ def test_read_chosen_colors_and_you(text):
 
 def test_purity_gains_the_noncombat_damage_prevented(cards):
     s = build(cards)
-    permanent(s, "p1", "Purity", "Creature", PURITY)
+    token(s, "p1", "Purity", "6/6", PURITY)  # 208.5: a creature without P/T would be 0/0.
     pinger = red_creature(s, "p1", "Pinger", "1/1", PINGER)
     activate(s, pinger, targets=["p1"])
     assert life(s, "p1") == 43

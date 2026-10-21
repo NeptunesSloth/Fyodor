@@ -1,0 +1,78 @@
+[
+  {
+    "name": "Abandoned Sarcophagus",
+    "oracle_text": "You may cast spells that have a cycling ability from your graveyard.\nIf a card that has a cycling ability would be put into your graveyard from anywhere and it wasn't cycled, exile it instead.",
+    "type_line": "Artifact",
+    "mana_cost": "{3}"
+  },
+  {
+    "name": "Street Wraith",
+    "oracle_text": "Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)\nCycling\u2014Pay 2 life. (Pay 2 life, Discard this card: Draw a card.)",
+    "type_line": "Creature \u2014 Wraith",
+    "mana_cost": "{3}{B}{B}",
+    "power": "3",
+    "toughness": "4"
+  },
+  {
+    "name": "Edge of Autumn",
+    "oracle_text": "If you control four or fewer lands, search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\nCycling\u2014Sacrifice a land. (Sacrifice a land, Discard this card: Draw a card.)",
+    "type_line": "Sorcery",
+    "mana_cost": "{1}{G}"
+  },
+  {
+    "name": "Sojourner's Companion",
+    "oracle_text": "Affinity for artifacts\nArtifact landcycling {2} ({2}, Discard this card: Search your library for an artifact land card, reveal it, put it into your hand, then shuffle.)",
+    "type_line": "Artifact Creature \u2014 Salamander",
+    "mana_cost": "{7}",
+    "power": "4",
+    "toughness": "4"
+  },
+  {
+    "name": "Tranquil Thicket",
+    "oracle_text": "This land enters tapped.\n{T}: Add {G}.\nCycling {G} ({G}, Discard this card: Draw a card.)",
+    "type_line": "Land",
+    "mana_cost": ""
+  },
+  {
+    "name": "Homing Sliver",
+    "oracle_text": "Each Sliver card in each player's hand has slivercycling {3}.\nSlivercycling {3} ({3}, Discard this card: Search your library for a Sliver card, reveal it, put it into your hand, then shuffle.)",
+    "type_line": "Creature \u2014 Sliver",
+    "mana_cost": "{2}{R}",
+    "power": "2",
+    "toughness": "2"
+  },
+  {
+    "name": "Metallic Sliver",
+    "oracle_text": "",
+    "type_line": "Artifact Creature \u2014 Sliver",
+    "mana_cost": "{1}",
+    "power": "1",
+    "toughness": "1"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2"
+  },
+  {
+    "name": "One with Nothing",
+    "oracle_text": "Discard your hand.",
+    "type_line": "Instant",
+    "mana_cost": "{B}"
+  },
+  {
+    "name": "Murder",
+    "oracle_text": "Destroy target creature.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{B}{B}"
+  },
+  {
+    "name": "Tome Scour",
+    "oracle_text": "Target player mills five cards.",
+    "type_line": "Sorcery",
+    "mana_cost": "{U}"
+  }
+]

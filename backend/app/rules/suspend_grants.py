@@ -45,6 +45,18 @@ def rewrite(body: str) -> str:
     return _FOUND.sub(lambda m: f"{m[1]}. Suspend that card with {m['n']} time counters.", body)
 
 
+def has_suspend(plan: Plan, card: Any) -> bool:
+    """Capability of this exile object, including a granted keyword at zero counters."""
+    return (card is not None and not card.is_token and card.zone.endswith(':exile')
+            and not card.face_down
+            and (card.id in plan.rules.suspended or 'suspend' in plan.ch(card).keywords))
+
+
+def is_suspended(plan: Plan, card: Any) -> bool:
+    """CR 702.62b: the card has suspend, is exiled, and has a time counter."""
+    return has_suspend(plan, card) and card.counters.get('time', 0) > 0
+
+
 def mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import effects
 
@@ -52,9 +64,9 @@ def mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     effects._remember(plan, ctx, e, cards)
     for cid in cards:
         card = plan.state.cards[cid]
-        if card.zone.endswith(":exile") and card.counters.get("time", 0) > 0 and cid not in plan.rules.suspended:
+        if card.zone.endswith(":exile") and cid not in plan.rules.suspended:
             plan.rules.suspended.append(cid)
-            plan.note(f"{card.name} is suspended with {card.counters['time']} time counters", [cid])
+            plan.note(f"{card.name} is suspended with {card.counters.get('time', 0)} time counters", [cid])
     return True
 
 
@@ -66,14 +78,26 @@ def suspend_found(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     found = effects._cards(plan, ctx, e["who"]) if e.get("who") else [str(ctx.get("found") or "")]  # (review 24C: "Suspend it …", the exiled card)
     cards = [c for c in found if c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]
-    n = effects._amount(plan, ctx, e["n"])
-    if not cards or n <= 0:
+    if e.get('nonland'):
+        cards = [cid for cid in cards if 'Land' not in plan.ch(plan.state.cards[cid]).types]
+    if e.get('only_existing'):
+        cards = [cid for cid in cards if has_suspend(plan, plan.state.cards[cid])]
+    if not cards:
         return True
-    for cid in cards:
-        if cid not in plan.rules.suspended:
-            plan.rules.suspended.append(cid)
-            plan.note(f"{plan.state.cards[cid].name} is suspended with {n} time counters", [cid])
-    return replace.put_counters(plan, [(cid, "time", n) for cid in cards], by=ctx["controller"], then=effects._then(ctx, e), ctx=ctx)
+    putters = effects._players(plan, ctx, e.get('by', 'you'))
+    if len(putters) != 1:
+        return True
+    n = effects._amount(plan, ctx, e['n'])
+    # Freeze every new exile object's amount before the single native placement.
+    puts = [(cid, 'time', int(plan.ch(plan.state.cards[cid]).mana_value) if e.get('per_card_mv') else n) for cid in cards]
+    if e.get('grant', True):
+        for cid, _kind, amount in puts:
+            if cid not in plan.rules.suspended:
+                plan.rules.suspended.append(cid)
+                plan.note(f"{plan.state.cards[cid].name} gains suspend with {amount} time counters", [cid])
+    positive = [row for row in puts if row[2] > 0]
+    return not positive or replace.put_counters(plan, positive, by=putters[0], then=effects._then(ctx, e), ctx=ctx)
+
 
 
 PRIMITIVES = {"suspend_mark": mark, "suspend_found": suspend_found}

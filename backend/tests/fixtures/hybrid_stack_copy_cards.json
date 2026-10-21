@@ -1,0 +1,52 @@
+[
+  {
+    "name": "Return the Favor",
+    "oracle_text": "Spree (Choose one or more additional costs.)\n+ {1} \u2014 Copy target instant spell, sorcery spell, activated ability, or triggered ability. You may choose new targets for the copy.\n+ {1} \u2014 Change the target of target spell or ability with a single target.",
+    "type_line": "Instant",
+    "mana_cost": "{R}{R}"
+  },
+  {
+    "name": "Lightning Bolt",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "type_line": "Instant",
+    "mana_cost": "{R}"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2"
+  },
+  {
+    "name": "Prodigal Pyromancer",
+    "oracle_text": "{T}: This creature deals 1 damage to any target.",
+    "type_line": "Creature \u2014 Human Wizard",
+    "mana_cost": "{2}{R}",
+    "power": "1",
+    "toughness": "1"
+  },
+  {
+    "name": "Elvish Visionary",
+    "oracle_text": "When this creature enters, draw a card.",
+    "type_line": "Creature \u2014 Elf Shaman",
+    "mana_cost": "{1}{G}",
+    "power": "1",
+    "toughness": "1"
+  },
+  {
+    "name": "Divination",
+    "oracle_text": "Draw two cards.",
+    "type_line": "Sorcery",
+    "mana_cost": "{2}{U}"
+  },
+  {
+    "name": "Sister of Silence",
+    "oracle_text": "Flash\nPsychic Abomination \u2014 When this creature enters, counter target instant spell, sorcery spell, activated ability, or triggered ability.",
+    "type_line": "Creature \u2014 Human Knight",
+    "mana_cost": "{4}{U}",
+    "power": "3",
+    "toughness": "3"
+  }
+]

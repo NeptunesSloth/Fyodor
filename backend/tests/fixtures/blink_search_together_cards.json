@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Sword of Hearth and Home",
+    "oracle_text": "Equipped creature gets +2/+2 and has protection from green and from white.\nWhenever equipped creature deals combat damage to a player, exile up to one target creature you own, then search your library for a basic land card. Put both cards onto the battlefield under your control, then shuffle.\nEquip {2}",
+    "type_line": "Artifact \u2014 Equipment",
+    "mana_cost": "{3}"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2"
+  },
+  {
+    "name": "Tireless Tracker",
+    "oracle_text": "Landfall \u2014 Whenever a land you control enters, investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")\nWhenever you sacrifice a Clue, put a +1/+1 counter on this creature.",
+    "type_line": "Creature \u2014 Human Scout",
+    "mana_cost": "{2}{G}",
+    "power": "3",
+    "toughness": "2"
+  },
+  {
+    "name": "Elvish Visionary",
+    "oracle_text": "When this creature enters, draw a card.",
+    "type_line": "Creature \u2014 Elf Shaman",
+    "mana_cost": "{1}{G}",
+    "power": "1",
+    "toughness": "1"
+  }
+]

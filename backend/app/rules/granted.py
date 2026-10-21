@@ -83,6 +83,16 @@ def protect(text: str) -> tuple[str, list[str]] | None:
     return _QUOTED.sub(hide, text), quotes
 
 
+def normalize_loyalty_quote(text: str) -> str:
+    # Oracle brackets a loyalty symbol inside an ability quotation. The native
+    # loyalty path owns its timing, use limit and counter payment once restored.
+    text = re.sub(r"^\[([+−-]?(?:\d+|X))\]:", r"\1:", text)
+    # Only the final delimiting quote closes this nested emblem. A possessive
+    # such as "player's turn" is part of its text, not another quotation.
+    text = re.sub(r"\b(gets? an emblem with) '(.+)'(?=\.?$)", r'\1 "\2"', text)
+    return text
+
+
 @lru_cache(maxsize=4096)
 def quote(text: str) -> str | None:
     """A quoted ability the engine carries out when an effect grants it, as the text the grant
@@ -99,6 +109,7 @@ def quote(text: str) -> str | None:
     # (a comma just before the closing quotation mark belongs to the sentence around it: "…, each creature,")
     t = re.sub(r"(^|: |\. )~", r"\1This permanent", text.strip().rstrip(",;")).replace("~", "this permanent")
     t = re.sub(r"^((?:When|Whenever) )this token( dies\b)", r"\1this permanent\2", t)  # -- token copies (wave 31C) -- "When this token dies, draw a card." (Jaxis): the object that has it
+    t = normalize_loyalty_quote(t)
     t = re.sub(r"\bwith '([^']+)'", r'with "\1"', t)  # -- saga grants (wave 51B) -- Urza's Saga: a token's quoted ability inside a quoted ability uses single quotes (113.10)
     if not t or "‹granter" in t:  # (wave 18F: a granter is bound only by a static grant, layers.py — a resolved effect's isn't)
         return None
@@ -109,18 +120,30 @@ def quote(text: str) -> str | None:
     from app.rules.coverage import definition_supported
 
     ab = scripts.granted_ability(t)
-    if ab is None or ab.kind in ("loyalty", "spell"):
+    if ab is None or ab.kind == "spell":
         return None
     if ab.kind in ("mana", "keywords"):
         return t
     d = scripts.define(ab, Characteristics(name="\u0000", abilities=(ab,)))
     if d is None or not definition_supported(d):
         return None
+    if d.get('kind') == 'static' and d.get('static') == 'replace' and d.get('event') == 'damage':
+        from app.rules import prevention_unpreventable_outcomes44
+
+        if prevention_unpreventable_outcomes44.supported_quote(t, d):
+            return t
     if d["kind"] in ("triggered", "activated"):
         return t
     if d["kind"] == "replacement" and d.get("replacement") == "exile_instead":
         return t
     if d["kind"] == "static" and d.get("static") == "cda":
+        return t
+    if d.get("static") == "creature_combat_cost" and d.get("who") == "self":
+        return t  # Declaration costs read the holder's completed layer-6 abilities.
+    if (d.get("static") == "grant" and d.get("who") == "self" and not d.get("conditions")
+            and d.get("rules") == ["attack_despite_defender"]):
+        # scripts.statics reads this self-only combat permission directly from
+        # current abilities, including its removal by later layer-6 effects.
         return t
     return None
 
@@ -180,12 +203,16 @@ def layer6(ch: Characteristics, effects: list[ContinuousEffect], wipe: tuple[int
 
     extra = []
     for e in effects:  # (``layers.affecting`` sorts by timestamp)
-        if e.layer != "6" or not e.add_abilities or (wipe is not None and (e.object_seq, 1, e.timestamp) <= wipe):
+        if e.layer != "6" or not e.add_abilities or (wipe is not None and (e.object_seq, 1, e.timestamp) < wipe):
             continue
+        from app.rules import quoted_prevention_loss47
+
         for k, text in enumerate(e.add_abilities[:MAX_GRANTED]):
+            if quoted_prevention_loss47.lost(with_final_stop(text), ch.name, (e.object_seq, 1, e.timestamp), effects):
+                continue
             ab = granted_ability(line := with_final_stop(text)) or _enchant(line)
             if ab is not None:
-                extra.append(replace(ab, index=index_of(e.timestamp, k)))
+                extra.append(replace(ab, index=index_of(e.timestamp, k), activation_player=e.activation_player))
     return replace(ch, abilities=ch.abilities + tuple(extra)) if extra else ch
 
 

@@ -1,0 +1,201 @@
+[
+  {
+    "name": "Matopi Golem",
+    "mana_cost": "{5}",
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "{1}: Regenerate this creature. When it regenerates this way, put a -1/-1 counter on it.",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 5.0,
+    "keywords": [
+      "Regenerate"
+    ],
+    "power": "3",
+    "toughness": "3",
+    "layout": "normal"
+  },
+  {
+    "name": "Skeleton Scavengers",
+    "mana_cost": "{2}{B}",
+    "type_line": "Creature \u2014 Skeleton",
+    "oracle_text": "This creature enters with a +1/+1 counter on it.\nPay {1} for each +1/+1 counter on this creature: Regenerate this creature. When it regenerates this way, put a +1/+1 counter on it.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 3.0,
+    "keywords": [
+      "Regenerate"
+    ],
+    "power": "0",
+    "toughness": "0",
+    "layout": "normal"
+  },
+  {
+    "name": "Soldevi Sentry",
+    "mana_cost": "{1}",
+    "type_line": "Artifact Creature \u2014 Soldier",
+    "oracle_text": "{1}: Choose target opponent. Regenerate this creature. When it regenerates this way, that player may draw a card.",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 1.0,
+    "keywords": [
+      "Regenerate"
+    ],
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal"
+  },
+  {
+    "name": "Debt of Loyalty",
+    "mana_cost": "{1}{W}{W}",
+    "type_line": "Instant",
+    "oracle_text": "Regenerate target creature. You gain control of that creature if it regenerates this way.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 3.0,
+    "keywords": [
+      "Regenerate"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Regenerate",
+    "mana_cost": "{1}{G}",
+    "type_line": "Instant",
+    "oracle_text": "Regenerate target creature. (The next time that creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 2.0,
+    "keywords": [
+      "Heal",
+      "Regenerate"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Murder",
+    "mana_cost": "{1}{B}{B}",
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 3.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Wrath of God",
+    "mana_cost": "{2}{W}{W}",
+    "type_line": "Sorcery",
+    "oracle_text": "Destroy all creatures. They can't be regenerated.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 4.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Hyena Umbra",
+    "mana_cost": "{W}",
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +1/+1 and has first strike.\nUmbra armor (If enchanted creature would be destroyed, instead remove all damage from it and destroy this Aura.)",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 1.0,
+    "keywords": [
+      "Umbra armor",
+      "Enchant"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Withstand Death",
+    "mana_cost": "{G}",
+    "type_line": "Instant",
+    "oracle_text": "Target creature gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it. If its toughness is 0 or less, it still dies.)",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Day of Judgment",
+    "mana_cost": "{2}{W}{W}",
+    "type_line": "Sorcery",
+    "oracle_text": "Destroy all creatures.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 4.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Hardened Scales",
+    "mana_cost": "{G}",
+    "type_line": "Enchantment",
+    "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Drana and Linvala",
+    "mana_cost": "{1}{W}{W}{B}",
+    "type_line": "Legendary Creature \u2014 Vampire Angel",
+    "oracle_text": "Flying, vigilance\nActivated abilities of creatures your opponents control can't be activated.\nDrana and Linvala has all activated abilities of all creatures your opponents control. You may spend mana as though it were mana of any color to activate those abilities.",
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "cmc": 4.0,
+    "keywords": [
+      "Flying",
+      "Vigilance"
+    ],
+    "power": "3",
+    "toughness": "4",
+    "layout": "normal"
+  }
+]

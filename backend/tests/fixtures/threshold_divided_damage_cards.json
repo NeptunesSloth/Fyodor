@@ -1,0 +1,125 @@
+[
+  {
+    "name": "Shatterskull Smashing // Shatterskull, the Hammer Pass",
+    "oracle_text": "Shatterskull Smashing deals X damage divided as you choose among up to two target creatures and/or planeswalkers. If X is 6 or more, Shatterskull Smashing deals twice X damage divided as you choose among them instead.\n//\nAs this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {R}.",
+    "type_line": "Sorcery // Land",
+    "mana_cost": "{X}{R}{R} // ",
+    "layout": "modal_dfc",
+    "cmc": 2.0,
+    "card_faces": [
+      {
+        "name": "Shatterskull Smashing",
+        "mana_cost": "{X}{R}{R}",
+        "type_line": "Sorcery",
+        "oracle_text": "Shatterskull Smashing deals X damage divided as you choose among up to two target creatures and/or planeswalkers. If X is 6 or more, Shatterskull Smashing deals twice X damage divided as you choose among them instead.",
+        "colors": [
+          "R"
+        ]
+      },
+      {
+        "name": "Shatterskull, the Hammer Pass",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {R}.",
+        "colors": []
+      }
+    ],
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Wall of Denial",
+    "oracle_text": "Defender, flying\nShroud (This creature can't be the target of spells or abilities.)",
+    "type_line": "Creature \u2014 Wall",
+    "mana_cost": "{1}{W}{U}",
+    "layout": "normal",
+    "power": "0",
+    "toughness": "8",
+    "cmc": 3.0,
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Shroud",
+      "Defender"
+    ]
+  },
+  {
+    "name": "Wall of Frost",
+    "oracle_text": "Defender\nWhenever this creature blocks a creature, that creature doesn't untap during its controller's next untap step.",
+    "type_line": "Creature \u2014 Wall",
+    "mana_cost": "{1}{U}{U}",
+    "layout": "normal",
+    "power": "0",
+    "toughness": "7",
+    "cmc": 3.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Defender"
+    ]
+  },
+  {
+    "name": "Jace Beleren",
+    "oracle_text": "+2: Each player draws a card.\n\u22121: Target player draws a card.\n\u221210: Target player mills twenty cards.",
+    "type_line": "Legendary Planeswalker \u2014 Jace",
+    "mana_cost": "{1}{U}{U}",
+    "layout": "normal",
+    "loyalty": "3",
+    "cmc": 3.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Reverberate",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "type_line": "Instant",
+    "mana_cost": "{R}{R}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Swords to Plowshares",
+    "oracle_text": "Exile target creature. Its controller gains life equal to its power.",
+    "type_line": "Instant",
+    "mana_cost": "{W}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  }
+]

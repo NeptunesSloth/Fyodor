@@ -1,0 +1,11 @@
+# Plargg and Nassari: multiplayer exile and two immediate casts
+
+Actual Oracle instructs each player to exile from the top until a nonland card is exiled; an opponent chooses one nonland card exiled this way; the ability's controller may cast up to two spells from among the OTHER cards exiled this way without paying mana costs.
+
+The leaf uses the native exile-top primitive one card at a time in APNAP order and tests actual resulting exile objects. Native player selectors must be `player:p1`, not raw `p1`. It records exact post-move ObjectRefs, including preceding land cards. A prevented unchanged top stops a futile repeated move. Empty/all-land libraries do not draw or cause a loss.
+
+The ability controller chooses which live opponent when there is a choice; that opponent then chooses an eligible nonland card from the public original exile pool. Stale original objects are excluded and the choice is asked again if necessary. A selected opponent who departed is replaced by a remaining legal chooser.
+
+The available pool contains ALL original cards exiled this way except the chosen card, not only the nonland hits. Native free_cast n=2 handles face/Adventure choices, zero or one cast, costs, cancellation, restrictions, and spell targets during resolution. Exact-ref checks protect each choice. No caster-owned `source_zone` filter is used: opponents' exiled cards must also be available. The owner of a cast card stays unchanged; its caster controls the spell, and ordinary owner-zone rules apply after it resolves or is countered. Uncast and excluded cards stay exiled; the ability creates no lasting cast permission or cleanup shuffle.
+
+Tests cover controller/opponent choices, public exiles, APNAP order and complete original-card binding, two cross-owner spells, a second free Counterspell targeting the first still-unresolved spell, four players with three eligible spells but only two casts, Rule of Law, Drannith Magistrate, unavailable additional costs, cancellation, exact-object departure/reentry, source control/departure, all-land libraries, MDFC/Adventure faces, and free X=0. Three saved stages execute in fresh processes without warming this leaf: selecting an opponent, excluding a card, and native cross-owner casting. History and JSON roundtrips accompany ordinary choices.

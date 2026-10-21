@@ -1,0 +1,9 @@
+# First spell cast using mana from a stated source
+
+Rain of Riches grants cascade to the first spell each turn for which its controller actually spends mana produced by a Treasure. Earlier spells paid without Treasure mana do not consume this opportunity. Producing Treasure mana alone does not count; spending that mana on a spell does (CR 106.3, 601.2h–i). More than one mana from Treasures still gives one cascade instance per Rain of Riches. Multiple Rains grant multiple instances (CR 702.85c).
+
+This is a static ability describing the turn's first qualifying spell, not a trigger with a source-specific once-per-turn counter. It considers earlier qualifying spells even if Rain was absent when they were cast; changing its controller or leaving and returning does not erase that player's history (CR 608.2i, 611.3). Spells that resolved or were countered still count. Each turn starts a new history, including another player's turn.
+
+The existing mana unit provenance records source traits when mana is produced and spent, including manually floated Treasure mana whose Treasure has already been sacrificed. Cast history now snapshots that provenance so resolution's removal of a temporary payment record cannot erase it. Typed `spell_keyword` grants with `first: mana_source` consult the current payment and previous casts for the same player. The existing cascade trigger and resolution handle the granted instance.
+
+Sources: [current Oracle](https://api.scryfall.com/cards/named?exact=Rain%20of%20Riches), [rulings endpoint](https://api.scryfall.com/cards/d633a188-f533-4d28-b3f0-a19f4d78cc40/rulings) (empty official ruling list, checked during implementation); local comprehensive rules 2026-09-25, CR 106.3, 601.2h–i, 608.2i, 611.3, 702.85. The history interpretation follows the Oracle wording and comprehensive rules; it is not quoted from a card-specific ruling.

@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Circle of the Moon Druid",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Elf Druid",
+    "oracle_text": "Bear Form \u2014 During your turn, this creature is a Bear with base power and toughness 4/2. (It loses all other creature types.)",
+    "power": "2",
+    "toughness": "4",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ]
+  },
+  {
+    "name": "Humility",
+    "oracle_text": "All creatures lose all abilities and have base power and toughness 1/1.",
+    "mana_cost": "{2}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Jump Scare",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, target creature gets +2/+2, gains flying, and becomes a Horror enchantment creature in addition to its other types.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Act of Aggression",
+    "oracle_text": "({R/P} can be paid with either {R} or 2 life.)\nGain control of target creature an opponent controls until end of turn. Untap that creature. It gains haste until end of turn.",
+    "mana_cost": "{3}{R/P}{R/P}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  }
+]

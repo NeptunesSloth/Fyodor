@@ -212,9 +212,8 @@ def test_the_family_is_covered(name):
 
 
 def test_wordings_still_refused():
-    # populate X times (a populated token entering attacking is read since wave 46A: Ghired), a pronoun that names a card an
-    # earlier instruction moved, "for each other …"
-    assert not ok("Populate X times.", "Full Flowering", "Sorcery")
+    # Repeated populate is now supported; unrelated attachment and mismatched-noun forms stay refused.
+    assert ok("Populate X times.", "Full Flowering", "Sorcery")
     assert not ok("Return target Equipment card from your graveyard to the battlefield. Attach it to target creature you "
                   "control.", "Card", "Sorcery")
     assert not ok("For each other creature you control, create a token that's a copy of that creature.", "Card", "Sorcery")

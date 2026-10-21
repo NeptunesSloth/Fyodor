@@ -131,8 +131,12 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
             view["quantity"] = c.quantity
         if c.counters:
             view["counters"] = dict(c.counters)
+        if c.attacking_without_target is not None:
+            view["attacking_without_target"] = c.attacking_without_target
         if c.attacking:
             view["attacking"] = c.attacking.model_dump()
+        if c.blocking_without_attacker:
+            view["blocking_without_attacker"] = True
         if c.blocking:
             view["blocking"] = c.blocking
             if c.blocking_more:
@@ -239,13 +243,18 @@ def build_view(
         if not own and state.settings.deck_privacy == "private":
             exclude.add("deck_name")
         data = p.model_dump(exclude=exclude)
+        for unit in data['mana_units']:
+            unit.pop('production_zone', None)
         if viewer != OMNISCIENT:  # -- review 18B -- whether a source's mana is remembered depends on every card of the game, hidden
             # ones too (mana_units.tracking): mana with no restriction and no rider shows as plain mana, units renumbered, no counter
             data.pop("mana_seq", None)
-            plain = [u for u in data["mana_units"] if not u["only"] and not u["riders"]]
-            for u in plain:
-                data["mana"][u["sym"]] = data["mana"].get(u["sym"], 0) + 1
-            data["mana_units"] = [{**u, "id": i} for i, u in enumerate(u for u in data["mana_units"] if u not in plain)]
+            visible_units: list[dict[str, Any]] = []
+            for u in data["mana_units"]:
+                if not u["only"] and not u["riders"] and u.get('generic_allowed', True):
+                    data["mana"][u["sym"]] = data["mana"].get(u["sym"], 0) + 1
+                else:
+                    visible_units.append({**u, "id": len(visible_units)})
+            data["mana_units"] = visible_units
         data["commanders"] = sorted(commanders[pid], key=lambda x: x["key"])
         data["hand_count"] = len(state.zones.get(f"{pid}:hand", []))
         data["library_count"] = len(state.zones.get(f"{pid}:library", []))
@@ -267,7 +276,7 @@ def build_view(
         "viewer": viewer,
         "players": players,
         "seat_order": list(state.seat_order),
-        "turn": state.turn.model_dump(),
+        "turn": state.turn.model_dump(exclude={'starting_life'}),
         "table": state.table.model_dump(),
         # Who is searching what is public ("X is searching their library"); contents are not.
         "searches": {v.viewer: v.zone for v in state.views if v.kind == "search"},

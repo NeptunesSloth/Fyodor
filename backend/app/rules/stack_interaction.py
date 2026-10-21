@@ -157,6 +157,26 @@ def rider(text: str, effects: list[dict[str, Any]], prev_start: int, groups: lis
     return True
 
 
+def target_entry(plan: Plan, sid: str) -> StackEntry | None:
+    """A spell's targets, including the separate Aura/mutate record, without changing resolution."""
+    from app.game.rules_state import StackEntry
+    from app.rules import attachments, merged
+
+    entry = plan.rules.stack.get(sid)
+    if entry is not None:
+        return entry
+    card = plan.state.cards.get(sid)
+    target = plan.rules.aura_targets.get(sid)
+    if card is None or card.zone != "stack" or target is None or card.ability is not None:
+        return None
+    ch = plan.ch(card)
+    selector = merged.target_selector(card.owner) if plan.oid(card) in plan.rules.mutating else attachments.enchant_selector(ch)
+    if selector is None:
+        return None
+    return StackEntry(kind="spell", controller=card.controller, source_card=sid, source_object=plan.oid(card), name=ch.name,
+                      targets=[target], target_spec={"what": selector}, x=card.stack_info.x if card.stack_info else None)
+
+
 # -- carrying it out -----------------------------------------------------------------------------------
 def _legal(plan: Plan, entry: StackEntry, pos: Any, stack_id: str) -> list[str]:
     """What this target of the spell or ability could be now (its controller choosing, its source for
@@ -164,8 +184,8 @@ def _legal(plan: Plan, entry: StackEntry, pos: Any, stack_id: str) -> list[str]:
     from app.rules import copying, selectors, targets
 
     spec = copying._spec(entry, pos)
-    found = targets.legal_targets(plan, spec.get("what", "any"), entry.controller, targets.source_of(plan, entry.source_card, entry.kind == "spell"),
-                                  entry.source_card, selectors.attacker_of(entry.event))
+    found = targets.legal_targets(plan, spec.get("what", "any"), entry.controller, targets.source_of(plan, entry.source_card, entry.kind == "spell", object_id=entry.source_object),
+                                  entry.source_card, selectors.attacker_of(entry.event), source_object=entry.source_object)
     return [x for x in found if x != stack_id]
 
 
@@ -192,7 +212,7 @@ def change_target(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     me = ctx["controller"]
     for sid in _stack_targets(plan, ctx, e):
-        entry = plan.rules.stack.get(sid)
+        entry = target_entry(plan, sid)
         if entry is None:
             continue
         name = _label(plan, sid) or "that spell"  # (a face-down spell keeps its name hidden)
@@ -259,7 +279,7 @@ def resume_change_target(plan: Plan, d: Any, chosen: list[str]) -> None:
 
     r = d.resume
     ctx, sid = r["ctx"], r["sid"]
-    entry = plan.rules.stack.get(sid)
+    entry = target_entry(plan, sid)
     if entry is not None and plan.oid(sid) == r["oid"]:  # (still that spell or ability: 400.7)
         positions = copying.positions(entry)
         if r.get("to"):
@@ -281,8 +301,15 @@ def _apply(plan: Plan, sid: str, new: StackEntry | None) -> None:
 
     if new is None:
         return
-    old = {t.id for t in plan.rules.stack[sid].targets}
-    plan.rules.stack[sid] = new
+    before = target_entry(plan, sid)
+    if before is None:
+        return
+    old = {t.id for t in before.targets}
+    if sid in plan.rules.stack:
+        plan.rules.stack[sid] = new
+    elif sid in plan.rules.aura_targets and new.targets:
+        plan.rules.aura_targets[sid] = new.targets[0]
+
     added = [t for t in new.targets if t.id not in old]
     for arrow in [a for a in plan.state.arrows if a.source == sid and a.kind == "target"]:
         plan.do({"type": "remove_arrow", "arrow_id": arrow.id}, actor=new.controller)
@@ -308,7 +335,7 @@ def _ask_new_targets(plan: Plan, ctx: Context, sid: str, picks: list[str]) -> bo
     from app.rules import copying, targets
     from app.rules.plan import decide
 
-    entry = plan.rules.stack.get(sid)
+    entry = target_entry(plan, sid)
     if entry is None:
         return True
     me = ctx["controller"]
@@ -347,7 +374,7 @@ def resume_choose_new_targets(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules.effects import continue_effects
 
     r = d.resume
-    if plan.rules.stack.get(r["sid"]) is None or plan.oid(r["sid"]) != r["oid"]:  # (gone, or a new object: 400.7)
+    if target_entry(plan, r["sid"]) is None or plan.oid(r["sid"]) != r["oid"]:  # (gone, or a new object: 400.7)
         continue_effects(plan, r["ctx"])
         return
     if _ask_new_targets(plan, r["ctx"], r["sid"], [*r["picks"], chosen[0]]):

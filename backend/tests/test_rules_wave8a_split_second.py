@@ -13,7 +13,7 @@ from app.game.errors import ActionError
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.game.state import GameState
-from app.rules import coverage
+from app.rules import coverage, mana_units
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
 from tests.test_rules_conditionals import creature, on_field, settle, to_hand
@@ -88,9 +88,9 @@ def test_nothing_can_be_cast_or_activated_but_mana_abilities_while_it_is_on_the_
         other = "p2" if me == "p1" else "p1"
         refused(s, me, type="cast_spell", card_id=bolts[me].id, targets=[other])  # no other spell
         refused(s, me, type="activate_ability", card_id=pingers[me].id, ability=ability(s, pingers[me], "{1}: You gain"))
-        before = s.state.players[me].mana.get("C", 0)
+        before = mana_units.visible_pool(s.state, me).get("C", 0)
         act(s, me, type="activate_ability", card_id=rings[me].id, ability=ability(s, rings[me], "{T}: Add"))  # 702.61b
-        assert s.state.players[me].mana.get("C", 0) == before + 2
+        assert mana_units.visible_pool(s.state, me).get("C", 0) == before + 2
         roundtrip(s)
         act(s, me, type="pass_priority")
     settle(s)

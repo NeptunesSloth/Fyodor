@@ -26,7 +26,7 @@ from app.game.session import GameSession
 from app.game.state import GameState
 from app.rules import coverage, mana, scripts
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act, deck, enable, zone
+from tests.game_helpers import act, deck, enable, mana_pool, zone
 from tests.test_rules_conditionals import creature, life, on_field, pick, settle, to_hand, until, until_asked
 from tests.test_rules_effects import mana as add_mana
 from tests.test_rules_effects import replay_matches
@@ -337,7 +337,7 @@ def test_mage_ring_network_removes_the_counters_it_adds_mana_for(cards):
     d = s.state.rules.decision
     assert d is not None and [o.label for o in d.options] == ["{C}", "{C}{C}", "{C}{C}{C}"]
     pick(s, d.options[1].id)
-    assert s.state.players["p1"].mana.get("C", 0) == 2
+    assert mana_pool(s).get("C", 0) == 2
     assert s.state.cards[net.id].counters.get("storage", 0) == 1 and s.state.cards[net.id].tapped
     roundtrip(s)
 
@@ -358,7 +358,7 @@ def test_mana_battery_may_remove_none(cards):
     d = s.state.rules.decision
     assert [o.label for o in d.options] == ["{U}", "{U}{U}", "{U}{U}{U}"]
     pick(s, d.options[0].id)
-    assert s.state.players["p1"].mana.get("U", 0) == 1 and s.state.cards[bat.id].counters.get("charge", 0) == 2
+    assert mana_pool(s).get("U", 0) == 1 and s.state.cards[bat.id].counters.get("charge", 0) == 2
     roundtrip(s)
 
 
@@ -588,5 +588,5 @@ def test_culling_ritual_one_mana_of_either_type_per_permanent_destroyed(cards):
         pick(s, want)
     settle(s)
     assert s.state.cards[ring.id].zone == "p1:graveyard"
-    assert s.state.players["p1"].mana.get("B", 0) == 1 and s.state.players["p1"].mana.get("G", 0) == 1
+    assert mana_pool(s).get("B", 0) == 1 and mana_pool(s).get("G", 0) == 1
     roundtrip(s)

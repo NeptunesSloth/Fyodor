@@ -4,7 +4,7 @@
 * 712.11b / 712.12: a modal double-faced card cast or played back face up stays back face up (leaving the hand resets the face).
 * 715.2a / 720.2a: an omen card has an Omen, not an Adventure ("a creature spell that has an Adventure").
 * Pack tactics: the total power of the creatures as they were declared as attackers (508.1), not as it is later.
-* "Choose up to one target creature, then airbend all other creatures": "other" than the chosen one - refused.
+* "Choose up to one target creature, then airbend all other creatures": the chosen creature is excluded.
 """
 
 from __future__ import annotations
@@ -158,9 +158,9 @@ def test_an_omen_spell_is_shuffled_into_its_owners_library(cards):
     check(s)
 
 
-def test_avatars_wrath_is_refused():
+def test_avatars_wrath_is_automated():
     c = next(c for c in EXTRA if c["name"] == "Avatar's Wrath")
-    assert coverage.of_card_data({**c, "faces": []}).level != "FULL"
+    assert coverage.of_card_data({**c, "faces": []}).level == "FULL"
 
 
 def test_pack_tactics_reads_the_total_power_as_the_attackers_were_declared(cards):

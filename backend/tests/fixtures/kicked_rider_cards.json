@@ -1,0 +1,295 @@
+[
+  {
+    "name": "Joint Exploration",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Kicker {G} (You may pay an additional {G} as you cast this spell.)\nScry 2, then draw a card. If this spell was kicked, you may put a land card from your hand onto the battlefield.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [
+      "Kicker",
+      "Scry"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Zuko's Conviction",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Kicker {4} (You may pay an additional {4} as you cast this spell.)\nReturn target creature card from your graveyard to your hand. If this spell was kicked, instead put that card onto the battlefield tapped.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Kicker"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Reclaim the Wastes",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Kicker {3} (You may pay an additional {3} as you cast this spell.)\nSearch your library for a basic land card, reveal it, put it into your hand, then shuffle. If this spell was kicked, search your library for two basic land cards instead of one.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Kicker"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Tribute to Urborg",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Kicker {1}{U} (You may pay an additional {1}{U} as you cast this spell.)\nTarget creature gets -2/-2 until end of turn. If this spell was kicked, that creature gets an additional -1/-1 until end of turn for each instant and sorcery card in your graveyard.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [
+      "Kicker"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Chocobo Kick",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Kicker\u2014Return a land you control to its owner's hand. (You may return a land you control to its owner's hand in addition to any other costs as you cast this spell.)\nTarget creature you control deals damage equal to its power to target creature an opponent controls. If this spell was kicked, the creature you control deals twice that much damage instead.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Kicker"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Air Elemental",
+    "mana_cost": "{3}{U}{U}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Elemental",
+    "oracle_text": "Flying",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Reverberate",
+    "mana_cost": "{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Yawgmoth's Will",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Until end of turn, you may play lands and cast spells from your graveyard.\nIf a card would be put into your graveyard from anywhere this turn, exile that card instead.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Colossal Dreadmaw",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Dinosaur",
+    "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Shock",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Shock deals 2 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Giant Growth",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Hallowed Moonlight",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, if a creature would enter and it wasn't cast, exile it instead.\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Blood Tribute",
+    "mana_cost": "{4}{B}{B}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Kicker\u2014Tap an untapped Vampire you control. (You may tap a Vampire you control in addition to any other costs as you cast this spell.)\nTarget opponent loses half their life, rounded up. If this spell was kicked, you gain life equal to the life lost this way.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Kicker"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Bloodletter of Aclazotz",
+    "mana_cost": "{1}{B}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Vampire Demon",
+    "oracle_text": "Flying\nIf an opponent would lose life during your turn, they lose twice that much life instead. (Damage causes loss of life.)",
+    "power": "2",
+    "toughness": "4",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Platinum Emperion",
+    "mana_cost": "{8}",
+    "cmc": 8.0,
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "Your life total can't change. (You can't gain or lose life. You can't pay any amount of life except 0.)",
+    "power": "8",
+    "toughness": "8",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Vampire Nighthawk",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Vampire Shaman",
+    "oracle_text": "Flying\nDeathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Deathtouch",
+      "Flying",
+      "Lifelink"
+    ],
+    "layout": "normal"
+  }
+]

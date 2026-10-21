@@ -78,7 +78,10 @@ def _derive(plan: Plan) -> None:
     cards = state.cards
     live = set(plan.live())
     on_battlefield = {cid for cid, c in cards.items() if c.zone.endswith(":battlefield")}
-    r.blocked = [cid for cid in r.blocked if cid in cards and cards[cid].attacking is not None]
+    r.blocked = [cid for cid in r.blocked if cid in cards and cards[cid].is_attacking]
+    from app.rules import banding
+
+    banding.prune(state)
     r.deathtouched = [cid for cid in r.deathtouched if cid in on_battlefield]
     r.commander_offered = {cid: z for cid, z in r.commander_offered.items() if cid in cards}
     r.card_modes = {cid: m for cid, m in r.card_modes.items() if cid in cards}

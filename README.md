@@ -44,6 +44,18 @@ scripts/update-cards.sh             # download Scryfall card data (needs Interne
 scripts/update-cards.sh --skip-data --images tokens   # optional: token art (~100 MB)
 ```
 
+To prepare a deck library before going offline, open **Decks → Import multiple decks** on the
+Fyodor host. Select multiple exported deck files, or paste public Archidekt deck URLs one per line
+while network access is enabled. Preview the lists, then choose **Save decks**. Leave artwork
+downloading enabled and keep the window open until the batch finishes. Each deck is saved
+individually; an invalid file does not prevent the other decks from being imported. Unresolved
+cards and incomplete artwork are shown for review.
+
+Saved decks and cached images live in the host's data directory and survive app restarts.
+Players can connect to that host over the local network without internet. They are not stored
+in each visiting browser; use the existing backup/package tools to move them to another host.
+Missing images can be retried from the deck editor's artwork controls.
+
 After importing decks you can cache their art with `scripts/update-cards.sh --skip-data --images decks`.
 Image downloads resume where they stopped and never download a file twice. Cards without a
 cached image are drawn as readable text cards, so the game is fully playable without any
@@ -197,3 +209,12 @@ download in `update-cards` (and the optional assistant endpoint you configure yo
 
 Card data and images are provided by [Scryfall](https://scryfall.com). Magic: The Gathering
 is © Wizards of the Coast. Fyodor is unofficial Fan Content and not affiliated with them.
+
+### Personal collections for LAN players
+
+In the lobby, use **Bring a deck → My decks** to save multiple deck files or public Archidekt
+URLs while online. Saved lists work without Internet at that table. **Export My decks** makes
+a backup you can import at another table address or on another device. Your imported decks
+automatically supply your private collection, including companion candidates; they do not
+expose another player's decks or the host's library. Commander still prohibits ordinary Wish
+and Learn imports (CR 903.11). See [personal collections](docs/PLAYER_COLLECTIONS_AND_OUTSIDE_GAME.md).

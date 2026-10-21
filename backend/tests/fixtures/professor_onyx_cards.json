@@ -1,0 +1,159 @@
+[
+  {
+    "name": "Professor Onyx",
+    "mana_cost": "{4}{B}{B}",
+    "type_line": "Legendary Planeswalker \u2014 Liliana",
+    "oracle_text": "Magecraft \u2014 Whenever you cast or copy an instant or sorcery spell, each opponent loses 2 life and you gain 2 life.\n+1: You lose 1 life. Look at the top three cards of your library. Put one of them into your hand and the rest into your graveyard.\n\u22123: Each opponent sacrifices a creature with the greatest power among creatures that player controls.\n\u22128: Each opponent may discard a card. If they don't, they lose 3 life. Repeat this process six more times.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 6.0,
+    "keywords": [
+      "Magecraft"
+    ],
+    "loyalty": "5",
+    "layout": "normal"
+  },
+  {
+    "name": "Library of Leng",
+    "mana_cost": "{1}",
+    "type_line": "Artifact",
+    "oracle_text": "You have no maximum hand size.\nIf an effect causes you to discard a card, discard it, but you may put it on top of your library instead of into your graveyard.",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Obstinate Baloth",
+    "mana_cost": "{2}{G}{G}",
+    "type_line": "Creature \u2014 Beast",
+    "oracle_text": "When this creature enters, you gain 4 life.\nIf a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield instead of putting it into your graveyard.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 4.0,
+    "keywords": [],
+    "power": "4",
+    "toughness": "4",
+    "layout": "normal"
+  },
+  {
+    "name": "Megrim",
+    "mana_cost": "{2}{B}",
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever an opponent discards a card, this enchantment deals 2 damage to that player.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 3.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Waste Not",
+    "mana_cost": "{1}{B}",
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever an opponent discards a creature card, create a 2/2 black Zombie creature token.\nWhenever an opponent discards a land card, add {B}{B}.\nWhenever an opponent discards a noncreature, nonland card, draw a card.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 2.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Lich's Mastery",
+    "mana_cost": "{3}{B}{B}{B}",
+    "type_line": "Legendary Enchantment",
+    "oracle_text": "Hexproof\nYou can't lose the game.\nWhenever you gain life, draw that many cards.\nWhenever you lose life, for each 1 life you lost, exile a permanent you control or a card from your hand or graveyard.\nWhen Lich's Mastery leaves the battlefield, you lose the game.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 6.0,
+    "keywords": [
+      "Hexproof"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Platinum Angel",
+    "mana_cost": "{7}",
+    "type_line": "Artifact Creature \u2014 Angel",
+    "oracle_text": "Flying\nYou can't lose the game and your opponents can't win the game.",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 7.0,
+    "keywords": [
+      "Flying"
+    ],
+    "power": "4",
+    "toughness": "4",
+    "layout": "normal"
+  },
+  {
+    "name": "Spirit of the Labyrinth",
+    "mana_cost": "{1}{W}",
+    "type_line": "Enchantment Creature \u2014 Spirit",
+    "oracle_text": "Each player can't draw more than one card each turn.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 2.0,
+    "keywords": [],
+    "power": "3",
+    "toughness": "1",
+    "layout": "normal"
+  },
+  {
+    "name": "Rest in Peace",
+    "mana_cost": "{1}{W}",
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 2.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Fiery Temper",
+    "mana_cost": "{1}{R}{R}",
+    "type_line": "Instant",
+    "oracle_text": "Fiery Temper deals 3 damage to any target.\nMadness {R} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 3.0,
+    "keywords": [
+      "Madness"
+    ],
+    "layout": "normal"
+  }
+]

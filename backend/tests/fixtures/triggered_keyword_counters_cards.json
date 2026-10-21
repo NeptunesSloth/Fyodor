@@ -1,0 +1,76 @@
+[
+  {
+    "name": "Dress Down",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Flash\nWhen this enchantment enters, draw a card.\nCreatures lose all abilities.\nAt the beginning of the end step, sacrifice this enchantment.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "power": null,
+    "toughness": null
+  },
+  {
+    "name": "Rot-Curse Rakshasa",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Demon",
+    "oracle_text": "Trample\nDecayed (This creature can't block. When it attacks, sacrifice it at end of combat.)\nRenew \u2014 {X}{B}{B}, Exile this card from your graveyard: Put a decayed counter on each of X target creatures. Activate only as a sorcery.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Renew",
+      "Trample",
+      "Decayed"
+    ],
+    "power": "5",
+    "toughness": "5"
+  },
+  {
+    "name": "Emissary of Soulfire",
+    "mana_cost": "{1}{W}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Djinn Monk",
+    "oracle_text": "When this creature enters, you get {E}{E}{E} (three energy counters).\nPay {E}{E}: Put an exalted counter on target creature you control. Activate only as a sorcery. (Whenever a creature you control attacks alone, it gets +1/+1 until end of turn for each instance of exalted among permanents you control.)",
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": [],
+    "power": "1",
+    "toughness": "4"
+  },
+  {
+    "name": "Akrasan Squire",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "Exalted (Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn.)",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Exalted"
+    ],
+    "power": "1",
+    "toughness": "1"
+  }
+]

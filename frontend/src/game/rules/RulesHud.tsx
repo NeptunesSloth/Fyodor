@@ -8,7 +8,7 @@ import { useState } from "react";
 import { perspective, playerName, useGame } from "../../state/gameStore";
 import { PHASE_LABEL, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
 import { autocomplete } from "../../services/cards";
-import { canConcede, choose, chooseName, concede, delveCard, divide, next, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana, useXPrompt } from "./intents";
+import { canConcede, choose, chooseName, concede, delveCard, divide, next, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
 import { GameCardFace } from "../GameCardFace";
 import { ManaText } from "../../cards/ManaText";
 import { useCardCache } from "../../state/cardCache";
@@ -57,6 +57,15 @@ export function AutomationHud() {
         </button>
       ))}
       {open && <AutomationSettings onClose={() => setOpen(false)} />}
+      {!!rules?.attacking_bands?.length && (
+        <details className="auto-pill" data-testid="attacking-bands">
+          <summary>{rules.attacking_bands.length} attacking {rules.attacking_bands.length === 1 ? "band" : "bands"}</summary>
+          {rules.attacking_bands.map((band, i) => (
+            <div key={i}>Band {i + 1}: {band.map((cid) => { const card = view.cards[cid]; return card && !card.hidden ? card.name : "Creature"; }).join(" + ")}</div>
+          ))}
+        </details>
+      )}
+      {view.rules?.draw_reason && <span className="auto-pill winner" title={view.rules.draw_reason}>Draw</span>}
       {view.rules?.winner && <span className="auto-pill winner">{playerName(view, view.rules.winner)} wins</span>}
     </div>
   );
@@ -429,18 +438,19 @@ function CardNameChoice({ d, view }: { d: DecisionView; view: GameView }) {
 /** -- X announced (wave 24D) -- 107.3a: the number for X, asked before the cast / activation is sent (the server validates the range). */
 export function XPrompt() {
   const action = useXPrompt((s) => s.action);
+  const field = useXPrompt((s) => s.field);
   const [x, setX] = useState("0");
   if (!action) return null;
-  const close = () => { useXPrompt.setState({ action: null }); setX("0"); };
+  const close = () => { useXPrompt.setState({ action: null, field: "x_value" }); setX("0"); };
   const ok = /^\d{1,4}$/.test(x) && Number(x) <= 1000;
-  const go = () => { if (ok) { void send({ ...action, x_value: Number(x) }); close(); } };
+  const go = () => { if (submitNumericPrompt(x)) setX("0"); };
   return (
     <div className="decision-panel frame" data-testid="x-prompt">
-      <div className="decision-prompt">Choose a value for X</div>
+      <div className="decision-prompt">{field === "kicker" ? "Choose a multikicker count (0–1000)" : "Choose a value for X"}</div>
       <div className="decision-options">
         <input className="decision-name" data-testid="x-input" type="number" min={0} max={1000} autoFocus value={x}
           onChange={(e) => setX(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") go(); if (e.key === "Escape") close(); }} />
-        <button className="tt-btn brass" data-testid="x-done" disabled={!ok} onClick={go}>Cast / activate with X</button>
+        <button className="tt-btn brass" data-testid="x-done" disabled={!ok} onClick={go}>{field === "kicker" ? "Cast with multikicker" : "Cast / activate with X"}</button>
         <button className="tt-btn" data-testid="x-cancel" onClick={close}>Cancel</button>
       </div>
     </div>
@@ -601,6 +611,24 @@ function DeclareAttackers({ d }: { d: DecisionView }) {
   const attackers = opts.filter((o) => o.id.startsWith("a:"));
   const targets = opts.filter((o) => o.id.startsWith("t:"));
   const [plan, setPlan] = useState<Record<string, string>>({});
+  const [bandPlan, setBandPlan] = useState<Record<string, string>>({});
+  const banding = new Set(Array.isArray(d.display?.banding) ? d.display.banding as string[] : []);
+  const qualities = (Array.isArray(d.display?.band_qualities) ? d.display.band_qualities : []) as {
+    holders: string[]; members: string[]; description: string;
+  }[];
+  const leaders = new Set([...banding, ...qualities.flatMap((q) => q.holders)]);
+  const groups = new Map<string, string[]>();
+  for (const [a, group] of Object.entries(bandPlan)) {
+    if (group && plan[a]) groups.set(group, [...(groups.get(group) ?? []), a]);
+  }
+  const bands = [...groups.values()];
+  const invalidBand = bands.some((members) => {
+    const banders = members.filter((a) => banding.has(a.slice(2))).length;
+    const ordinary = banders > 0 && members.length - banders <= 1;
+    const qualified = qualities.some((q) => members.some((a) => q.holders.includes(a.slice(2)))
+      && members.every((a) => q.members.includes(a.slice(2))));
+    return (!ordinary && !qualified) || new Set(members.map((a) => plan[a])).size > 1;
+  });
   const set = (a: string, t: string) => setPlan((p) => {
     const nextPlan = { ...p };
     if (!t) delete nextPlan[a];
@@ -610,6 +638,7 @@ function DeclareAttackers({ d }: { d: DecisionView }) {
   const declare = () => void send({
     type: "declare_attackers",
     attackers: Object.entries(plan).map(([a, t]) => ({ card_id: a.slice(2), target: t.slice(2) })),
+    bands: bands.map((members) => members.map((a) => a.slice(2))),
   });
   return (
     <div className="decision-combat">
@@ -620,13 +649,23 @@ function DeclareAttackers({ d }: { d: DecisionView }) {
             <option value="">Doesn't attack</option>
             {targets.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
           </select>
+          {leaders.size > 0 && plan[a.id] && (
+            <select aria-label={`Band for ${a.label}`} data-testid={`band-${a.id.slice(2)}`}
+              value={bandPlan[a.id] ?? ""} onChange={(e) => setBandPlan({ ...bandPlan, [a.id]: e.target.value })}>
+              <option value="">No band</option>
+              {Array.from({ length: leaders.size }, (_, i) => <option key={i + 1} value={String(i + 1)}>Band {i + 1}</option>)}
+            </select>
+          )}
         </label>
       ))}
+      {invalidBand && <div role="alert">{qualities.length
+        ? "Each band needs compatible banding abilities, matching creatures, and the same defender."
+        : "Each band needs banding, at most one creature without it, and the same defender."}</div>}
       <div className="decision-options">
         {targets.length === 1 && (
           <button className="tt-btn ghost" onClick={() => setPlan(Object.fromEntries(attackers.map((a) => [a.id, targets[0]!.id])))}>All attack</button>
         )}
-        <button className="tt-btn brass" data-testid="declare-attackers" onClick={declare}>
+        <button className="tt-btn brass" data-testid="declare-attackers" disabled={invalidBand} onClick={declare}>
           {Object.keys(plan).length ? `Attack with ${Object.keys(plan).length}` : "No attack"}
         </button>
       </div>

@@ -120,7 +120,7 @@ def test_wordings():
     assert rhystic[0][0]["who"] == "event_player" and rhystic[0][1]["skip"] == 2
     x = scripts.parse_effects("Counter target spell unless its controller pays {X}.")
     assert x is not None and x[0][0] == {"do": "optional_payment", "who": "target", "cost": "", "bind": "pay0", "per": "{1}",
-                                         "n": {"x": 1}}
+                                         "n": {"x": 1}, "cost_has_x": True}
     each = scripts.parse_effects("Counter target spell unless its controller pays {1} for each card in your graveyard.")
     assert each is not None and each[0][0]["per"] == "{1}" and "graveyard" in each[0][0]["n"]["count"]
     plus = scripts.parse_effects("Counter target spell unless its controller pays {2} plus an additional {1} for each Faerie you control.")
@@ -138,7 +138,6 @@ def test_wordings():
 
 @pytest.mark.parametrize("text", [
     "Each opponent loses 2 life unless they pay {2}.",  # several payers (each in turn: not read here)
-    "Search your library for a card unless any player pays {2}.",  # "any player": who pays first isn't modeled
     "Counter target spell unless its controller pays {3} for each card discarded this way.",  # (an earlier choice's count)
     "Counter target spell unless its controller pays {B} or {3}.",  # a choice of costs
     "Counter target spell unless its controller pays {1} for each {E} paid this way.",

@@ -123,7 +123,7 @@ def test_spend_as_rewrites_only_how_the_cost_is_paid():
     assert M.spend_as(M.parse_cost("{1}{C}"), "color").text() == "{1}{C}"  # ({C} still needs colorless mana)
     assert M.spend_as(M.parse_cost("{W/U}{U/B}"), "type").text() == "{2}"
     assert M.spend_as(M.parse_cost("{2/B}"), "type").text() == "{1}"
-    assert M.spend_as(M.parse_cost("{B/P}"), "type").text() == "{B/P}"
+    assert M.spend_as(M.parse_cost("{B/P}"), "type").phyrexian == (M.ANY_PHYREXIAN,)  # any mana or two life
     assert M.parse_cost(M.spend_as(c, "color").text()) == M.spend_as(c, "color")  # (a payment prompt can be resumed from its text)
 
 

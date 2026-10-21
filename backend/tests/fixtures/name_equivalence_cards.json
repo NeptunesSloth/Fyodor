@@ -1,0 +1,431 @@
+[
+  {
+    "name": "Detention Sphere",
+    "mana_cost": "{1}{W}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, you may exile target nonland permanent not named Detention Sphere and all other permanents with the same name as that permanent.\nWhen this enchantment leaves the battlefield, return the exiled cards to the battlefield under their owner's control.",
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Legion's End",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Exile target creature an opponent controls with mana value 2 or less and all other creatures that player controls with the same name as that creature. Then that player reveals their hand and exiles all cards with that name from their hand and graveyard.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Hour of Glory",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature. If that creature was a God, its controller reveals their hand and exiles all cards from it with the same name as that creature.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Deicide",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target enchantment. If the exiled card is a God card, search its controller's graveyard, hand, and library for any number of cards with the same name as that card and exile them. Then that player shuffles.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Invasive Surgery",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target sorcery spell.\nDelirium \u2014 If there are four or more card types among cards in your graveyard, search the graveyard, hand, and library of that spell's controller for any number of cards with the same name as that spell, exile those cards, then that player shuffles.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Delirium"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Pick the Brain",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target opponent reveals their hand. You choose a nonland card from it and exile that card.\nDelirium \u2014 If there are four or more card types among cards in your graveyard, search that player's graveyard, hand, and library for any number of cards with the same name as the exiled card, exile those cards, then that player shuffles.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Delirium"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Reap Intellect",
+    "mana_cost": "{X}{2}{U}{B}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target opponent reveals their hand. You choose up to X nonland cards from it and exile them. For each card exiled this way, search that player's graveyard, hand, and library for any number of cards with the same name as that card and exile them. Then that player shuffles.",
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Moratorium Stone",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{2}, {T}: Exile target card from a graveyard.\n{2}{W}{B}, {T}, Sacrifice this artifact: Exile target nonland card from a graveyard, all other cards from graveyards with the same name as that card, and all permanents with that name.",
+    "colors": [],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Bloodbond March",
+    "mana_cost": "{2}{B}{G}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever a player casts a creature spell, each player returns all cards with the same name as that spell from their graveyard to the battlefield.",
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Locket of Yesterdays",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "Spells you cast cost {1} less to cast for each card with the same name as that spell in your graveyard.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Cylian Sunsinger",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Elf Shaman",
+    "oracle_text": "{R}{G}{W}: This creature and each other creature with the same name as it get +3/+3 until end of turn.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G",
+      "R",
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2"
+  },
+  {
+    "name": "Chrome Replicator",
+    "mana_cost": "{5}",
+    "cmc": 5.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "When this creature enters, if you control two or more nonland, nontoken permanents with the same name as one another, create a 4/4 colorless Construct artifact creature token.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal",
+    "power": "4",
+    "toughness": "4"
+  },
+  {
+    "name": "Winnow",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target nonland permanent if another permanent with the same name is on the battlefield.\nDraw a card.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Eye of Singularity",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "World Enchantment",
+    "oracle_text": "When this enchantment enters, destroy each permanent with the same name as another permanent, except for basic lands. They can't be regenerated.\nWhenever a permanent other than a basic land enters, destroy all other permanents with that name. They can't be regenerated.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Bazaar of Wonders",
+    "mana_cost": "{3}{U}{U}",
+    "cmc": 5.0,
+    "type_line": "World Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nWhenever a player casts a spell, counter it if a card with the same name is in a graveyard or a nontoken permanent with the same name is on the battlefield.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Mimeofacture",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Replicate {3}{U} (When you cast this spell, copy it for each time you paid its replicate cost. You may choose new targets for the copies.)\nChoose target permanent an opponent controls. Search that player's library for a card with the same name and put it onto the battlefield under your control. Then that player shuffles.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Replicate"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Dichotomancy",
+    "mana_cost": "{7}{U}{U}",
+    "cmc": 9.0,
+    "type_line": "Sorcery",
+    "oracle_text": "For each tapped nonland permanent target opponent controls, search that player's library for a card with the same name as that permanent. Put those cards onto the battlefield under your control, then that player shuffles.\nSuspend 3\u2014{1}{U}{U} (Rather than cast this card from your hand, you may pay {1}{U}{U} and exile it with three time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Suspend"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Reflector Mage",
+    "mana_cost": "{1}{W}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "When this creature enters, return target creature an opponent controls to its owner's hand. That creature's owner can't cast spells with the same name as that creature until your next turn.",
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "power": "2",
+    "toughness": "3"
+  },
+  {
+    "name": "Academic Probation",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Sorcery \u2014 Lesson",
+    "oracle_text": "Choose one \u2014\n\u2022 Choose a nonland card name. Opponents can't cast spells with the chosen name until your next turn.\n\u2022 Choose target nonland permanent. Until your next turn, it can't attack or block, and its activated abilities can't be activated.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Cornered Market",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Players can't cast spells with the same name as a nontoken permanent.\nPlayers can't play nonbasic lands with the same name as a nontoken permanent.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Fervor",
+    "oracle_text": "Creatures you control have haste. (They can attack and {T} as soon as they come under your control.)",
+    "mana_cost": "{2}{R}",
+    "type_line": "Enchantment",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 3.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Ornithopter",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "oracle_text": "Flying",
+    "power": "0",
+    "toughness": "2",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Bonecrusher Giant // Stomp",
+    "layout": "adventure",
+    "mana_cost": "{2}{R} // {1}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Giant // Instant \u2014 Adventure",
+    "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.\n//\nDamage can't be prevented this turn. Stomp deals 2 damage to any target.",
+    "power": "4",
+    "toughness": "3",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Bonecrusher Giant",
+        "mana_cost": "{2}{R}",
+        "type_line": "Creature \u2014 Giant",
+        "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.",
+        "power": "4",
+        "toughness": "3"
+      },
+      {
+        "name": "Stomp",
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant \u2014 Adventure",
+        "oracle_text": "Damage can't be prevented this turn. Stomp deals 2 damage to any target."
+      }
+    ]
+  },
+  {
+    "name": "Pack Hunt",
+    "mana_cost": "{3}{G}",
+    "cmc": 4,
+    "type_line": "Sorcery",
+    "oracle_text": "Search your library for up to three cards with the same name as target creature, reveal them, put them into your hand, then shuffle.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Thassa, God of the Sea",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Enchantment Creature \u2014 God",
+    "oracle_text": "Indestructible\nAs long as your devotion to blue is less than five, Thassa isn't a creature. (Each {U} in the mana costs of permanents you control counts toward your devotion to blue.)\nAt the beginning of your upkeep, scry 1.\n{1}{U}: Target creature you control can't be blocked this turn.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Indestructible",
+      "Scry"
+    ],
+    "layout": "normal",
+    "power": "5",
+    "toughness": "5"
+  },
+  {
+    "name": "Cackling Counterpart",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Create a token that's a copy of target creature you control.\nFlashback {5}{U}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flashback"
+    ],
+    "layout": "normal"
+  }
+]

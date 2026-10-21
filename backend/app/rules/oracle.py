@@ -20,11 +20,11 @@ _MANA_ABILITY = re.compile(
     rf"^\{{T\}}: Add (?:{_MANA_SYMBOL}(?:{_MANA_SYMBOL})*(?:(?:, | or |, or ){_MANA_SYMBOL})*|one mana of any color)\.$"
 )
 _LOYALTY = re.compile(r"^[+−-]?\d+: |^[+−-]X: ")
-_TRIGGER = re.compile(r"^(?:[A-Z0-9][\w'’!?,\- ]+ — )?(When|Whenever|At) ")  # (wave 6E: "Exterminate! — When …"; wave 41A: a letter with a mark, "Pavitr's Sevā — When …")  # an ability word ("Landfall — ") may lead
+_TRIGGER = re.compile(r"^(?:[A-Z0-9][\w'’!?,.\- ]+ — )?(When|Whenever|At) ")  # (wave 6E: "Exterminate! — When …"; wave 41A: a letter with a mark, "Pavitr's Sevā — When …")  # an ability word ("Landfall — ") may lead
 # (-- ability words (wave 4F) -- digits too: "Descend 4 — Whenever …", 207.2c)
 # (-- attached events (wave 4L) -- "Equipped creature has "{T}: …"" is a static granting an ability, not a cost)
 _COST_START = re.compile(
-    r"^(\{[^}]+\}|Sacrifice|Tap|Untap|Discard|Pay|Remove|Exile|Return|Put|Reveal|Mill|Collect|Forage|[Ee]quip(?!ped)|Crew|"
+    r"^(\{[^}]+\}|Sacrifice|Tap|Untap|Unattach|Discard|Pay|Remove|Exile|Return|Put|Reveal|Mill|Collect|Forage|[Ee]quip(?!ped)|Crew|"
     r"Channel|Cycling|Ninjutsu|Boast|Exhaust|Waterbend)"
 )
 
@@ -32,7 +32,7 @@ _COST_START = re.compile(
 # (scry, surveil, proliferate…) and ability words are deliberately absent: in a spell they are the
 # effect. Being listed only means "recognised"; whether it's automated is up to coverage.
 KEYWORDS = frozenset({
-    "devoid", "renown", "bloodthirst", "soulshift",
+    "absorb", "devoid", "renown", "bloodthirst", "soulshift",
     "flying", "reach", "vigilance", "trample", "deathtouch", "lifelink", "first strike", "double strike", "haste",
     "defender", "menace", "hexproof", "hexproof from", "indestructible", "flash", "shroud", "fear", "intimidate", "skulk", "prowess",
     "protection", "ward", "equip", "enchant", "cycling", "kicker", "multikicker", "flashback", "convoke", "delve", "cascade",
@@ -65,7 +65,7 @@ KEYWORDS = frozenset({
 })
 
 _FORMS = {"awaken": r"awaken \d+—.*", "escalate": r"escalate(?: \{.*|—.*)", "dredge": r"dredge \d+", "fuse": "fuse",
-          "aftermath": "aftermath", "gravestorm": "gravestorm", "increment": "increment"}
+          "aftermath": "aftermath", "gravestorm": "gravestorm", "increment": "increment", "unleash": "unleash"}
 _PARAM = re.compile(r"(\{[^}]*\}|\d+|—.*$|\bfrom\b.*$| with .*$|walk$)")
 
 
@@ -81,6 +81,10 @@ class AbilityText:
     keeps: str | None = None  # -- attached events (wave 25D) -- 702.16n: a granted protection that "doesn't remove" "auras" / "self:<granting Aura's id>"
     special: str | None = None  # -- mana for special abilities (wave 19E) -- "equip": an equip ability (702.6); a "Power-up — " line reads as "power_up"
     linked: str | None = None  # -- linked words (wave 33B) -- 607.2f: the word of "As ~ enters, choose Khans or Dragons." this ability ("• Khans — …") belongs to
+    borrowed_origin: tuple[str, ...] = ()  # canonical granting path, not a mutable read-time registry
+    borrowed_scope: str | None = None  # Explicit scope for an unambiguous legacy saved link, when needed.
+    borrowed_color: str | None = None  # object whose particular borrowing static permits colored-mana substitutions
+    activation_player: str | None = None  # A resolved grant may reserve activation to its original controller.
 
 
 def strip_reminders(text: str) -> str:
@@ -91,7 +95,7 @@ def strip_reminders(text: str) -> str:
 
 
 _WORDS_HEADER = re.compile(r"As (?:this [a-z]+|~) enters, choose ([A-Z][\w'’-]*) or ([A-Z][\w'’-]*)\.")  # (wave 33B: 607.2f)
-_TYPECYCLING = re.compile(r"^((?:basic )?[a-z]+cycling)(?: \{|$)")
+_TYPECYCLING = re.compile(r"^((?:(?:basic|artifact) )?[a-z]+cycling)(?: \{|$)")
 
 
 def keyword_name(piece: str) -> str | None:
@@ -103,6 +107,10 @@ def keyword_name(piece: str) -> str | None:
         return raw
     if re.match(r"^\w+ (?:abilities|costs) you (?:activate|pay)\b", raw):  # -- keywords (wave 15E) -- "Equip abilities you activate
         return None  # cost {1} less", "Dash costs you pay cost {2} less": a static ability about the keyword, not the keyword
+    if re.match(r"^\w+ costs (?:cost|(?:you|your opponents) pay cost)\b", raw):
+        return None  # A global change to a keyword's costs is not that keyword ability.
+    if raw.startswith("bands with other "):
+        return raw  # CR 702.22b: the quality is part of this keyword's identity.
     if raw.startswith("hexproof from "):  # -- keywords (wave 44D) -- 702.11d: a variant of hexproof, not plain hexproof (_PARAM strips the quality)
         return "hexproof from"
     base = _PARAM.sub("", raw).strip(" —-")
@@ -136,8 +144,17 @@ def keyword_pieces(line: str) -> list[str]:
 
 
 def _keywords_line(line: str) -> tuple[str, ...] | None:
+    from app.rules.conditional_own_discounts import flashback_line
+    from app.rules.random_choice_receipts import random_buyback
+
+    if random_buyback(line) is not None:
+        return ("buyback",)
+    if flashback_line(line) is not None:
+        return ("flashback",)
     if re.fullmatch(r"partner with [^;.]+", line.strip(), re.IGNORECASE):  # -- keyword pieces (wave 8A) -- 702.124j: the name has a comma
         return ("partner",)
+    if re.fullmatch(r"madness—(?:\{[^}]+\})+, Pay \d+ life\.?", line.strip(), re.IGNORECASE):
+        return ("madness",)  # one alternative cost, including its life component
     if re.fullmatch(r"flashback—.+", line.strip(), re.IGNORECASE):  # -- static_other sweep (wave 16B) -- 702.34a: "Flashback—{1}{U}, Pay 3 life."
         return ("flashback",)  # (one keyword: the comma is inside its cost)
     if re.fullmatch(r"devour x, where x is the number of creatures devoured this way", line.strip(), re.IGNORECASE):  # -- keyword mechanics (wave 48B) -- Thromok: one keyword (app/rules/devour.py)
@@ -173,7 +190,7 @@ _ADD_MANA = re.compile(r"^(?P<cost>[^:]+): (?:Choose a color(?: of (?:a permanen
 # "Corrupted —" (-- ability words (wave 4F) -- read like an ability word: scripts.ABILITY_WORDS).
 # Anything else is a flavor word only when what follows is a trigger or a cost-led activated ability; other lines are left as they were.
 # (-- counters (wave 41A) -- \w: a flavor word may carry a mark on a letter, "Pavitr's Sevā — Whenever …" (Spider-Man India); 207.2d)
-_WORD_PREFIX = re.compile(r"^(?P<w>[A-Z0-9][\w'’!?,\- ]{0,48}?) — (?P<rest>\S.*)$")  # (-- most-played cards II (wave 45A) -- a digit may lead: "10,000 Needles — Whenever …", Jumbo Cactuar)
+_WORD_PREFIX = re.compile(r"^(?P<w>[A-Z0-9][\w'’!?,.\- ]{0,48}?) — (?P<rest>\S.*)$")  # (-- most-played cards II (wave 45A) -- a digit may lead: "10,000 Needles — Whenever …", Jumbo Cactuar)
 _NOT_FLAVOR = frozenset({"max speed", "power-up", "exhaust", "boast", "forecast", "visit", "companion", "prototype",
                          "solved", "to solve", "station", "level up",
                          "prize"})  # (-- review (wave 6R) -- "Prize —" is part of an Attraction's visit ability: 702.159b)
@@ -208,7 +225,7 @@ def word_prefix(line: str) -> tuple[str, str] | None:
     return None
 
 
-_WATCH_LINE = re.compile(r"^(?:Whenever .+? this turn, |When you next cast .+? this turn, "
+_WATCH_LINE = re.compile(r"^(?:At the beginning of each combat this turn, |Whenever .+? this turn, |When you next cast .+? this turn, "
                          r"|When (?:target|that) [^,]+? (?:dies|leaves the battlefield) this turn, "
                          r"|At the beginning of (?:the next|your next|the next turn's|that player's next|its owner's next|their next) [^,]+, )")  # (wave 23B: the Pacts' own paragraph, 603.7)  # -- turn watches (wave 7D; 16D: "When target creature dies this turn,") --
 
@@ -216,18 +233,67 @@ _WATCH_LINE = re.compile(r"^(?:Whenever .+? this turn, |When you next cast .+? t
 CRAFT_FROM = " from among permanents you control and/or cards in your graveyard"  # -- casting extras (wave 18E) -- 702.167a
 
 
+def _moves_library(line: str) -> bool:
+    """605.1a: immediate instructions move cards to/from a library.
+
+    Delayed/reflexive triggers and quoted granted abilities are other abilities;
+    looking, revealing, scrying and reordering within the library do not move a
+    card to or from that zone. Replacement effects are deliberately not read.
+    """
+    immediate = re.split(r"\b(?:When(?:ever)?|At the beginning)\b", line, maxsplit=1)[0]
+    immediate = re.sub(r'"[^"\n]*"', '', immediate)
+    immediate = re.sub(r"\bDraw [^.]* at the beginning[^.]*\.?", '', immediate, flags=re.I)
+    if re.search(r"\b(?:draws?|mills?)\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|X|\d+|cards?|half|the|up to|that many|a number|any number)\b", immediate, re.I):
+        return True
+    if re.search(r"\b(?:surveil|discover|connive|manifest|explore|seek)\b", immediate, re.I):
+        return True
+    if 'library' not in immediate.lower():
+        return False
+    library_seen = False
+    for clause in re.split(r"[.;]|\bthen\b", immediate, flags=re.I):
+        has_library = 'library' in clause.lower()
+        to_library = re.search(r"\b(?:exile|put|return|shuffle)\b[^:]*\b(?:into|onto|to)\b[^:]*\blibrary\b", clause, re.I)
+        same_zone = re.search(r"\b(?:put|return) (?:them|those cards|it|that card) (?:back )?(?:on|onto|to|in)\b", clause, re.I)
+        outside_zone = re.search(r"\b(?:hand|graveyard|battlefield|exile)\b", clause, re.I)
+        if to_library and not (same_zone and library_seen and not outside_zone):
+            return True
+        if re.search(r"\b(?:exile|put|return)\b[^:]*\b(?:top|bottom)\b[^:]*\blibrary\b", clause, re.I) and not (same_zone and library_seen and not outside_zone):
+            return True
+        if (library_seen or has_library) and re.search(
+                r"\b(?:put|return) (?:it|them|that card|those cards|any number of them)\b[^:]*\b(?:hand|graveyard|battlefield)\b|"
+                         r"\bexile (?:it|them|that card|those cards)\b", clause, re.I):
+            return True
+        library_seen = library_seen or has_library
+    return False
+
+
 def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], str | None]:
+    from app.rules import reveal_mana
+
+    if reveal_mana.spec(line) is not None:
+        return "mana", (), "{T}"
     if _MANA_ABILITY.match(line):
         return "mana", (), "{T}"
     # -- mana riders (wave 5A) -- 605.1a: "{T}: For each color among permanents you control, add one mana of that color."
+    if re.fullmatch(r'[^:]+: For each color among monocolored permanents you control, add one mana of that color\.', line):
+        return 'mana', (), line.split(':',1)[0]
+    if re.fullmatch(r'[^:]+: For each color among the exiled cards used to craft this creature, add one mana of that color\.', line) and not _moves_library(line):
+        return 'mana', (), line.split(':', 1)[0]
     from app.rules.mana_riders import EACH_COLOR_LINE  # (Bloom Tender: no target, adds mana: a mana ability)
 
-    if (each := EACH_COLOR_LINE.match(line)) is not None:
+    if (each := EACH_COLOR_LINE.match(line)) is not None and not _moves_library(line):
         return "mana", (), each["cost"]
+    from app.rules.immediate_mana_resolutions import beneficiary_spec
+
+    if (benefit := beneficiary_spec(line)) is not None and _COST_START.match(benefit[0]) and not _moves_library(line) and not _LOYALTY.match(line):
+        return 'mana', (), benefit[0]
     m = _ADD_MANA.match(line)
-    if m and re.search(r"\bmill\b|\blibrary\b", m.group("cost"), re.I):  # -- mana riders (wave 5A) -- 605.1a: a cost moving
-        m = None  # a card to or from a library ("{T}, Mill a card: Add {C}.", Millikin): not a mana ability (uses the stack)
-    if m and not _LOYALTY.match(line) and "target" not in (line.replace("choose new targets for the copy", "") if "that mana is spent" in line else line).lower() and '"' not in m.group("cost") \
+    if m and _moves_library(line):  # CR 605.1a applies to both costs and effects, not delayed triggers.
+        m = None  # e.g. Millikin's cost or Chromatic Sphere's immediate draw uses the stack.
+    from app.rules.activated_copy_effects import NEXT_X
+
+    mana_target_line = line.replace('choose new targets for the copy', '') if NEXT_X + '.' in line else line
+    if m and not _LOYALTY.match(line) and "target" not in (line.replace("choose new targets for the copy", "") if "that mana is spent" in line or "When you spend this mana" in line else mana_target_line).lower() and '"' not in m.group("cost") \
             and not _TRIGGER.match(line) and not line.startswith("•"):  # a granted/token ability isn't one
         return "mana", (), m.group("cost")
     kws = _keywords_line(line)
@@ -343,8 +409,10 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
     merged: list[str] = []
     for line in lines:
         if merged and re.match(r"^\d+(?:[—–-]\d+|\+| or less)? \| ", line) and re.search(r"\broll a (?:d\d+|\w+-sided die)\b", merged[-1], re.I) \
-                and not re.search(r"\bactivate only\b", merged[-1], re.I):
-            merged[-1] += " " + line
+                and (not re.search(r"\bactivate only\b", merged[-1], re.I)
+                     or (merged[-1].endswith("Activate only as a sorcery.") and merged[-1].lower().count("activate only") == 1)):
+            restriction = "Activate only as a sorcery." if merged[-1].endswith("Activate only as a sorcery.") else ""
+            merged[-1] = merged[-1].removesuffix(restriction).rstrip() + " " + line + (" " + restriction if restriction else "")
         else:
             merged.append(line)
     lines = merged
@@ -421,9 +489,11 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         # target creature you control. Activate only as a sorcery." and "[Cost]: Unattach this permanent. Activate only if this permanent is
         # attached to a creature and only as a sorcery."; 702.151b: attached to a creature, it isn't a creature (a static of its own).
         # (review 18E: added after the printed lines, so a printed line's ability number is its line number — the card menu's mapping)
-        if (rm := re.fullmatch(r"Reconfigure ((?:\{[^}]+\})+)", line)) and not spell:
-            tail += [(f"{rm[1]}: Attach ~ to another target creature you control. Activate only as a sorcery.", sections[n]),
-                     (f"{rm[1]}: Unattach ~. Activate only if ~ is attached to a creature and only as a sorcery.", sections[n]),
+        from app.rules import activation_alternatives
+
+        if not spell and (reconfigure := activation_alternatives.reconfigure_cost(line)) is not None:
+            tail += [(f"{reconfigure}: Attach ~ to another target creature you control. Activate only as a sorcery.", sections[n]),
+                     (f"{reconfigure}: Unattach ~. Activate only if ~ is attached to a creature and only as a sorcery.", sections[n]),
                      ("As long as ~ is attached to a creature, ~ isn't a creature.", sections[n])]
     for extra, section in tail:
         ekind, ekws, ecost = classify(extra, spell=spell)

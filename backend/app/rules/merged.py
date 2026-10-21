@@ -35,6 +35,11 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 MUTATE_TARGET = selectors.Selector(types=("Creature",), not_subtypes=("Human",), owner="you", extras=("mergeable",)).key()
+def target_selector(owner: str) -> str:
+    """Mutate targets share the spell's owner even if its controller changes (702.140a)."""
+    return selectors.replace(selectors.from_key(MUTATE_TARGET), owner=f"player:{owner}").key()
+
+
 _UNMERGEABLE_LAYOUTS = ("transform", "modal_dfc", "double_faced_token", "reversible_card", "meld", "flip", "prepare", "battle")
 
 
@@ -122,7 +127,7 @@ def resolve(plan: Plan, top: CardInstance, controller: str) -> bool:
     target = r.aura_targets.get(top.id)
     ch = plan.ch(top)
     host = plan.state.cards.get(target.id) if target is not None else None
-    if target is None or host is None or not T.still_legal(plan, MUTATE_TARGET, controller, target, T.as_spell(ch), top.id):
+    if target is None or host is None or not T.still_legal(plan, target_selector(top.owner), controller, target, T.as_spell(ch, top.stack_info.x if top.stack_info else 0), top.id):
         r.mutating = [o for o in r.mutating if o != plan.oid(top)]
         r.aura_targets.pop(top.id, None)
         plan.note(f"{ch.name} ceases to be a mutating creature spell: its target is illegal", [top.id])

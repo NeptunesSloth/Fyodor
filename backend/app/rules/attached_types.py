@@ -26,8 +26,8 @@ The parts, by layer (613.1):
 
 Definition keys on a grant static (app/rules/statics.py; applied by app/rules/layers.py): ``lose_keywords``,
 ``lose_all``, ``layer4`` ({set_types, add_types, set_creature_types, add_subtypes, add_supertypes}), ``set_colors``.
-Only an unconditional Aura's or Equipment's static carries them; anything else stays manual. A name or a chosen color
-isn't read. A land type ("Enchanted land is an Island", wave 12D: ``layer4.set_land_types``) is set in layer 4 and, by
+Only an unconditional Aura's or Equipment's static carries them; anything else stays manual.
+A terminal named clause sets the host's name in layer 3, before the remaining parts apply. A land type ("Enchanted land is an Island", wave 12D: ``layer4.set_land_types``) is set in layer 4 and, by
 305.7, takes away the land's rules-text abilities (layers._derive, ``wipes``); it gains the types' mana abilities.
 """
 
@@ -55,6 +55,8 @@ _IS = re.compile(r"^is (?:a|an) (?P<desc>.+?)(?: with base power and toughness (
 
 def protect(predicate: str) -> str:
     """Keep Darksteel Mutation's "it loses all other abilities, card types, and creature types" one piece."""
+    predicate = re.sub(r"\bis an? (?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))+",
+                       lambda m: m[0].replace(" and ", "\u0005"), predicate)
     predicate = re.sub(rf"\bis an? (?:{_BASICS})(?:(?:, and |, | and )(?:{_BASICS}))+",  # (wave 20A: "is a Mountain, Forest, and Plains": one piece)
                        lambda m: re.sub(r", and |, | and ", "\u0004", m[0]), predicate)
     predicate = predicate.replace("loses all other card types and abilities", _LOSE_TYPES)  # (wave 22A: the same, without the creature types)
@@ -65,7 +67,7 @@ def protect(predicate: str) -> str:
 def piece(text: str, extra: dict[str, Any]) -> bool | list[int] | None:
     """One predicate piece about layers 4-6 → recorded in ``extra`` (True; a base P/T [p, t] to set), False when it
     is one of these but not read, None when it's not one of these."""
-    text = re.sub(r"^it (?=loses )", "", text).replace("\u0004", ", ")
+    text = re.sub(r"^it (?=loses )", "", text).replace("\u0004", ", ").replace("\u0005", " and ")
     if (m := _SET_TYPE.fullmatch(text)) is not None:
         return _set_type(m, extra)
     if text == _LOSE_TYPES:
@@ -82,6 +84,11 @@ def piece(text: str, extra: dict[str, Any]) -> bool | list[int] | None:
         if m["kw"] not in GRANTABLE_KEYWORDS:
             return False
         extra.setdefault("lose_keywords", []).append(m["kw"])
+        return True
+    if text == "is every basic land type in addition to its other types":
+        from app.rules.type_statics import BASIC
+
+        _layer4(extra).setdefault("add_subtypes", []).extend(BASIC)
         return True
     # -- land types set (wave 12D) -- "Enchanted land is a Swamp." / "is a Mountain, Forest, and Plains." (305.7, 613.1d)
     m = re.fullmatch(rf"is an? (?P<t>(?:{_BASICS})(?:(?:, | and |, and )(?:{_BASICS}))*)", text)  # (wave 20A: the alternation grouped)
@@ -161,6 +168,9 @@ def _desc(m: re.Match[str], extra: dict[str, Any]) -> bool | list[int]:
     if words and (words[0] in _COLORS or words[0] == "colorless"):
         colors = [] if words[0] == "colorless" else [_COLORS[words[0]]]
         words = words[1:]
+        while len(words) > 1 and words[0] == "and" and words[1] in _COLORS and colors:
+            colors.append(_COLORS[words[1]])
+            words = words[2:]
     subs: list[str] = []
     while words and words[0] in CREATURE_TYPES:
         subs.append(words.pop(0))
@@ -219,6 +229,11 @@ def consistent(extra: dict[str, Any], kind: str | None) -> bool:
     layer4 = extra.get("layer4") or {}
     if "set_land_types" in layer4:  # -- land types set (wave 12D) -- only an Aura's "Enchanted land is a Swamp." on its own
         return kind == "land" and set(extra) == {"layer4"} and set(layer4) == {"set_land_types"} and not lose_types
+    if kind == "land" and set(extra) == {"layer4"} and set(layer4) == {"add_subtypes"}:
+        from app.rules.type_statics import BASIC
+
+        # 305.7: adding basic land types preserves other subtypes and abilities.
+        return bool(layer4["add_subtypes"]) and set(layer4["add_subtypes"]) <= set(BASIC) and not lose_types
     artifact = layer4.pop("_artifact", False)
     if lose_types and layer4.get("set_types") is None:
         return False  # ("loses all other card types" with no type it is)
@@ -243,7 +258,7 @@ def layer45(state: GameState, card: CardInstance, table: list[Static]) -> list[t
     creature)."""
     return [(st.seq, st.definition) for st in table
             if st.gate is None and st.definition.get("who") == "attached"
-            and (st.definition.get("layer4") or "set_colors" in st.definition or "add_colors" in st.definition)
+            and (st.definition.get("layer4") or "set_colors" in st.definition or "add_colors" in st.definition or "set_name" in st.definition)
             and state.cards[st.source].attached_to == card.id]
 
 

@@ -29,39 +29,41 @@ def put_back(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     # -- trigger tail (wave 16C) -- "Each player puts a card from their hand on top": each in turn order (101.4), one card each
     order = [p for p in plan.apnap() if p in _players(plan, ctx, e["who"])] if e.get("who") else [ctx["controller"]]
-    return _next(plan, ctx, _amount(plan, ctx, e["n"]), order)
+    return _next(plan, ctx, _amount(plan, ctx, e["n"]), order, e.get("place", "top"))
 
 
-def _next(plan: Plan, ctx: Context, want: int, order: list[str]) -> bool:
+def _next(plan: Plan, ctx: Context, want: int, order: list[str], place: str = "top") -> bool:
     for i, pid in enumerate(order):
         hand = list(plan.state.zones.get(zone_key(pid, "hand"), []))
         n = min(want, len(hand))
         if n <= 0:
             continue
         if n == len(hand):
-            if not _move(plan, ctx, pid, hand):
+            if not _move(plan, ctx, pid, hand, place):
                 return False  # (several cards: their order is asked first; one card each otherwise)
             continue
+        where = "on top" if place == "top" else "on the bottom"
         decide(plan, player=pid, kind="choose_cards",
-               prompt=f"Choose {n} card{'s' if n != 1 else ''} from your hand to put on top of your library",
+               prompt=f"Choose {n} card{'s' if n != 1 else ''} from your hand to put {where} of your library",
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
-               min_choices=n, max_choices=n, resume={"step": "put_back", "ctx": ctx, "want": want, "rest": order[i + 1:]})
+               min_choices=n, max_choices=n, resume={"step": "put_back", "ctx": ctx, "want": want, "rest": order[i + 1:], "place": place})
         return False
     return True
 
 
-def _move(plan: Plan, ctx: Context, pid: str, cards: list[str]) -> bool:
+def _move(plan: Plan, ctx: Context, pid: str, cards: list[str], place: str = "top") -> bool:
     """The chosen cards onto the library: one card at once; several in the order their owner chooses (401.4)."""
     from app.rules.effects import _ask_order
 
     if not cards:
         return True
-    plan.note(f"{plan.name(pid)} puts {len(cards)} card{'s' if len(cards) != 1 else ''} from their hand on top of "
+    where = "on top" if place == "top" else "on the bottom"
+    plan.note(f"{plan.name(pid)} puts {len(cards)} card{'s' if len(cards) != 1 else ''} from their hand {where} of "
               "their library", actor=pid)
     if len(cards) == 1:
-        plan.do({"type": "move", "card_ids": cards, "to": {"player": pid, "zone": "library"}, "position": "top"}, actor=pid)
+        plan.do({"type": "move", "card_ids": cards, "to": {"player": pid, "zone": "library"}, "position": place}, actor=pid)
         return True
-    _ask_order(plan, ctx, pid, pid, cards, "top")  # (resume_order_library goes on with the resolution)
+    _ask_order(plan, ctx, pid, pid, cards, place)  # (resume_order_library goes on with the resolution)
     return False
 
 
@@ -71,7 +73,8 @@ def resume_put_back(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx = d.resume["ctx"]
     pid = d.player
     cards = [c for c in chosen if c in plan.state.cards and plan.state.cards[c].zone == zone_key(pid, "hand")]
-    if _move(plan, ctx, pid, cards) and _next(plan, ctx, d.resume.get("want", 0), d.resume.get("rest") or []):
+    place = d.resume.get("place", "top")
+    if _move(plan, ctx, pid, cards, place) and _next(plan, ctx, d.resume.get("want", 0), d.resume.get("rest") or [], place):
         continue_effects(plan, ctx)
 
 

@@ -580,12 +580,15 @@ def lose_mana(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import kept_mana
 
     colorless = kept_mana._colorless(plan)
-    for pid, player in plan.state.players.items():
+    from app.rules import effects
+    players=effects._players(plan,ctx,e['who']) if e.get('who') else list(plan.state.players)
+    for pid in players:
+        player=plan.state.players[pid]
         if pid in colorless:
             kept_mana._to_colorless(plan, pid, {}, [])
         elif any(player.mana.values()) or player.mana_units:
-            plan.do({"type": "rules_mana", "player": pid, "tap": [], "sacrifice": [], "delta": {s_: -n for s_, n in player.mana.items() if n}, "life": 0,
-                     "empty_units": True, "keep_units": [], "label": ""}, actor=plan.active)
+            plan.do({'type':'clear_mana','player':pid},actor=plan.active)
+    kept_mana.clamp(plan.state)
     return True
 
 
@@ -728,7 +731,7 @@ RESUME = {"gc_choose": resume, "gc_bid": resume_bid, "gc_keep": resume_keep, "gc
 
 
 # -- reading the wording ----------------------------------------------------------------------------------------
-_GATE = re.compile(r"\b(?:secretly|[Ee]ach (?:player|opponent) chooses|bid life|[Cc]hoose left or right)\b")
+_GATE = re.compile(r"\b(?:secretly|[Ee]ach (?:player|opponent) chooses|bid life|[Cc]hoose left or right|[Cc]hoose (?:up to )?(?:one|two|three|four|five|six|seven|eight|nine|\d+) .+?, then destroy the rest)\b")
 _TYPE_HEAD = re.compile(r"^[Ee]ach player chooses an? (?P<what>creature type|color|basic land type)\. (?P<rest>.+)$", re.DOTALL)
 _THIS_WAY = re.compile(r"\bof an? (?P<w>type|color|basic land type) chosen this way\b")
 _EACH_RETURNS = re.compile(r"[Ee]ach player returns all (.+?) from their graveyard to the battlefield\.")
@@ -912,6 +915,22 @@ _SAFE = ("You and target opponent each secretly choose 1, 2, or 3.", "Then those
 
 def _chosen_objects(text: str, parse: Any, split_sentences: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
     sentences = split_sentences(text)
+    if len(sentences) == 1 and (keep := re.fullmatch(
+            r"[Cc]hoose (?P<upto>up to )?(?P<n>one|two|three|four|five|six|seven|eight|nine|\d+) "
+            r"(?P<sel>.+?), then destroy the rest\.", sentences[0])) is not None:
+        from app.rules import selectors, values
+
+        sel = selectors.parse(keep["sel"])
+        keep_n = int(keep["n"]) if keep["n"].isdigit() else values.NUMBERS[keep["n"]]
+        if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or keep_n < 1:
+            return None
+        # CR 608.2d: choose on resolution, without targeting, from all eligible
+        # permanents. A separate complement instruction spans every controller;
+        # player_chooses.rest instead refers to that player's own permanents.
+        keep_key = sel.key()
+        return [{"do": "player_chooses", "who": "you", "sel": keep_key, "n": keep_n, "label": keep["sel"],
+                 "any": True, "upto": bool(keep["upto"]), "as": "gco"},
+                {"do": "destroy", "who": f"except:gco|{keep_key}"}], None, False
     if tuple(sentences) == _VOID and (key := _key("creature")) is not None:
         # Call to the Void: a creature they control and a creature they don't, in secret (101.4c: in that order), revealed at once, each destroyed once
         return [{"do": "gc_choose", "who": "each_player", "what": "object", "secret": True, "as": "gc", "kinds": [

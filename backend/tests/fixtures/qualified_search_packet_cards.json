@@ -1,0 +1,810 @@
+[
+  {
+    "name": "Secret Salvage",
+    "layout": "normal",
+    "mana_cost": "{3}{B}{B}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Exile target nonland card from your graveyard. Search your library for any number of cards with the same name as that card, reveal them, put them into your hand, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Infernal Tutor",
+    "layout": "normal",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Reveal a card from your hand. Search your library for a card with the same name as that card, reveal it, put it into your hand, then shuffle.\nHellbent \u2014 If you have no cards in hand, instead search your library for a card, put it into your hand, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Hellbent"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Assembly Hall",
+    "layout": "normal",
+    "mana_cost": "{5}",
+    "cmc": 5.0,
+    "type_line": "Artifact",
+    "oracle_text": "{4}, {T}: Reveal a creature card in your hand. Search your library for a card with the same name as that card, reveal it, put it into your hand, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Mishra, Artificer Prodigy",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{B}{R}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Human Artificer",
+    "oracle_text": "Whenever you cast an artifact spell, you may search your graveyard, hand, and/or library for a card with the same name as that spell and put it onto the battlefield. If you search your library this way, shuffle.",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Doubling Chant",
+    "layout": "normal",
+    "mana_cost": "{5}{G}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "For each creature you control, you may search your library for a creature card with the same name as that creature. Put those cards onto the battlefield, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Clarion Ultimatum",
+    "layout": "normal",
+    "mana_cost": "{G}{G}{W}{W}{W}{U}{U}",
+    "cmc": 7.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose five permanents you control. For each of those permanents, you may search your library for a card with the same name as that permanent. Put those cards onto the battlefield tapped, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "U",
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Canoptek Wraith",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact Creature \u2014 Wraith",
+    "oracle_text": "Wraith Form \u2014 This creature can't be blocked.\nTransdimensional Scout \u2014 When this creature deals combat damage to a player, you may pay {3} and sacrifice it. If you do, choose a land you control. Then search your library for up to two basic land cards which have the same name as the chosen land, put them onto the battlefield tapped, then shuffle.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Transdimensional Scout",
+      "Wraith Form"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Alpine Houndmaster",
+    "layout": "normal",
+    "mana_cost": "{R}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Warrior",
+    "oracle_text": "When this creature enters, you may search your library for a card named Alpine Watchdog and/or a card named Igneous Cur, reveal them, put them into your hand, then shuffle.\nWhenever this creature attacks, it gets +X/+0 until end of turn, where X is the number of other attacking creatures.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Agency Outfitter",
+    "layout": "normal",
+    "mana_cost": "{4}{U}{U}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Sphinx Detective",
+    "oracle_text": "Flying\nWhen this creature enters, you may search your graveyard, hand and/or library for a card named Magnifying Glass and/or a card named Thinking Cap and put them onto the battlefield. If you search your library this way, shuffle.",
+    "power": "4",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Nissa's Encouragement",
+    "layout": "normal",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Search your library and graveyard for a card named Forest, a card named Brambleweft Behemoth, and a card named Nissa, Genesis Mage. Reveal those cards, put them into your hand, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Journey for the Elixir",
+    "layout": "normal",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Search your library and graveyard for a basic land card and a card named Jiang Yanggu, reveal them, put them into your hand, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Verdant Crescendo",
+    "layout": "normal",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Search your library for a basic land card and put it onto the battlefield tapped. Search your library and graveyard for a card named Nissa, Nature's Artisan, reveal it, put it into your hand, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Firemind's Foresight",
+    "layout": "normal",
+    "mana_cost": "{5}{U}{R}",
+    "cmc": 7.0,
+    "type_line": "Instant",
+    "oracle_text": "Search your library for an instant card with mana value 3, reveal it, and put it into your hand. Then repeat this process for instant cards with mana values 2 and 1. Then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Gaea's Balance",
+    "layout": "normal",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice five lands.\nSearch your library for a land card of each basic land type, put those cards onto the battlefield, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Alpine Watchdog",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Dog",
+    "oracle_text": "Vigilance (Attacking doesn't cause this creature to tap.)",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Vigilance"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Igneous Cur",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Elemental Dog",
+    "oracle_text": "{1}{R}: This creature gets +2/+0 until end of turn.",
+    "power": "1",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Magnifying Glass",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}.\n{4}, {T}: Investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Investigate"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Thinking Cap",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +1/+2.\nEquip Detective {1}\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Equip"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Brambleweft Behemoth",
+    "layout": "normal",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Elemental",
+    "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Nissa, Genesis Mage",
+    "layout": "normal",
+    "mana_cost": "{5}{G}{G}",
+    "cmc": 7.0,
+    "type_line": "Legendary Planeswalker \u2014 Nissa",
+    "oracle_text": "+2: Untap up to two target creatures and up to two target lands.\n\u22123: Target creature gets +5/+5 until end of turn.\n\u221210: Look at the top ten cards of your library. You may put any number of creature and/or land cards from among them onto the battlefield. Put the rest on the bottom of your library in a random order.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "5",
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Jiang Yanggu",
+    "layout": "normal",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Legendary Planeswalker \u2014 Yanggu",
+    "oracle_text": "+1: Target creature gets +2/+2 until end of turn.\n\u22121: If you don't control a creature named Mowu, create Mowu, a legendary 3/3 green Dog creature token.\n\u22125: Until end of turn, target creature gains trample and gets +X/+X, where X is the number of lands you control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "4",
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Nissa, Nature's Artisan",
+    "layout": "normal",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Legendary Planeswalker \u2014 Nissa",
+    "oracle_text": "+3: You gain 3 life.\n\u22124: Reveal the top two cards of your library. Put all land cards from among them onto the battlefield and the rest into your hand.\n\u221212: Creatures you control get +5/+5 and gain trample until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "5",
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Fire // Ice",
+    "layout": "split",
+    "mana_cost": "{1}{R} // {1}{U}",
+    "cmc": 4.0,
+    "type_line": "Instant // Instant",
+    "oracle_text": "Fire deals 2 damage divided as you choose among one or two targets.\n//\nTap target permanent.\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Fire",
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant",
+        "oracle_text": "Fire deals 2 damage divided as you choose among one or two targets."
+      },
+      {
+        "name": "Ice",
+        "mana_cost": "{1}{U}",
+        "type_line": "Instant",
+        "oracle_text": "Tap target permanent.\nDraw a card."
+      }
+    ]
+  },
+  {
+    "name": "Opposition Agent",
+    "layout": "normal",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Rogue",
+    "oracle_text": "Flash\nYou control your opponents while they're searching their libraries.\nWhile an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them.",
+    "power": "3",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Aven Mindcensor",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Bird Wizard",
+    "oracle_text": "Flash\nFlying\nIf an opponent would search a library, that player searches the top four cards of that library instead.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Flash"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Containment Priest",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Cleric",
+    "oracle_text": "Flash\nIf a nontoken creature would enter and it wasn't cast, exile it instead.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Grafdigger's Cage",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "Creature cards in graveyards and libraries can't enter the battlefield.\nPlayers can't cast spells from graveyards or libraries.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Sakashima the Impostor",
+    "layout": "normal",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Human Rogue",
+    "oracle_text": "You may have Sakashima the Impostor enter as a copy of any creature on the battlefield, except its name is Sakashima the Impostor, it's legendary in addition to its other types, and it has \"{2}{U}{U}: Return Sakashima the Impostor to its owner's hand at the beginning of the next end step.\"",
+    "power": "3",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Unsummon",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Return target creature to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Cultivate",
+    "layout": "normal",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Plains",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Plains",
+    "oracle_text": "({T}: Add {W}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Disallow",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell, activated ability, or triggered ability. (Mana abilities can't be targeted.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Dryad Arbor",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land Creature \u2014 Forest Dryad",
+    "oracle_text": "(This land isn't a spell, it's affected by summoning sickness, and it has \"{T}: Add {G}.\")",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Stranglehold",
+    "layout": "normal",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Your opponents can't search libraries.\nIf an opponent would begin an extra turn, that player skips that turn instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Grist, the Hunger Tide",
+    "layout": "normal",
+    "mana_cost": "{1}{B}{G}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker \u2014 Grist",
+    "oracle_text": "As long as Grist isn't on the battlefield, it's a 1/1 Insect creature in addition to its other types.\n+1: Create a 1/1 black and green Insect creature token, then mill a card. If an Insect card was milled this way, put a loyalty counter on Grist and repeat this process.\n\u22122: You may sacrifice a creature. When you do, destroy target creature or planeswalker.\n\u22125: Each opponent loses life equal to the number of creature cards in your graveyard.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "3",
+    "defense": null,
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Illusion // Reality",
+    "layout": "split",
+    "mana_cost": "{U} // {2}{G}",
+    "cmc": 4.0,
+    "type_line": "Instant // Instant",
+    "oracle_text": "Target spell or permanent becomes the color of your choice until end of turn.\n//\nDestroy target artifact.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Illusion",
+        "mana_cost": "{U}",
+        "type_line": "Instant",
+        "oracle_text": "Target spell or permanent becomes the color of your choice until end of turn."
+      },
+      {
+        "name": "Reality",
+        "mana_cost": "{2}{G}",
+        "type_line": "Instant",
+        "oracle_text": "Destroy target artifact."
+      }
+    ]
+  },
+  {
+    "name": "Archivist of Oghma",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Halfling Cleric",
+    "oracle_text": "Flash\nWhenever an opponent searches their library, you gain 1 life and draw a card.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flash"
+    ],
+    "card_faces": null
+  }
+]

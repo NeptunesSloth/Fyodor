@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Scheming Symmetry",
+    "oracle_text": "Choose two target players. Each of them searches their library for a card, then shuffles and puts that card on top.",
+    "type_line": "Sorcery",
+    "mana_cost": "{B}",
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal"
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal"
+  },
+  {
+    "name": "Aven Mindcensor",
+    "oracle_text": "Flash\nFlying\nIf an opponent would search a library, that player searches the top four cards of that library instead.",
+    "type_line": "Creature \u2014 Bird Wizard",
+    "mana_cost": "{2}{W}",
+    "power": "2",
+    "toughness": "1",
+    "layout": "normal"
+  },
+  {
+    "name": "Ashiok, Dream Render",
+    "oracle_text": "Spells and abilities your opponents control can't cause their controller to search their library.\n\u22121: Target player mills four cards. Then exile each opponent's graveyard.",
+    "type_line": "Legendary Planeswalker \u2014 Ashiok",
+    "mana_cost": "{1}{U/B}{U/B}",
+    "loyalty": "5",
+    "layout": "normal"
+  }
+]

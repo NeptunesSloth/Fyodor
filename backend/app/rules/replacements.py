@@ -96,7 +96,18 @@ def shock_prompt(name: str, n: int, untapped: bool = False) -> tuple[str, list[D
 
 
 def entry_plan(plan: Plan, card: CardInstance, controller: str, **kw: Any) -> dict[str, Any]:
+    from app.rules import copiable_coin_entry, entry_characteristics
+
+    if (answer := (kw.get("answers") or {}).get(copiable_coin_entry.WHAT)) is not None:
+        copiable_coin_entry.ensure_form(plan, card, controller, answer)
+    card = entry_characteristics.probe(card, kw.pop("entry_characteristics", None))
     out = _entry_plan(plan, card, controller, **kw)
+    from app.rules import numeric_entry_roll42
+
+    if (receipt := numeric_entry_roll42.current_receipt(plan, card, kw.get("answers"))) is not None:
+        out.setdefault("choices", {})[numeric_entry_roll42.WHAT] = receipt.model_dump_json()
+    if (counter_preview := out.pop("_entry_counter_preview", None)) is not None:
+        card = card.model_copy(update={"counters": counter_preview})
     if out.get("tapped") and others_enter_untapped(plan, card, controller):
         out["tapped"] = False
     return out
@@ -127,12 +138,17 @@ def _entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bo
     # -- review (wave 22A) -- 614.12: the permanent as it would exist on the battlefield (Blood Moon, Humility: it has no such abilities)
     defs = [d for d in _definitions(plan, card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})).values()
             if d["kind"] == "replacement"]
+    from app.rules import entry_payment_diversion
+
+    if entry_payment_diversion.applies(plan, card, defs):
+        return {**out, 'divert_zone': 'exile'}
     answers = dict(answers or {})
     named_choices(plan, controller, defs, answers, out)
     from app.rules import battles  # 310.9a: a battle's protector is chosen as it enters
 
     battles.entry_choice(plan, plan.ch(card.model_copy(update={"zone": zone_key(controller, "battlefield"),
                                                                 "controller": controller})), controller, answers, out)
+    entry_x = int((x if x is not None else card.stack_info.x if card.zone == "stack" and card.stack_info is not None else 0) or 0)
     for d in defs:
         kind = d["replacement"]
         if kind == "enters_tapped":
@@ -140,15 +156,16 @@ def _entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bo
             if unless is None or not unless_holds(plan, controller, card, unless):
                 out["tapped"] = True
         # "~ enters tapped with two charge counters on it."; -- entry forms (wave 5F) -- the Thriving lands
-        elif kind in ("enters_with_counters", "enters_choice") and d.get("tapped"):
+        elif (kind in ("enters_with_counters", "enters_choice") and d.get("tapped")
+              or kind == "enters_with_counters" and d.get("tapped_x_max") is not None and entry_x <= d["tapped_x_max"]):
             out["tapped"] = True
     if not out["tapped"] and others_enter_tapped(plan, card, controller):  # -- replacement effects stage 2 (wave 2E) --
         out["tapped"] = True
     for d in defs:
-        if d["replacement"] != "pay_life_or_tapped":
+        if d["replacement"] != "pay_life_or_tapped" and not d.get('pay_life_or_tapped'):
             continue
         life = int(d["life"])
-        if out["tapped"] or "choice" in out:
+        if "choice" in out or (out['tapped'] and not d.get('pay_life_or_tapped')):
             continue  # it enters tapped anyway ("put it onto the battlefield tapped"), or another choice comes first
         untapped = others_enter_untapped(plan, card, controller)  # -- Spelunking (wave 50B) -- the life is still the controller's choice (616.1, ruling 2023-11-10)
         player = plan.state.players.get(controller)
@@ -160,7 +177,8 @@ def _entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bo
             out["tapped"] = True  # 119.4: life can be paid only from a life total of at least that much
             continue
         if pay_life is None:
-            out["choice"] = {"life": life, "untapped": untapped}
+            out["choice"] = {"life": life, "untapped": untapped,
+                             **({'stays_tapped': True} if out['tapped'] and not untapped else {})}
         elif pay_life:
             out["life"] = out.get("life", 0) + life
         else:
@@ -205,10 +223,19 @@ def _entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bo
     if orders:
         out.setdefault("choices", {}).update(orders)
     if "choice" not in out:
+        counter_preview: dict[str, int] = {}
         order = _entering_order_choice(plan, card, controller, x=x, extra=extra, answers=orders,
-                                       choices=answers)  # (wave 3S: the read-ahead number chosen first)
+                                       choices=answers, counter_preview=counter_preview)  # (wave 3S: the read-ahead number chosen first)
         if order is not None:
             out["choice"] = order
+        elif counter_preview:
+            # 614.12: the initial-counter replacement has already modified
+            # the entry event. Read its planned outcome without committing it.
+            incoming = card.model_copy(update={"counters": {**card.counters, **{
+                kind: card.counters.get(kind, 0) + n for kind, n in counter_preview.items()}}})
+            out["_entry_counter_preview"] = dict(incoming.counters)
+            if not out["tapped"] and others_enter_tapped(plan, incoming, controller):
+                out["tapped"] = True
     return out
 
 
@@ -228,7 +255,9 @@ def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answe
                 out.setdefault("choices", {})[what] = answers[what]
             elif "choice" not in out:
                 out["choice"] = {"what": what, **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}), **({"reveal": True} if e.get("reveal") else {}),
-                                 **({"options": e["options"]} if e.get("options") else {})}  # (wave 51C: "choose Elemental, Elf, …": only the creature types listed)
+                                 **({"options": e["options"]} if e.get("options") else {}), **({"random": True} if e.get("random") else {})}  # (wave 51C: "choose Elemental, Elf, …": only the creature types listed)
+                if what == "second color":
+                    out["choice"]["options"] = [o for o in ("White", "Blue", "Black", "Red", "Green") if o != answers.get("color")]
                 if what == "second basic land type":  # (wave 53B: "choose two basic land types" are two different ones)
                     out["choice"]["options"] = [o for o in ("Plains", "Island", "Swamp", "Mountain", "Forest") if o != answers.get("basic land type")]
 
@@ -246,6 +275,17 @@ def others_enter_tapped(plan: Plan, card: CardInstance, controller: str, static:
 
     probe = card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})
     ch = None
+    if static == "enters_tapped_others":
+        from app.rules import timed_damage_replacements
+
+        for record in plan.rules.replacements:
+            if record.get("event") != "enters_tapped" or not timed_damage_replacements.active(plan, record):
+                continue
+            key = (record.get("match") or {}).get("selector")
+            if key:
+                ch = ch if ch is not None else plan.ch(probe)
+                if selectors.matches(plan, selectors.from_key(key), probe, ch, record["controller"], record.get("source_card")):
+                    return True
     for src in plan.state.cards.values():
         if src.id == card.id or not src.zone.endswith(":battlefield") or src.face_down or not plan.in_game(src) \
                 or plan.manual(src):
@@ -306,8 +346,12 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
                 if ab.kind == "keywords" and kw in ab.keywords:
                     from app.rules import keyword_triggers
 
-                    for piece in keyword_triggers.pieces(kw, ab.text):
-                        counters["+1/+1"] = counters.get("+1/+1", 0) + int(piece.split()[1])
+                    if kw == "modular" and keyword_triggers.modular_sunburst(ab.text):
+                        n = _counter_amount(plan, card.id, controller, {"n": {"colors_spent": 1}}, x)
+                        counters["+1/+1"] = counters.get("+1/+1", 0) + n
+                    else:
+                        for piece in keyword_triggers.pieces(kw, ab.text):
+                            counters["+1/+1"] = counters.get("+1/+1", 0) + int(piece.split()[1])
         for ab in ch.abilities:  # -- keywords (wave 15E) -- 702.63a vanishing N / 702.32a fading N: "enters with N time / fade counters"
             for kw, kind in (("vanishing", "time"), ("fading", "fade")):
                 if ab.kind == "keywords" and kw in ab.keywords:
@@ -360,6 +404,8 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
                 from app.rules import chosen as _chosen
 
                 part = _chosen.bind_effects([d["counters"]], d["counters_choice"], picked)[0]
+                if part["n"] == {"entry_opponent_creatures": True}:
+                    part = {**part, "n": {"count": selectors.Selector(types=("Creature",), controller=f"player:{picked}").key()}}
                 if (n := _counter_amount(plan, card.id, controller, part, x, newcomers)) > 0:
                     counters[part["counter"]] = counters.get(part["counter"], 0) + n
         from app.rules import copying
@@ -383,12 +429,21 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
 
     if n := mana_units.entering_counters(plan, card):  # (the spell's payment record follows the permanent: as in ``entered``)
         counters["+1/+1"] = counters.get("+1/+1", 0) + n
+    from app.rules import casting_timing_permissions
+
+    for kind, n in casting_timing_permissions.entering_counters(plan, card, controller, ch).items():
+        counters[kind] = counters.get(kind, 0) + n
+    from app.rules import numeric_entry_roll42
+
+    if n := numeric_entry_roll42.counter_total(plan, card, ch, choices):
+        counters["+1/+1"] = counters.get("+1/+1", 0) + n
     return counters
 
 
 def _entering_order_choice(plan: Plan, card: CardInstance, controller: str, *, x: int | None,
                            extra: dict[str, int] | None, answers: dict[str, str],
-                           choices: dict[str, str] | None = None) -> dict[str, Any] | None:
+                           choices: dict[str, str] | None = None,
+                           counter_preview: dict[str, int] | None = None) -> dict[str, Any] | None:
     """616.1 / 614.12a: when replacement effects would modify the counters a permanent enters with
     and their order matters, its controller chooses before it enters."""
     from app.rules import replace
@@ -403,6 +458,13 @@ def _entering_order_choice(plan: Plan, card: CardInstance, controller: str, *, x
     planned = replace.plan_counters(plan, puts, by=controller, effect=True, entering={card.id: controller},
                                     answers={k[len(ORDER):]: v for k, v in answers.items()}, ask=True)
     if not isinstance(planned, replace.Ask):
+        if counter_preview is not None:
+            counter_preview.update({kind: 0 for kind in counters})
+            for _initial, finals in planned.finals:
+                for event in finals:
+                    if event.get("kind") == "counters" and event.get("card") == card.id and not event.get("prohibited"):
+                        kind = event["counter"]
+                        counter_preview[kind] = counter_preview.get(kind, 0) + max(0, int(event.get("n", 0)))
         return None
     names = " and ".join(c.label for c in planned.applicable)
     options = [(c.id, replace.option_label(c, planned.outcomes)) for c in planned.applicable]
@@ -419,14 +481,35 @@ def choice_needed(plan: Plan, card: CardInstance, entry: Entry) -> dict[str, Any
     if entry.get("modal_back"):  # -- play now (wave 28A) -- 712.12: the land face chosen enters face up, so its replacements apply
         card = card.model_copy(update={"face": 1})
     return entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped")),
-                      answers=entry.get("choices"), x=entry.get("x"), extra=_extra(entry),
-                      reserved=set(entry.get("reserved") or ()), bare=bool(entry.get("bare"))).get("choice")  # (reserved: wave 5G)
+                      answers=entry.get("choices"), x=entry.get("x"), extra=_extra(entry, plan),
+                      reserved=set(entry.get("reserved") or ()), bare=bool(entry.get("bare")), entry_characteristics=entry.get("entry_characteristics")).get("choice")  # (reserved: wave 5G)
 
 
-def _extra(entry: Entry) -> dict[str, int] | None:
+def _extra(entry: Entry, plan: Plan | None = None) -> dict[str, int] | None:
     """The counters the effect putting it onto the battlefield adds (persist / undying: 702.79a, 702.93a)."""
     # (counter_n: wave 3E, "onto the battlefield with three +1/+1 counters on it")
-    return {entry["counter"]: int(entry.get("counter_n") or 1)} if entry.get("counter") else None
+    if '_resolved_extra_counters' in entry:
+        return dict(entry['_resolved_extra_counters']) or None
+    rules = list(entry.get('conditional_counters') or [])
+    if entry.get('counter'):
+        rules.append({'kind': entry['counter'], 'n': int(entry.get('counter_n') or 1), 'sel': entry.get('counter_if')})
+    counters: dict[str, int] = {}
+    for rule in rules:
+        if rule.get('sel') and plan is not None:
+            from app.rules import selectors
+
+            card = plan.state.cards.get(entry['card'])
+            if card is None:
+                continue
+            from app.rules import entry_characteristics
+
+            card = entry_characteristics.probe(card, entry.get('entry_characteristics'))
+            probe = card.model_copy(update={'zone': zone_key(entry['player'], 'battlefield'), 'controller': entry['player']})
+            condition = dataclasses.replace(selectors.from_key(rule['sel']), card=False, zones=('battlefield',))
+            if not selectors.matches(plan, condition, probe, plan.ch(probe), entry['player']):
+                continue
+        counters[rule['kind']] = counters.get(rule['kind'], 0) + int(rule['n'])
+    return counters or None
 
 
 def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, Any]) -> tuple[str, list[DecisionOption]]:
@@ -434,7 +517,13 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
     if "order" in choice:  # -- replacement effects stage 2 (wave 2E): 616.1 before it enters (614.12a) --
         return choice["order"]["prompt"], [DecisionOption(id=cid, label=label) for cid, label in choice["order"]["options"]]
     if "life" in choice:
-        return shock_prompt(card.name, choice["life"], bool(choice.get("untapped")))
+        name = plan.ch(card).name or card.name
+        if choice.get('stays_tapped'):
+            n = choice['life']
+            return (f"{name}: pay {n} life? It enters tapped either way",
+                    [DecisionOption(id='pay', label=f'Pay {n} life (still tapped)'),
+                     DecisionOption(id='tapped', label="Don't pay (tapped)")])
+        return shock_prompt(name, choice["life"], bool(choice.get("untapped")))
     from app.rules.effects import _choice_options
 
     what = choice["what"]
@@ -462,7 +551,7 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
     from app.rules import riot  # -- keywords (wave 15E) --
 
     if riot.is_choice(what):
-        return riot.prompt(plan, card, controller)
+        return riot.prompt(plan, card, controller, what)
     from app.rules import tribute  # -- keywords (wave 50H) --
 
     if tribute.is_choice(what):
@@ -503,6 +592,14 @@ def ask_entry_choice(plan: Plan, entries: list[Entry], index: int, ctx: dict[str
     entry = entries[index]
     card = plan.state.cards[entry["card"]]
     choice = choice_needed(plan, card, entry) or {"life": 0}
+    from app.rules import copiable_coin_entry
+
+    if choice.get("what") == copiable_coin_entry.WHAT:
+        data = {"caller": "entry", "entries": entries, "index": index, "ctx": ctx,
+                "shuffle": shuffle, "object": plan.oid(card)}
+        if copiable_coin_entry.run_coin(plan, entry["player"], data):
+            copiable_coin_entry.resume(plan, data)
+        return
     prompt, options = choice_prompt(plan, card, entry["player"], choice)
     if not options:  # (no opponent left to choose, 800.4: the choice is skipped)
         _enter_again(plan, entries, index, _answer(entry, choice, ""), ctx, shuffle)
@@ -562,8 +659,26 @@ def stack_entry_choice(plan: Plan, card: CardInstance, controller: str) -> bool:
     r = plan.rules
     ep = entry_plan(plan, card, controller, answers=r.entry_choices.get(card.id))
     choice = ep.get("choice")
+    from app.rules import numeric_entry_roll42
+
+    if (not ep.get("divert_zone") and (choice is None or "order" in choice)
+            and numeric_entry_roll42.applies(plan, card, controller)
+            and numeric_entry_roll42.current_receipt(plan, card, r.entry_choices.get(card.id)) is None):
+        if not numeric_entry_roll42.run(plan, card, controller):
+            return True
+        return stack_entry_choice(plan, card, controller)
     if choice is None or "what" not in choice:
         return False  # (a shock land's question is never asked on the stack: the wording is printed on lands)
+    from app.rules import copiable_coin_entry, random_entry_choice
+
+    if choice.get("what") == copiable_coin_entry.WHAT:
+        data = {"caller": "stack", "card": card.id, "object": plan.oid(card)}
+        if not copiable_coin_entry.run_coin(plan, controller, data):
+            return True
+        return stack_entry_choice(plan, card, controller)
+    if (value := random_entry_choice.answer(plan, choice, controller, card.id)) is not None:
+        r.entry_choices.setdefault(card.id, {})[choice["what"]] = value
+        return stack_entry_choice(plan, card, controller)
     prompt, options = choice_prompt(plan, card, controller, choice)
     if not options:
         r.entry_choices.setdefault(card.id, {})[choice["what"]] = ""
@@ -614,7 +729,7 @@ def turn_down(plan: Plan, ep: dict[str, Any], actor: str) -> None:
         plan.do({"type": "face_down", "card_ids": ids, "face_down": True, "kind": "generic"}, actor=actor)
 
 
-def move_together(plan: Plan, entries: list[Entry]) -> None:
+def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, Any] | None = None) -> None:
     """Put cards onto the battlefield at once, each under ``entry["player"]``'s control with its
     "enters" replacements applied: one event (603.6a), every replacement judged against the table
     as it is before any of them enters (614.12: "enters tapped unless you control …" doesn't see a
@@ -632,8 +747,8 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
         planned.append((entry, card, entry_plan(plan, card.model_copy(update={"face": 1}) if entry.get("transformed") or entry.get("modal_back") else card,
                                                  entry["player"], pay_life=entry.get("pay_life"),
                                                  tapped=bool(entry.get("tapped")), answers=entry.get("choices"),
-                                                 x=entry.get("x"), extra=_extra(entry),
-                                                 reserved=set(entry.get("reserved") or ()), bare=bool(entry.get("bare")))))  # (reserved: wave 5G)
+                                                 x=entry.get("x"), extra=_extra(entry, plan),
+                                                 reserved=set(entry.get("reserved") or ()), bare=bool(entry.get("bare")), entry_characteristics=entry.get("entry_characteristics"))))  # (reserved: wave 5G)
     # -- entering for a cost (wave 5G) -- the payment first, or it goes to its owner's graveyard instead (614.6)
     from app.rules import enter_cost
 
@@ -641,7 +756,11 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
     for entry, card, ep in planned:
         if ep.get("pay") and not enter_cost.pay(plan, card, entry["player"], ep["pay"], entry["actor"]):
             ep["divert"] = True
-        if ep.get("divert"):
+        if ep.get('divert_zone') == 'exile':
+            from app.rules import entry_payment_diversion
+
+            entry_payment_diversion.divert(plan, card.id, entry['actor'])
+        elif ep.get("divert"):
             enter_cost.divert(plan, card.id, entry["actor"])
         else:
             kept.append((entry, card, ep))
@@ -656,14 +775,41 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
         turn_down(plan, ep, entry["actor"])
     # -- end entering for a cost (wave 5G) --
     if not planned:
+        if simultaneous is not None:
+            from app.rules import simultaneous_moves
+
+            if simultaneous.get('kind') == 'discard_group':
+                from app.rules import grouped_discard
+
+                grouped_discard.commit(plan, [], simultaneous)
+            else:
+                simultaneous_moves.commit(plan, [], simultaneous)
         return
     for entry, _card, ep in planned:
         if ep.get("life"):
             from app.rules import replace as _replace_life  # (wave 28B: 119.4)
             _replace_life.lose_life(plan, [(entry["player"], int(ep["life"]))], actor=entry["actor"])
+    # CR 614.12: another permanent arriving in this same event cannot change
+    # whether an entry counter condition applied. Preserve even an empty result.
+    for entry, _card, _ep in planned:
+        if entry.get('counter_if') or entry.get('conditional_counters'):
+            entry['_resolved_extra_counters'] = _extra(entry, plan) or {}
+    if simultaneous is not None:
+        from app.rules import simultaneous_moves
+
+        if simultaneous.get('kind') == 'discard_group':
+            from app.rules import grouped_discard
+
+            grouped_discard.commit(plan, planned, simultaneous)
+        else:
+            simultaneous_moves.commit(plan, planned, simultaneous)
+        return
     first = planned[0][0]
     payload: dict[str, Any] = {"type": "move", "card_ids": [c.id for _, c, _ in planned],
                                "to": {"player": first["player"], "zone": "battlefield"}}
+    forms = {c.id: e["entry_characteristics"] for e, c, _ in planned if e.get("entry_characteristics")}
+    if forms:
+        payload["entry_characteristics"] = forms
     tapped = [c.id for _, c, ep in planned if ep["tapped"]]
     if tapped:
         payload["tapped_ids"] = tapped
@@ -682,10 +828,11 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
         _after_move(plan, entry, card.id, ep, together)
 
 
-def _after_move(plan: Plan, entry: Entry, card_id: str, ep: dict[str, Any], together: list[str] | None = None) -> None:
+def _after_move(plan: Plan, entry: Entry, card_id: str, ep: dict[str, Any], together: list[str] | None = None,
+                *, prepared: tuple[Any, Any] | None = None) -> None:
     controller = entry["player"]
-    after_entry(plan, card_id, controller, x=entry.get("x"), extra_counters=_extra(entry), choices=ep.get("choices"),
-                newcomers=together, bare=bool(entry.get("bare")))
+    after_entry(plan, card_id, controller, x=entry.get("x"), extra_counters=_extra(entry, plan), choices=ep.get("choices"),
+                newcomers=together, bare=bool(entry.get("bare")), prepared=prepared)
     entered = plan.state.cards.get(card_id)
     if entered is None or not entered.zone.endswith(":battlefield"):
         return
@@ -709,8 +856,38 @@ def _after_move(plan: Plan, entry: Entry, card_id: str, ep: dict[str, Any], toge
 
 def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any], x: int | None,
                     newcomers: list[str] | None = None) -> int:
+    if d.get("entry_condition") is not None:
+        from app.rules import conditions
+
+        context = {"controller": controller, "source_card": card_id,
+                   "source_object": plan.oid(card_id), "x": x or 0,
+                   "not_yet_entered": [card_id, *(newcomers or ())]}
+        if not conditions.holds(plan, context, d["entry_condition"]):
+            return 0
     n = d["n"]
-    if n == "X":  # the X its spell was cast with (107.3); 0 when it wasn't cast (put onto the battlefield)
+    if isinstance(n, dict) and "entry_x_doubled_at" in n:
+        amount = int(x or 0) * (2 if int(x or 0) >= n["entry_x_doubled_at"] else 1)
+    elif isinstance(n, dict) and n.get("entry_delved_spells"):
+        paid = plan.rules.payments.get(plan.oid(card_id))
+        amount = 0
+        for contribution in paid.contributions if paid is not None else ():
+            if contribution.kind != "delve":
+                continue
+            types = contribution.card_types
+            if types is None:
+                plan.note("The exiled cost card's types weren't saved; put its entry counter on by hand if it was an instant or sorcery", [card_id])
+                continue
+            amount += bool({"Instant", "Sorcery"} & set(types))
+    elif isinstance(n, dict) and n.get("entry_discarded_mana_value"):
+        paid = plan.rules.payments.get(plan.oid(card_id))
+        amount = 0
+        if paid is not None and len(paid.discarded_objects) == 1:
+            oid = paid.discarded_objects[0]
+            discarded = next((c for c in plan.state.cards.values() if plan.oid(c) == oid), None)
+            amount = int(plan.ch(discarded).mana_value) if discarded is not None else paid.discarded_mana_values.get(oid, 0)
+            if discarded is None and oid not in paid.discarded_mana_values:
+                plan.note("The discarded card's last known mana value wasn't saved; put its entry counters on by hand", [card_id])
+    elif n == "X":  # the X its spell was cast with (107.3); 0 when it wasn't cast (put onto the battlefield)
         amount = int(x or 0)
     elif isinstance(n, dict):  # "for each creature card in your graveyard": the values grammar
         # (-- review (wave 26D) -- 614.12: read before it enters: it and what enters with it aren't on the battlefield yet, whatever
@@ -723,8 +900,8 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
     # -- review (wave 4R) -- a spell cast by hand has no payment known (engine.absorb_manual_events): X, converge's
     # kicks read 0 (converge's colors: values.evaluate says so) — say so; its controller adds the counters by hand.
     manual = plan.rules.payments.get(plan.oid(card_id))
-    if manual is not None and not manual.mana_known and (n == "X" or "'x'" in str(n) or d.get("per_kick")
-                                                          or d.get("if_kicked")):
+    uses_x = n == "X" or "'x'" in str(n) or isinstance(n, dict) and "entry_x_doubled_at" in n
+    if manual is not None and not manual.mana_known and (uses_x or d.get("per_kick") or d.get("if_kicked")):
         plan.note(f"{plan.state.cards[card_id].name or 'It'} was cast by hand: what was paid for it isn't known — "
                   "put its counters on by hand", [card_id])
     # -- end review (wave 4R) --
@@ -749,13 +926,14 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
 
 def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = None,
                 extra_counters: dict[str, int] | None = None, choices: dict[str, str] | None = None,
-                newcomers: list[str] | None = None, bare: bool = False) -> None:
+                newcomers: list[str] | None = None, bare: bool = False,
+                prepared: tuple[Any, Any] | None = None, preview: bool = False) -> tuple[Any, Any] | None:
     """The "enters with" part of entering (122.6: counters put on it as it enters, by its controller;
     306.5b: a planeswalker's loyalty), right after the move that put it onto the battlefield, and the
     record of what was chosen as it entered ("Chosen color: Blue" on the permanent, 614.12a)."""
     card = plan.state.cards.get(card_id)
     if card is None or not card.zone.endswith(":battlefield"):
-        return
+        return None
     from app.rules import battles
 
     battles.entered(plan, card_id, choices)  # 310.9a: the protector chosen as it entered
@@ -785,6 +963,10 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
                 from app.rules import chosen
 
                 chosen.record(plan, card_id, value)
+    if not preview:
+        from app.rules import chosen_color_pairs45
+
+        chosen_color_pairs45.record_entry(plan, card_id, choices)
     # -- replacement effects stage 2 (wave 2E): the counters it enters with, through the counter
     # choke point (122.6, 614.16), in the order its controller chose before it entered (614.12a) --
     from app.rules import (
@@ -796,7 +978,7 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         plan.rules.devoured_ids[plan.oid(card)] = devour.picked(choices.get(devour.WHAT))  # (wave 48B: the objects they were, devour.sacrifice)
     from app.rules import layers, riot  # -- keywords (wave 15E) -- 702.136a: "If you don't, it gains haste."
 
-    ch = dataclasses.replace(plan.ch(card), abilities=()) if bare else plan.ch(card)  # (-- review 35 -- ``bare``: no "enters with" of its own)
+    ch = prepared[0] if prepared is not None else dataclasses.replace(plan.ch(card), abilities=()) if bare else plan.ch(card)  # (-- review 35 -- ``bare``: no "enters with" of its own)
     if riot.gains_haste(ch, choices):
         layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=None, controller=controller,
                           add_keywords=("haste",), duration="permanent", label="Haste (riot)")
@@ -808,7 +990,7 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
     from app.rules import mana_units
 
     mana_units.entered(plan, card, controller)  # -- mana provenance (wave 18B) -- 106.6: "it gains haste"
-    counters = entering_counters(plan, card, controller, ch, x=x, extra=extra_counters, choices=choices, newcomers=newcomers)
+    counters = {} if prepared is not None else entering_counters(plan, card, controller, ch, x=x, extra=extra_counters, choices=choices, newcomers=newcomers)
     puts = [(card_id, kind, n) for kind, n in counters.items() if n > 0]
     from app.rules import replace
 
@@ -820,7 +1002,7 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
 
         for d in scripts.definitions(ch).values():
             if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters" and (d.get("grant") or d.get("grant_abilities")) and not d.get("self_in_group") \
-                    and _counter_amount(plan, card.id, controller, d, x, newcomers) > 0:
+                    and _counter_amount(plan, card.id, controller, {**d, "n": 1}, x, newcomers) > 0:
                 layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=None, controller=controller,
                                   add_keywords=tuple(d.get("grant") or ()), add_abilities=list(d.get("grant_abilities") or ()),  # (wave 50H: a granted ability)
                                   duration="permanent", label=f"Enters with {(d.get('grant') or d['grant_abilities'])[0]}")
@@ -828,10 +1010,20 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
                 from app.rules import keyword_actions
 
                 keyword_actions.become_prepared(plan, card)
-    if puts or replace.entering_kinds(plan, replace.candidates(plan, "counters")):
+    if prepared is not None:
+        if prepared[1] is not None:
+            replace.do_counters(plan, prepared[1], by=controller)
+    elif puts or replace.entering_kinds(plan, replace.candidates(plan, "counters")):
         orders = {k[len(ORDER):]: v for k, v in (choices or {}).items() if k.startswith(ORDER)}
+        if preview:
+            counter_plan = replace.plan_counters(plan, puts, by=controller, effect=True, entering={card_id: controller},
+                                                answers=orders, ask=False, newcomers=newcomers)
+            if isinstance(counter_plan, replace.Ask):
+                raise counter_plan
+            return ch, counter_plan
         replace.put_counters(plan, puts, by=controller, effect=True, entering={card_id: controller}, answers=orders,
                              newcomers=newcomers)
+    return (ch, None) if preview else None
 
 
 def _token_probe(controller: str, spec: dict[str, Any]) -> CardInstance:
@@ -860,7 +1052,16 @@ def token_entering(plan: Plan, controller: str, spec: dict[str, Any]) -> tuple[C
         t = {"name": ch.name, "power": ch.power, "toughness": ch.toughness, "colors": sorted(ch.colors), "type_line": copying.type_line(ch),
              "text": ch.oracle_text}
     if "choose" not in (t.get("text") or "").lower():
-        return None
+        from app.rules import copiable_coin_entry, token_copy_entry
+
+        if not any(copiable_coin_entry.definition(line.replace("this creature", "~"))
+                   for line in (t.get("text") or "").splitlines()):
+            return None
+        incoming = token_copy_entry.probe(plan, controller, spec)
+        defs = [d for d in scripts.definitions(plan.ch(incoming)).values()
+                if d.get("replacement") == "enters_choice"
+                and any(e.get("what") == copiable_coin_entry.WHAT for e in d.get("effects", []))]
+        return (incoming, defs) if defs else None
     probe = _token_probe(controller, t)
     defs = [d for d in scripts.definitions(plan.ch(probe)).values() if d["kind"] == "replacement" and d["replacement"] == "enters_choice"]
     return (probe, defs) if defs else None
@@ -870,13 +1071,17 @@ def token_choices(plan: Plan, evs: list[dict[str, Any]], answers: dict[str, str]
     """The entering choices of the tokens these final creation events make, in creation order (APNAP between players, 616.1; each token its own
     question): per event, per token, {"creature type": "Elf", …}; and the first question still open ({"key", "player", "prompt", "options",
     "source"}) or None. A question with no option (no opponent left, 800.4) is skipped."""
-    rows: list[list[dict[str, str]]] = []
+    from app.rules import token_copy_entry
+
+    rows, question = token_copy_entry.copy_choices(plan, evs, answers)
+    if question is not None:
+        return rows, question
     n = 0
-    for ev in evs:
-        pid, row = ev["player"], []
-        if (one := token_entering(plan, pid, ev["token"])) is not None:
-            probe, defs = one
-            for k in range(ev["count"]):
+    for index, ev in enumerate(evs):
+        pid, row = ev["player"], rows[index]
+        for k in range(ev['count']):
+            if (one := token_entering(plan, pid, token_copy_entry.effective(ev, row[k]))) is not None:
+                probe, defs = one
                 got: dict[str, str] = {}
                 while True:
                     out: dict[str, Any] = {}
@@ -887,15 +1092,29 @@ def token_choices(plan: Plan, evs: list[dict[str, Any]], answers: dict[str, str]
                     if key in answers:
                         got[what] = answers[key]
                         continue
+                    from app.rules import copiable_coin_entry, random_entry_choice
+
+                    if what == copiable_coin_entry.WHAT:
+                        return rows, {"key": key, "player": pid, "coin_form": True, "source": ev.get("source")}
+                    if (value := random_entry_choice.answer(plan, choice, pid)) is not None:
+                        answers[key] = got[what] = value
+                        continue
                     prompt, options = choice_prompt(plan, probe, pid, choice)
                     if not options:
                         got[what] = ""
                         continue
                     return rows, {"key": key, "player": pid, "prompt": prompt, "options": options, "source": ev.get("source")}
-                row.append(out.get("choices") or {})
+                row[k] = {**row[k], **(out.get("choices") or {})}
+                from app.rules import copiable_coin_entry
+
+                if (answer := row[k].get(copiable_coin_entry.WHAT)) in ("heads", "tails"):
+                    spec = token_copy_entry.effective(ev, row[k])
+                    recipe = CopyRecipe.model_validate(spec["_copy"])
+                    row[k][token_copy_entry.COPY] = copiable_coin_entry.form_recipe(plan, recipe, answer).model_dump_json()
         n += ev["count"]
-        rows.append(row)
-    return rows, None
+    from app.rules import token_copy_entry
+
+    return token_copy_entry.hosts(plan, evs, rows, answers)
 
 
 def token_enters_tapped(plan: Plan, controller: str, spec: dict[str, Any]) -> bool:
@@ -954,6 +1173,8 @@ def _static_exile_all(plan: Plan, card: CardInstance) -> list[tuple[CardInstance
                 continue
             whose = d.get("graveyard_of", "any")  # "your graveyard" / "an opponent's graveyard"
             if whose == "you" and card.owner != src.controller or whose == "opponent" and card.owner == src.controller:
+                continue
+            if d.get("cycling_not_cycled") and (plan.cycling_card == card.id or not any(k.endswith("cycling") for k in plan.ch(card).keywords)):
                 continue
             who = d.get("who", "any")
             if who == "card" and card.is_token:
@@ -1028,6 +1249,9 @@ class Cand(NamedTuple):
     @property
     def sig(self) -> str:
         """What the effect does, for the 616.1 question: the same result with the same rider needs no choice."""
+        if self.rider is not None and self.rider.get('resolve_exile_record'):
+            key = json.dumps(self.rider['resolve_exile_record'], sort_keys=True, default=str)
+            return f"{self.outcome}+resolve:{hashlib.sha256(key.encode()).hexdigest()[:32]}"
         if self.rider is None:  # (-- linked exile (wave 30H) -- a linked replacement is another result: what it exiles is "exiled with" its object, so 616.1 asks)
             return f"{self.outcome}+{self.link}" if self.link else self.outcome + (f"+{self.counter}" if self.counter else "")
         key = json.dumps([self.rider["controller"], self.rider["effects"], self.rider["reflexive"], self.link], sort_keys=True, default=str)
@@ -1061,6 +1285,8 @@ def zone_candidates(plan: Plan, card: CardInstance, dest: str = "graveyard") -> 
 
 def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand]:
     out: list[Cand] = []
+    if frm == "stack" and plan.oid(card) in plan.rules.bottom_if_graveyard:
+        out.append(Cand("its own cast", "library:bottom", True))
     if frm == "stack" and plan.oid(card) in plan.rules.exile_if_graveyard:  # -- refused look/cast-free (wave 3R5) -- a spell cast
         out.append(Cand("its own cast", "exile", True))  # "without paying …": "If that spell would be put into your graveyard, exile it instead"
     if frm == "battlefield" and card.counters.get("finality", 0) > 0:  # 122.1h (-- refused zones/sized (wave 3R4) --)
@@ -1101,10 +1327,27 @@ def rider_text(rider: dict[str, Any]) -> str:
     return ("later " if rider["reflexive"] else "") + describe(rider["effects"])
 
 
-def move_instead(plan: Plan, cid: str, outcome: str | Cand, actor: str | None) -> None:
+def mark_exiled_counters(plan: Plan, card_ids: list[str], kind: str, *, actor: str) -> None:
+    """Mark cards exiled by a prepared zone replacement (Rayami / Voidwalker).
+
+    These are cards in exile, not permanents or players receiving counters.
+    Call immediately after the committed route, before its rider can move them.
+    """
+    if not card_ids or not kind or any((c := plan.state.cards.get(cid)) is None or not c.zone.endswith(':exile') for cid in card_ids):
+        raise ValueError('Replacement counter marks require current exiled cards')
+    plan.do({'type': 'counter', 'card_ids': card_ids, 'kind': kind, 'delta': 1}, actor=actor)
+
+
+def move_instead(plan: Plan, cid: str, outcome: str | Cand, actor: str | None, *,
+                 shuffle_after: list[str] | None = None) -> None:
     """Carry out a replacement's result for a card that was about to go to a graveyard (and what it adds: a token, life)."""
     if isinstance(outcome, Cand):
-        move_instead(plan, cid, outcome.outcome, actor)
+        if outcome.rider is not None and (outcome.rider.get('resolve_exile_record') or {}).get('optional'):
+            from app.rules import resolve_exile
+
+            resolve_exile.offer_optional(plan, cid, outcome, actor)
+            return
+        move_instead(plan, cid, outcome.outcome, actor, shuffle_after=shuffle_after)
         _record_link(plan, cid, outcome)
         if outcome.counter:  # (it is in exile now: the counter goes on that object)
             plan.do({"type": "counter", "card_ids": [cid], "kind": outcome.counter, "delta": 1}, actor=actor)
@@ -1120,7 +1363,10 @@ def move_instead(plan: Plan, cid: str, outcome: str | Cand, actor: str | None) -
     if where == "shuffle":  # 701.24 (shuffle), "reveal": its name is public as it goes (a card from a hidden zone shows itself)
         plan.note(f"{card.name or 'The card'} is revealed and shuffled into its owner's library instead", [cid])
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "library"}, "position": "top"}, actor=actor)
-        plan.do({"type": "shuffle", "player": owner, "zone": "library"}, actor=owner)
+        if shuffle_after is None:
+            plan.do({"type": "shuffle", "player": owner, "zone": "library"}, actor=owner)
+        else:
+            shuffle_after.append(owner)
         return
     plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "library"}, "position": where}, actor=actor)
 
@@ -1136,6 +1382,11 @@ def _record_link(plan: Plan, cid: str, cand: Cand) -> None:
 def run_rider(plan: Plan, rider: dict[str, Any]) -> None:
     """The extra effects of a replacement ("… and create a 2/2 black Zombie creature token"): part of the replacing event, so
     carried out now by the replacement's controller (614.6); "When you do, …" (603.12) is a reflexive triggered ability."""
+    if rider.get('resolve_exile_record') is not None:
+        from app.rules import resolve_exile
+
+        resolve_exile.after_exile(plan, rider['card'], rider['resolve_exile_record'])
+        return
     src = plan.state.cards.get(rider["source"])
     if src is None:
         return
@@ -1172,28 +1423,77 @@ def offer_616(plan: Plan) -> bool:
         chooser = card.controller if _from_zone(card) in ("battlefield", "stack") else card.owner  # (a spell has a controller too: 110.2, 616.1)
         decide(plan, player=chooser, kind="choose_one",
                prompt=f"{card.name or 'A card'} would be put into a graveyard: which replacement effect applies first? (616.1)",
-               options=[DecisionOption(id=o, label=f"{src}: {p['texts'][o]}") for o, src in p["options"].items()],
+               options=[DecisionOption(id=o, label=f"{src}: {p['texts'][o]}",
+                                       card_id=(((p.get('cands') or {}).get(o) or {}).get('rider') or {}).get('source') or None)
+                        for o, src in p["options"].items()],
                resume={"step": "zone_replace_order", "card": cid}, source=card)
         return True
     return False
 
 
 def resume_616(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import replace
+
     cid = d.resume["card"]
     p = plan.rules.pending_616.pop(cid, None)
     card = plan.state.cards.get(cid)
     if p is None or card is None or plan.oid(card) != p["oid"] or chosen[0] not in p["options"]:
+        replace.run_then(plan, d.resume.get('abort_then') or d.resume.get('then'))
         return
+    commander_key = card.commander_key
     # (review 22C) the effects that applied when the event happened (614.1, 616.1): a source that left with it (Rest in Peace
     # destroyed alongside Progenitus) still applies; recomputing them now could leave the card stranded where it was
     cand = Cand(**p["cands"][chosen[0]]) if chosen[0] in (p.get("cands") or {}) else \
         next((c for c in zone_candidates(plan, card, p["dest"]) if c.sig == chosen[0]), None)
     if cand is None:  # (nothing applies any more: the event goes on as it was, its replacements looked at again)
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": p["dest"]}}, actor=card.controller)
+        _finish_616_then(plan, cid, d.resume.get('then'), commander_key)
         return
     if cand.used:  # (a spell cast "without paying …": its one-shot "exile it instead" is used up, 614.5)
         plan.rules.exile_if_graveyard = [o for o in plan.rules.exile_if_graveyard if o != p["oid"]]
-    move_instead(plan, cid, cand, p.get("actor") or card.controller)
+        plan.rules.bottom_if_graveyard = [o for o in plan.rules.bottom_if_graveyard if o != p["oid"]]
+    from app.game.rules_state import ObjectRef
+
+    saved_after = plan.shuffle_after
+    plan.shuffle_after = [] if p.get("defer_shuffle") else saved_after
+    saved_retained = plan.shuffle_retained
+    plan.shuffle_retained = tuple(ObjectRef.model_validate(ref) for ref in p.get('shuffle_retained', ()))
+    try:
+        move_instead(plan, cid, cand, p.get("actor") or card.controller, shuffle_after=plan.shuffle_after)
+    finally:
+        plan.shuffle_retained = saved_retained
+        deferred = plan.shuffle_after
+        plan.shuffle_after = saved_after
+    if p.get('defer_shuffle') and deferred and d.resume.get('then'):
+        d.resume['then'].setdefault('shuffle_after', []).extend(deferred)
+    _finish_616_then(plan, cid, d.resume.get('then'), commander_key)
+
+
+def _finish_616_then(plan: Plan, cid: str, then: dict[str, Any] | None, commander_key: str | None) -> None:
+    """A resolving caller waits for the selected move's native commander choice too."""
+    from app.rules import replace
+
+    if not then:
+        return
+    # Shuffling gives hidden cards new opaque IDs. Native commander designation
+    # follows that same physical card through this completed zone change.
+    if commander_key:
+        destination = plan.rules.pending_903_9b.get(cid)
+        current = next((c for c in plan.state.cards.values() if c.commander_key == commander_key), None)
+        if destination and current is not None and current.id != cid and _from_zone(current) == destination:
+            plan.rules.pending_903_9b[current.id] = plan.rules.pending_903_9b.pop(cid)
+            cid = current.id
+        cid = next((c for c in plan.rules.pending_903_9b
+                    if c in plan.state.cards and plan.state.cards[c].commander_key == commander_key), cid)
+    if then and cid in plan.rules.pending_903_9b and offer_903_9b(plan, only=cid):
+        assert plan.rules.decision is not None
+        assert plan.rules.decision.resume is not None
+        plan.rules.decision.resume['then'] = then
+        card = plan.state.cards.get(plan.rules.decision.resume['card'])
+        if card is not None:
+            plan.rules.decision.resume['then_object'] = plan.oid(card)
+        return
+    replace.run_then(plan, then)
 
 
 def leave_stack_instead(plan: Plan, card: CardInstance, controller: str) -> bool:
@@ -1206,6 +1506,7 @@ def leave_stack_instead(plan: Plan, card: CardInstance, controller: str) -> bool
     if pick is not None:
         if pick.used:
             plan.rules.exile_if_graveyard = [o for o in plan.rules.exile_if_graveyard if o != plan.oid(card)]
+            plan.rules.bottom_if_graveyard = [o for o in plan.rules.bottom_if_graveyard if o != plan.oid(card)]
         move_instead(plan, card.id, pick, controller)
     return True
 
@@ -1235,7 +1536,8 @@ def kept_counters(plan: Plan, payload: dict[str, Any]) -> dict[str, Any]:
     works in the zone it moves from (the rulings: not with it lost there, Yixlid Jailer), and the counters aren't put on it again (122.6: no doubling, no trigger)."""
     if payload.get("type") != "move" or (payload.get("to") or {}).get("zone") in ("hand", "library"):
         return payload
-    keep = [cid for cid in payload.get("card_ids") or [] if (c := plan.state.cards.get(cid)) is not None and c.counters
+    keep = [cid for cid in payload.get("card_ids") or [] if (payload.get("routes", {}).get(cid, payload.get("to") or {})).get("zone") not in ("hand", "library")
+            and (c := plan.state.cards.get(cid)) is not None and c.counters
             and any(d.get("static") == "keep_counters" for d in _definitions(plan, c).values())]
     return {**payload, "keep_counters": keep} if keep else payload
 
@@ -1246,9 +1548,16 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
     asked. Self-replacement first (614.15), then the object's own and the statics' "exile instead"
     (all of which agree, so there is no 616.1 choice to make), then madness, then 903.9b."""
     kind = payload.get("type")
+    if kind == "move":
+        from app.rules import creature_entry_redirect
+
+        payload = creature_entry_redirect.move(plan, payload)
     if kind == "mill":
         return _replace_mill(plan, payload, actor)
     if kind != "move":
+        return payload
+    if payload.get("routes"):
+        # Each route was prepared against the same pre-event environment.
         return payload
     dest = (payload.get("to") or {}).get("zone")
     r = plan.rules
@@ -1294,6 +1603,7 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
                 continue
             if pick.used:  # (a spell cast "without paying …": its one-shot "exile it instead" is used up, 614.5)
                 r.exile_if_graveyard = [o for o in r.exile_if_graveyard if o != oid]
+                r.bottom_if_graveyard = [o for o in r.bottom_if_graveyard if o != oid]
             if frm == "battlefield":  # (it leaves: the object is gone, and a "leaves the battlefield" record with it)
                 r.exile_if_leaves = [o for o in r.exile_if_leaves if o != oid]
             replaced.append((cid, pick.outcome, pick.label))
@@ -1312,6 +1622,10 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
                 r.pending_903_9b[cid] = dest  # asked right after the move (sba → offer_903_9b)
     for cid in held:  # (review 23D: who moved it, for "a spell or ability an opponent controls causes you to discard", 701.9)
         r.pending_616[cid]["actor"] = actor
+        if plan.shuffle_after is not None:
+            r.pending_616[cid]["defer_shuffle"] = True
+        if plan.shuffle_retained:
+            r.pending_616[cid]['shuffle_retained'] = [ref.model_dump(mode='json') for ref in plan.shuffle_retained]
     if held:  # -- zone replacements (wave 22C) -- they stay put until chosen (616.1: offer_616, before anyone gets priority)
         if dest == "graveyard":  # (review 22C: a held discard is discarded all the same, 701.9a, whichever replacement applies)
             from app.rules import history
@@ -1327,13 +1641,22 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
 
         history.note_discards(plan, [cid for cid in [c for c, _, _ in replaced] + [c for c, _ in madness]
                                      if _from_zone(plan.state.cards[cid]) == "hand"])
+    if (dest == "library" and payload.get("library_positions") is not None and replaced
+            and not held and not madness and not riders and not links and not marks
+            and all(zone in ("command", "exile") for _, zone, _ in replaced)):
+        # All choices and native replacements were prepared against the same table above.
+        # Keep this opt-in event atomic, including merged commanders' other physical cards.
+        outcomes = {cid: zone for cid, zone, _ in replaced}
+        routes = {cid: {"player": plan.state.cards[cid].owner, "zone": outcomes.get(cid, "library")}
+                  for cid in payload["card_ids"]}
+        return {**payload, "routes": routes, "rest_zone": "library"}
     for cid, zone, _why in replaced:
         owner = plan.state.cards[cid].owner
         # (-- merged permanents (wave 18D) -- 903.9c: the cards of a merged / melded commander that aren't commanders go where it was headed)
         also = {"rest_zone": dest, **{k: payload[k] for k in ("position", "index") if payload.get(k) is not None}} \
             if zone == "command" and plan.state.cards[cid].merged and dest in ("hand", "library") else {}  # (review 18D: top / bottom too)
         if zone.startswith("library:"):  # -- instead (wave 20B) -- on top of / on the bottom of its owner's library (22C: or shuffled in)
-            move_instead(plan, cid, zone, actor)
+            move_instead(plan, cid, zone, actor, shuffle_after=plan.shuffle_after)
             continue
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": zone}, **also}, actor=actor)
         if cid in links:
@@ -1372,6 +1695,9 @@ def _replace_mill(plan: Plan, payload: dict[str, Any], actor: str | None) -> dic
     if not any(picks.values()):
         return payload
     changed: list[str] = []
+    # Finish the simultaneous mill before shuffling: shuffles replace hidden IDs,
+    # and the other cards selected for this mill must still go to their destinations.
+    shuffle_after: list[str] = []
     for cid in top:
         card = plan.state.cards[cid]
         pick = _pick(plan, card, picks[cid], "graveyard") if picks[cid] else ""
@@ -1381,27 +1707,31 @@ def _replace_mill(plan: Plan, payload: dict[str, Any], actor: str | None) -> dic
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "graveyard"}}, actor=actor)
             continue
         changed.append(cid)
-        move_instead(plan, cid, pick, actor)
+        move_instead(plan, cid, pick, actor, shuffle_after=shuffle_after)
+    for owner in shuffle_after:
+        plan.do({"type": "shuffle", "player": owner, "zone": "library"}, actor=owner)
     return {"type": "rules_log", "text": f"{plan.name(pid)} milled {len(top)}: replaced by other effects", "card_ids": changed[:20]}
 
 
 def _madness_cost(plan: Plan, card: CardInstance) -> str | None:
     """702.35a madness: a card discarded from a hand is discarded into exile instead."""
-    from app.rules.casting import MADNESS, keyword_cost  # casting → plan → this module
+    from app.rules import madness_costs
 
     if plan.manual(card):
         return None
-    return keyword_cost(plan.ch(card), "madness", MADNESS)
+    return next((cost for ab in plan.ch(card).abilities if ab.kind == "keywords" and "madness" in ab.keywords
+                 and (cost := madness_costs.line(ab.text)) is not None), None)
 
 
-def _discard_into_exile(plan: Plan, cid: str, cost: str, actor: str | None) -> None:
+def _discard_into_exile(plan: Plan, cid: str, cost: str, actor: str | None, *, already_moved: bool = False) -> None:
     """702.35a: "… discard it into exile. When this card is exiled this way, its owner may cast it by
     paying [cost] rather than its mana cost. If that player doesn't, they put this card into their
     graveyard." — the exile, then the reflexive trigger that offers the cast."""
     from app.rules.triggers import _add
 
     card = plan.state.cards[cid]
-    plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
+    if not already_moved:
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
     plan.rules.free_casts.append(cid)
     plan.rules.alt_costs[cid] = cost
     _add(plan, controller=card.owner, source_card=cid, source_object=plan.oid(cid), name=card.name, index=8000,
@@ -1409,7 +1739,7 @@ def _discard_into_exile(plan: Plan, cid: str, cost: str, actor: str | None) -> N
                      "effects": [{"do": "madness_offer", "card": cid, "cost": cost}]})
 
 
-def offer_903_9b(plan: Plan) -> bool:
+def offer_903_9b(plan: Plan, *, only: str | None = None) -> bool:
     """A commander that was just put into its owner's hand or library without a known answer to
     903.9b: ask its owner now (the one place, whatever moved it). Returns True while a question is
     open. The answer is remembered (the 903.9a memory key with the destination as its context), so
@@ -1418,6 +1748,8 @@ def offer_903_9b(plan: Plan) -> bool:
 
     r = plan.rules
     for cid, dest in list(r.pending_903_9b.items()):
+        if only is not None and cid != only:
+            continue
         card = plan.state.cards.get(cid)
         if card is None or _from_zone(card) != dest or not card.commander_key or card.owner not in plan.live():
             r.pending_903_9b.pop(cid, None)  # it went on elsewhere: the moment has passed
@@ -1434,7 +1766,7 @@ def offer_903_9b(plan: Plan) -> bool:
 
 # Effect primitives that may put a card from a public zone into its owner's hand or library.
 MOVERS_903_9B = frozenset({"bounce", "return_card", "return_choice", "return_yours", "to_library", "shuffle_library",
-                           "delayed_move"})
+                           "delayed_move", "counter"})
 
 
 def ask_903_9b_first(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -1452,6 +1784,8 @@ def ask_903_9b_first(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool
     from app.rules.plan import Plan, decide
 
     if e.get("do") not in MOVERS_903_9B:
+        return False
+    if e.get("do") == "counter" and e.get("to") not in ("hand", "top", "bottom"):
         return False
     live = plan.live()
     r = plan.rules
@@ -1499,11 +1833,15 @@ def resume_commander_first(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 def resume_commander_instead(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import replace
+
     cid = d.resume["card"]
     plan.rules.pending_903_9b.pop(cid, None)
     card = plan.state.cards.get(cid)
-    if chosen[0] == "yes" and card is not None and _from_zone(card) == d.resume["dest"]:
+    if chosen[0] == "yes" and card is not None and _from_zone(card) == d.resume["dest"] \
+            and (not d.resume.get('then_object') or plan.oid(card) == d.resume['then_object']):
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "command"}}, actor=card.owner)
+    replace.run_then(plan, d.resume.get('then'))
 
 
 # -- damage prevention (615) ------------------------------------------------------------------------
@@ -1525,10 +1863,10 @@ def _static_records(plan: Plan) -> list[dict[str, Any]]:
 def _records(plan: Plan) -> list[dict[str, Any]]:
     """Prevention effects in force: statics of permanents on the battlefield, then this turn's
     records (a record from another turn has expired: "this turn")."""
-    turn = plan.state.turn.number
+    from app.rules.timed_damage_replacements import active
+
     r = plan.rules
-    if any(rec.get("turn") != turn for rec in r.replacements):
-        r.replacements = [rec for rec in r.replacements if rec.get("turn") == turn]
+    r.replacements = [rec for rec in r.replacements if active(plan, rec)]
     return _static_records(plan) + [rec for rec in r.replacements if rec.get("kind") == "prevent"]
 
 
@@ -1655,5 +1993,6 @@ def prevent_all(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     plan.rules.replacements.append({"id": secrets.token_hex(4), "kind": "prevent", "turn": plan.state.turn.number,
                                     "controller": ctx["controller"], "source": source,
                                     "source_card": ctx.get("source_card"), "scope": scope,
+                                    **({"until": "next_turn", "until_player": ctx["controller"]} if e.get("duration") == "next_turn" else {}),
                                     **({"rider": e["rider"]} if e.get("rider") else {})})  # (wave 17A) 615.5
     return True

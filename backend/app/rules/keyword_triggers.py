@@ -100,8 +100,18 @@ _COSTED = frozenset({"squad", "offspring"})  # keywords written with a cost (pai
 _NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular", "graft", "annihilator", "afflict", "mobilize", "vanishing", "fading", "backup", "rampage", "hideaway"})
 
 
+def modular_sunburst(line: str) -> bool:
+    from app.rules.oracle import strip_reminders
+
+    return strip_reminders(line).strip().rstrip(".").lower() == "modular—sunburst"
+
+
 def pieces(kw: str, line: str) -> list[str]:
     """The pieces of a keyword line that are this keyword ("Flying, battle cry" → ["battle cry"])."""
+    if kw == "modular" and modular_sunburst(line):
+        # Its triggered half is ordinary modular; entry computes the variable
+        # count separately from mana colors (702.44c), rather than this zero.
+        return ["modular 0"]
     out = []
     for p in re.split(r"[,;]\s*", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".")):
         p = p.strip().lower()
@@ -135,6 +145,8 @@ def _definition(piece: str) -> str | None:
         d = scripts.define(ab, Characteristics(name="\u0000", abilities=(ab,), types=frozenset({"Creature"})))
         if d is None or d.get("kind") != "triggered" or not scripts._event_refs_ok(d):
             return None
+        if kw == 'evolve':
+            d = {**d, 'effects': [{'do': 'evolve_outcome', 'stage': 'mark'}, *d['effects'], {'do': 'evolve_outcome', 'stage': 'finish'}]}
         if kw == "exploit":  # (702.110b: the sacrifice is what "exploits a creature")
             d = {**d, "effects": [{**x, "exploit": True} for x in d["effects"]]}
         if kw == "hideaway":  # -- hideaway (wave 29D) -- 607.2a: the card exiled is the one the permanent's other abilities call "the exiled card"

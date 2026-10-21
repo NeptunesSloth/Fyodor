@@ -171,7 +171,6 @@ def test_the_cards_are_full(name):
     # cost changers that read something this grammar doesn't (targets, the first spell each turn, chosen names)
     # ("Spells you cast that target enchanted player cost {1} less to cast." is read since wave 53C: Infectious Curse, tests/test_rules_wave53c_block_events.py)
     "Spells with the chosen name cost {3} more to cast.",
-    "Activated abilities cost {2} more to activate unless they're mana abilities.",
 ])
 def test_wordings_still_refused(text):
     assert permissions.define_static(text[0].lower() + text[1:], "static") is None

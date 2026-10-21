@@ -1,0 +1,45 @@
+[
+  {
+    "name": "Demonic Counsel",
+    "layout": "normal",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Search your library for a Demon card, reveal it, put it into your hand, then shuffle.\nDelirium \u2014 If there are four or more card types among cards in your graveyard, instead search your library for any card, put it into your hand, then shuffle.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Delirium"
+    ],
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null
+  },
+  {
+    "name": "Demon of Catastrophes",
+    "layout": "normal",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Demon",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nFlying, trample",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying",
+      "Trample"
+    ],
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null
+  }
+]

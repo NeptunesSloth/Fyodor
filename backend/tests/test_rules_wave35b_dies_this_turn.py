@@ -22,7 +22,7 @@ from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_attachments import token
 from tests.test_rules_conditionals import settle, until
 from tests.wave9c_kit import build, card_named, cast, check, life, mana, put, reloaded, to_hand
@@ -33,7 +33,7 @@ EXTRA = [card(c["name"], set_code="w35b", number=f"B{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 FULL = ["Rushed Rebirth", "Burn Away", "Fatal Fissure", "Adarkar Valkyrie", "Fight for the Throne", "Devouring Tendrils",
         "Skeletonize", "Reckless Blaze", "Ghired's Belligerence"]
-MANUAL = ["Time to Feed", "Reincarnation", "Touch of Moonglove", "Whippoorwill", "Heroic Sacrifice", "End-Blaze Epiphany", "Runesword",
+MANUAL = ["Touch of Moonglove", "Whippoorwill", "Heroic Sacrifice", "End-Blaze Epiphany", "Runesword",
           "Kjeldoran Guard"]
 
 
@@ -420,11 +420,11 @@ def test_reckless_blaze_adds_red_for_each_of_your_creatures_dealt_damage_this_wa
     to_hand(s, "Reckless Blaze")
     mana(s, R=5)
     cast(s, "Reckless Blaze")
-    assert s.state.players["p1"].mana == {"R": 2}  # (Bears and Elves; the opponent's Finks gives nothing: not a creature you control)
+    assert mana_pool(s) == {"R": 2}  # (Bears and Elves; the opponent's Finks gives nothing: not a creature you control)
     assert len(delayed(s)) == 1 and delayed(s)[0].once is False
     s = reloaded(s)
     kill(s, next(c for c in s.state.cards.values() if c.name == "Survivor"))
-    assert s.state.players["p1"].mana == {"R": 3}  # the one that survived 5 damage died later this turn: it was dealt damage this way
+    assert mana_pool(s) == {"R": 3}  # the one that survived 5 damage died later this turn: it was dealt damage this way
     check(s)
 
 
@@ -498,3 +498,13 @@ def test_the_shapes_that_need_more_stay_manual(name):
     c = next(c for c in DATA if c["name"] == name)
     chs = characteristics(c["name"], c["type_line"], c["oracle_text"])
     assert coverage.of_characteristics(chs).level != "FULL"
+
+
+@pytest.mark.parametrize("name", ["Time to Feed", "Reincarnation"])
+def test_exact_target_death_followthrough_now_native(name):
+    # Canonical gameplay, original ownership and cold resume are verified in
+    # test_rules_bound_delayed35.py; these old refusals are now supported.
+    from tests.test_rules_scripts import ch as characteristics
+
+    c = next(c for c in DATA if c["name"] == name)
+    assert coverage.of_characteristics(characteristics(c["name"], c["type_line"], c["oracle_text"])).level == "FULL"

@@ -11,7 +11,7 @@
   controller.
 * 122.1b, 613.1f, 613.7c: a keyword counter gives its keyword in layer 6, ordered by the timestamp the newest
   counter of that kind got (a later "loses all abilities" removes it; a new counter of that kind gives it again).
-  Exalted and decayed counters stay manual.
+  Exalted and decayed counter scenarios are in test_rules_triggered_keyword_counters.py.
 
 Every scenario uses real Oracle text and checks the replay and a save/load round trip.
 """

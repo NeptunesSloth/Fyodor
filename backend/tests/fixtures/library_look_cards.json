@@ -1,0 +1,148 @@
+[
+  {
+    "name": "Dimir Charm",
+    "mana_cost": "{U}{B}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose one \u2014\n\u2022 Counter target sorcery spell.\n\u2022 Destroy target creature with power 2 or less.\n\u2022 Look at the top three cards of target player's library. Put one back and the rest into that player's graveyard.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Tahngarth's Glare",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Look at the top three cards of target opponent's library, then put them back in any order. That player looks at the top three cards of your library, then puts them back in any order.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Ransack",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Look at the top five cards of target player's library. Put any number of them on the bottom of that library in any order and the rest on top of the library in any order.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Wand of Denial",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Look at the top card of target player's library. If it's a nonland card, you may pay 2 life. If you do, put it into that player's graveyard.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Psychic Surgery",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever an opponent shuffles their library, you may look at the top two cards of that library. You may exile one of those cards. Then put the rest on top of that library in any order.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Feldon's Cane",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}, Exile this artifact: Shuffle your graveyard into your library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Disenchant",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  },
+  {
+    "name": "Rest in Peace",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal",
+    "card_faces": null
+  }
+]

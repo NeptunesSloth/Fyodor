@@ -296,7 +296,7 @@ def test_birgi_boast_twice_from_the_real_double_faced_card(cards, face):
 
 
 # -- 4I: "Activated abilities of white enchantments cost {3} more" reaches mana abilities too (602.2b, 605.3a) ----------
-def test_gloom_taxes_a_white_enchantments_mana_ability_so_it_is_left_to_the_player(cards):
+def test_gloom_taxes_a_white_enchantments_mana_ability_with_native_input_payment(cards):
     from app.game.errors import ActionError
     from app.rules import casting
     from app.rules import mana as M
@@ -308,6 +308,12 @@ def test_gloom_taxes_a_white_enchantments_mana_ability_so_it_is_left_to_the_play
     assert casting.can_pay(s.state, "p1", M.parse_cost("{W}"), s.cards)  # (no Gloom yet)
     on_battlefield(s, "Gloom")
     assert not casting.can_pay(s.state, "p1", M.parse_cost("{W}"), s.cards)  # (its mana ability costs {3} now)
-    with pytest.raises(ActionError, match="by hand"):
+    with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=shrine.id, ability=0)
     assert not s.state.cards[shrine.id].tapped
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 3})
+    act(s, "p1", type="activate_ability", card_id=shrine.id, ability=0)
+    from tests.game_helpers import mana_pool
+
+    assert s.state.cards[shrine.id].tapped and mana_pool(s, "p1") == {"W": 1}
+    replay_matches(s)

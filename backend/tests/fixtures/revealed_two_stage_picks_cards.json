@@ -1,0 +1,275 @@
+[
+  {
+    "id": "8317a072-e0b6-44c7-b86a-282136e50e7b",
+    "oracle_id": "e4bfe005-7c4e-4178-ae41-a28eb2352ad1",
+    "name": "Bounty of Skemfar",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "638",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Reveal the top six cards of your library. You may put up to one land card from among them onto the battlefield tapped and up to one Elf card from among them into your hand. Put the rest on the bottom of your library in a random order.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Colin Boyer",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "184c985d-cb70-41a7-9f66-3506708b7e26",
+    "oracle_id": "0221330a-3e7a-40aa-9c78-85c88a4c1a53",
+    "name": "Green Sun's Twilight",
+    "layout": "normal",
+    "set_code": "one",
+    "set_name": "Phyrexia: All Will Be One",
+    "collector_number": "169",
+    "rarity": "rare",
+    "mana_cost": "{X}{G}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Reveal the top X plus one cards of your library. Choose a creature card and/or a land card from among them. Put those cards into your hand and the rest on the bottom of your library in a random order. If X is 5 or more, instead put the chosen cards onto the battlefield or into your hand and the rest on the bottom of your library in a random order.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-02-10",
+    "artist": "Yeong-Hao Han",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "8b893d46-25f0-4c6a-b9a3-ff25277be918",
+    "oracle_id": "b8add484-8ed1-4a1c-aff9-dec65d60e4b1",
+    "name": "Wakanda Forever!",
+    "layout": "normal",
+    "set_code": "msc",
+    "set_name": "Marvel Super Heroes Commander",
+    "collector_number": "71",
+    "rarity": "rare",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Reveal the top six cards of your library. You may put a permanent card from among them onto the battlefield with an indestructible counter on it. You may put a permanent card from among them into your hand. Put the rest into your graveyard.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-06-26",
+    "artist": "Eli Minaya",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "name": "Trained Armodon",
+    "layout": "normal",
+    "mana_cost": "{1}{G}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Elephant",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Darksteel Myr",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact Creature \u2014 Myr",
+    "oracle_text": "Indestructible (Damage and effects that say \"destroy\" don't destroy this creature. If its toughness is 0 or less, it still dies.)",
+    "power": "0",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Indestructible"
+    ]
+  },
+  {
+    "name": "Llanowar Elves",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grafdigger's Cage",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "Creature cards in graveyards and libraries can't enter the battlefield.\nPlayers can't cast spells from graveyards or libraries.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Hardened Scales",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Doubling Season",
+    "layout": "normal",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Dryad Arbor",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land Creature \u2014 Forest Dryad",
+    "oracle_text": "(This land isn't a spell, it's affected by summoning sickness, and it has \"{T}: Add {G}.\")",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Stormscale Anarch",
+    "layout": "normal",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Lizard Shaman",
+    "oracle_text": "{2}{R}, Discard a card at random: This creature deals 2 damage to any target. If the discarded card was multicolored, this creature deals 4 damage instead.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  }
+]

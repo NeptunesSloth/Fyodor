@@ -1,0 +1,386 @@
+[
+  {
+    "name": "Descendants' Path",
+    "layout": "normal",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, reveal the top card of your library. If it's a creature card that shares a creature type with a creature you control, you may cast it without paying its mana cost. If you don't cast it, put it on the bottom of your library.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Elvish Mystic",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Universal Automaton",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact Creature \u2014 Shapeshifter",
+    "oracle_text": "Changeling (This card is every creature type.)",
+    "power": "1",
+    "toughness": "1",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Changeling"
+    ]
+  },
+  {
+    "name": "Maskwood Nexus",
+    "layout": "normal",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "Creatures you control are every creature type. The same is true for creature spells you control and creature cards you own that aren't on the battlefield.\n{3}, {T}: Create a 2/2 blue Shapeshifter creature token with changeling. (It is every creature type.)",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Grist, the Hunger Tide",
+    "layout": "normal",
+    "mana_cost": "{1}{B}{G}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker \u2014 Grist",
+    "oracle_text": "As long as Grist isn't on the battlefield, it's a 1/1 Insect creature in addition to its other types.\n+1: Create a 1/1 black and green Insect creature token, then mill a card. If an Insect card was milled this way, put a loyalty counter on Grist and repeat this process.\n\u22122: You may sacrifice a creature. When you do, destroy target creature or planeswalker.\n\u22125: Each opponent loses life equal to the number of creature cards in your graveyard.",
+    "loyalty": "3",
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Valki, God of Lies // Tibalt, Cosmic Impostor",
+    "layout": "modal_dfc",
+    "mana_cost": "{1}{B} // {5}{B}{R}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 God // Legendary Planeswalker \u2014 Tibalt",
+    "oracle_text": "When Valki enters, each opponent reveals their hand. For each opponent, exile a creature card they revealed this way until Valki leaves the battlefield.\n{X}: Choose a creature card exiled with Valki with mana value X. Valki becomes a copy of that card.\n//\nAs Tibalt enters, you get an emblem with \"You may play cards exiled with Tibalt, Cosmic Impostor, and you may spend mana as though it were mana of any color to cast those spells.\"\n+2: Exile the top card of each player's library.\n\u22123: Exile target artifact or creature.\n\u22128: Exile all graveyards. Add {R}{R}{R}.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Valki, God of Lies",
+        "mana_cost": "{1}{B}",
+        "type_line": "Legendary Creature \u2014 God",
+        "oracle_text": "When Valki enters, each opponent reveals their hand. For each opponent, exile a creature card they revealed this way until Valki leaves the battlefield.\n{X}: Choose a creature card exiled with Valki with mana value X. Valki becomes a copy of that card.",
+        "power": "2",
+        "toughness": "1",
+        "colors": [
+          "B"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "normal": "https://cards.scryfall.io/normal/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "large": "https://cards.scryfall.io/large/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969"
+        }
+      },
+      {
+        "name": "Tibalt, Cosmic Impostor",
+        "mana_cost": "{5}{B}{R}",
+        "type_line": "Legendary Planeswalker \u2014 Tibalt",
+        "oracle_text": "As Tibalt enters, you get an emblem with \"You may play cards exiled with Tibalt, Cosmic Impostor, and you may spend mana as though it were mana of any color to cast those spells.\"\n+2: Exile the top card of each player's library.\n\u22123: Exile target artifact or creature.\n\u22128: Exile all graveyards. Add {R}{R}{R}.",
+        "loyalty": "5",
+        "colors": [
+          "B",
+          "R"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "normal": "https://cards.scryfall.io/normal/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "large": "https://cards.scryfall.io/large/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Bonecrusher Giant // Stomp",
+    "layout": "adventure",
+    "mana_cost": "{2}{R} // {1}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Giant // Instant \u2014 Adventure",
+    "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.\n//\nDamage can't be prevented this turn. Stomp deals 2 damage to any target.",
+    "power": "4",
+    "toughness": "3",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Bonecrusher Giant",
+        "mana_cost": "{2}{R}",
+        "type_line": "Creature \u2014 Giant",
+        "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.",
+        "power": "4",
+        "toughness": "3"
+      },
+      {
+        "name": "Stomp",
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant \u2014 Adventure",
+        "oracle_text": "Damage can't be prevented this turn. Stomp deals 2 damage to any target."
+      }
+    ]
+  },
+  {
+    "name": "Dryad Arbor",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land Creature \u2014 Forest Dryad",
+    "oracle_text": "(This land isn't a spell, it's affected by summoning sickness, and it has \"{T}: Add {G}.\")",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Endless One",
+    "layout": "normal",
+    "mana_cost": "{X}",
+    "cmc": 0.0,
+    "type_line": "Creature \u2014 Eldrazi",
+    "oracle_text": "This creature enters with X +1/+1 counters on it.",
+    "power": "0",
+    "toughness": "0",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Skaab Ruinator",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Zombie Horror",
+    "oracle_text": "As an additional cost to cast this spell, exile three creature cards from your graveyard.\nFlying\nYou may cast this card from your graveyard.",
+    "power": "5",
+    "toughness": "6",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Demon of Catastrophes",
+    "layout": "normal",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Demon",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nFlying, trample",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Grinning Demon",
+    "layout": "normal",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Demon",
+    "oracle_text": "At the beginning of your upkeep, you lose 2 life.\nMorph {2}{B}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Morph"
+    ]
+  },
+  {
+    "name": "Rule of Law",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Each player can't cast more than one spell each turn.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Essence Scatter",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target creature spell.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Bloodline Shaman",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Elf Wizard Shaman",
+    "oracle_text": "{T}: Choose a creature type. Reveal the top card of your library. If that card is a creature card of the chosen type, put it into your hand. Otherwise, put it into your graveyard.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Arcane Adaptation",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "As this enchantment enters, choose a creature type.\nCreatures you control are the chosen type in addition to their other types. The same is true for creature spells you control and creature cards you own that aren't on the battlefield.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mistform Ultimus",
+    "layout": "normal",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Illusion",
+    "oracle_text": "Mistform Ultimus is every creature type (even if this card isn't on the battlefield).",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Tormenting Voice",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "As an additional cost to cast this spell, discard a card.\nDraw two cards.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "God-Eternal Bontu",
+    "layout": "normal",
+    "mana_cost": "{3}{B}{B}",
+    "cmc": 5.0,
+    "type_line": "Legendary Creature \u2014 Zombie God",
+    "oracle_text": "Menace\nWhen God-Eternal Bontu enters, sacrifice any number of other permanents, then draw that many cards.\nWhen God-Eternal Bontu dies or is put into exile from the battlefield, you may put her into her owner's library third from the top.",
+    "power": "5",
+    "toughness": "6",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Menace"
+    ]
+  }
+]

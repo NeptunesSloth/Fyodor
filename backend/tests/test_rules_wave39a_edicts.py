@@ -724,12 +724,12 @@ def test_unread_wordings_stay_manual(text):
     assert coverage.of_characteristics(chs).level != "FULL"
 
 
-def test_a_static_grant_of_flanking_to_creatures_with_flanking_stays_manual():
-    """Cavalry Master: another instance of flanking for each — triggers.flanking counts printed instances only, so the grant would do nothing."""
+def test_a_static_grant_of_flanking_to_creatures_with_flanking_is_supported():
+    """Cavalry Master grants a distinct keyword ability; combat scenarios verify both triggers."""
     from tests.test_rules_scripts import ch as characteristics
 
     chs = characteristics("Cavalry Master", "Creature — Human Knight", "Flanking\nOther creatures you control with flanking have flanking.")
-    assert coverage.of_characteristics(chs).level != "FULL"
+    assert coverage.of_characteristics(chs).level == "FULL"
 
 
 # == Rhystic Circle: "Any player may pay {1}. If no one does, …" ==

@@ -1,0 +1,11 @@
+# Nonmana declaration costs
+
+Leviathan, Exalted Dragon, Floodtide Serpent, Hollow Warrior, Flooded Woodlands, and Reclamation use the existing declaration legality and payment pipeline. Their sacrifices, returns, and taps are costs of declaring attackers or blockers, rather than spell or ability costs. An attack or block requirement does not force a player to pay them (CR 508.1d and 509.1c).
+
+The parser produces ordinary typed cost components. Players choose resources and, when multiple components exist, their payment order before committing payment. A battlefield-resource preflight checks exact objects and projects taps and departures. This permits tapping a creature and then sacrificing it for distinct costs, refuses sacrificing it before tapping it, and checks changes to land types caused by departing Auras. This preflight deliberately does not speculate through arbitrary replacement-effect rider choices.
+
+The scoped `cost_moves` continuation snapshots native zone-replacement candidates for each simultaneous component. Replacement and commander choices precede its single native move; replacement riders finish through the existing effect continuation before the next component or final declaration. Choices, original object identities, replacement candidates, and pending riders serialize into saved games. The module registers through the engine bootstrap for fresh-process resumes.
+
+While mana is being paid, selected future cost objects are reserved by exact object identity. A selected land can provide ordinary tap mana before being sacrificed. Its self-sacrifice mana ability cannot consume the same resource twice. Cancellation restores the prior declaration question and clears the reservation. Finished declarations use the existing prepared attacker/blocker frames.
+
+Canonical tests exercise all six cards, simultaneous two-Island sacrifice, color-specific fees, shared tap-then-sacrifice resources, actual Spreading Seas resource dependencies, commander return choices, Ashaya/Progenitus/Rest in Peace replacement ordering, Kalitas/Divine Visitation/Chatterfang replacement riders, and Dwarven Ruins automatic and manual payment. Fresh-process tests resume resource selection, commander selection, replacement selection, token-rider ordering, and manual mana payment, then verify event replay.

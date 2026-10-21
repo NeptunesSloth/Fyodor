@@ -1,0 +1,507 @@
+[
+  {
+    "name": "Subtlety",
+    "layout": "normal",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Elemental Incarnation",
+    "oracle_text": "Flash\nFlying\nWhen this creature enters, choose up to one target creature spell or planeswalker spell. Its owner puts it on their choice of the top or bottom of their library.\nEvoke\u2014Exile a blue card from your hand.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Evoke",
+      "Flash"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Aether Gust",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose target spell or permanent that's red or green. Its owner puts it on their choice of the top or bottom of their library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Endless Detour",
+    "layout": "normal",
+    "mana_cost": "{G}{W}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "The owner of target spell, nonland permanent, or card in a graveyard puts it on their choice of the top or bottom of their library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "U",
+      "W"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Aetherspouts",
+    "layout": "normal",
+    "mana_cost": "{3}{U}{U}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "For each attacking creature, its owner puts it on their choice of the top or bottom of their library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Hinder",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell. If that spell is countered this way, put that card on your choice of the top or bottom of its owner's library instead of into that player's graveyard.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Power of Persuasion",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose target creature an opponent controls, then roll a d20.\n1\u20149 | Return it to its owner's hand.\n10\u201419 | Its owner puts it on their choice of the top or bottom of their library.\n20 | Gain control of it until the end of your next turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Carnage Tyrant",
+    "layout": "normal",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Dinosaur",
+    "oracle_text": "This spell can't be countered.\nTrample, hexproof",
+    "power": "7",
+    "toughness": "6",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Hexproof",
+      "Trample"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Chandra, Torch of Defiance",
+    "layout": "normal",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Legendary Planeswalker \u2014 Chandra",
+    "oracle_text": "+1: Exile the top card of your library. You may cast that card. If you don't, Chandra deals 2 damage to each opponent.\n+1: Add {R}{R}.\n\u22123: Chandra deals 4 damage to target creature.\n\u22127: You get an emblem with \"Whenever you cast a spell, this emblem deals 5 damage to any target.\"",
+    "power": null,
+    "toughness": null,
+    "loyalty": "4",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Forest",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Island",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Sol Ring",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Commandeer",
+    "layout": "normal",
+    "mana_cost": "{5}{U}{U}",
+    "cmc": 7.0,
+    "type_line": "Instant",
+    "oracle_text": "You may exile two blue cards from your hand rather than pay this spell's mana cost.\nGain control of target noncreature spell. You may choose new targets for it. (If that spell is an artifact, enchantment, or planeswalker, the permanent enters under your control.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Swat Away",
+    "layout": "normal",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "This spell costs {2} less to cast if a creature is attacking you.\nThe owner of target spell or creature puts it on their choice of the top or bottom of their library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Tolarian Contempt",
+    "layout": "normal",
+    "mana_cost": "{3}{U}{U}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, put a rejection counter on each creature your opponents control.\nAt the beginning of your end step, for each opponent, choose up to one target creature they control with a rejection counter on it. That creature's owner puts it on their choice of the top or bottom of their library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Goblin Piker",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Goblin Warrior",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Serra Angel",
+    "layout": "normal",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Angel",
+    "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Vigilance"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Gemrazer",
+    "layout": "mutate",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Beast",
+    "oracle_text": "Mutate {1}{G}{G} (If you cast this spell for its mutate cost, put it over or under target non-Human creature you own. They mutate into the creature on top plus all abilities from under it.)\nReach, trample\nWhenever this creature mutates, destroy target artifact or enchantment an opponent controls.",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Reach",
+      "Mutate",
+      "Trample"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Arbor Elf",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Untap target Forest.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Progenitus",
+    "layout": "normal",
+    "mana_cost": "{W}{W}{U}{U}{B}{B}{R}{R}{G}{G}",
+    "cmc": 10.0,
+    "type_line": "Legendary Creature \u2014 Hydra Avatar",
+    "oracle_text": "Protection from everything\nIf Progenitus would be put into a graveyard from anywhere, reveal Progenitus and shuffle it into its owner's library instead.",
+    "power": "10",
+    "toughness": "10",
+    "loyalty": null,
+    "colors": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Protection"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Command Tower",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "{T}: Add one mana of any color in your commander's color identity.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Dregscape Zombie",
+    "layout": "normal",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Zombie",
+    "oracle_text": "Unearth {B} ({B}: Return this card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.)",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Unearth"
+    ],
+    "faces": []
+  },
+  {
+    "name": "Krenko, Mob Boss",
+    "layout": "normal",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Goblin Warrior",
+    "oracle_text": "{T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "faces": []
+  },
+  {
+    "name": "Atraxa, Praetors' Voice",
+    "layout": "normal",
+    "mana_cost": "{G}{W}{U}{B}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Phyrexian Angel Horror",
+    "oracle_text": "Flying, vigilance, deathtouch, lifelink\nAt the beginning of your end step, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "colors": [
+      "B",
+      "G",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Deathtouch",
+      "Flying",
+      "Lifelink",
+      "Vigilance",
+      "Proliferate"
+    ],
+    "faces": []
+  }
+]

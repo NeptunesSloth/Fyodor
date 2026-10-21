@@ -1,0 +1,357 @@
+[
+  {
+    "name": "Quiet Speculation",
+    "mana_cost": "{1}{U}",
+    "type_line": "Sorcery",
+    "oracle_text": "Search target player's library for up to three cards with flashback and put them into that player's graveyard. Then the player shuffles.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 2.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Knowledge Exploitation",
+    "mana_cost": "{5}{U}{U}",
+    "type_line": "Kindred Sorcery \u2014 Rogue",
+    "oracle_text": "Prowl {3}{U} (You may cast this for its prowl cost if you dealt combat damage to a player this turn with a Rogue.)\nSearch target opponent's library for an instant or sorcery card. You may cast that card without paying its mana cost. Then that player shuffles.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 7.0,
+    "keywords": [
+      "Prowl"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Suffer the Past",
+    "mana_cost": "{X}{B}",
+    "type_line": "Instant",
+    "oracle_text": "Exile X target cards from target player's graveyard. For each card exiled this way, that player loses 1 life and you gain 1 life.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Elite Spellbinder",
+    "mana_cost": "{2}{W}",
+    "type_line": "Creature \u2014 Human Cleric",
+    "oracle_text": "Flying\nWhen this creature enters, look at target opponent's hand. You may exile a nonland card from it. For as long as that card remains exiled, its owner may play it. A spell cast this way costs {2} more to cast.",
+    "power": "3",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 3.0,
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Spoils of Evil",
+    "mana_cost": "{2}{B}",
+    "type_line": "Instant",
+    "oracle_text": "For each artifact or creature card in target opponent's graveyard, add {C} and you gain 1 life.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 3.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Cruel Calculations",
+    "mana_cost": "{2}{U}",
+    "type_line": "Sorcery",
+    "oracle_text": "Draw X cards, where X is the number of cards that were put into target player's graveyard from their library this turn.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 3.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Drafna's Restoration",
+    "mana_cost": "{U}",
+    "type_line": "Sorcery",
+    "oracle_text": "Put any number of target artifact cards from target player's graveyard on top of their library in any order.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Grinning Totem",
+    "mana_cost": "{4}",
+    "type_line": "Artifact",
+    "oracle_text": "{2}, {T}, Sacrifice this artifact: Search target opponent's library for a card and exile it. Then that player shuffles. Until the beginning of your next upkeep, you may play that card. At the beginning of your next upkeep, if you haven't played it, put it into its owner's graveyard.",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 4.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Nightmare Incursion",
+    "mana_cost": "{5}{B}",
+    "type_line": "Sorcery",
+    "oracle_text": "Search target player's library for up to X cards, where X is the number of Swamps you control, and exile them. Then that player shuffles.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 6.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Agonizing Memories",
+    "mana_cost": "{2}{B}{B}",
+    "type_line": "Sorcery",
+    "oracle_text": "Look at target player's hand and choose two cards from it. Put them on top of that player's library in any order.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 4.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Guiding Spirit",
+    "mana_cost": "{1}{W}{U}",
+    "type_line": "Creature \u2014 Angel Spirit",
+    "oracle_text": "Flying\n{T}: If the top card of target player's graveyard is a creature card, put that card on top of that player's library.",
+    "power": "1",
+    "toughness": "2",
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "cmc": 3.0,
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Haunting Echoes",
+    "mana_cost": "{3}{B}{B}",
+    "type_line": "Sorcery",
+    "oracle_text": "Exile all cards from target player's graveyard other than basic land cards. For each card exiled this way, search that player's library for all cards with the same name as that card and exile them. Then that player shuffles.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 5.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "You Find Some Prisoners",
+    "mana_cost": "{1}{R}",
+    "type_line": "Instant",
+    "oracle_text": "Choose one \u2014\n\u2022 Break Their Chains \u2014 Destroy target artifact.\n\u2022 Interrogate Them \u2014 Exile the top three cards of target opponent's library. Choose one of them. Until the end of your next turn, you may play that card, and you may spend mana as though it were mana of any color to cast it.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 2.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Court of Locthwain",
+    "mana_cost": "{2}{B}{B}",
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, you become the monarch.\nAt the beginning of your upkeep, exile the top card of target opponent's library. You may play that card for as long as it remains exiled, and mana of any type can be spent to cast it. If you're the monarch, until end of turn, you may cast a spell from among cards exiled with this enchantment without paying its mana cost.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 4.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Rashmi and Ragavan",
+    "mana_cost": "{1}{G}{U}{R}",
+    "type_line": "Legendary Creature \u2014 Elf Monkey",
+    "oracle_text": "Whenever you cast your first spell during each of your turns, exile the top card of target opponent's library and create a Treasure token. Then you may cast the exiled card without paying its mana cost if it's a spell with mana value less than the number of artifacts you control. If you don't cast it this way, you may cast it this turn.",
+    "power": "2",
+    "toughness": "4",
+    "colors": [
+      "G",
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "R",
+      "U"
+    ],
+    "cmc": 4.0,
+    "keywords": [
+      "Treasure"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Apple of Eden, Isu Relic",
+    "mana_cost": "{4}",
+    "type_line": "Legendary Artifact",
+    "oracle_text": "{T}, Pay 4 life, Sacrifice Apple of Eden: Look at target opponent's hand and exile those cards face down. You may play those cards this turn, and mana of any type can be spent to cast them. Until end of turn, whenever you play a land or cast a spell this way, its owner draws a card. At the beginning of the next end step, return the exiled cards to their owner's hand. Activate only as a sorcery.",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 4.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Think Twice",
+    "oracle_text": "Draw a card.\nFlashback {2}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "mana_cost": "{1}{U}",
+    "type_line": "Instant",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 2.0,
+    "keywords": [
+      "Flashback"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Fervor",
+    "oracle_text": "Creatures you control have haste. (They can attack and {T} as soon as they come under your control.)",
+    "mana_cost": "{2}{R}",
+    "type_line": "Enchantment",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 3.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Leyline of Sanctity",
+    "mana_cost": "{2}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If this card is in your opening hand, you may begin the game with it on the battlefield.\nYou have hexproof. (You can't be the target of spells or abilities your opponents control.)",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Tangled Florahedron // Tangled Vale",
+    "layout": "modal_dfc",
+    "mana_cost": "{1}{G} // ",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Elemental // Land",
+    "oracle_text": "{T}: Add {G}.\n//\nThis land enters tapped.\n{T}: Add {G}.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "power": "1",
+    "toughness": "1",
+    "card_faces": [
+      {
+        "object": "card_face",
+        "name": "Tangled Florahedron",
+        "mana_cost": "{1}{G}",
+        "type_line": "Creature \u2014 Elemental",
+        "oracle_text": "{T}: Add {G}.",
+        "power": "1",
+        "toughness": "1",
+        "colors": [
+          "G"
+        ]
+      },
+      {
+        "object": "card_face",
+        "name": "Tangled Vale",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "This land enters tapped.\n{T}: Add {G}.",
+        "colors": []
+      }
+    ]
+  },
+  {
+    "name": "Rest in Peace",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  }
+]

@@ -1,0 +1,50 @@
+[
+  {
+    "name": "You've Been Caught Stealing",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose one \u2014\n\u2022 Threaten the Merchant \u2014 Each creature blocks this turn if able.\n\u2022 Bribe the Guards \u2014 You create a Treasure token for each opponent who was dealt damage this turn. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Bribe the Guards",
+      "Treasure",
+      "Threaten the Merchant"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Fervor",
+    "oracle_text": "Creatures you control have haste. (They can attack and {T} as soon as they come under your control.)",
+    "mana_cost": "{2}{R}",
+    "type_line": "Enchantment",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 3.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Ornithopter",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "oracle_text": "Flying",
+    "power": "0",
+    "toughness": "2",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ]
+  }
+]

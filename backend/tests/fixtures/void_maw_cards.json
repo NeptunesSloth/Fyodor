@@ -1,0 +1,39 @@
+[
+  {
+    "id": "ba464b81-2633-4422-a4b5-3593dfb7e7aa",
+    "oracle_id": "ad2a1b07-58f5-44c2-92e0-464ea2d45e7e",
+    "name": "Void Maw",
+    "layout": "normal",
+    "set_code": "csp",
+    "set_name": "Coldsnap",
+    "collector_number": "74",
+    "rarity": "rare",
+    "mana_cost": "{4}{B}{B}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Horror",
+    "oracle_text": "Trample\nIf another creature would die, exile it instead.\nPut a card exiled with this creature into its owner's graveyard: This creature gets +2/+2 until end of turn.",
+    "power": "4",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Trample"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2006-07-21",
+    "artist": "E. M. Gist",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

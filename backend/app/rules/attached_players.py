@@ -45,17 +45,23 @@ def does_the_same(parsed: tuple[list[dict[str, Any]], Any, bool]) -> tuple[list[
     return effects + [{**e, "who": "attacking_opponents"} for e in effects], target, optional
 
 
-def attacking_opponents(plan: Plan, ctx: dict[str, Any]) -> list[str]:
-    me = ctx["controller"]
+def enchanted_player(plan: Plan, ctx: dict[str, Any]) -> list[str]:
+    """The Aura's player now, or its last attachment for the exact departed source object (608.2h)."""
     src = plan.state.cards.get(ctx.get("source_card") or "")
-    enchanted: str | None = None
-    if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
-        enchanted = src.attached_player
+    if src is not None and src.zone.endswith(":battlefield") and (ctx.get("source_object") is None or plan.oid(src) == ctx["source_object"]):
+        player = src.attached_player
     else:
         snap = plan.rules.lki.get(ctx.get("source_object") or "")
-        enchanted = snap.attached_player if snap is not None else None
-    if enchanted is None:
+        player = snap.attached_player if snap is not None else None
+    return [player] if player is not None and player in plan.live() else []
+
+
+def attacking_opponents(plan: Plan, ctx: dict[str, Any]) -> list[str]:
+    me = ctx["controller"]
+    players = enchanted_player(plan, ctx)
+    if len(players) != 1:
         return []
+    enchanted = players[0]
     live = plan.live()
     return [p for p in plan.state.seat_order if p in live and p != me and any(
         c.controller == p and c.attacking is not None and c.attacking.kind == "player" and c.attacking.id == enchanted

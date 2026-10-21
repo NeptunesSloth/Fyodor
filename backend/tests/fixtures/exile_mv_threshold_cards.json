@@ -1,0 +1,246 @@
+[
+  {
+    "name": "Tasha's Hideous Laughter",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Each opponent exiles cards from the top of their library until that player has exiled cards with total mana value 20 or greater.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Dream Harvest",
+    "layout": "normal",
+    "mana_cost": "{5}{U/B}{U/B}",
+    "cmc": 7.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Each opponent exiles cards from the top of their library until they have exiled cards with total mana value 5 or greater this way. Until end of turn, you may cast cards exiled this way without paying their mana costs.",
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Opt",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Scry"
+    ]
+  },
+  {
+    "name": "Emrakul, the Aeons Torn",
+    "layout": "normal",
+    "mana_cost": "{15}",
+    "cmc": 15.0,
+    "type_line": "Legendary Creature \u2014 Eldrazi",
+    "oracle_text": "This spell can't be countered.\nWhen you cast this spell, take an extra turn after this one.\nFlying, protection from spells that are one or more colors, annihilator 6\nWhen Emrakul is put into a graveyard from anywhere, its owner shuffles their graveyard into their library.",
+    "power": "15",
+    "toughness": "15",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying",
+      "Annihilator",
+      "Protection"
+    ]
+  },
+  {
+    "name": "Endless One",
+    "layout": "normal",
+    "mana_cost": "{X}",
+    "cmc": 0.0,
+    "type_line": "Creature \u2014 Eldrazi",
+    "oracle_text": "This creature enters with X +1/+1 counters on it.",
+    "power": "0",
+    "toughness": "0",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Ancestral Vision",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Suspend 4\u2014{U} (Rather than cast this card from your hand, pay {U} and exile it with four time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)\nTarget player draws three cards.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Suspend"
+    ]
+  },
+  {
+    "name": "Valki, God of Lies // Tibalt, Cosmic Impostor",
+    "layout": "modal_dfc",
+    "mana_cost": "{1}{B} // {5}{B}{R}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 God // Legendary Planeswalker \u2014 Tibalt",
+    "oracle_text": "When Valki enters, each opponent reveals their hand. For each opponent, exile a creature card they revealed this way until Valki leaves the battlefield.\n{X}: Choose a creature card exiled with Valki with mana value X. Valki becomes a copy of that card.\n//\nAs Tibalt enters, you get an emblem with \"You may play cards exiled with Tibalt, Cosmic Impostor, and you may spend mana as though it were mana of any color to cast those spells.\"\n+2: Exile the top card of each player's library.\n\u22123: Exile target artifact or creature.\n\u22128: Exile all graveyards. Add {R}{R}{R}.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Valki, God of Lies",
+        "mana_cost": "{1}{B}",
+        "type_line": "Legendary Creature \u2014 God",
+        "oracle_text": "When Valki enters, each opponent reveals their hand. For each opponent, exile a creature card they revealed this way until Valki leaves the battlefield.\n{X}: Choose a creature card exiled with Valki with mana value X. Valki becomes a copy of that card.",
+        "power": "2",
+        "toughness": "1",
+        "colors": [
+          "B"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "normal": "https://cards.scryfall.io/normal/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "large": "https://cards.scryfall.io/large/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969"
+        }
+      },
+      {
+        "name": "Tibalt, Cosmic Impostor",
+        "mana_cost": "{5}{B}{R}",
+        "type_line": "Legendary Planeswalker \u2014 Tibalt",
+        "oracle_text": "As Tibalt enters, you get an emblem with \"You may play cards exiled with Tibalt, Cosmic Impostor, and you may spend mana as though it were mana of any color to cast those spells.\"\n+2: Exile the top card of each player's library.\n\u22123: Exile target artifact or creature.\n\u22128: Exile all graveyards. Add {R}{R}{R}.",
+        "loyalty": "5",
+        "colors": [
+          "B",
+          "R"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "normal": "https://cards.scryfall.io/normal/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "large": "https://cards.scryfall.io/large/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Fire // Ice",
+    "layout": "split",
+    "mana_cost": "{1}{R} // {1}{U}",
+    "cmc": 4.0,
+    "type_line": "Instant // Instant",
+    "oracle_text": "Fire deals 2 damage divided as you choose among one or two targets.\n//\nTap target permanent.\nDraw a card.",
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Fire",
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant",
+        "oracle_text": "Fire deals 2 damage divided as you choose among one or two targets."
+      },
+      {
+        "name": "Ice",
+        "mana_cost": "{1}{U}",
+        "type_line": "Instant",
+        "oracle_text": "Tap target permanent.\nDraw a card."
+      }
+    ]
+  },
+  {
+    "name": "Fling",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nFling deals damage equal to the sacrificed creature's power to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rule of Law",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Each player can't cast more than one spell each turn.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  }
+]

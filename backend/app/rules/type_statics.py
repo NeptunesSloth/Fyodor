@@ -103,6 +103,14 @@ def _everywhere(subject: str, same: str) -> dict[str, Any] | None:
 def parse(text: str) -> dict[str, Any] | None:
     """One static line (the card's own name written as ~) → its definition, or None."""
     text = re.sub(r"^[A-Z][A-Za-z' -]+ — ", "", text)  # (an ability word, 207.2c, has no rules meaning: "Hypertoxic Miasma — …")
+    if text == "Lands you control and land cards in your library are basic.":
+        return _definition("lands you control", {"add_supertypes": ["Basic"]},
+                           everywhere={"own": True, "types": ["Land"], "not_types": [], "permanent": False, "zones": ["library"]})
+    if text in ("~ is every nonbasic land type.", "This land is every nonbasic land type."):
+        from app.rules.statics import _definition as self_grant
+
+        # The subtype CDA itself is applied in characteristics, in every zone (604.3a).
+        return self_grant("self", None, [])
     if (m := _EACH_LAND.fullmatch(text)) is not None:
         return _definition("lands", {"add_subtypes": [m["t"]]})
     if (m := _EVERY_BASIC.fullmatch(text)) is not None:

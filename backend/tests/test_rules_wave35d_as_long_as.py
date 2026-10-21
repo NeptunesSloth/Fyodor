@@ -42,7 +42,7 @@ FULL = ["Sting, the Glinting Dagger", "Frodo Baggins", "Balan, Wandering Knight"
         "Rampaging Soulrager", "Security Bypass", "Snow Devil", "Goblin Caves", "Arcades Sabboth", "Homicidal Seclusion", "Verge Rangers",
         "The Reality Chip", "Crashing Tide", "Supernatural Rescue", "The Wondrous Wasp", "Hobble", "Augur of Autumn",
         "Summoning Materia", "Scarring Memories", "Captain America, Super-Soldier", "Conqueror's Flail", "Thunderstaff", "Hedron-Field Purists",
-        "Spirit of Resistance", "Aether Revolt", "Anthem of Rakdos", "Vampire Socialite", "Merfolk Trickster", "Gutter Skulker // Gutter Shortcut", "Goblin Shrine", "Deadly Wanderings"]
+        "Spirit of Resistance", "Aether Revolt", "Anthem of Rakdos", "Vampire Socialite", "Merfolk Trickster", "Gutter Skulker // Gutter Shortcut", "Goblin Shrine", "Deadly Wanderings", "Bronze Horse"]
 
 
 # Refused, not guessed: each stays manual until its rule is modelled.
@@ -53,8 +53,8 @@ FULL = ["Sting, the Glinting Dagger", "Frodo Baggins", "Balan, Wandering Knight"
 # * (Archelos - "enter tapped" and "enter untapped" replacements whose order the affected permanent's controller chooses (616.1) - is read since wave 49B, as Horizon Explorer's
 #   "enter untapped" is (wave 45A): the permanent's controller takes untapped: test_rules_wave49b_commanders.py)
 # * (Sting - "blocking or blocked by a Goblin or Orc", a relation between the equipped creature and the creature it fights - is read since wave 45A: test_rules_wave45a_attacked.py)
-# * Bronze Horse: "prevent all damage … by spells that target it" (its unconditional wording isn't read).
-MANUAL = ["Croakid Amphibonaut", "Manor Gargoyle", "Warmonger's Chariot", "Grond, the Gatebreaker", "Bronze Horse"]
+# Bronze Horse now has canonical spell-target/other-creature gameplay in test_rules_conditional_prevention.py.
+MANUAL = ["Croakid Amphibonaut", "Manor Gargoyle", "Warmonger's Chariot", "Grond, the Gatebreaker"]
 
 
 @pytest.fixture()

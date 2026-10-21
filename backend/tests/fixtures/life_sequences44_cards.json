@@ -1,0 +1,2515 @@
+[
+  {
+    "id": "a58deb8a-1c4b-4e3d-9c00-63f615f358c0",
+    "oracle_id": "c3974ec7-7af0-4b65-baf6-4c1c4fe8a5c4",
+    "name": "Ajani, Strength of the Pride",
+    "layout": "normal",
+    "set_code": "j22",
+    "set_name": "Jumpstart 2022",
+    "collector_number": "141",
+    "rarity": "mythic",
+    "mana_cost": "{2}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Legendary Planeswalker \u2014 Ajani",
+    "oracle_text": "+1: You gain life equal to the number of creatures you control plus the number of planeswalkers you control.\n\u22122: Create a 2/2 white Cat Soldier creature token named Ajani's Pridemate with \"Whenever you gain life, put a +1/+1 counter on this token.\"\n0: If you have at least 15 life more than your starting life total, exile Ajani and each artifact and creature your opponents control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "5",
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-12-02",
+    "artist": "Chris Rallis",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "7801c326-d740-4cec-9268-05348ace8302",
+        "name": "Ajani's Pridemate",
+        "type_line": "Token Creature \u2014 Cat Soldier"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "c2933144-c931-498a-9e91-f5165873c3b7",
+    "oracle_id": "0a01dd05-e289-489f-b3ad-88e15e157bd0",
+    "name": "Sorin, Grim Nemesis",
+    "layout": "normal",
+    "set_code": "soi",
+    "set_name": "Shadows over Innistrad",
+    "collector_number": "251",
+    "rarity": "mythic",
+    "mana_cost": "{4}{W}{B}",
+    "cmc": 6.0,
+    "type_line": "Legendary Planeswalker \u2014 Sorin",
+    "oracle_text": "+1: Reveal the top card of your library and put that card into your hand. Each opponent loses life equal to its mana value.\n\u2212X: Sorin deals X damage to target creature or planeswalker and you gain X life.\n\u22129: Create a number of 1/1 black Vampire Knight creature tokens with lifelink equal to the highest life total among all players.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "6",
+    "defense": null,
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2016-04-08",
+    "artist": "Eric Deschamps",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "8989fdb4-723b-4c80-89b4-930ccac13b22",
+        "name": "Vampire Knight",
+        "type_line": "Token Creature \u2014 Vampire Knight"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "17d1a10f-ce21-4914-9984-c7c559161230",
+    "oracle_id": "447de961-106c-4189-83ce-ca63d487e1cd",
+    "name": "Biorhythm",
+    "layout": "normal",
+    "set_code": "9ed",
+    "set_name": "Ninth Edition",
+    "collector_number": "231",
+    "rarity": "rare",
+    "mana_cost": "{6}{G}{G}",
+    "cmc": 8.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Each player's life total becomes the number of creatures they control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2005-07-29",
+    "artist": "Ron Spears",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "e37b31b8-d868-4dff-9ab0-723ce41ee7e4",
+    "oracle_id": "0d6dc95d-55ce-4ef8-b065-d7203f5bf642",
+    "name": "Resolute Archangel",
+    "layout": "normal",
+    "set_code": "m15",
+    "set_name": "Magic 2015",
+    "collector_number": "28",
+    "rarity": "rare",
+    "mana_cost": "{5}{W}{W}",
+    "cmc": 7.0,
+    "type_line": "Creature \u2014 Angel",
+    "oracle_text": "Flying\nWhen this creature enters, if your life total is less than your starting life total, it becomes equal to your starting life total.",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2014-07-18",
+    "artist": "Anthony Palumbo",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "6b006384-6fb6-4129-b1d2-7674d1141f8f",
+    "oracle_id": "71ce7034-1400-4e7c-9ef3-37baed669faf",
+    "name": "Tablet of the Guilds",
+    "layout": "normal",
+    "set_code": "rtr",
+    "set_name": "Return to Ravnica",
+    "collector_number": "235",
+    "rarity": "uncommon",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "As this artifact enters, choose two colors.\nWhenever you cast a spell, if it's at least one of the chosen colors, you gain 1 life for each of the chosen colors it is.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2012-10-05",
+    "artist": "Nic Klein",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "c04d8edb-7350-4ab5-b721-390784c66329",
+    "oracle_id": "2eaee808-b72a-4950-ab4f-ab8e8d12f838",
+    "name": "Profane Transfusion",
+    "layout": "normal",
+    "set_code": "cmr",
+    "set_name": "Commander Legends",
+    "collector_number": "145",
+    "rarity": "mythic",
+    "mana_cost": "{6}{B}{B}{B}",
+    "cmc": 9.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Two target players exchange life totals. You create an X/X colorless Horror artifact creature token, where X is the difference between those players' life totals.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-11-20",
+    "artist": "Vincent Proce",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "7db68985-a1d5-4bd5-bfc6-c7208689d7df",
+        "name": "Horror",
+        "type_line": "Token Artifact Creature \u2014 Horror"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "c3387cfc-2dbe-409e-bfc7-b399f05a817d",
+        "name": "Profane Transfusion",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "bb2dc2e0-f393-4442-818b-d3b860bfffd0",
+    "oracle_id": "c75add5e-4e9d-4c68-a8ad-b878b1dbc0a4",
+    "name": "One Ring to Rule Them All",
+    "layout": "saga",
+    "set_code": "ltr",
+    "set_name": "The Lord of the Rings: Tales of Middle-earth",
+    "collector_number": "102",
+    "rarity": "rare",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Enchantment \u2014 Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 The Ring tempts you, then each player mills cards equal to your Ring-bearer's power.\nII \u2014 Destroy all nonlegendary creatures.\nIII \u2014 Each opponent loses 1 life for each creature card in that player's graveyard.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-06-23",
+    "artist": "L J Koh",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "7215460e-8c06-47d0-94e5-d1832d0218af",
+        "name": "The Ring // The Ring Tempts You",
+        "component": "combo_piece"
+      },
+      {
+        "id": "a83917f2-89e8-464d-b50a-4ecef34fd6a4",
+        "name": "One Ring to Rule Them All",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "f472ea5c-191e-4b19-8ea7-f8649af91530",
+    "oracle_id": "affa0b6c-a9fd-49fc-b9ce-9a3486af8320",
+    "name": "Welcome the Dead",
+    "layout": "normal",
+    "set_code": "tdc",
+    "set_name": "Tarkir: Dragonstorm Commander",
+    "collector_number": "30",
+    "rarity": "rare",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Draw two cards, then discard a card and you lose 2 life. Create X tapped 2/2 black Zombie Druid creature tokens, where X is the number of cards that were put into your graveyard from your hand or library this turn.\nFlashback {5}{B} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flashback"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-04-11",
+    "artist": "Ioannis Fiore",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "f10d5813-7818-43e8-b08d-4ed8c54d0366",
+        "name": "Zombie Druid",
+        "type_line": "Token Creature \u2014 Zombie Druid"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "333b255d-6704-41e4-81ed-a9aec7010f86",
+        "name": "Welcome the Dead",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "f25ea466-eb48-4c4c-b5d4-35f58e46ebe1",
+    "oracle_id": "2ca969eb-3d79-4d1f-8d9d-7b8204ad166a",
+    "name": "Starving Revenant",
+    "layout": "normal",
+    "set_code": "lci",
+    "set_name": "The Lost Caverns of Ixalan",
+    "collector_number": "123",
+    "rarity": "rare",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Spirit Horror",
+    "oracle_text": "When this creature enters, surveil 2. Then for each card you put on top of your library, you draw a card and you lose 3 life.\nDescend 8 \u2014 Whenever you draw a card, if there are eight or more permanent cards in your graveyard, target opponent loses 1 life and you gain 1 life.",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Surveil",
+      "Descend"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-11-17",
+    "artist": "Fesbra",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "f1eb50a6-07e2-41de-b948-8075bba197ee",
+    "oracle_id": "e326b5a1-f8ce-471b-8663-ec1ba649b24f",
+    "name": "Game Over",
+    "layout": "normal",
+    "set_code": "tmc",
+    "set_name": "Teenage Mutant Ninja Turtles Eternal",
+    "collector_number": "18",
+    "rarity": "rare",
+    "mana_cost": "{3}{B}{B}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "This spell costs {2} less to cast if a player's life total is less than or equal to half their starting life total.\nDestroy all creatures.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-03-06",
+    "artist": "Kim Sokol",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "70afb856-6697-411b-b1aa-e9290a0bfd68",
+    "oracle_id": "d5c4d36c-54b3-4149-906b-a57a670260fc",
+    "name": "Alhammarret's Archive",
+    "layout": "normal",
+    "set_code": "ori",
+    "set_name": "Magic Origins",
+    "collector_number": "221",
+    "rarity": "mythic",
+    "mana_cost": "{5}",
+    "cmc": 5.0,
+    "type_line": "Legendary Artifact",
+    "oracle_text": "If you would gain life, you gain twice that much life instead.\nIf you would draw a card except the first one you draw in each of your draw steps, draw two cards instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2015-07-17",
+    "artist": "Richard Wright",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "dbb38f33-9f51-48cb-9f69-9a62f2c4b907",
+    "oracle_id": "635fe908-6f58-4c9e-ac55-0775a7c6f278",
+    "name": "Angel of Vitality",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "13",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Angel",
+    "oracle_text": "Flying\nIf you would gain life, you gain that much life plus 1 instead.\nThis creature gets +2/+2 as long as you have 25 or more life.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Johannes Voss",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "ad2c01d9-8f54-46c0-9dc9-d4d4764ce1c9",
+    "oracle_id": "03df6a57-37c9-46d3-83b3-4a6240100714",
+    "name": "Hero's Downfall",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "175",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature or planeswalker.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Chris Rallis",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "1f29d9e4-3100-43cb-9723-7d5c23f89b12",
+    "oracle_id": "938b4e2c-88d9-4637-bc00-e228920c9a78",
+    "name": "Murder",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "467",
+    "rarity": "common",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Allen Williams",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0852f9f3-d7ef-4d31-93e3-93bc7c5a4ec9",
+    "oracle_id": "4457ed35-7c10-48c8-9776-456485fdf070",
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "163",
+    "rarity": "uncommon",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Christopher Moeller",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "4f095067-cf24-4061-8626-dc68a66a0b36",
+        "name": "Toralf's Disciple",
+        "component": "combo_piece"
+      },
+      {
+        "id": "69b51576-532b-450e-a8bf-0482cac04618",
+        "name": "Thayan Evokers",
+        "component": "combo_piece"
+      },
+      {
+        "id": "618806ea-7ea8-4cfb-a8c1-c3defa34e7dd",
+        "name": "Indris, the Hydrostatic Surge",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "0ff82aba-9022-4eff-a6dc-67365360d646",
+    "oracle_id": "8da8644c-75a1-4fe9-8e94-900d948d631c",
+    "name": "Healing Salve",
+    "layout": "normal",
+    "set_code": "dvd",
+    "set_name": "Duel Decks Anthology: Divine vs. Demonic",
+    "collector_number": "14",
+    "rarity": "common",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose one \u2014\n\u2022 Target player gains 3 life.\n\u2022 Prevent the next 3 damage that would be dealt to any target this turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2014-12-05",
+    "artist": "Greg Hildebrandt & Tim Hildebrandt",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "4f152dd9-2b35-45b2-90fe-8c71d0634226",
+    "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487",
+    "name": "Sol Ring",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "286",
+    "rarity": "uncommon",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Mike Bierek",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "409f9b88-f03e-40b6-9883-68c14c37c0de",
+    "oracle_id": "14c8f55d-d177-4c25-a931-ebeb9e6062a0",
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "268",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "D. J. Cleland-Hura",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "5368ce20-0970-4630-8c46-439db2231a39",
+    "oracle_id": "68954295-54e3-4303-a6bc-fc4547a4e3a3",
+    "name": "Llanowar Elves",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "213",
+    "rarity": "common",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Eric Wilkerson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "8ef95e7a-9f07-41f8-908b-2df93e03d391",
+        "name": "Marwyn's Kindred",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "25e36841-3242-436b-8e82-9099063fa461",
+    "oracle_id": "b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6",
+    "name": "Forest",
+    "layout": "normal",
+    "set_code": "fra",
+    "set_name": "Reality Fracture",
+    "collector_number": "290",
+    "rarity": "common",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Chris Ostrowski",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "a0d12fc5-c7bd-4734-9259-98fe65241f60",
+        "name": "Forest",
+        "component": "combo_piece"
+      },
+      {
+        "id": "aed8ae06-ae54-4a16-8830-6547164ce6ae",
+        "name": "Gilt-Leaf Alchemist",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "5763a9ff-7b1f-4eba-9ab4-48d720e4d6a3",
+    "oracle_id": "b148578c-c0bf-4785-b97c-4b6f83028008",
+    "name": "Platinum Angel",
+    "layout": "normal",
+    "set_code": "brr",
+    "set_name": "The Brothers' War Retro Artifacts",
+    "collector_number": "104",
+    "rarity": "mythic",
+    "mana_cost": "{7}",
+    "cmc": 7.0,
+    "type_line": "Artifact Creature \u2014 Angel",
+    "oracle_text": "Flying\nYou can't lose the game and your opponents can't win the game.",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-11-18",
+    "artist": "Ovidio Cartagena",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "5915902a-25b4-4e87-939a-2f9ba7552091",
+    "oracle_id": "61fbaaf2-4286-4e9a-b9cb-aa31262b596a",
+    "name": "Jinnie Fay, Jetmir's Second",
+    "layout": "normal",
+    "set_code": "snc",
+    "set_name": "Streets of New Capenna",
+    "collector_number": "378",
+    "rarity": "rare",
+    "mana_cost": "{R/G}{G}{G/W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Elf Druid",
+    "oracle_text": "If you would create one or more tokens, you may instead create that many 2/2 green Cat creature tokens with haste or that many 3/1 green Dog creature tokens with vigilance.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "R",
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-04-29",
+    "artist": "Jack Hughes",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "6736fe71-bd55-4602-b0aa-ece6193048a9",
+        "name": "Dog",
+        "type_line": "Token Creature \u2014 Dog"
+      },
+      {
+        "id": "57bd0b29-0860-4ee3-832a-f62ba7bf4aac",
+        "name": "Cat",
+        "type_line": "Token Creature \u2014 Cat"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "1cdd8e69-5a71-4933-914e-dfede7b1ac93",
+    "oracle_id": "01546b7d-a233-4176-8843-d732074dc5b6",
+    "name": "Doubling Season",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "283",
+    "rarity": "mythic",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Chuck Lukacs",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "59e31568-e630-45c1-8c65-f757acd307e2",
+    "oracle_id": "2e7a9ea9-f76c-4c12-950f-c613fa16cfa8",
+    "name": "Captain Sisay",
+    "layout": "normal",
+    "set_code": "v11",
+    "set_name": "From the Vault: Legends",
+    "collector_number": "2",
+    "rarity": "mythic",
+    "mana_cost": "{2}{G}{W}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Human Soldier",
+    "oracle_text": "{T}: Search your library for a legendary card, reveal that card, put it into your hand, then shuffle.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2011-08-26",
+    "artist": "Ray Lago",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "f55e7ec5-6488-483f-8020-b48e1a951f09",
+    "oracle_id": "19ea326f-45ff-4bc0-a957-7d3f22dd8c6f",
+    "name": "Flicker",
+    "layout": "normal",
+    "set_code": "uds",
+    "set_name": "Urza's Destiny",
+    "collector_number": "9",
+    "rarity": "rare",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Exile target nontoken permanent, then return it to the battlefield under its owner's control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1999-06-07",
+    "artist": "Douglas Shuler",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "44067327-6fe3-4222-b591-6d14d0e360d7",
+    "oracle_id": "60d640a4-032b-4279-ac75-8f200ca776fb",
+    "name": "Vedalken Orrery",
+    "layout": "normal",
+    "set_code": "2x2",
+    "set_name": "Double Masters 2022",
+    "collector_number": "317",
+    "rarity": "rare",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "You may cast spells as though they had flash.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-07-08",
+    "artist": "John Avon",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "41326ca6-f815-4af7-b022-67db127bc125",
+    "oracle_id": "813c19f5-3580-488d-9eee-c7a563def532",
+    "name": "Gideon Blackblade",
+    "layout": "normal",
+    "set_code": "rvr",
+    "set_name": "Ravnica Remastered",
+    "collector_number": "20",
+    "rarity": "mythic",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker \u2014 Gideon",
+    "oracle_text": "During your turn, Gideon Blackblade is a 4/4 Human Soldier creature with indestructible that's still a planeswalker.\nPrevent all damage that would be dealt to Gideon Blackblade during your turn.\n+1: Up to one other target creature you control gains your choice of vigilance, lifelink, or indestructible until end of turn.\n\u22126: Exile target nonland permanent.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "4",
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-01-12",
+    "artist": "Viktor Titov",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "c8e5546c-7f46-4eb5-a330-384d68ee75b0",
+    "oracle_id": "09c96077-3804-4f12-a613-5bebc5e0413f",
+    "name": "Sphere of Resistance",
+    "layout": "normal",
+    "set_code": "mps",
+    "set_name": "Kaladesh Inventions",
+    "collector_number": "47",
+    "rarity": "special",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact",
+    "oracle_text": "Spells cost {1} more to cast.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2016-09-30",
+    "artist": "Richard Wright",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "6e0db10d-fb6d-44df-9ff2-6f1e0e8f8209",
+    "oracle_id": "7de04284-dcaa-4b63-a734-fcfe2698f83c",
+    "name": "Dizzy Spell",
+    "layout": "normal",
+    "set_code": "rav",
+    "set_name": "Ravnica: City of Guilds",
+    "collector_number": "43",
+    "rarity": "common",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets -3/-0 until end of turn.\nTransmute {1}{U}{U} ({1}{U}{U}, Discard this card: Search your library for a card with the same mana value as this card, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Transmute"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2005-10-07",
+    "artist": "Christopher Moeller",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "7ac43e16-8b14-46f2-877a-600ea918766b",
+    "oracle_id": "a7e97fa9-4b72-4548-b854-5be5f18a6f1a",
+    "name": "Disenchant",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "572",
+    "rarity": "common",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Richard Kane Ferguson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "name": "Thought Scour",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target player mills two cards.\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Faithless Looting",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Draw two cards, then discard two cards.\nFlashback {2}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flashback"
+    ]
+  },
+  {
+    "name": "Regrowth",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Return target card from your graveyard to your hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mind Rot",
+    "layout": "normal",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target player discards two cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rest in Peace",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Curate",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Surveil"
+    ]
+  },
+  {
+    "name": "Progenitus",
+    "layout": "normal",
+    "mana_cost": "{W}{W}{U}{U}{B}{B}{R}{R}{G}{G}",
+    "cmc": 10.0,
+    "type_line": "Legendary Creature \u2014 Hydra Avatar",
+    "oracle_text": "Protection from everything\nIf Progenitus would be put into a graveyard from anywhere, reveal Progenitus and shuffle it into its owner's library instead.",
+    "power": "10",
+    "toughness": "10",
+    "loyalty": null,
+    "colors": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Protection"
+    ]
+  },
+  {
+    "name": "Notion Thief",
+    "layout": "normal",
+    "mana_cost": "{2}{U}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Rogue",
+    "oracle_text": "Flash\nIf an opponent would draw a card except the first one they draw in each of their draw steps, instead that player skips that draw and you draw a card.",
+    "power": "3",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [
+      "Flash"
+    ]
+  },
+  {
+    "name": "Enhanced Surveillance",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "You may look at an additional two cards each time you surveil.\nExile this enchantment: Shuffle your graveyard into your library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ajani's Pridemate",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Cat Soldier",
+    "oracle_text": "Whenever you gain life, put a +1/+1 counter on this creature.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Doom Whisperer",
+    "layout": "normal",
+    "mana_cost": "{3}{B}{B}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Nightmare Demon",
+    "oracle_text": "Flying, trample\nPay 2 life: Surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying",
+      "Surveil",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Noxious Revival",
+    "layout": "normal",
+    "mana_cost": "{G/P}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "({G/P} can be paid with either {G} or 2 life.)\nPut target card from a graveyard on top of its owner's library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "id": "dd64f064-8f05-41ef-b95b-1b723137f846",
+    "oracle_id": "76ca315a-4979-4fda-8d3f-b7f4e5d3a622",
+    "name": "Inspired Ultimatum",
+    "layout": "normal",
+    "set_code": "iko",
+    "set_name": "Ikoria: Lair of Behemoths",
+    "collector_number": "191",
+    "rarity": "rare",
+    "mana_cost": "{U}{U}{R}{R}{R}{W}{W}",
+    "cmc": 7.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target player gains 5 life, Inspired Ultimatum deals 5 damage to any target, then you draw five cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-04-24",
+    "artist": "Tyler Jacobson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "82defb87-237f-4b77-9673-5bf00607148f",
+    "oracle_id": "be3c7e4c-81fd-49e7-8fb5-5eb83994dafd",
+    "name": "Bonecache Overseer",
+    "layout": "normal",
+    "set_code": "blb",
+    "set_name": "Bloomburrow",
+    "collector_number": "85",
+    "rarity": "uncommon",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Squirrel Warlock",
+    "oracle_text": "{T}, Pay 1 life: Draw a card. Activate only if three or more cards left your graveyard this turn or if you've sacrificed a Food this turn.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-08-02",
+    "artist": "Mila Pesic",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "81ff4bca-f552-4e89-affe-31d6c91c82fc",
+    "oracle_id": "10b8d4c7-7553-4d76-b643-d98b80701e13",
+    "name": "Gingerbrute",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "751",
+    "rarity": "common",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact Creature \u2014 Food Golem",
+    "oracle_text": "Haste (This creature can attack and {T} as soon as it comes under your control.)\n{1}: This creature can't be blocked this turn except by creatures with haste.\n{2}, {T}, Sacrifice this creature: You gain 3 life.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Haste"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Carlos Palma Cruchaga",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "e18927dd-c50c-4fb2-8d4c-d0f853b68294",
+    "oracle_id": "67158085-4807-4f0e-8599-c55ec7ec252e",
+    "name": "Skyfisher Spider",
+    "layout": "normal",
+    "set_code": "blc",
+    "set_name": "Bloomburrow Commander",
+    "collector_number": "261",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{B}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Spider",
+    "oracle_text": "Reach\nWhen this creature enters, you may sacrifice another creature. When you do, destroy target nonland permanent.\nWhen this creature dies, you may gain 1 life for each creature card in your graveyard. If you do, exile this card from your graveyard.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [
+      "Reach"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-08-02",
+    "artist": "Henry Peters",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "cbb8edd0-4573-4b52-a3ea-83ed19dbf58d",
+    "oracle_id": "51b114cd-c174-4d74-a854-07c68b41fc9d",
+    "name": "Tainted Remedy",
+    "layout": "normal",
+    "set_code": "ori",
+    "set_name": "Magic Origins",
+    "collector_number": "120",
+    "rarity": "rare",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an opponent would gain life, that player loses that much life instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2015-07-17",
+    "artist": "Izzy",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "d0787e1f-0b75-44ab-a8fd-90358906a787",
+    "oracle_id": "1cfc7b12-a595-492d-81ee-bd100ba7de6a",
+    "name": "Erebos, God of the Dead",
+    "layout": "normal",
+    "set_code": "ths",
+    "set_name": "Theros",
+    "collector_number": "85",
+    "rarity": "mythic",
+    "mana_cost": "{3}{B}",
+    "cmc": 4.0,
+    "type_line": "Legendary Enchantment Creature \u2014 God",
+    "oracle_text": "Indestructible\nAs long as your devotion to black is less than five, Erebos isn't a creature. (Each {B} in the mana costs of permanents you control counts toward your devotion to black.)\nYour opponents can't gain life.\n{1}{B}, Pay 2 life: Draw a card.",
+    "power": "5",
+    "toughness": "7",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Indestructible"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2013-09-27",
+    "artist": "Peter Mohrbacher",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "47ce8b7e-d8e1-489a-a69e-99089eeb8739",
+    "oracle_id": "f0ead7f5-5c82-40fd-8e89-3e3c5d31fbad",
+    "name": "Cleric Class",
+    "layout": "class",
+    "set_code": "afr",
+    "set_name": "Adventures in the Forgotten Realms",
+    "collector_number": "6",
+    "rarity": "uncommon",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Enchantment \u2014 Class",
+    "oracle_text": "(Gain the next level as a sorcery to add its ability.)\nIf you would gain life, you gain that much life plus 1 instead.\n{3}{W}: Level 2\nWhenever you gain life, put a +1/+1 counter on target creature you control.\n{4}{W}: Level 3\nWhen this Class becomes level 3, return target creature card from your graveyard to the battlefield. You gain life equal to that creature's toughness.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-07-23",
+    "artist": "Alayna Danner",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "78d2d11b-12e4-4810-a32d-8f1cdda3ec49",
+    "oracle_id": "437be0ad-2dd1-42c8-bf62-5af95228b2f8",
+    "name": "Haunted Angel",
+    "layout": "normal",
+    "set_code": "apc",
+    "set_name": "Apocalypse",
+    "collector_number": "12",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Angel",
+    "oracle_text": "Flying\nWhen this creature dies, exile it and each other player creates a 3/3 black Angel creature token with flying.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2001-06-04",
+    "artist": "Arnie Swekel",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "fab6bc89-492a-46a4-90dc-95ae2e2bc483",
+    "oracle_id": "d02427fa-3ef0-484f-acad-63a1d5218727",
+    "name": "Cyclopean Giant",
+    "layout": "normal",
+    "set_code": "tsp",
+    "set_name": "Time Spiral",
+    "collector_number": "100",
+    "rarity": "common",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Zombie Giant",
+    "oracle_text": "When this creature dies, target land becomes a Swamp. Exile this card.",
+    "power": "4",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2006-10-06",
+    "artist": "Mark Tedin",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "07592731-68be-4218-bb2c-c2523c5a27f1",
+    "oracle_id": "0297eeb2-47ec-4f9a-b1ad-4e7286994f00",
+    "name": "Cathedral Membrane",
+    "layout": "normal",
+    "set_code": "nph",
+    "set_name": "New Phyrexia",
+    "collector_number": "5",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{W/P}",
+    "cmc": 2.0,
+    "type_line": "Artifact Creature \u2014 Phyrexian Wall",
+    "oracle_text": "({W/P} can be paid with either {W} or 2 life.)\nDefender\nWhen this creature dies during combat, it deals 6 damage to each creature it blocked this combat.",
+    "power": "0",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Defender"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2011-05-13",
+    "artist": "Richard Whitters",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "2a1e7796-fbfb-4976-879f-bb748429d5c7",
+    "oracle_id": "e0165326-f1a6-4fc0-94c1-4b33f24d36f5",
+    "name": "Brine Hag",
+    "layout": "normal",
+    "set_code": "leg",
+    "set_name": "Legends",
+    "collector_number": "49",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Hag",
+    "oracle_text": "When this creature dies, the base power and toughness of each creature that dealt damage to it this turn become 0/2. (This effect lasts indefinitely.)",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1994-06-01",
+    "artist": "Quinton Hoover",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "9184bc57-0a16-4abf-a13a-6a03a175c28a",
+    "oracle_id": "24dbddad-998b-4755-b356-4c8aca3592b1",
+    "name": "Flitting Guerrilla",
+    "layout": "normal",
+    "set_code": "mom",
+    "set_name": "March of the Machine",
+    "collector_number": "105",
+    "rarity": "common",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Faerie Rogue",
+    "oracle_text": "Flying\nWhen this creature dies, each player mills two cards. Then you may exile this card. When you do, put target creature or battle card from your graveyard on top of your library. (To mill two cards, a player puts the top two cards of their library into their graveyard.)",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying",
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-04-21",
+    "artist": "Francisco Miyara",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "f4095675-1e3f-4d3c-b565-5c434d2e5cc0",
+    "oracle_id": "dc4a4996-108a-4aac-850f-2d9f76403446",
+    "name": "Boomerang",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "70",
+    "rarity": "common",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Return target permanent to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "Arnie Swekel",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "5e648262-3b9b-4c58-8e29-48356e3cb064",
+    "oracle_id": "42226b87-0746-4ebf-9fd0-108d508462af",
+    "name": "Clone",
+    "layout": "normal",
+    "set_code": "m14",
+    "set_name": "Magic 2014",
+    "collector_number": "47",
+    "rarity": "rare",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Shapeshifter",
+    "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield.",
+    "power": "0",
+    "toughness": "0",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2013-07-19",
+    "artist": "Kev Walker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "9a52c265-6920-4929-ba0a-70da08df01f1",
+    "oracle_id": "7246d45b-2185-4cdd-981b-5419b7d52bce",
+    "name": "Anointed Procession",
+    "layout": "normal",
+    "set_code": "akh",
+    "set_name": "Amonkhet",
+    "collector_number": "2",
+    "rarity": "rare",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-04-28",
+    "artist": "Victor Adame Minguez",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "f63f7209-fc0f-400c-8076-125f3131cb32",
+    "oracle_id": "3bed0b60-5944-44bb-9ddd-c82f323e6d20",
+    "name": "Wilt in the Heat",
+    "layout": "normal",
+    "set_code": "sos",
+    "set_name": "Secrets of Strixhaven",
+    "collector_number": "243",
+    "rarity": "common",
+    "mana_cost": "{2}{R}{W}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "This spell costs {2} less to cast if one or more cards left your graveyard this turn.\nWilt in the Heat deals 5 damage to target creature. If that creature would die this turn, exile it instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-04-24",
+    "artist": "Raluca Marinescu",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "884afdb3-0d5f-45a1-b57e-6c3760aa0031",
+    "oracle_id": "a09cce6f-c957-49d7-af99-a7b2bce786e8",
+    "name": "Hover Barrier",
+    "layout": "normal",
+    "set_code": "rtr",
+    "set_name": "Return to Ravnica",
+    "collector_number": "40",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Illusion Wall",
+    "oracle_text": "Defender, flying",
+    "power": "0",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Defender"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2012-10-05",
+    "artist": "Mathias Kollros",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "cf16600a-c2a5-49e4-89e2-260cfaf58b52",
+    "oracle_id": "29b3cb3e-aeb1-43eb-8095-9f7881aa34bd",
+    "name": "Prodigal Pyromancer",
+    "layout": "normal",
+    "set_code": "tsr",
+    "set_name": "Time Spiral Remastered",
+    "collector_number": "180",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "{T}: This creature deals 1 damage to any target.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-03-19",
+    "artist": "Jeremy Jarvis",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "50aef269-55f9-4d84-8bc5-29e794297f11",
+    "oracle_id": "5e961d15-5972-4e4b-9385-1cd7cd7c6bbe",
+    "name": "Prodigal Sorcerer",
+    "layout": "normal",
+    "set_code": "ema",
+    "set_name": "Eternal Masters",
+    "collector_number": "67",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Human Wizard Sorcerer",
+    "oracle_text": "{T}: This creature deals 1 damage to any target.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2016-06-10",
+    "artist": "Eric Deschamps",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "8bc7fdf0-3e1e-487c-833d-7c74aa02c0c1",
+    "oracle_id": "6879f5ce-7a1b-4606-bad1-885779b0d456",
+    "name": "Cloudshift",
+    "layout": "normal",
+    "set_code": "jmp",
+    "set_name": "Jumpstart",
+    "collector_number": "97",
+    "rarity": "common",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-07-17",
+    "artist": "Howard Lyon",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "77111ce8-6469-4bf7-882a-4ded1e5d7cad",
+    "oracle_id": "3f01c327-ba50-4fc3-a930-fa1fb02e34b9",
+    "name": "Tangled Colony",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "woe",
+    "set_name": "Wilds of Eldraine",
+    "set_type": "expansion",
+    "collector_number": "113",
+    "released_at": "2023-09-08",
+    "rarity": "rare",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Rat",
+    "oracle_text": "This creature can't block.\nWhen this creature dies, create X 1/1 black Rat creature tokens with \"This token can't block,\" where X is the amount of damage dealt to it this turn.",
+    "power": "3",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "produced_mana": null,
+    "all_parts": [
+      {
+        "id": "45ba866b-eda5-45c0-8878-235abadc0a3c",
+        "component": "combo_piece",
+        "name": "Tangled Colony",
+        "type_line": "Creature \u2014 Rat"
+      },
+      {
+        "id": "1e0205f2-25c1-403b-b408-56e3f2d63b4d",
+        "component": "token",
+        "name": "Rat",
+        "type_line": "Token Creature \u2014 Rat"
+      }
+    ],
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/7/7/77111ce8-6469-4bf7-882a-4ded1e5d7cad.jpg?1783915099",
+      "normal": "https://cards.scryfall.io/normal/front/7/7/77111ce8-6469-4bf7-882a-4ded1e5d7cad.jpg?1783915099",
+      "large": "https://cards.scryfall.io/large/front/7/7/77111ce8-6469-4bf7-882a-4ded1e5d7cad.jpg?1783915099",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/7/7/77111ce8-6469-4bf7-882a-4ded1e5d7cad.jpg?1783915099"
+    },
+    "legalities": {
+      "standard": "legal",
+      "future": "legal",
+      "historic": "legal",
+      "timeless": "legal",
+      "gladiator": "legal",
+      "pioneer": "legal",
+      "modern": "legal",
+      "legacy": "legal",
+      "pauper": "not_legal",
+      "vintage": "legal",
+      "penny": "legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "legal",
+      "brawl": "legal",
+      "competitivebrawl": "legal",
+      "alchemy": "not_legal",
+      "paupercommander": "not_legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "not_legal",
+      "predh": "not_legal",
+      "tlr": "legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Filip Burburan",
+    "edhrec_rank": 5917,
+    "faces": []
+  },
+  {
+    "id": "537d2b05-3f52-45d6-8fe3-26282085d0c6",
+    "oracle_id": "34515b16-c9a4-4f98-8c77-416a7a523407",
+    "name": "Wrath of God",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "set_type": "masters",
+    "collector_number": "70",
+    "released_at": "2023-08-04",
+    "rarity": "rare",
+    "mana_cost": "{2}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Destroy all creatures. They can't be regenerated.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "produced_mana": null,
+    "all_parts": null,
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/5/3/537d2b05-3f52-45d6-8fe3-26282085d0c6.jpg?1783915706",
+      "normal": "https://cards.scryfall.io/normal/front/5/3/537d2b05-3f52-45d6-8fe3-26282085d0c6.jpg?1783915706",
+      "large": "https://cards.scryfall.io/large/front/5/3/537d2b05-3f52-45d6-8fe3-26282085d0c6.jpg?1783915706",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/5/3/537d2b05-3f52-45d6-8fe3-26282085d0c6.jpg?1783915706"
+    },
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "legal",
+      "timeless": "legal",
+      "gladiator": "legal",
+      "pioneer": "not_legal",
+      "modern": "legal",
+      "legacy": "legal",
+      "pauper": "not_legal",
+      "vintage": "legal",
+      "penny": "legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "legal",
+      "competitivebrawl": "legal",
+      "alchemy": "not_legal",
+      "paupercommander": "not_legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "legal",
+      "predh": "legal",
+      "tlr": "not_legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Willian Murai",
+    "edhrec_rank": 685,
+    "faces": []
+  },
+  {
+    "id": "8ec71a29-19db-4747-8276-7fd4d563d4df",
+    "oracle_id": "7fe9d30f-c778-4769-a3ae-3cb48cd23e07",
+    "name": "Mistmoon Griffin",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "wth",
+    "set_name": "Weatherlight",
+    "set_type": "expansion",
+    "collector_number": "21",
+    "released_at": "1997-06-09",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Griffin",
+    "oracle_text": "Flying\nWhen this creature dies, exile it, then return the top creature card of your graveyard to the battlefield.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "produced_mana": null,
+    "all_parts": null,
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/8/e/8ec71a29-19db-4747-8276-7fd4d563d4df.jpg?1783946746",
+      "normal": "https://cards.scryfall.io/normal/front/8/e/8ec71a29-19db-4747-8276-7fd4d563d4df.jpg?1783946746",
+      "large": "https://cards.scryfall.io/large/front/8/e/8ec71a29-19db-4747-8276-7fd4d563d4df.jpg?1783946746",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/8/e/8ec71a29-19db-4747-8276-7fd4d563d4df.jpg?1783946746"
+    },
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "not_legal",
+      "timeless": "not_legal",
+      "gladiator": "not_legal",
+      "pioneer": "not_legal",
+      "modern": "not_legal",
+      "legacy": "legal",
+      "pauper": "legal",
+      "vintage": "legal",
+      "penny": "legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "not_legal",
+      "competitivebrawl": "not_legal",
+      "alchemy": "not_legal",
+      "paupercommander": "legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "legal",
+      "predh": "legal",
+      "tlr": "not_legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "David A. Cherry",
+    "edhrec_rank": 21766,
+    "faces": []
+  },
+  {
+    "id": "0a135e09-b534-4836-9a10-3a9a4a9f8c53",
+    "oracle_id": "753cb2b2-24ce-484f-a2d0-be6fd2c67ebd",
+    "name": "Grafdigger's Cage",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "m20",
+    "set_name": "Core Set 2020",
+    "set_type": "core",
+    "collector_number": "227",
+    "released_at": "2019-07-12",
+    "rarity": "rare",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "Creature cards in graveyards and libraries can't enter the battlefield.\nPlayers can't cast spells from graveyards or libraries.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "produced_mana": null,
+    "all_parts": null,
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/0/a/0a135e09-b534-4836-9a10-3a9a4a9f8c53.jpg?1783932945",
+      "normal": "https://cards.scryfall.io/normal/front/0/a/0a135e09-b534-4836-9a10-3a9a4a9f8c53.jpg?1783932945",
+      "large": "https://cards.scryfall.io/large/front/0/a/0a135e09-b534-4836-9a10-3a9a4a9f8c53.jpg?1783932945",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/0/a/0a135e09-b534-4836-9a10-3a9a4a9f8c53.jpg?1783932945"
+    },
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "legal",
+      "timeless": "legal",
+      "gladiator": "legal",
+      "pioneer": "legal",
+      "modern": "legal",
+      "legacy": "legal",
+      "pauper": "not_legal",
+      "vintage": "legal",
+      "penny": "not_legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "legal",
+      "competitivebrawl": "legal",
+      "alchemy": "not_legal",
+      "paupercommander": "not_legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "not_legal",
+      "predh": "not_legal",
+      "tlr": "legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Daniel Ljunggren",
+    "edhrec_rank": 2157,
+    "faces": []
+  },
+  {
+    "id": "253db28a-3873-4364-80d7-a8164000ea9e",
+    "oracle_id": "72586a7a-3c73-4012-8664-1db0f268eb60",
+    "name": "Bogardan Phoenix",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "vis",
+    "set_name": "Visions",
+    "set_type": "expansion",
+    "collector_number": "76",
+    "released_at": "1997-02-03",
+    "rarity": "rare",
+    "mana_cost": "{2}{R}{R}{R}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Phoenix",
+    "oracle_text": "Flying\nWhen this creature dies, exile it if it had a death counter on it. Otherwise, return it to the battlefield under your control and put a death counter on it.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "produced_mana": null,
+    "all_parts": null,
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/2/5/253db28a-3873-4364-80d7-a8164000ea9e.jpg?1783946990",
+      "normal": "https://cards.scryfall.io/normal/front/2/5/253db28a-3873-4364-80d7-a8164000ea9e.jpg?1783946990",
+      "large": "https://cards.scryfall.io/large/front/2/5/253db28a-3873-4364-80d7-a8164000ea9e.jpg?1783946990",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/2/5/253db28a-3873-4364-80d7-a8164000ea9e.jpg?1783946990"
+    },
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "not_legal",
+      "timeless": "not_legal",
+      "gladiator": "not_legal",
+      "pioneer": "not_legal",
+      "modern": "not_legal",
+      "legacy": "legal",
+      "pauper": "not_legal",
+      "vintage": "legal",
+      "penny": "not_legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "not_legal",
+      "competitivebrawl": "not_legal",
+      "alchemy": "not_legal",
+      "paupercommander": "not_legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "legal",
+      "predh": "legal",
+      "tlr": "not_legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "David O'Connor",
+    "edhrec_rank": 27536,
+    "faces": []
+  },
+  {
+    "id": "0a71fb62-acbd-49f5-842f-0fc9fa48afea",
+    "oracle_id": "f0b4331b-ddd3-4f11-ba16-67c651c8954c",
+    "name": "Solemnity",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "hou",
+    "set_name": "Hour of Devastation",
+    "set_type": "expansion",
+    "collector_number": "22",
+    "released_at": "2017-07-14",
+    "rarity": "rare",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "produced_mana": null,
+    "all_parts": null,
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/0/a/0a71fb62-acbd-49f5-842f-0fc9fa48afea.jpg?1783936059",
+      "normal": "https://cards.scryfall.io/normal/front/0/a/0a71fb62-acbd-49f5-842f-0fc9fa48afea.jpg?1783936059",
+      "large": "https://cards.scryfall.io/large/front/0/a/0a71fb62-acbd-49f5-842f-0fc9fa48afea.jpg?1783936059",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/0/a/0a71fb62-acbd-49f5-842f-0fc9fa48afea.jpg?1783936059"
+    },
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "legal",
+      "timeless": "legal",
+      "gladiator": "legal",
+      "pioneer": "legal",
+      "modern": "legal",
+      "legacy": "legal",
+      "pauper": "not_legal",
+      "vintage": "legal",
+      "penny": "legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "legal",
+      "competitivebrawl": "legal",
+      "alchemy": "not_legal",
+      "paupercommander": "not_legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "not_legal",
+      "predh": "not_legal",
+      "tlr": "legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Greg Opalinski",
+    "edhrec_rank": 3977,
+    "faces": []
+  }
+]

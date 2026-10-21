@@ -59,7 +59,10 @@ _CAGED_SUN = re.compile(r"^Whenever a land's ability causes you to add one or mo
 
 def definition(text: str) -> dict[str, Any] | None:
     from app.rules import selectors
+    from app.rules.contextual_mana_triggers import definition as staged_definition
 
+    if (staged := staged_definition(text.strip())) is not None:
+        return staged
     if _CAGED_SUN.match(text.strip()) is not None:
         return {"kind": "triggered", "trigger": "tap_for_mana", "who": "you", "sel": selectors.Selector(types=("Land",)).key(), "extra": "chosen", "chosen": True,
                 "any_ability": True, "monarch": False, "optional": False, "target": None, "effects": []}
@@ -109,7 +112,8 @@ def spell_effect(text: str) -> dict[str, Any] | None:
 def until_eot(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """The spell's instruction: the trigger exists for the rest of this turn (its controller: the spell's)."""
     plan.rules.tap_mana = [*[r for r in plan.rules.tap_mana if r.get("turn") == plan.state.turn.number],
-                           {"turn": plan.state.turn.number, "controller": ctx["controller"], "def": e["def"]}]
+                           {"turn": plan.state.turn.number, "controller": ctx["controller"], "def": e["def"],
+                            'source_card': ctx.get('source_card'), 'source_object': ctx.get('source_object')}]
     return True
 
 
@@ -146,7 +150,8 @@ def _triggers(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any
                 elif d.get("trigger") == "tap_for_mana":
                     out.append((c.controller, d, c.id))
     if r is not None and state.turn.phase != "cleanup":  # (514.2: "until end of turn" ends in the cleanup step)
-        out += [(str(x["controller"]), x["def"], None) for x in r.tap_mana if x.get("turn") == state.turn.number and x["def"].get("trigger")]  # (wave 49A: the replacements go to mana_replace)
+        out += [(str(x["controller"]), {**x["def"], 'effect_source_object': x.get('source_object')}, x.get('source_card'))
+                for x in r.tap_mana if x.get("turn") == state.turn.number and x["def"].get("trigger")]  # (wave 49A: the replacements go to mana_replace)
     return out
 
 
@@ -163,11 +168,35 @@ def _applies(state: GameState, info: CardInfo, card: CardInstance, owner: str, d
 
 
 def _extra(d: dict[str, Any], option: tuple[str, ...]) -> list[tuple[str, ...]]:
+    if not option:
+        return [()]  # A mana ability that produces nothing does not trigger a mana-production trigger.
     if d.get("only") and d["only"] not in option:
         return [()]  # -- triggers (wave 17D) -- "Whenever you tap a permanent for {C}" (Forsaken Monument): only when {C} was produced
     if d["extra"] == "produced":
         return [(m,) for m in dict.fromkeys(option)]
     return [tuple(x) for x in d["extra"]]
+
+
+def output_producer(state: GameState, info: CardInfo, source: str | None,
+                    definition: dict[str, Any]) -> M.OutputProducer:
+    """Exact independent producer identity captured alongside native output options."""
+    from app.rules import mana_units
+    from app.rules.mana_requirement_rows import OutputProducer, ProducerFact
+    from app.rules.plan import Plan
+
+    plan = Plan.view(state, '', info)
+    card = state.cards.get(source or '')
+    oid = definition.get('effect_source_object')
+    if oid is None and card is not None:
+        oid = plan.oid(card)
+    if card is not None and oid == plan.oid(card):
+        return OutputProducer(plan.oid(card), ProducerFact(tuple(mana_units.tags_of(plan.ch(card))), card.zone))
+    snap = plan.rules.lki.get(oid or '')
+    if snap is not None and oid is not None:
+        from app.rules.triggers import _snapshot_card
+
+        return OutputProducer(oid, ProducerFact(tuple(mana_units.tags_of(_snapshot_card(plan, snap)[1])), snap.zone))
+    return OutputProducer(oid or '', None)
 
 
 def extend(state: GameState, card: CardInstance, info: CardInfo,
@@ -176,7 +205,8 @@ def extend(state: GameState, card: CardInstance, info: CardInfo,
     apply to it (605.4a: added right after, with the ability's own)."""
     if not found:
         return found
-    triggers = [d for owner, d, src in _triggers(state, info) if _applies(state, info, card, owner, d, src)]
+    triggers = [(d, output_producer(state, info, src, d)) for owner, d, src in _triggers(state, info)
+                if _applies(state, info, card, owner, d, src)]
     if not triggers:
         return found
     from dataclasses import replace
@@ -187,15 +217,22 @@ def extend(state: GameState, card: CardInstance, info: CardInfo,
             # -- most-played cards (wave 43B) -- "a land's ability" (Caged Sun) also triggers on a mana ability without {T}: the engine doesn't add that
             # extra mana, so a land ability that makes the chosen color is left to the player while the trigger applies
             # ponytail: those abilities stay manual rather than automated
-            if any(d.get("any_ability") and any(d["only"] in opt for opt in ab.options) for d in triggers):
+            if any(d.get("any_ability") and any(d["only"] in opt for opt in ab.options) for d, _ in triggers):
                 continue
             out.append((index, ab))
             continue
-        if ab.spend_only is not None:
+        if ab.spend_only is not None or not ab.generic_allowed:
             continue  # (restricted mana with unrestricted extra: by hand)
-        options = tuple(dict.fromkeys(tuple(opt) + tuple(m for part in combo for m in part)
-                                      for opt in ab.options for combo in product(*[_extra(d, opt) for d in triggers])))
-        out.append((index, replace(ab, options=options)))
+        if ab.output_producers is None:
+            from app.game.errors import ActionError
+
+            raise ActionError('This saved mana ability has unknown producer choices; resolve it manually with the table tools')
+        pairs = dict.fromkeys((tuple(opt) + tuple(m for part in combo for m in part),
+            (ab.output_producers[position] if ab.output_producers else (None,) * len(opt)) +
+            tuple(spec for part, (_, spec) in zip(combo, triggers, strict=True) for _ in part))
+            for position, opt in enumerate(ab.options) for combo in product(*[_extra(d, opt) for d, _ in triggers]))
+        out.append((index, replace(ab, options=tuple(o for o, _ in pairs),
+                                   output_producers=tuple(profile for _, profile in pairs))))
     return out
 
 

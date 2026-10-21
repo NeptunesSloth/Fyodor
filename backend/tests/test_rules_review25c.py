@@ -3,7 +3,7 @@
 * A "you may put a … card from your hand onto the battlefield" whose "may" moved from the triggered / loyalty ability to the effect
   (scripts._own_choice) is asked whenever the hand holds cards, so whether the question appears doesn't tell the other players that a
   matching card is there (hidden information, 402.3).
-* "You may cast that card. If you don't, …" (Chandra, Torch of Defiance) with an {X} card exiled: the cast is made by hand (601.2b), and
+* "You may cast that card. If you don't, …" (Chandra, Torch of Defiance) with an {X} card exiled: the native cast announces X (601.2b), and
   "If you don't" reads the player's answer instead of always happening (608.2c)."""
 
 from __future__ import annotations
@@ -51,17 +51,22 @@ def test_garruk_asks_even_without_a_green_creature_card_in_hand(cards):  # noqa:
 
 
 @pytest.mark.parametrize("cast", [True, False])
-def test_chandra_with_an_x_card_exiled_reads_whether_it_was_cast_by_hand(cards, cast):  # noqa: F811
+def test_chandra_with_an_x_card_exiled_reads_whether_it_was_cast_natively(cards, cast):  # noqa: F811
     s = build(cards)
     chandra = put(s, "Chandra, Torch of Defiance", "battlefield")
     act(s, "p1", type="counter", card_ids=[chandra.id], kind="loyalty", delta=4)
     top = stack_library(s, ["Endless One"])[0]  # mana cost {X}
     act(s, "p1", type="activate_ability", card_id=chandra.id, ability=0)
     pass_until_stack_empty(s)
-    d = decision(s, "copy_manual")
-    assert [o.id for o in d.options] == ["done", "none"]
-    choose(s, ["done" if cast else "none"], resolve=True)
+    d = decision(s, "free_cast_pick")
+    assert [o.id for o in d.options] == [top]
+    choose(s, [top] if cast else [], resolve=True)
+    if cast:
+        d = decision(s, "free_x")
+        assert [o.id for o in d.options] == ["x:0"]
+        choose(s, ["x:0"], resolve=True)
+    assert s.state.rules.decision is None
     assert s.state.players["p2"].life == (40 if cast else 38)  # "If you don't, Chandra deals 2 damage to each opponent"
-    assert s.state.cards[top].zone == "p1:exile"
+    assert s.state.cards[top].zone == ("p1:graveyard" if cast else "p1:exile")
     replay_matches(s)
     assert reloaded(s)

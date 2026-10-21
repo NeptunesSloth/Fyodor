@@ -1,0 +1,560 @@
+[
+  {
+    "name": "Sewer Nemesis",
+    "oracle_text": "As this creature enters, choose a player.\nSewer Nemesis's power and toughness are each equal to the number of cards in the chosen player's graveyard.\nWhenever the chosen player casts a spell, that player mills a card.",
+    "mana_cost": "{3}{B}",
+    "type_line": "Creature \u2014 Horror",
+    "power": "*",
+    "toughness": "*",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 4.0,
+    "keywords": [
+      "Mill"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Sawhorn Nemesis",
+    "oracle_text": "As this creature enters, choose a player.\nIf a source would deal damage to the chosen player or a permanent they control, it deals double that damage instead.",
+    "mana_cost": "{3}{R}",
+    "type_line": "Creature \u2014 Dinosaur",
+    "power": "2",
+    "toughness": "4",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 4.0,
+    "keywords": [
+      "Double"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Triarch Stalker",
+    "oracle_text": "Targeting Relay \u2014 At the beginning of combat on your turn, choose an opponent.\nCreatures attacking the last chosen player have menace.",
+    "mana_cost": "{3}{B}{B}",
+    "type_line": "Artifact Creature \u2014 Necron",
+    "power": "4",
+    "toughness": "5",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 5.0,
+    "keywords": [
+      "Targeting Relay"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Beckoning Will-o'-Wisp",
+    "oracle_text": "Flying\nLure the Unwary \u2014 At the beginning of combat on your turn, choose an opponent.\nCreatures attacking the last chosen player get +1/+0.",
+    "mana_cost": "{2}{W}",
+    "type_line": "Creature \u2014 Spirit",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 3.0,
+    "keywords": [
+      "Flying",
+      "Lure the Unwary"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Cursed Rack",
+    "oracle_text": "As this artifact enters, choose an opponent.\nThe chosen player's maximum hand size is four.",
+    "mana_cost": "{4}",
+    "type_line": "Artifact",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 4.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 2.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Lightning Bolt",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Giant Growth",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "mana_cost": "{G}",
+    "type_line": "Instant",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Think Twice",
+    "oracle_text": "Draw a card.\nFlashback {2}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "mana_cost": "{1}{U}",
+    "type_line": "Instant",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 2.0,
+    "keywords": [
+      "Flashback"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Fervor",
+    "oracle_text": "Creatures you control have haste. (They can attack and {T} as soon as they come under your control.)",
+    "mana_cost": "{2}{R}",
+    "type_line": "Enchantment",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 3.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Giant Spider",
+    "oracle_text": "Reach (This creature can block creatures with flying.)",
+    "mana_cost": "{3}{G}",
+    "type_line": "Creature \u2014 Spider",
+    "power": "2",
+    "toughness": "4",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 4.0,
+    "keywords": [
+      "Reach"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Karn Liberated",
+    "oracle_text": "+4: Target player exiles a card from their hand.\n\u22123: Exile target permanent.\n\u221214: Restart the game, leaving in exile all non-Aura permanent cards exiled with Karn. Then put those cards onto the battlefield under your control.",
+    "mana_cost": "{7}",
+    "type_line": "Legendary Planeswalker \u2014 Karn",
+    "loyalty": "6",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 7.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Invasion of Zendikar // Awakened Skyclave",
+    "type_line": "Battle \u2014 Siege // Creature \u2014 Elemental",
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 4.0,
+    "keywords": [
+      "Vigilance",
+      "Transform",
+      "Haste"
+    ],
+    "layout": "transform",
+    "card_faces": [
+      {
+        "object": "card_face",
+        "name": "Invasion of Zendikar",
+        "mana_cost": "{3}{G}",
+        "type_line": "Battle \u2014 Siege",
+        "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.",
+        "colors": [
+          "G"
+        ],
+        "defense": "3",
+        "artist": "Diego Gisbert",
+        "artist_id": "3f4e975d-092c-40e4-b850-2d582bf4b5cb",
+        "illustration_id": "f66d58dc-39f5-4488-8812-66b00e730468",
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+          "normal": "https://cards.scryfall.io/normal/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+          "large": "https://cards.scryfall.io/large/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+          "png": "https://cards.scryfall.io/png/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.png?1783916973",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+          "border_crop": "https://cards.scryfall.io/border_crop/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+          "thumb": "https://cards.scryfall.io/thumb/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.webp?1783916973",
+          "grid": "https://cards.scryfall.io/grid/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.webp?1783916973",
+          "display": "https://cards.scryfall.io/display/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.webp?1783916973",
+          "art": "https://cards.scryfall.io/art/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.webp?1783916973",
+          "crop": "https://cards.scryfall.io/crop/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.webp?1783916973",
+          "jpeg": "https://cards.scryfall.io/normal/front/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973"
+        }
+      },
+      {
+        "object": "card_face",
+        "name": "Awakened Skyclave",
+        "mana_cost": "",
+        "type_line": "Creature \u2014 Elemental",
+        "oracle_text": "Vigilance, haste\nAs long as this creature is on the battlefield, it's a land in addition to its other types.\n{T}: Add one mana of any color.",
+        "colors": [
+          "G"
+        ],
+        "color_indicator": [
+          "G"
+        ],
+        "power": "4",
+        "toughness": "4",
+        "flavor_text": "Nahiri tried to bend Zendikar to Phyrexia's will. In response, the world rose against her.",
+        "artist": "Diego Gisbert",
+        "artist_id": "3f4e975d-092c-40e4-b850-2d582bf4b5cb",
+        "illustration_id": "4e2cd51a-4d1b-4652-8c9e-e2735a483cc6",
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+          "normal": "https://cards.scryfall.io/normal/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+          "large": "https://cards.scryfall.io/large/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+          "png": "https://cards.scryfall.io/png/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.png?1783916973",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+          "border_crop": "https://cards.scryfall.io/border_crop/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973",
+          "thumb": "https://cards.scryfall.io/thumb/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.webp?1783916973",
+          "grid": "https://cards.scryfall.io/grid/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.webp?1783916973",
+          "display": "https://cards.scryfall.io/display/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.webp?1783916973",
+          "art": "https://cards.scryfall.io/art/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.webp?1783916973",
+          "crop": "https://cards.scryfall.io/crop/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.webp?1783916973",
+          "jpeg": "https://cards.scryfall.io/normal/back/8/f/8fed056f-a8f5-41ec-a7d2-a80a238872d1.jpg?1783916973"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Reliquary Tower",
+    "oracle_text": "You have no maximum hand size.\n{T}: Add {C}.",
+    "mana_cost": "",
+    "type_line": "Land",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 0.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Null Profusion",
+    "oracle_text": "Skip your draw step.\nWhenever you play a card, draw a card.\nYour maximum hand size is two.",
+    "mana_cost": "{4}{B}{B}",
+    "type_line": "Enchantment",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 6.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Praetor's Counsel",
+    "oracle_text": "Return all cards from your graveyard to your hand. Exile Praetor's Counsel. You have no maximum hand size for the rest of the game.",
+    "mana_cost": "{5}{G}{G}{G}",
+    "type_line": "Sorcery",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 8.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Gnat Miser",
+    "oracle_text": "Each opponent's maximum hand size is reduced by one.",
+    "mana_cost": "{B}",
+    "type_line": "Creature \u2014 Rat Shaman",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Trusted Advisor",
+    "oracle_text": "Your maximum hand size is increased by two.\nAt the beginning of your upkeep, return a blue creature you control to its owner's hand.",
+    "mana_cost": "{U}",
+    "type_line": "Creature \u2014 Human Advisor",
+    "power": "1",
+    "toughness": "2",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Flicker of Fate",
+    "oracle_text": "Exile target creature or enchantment, then return it to the battlefield under its owner's control.",
+    "mana_cost": "{1}{W}",
+    "type_line": "Instant",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 2.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Clever Impersonator",
+    "oracle_text": "You may have this creature enter as a copy of any nonland permanent on the battlefield.",
+    "mana_cost": "{2}{U}{U}",
+    "type_line": "Creature \u2014 Shapeshifter",
+    "power": "0",
+    "toughness": "0",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 4.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Healing Salve",
+    "oracle_text": "Choose one \u2014\n\u2022 Target player gains 3 life.\n\u2022 Prevent the next 3 damage that would be dealt to any target this turn.",
+    "mana_cost": "{W}",
+    "type_line": "Instant",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Pariah",
+    "oracle_text": "Enchant creature\nAll damage that would be dealt to you is dealt to enchanted creature instead.",
+    "mana_cost": "{2}{W}",
+    "type_line": "Enchantment \u2014 Aura",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 3.0,
+    "keywords": [
+      "Enchant"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Pyroclasm",
+    "oracle_text": "Pyroclasm deals 2 damage to each creature.",
+    "mana_cost": "{1}{R}",
+    "type_line": "Sorcery",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 2.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Midnight Oil",
+    "mana_cost": "{2}{B}{B}",
+    "type_line": "Enchantment",
+    "oracle_text": "This enchantment enters with seven hour counters on it.\nAt the beginning of your draw step, draw an additional card and remove two hour counters from this enchantment.\nYour maximum hand size is equal to the number of hour counters on this enchantment.\nWhenever you discard a card, you lose 1 life.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 4.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Winter, Misanthropic Guide",
+    "mana_cost": "{1}{B}{R}{G}",
+    "type_line": "Legendary Creature \u2014 Human Warlock",
+    "oracle_text": "Ward {2}\nAt the beginning of your upkeep, each player draws two cards.\nDelirium \u2014 As long as there are four or more card types among cards in your graveyard, each opponent's maximum hand size is equal to seven minus the number of those card types.",
+    "power": "3",
+    "toughness": "4",
+    "colors": [
+      "B",
+      "G",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R"
+    ],
+    "cmc": 4.0,
+    "keywords": [
+      "Delirium",
+      "Ward"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Inspired Idea",
+    "mana_cost": "{2}{U}",
+    "type_line": "Sorcery",
+    "oracle_text": "Cleave {3}{U}{U} (You may cast this spell for its cleave cost. If you do, remove the words in square brackets.)\nDraw three cards. [Your maximum hand size is reduced by three for the rest of the game.]",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 3.0,
+    "keywords": [
+      "Cleave"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Enter the Infinite",
+    "mana_cost": "{8}{U}{U}{U}{U}",
+    "type_line": "Sorcery",
+    "oracle_text": "Draw cards equal to the number of cards in your library, then put a card from your hand on top of your library. You have no maximum hand size until your next turn.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 12.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Mordenkainen",
+    "mana_cost": "{4}{U}{U}",
+    "type_line": "Legendary Planeswalker \u2014 Mordenkainen",
+    "oracle_text": "+2: Draw two cards, then put a card from your hand on the bottom of your library.\n\u22122: Create a blue Dog Illusion creature token with \"This token's power and toughness are each equal to twice the number of cards in your hand.\"\n\u221210: Exchange your hand and library, then shuffle. You get an emblem with \"You have no maximum hand size.\"",
+    "loyalty": "5",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 6.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Narset, Parter of Veils",
+    "mana_cost": "{1}{U}{U}",
+    "type_line": "Legendary Planeswalker \u2014 Narset",
+    "oracle_text": "Each opponent can't draw more than one card each turn.\n\u22122: Look at the top four cards of your library. You may reveal a noncreature, nonland card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+    "loyalty": "5",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 3.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Alhammarret's Archive",
+    "mana_cost": "{5}",
+    "type_line": "Legendary Artifact",
+    "oracle_text": "If you would gain life, you gain twice that much life instead.\nIf you would draw a card except the first one you draw in each of your draw steps, draw two cards instead.",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 5.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Abundance",
+    "mana_cost": "{2}{G}{G}",
+    "type_line": "Enchantment",
+    "oracle_text": "If you would draw a card, you may instead choose land or nonland and reveal cards from the top of your library until you reveal a card of the chosen kind. Put that card into your hand and put all other cards revealed this way on the bottom of your library in any order.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 4.0,
+    "keywords": [],
+    "layout": "normal"
+  }
+]

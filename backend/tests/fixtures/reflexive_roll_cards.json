@@ -1,0 +1,129 @@
+[
+  {
+    "name": "Ancient Brass Dragon",
+    "mana_cost": "{5}{B}{B}",
+    "cmc": 7.0,
+    "type_line": "Creature \u2014 Elder Dragon",
+    "oracle_text": "Flying\nWhenever this creature deals combat damage to a player, roll a d20. When you do, put any number of target creature cards with total mana value X or less from graveyards onto the battlefield under your control, where X is the result.",
+    "power": "7",
+    "toughness": "6",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Ancient Bronze Dragon",
+    "mana_cost": "{5}{G}{G}",
+    "cmc": 7.0,
+    "type_line": "Creature \u2014 Elder Dragon",
+    "oracle_text": "Flying\nWhenever this creature deals combat damage to a player, roll a d20. When you do, put X +1/+1 counters on each of up to two target creatures, where X is the result.",
+    "power": "7",
+    "toughness": "7",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Wyll, Blade of Frontiers",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Human Warlock",
+    "oracle_text": "If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.\nWhenever you roll one or more dice, put a +1/+1 counter on Wyll.\nChoose a Background (You can have a Background as a second commander.)",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Choose a background"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Hardened Scales",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Stifle",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Counterspell",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Pixie Guide",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Faerie",
+    "oracle_text": "Flying\nGrant an Advantage \u2014 If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal"
+  }
+]

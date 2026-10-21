@@ -1,0 +1,453 @@
+[
+  {
+    "name": "Stolen Goods",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target opponent exiles cards from the top of their library until they exile a nonland card. Until end of turn, you may cast that card without paying its mana cost.",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Nivix, Aerie of the Firemind",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "{T}: Add {C}.\n{2}{U}{R}, {T}: Exile the top card of your library. Until your next turn, you may cast it if it's an instant or sorcery spell.",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mezzio Mugger",
+    "mana_cost": "{4}{R}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Lizard Rogue",
+    "oracle_text": "Whenever this creature attacks, exile the top card of each player's library. You may play those cards this turn, and you may spend mana as though it were mana of any color to cast those spells.\nBlitz {2}{R} (If you cast this spell for its blitz cost, it gains haste and \"When this creature dies, draw a card.\" Sacrifice it at the beginning of the next end step.)",
+    "power": "3",
+    "toughness": "3",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Blitz"
+    ]
+  },
+  {
+    "name": "Dead Man's Chest",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature an opponent controls\nWhen enchanted creature dies, exile cards equal to its power from the top of its owner's library. You may cast spells from among those cards for as long as they remain exiled, and mana of any type can be spent to cast them.",
+    "layout": "normal",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Magus of the Mind",
+    "mana_cost": "{4}{U}{U}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "{U}, {T}, Sacrifice this creature: Shuffle your library, then exile the top X cards, where X is one plus the number of spells cast this turn. Until end of turn, you may play lands and cast spells from among cards exiled this way without paying their mana costs.",
+    "power": "4",
+    "toughness": "5",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Meeting of the Five",
+    "mana_cost": "{3}{W}{U}{B}{R}{G}",
+    "cmc": 8.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Exile the top ten cards of your library. You may cast spells with exactly three colors from among them this turn. Add {W}{W}{U}{U}{B}{B}{R}{R}{G}{G}. Spend this mana only to cast spells with exactly three colors.",
+    "layout": "normal",
+    "colors": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Triple Triad",
+    "mana_cost": "{3}{R}{R}{R}",
+    "cmc": 6.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, each player exiles the top card of their library. Until end of turn, you may play the card you own exiled this way and each other card exiled this way with lesser mana value than it without paying their mana costs.",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Muse Vortex",
+    "mana_cost": "{X}{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Exile the top X cards of your library. You may cast an instant or sorcery spell with mana value X or less from among them without paying its mana cost. Then put the exiled instant and sorcery cards that weren't cast this way into your hand and the rest on the bottom of your library in a random order.",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Bre of Clan Stoutarm",
+    "mana_cost": "{2}{R}{W}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Giant Warrior",
+    "oracle_text": "{1}{W}, {T}: Another target creature you control gains flying and lifelink until end of turn.\nAt the beginning of your end step, if you gained life this turn, exile cards from the top of your library until you exile a nonland card. You may cast that card without paying its mana cost if the spell's mana value is less than or equal to the amount of life you gained this turn. Otherwise, put it into your hand.",
+    "power": "4",
+    "toughness": "4",
+    "layout": "normal",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Strago and Relm",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Wizard",
+    "oracle_text": "Sketch and Lore \u2014 {2}{R}, {T}: Target opponent exiles cards from the top of their library until they exile an instant, sorcery, or creature card. You may cast that card without paying its mana cost. If you cast a creature spell this way, it gains haste and \"At the beginning of the end step, sacrifice this creature.\" Activate only as a sorcery.",
+    "power": "1",
+    "toughness": "3",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Sketch and Lore"
+    ]
+  },
+  {
+    "name": "Crabomination",
+    "mana_cost": "{4}{B}{B}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Crab Demon",
+    "oracle_text": "Emerge from artifact {5}{B}{B} (You may cast this spell by sacrificing an artifact and paying the emerge cost reduced by that artifact's mana value.)\nWhen this creature enters, target opponent exiles the top card of their library, a card at random from their graveyard, and a card at random from their hand. You may cast a spell from among cards exiled this way without paying its mana cost.",
+    "power": "5",
+    "toughness": "5",
+    "layout": "normal",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Emerge"
+    ]
+  },
+  {
+    "name": "Anzrag's Rampage",
+    "mana_cost": "{3}{R}{R}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Destroy all artifacts you don't control, then exile the top X cards of your library, where X is the number of artifacts that were put into graveyards from the battlefield this turn. You may put a creature card exiled this way onto the battlefield. It gains haste. Return it to your hand at the beginning of the next end step.",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Jace, Architect of Thought",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Legendary Planeswalker \u2014 Jace",
+    "oracle_text": "+1: Until your next turn, whenever a creature an opponent controls attacks, it gets -1/-0 until end of turn.\n\u22122: Reveal the top three cards of your library. An opponent separates those cards into two piles. Put one pile into your hand and the other on the bottom of your library in any order.\n\u22128: For each player, search that player's library for a nonland card and exile it, then that player shuffles. You may cast those cards without paying their mana costs.",
+    "loyalty": "4",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Chandra, Heart of Fire",
+    "mana_cost": "{3}{R}{R}",
+    "cmc": 5.0,
+    "type_line": "Legendary Planeswalker \u2014 Chandra",
+    "oracle_text": "+1: Discard your hand, then exile the top three cards of your library. Until end of turn, you may play cards exiled this way.\n+1: Chandra deals 2 damage to any target.\n\u22129: Search your graveyard and library for any number of red instant and/or sorcery cards, exile them, then shuffle. You may cast them this turn. Add six {R}.",
+    "loyalty": "5",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Commander Liara Portyr",
+    "mana_cost": "{3}{R}{W}",
+    "cmc": 5.0,
+    "type_line": "Legendary Creature \u2014 Human Soldier",
+    "oracle_text": "Whenever you attack, spells you cast from exile this turn cost {X} less to cast, where X is the number of players being attacked. Exile the top X cards of your library. Until end of turn, you may cast spells from among those exiled cards.",
+    "power": "5",
+    "toughness": "3",
+    "layout": "normal",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Arvinox, the Mind Flail",
+    "mana_cost": "{4}{B}{B}{B}",
+    "cmc": 7.0,
+    "type_line": "Legendary Enchantment Creature \u2014 Horror",
+    "oracle_text": "Arvinox isn't a creature unless you control three or more permanents you don't own.\nAt the beginning of your end step, exile the bottom card of each opponent's library face down. For as long as those cards remain exiled, you may look at them, you may cast permanent spells from among them, and you may spend mana as though it were mana of any color to cast those spells.",
+    "power": "9",
+    "toughness": "9",
+    "layout": "normal",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Gonti, Night Minister",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Aetherborn Rogue",
+    "oracle_text": "Whenever a player casts a spell they don't own, that player creates a Treasure token.\nWhenever a creature deals combat damage to one of your opponents, its controller looks at the top card of that opponent's library and exiles it face down. They may play that card for as long as it remains exiled. Mana of any type can be spent to cast a spell this way.",
+    "power": "3",
+    "toughness": "4",
+    "layout": "normal",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Treasure"
+    ]
+  },
+  {
+    "name": "Curse of Hospitality",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Aura Curse",
+    "oracle_text": "Enchant player\nCreatures attacking enchanted player have trample.\nWhenever a creature deals combat damage to enchanted player, that player exiles the top card of their library. Until end of turn, that creature's controller may play that card and they may spend mana as though it were mana of any color to cast that spell.",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Aminatou's Augury",
+    "mana_cost": "{6}{U}{U}",
+    "cmc": 8.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Exile the top eight cards of your library. You may put a land card from among them onto the battlefield. Until end of turn, for each nonland card type, you may cast a spell of that type from among the exiled cards without paying its mana cost.",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Burning Curiosity",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "As an additional cost to cast this spell, you may blight 1. (You may put a -1/-1 counter on a creature you control.)\nExile the top two cards of your library. If this spell's additional cost was paid, exile the top three cards instead. Until the end of your next turn, you may play those cards.",
+    "layout": "normal",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Blight"
+    ]
+  },
+  {
+    "name": "Memnite",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "",
+    "power": "1",
+    "toughness": "1",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Ornithopter",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "oracle_text": "Flying",
+    "power": "0",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Phyrexian Walker",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact Creature \u2014 Phyrexian Construct",
+    "oracle_text": "",
+    "power": "0",
+    "toughness": "3",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Rhox War Monk",
+    "mana_cost": "{G}{W}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Rhino Monk",
+    "oracle_text": "Lifelink",
+    "layout": "normal",
+    "colors": [
+      "G",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Lifelink"
+    ],
+    "power": "3",
+    "toughness": "4"
+  },
+  {
+    "name": "Glint-Eye Nephilim",
+    "mana_cost": "{U}{B}{R}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Nephilim",
+    "oracle_text": "Whenever this creature deals combat damage to a player, draw that many cards.\n{1}, Discard a card: This creature gets +1/+1 until end of turn.",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "colors": [
+      "B",
+      "G",
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R",
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Doran, the Siege Tower",
+    "mana_cost": "{W}{B}{G}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Treefolk Shaman",
+    "oracle_text": "Each creature assigns combat damage equal to its toughness rather than its power.",
+    "power": "0",
+    "toughness": "5",
+    "layout": "normal",
+    "colors": [
+      "B",
+      "G",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "W"
+    ],
+    "keywords": []
+  }
+]

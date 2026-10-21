@@ -56,6 +56,12 @@ def endure(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         _carry_out(plan, ctx, e, {"do": "create_token", "who": f"player:{player}", "n": 1, "token": _spirit(n)})
         return True
     card = plan.state.cards[found[0]]
+    from app.rules import prohibitions
+
+    if prohibitions.cant_counters(plan, card.id, None, '+1/+1'):
+        # 701.63a / 608.2d: an impossible counter payment cannot be chosen.
+        _carry_out(plan, ctx, e, {'do': 'create_token', 'who': f'player:{card.controller}', 'n': 1, 'token': _spirit(n)})
+        return True
     name = card.name or "It"
     decide(plan, player=card.controller, kind="choose_one", prompt=f"{name} endures {n}: +1/+1 counters or a Spirit token?",
            options=[DecisionOption(id="counters", label=f"Put {n} +1/+1 counter{'s' if n > 1 else ''} on {name}"),

@@ -1,0 +1,11 @@
+# Ainok Strike Leader: aggregate attackers and fixed token recipients
+
+Current Oracle: “Whenever you attack with this creature and/or your commander, for each opponent, create a 1/1 red Goblin creature token that's tapped and attacking that player.” The sacrifice ability continues to use the native sacrifice cost and indestructible grant.
+
+The declaration trigger evaluates a single aggregate list of declared attackers. Either the source itself or a designated commander owned by the trigger controller qualifies; source plus both partner commanders still triggers once. Commander designation is not copied (CR 903.3). Tokens entering attacking do not become declared attackers (508.4), so they cannot recursively trigger the ability. Existing trigger contexts retain their controller after the source changes control or leaves.
+
+Fixed-player token instructions use one native creation batch, with a separate recipient reference for each creation request. Recipient metadata stays on the replacement event, so doubling, extra tokens, substitution, and creator changes retain the correct request lineage. Both replacement-order and token-entry choices serialize the recipient mapping and resume through the same native batch. The shared hook is also tested with Adaptive Automaton token entry choices and APNAP ordering, since Ainok's Goblins have no entry choice themselves.
+
+After entry, only actual surviving battlefield creature tokens controlled by the active attacking player are assigned to the specified live player. A player destination never becomes a planeswalker or battle choice. Crafty Cutpurse tokens and a nonactive player's Return the Favor copy remain tapped without attacking (506.3b). Hallowed Moonlight entry redirection produces no attacking ghosts. One simultaneous creation batch across opponents is verified with Marneus Calgar; noncreature additional Food tokens stay out of combat.
+
+The coverage refusal for fixed-player attacking instructions is exempted only when the for-each-opponent body parses to the supported fixed-player primitive. Other fixed-player text retains the existing refusal. Tests use canonical current Oracle metadata and replay/save assertions; the entry-choice batch test explicitly reloads JSON between each choice.

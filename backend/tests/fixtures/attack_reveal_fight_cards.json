@@ -1,0 +1,244 @@
+[
+  {
+    "name": "Hans Eriksson",
+    "oracle_text": "Whenever Hans Eriksson attacks, reveal the top card of your library. If it's a creature card, put it onto the battlefield tapped and attacking defending player or a planeswalker they control. Otherwise, put that card into your hand. When you put a creature card onto the battlefield this way, it fights Hans Eriksson.",
+    "mana_cost": "{2}{R}{G}",
+    "type_line": "Legendary Creature \u2014 Human Scout",
+    "power": "1",
+    "toughness": "4",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "G",
+      "R"
+    ],
+    "color_identity": [
+      "G",
+      "R"
+    ],
+    "keywords": [
+      "Fight"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Craw Wurm",
+    "oracle_text": "",
+    "mana_cost": "{4}{G}{G}",
+    "type_line": "Creature \u2014 Wurm",
+    "power": "6",
+    "toughness": "4",
+    "layout": "normal",
+    "cmc": 6.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "mana_cost": "",
+    "type_line": "Basic Land \u2014 Forest",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "mana_cost": "",
+    "type_line": "Basic Land \u2014 Island",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Plains",
+    "oracle_text": "({T}: Add {W}.)",
+    "mana_cost": "",
+    "type_line": "Basic Land \u2014 Plains",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Jace Beleren",
+    "oracle_text": "+2: Each player draws a card.\n\u22121: Target player draws a card.\n\u221210: Target player mills twenty cards.",
+    "mana_cost": "{1}{U}{U}",
+    "type_line": "Legendary Planeswalker \u2014 Jace",
+    "loyalty": "3",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Grafdigger's Cage",
+    "oracle_text": "Creature cards in graveyards and libraries can't enter the battlefield.\nPlayers can't cast spells from graveyards or libraries.",
+    "mana_cost": "{1}",
+    "type_line": "Artifact",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Cloudshift",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "mana_cost": "{W}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Stifle",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "mana_cost": "{U}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Torpor Orb",
+    "oracle_text": "Creatures entering don't cause abilities to trigger.",
+    "mana_cost": "{2}",
+    "type_line": "Artifact",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Thassa, God of the Sea",
+    "oracle_text": "Indestructible\nAs long as your devotion to blue is less than five, Thassa isn't a creature. (Each {U} in the mana costs of permanents you control counts toward your devotion to blue.)\nAt the beginning of your upkeep, scry 1.\n{1}{U}: Target creature you control can't be blocked this turn.",
+    "mana_cost": "{2}{U}",
+    "type_line": "Legendary Enchantment Creature \u2014 God",
+    "power": "5",
+    "toughness": "5",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Indestructible",
+      "Scry"
+    ]
+  },
+  {
+    "name": "Song of the Dryads",
+    "oracle_text": "Enchant permanent\nEnchanted permanent is a colorless Forest land.",
+    "mana_cost": "{2}{G}",
+    "type_line": "Enchantment \u2014 Aura",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Vedalken Orrery",
+    "oracle_text": "You may cast spells as though they had flash.",
+    "mana_cost": "{4}",
+    "type_line": "Artifact",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Act of Aggression",
+    "oracle_text": "({R/P} can be paid with either {R} or 2 life.)\nGain control of target creature an opponent controls until end of turn. Untap that creature. It gains haste until end of turn.",
+    "mana_cost": "{3}{R/P}{R/P}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shock",
+    "oracle_text": "Shock deals 2 damage to any target.",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  }
+]

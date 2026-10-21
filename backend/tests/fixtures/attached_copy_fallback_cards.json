@@ -1,0 +1,224 @@
+[
+  {
+    "name": "Springheart Nantuko",
+    "oracle_text": "Bestow {1}{G}\nEnchanted creature gets +1/+1.\nLandfall \u2014 Whenever a land you control enters, you may pay {1}{G} if this permanent is attached to a creature you control. If you do, create a token that's a copy of that creature. If you didn't create a token this way, create a 1/1 green Insect creature token.",
+    "type_line": "Enchantment Creature \u2014 Insect Monk",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Bestow",
+      "Landfall"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "type_line": "Basic Land \u2014 Forest",
+    "mana_cost": "",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Murder",
+    "oracle_text": "Destroy target creature.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{B}{B}",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Doubling Season",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{4}{G}",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Divine Visitation",
+    "oracle_text": "If one or more creature tokens would be created under your control, that many 4/4 white Angel creature tokens with flying and vigilance are created instead.",
+    "type_line": "Enchantment",
+    "mana_cost": "{3}{W}{W}",
+    "layout": "normal",
+    "cmc": 5.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Chatterfang, Squirrel General",
+    "oracle_text": "Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)\nIf one or more tokens would be created under your control, those tokens plus that many 1/1 green Squirrel creature tokens are created instead.\n{B}, Sacrifice X Squirrels: Target creature gets +X/-X until end of turn.",
+    "type_line": "Legendary Creature \u2014 Squirrel Warrior",
+    "mana_cost": "{2}{G}",
+    "layout": "normal",
+    "cmc": 3.0,
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [
+      "Landwalk",
+      "Forestwalk"
+    ]
+  },
+  {
+    "name": "Peregrin Took",
+    "oracle_text": "If one or more tokens would be created under your control, those tokens plus an additional Food token are created instead. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\nSacrifice three Foods: Draw a card.",
+    "type_line": "Legendary Creature \u2014 Halfling Citizen",
+    "mana_cost": "{2}{G}",
+    "layout": "normal",
+    "cmc": 3.0,
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Food"
+    ]
+  },
+  {
+    "name": "Crafty Cutpurse",
+    "oracle_text": "Flash\nWhen this creature enters, each token that would be created under an opponent's control this turn is created under your control instead.",
+    "type_line": "Creature \u2014 Human Pirate",
+    "mana_cost": "{3}{U}",
+    "layout": "normal",
+    "cmc": 4.0,
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flash"
+    ]
+  },
+  {
+    "name": "Phyrexian Altar",
+    "oracle_text": "Sacrifice a creature: Add one mana of any color.",
+    "type_line": "Artifact",
+    "mana_cost": "{3}",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Rancor",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +2/+0 and has trample.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{G}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Raise the Alarm",
+    "oracle_text": "Create two 1/1 white Soldier creature tokens.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{W}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Alchemist's Refuge",
+    "oracle_text": "{T}: Add {C}.\n{G}{U}, {T}: You may cast spells this turn as though they had flash.",
+    "type_line": "Land",
+    "mana_cost": "",
+    "layout": "normal",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": []
+  }
+]

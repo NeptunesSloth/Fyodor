@@ -65,7 +65,7 @@ def shown_at_end(state: GameState, card: CardInstance, zone: str) -> bool:
     r = state.rules
     if r is None or not (card.face_down and zone in ("battlefield", "stack") or zone == "foretell"):
         return False
-    return r.winner is not None or card.owner in r.lost or card.owner in r.conceded
+    return r.winner is not None or r.draw_reason is not None or card.owner in r.lost or card.owner in r.conceded
 
 
 def hand_revealed(state: GameState, card: CardInstance) -> bool:

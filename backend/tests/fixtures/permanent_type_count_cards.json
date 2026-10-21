@@ -1,0 +1,322 @@
+[
+  {
+    "name": "Matzalantli, the Great Door // The Core",
+    "oracle_text": "{T}: Draw a card, then discard a card.\n{4}, {T}: Transform Matzalantli. Activate only if there are four or more permanent types among cards in your graveyard. (Artifact, battle, creature, enchantment, land, and planeswalker are permanent types.)\n//\n(Transforms from Matzalantli.)\nFathomless descent \u2014 {T}: Add X mana of any one color, where X is the number of permanent cards in your graveyard.",
+    "type_line": "Legendary Artifact // Legendary Land",
+    "mana_cost": "{3} // ",
+    "layout": "transform",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 3.0,
+    "keywords": [
+      "Transform",
+      "Fathomless descent"
+    ],
+    "card_faces": [
+      {
+        "name": "Matzalantli, the Great Door",
+        "mana_cost": "{3}",
+        "type_line": "Legendary Artifact",
+        "oracle_text": "{T}: Draw a card, then discard a card.\n{4}, {T}: Transform Matzalantli. Activate only if there are four or more permanent types among cards in your graveyard. (Artifact, battle, creature, enchantment, land, and planeswalker are permanent types.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [],
+        "image_face": 0
+      },
+      {
+        "name": "The Core",
+        "mana_cost": "",
+        "type_line": "Legendary Land",
+        "oracle_text": "(Transforms from Matzalantli.)\nFathomless descent \u2014 {T}: Add X mana of any one color, where X is the number of permanent cards in your graveyard.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [],
+        "image_face": 1
+      }
+    ]
+  },
+  {
+    "name": "Great Furnace",
+    "oracle_text": "{T}: Add {R}.",
+    "type_line": "Artifact Land",
+    "mana_cost": "",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 0.0,
+    "keywords": []
+  },
+  {
+    "name": "Eidolon of Blossoms",
+    "oracle_text": "Constellation \u2014 Whenever this creature or another enchantment you control enters, draw a card.",
+    "type_line": "Enchantment Creature \u2014 Spirit",
+    "mana_cost": "{2}{G}{G}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 4.0,
+    "keywords": [
+      "Constellation"
+    ]
+  },
+  {
+    "name": "Dryad Arbor",
+    "oracle_text": "(This land isn't a spell, it's affected by summoning sickness, and it has \"{T}: Add {G}.\")",
+    "type_line": "Land Creature \u2014 Forest Dryad",
+    "mana_cost": "",
+    "layout": "normal",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 0.0,
+    "keywords": []
+  },
+  {
+    "name": "Urza's Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 This Saga gains \"{T}: Add {C}.\"\nII \u2014 This Saga gains \"{2}, {T}: Create a 0/0 colorless Construct artifact creature token with 'This token gets +1/+1 for each artifact you control.'\"\nIII \u2014 Search your library for an artifact card with mana cost {0} or {1}, put it onto the battlefield, then shuffle.",
+    "type_line": "Enchantment Land \u2014 Urza's Saga",
+    "mana_cost": "",
+    "layout": "saga",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 0.0,
+    "keywords": []
+  },
+  {
+    "name": "Bitterblossom",
+    "oracle_text": "At the beginning of your upkeep, you lose 1 life and create a 1/1 black Faerie Rogue creature token with flying.",
+    "type_line": "Kindred Enchantment \u2014 Faerie",
+    "mana_cost": "{1}{B}",
+    "layout": "normal",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Nameless Inversion",
+    "oracle_text": "Changeling (This card is every creature type.)\nTarget creature gets +3/-3 and loses all creature types until end of turn.",
+    "type_line": "Kindred Instant \u2014 Shapeshifter",
+    "mana_cost": "{1}{B}",
+    "layout": "normal",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 2.0,
+    "keywords": [
+      "Changeling"
+    ]
+  },
+  {
+    "name": "All Is Dust",
+    "oracle_text": "Each player sacrifices all permanents they control that are one or more colors.",
+    "type_line": "Kindred Sorcery \u2014 Eldrazi",
+    "mana_cost": "{7}",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 7.0,
+    "keywords": []
+  },
+  {
+    "name": "Jace Beleren",
+    "oracle_text": "+2: Each player draws a card.\n\u22121: Target player draws a card.\n\u221210: Target player mills twenty cards.",
+    "type_line": "Legendary Planeswalker \u2014 Jace",
+    "mana_cost": "{1}{U}{U}",
+    "layout": "normal",
+    "loyalty": "3",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 3.0,
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Invasion of Zendikar // Awakened Skyclave",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.\n//\nVigilance, haste\nAs long as this creature is on the battlefield, it's a land in addition to its other types.\n{T}: Add one mana of any color.",
+    "type_line": "Battle \u2014 Siege // Creature \u2014 Elemental",
+    "mana_cost": "{3}{G} // ",
+    "layout": "transform",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 4.0,
+    "keywords": [
+      "Vigilance",
+      "Transform",
+      "Haste"
+    ],
+    "card_faces": [
+      {
+        "name": "Invasion of Zendikar",
+        "mana_cost": "{3}{G}",
+        "type_line": "Battle \u2014 Siege",
+        "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": "3",
+        "colors": [
+          "G"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "Awakened Skyclave",
+        "mana_cost": "",
+        "type_line": "Creature \u2014 Elemental",
+        "oracle_text": "Vigilance, haste\nAs long as this creature is on the battlefield, it's a land in addition to its other types.\n{T}: Add one mana of any color.",
+        "power": "4",
+        "toughness": "4",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "G"
+        ],
+        "image_face": 1
+      }
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Ornithopter",
+    "oracle_text": "Flying",
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "mana_cost": "{0}",
+    "layout": "normal",
+    "power": "0",
+    "toughness": "2",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 0.0,
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "type_line": "Basic Land \u2014 Forest",
+    "mana_cost": "",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 0.0,
+    "keywords": []
+  },
+  {
+    "name": "Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "type_line": "Basic Land \u2014 Island",
+    "mana_cost": "",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 0.0,
+    "keywords": []
+  },
+  {
+    "name": "Tormod's Crypt",
+    "oracle_text": "{T}, Sacrifice this artifact: Exile target player's graveyard.",
+    "type_line": "Artifact",
+    "mana_cost": "{0}",
+    "layout": "normal",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 0.0,
+    "keywords": []
+  },
+  {
+    "name": "Twiddle",
+    "oracle_text": "You may tap or untap target artifact, creature, or land.",
+    "type_line": "Instant",
+    "mana_cost": "{U}",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Counterspell",
+    "oracle_text": "Counter target spell.",
+    "type_line": "Instant",
+    "mana_cost": "{U}{U}",
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  }
+]

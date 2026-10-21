@@ -1,0 +1,533 @@
+[
+  {
+    "name": "Invoke Calamity",
+    "layout": "normal",
+    "mana_cost": "{1}{R}{R}{R}{R}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "You may cast up to two instant and/or sorcery spells with total mana value 6 or less from your graveyard and/or hand without paying their mana costs. If those spells would be put into your graveyard, exile them instead. Exile Invoke Calamity.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rod of Absorption",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "Whenever a player casts an instant or sorcery spell, exile it instead of putting it into a graveyard as it resolves.\n{X}, {T}, Sacrifice this artifact: You may cast any number of spells from among cards exiled with this artifact with total mana value X or less without paying their mana costs.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Primeval Spawn",
+    "layout": "normal",
+    "mana_cost": "{5}{W}{U}{B}{R}{G}",
+    "cmc": 10.0,
+    "type_line": "Creature \u2014 Avatar",
+    "oracle_text": "If this creature would enter and it wasn't cast or no mana was spent to cast it, exile it instead.\nVigilance, trample, lifelink\nWhen this creature leaves the battlefield, exile the top ten cards of your library. You may cast any number of spells with total mana value 10 or less from among them without paying their mana costs.",
+    "power": "10",
+    "toughness": "10",
+    "colors": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Lifelink",
+      "Vigilance",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Uldaros Theorix",
+    "layout": "normal",
+    "mana_cost": "{3}{U}{B}{B}",
+    "cmc": 6.0,
+    "type_line": "Legendary Creature \u2014 Elder Sphinx",
+    "oracle_text": "Flying\nWhen Uldaros Theorix enters, if you cast him, exile up to one target nonland card of each card type from your graveyard. Copy those cards. You may cast any number of spells with total mana value 6 or less from among the copies without paying their mana costs. (Permanent spells cast this way become tokens.)",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Opt",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Scry"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Fire // Ice",
+    "layout": "split",
+    "mana_cost": "{1}{R} // {1}{U}",
+    "cmc": 4.0,
+    "type_line": "Instant // Instant",
+    "oracle_text": "Fire deals 2 damage divided as you choose among one or two targets.\n//\nTap target permanent.\nDraw a card.",
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Fire",
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant",
+        "oracle_text": "Fire deals 2 damage divided as you choose among one or two targets."
+      },
+      {
+        "name": "Ice",
+        "mana_cost": "{1}{U}",
+        "type_line": "Instant",
+        "oracle_text": "Tap target permanent.\nDraw a card."
+      }
+    ]
+  },
+  {
+    "name": "Valki, God of Lies // Tibalt, Cosmic Impostor",
+    "layout": "modal_dfc",
+    "mana_cost": "{1}{B} // {5}{B}{R}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 God // Legendary Planeswalker \u2014 Tibalt",
+    "oracle_text": "When Valki enters, each opponent reveals their hand. For each opponent, exile a creature card they revealed this way until Valki leaves the battlefield.\n{X}: Choose a creature card exiled with Valki with mana value X. Valki becomes a copy of that card.\n//\nAs Tibalt enters, you get an emblem with \"You may play cards exiled with Tibalt, Cosmic Impostor, and you may spend mana as though it were mana of any color to cast those spells.\"\n+2: Exile the top card of each player's library.\n\u22123: Exile target artifact or creature.\n\u22128: Exile all graveyards. Add {R}{R}{R}.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Valki, God of Lies",
+        "mana_cost": "{1}{B}",
+        "type_line": "Legendary Creature \u2014 God",
+        "oracle_text": "When Valki enters, each opponent reveals their hand. For each opponent, exile a creature card they revealed this way until Valki leaves the battlefield.\n{X}: Choose a creature card exiled with Valki with mana value X. Valki becomes a copy of that card.",
+        "power": "2",
+        "toughness": "1",
+        "colors": [
+          "B"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "normal": "https://cards.scryfall.io/normal/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "large": "https://cards.scryfall.io/large/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969"
+        }
+      },
+      {
+        "name": "Tibalt, Cosmic Impostor",
+        "mana_cost": "{5}{B}{R}",
+        "type_line": "Legendary Planeswalker \u2014 Tibalt",
+        "oracle_text": "As Tibalt enters, you get an emblem with \"You may play cards exiled with Tibalt, Cosmic Impostor, and you may spend mana as though it were mana of any color to cast those spells.\"\n+2: Exile the top card of each player's library.\n\u22123: Exile target artifact or creature.\n\u22128: Exile all graveyards. Add {R}{R}{R}.",
+        "loyalty": "5",
+        "colors": [
+          "B",
+          "R"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "normal": "https://cards.scryfall.io/normal/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "large": "https://cards.scryfall.io/large/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Endless One",
+    "layout": "normal",
+    "mana_cost": "{X}",
+    "cmc": 0.0,
+    "type_line": "Creature \u2014 Eldrazi",
+    "oracle_text": "This creature enters with X +1/+1 counters on it.",
+    "power": "0",
+    "toughness": "0",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Ancestral Vision",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Suspend 4\u2014{U} (Rather than cast this card from your hand, pay {U} and exile it with four time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)\nTarget player draws three cards.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Suspend"
+    ]
+  },
+  {
+    "name": "Fling",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nFling deals damage equal to the sacrificed creature's power to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rule of Law",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Each player can't cast more than one spell each turn.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Drannith Magistrate",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "Your opponents can't cast spells from anywhere other than their hands.",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Counterspell",
+    "layout": "normal",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Cancel",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Demon of Catastrophes",
+    "layout": "normal",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Demon",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nFlying, trample",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Concentrate",
+    "layout": "normal",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Draw three cards.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Spell Snare",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell with mana value 2.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Bonecrusher Giant // Stomp",
+    "layout": "adventure",
+    "mana_cost": "{2}{R} // {1}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Giant // Instant \u2014 Adventure",
+    "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.\n//\nDamage can't be prevented this turn. Stomp deals 2 damage to any target.",
+    "power": "4",
+    "toughness": "3",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Bonecrusher Giant",
+        "mana_cost": "{2}{R}",
+        "type_line": "Creature \u2014 Giant",
+        "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.",
+        "power": "4",
+        "toughness": "3"
+      },
+      {
+        "name": "Stomp",
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant \u2014 Adventure",
+        "oracle_text": "Damage can't be prevented this turn. Stomp deals 2 damage to any target."
+      }
+    ]
+  },
+  {
+    "name": "Feather, the Redeemed",
+    "layout": "normal",
+    "mana_cost": "{R}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Angel",
+    "oracle_text": "Flying\nWhenever you cast an instant or sorcery spell that targets a creature you control, exile that card instead of putting it into your graveyard as it resolves. If you do, return it to your hand at the beginning of the next end step.",
+    "power": "3",
+    "toughness": "4",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Rest in Peace",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shelter",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature you control gains protection from the color of your choice until end of turn.\nDraw a card.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Thrill of Possibility",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "As an additional cost to cast this spell, discard a card.\nDraw two cards.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "As Foretold",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, put a time counter on this enchantment.\nOnce each turn, you may pay {0} rather than pay the mana cost for a spell you cast with mana value X or less, where X is the number of time counters on this enchantment.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shatterskull Smashing // Shatterskull, the Hammer Pass",
+    "layout": "modal_dfc",
+    "mana_cost": "{X}{R}{R} // ",
+    "cmc": 2.0,
+    "type_line": "Sorcery // Land",
+    "oracle_text": "Shatterskull Smashing deals X damage divided as you choose among up to two target creatures and/or planeswalkers. If X is 6 or more, Shatterskull Smashing deals twice X damage divided as you choose among them instead.\n//\nAs this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {R}.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Shatterskull Smashing",
+        "mana_cost": "{X}{R}{R}",
+        "type_line": "Sorcery",
+        "oracle_text": "Shatterskull Smashing deals X damage divided as you choose among up to two target creatures and/or planeswalkers. If X is 6 or more, Shatterskull Smashing deals twice X damage divided as you choose among them instead.",
+        "colors": [
+          "R"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/2/4/243d374f-5b40-4cff-99f5-079ba873d44b.jpg?1783929269",
+          "normal": "https://cards.scryfall.io/normal/front/2/4/243d374f-5b40-4cff-99f5-079ba873d44b.jpg?1783929269",
+          "large": "https://cards.scryfall.io/large/front/2/4/243d374f-5b40-4cff-99f5-079ba873d44b.jpg?1783929269",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/2/4/243d374f-5b40-4cff-99f5-079ba873d44b.jpg?1783929269"
+        }
+      },
+      {
+        "name": "Shatterskull, the Hammer Pass",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {R}.",
+        "colors": [],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/2/4/243d374f-5b40-4cff-99f5-079ba873d44b.jpg?1783929269",
+          "normal": "https://cards.scryfall.io/normal/back/2/4/243d374f-5b40-4cff-99f5-079ba873d44b.jpg?1783929269",
+          "large": "https://cards.scryfall.io/large/back/2/4/243d374f-5b40-4cff-99f5-079ba873d44b.jpg?1783929269",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/2/4/243d374f-5b40-4cff-99f5-079ba873d44b.jpg?1783929269"
+        }
+      }
+    ]
+  }
+]

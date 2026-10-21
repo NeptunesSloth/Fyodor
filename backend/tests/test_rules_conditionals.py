@@ -2054,16 +2054,6 @@ def test_forms_that_are_not_guessed(why, text, control):
     assert scripts.parse_effects(text) is None, why
 
 
-@pytest.mark.parametrize(("text", "piece"), [
-    ("This creature gets +1/+1 until end of turn. If mana from a Treasure was spent to activate this ability, put a +1/+1 counter on "
-     "this creature instead.", "mana"),  # Jetmir's Fixer
-])
-def test_refused_wordings_are_registered_with_their_reason(text, piece):
-    reason = coverage.refusal(text)
-    assert reason is not None and piece in reason, text
-    assert scripts.parse_effects(text) is None
-
-
 @pytest.mark.parametrize("name", ["Martial Coup"])
 def test_the_cards_with_those_forms_are_read_since_wave_3r1(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"

@@ -15,7 +15,7 @@ import pytest
 from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_conditionals import creature, pick, until_asked
 from tests.test_rules_wave12a_counters_keywords import answer
 from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand, zone_of
@@ -313,7 +313,7 @@ def test_lions_eye_diamond_discards_the_hand_as_a_cost(cards):
     activate(s, "Lion's Eye Diamond", "Discard your hand")
     pick(s, "2")  # (which color: W U B R G)
     assert hand_size(s) == 0 and zone_of(s, "Giant Opportunity") == "p1:graveyard" and zone_of(s, "Lion's Eye Diamond") == "p1:graveyard"
-    assert s.state.players["p1"].mana.get("B") == 3
+    assert mana_pool(s, "p1").get("B") == 3
     check(s)
 
 

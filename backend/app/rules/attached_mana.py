@@ -57,11 +57,12 @@ def definition(text: str) -> dict[str, Any] | None:
             "effects": []}
 
 
-def _extras(state: GameState, card: CardInstance, info: CardInfo) -> list[list[list[str]]]:
+def _extras(state: GameState, card: CardInstance, info: CardInfo) -> list[tuple[list[list[str]], M.OutputProducer]]:
     """The extra-mana options of each such trigger of what is attached to ``card`` (one entry per trigger)."""
     from app.rules import scripts
     from app.rules.characteristics import of as chars_of
     from app.rules.layers import derive
+    from app.rules.tap_mana import output_producer
 
     r = state.rules
     out = []
@@ -79,9 +80,9 @@ def _extras(state: GameState, card: CardInstance, info: CardInfo) -> list[list[l
                     color = _chosen_color(c)
                     if color is None:
                         continue
-                    out.append([[color]])
+                    out.append(([[color]], output_producer(state, info, c.id, {})))
                 else:
-                    out.append(d["extra"])
+                    out.append((d["extra"], output_producer(state, info, c.id, {})))
     return out
 
 
@@ -103,7 +104,14 @@ def extend(state: GameState, card: CardInstance, info: CardInfo, is_land: bool,
             continue
         if ab.spend_only is not None:
             continue  # (restricted mana with unrestricted extra: by hand)
-        options = tuple(dict.fromkeys(tuple(opt) + tuple(m for part in combo for m in part)
-                                      for opt in ab.options for combo in product(*extras)))
-        out.append((index, replace(ab, options=options)))
+        if ab.output_producers is None:
+            from app.game.errors import ActionError
+
+            raise ActionError('This saved mana ability has unknown producer choices; resolve it manually with the table tools')
+        pairs = dict.fromkeys((tuple(opt) + tuple(m for part in combo for m in part),
+            (ab.output_producers[position] if ab.output_producers else (None,) * len(opt)) +
+            tuple(spec for part, (_, spec) in zip(combo, extras, strict=True) for _ in part))
+            for position, opt in enumerate(ab.options) for combo in product(*(options for options, _ in extras)))
+        out.append((index, replace(ab, options=tuple(o for o, _ in pairs),
+                                   output_producers=tuple(profile for _, profile in pairs))))
     return out

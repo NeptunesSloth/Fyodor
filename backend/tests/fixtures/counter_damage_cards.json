@@ -1,0 +1,328 @@
+[
+  {
+    "name": "All Will Be One",
+    "layout": "normal",
+    "mana_cost": "{3}{R}{R}",
+    "type_line": "Enchantment",
+    "oracle_text": "Whenever you put one or more counters on a permanent or player, this enchantment deals that much damage to target opponent, creature an opponent controls, or planeswalker an opponent controls.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 5.0,
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Vorinclex, Monstrous Raider",
+    "layout": "normal",
+    "mana_cost": "{4}{G}{G}",
+    "type_line": "Legendary Creature \u2014 Phyrexian Praetor",
+    "oracle_text": "Trample, haste\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead.\nIf an opponent would put one or more counters on a permanent or player, they put half that many of each of those kinds of counters on that permanent or player instead, rounded down.",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 6.0,
+    "keywords": [
+      "Haste",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Solemnity",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "type_line": "Enchantment",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 3.0,
+    "keywords": []
+  },
+  {
+    "name": "Contentious Plan",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "type_line": "Sorcery",
+    "oracle_text": "Proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 2.0,
+    "keywords": [
+      "Proliferate"
+    ]
+  },
+  {
+    "name": "Aether Hub",
+    "layout": "normal",
+    "mana_cost": "",
+    "type_line": "Land",
+    "oracle_text": "When this land enters, you get {E} (an energy counter).\n{T}: Add {C}.\n{T}, Pay {E}: Add one mana of any color.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "cmc": 0.0,
+    "keywords": []
+  },
+  {
+    "name": "Chandra, Torch of Defiance",
+    "layout": "normal",
+    "mana_cost": "{2}{R}{R}",
+    "type_line": "Legendary Planeswalker \u2014 Chandra",
+    "oracle_text": "+1: Exile the top card of your library. You may cast that card. If you don't, Chandra deals 2 damage to each opponent.\n+1: Add {R}{R}.\n\u22123: Chandra deals 4 damage to target creature.\n\u22127: You get an emblem with \"Whenever you cast a spell, this emblem deals 5 damage to any target.\"",
+    "power": null,
+    "toughness": null,
+    "loyalty": "4",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 4.0,
+    "keywords": []
+  },
+  {
+    "name": "Contagion Clasp",
+    "layout": "normal",
+    "mana_cost": "{2}",
+    "type_line": "Artifact",
+    "oracle_text": "When this artifact enters, put a -1/-1 counter on target creature.\n{4}, {T}: Proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [],
+    "color_identity": [],
+    "cmc": 2.0,
+    "keywords": [
+      "Proliferate"
+    ]
+  },
+  {
+    "name": "Glistening Deluge",
+    "layout": "normal",
+    "mana_cost": "{1}{B}{B}",
+    "type_line": "Sorcery",
+    "oracle_text": "All creatures get -1/-1 until end of turn. Creatures that are green and/or white get an additional -2/-2 until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 3.0,
+    "keywords": []
+  },
+  {
+    "name": "Doubling Season",
+    "layout": "normal",
+    "mana_cost": "{4}{G}",
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 5.0,
+    "keywords": []
+  },
+  {
+    "name": "Soul Diviner",
+    "layout": "normal",
+    "mana_cost": "{U}{B}",
+    "type_line": "Creature \u2014 Zombie Wizard",
+    "oracle_text": "{T}, Remove a counter from an artifact, creature, land, or planeswalker you control: Draw a card.",
+    "power": "2",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Steady Progress",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "type_line": "Instant",
+    "oracle_text": "Proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 3.0,
+    "keywords": [
+      "Proliferate"
+    ]
+  },
+  {
+    "name": "Travel Preparations",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "type_line": "Sorcery",
+    "oracle_text": "Put a +1/+1 counter on each of up to two target creatures.\nFlashback {1}{W} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "cmc": 2.0,
+    "keywords": [
+      "Flashback"
+    ]
+  },
+  {
+    "name": "Glistener Elf",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "type_line": "Creature \u2014 Phyrexian Elf Warrior",
+    "oracle_text": "Infect (This creature deals damage to creatures in the form of -1/-1 counters and to players in the form of poison counters.)",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 1.0,
+    "keywords": [
+      "Infect"
+    ]
+  },
+  {
+    "name": "Backlash",
+    "layout": "normal",
+    "mana_cost": "{1}{B}{R}",
+    "type_line": "Instant",
+    "oracle_text": "Tap target untapped creature. That creature deals damage equal to its power to its controller.",
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "cmc": 3.0,
+    "keywords": []
+  },
+  {
+    "name": "Opalescence",
+    "layout": "normal",
+    "mana_cost": "{2}{W}{W}",
+    "type_line": "Enchantment",
+    "oracle_text": "Each other non-Aura enchantment is a creature in addition to its other types and has base power and base toughness each equal to its mana value.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 4.0,
+    "keywords": []
+  },
+  {
+    "name": "Maskwood Nexus",
+    "layout": "normal",
+    "mana_cost": "{4}",
+    "type_line": "Artifact",
+    "oracle_text": "Creatures you control are every creature type. The same is true for creature spells you control and creature cards you own that aren't on the battlefield.\n{3}, {T}: Create a 2/2 blue Shapeshifter creature token with changeling. (It is every creature type.)",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [],
+    "cmc": 4.0,
+    "keywords": []
+  },
+  {
+    "name": "Harmonic Prodigy",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "Prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\nIf a triggered ability of a Shaman or another Wizard you control triggers, that ability triggers an additional time.",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 2.0,
+    "keywords": [
+      "Prowess"
+    ]
+  }
+]

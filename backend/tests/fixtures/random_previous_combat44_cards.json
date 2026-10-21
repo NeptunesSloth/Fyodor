@@ -1,0 +1,173 @@
+[
+  {
+    "name": "Territorial Hellkite",
+    "layout": "normal",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Dragon",
+    "oracle_text": "Flying, haste\nAt the beginning of combat on your turn, choose an opponent at random that this creature didn't attack during your last combat. This creature attacks that player this combat if able. If you can't choose an opponent this way, tap this creature.",
+    "power": "6",
+    "toughness": "5",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying",
+      "Haste"
+    ]
+  },
+  {
+    "name": "Ghostly Prison",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Blazing Archon",
+    "layout": "normal",
+    "mana_cost": "{6}{W}{W}{W}",
+    "cmc": 9.0,
+    "type_line": "Creature \u2014 Archon",
+    "oracle_text": "Flying\nCreatures can't attack you.",
+    "power": "5",
+    "toughness": "6",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "War Tax",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "{X}{U}: This turn, creatures can't attack unless their controller pays {X} for each attacking creature they control.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Aggravated Assault",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "{3}{R}{R}: Untap all creatures you control. After this main phase, there is an additional combat phase followed by an additional main phase. Activate only as a sorcery.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Stonehorn Dignitary",
+    "layout": "normal",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Rhino Soldier",
+    "oracle_text": "When this creature enters, target opponent skips their next combat phase.",
+    "power": "1",
+    "toughness": "4",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Twiddle",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "You may tap or untap target artifact, creature, or land.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Kaalia of the Vast",
+    "layout": "normal",
+    "mana_cost": "{1}{R}{W}{B}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Human Cleric",
+    "oracle_text": "Flying\nWhenever Kaalia attacks an opponent, you may put an Angel, Demon, or Dragon creature card from your hand onto the battlefield tapped and attacking that opponent.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "B",
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "R",
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Reconnaissance",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Enchantment",
+    "oracle_text": "{0}: Remove target attacking creature you control from combat and untap it. (If you activate during end of combat, the creature will untap after it deals combat damage.)",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Return the Favor",
+    "layout": "normal",
+    "mana_cost": "{R}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Spree (Choose one or more additional costs.)\n+ {1} \u2014 Copy target instant spell, sorcery spell, activated ability, or triggered ability. You may choose new targets for the copy.\n+ {1} \u2014 Change the target of target spell or ability with a single target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Spree"
+    ]
+  }
+]

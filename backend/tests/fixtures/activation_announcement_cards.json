@@ -1,0 +1,128 @@
+[
+  {
+    "id": "c1654256-25ea-4467-812d-25f32fe65cdd",
+    "oracle_id": "1c50c637-750c-4e31-a69c-915430fc3194",
+    "name": "Plasma Caster",
+    "layout": "normal",
+    "set_code": "pip",
+    "set_name": "Fallout",
+    "collector_number": "64",
+    "rarity": "rare",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +1/+1.\nWhenever equipped creature attacks, you get {E}{E} (two energy counters).\nPay {E}{E}: Choose target creature that's blocking equipped creature. Flip a coin. If you win the flip, exile the chosen creature. Otherwise, this Equipment deals 1 damage to it.\nEquip {2}",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Equip"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-03-08",
+    "artist": "Kekai Kotaki",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "4e934217-04c4-4047-b5e2-183431123825",
+        "name": "Plasma Caster",
+        "component": "combo_piece"
+      },
+      {
+        "id": "2a794202-875f-4397-a8de-9722c8d78448",
+        "name": "Energy Reserve",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ashnod's Altar",
+    "layout": "normal",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "Sacrifice a creature: Add {C}{C}.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Krark-Clan Ironworks",
+    "layout": "normal",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "Sacrifice an artifact: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Suppression Field",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Activated abilities cost {2} more to activate unless they're mana abilities.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Shivan Hellkite",
+    "layout": "normal",
+    "mana_cost": "{5}{R}{R}",
+    "cmc": 7.0,
+    "type_line": "Creature \u2014 Dragon",
+    "oracle_text": "Flying (This creature can't be blocked except by creatures with flying or reach.)\n{1}{R}: This creature deals 1 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "power": "5",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "faces": []
+  }
+]

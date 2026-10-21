@@ -520,8 +520,6 @@ def test_fire_lord_azula_copies_a_spell_cast_while_she_is_attacking(cards, attac
     # two objects returned to different owners (Contempt); (Basalt Golem's delayed sacrifice answered by "If the player does": read since wave 53C,
     # tests/test_rules_wave53c_block_events.py)
     ("Enchantment — Aura", "Enchant creature\nWhen enchanted creature attacks, return it and this Aura to their owners' hands at end of combat."),
-    # "attacked or blocked this combat" is no condition yet (Daredevil Dragster, the Clockwork creatures)
-    ("Artifact — Vehicle", "At end of combat, if this Vehicle attacked or blocked this combat, put a velocity counter on it."),
 ])
 def test_unread_wordings_stay_manual(type_line, text):
     ch_ = characteristics("Probe", type_line, text, spell="Instant" in type_line)

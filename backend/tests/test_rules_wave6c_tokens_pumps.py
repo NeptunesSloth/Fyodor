@@ -73,7 +73,6 @@ FULL = ["Tainted Strike", "Shadow Rift", "Monstrous Rage", "Royal Treatment", "S
         "Coat of Arms", "Firedrinker Satyr", "Champion of the Flame", "The Great Mound", "Hansk, Slayer Zealot",
         "Kher Keep", "Mobile Fort", "Sporecrown Thallid", "Lovisa Coldeyes", "Painsmith"]
 STILL_MANUAL = {
-    "Ezuri's Predation": "fights a different one",  # (pairing each token with a different creature: refused)
     "Become Brutes": "For each of those creatures",  # (a Role for each of several objects: refused)
 }
 

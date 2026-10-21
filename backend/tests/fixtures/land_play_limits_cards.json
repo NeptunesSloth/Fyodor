@@ -1,0 +1,88 @@
+[
+  {
+    "name": "Territorial Dispute",
+    "mana_cost": "{4}{R}{R}",
+    "cmc": 6.0,
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, sacrifice this enchantment unless you sacrifice a land.\nPlayers can't play lands.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Solfatara",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Target player can't play lands this turn.\nDraw a card at the beginning of the next turn's upkeep.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Turf Wound",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Target player can't play lands this turn.\nDraw a card.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rampant Growth",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Pardic Miner",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Dwarf",
+    "oracle_text": "Sacrifice this creature: Target player can't play lands this turn.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  }
+]

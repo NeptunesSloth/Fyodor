@@ -47,6 +47,11 @@ class Helper:
 
 def requirements(cost: M.ManaCost) -> list[str]:
     """The total cost as one entry per mana symbol (generic mana is one entry per mana)."""
+    if cost.allocation is not None:
+        rows = cost.allocation
+        return ([GENERIC] * rows.generic +
+                [GENERIC if row.generic else '/'.join(row.helpers or row.alternatives) for row in rows.symbols] +
+                ['/'.join(row.helpers or row.alternatives) + '/P' for row in rows.phyrexian])
     out = [GENERIC] * cost.generic + list(cost.colored)
     out += ["/".join(h) for h in cost.hybrid]
     out += [f"{c}/P" for c in cost.phyrexian]
@@ -67,6 +72,23 @@ def pays(helper: Helper, symbol: str) -> bool:
 
 def remaining(cost: M.ManaCost, paid: Iterable[str]) -> M.ManaCost:
     """The mana still to pay after these requirements were paid by contributions."""
+    if cost.allocation is not None:
+        from app.rules import mana_allocation_masks
+        from app.rules.mana_requirement_rows import RequirementPlan
+
+        rows = cost.allocation
+        generic, symbols, typed_phyrexian = rows.generic, list(rows.symbols), list(rows.phyrexian)
+        for sym in paid:
+            if sym == GENERIC and generic:
+                generic -= 1
+                continue
+            pool = typed_phyrexian if sym.endswith('/P') else symbols
+            found = next((r for r in pool if (GENERIC if r.generic else '/'.join(r.helpers or r.alternatives) +
+                ('/P' if pool is typed_phyrexian else '')) == sym), None)
+            if found is None:
+                raise ValueError(f'{{{sym}}} is not an unpaid original requirement')
+            pool.remove(found)
+        return mana_allocation_masks.from_plan(RequirementPlan(generic, tuple(symbols), tuple(typed_phyrexian)), cost.unsupported)
     generic = cost.generic
     colored = list(cost.colored)
     hybrid = ["/".join(h) for h in cost.hybrid]

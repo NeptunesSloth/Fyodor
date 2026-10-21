@@ -22,7 +22,8 @@ the static ``roll_extra`` (614.1a): ``roll_extras`` counts the player's permanen
 are ignored (706.6: a roll that never happened: no trigger, not counted as one of the turn's dice).
 
 Refused (manual): rerolls (706.2b), modifiers of a roll ("and add"), rolling for each player, a roll that is part of a cost, a result used by
-a reflexive "When you do" ability, "the next time target player would roll" (a one-shot replacement).
+a reflexive "When you do" ability outside the explicit single-result capture of reflexive_roll.py,
+"the next time target player would roll" (a one-shot replacement).
 """
 
 from __future__ import annotations
@@ -40,6 +41,7 @@ if TYPE_CHECKING:
 
 Context = dict[str, Any]
 STEP = "roll_choose"
+ROLL_CHUNKS = 8
 _SIDES = {"four": 4, "six": 6, "eight": 8, "ten": 10, "twelve": 12, "twenty": 20}
 _ONE = re.compile(r"^roll (?:a d(?P<n>\d+)|a (?P<w>four|six|eight|ten|twelve|twenty)-sided die)(?: and (?P<op>add|subtract) (?P<v>.+))?$")
 _TWO = re.compile(r"^roll two d(?P<n>\d+) and choose one result$")
@@ -99,7 +101,7 @@ _ROLLED = re.compile(r"\broll a (?:d\d+|\w+-sided die)\b.*\bthe result is\b", re
 _ORDINALS = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "sixth": 6, "seventh": 7, "eighth": 8, "ninth": 9, "tenth": 10}
 _DIE = re.compile(r"you roll (?:a die|an? (?P<a>\d+)(?: or (?:(?P<b>\d+)|(?P<c>higher|greater|more|lower|less|fewer)))?"
                   r"|your (?P<nth>first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth) die each turn"
-                  r"|a die's (?P<hi>highest natural result))")
+                  r"|a die's (?P<hi>highest natural result)|a natural (?P<natural>20))")
 _ROLL_WAS = re.compile(r"the roll was (?P<n>\d+) or (?P<c>higher|greater|more|lower|less|fewer)")
 
 
@@ -110,7 +112,9 @@ def event_condition(text: str) -> dict[str, Any] | None:
     if m is None:
         return None
     out: dict[str, Any] = {"event": "roll_die", "subject": "player", "player": "you"}
-    if m["a"]:
+    if m["natural"]:
+        out["natural"] = int(m["natural"])
+    elif m["a"]:
         a = int(m["a"])
         if m["b"]:
             out["in"] = [a, int(m["b"])]
@@ -129,6 +133,7 @@ def die_matches(cond: dict[str, Any], info: dict[str, Any]) -> bool:
     """Is this die (its fact: ``amount`` the result, ``natural``, ``sides``, ``nth``) the one the trigger asks about?"""
     r = int(info.get("amount") or 0)
     return ("in" not in cond or r in cond["in"]) and ("min" not in cond or r >= cond["min"]) and ("max" not in cond or r <= cond["max"]) \
+        and ("natural" not in cond or int(info.get("natural") or 0) == cond["natural"]) \
         and (not cond.get("nth") or info.get("nth") == cond["nth"]) \
         and (not cond.get("highest") or int(info.get("natural") or 0) == int(info.get("sides") or -1))
 
@@ -233,7 +238,6 @@ def roll_extras(plan: Plan, pid: str) -> int:
 def roll(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     import secrets
 
-    from app.game.rules_state import emit, turn_log_now
     from app.rules import effects
 
     if plan.rng is None:
@@ -241,8 +245,21 @@ def roll(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pid = ctx["controller"]
     n = max(0, int(effects._amount(plan, ctx, e["count"])))
     extra = roll_extras(plan, pid) if n > 0 else 0  # 614.1a: "would roll one or more dice"
-    results: list[int] = []
+    return _roll_group(plan, ctx, e, n, extra, [])
+
+
+def _roll_group(plan: Plan, ctx: Context, e: dict[str, Any], n: int, extra: int, results: list[int]) -> bool:
+    from app.game.rules_state import turn_log_now
+
+    pid = ctx["controller"]
+    chunks = 0
     while len(results) < n + extra:  # (one roll step holds up to 100 dice)
+        if chunks >= ROLL_CHUNKS:
+            decide(plan, player=pid, kind="choose_one", prompt="Continue resolving the dice group (no priority or state-based actions).",
+                   options=[DecisionOption(id="continue", label="Continue resolving")],
+                   resume={"step": "roll_group_continue", "ctx": ctx, "effect": e, "n": n, "extra": extra, "results": results})
+            return False
+        chunks += 1
         step = min(100, n + extra - len(results))
         done = plan.do({"type": "roll", "sides": e["sides"], "count": step}, actor=pid)
         results += list(done.r.results)  # type: ignore[union-attr]
@@ -250,22 +267,49 @@ def roll(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         results.remove(lowest)
     if extra:
         plan.note(f"{plan.name(pid)} ignores the lowest {'roll' if extra == 1 else f'{extra} rolls'}")
+    if e.get("keep_highest") and results:
+        results = [max(results)]
+    from app.rules import numeric_roll_finalization42
+
+    if results and numeric_roll_finalization42.has_adjustment(plan, ctx["controller"]):
+        return numeric_roll_finalization42.start(plan, ctx, e, results)
     ctx["dice"] = results
     if not results:
         ctx["die"] = ctx["die_other"] = 0
         return True
+    from app.rules import effects
+
     log = turn_log_now(plan.state)
     naturals = list(results)
     if e.get("mod"):  # 706.2: the result is the natural result after the modifiers (one die: an instruction with a modifier asks for one)
         delta = int(effects._amount(plan, ctx, e["mod"]["v"]))
         results = [r + delta if e["mod"]["op"] == "+" else r - delta for r in results]
         ctx["dice"] = results
-    for k, r in enumerate(results):  # 706.2: each die is a roll; -- wave 24B -- one event each (the one-or-more event follows)
-        emit(plan.state, "designation", counter="roll_die", player=pid, amount=r, natural=naturals[k], sides=e["sides"],
-             nth=(log.rolled.get(pid, 0) if log is not None else 0) + k + 1)
+    base = log.rolled.get(pid, 0) if log is not None else 0
     if log is not None:
-        log.rolled[pid] = log.rolled.get(pid, 0) + len(results)
-    emit(plan.state, "designation", counter="roll", player=pid, amount=max(results))  # "Whenever you roll one or more dice"
+        log.rolled[pid] = base + len(results)
+    return _emit_group(plan, ctx, e, results, naturals, base, 0)
+
+
+def _emit_group(plan: Plan, ctx: Context, e: dict[str, Any], results: list[int], naturals: list[int], base: int, start: int) -> bool:
+    from app.game.rules_state import emit, track
+
+    pid = ctx["controller"]
+    end = min(len(results), start + 800)
+    for k in range(start, end):
+        emit(plan.state, "designation", counter="roll_die", player=pid, amount=results[k], natural=naturals[k], sides=e["sides"],
+             nth=base + k + 1)
+    # The whole physical group and retained vector are already known. Seal each
+    # bounded fact batch without yielding priority or running state-based actions.
+    track(plan.state)
+    if end < len(results):
+        decide(plan, player=pid, kind="choose_one", prompt="Continue recording the completed dice group (no priority or state-based actions).",
+               options=[DecisionOption(id="continue", label="Continue resolving")],
+               resume={"step": "roll_group_continue", "phase": "emit", "ctx": ctx, "effect": e,
+                       "results": results, "naturals": naturals, "base": base, "start": end})
+        return False
+    emit(plan.state, "designation", counter="roll", player=pid, amount=max(results), dice_total=sum(results))
+    track(plan.state)
     if not e.get("choose") or results[0] == results[-1]:
         ctx["die"], ctx["die_other"] = results[0], results[-1]
         return True
@@ -300,3 +344,17 @@ def refs_ok(effects: list[dict[str, Any]]) -> bool:
 
 
 PRIMITIVES = {"roll": roll}
+
+
+def resume_group(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    if chosen != ["continue"]:
+        raise ActionError("Continue resolving the dice group")
+    r = d.resume
+    if r.get("phase") == "emit":
+        done = _emit_group(plan, r["ctx"], r["effect"], r["results"], r["naturals"], r["base"], r["start"])
+    else:
+        done = _roll_group(plan, r["ctx"], r["effect"], r["n"], r["extra"], r["results"])
+    if done:
+        effects.continue_effects(plan, r["ctx"])

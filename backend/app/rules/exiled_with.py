@@ -36,10 +36,16 @@ WHO = "exiled_with"
 _THE = r"(?:the exiled cards?|(?:all|each) (?:(?P<spec>[\w\-]+) )?cards? exiled with (?:it|~))"
 _UNDER = (r"under (?:(?P<you>your) control|(?:its|their) owner(?:'s|s') control"
           r"|the control of (?:that card's|its|their) owners?(?:'s|s')?)")  # (Trove Warden: "under the control of that card's owner")
-_BATTLEFIELD = re.compile(rf"^(?:return|put) {_THE} (?:to|onto) the battlefield(?P<tapped> tapped)? {_UNDER}$")
+_BATTLEFIELD = re.compile(rf"^(?:return|put) {_THE} (?:to|onto) the battlefield(?P<tapped> tapped)?(?: (?P<specified>{_UNDER}))?$")
 _HAND = re.compile(rf"^(?:return|put) {_THE} (?:to|into) (?:its|their) owner(?:'s|s') hands?$")  # (wave 20D: "Put all cards exiled with ~ into their owners' hands.")
-_GRAVEYARD = re.compile(rf"^put {_THE} into (?:its|their) owner(?:'s|s') graveyards?$")  # (Currency Converter, Valakut Exploration)
-_REFERS = re.compile(r"\bthe exiled cards?\b|\bcards? exiled with (?:it\b|~)|\bthat was exiled with (?:it\b|~)")  # (wave 17D: "~" has no word boundary after it)
+_GRAVEYARD = re.compile(rf"^(?:put|return) {_THE} (?:into|to) (?:its|their) owner(?:'s|s') graveyards?$")  # (Currency Converter, Valakut Exploration, Gravegouger)
+_REFERS = re.compile(r"\bthe exiled cards?\b|\bcards?(?: you own| they own)?(?: have been)? exiled with (?:it\b|~|this [A-Za-z]+)|\bthat was exiled with (?:it\b|~)")  # (wave 17D: "~" has no word boundary after it)
+_OWNERS_RETURN = re.compile(r"^each player returns to (?P<where>the battlefield|their hand) all cards they own exiled with (?:it|~)$")
+
+
+def _owners_return(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{'do': 'return_card', 'who': WHO, 'to': 'battlefield' if m['where'] == 'the battlefield' else 'hand',
+             'under': 'owner', 'tapped': False}], None
 
 
 # -- review (wave 6R) -- "Exile target creature. Return the exiled card to the battlefield under its owner's control at the
@@ -79,7 +85,7 @@ def _who(m: re.Match[str]) -> str:
 def _battlefield(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if (own := _off(m)) is not None:
         return own
-    return [{"do": "return_card", "who": _who(m), "to": "battlefield", "tapped": bool(m["tapped"]), "under": "you" if m["you"] else "owner"}], None
+    return [{"do": "return_card", "who": _who(m), "to": "battlefield", "tapped": bool(m["tapped"]), "under": "you" if m["you"] or not m["specified"] else "owner"}], None
 
 
 def _hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
@@ -97,7 +103,7 @@ def _graveyard(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # -- copied abilities (wave 18F) -- imprint (607.2a): "you may exile an instant card with mana value 2 or less from your hand" (the cost of
 # an optional payment, public once in exile: 406.3), and "you may copy the exiled card" (707.12: the copy is made in exile, may be cast
 # while this resolves; one not cast ceases to exist, 707.10a - so a copy not taken and a copy not cast are the same)
-_IMPRINT = re.compile(r"^you may exile (?P<what>(?:an?|one) (?:[\w\-]+,? )*card(?: with mana value \d+ or less)?) from your hand$")  # (wave 51B: "a nonartifact, nonland card", Chrome Mox)
+_IMPRINT = re.compile(r"^you may exile (?P<what>(?:an?|one) (?:[\w\-]+,? )*card(?: with mana value \d+ or (?:less|greater))?) from your hand$")  # (wave 51B: "a nonartifact, nonland card", Chrome Mox)
 _COPY = re.compile(rf"^(?:you may )?copy {_THE}$")
 
 
@@ -117,7 +123,7 @@ def _copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 # -- activated other (wave 42C) -- "Put a creature card exiled with ~ onto the battlefield under your control." (Sisters of Stone Death, Yggdrasil, Rebirth Engine): ONE of the linked
 # cards, chosen by the ability's controller as it resolves (608.2d; nothing is targeted). Only the battlefield (a card exiled face down would be named by the choice)
-_PICK = re.compile(r"^(?:return|put) an? (?:(?P<spec>[\w\-]+) )?card exiled with (?:it|~) (?:to|onto) the battlefield(?P<tapped> tapped)? under your control"
+_PICK = re.compile(r"^(?:return|put) an? (?:(?P<spec>[\w\-]+) )?card exiled with (?:it|~) (?:to|onto) the battlefield(?P<tapped> tapped)?(?P<you> under your control)?"
                    r"(?: with (?P<cn>\w+) additional (?P<ck>\+1/\+1) counters? on it)?$")  # (-- piles (wave 53D) -- Sothera, the Supervoid: "with two additional +1/+1 counters on it", 122.6)
 
 
@@ -125,6 +131,34 @@ _COUNT = {"one": 1, "two": 2, "three": 3, "four": 4}
 
 
 # -- group choices (wave 53D) -- Foreboding Steamboat: "put a card exiled with it into its owner's graveyard" -- ONE of the linked cards, chosen by the controller as it resolves
+_PICK_HAND = re.compile(r"^(?:return|put) an? (?:(?P<spec>instant or sorcery|creature|permanent) )?card(?P<own> you own)? exiled with (?:it|~) (?:to|into) (?:its owner's|your) hand$")
+_OWN_HAND = re.compile(r"^(?:return|put) all cards you own exiled with (?:it|~) (?:to|into) your hand$")
+_TARGET_HAND = re.compile(r"^(?:return|put) target (?:(?P<spec>creature|permanent) )?card exiled with (?:it|~) (?:to|into) its owner's hand$")
+
+
+def _pick_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    who = _who(m)
+    if m['own']:
+        from app.rules import selectors
+
+        sel = selectors.parse((m['spec'] + ' ' if m['spec'] else '') + 'card you own')
+        assert sel is not None
+        who = f'{WHO}:{sel.key()}'
+    return [{"do": "return_choice", "who": who, "n": 1, "upto": False, "random": False, "label": "card", "to": "hand"}], None
+
+
+def _own_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import selectors
+
+    sel = selectors.parse('card you own')
+    assert sel is not None
+    return [{'do': 'return_card', 'who': f'{WHO}:{sel.key()}', 'to': 'hand'}], None
+
+
+def _target_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{'do': 'return_card', 'who': 'target', 'to': 'hand'}], _who(m)
+
+
 _PICK_GRAVEYARD = re.compile(r"^put an? (?:(?P<spec>[\w\-]+) )?card exiled with (?:it|~) into (?:its|their) owner(?:'s|s') graveyard$")
 
 
@@ -144,6 +178,22 @@ def _pick(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
         raise _NoMatch
     return [{"do": "return_choice", "who": _who(m), "n": 1, "upto": False, "random": False, "label": f"{m['spec']} card" if m["spec"] else "card",
              "to": "battlefield", "tapped": bool(m["tapped"]), "under": "you", **counters}], None
+
+
+# CR 607.2b: a targeted linked return announces its card before resolution.
+_TARGET_BATTLEFIELD = re.compile(r"^(?:return|put) target (?:(?P<spec>[\w-]+) )?card exiled with (?:it|~) (?:to|onto) the battlefield"
+                                 r"(?P<tapped> tapped)? under your control(?: with (?P<cn>\w+) additional (?P<ck>\+1/\+1) counters? on it)?$")
+
+
+def _target_battlefield(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    if (own := _off(m)) is not None:
+        return own
+    from app.rules.scripts import _NoMatch
+
+    counters = {} if not m["cn"] else {"counter": m["ck"], "counter_n": int(m["cn"]) if m["cn"].isdigit() else _COUNT.get(m["cn"], 0)}
+    if m["cn"] and not counters["counter_n"]:
+        raise _NoMatch
+    return [{"do": "return_card", "who": "target", "to": "battlefield", "tapped": bool(m["tapped"]), "under": "you", **counters}], _who(m)
 
 
 # -- cost reductions paid with objects (wave 47C) -- "choose a card at random exiled with Gorex and put that card into its owner's hand": the table picks one of the linked cards (recorded
@@ -167,7 +217,7 @@ def _top_of_pile(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "pile_top_hand"}], None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_HAND, _hand), (_GRAVEYARD, _graveyard), (_COPY, _copy), (_PICK, _pick), (_PICK_RANDOM, _pick_random),
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_TARGET_HAND, _target_hand), (_OWN_HAND, _own_hand), (_PICK_HAND, _pick_hand), (_OWNERS_RETURN, _owners_return), (_TARGET_BATTLEFIELD, _target_battlefield), (_BATTLEFIELD, _battlefield), (_HAND, _hand), (_GRAVEYARD, _graveyard), (_COPY, _copy), (_PICK, _pick), (_PICK_RANDOM, _pick_random),
                                                 (_TOP_OF_PILE, _top_of_pile), (_PICK_GRAVEYARD, _pick_graveyard)]
 
 # -- linked casting (wave 30H) -- 607.2a, 608.2g: in an ability that only refers to what another exiled, "cast a spell from among cards exiled with ~
@@ -185,17 +235,25 @@ def among(body: str) -> str:
 
 
 def _exiles(d: dict[str, Any] | None) -> bool:
+    if d is not None and d.get('static') == 'replace' and d.get('event') == 'draw' and (d.get('op') or {}).get('do') == 'body':
+        return _exiles({'effects': d['op'].get('effects') or []})
+    if d is not None and d.get('static') == 'additional_cost':
+        from app.rules import costs
+
+        extra = costs.parse_additional_cost(d.get('cost') or '')
+        if extra is not None and any(c.kind == costs.BEHOLD_EXILE for c in extra.components):
+            return True
     # (-- champion (wave 12B) -- also a payment: "sacrifice it unless you exile another Merfolk you control", recorded by
     # optional_payment._pay)
-    return d is not None and (d.get("static") == "exile_instead" or (d.get("static") == "own_optional" and d.get("optional") == "reduce" and d["cost"].startswith("Exile "))
+    return d is not None and (d.get("static") == "exile_instead" or (d.get("static") == "own_optional" and d.get("optional") in ("reduce", "exile") and d["cost"].startswith("Exile "))
                               or any(  # (-- linked exile (wave 30H) -- 607.2b: a replacement effect that exiles; -- cost reductions paid with objects (wave 47C) -- 607.2q: a cost that exiles)
-        e.get("do") in ("exile", "exile_top", "exile_until") or e.get("exile") or _picks_to_exile(e)
+        e.get("do") in ("exile", "exile_top", "exile_until", "exile_on_resolve", "linked_graveyard_choice") or (e.get('do') == 'temporary_hand_exile' and e.get('mode') == 'amnesia') or e.get("exile") or _picks_to_exile(e)
         or (e.get("do") == "optional_payment" and str(e.get("cost")).startswith("Exile ")) for e in d.get("effects") or []))
 
 
 def _picks_to_exile(e: dict[str, Any]) -> bool:
     """-- resolution memory (wave 22D) -- "search your library for an artifact card, exile it" / "look at …, exile one of them" (Hoarding Dragon)"""
-    return e.get("do") in ("search", "pick_looked") and e.get("to") == "exile"
+    return e.get("do") == "exile_hand_down" or (e.get("do") in ("search", "pick_looked", "discard", "return_choice") and e.get("to") == "exile")
 
 
 def link(d: dict[str, Any] | None, ability: Any, ch: Any) -> dict[str, Any] | None:
@@ -216,11 +274,20 @@ def link(d: dict[str, Any] | None, ability: Any, ch: Any) -> dict[str, Any] | No
 def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
-    refers = WHO in json.dumps(d, default=str) or "linked_cards" in json.dumps(d, default=str)
+    refers = WHO in json.dumps(d, default=str) or "linked_cards" in json.dumps(d, default=str) or "linked_pool" in json.dumps(d, default=str)
     if "samename_exiled_with" in json.dumps(d, default=str) and ability.kind == "activated":
         return None  # -- same name (wave 32A) -- "Counter target spell with the same name as a card exiled with this creature" (Mindreaver) sacrifices the source
         # as a cost: its target is judged on resolution against the cards of an object that is gone (selectors._same_name_now reads a source that stays)
     others = [ab for ab in ch.abilities if ab.index != ability.index and ab.kind in ("triggered", "activated")]
+    borrowed = getattr(ability, 'borrowed_origin', ())
+    if borrowed:
+        others = [ab for ab in others if getattr(ab, 'borrowed_origin', ())[:-1] == borrowed[:-1]]
+    if refers and _exiles(d) and d.get('accumulating_link'):
+        return d
+    if refers and _exiles(d) and any(e.get("do") == "copy_cards" and e.get("who") == WHO and e.get("source_link") for e in d.get("effects") or []):
+        return d  # 607.2a: an explicit accumulating source-linked set, including this resolution
+    if refers and _exiles(d) and 'linked_pool' in json.dumps(d, default=str):
+        return {**d, 'effects': [{**e, 'link': True} if e.get('do') in ('exile', 'discard', 'optional_payment') else e for e in d.get('effects') or []]}
     if refers and _exiles(d):  # -- review (wave 6R) -- its own exiled card (see _off_now)
         if _off_now():
             return None  # (-- wave 22D -- read again without the templates and it still refers to a linked card: not read)
@@ -230,24 +297,37 @@ def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
         finally:
             _STATE.off = False
     if refers:
+        if borrowed:
+            return d  # 607.5: a newly acquired, independently scoped link may have no exiling half
         exiling = [ab for ab in others if re.search(r"\bexiles?\b", ab.text, re.IGNORECASE)]  # (-- linked casting (wave 30H) -- "each player exiles the top X cards": Jeleva)
         exiling += [ab for ab in ch.abilities if ab.index != ability.index and ab.kind == "static"  # (607.2b: a replacement effect that exiles)
-                    and (scripts.define(ab, ch) or {}).get("static") in ("exile_instead", "own_optional") and _exiles(scripts.define(ab, ch))]  # (wave 47C: 607.2q, Gorex's cost)
+                    and (scripts.define(ab, ch) or {}).get("static") in ("exile_instead", "own_optional", "additional_cost", "replace") and _exiles(scripts.define(ab, ch))]  # (wave 47C: 607.2q, Gorex's cost)
         from app.rules import hideaway
 
         if hideaway.exiles(ch):  # -- hideaway (wave 29D) -- 702.75a: the keyword is the exiling ability (and the only one: 607.2a)
             return None if exiling else hideaway.each(d)
-        if not exiling or not all(_exiles(scripts.define(ab, ch)) for ab in exiling):  # (-- linked exile (wave 30H) -- every exiling ability feeds the set, and each must be read: Rona's ruling)
+        # Opposite-face text validates the link; it never grants those abilities.
+        # The runtime pool remains this exact physical source incarnation.
+        other_face = [ab for ab in ch.linked_other_face if re.search(r'\bexiles?\b', ab.text, re.IGNORECASE)]
+        if not exiling and other_face and all(_exiles(scripts.define(ab, ch)) for ab in other_face):
+            return d
+        exiling += [ab for ab in ch.abilities if ab.index != ability.index and ab.kind == 'static'
+                    and (scripts.define(ab, ch) or {}).get('trigger') == 'chapter' and _exiles(scripts.define(ab, ch))]
+        printed_delve = any(ab.index < 100 and ab.kind == 'keywords' and 'delve' in ab.keywords for ab in ch.abilities)
+        if (not exiling and not printed_delve) or not all(_exiles(scripts.define(ab, ch)) for ab in exiling):  # (-- linked exile (wave 30H) -- every exiling ability feeds the set, and each must be read: Rona's ruling)
             return None
         return d
     if ability.kind not in ("triggered", "activated", "static") or not _exiles(d):
         return d
-    referring = [ab for ab in ch.abilities if ab.index != ability.index and (_REFERS.search(scripts.self_text(ab.text, ch.name)) or REFERS_PILE.search(ab.text))]
-    if not referring:
+    referring = [ab for ab in ch.abilities if ab.index != ability.index and (not borrowed or getattr(ab, "borrowed_origin", ())[:-1] == borrowed[:-1]) and (_REFERS.search(scripts.self_text(ab.text, ch.name)) or REFERS_PILE.search(ab.text) or "until you exile another card with ~" in scripts.self_text(ab.text, ch.name))]
+    if not referring and not any(e.get("stop_on_linked_exile") for e in d.get("effects", [])):
         return d
+    if d.get('static') == 'replace' and d.get('event') == 'draw' and (d.get('op') or {}).get('do') == 'body':
+        return {**d, 'op': {**d['op'], 'effects': [{**e, 'link': True} if e.get('do') in ('exile', 'exile_top') else e
+                                                  for e in d['op']['effects']]}}
     if d.get("static") == "exile_instead":  # -- linked exile (wave 30H) -- 607.2b: the replacement effect is the exiling half; replacements.py records what it exiles
         return {**d, "link": True}
-    return {**d, "effects": [{**e, "link": True} if e.get("do") in ("exile", "exile_top", "exile_until") or e.get("exile") or _picks_to_exile(e) else e
+    return {**d, "effects": [{**e, "link": True, **({"blind": True} if e.get("do") == "exile_hand_down" else {})} if e.get("do") in ("exile", "exile_top", "exile_until", "exile_on_resolve") or e.get("exile") or _picks_to_exile(e) else e
                                      for e in d["effects"]]}
 
 
@@ -278,21 +358,38 @@ def linked_cards(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Bind the cards the linked ability exiled (a token that was exiled has ceased to exist, 111.8: not found)."""
     if e.get("as"):
         found = [ObjectRef(card=cid, object_id=oid, zone=f"{plan.state.cards[cid].owner}:exile")
-                 for oid in plan.rules.exiled_with.get(ctx.get("source_object") or "", []) if (cid := oid.rsplit(".", 1)[0]) in plan.state.cards]
+                 for oid in plan.rules.exiled_with.get(link_key(ctx), []) if (cid := oid.rsplit(".", 1)[0]) in plan.state.cards]
         context.refs(ctx)[e["as"]] = {"kind": "objects", "objects": [r.model_dump(mode="json") for r in found]}
     return True
 
 
-PRIMITIVES = {"linked_cards": linked_cards}
+def link_key(ctx: dict[str, Any]) -> str:
+    source = ctx.get('source_object') or ''
+    scope = ctx.get('borrowed_link_scope')
+    return f'{source}|borrowed:{scope}' if source and scope else source
+
+
+def borrowed_link_scope(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    ctx['borrowed_link_scope'] = e['scope']
+    return True
+
+
+PRIMITIVES = {"linked_cards": linked_cards, "borrowed_link_scope": borrowed_link_scope}
 
 
 def record(plan: Plan, ctx: dict[str, Any], cards: list[str]) -> None:
     """The objects these cards became in exile, under the source object (as it is, or was: 608.2h)."""
-    key = ctx.get("source_object")
+    key = link_key(ctx)
     if not key:
         return
     kept = [oid for oid in plan.rules.exiled_with.get(key, []) if _in_exile(plan, oid)]
     now = [plan.oid(c) for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]
+    new_cards = [oid for oid in now if oid not in kept
+                 and not plan.state.cards[oid.rsplit(".", 1)[0]].is_token]
+    if new_cards:
+        # The stated duration says "you": a later controller's exile is a different player's action.
+        plan.rules.permissions = [p for p in plan.rules.permissions
+                                  if p.stop_on_linked_exile != key or p.player != ctx.get("controller")]
     plan.rules.exiled_with[key] = [*kept, *(o for o in now if o not in kept)]
 
 
@@ -305,7 +402,7 @@ def _in_exile(plan: Plan, oid: str) -> bool:
 def cards(plan: Plan, ctx: dict[str, Any], who: str = WHO) -> list[str]:
     """The cards the linked ability exiled, while each is still that object in exile (400.7); only those of the kind
     "exiled_with:<selector>" names ("each creature card exiled with it")."""
-    found = [oid.rsplit(".", 1)[0] for oid in plan.rules.exiled_with.get(ctx.get("source_object") or "", []) if _in_exile(plan, oid)]
+    found = [oid.rsplit(".", 1)[0] for oid in plan.rules.exiled_with.get(link_key(ctx), []) if _in_exile(plan, oid)]
     if ":" not in who:
         return found
     from app.rules import selectors

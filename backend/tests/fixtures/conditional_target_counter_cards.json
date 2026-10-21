@@ -1,0 +1,48 @@
+[
+  {
+    "name": "Forge of Heroes",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "{T}: Add {C}.\n{T}: Choose target commander that entered this turn. Put a +1/+1 counter on it if it's a creature and a loyalty counter on it if it's a planeswalker.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Daretti, Scrap Savant",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Legendary Planeswalker \u2014 Daretti",
+    "oracle_text": "+2: Discard up to two cards, then draw that many cards.\n\u22122: Sacrifice an artifact. If you do, return target artifact card from your graveyard to the battlefield.\n\u221210: You get an emblem with \"Whenever an artifact is put into your graveyard from the battlefield, return that card to the battlefield at the beginning of the next end step.\"\nDaretti, Scrap Savant can be your commander.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "loyalty": "3",
+    "keywords": []
+  },
+  {
+    "name": "Song of the Dryads",
+    "layout": "normal",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant permanent\nEnchanted permanent is a colorless Forest land.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  }
+]

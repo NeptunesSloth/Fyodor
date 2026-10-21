@@ -1,0 +1,90 @@
+[
+  {
+    "name": "On Wings of Gold",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures you control that are Zombies and/or tokens get +1/+1 and have flying.\nWhenever one or more cards leave your graveyard, create a 1/1 white Zombie creature token.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Walking Corpse",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Zombie",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Glistening Deluge",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "All creatures get -1/-1 until end of turn. Creatures that are green and/or white get an additional -2/-2 until end of turn.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Take to the Streets",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Creatures you control get +2/+2 until end of turn. Citizens you control get an additional +1/+1 and gain vigilance until end of turn.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Fistful of Force",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets +2/+2 until end of turn. Clash with an opponent. If you win, that creature gets an additional +2/+2 and gains trample until end of turn. (Each clashing player reveals the top card of their library, then puts that card on their choice of the top or bottom. A player wins if their card had a greater mana value.)",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Clash"
+    ]
+  },
+  {
+    "name": "Collision Course",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose one \u2014\n\u2022 Collision Course deals X damage to target creature, where X is the number of permanents you control that are creatures and/or Vehicles.\n\u2022 Destroy target artifact.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  }
+]

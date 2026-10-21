@@ -58,13 +58,20 @@ def _value(phrase: str) -> Any:
 def payment(phrase: str) -> dict[str, Any] | None:
     """The optional payment "you may <phrase>" names, when it is a sized one (else None): ``{"choose_x": {"max":
     value | None}}`` (mana {X}: the payer chooses), ``{"life_x": value}`` (life, X defined by the text)."""
+    from app.rules import tap_x_payments
+
+    if (tapped := tap_x_payments.payment(phrase.strip())) is not None:
+        return tapped
     p = phrase.strip()
+    if colored := re.fullmatch(r"pay any amount of \{([WUBRGC])\}", p):
+        return {"cost": "", "choose_x": {"color": colored[1]}, "that_many": True}
     m = _MANA_X.match(p)
     if m is not None:
         cap = _value(m["cap"]) if m["cap"] else None
         if m["cap"] and cap is None:
             return None
-        return {"cost": "", "choose_x": {"max": cap, **({"extra": m["extra"]} if m["extra"] else {})}}
+        return {"cost": "", "cost_has_x": True,
+                "choose_x": {"max": cap, **({"extra": m["extra"]} if m["extra"] else {})}}
     m = _LIFE_X.match(p) or _LIFE_EQUAL.match(p)
     if m is not None:
         v = _value(m["v"])
@@ -74,8 +81,11 @@ def payment(phrase: str) -> dict[str, Any] | None:
         return {"cost": "", "life_x": v, **({"that_many": True} if _LIFE_EQUAL.match(p) else {})}
     if m := _TIMES.match(p):  # -- pay N times (wave 51A) -- "that many" is the number of times
         return {"cost": "", "choose_x": {"max": int(m["n"]) if m["n"] else None, "times": m["c"]}, "that_many": True}
+    if m := re.fullmatch(r"pay an amount of \{E\} equal to (?P<v>.+)", p):
+        v = _value(m["v"])
+        return {"cost": "", "energy_n": v} if v is not None else None
     if _ENERGY_X.match(p):
-        return {"cost": "", "choose_x": {"max": None, "energy": True}}
+        return {"cost": "", "choose_x": {"max": None, "energy": True}, "energy_as": "energy_paid"}
     if p == "pay that much life":
         return {"cost": "", "life_x": {"event_amount": 1}}
     if p == "pay any amount of life":  # -- if you do (wave 21C) -- Necrodominance: the payer chooses 0 up to their life total (119.4), "that many" is it
@@ -105,9 +115,17 @@ def energy_text(body: str) -> str:
     Aether Refinery), "… put that many +1/+1 counters on this creature." (Rampaging Aetherhood), "When you do, this creature deals that much damage to each other creature."
     (Territorial Aetherkite): the payer chooses how many {E} to pay as they pay (one or more), and that number is the X after it, like "you may pay {X}"."""
     def one(m: re.Match[str]) -> str:
-        rest = re.sub(r"\b(?:that (?:much|many)|the amount of \{E\} paid this way)\b", "X", re.sub(r", where X is the amount of \{E\} paid this way$", "", m["rest"]))
+        rest = re.sub(r"\bthat (?:much|many)\b", "X", re.sub(r", where X is the amount of \{E\} paid this way$", "", m["rest"]))
         return f"{m['pay']} X {{E}}. {m['if']}, {rest}."
-    return _ENERGY_PAID.sub(one, body)
+    body = _ENERGY_PAID.sub(one, body)
+    # CR 608.2c, 118.12: gaining energy precedes the optional payment; the payment is
+    # its own instruction even when Oracle joins them with ", then" (Aether Refinery).
+    energy_cost = r"pay (?:X \{E\}|an amount of \{E\} equal to [^.]+|(?:one|two|three|four|five|six|seven|eight|nine|ten|fifty|\d+) \{E\}|(?:\{E\})+)"
+    body = re.sub(r", then you may (" + energy_cost + r")\.", r". You may \1.", body)
+    body = re.sub(r"\. Then you may (" + energy_cost + r")\.", r". You may \1.", body)
+    # CR 118.12: this immediately adjacent condition reads the optional payment,
+    # not a later energy loss or a payment elsewhere in the ability.
+    return re.sub(r"(You may " + energy_cost + r"\.) If you pay, ", r"\1 If you do, ", body)
 
 
 def cap_sentence(text: str, effects: list[dict[str, Any]]) -> bool:
@@ -170,6 +188,14 @@ def start(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool | str:
     if payer is None:
         _record(ctx, bind, False, 0)
         return True
+    if (color := e.get("choose_x", {}).get("color")) is not None:
+        from app.rules import colored_amount_payments
+
+        return colored_amount_payments.start(plan, ctx, payer, bind, color)
+    if e.get("choose_x", {}).get("tap_cost"):
+        from app.rules import tap_x_payments
+
+        return tap_x_payments.start(plan, ctx, e, payer, bind)
     if "life_x" in e:
         n = values.evaluate(plan, ctx, e["life_x"])  # (608.2h: once, now)
         ctx.setdefault("paid_x", {})[bind] = n
@@ -178,6 +204,9 @@ def start(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool | str:
             return True
         return f"Pay {n} life"
     if e["choose_x"].get("energy"):  # -- energy X (wave 50J) -- one or more of the {E} the payer has (118.3: no partial payment)
+        from app.rules import context
+
+        context.bind_amount(ctx, e.get("energy_as", "energy_paid"), 0)
         have = max(0, plan.state.players[payer].resources.get("energy", 0))
         if have == 0:
             plan.note(f"{plan.name(payer)} has no {{E}} to pay for {ctx.get('name') or 'it'}")
@@ -187,7 +216,8 @@ def start(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool | str:
         options.append(DecisionOption(id=O.DECLINE, label="Don't pay"))
         decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay {{E}}? Choose X (you have {have})", options=options,
                source=plan.state.cards.get(ctx.get("source_card") or ""),
-               resume={"step": O.STEP, "ctx": ctx, "choose_x": {"bind": bind, "payer": payer, "energy": True}, "cost": ""})
+               resume={"step": O.STEP, "ctx": ctx, "choose_x": {"bind": bind, "payer": payer, "energy": True,
+                       "energy_as": e.get("energy_as", "energy_paid")}, "cost": ""})
         return False
     cap = e["choose_x"].get("max")
     if (each := e["choose_x"].get("times")) is not None:  # -- pay N times (wave 51A) -- one or more copies of the cost, as many as the payer can pay in full (118.3)
@@ -207,8 +237,9 @@ def start(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool | str:
         return False
     limit = min(_MAX, values.evaluate(plan, ctx, cap)) if cap is not None else _MAX
     extra = e["choose_x"].get("extra", "")  # (wave 26C: the rest of "{X}{W}{U}{B}", paid with the X: 118.3, no partial payment)
-    most = 0 if not extra or casting.can_pay(plan.state, payer, M.parse_cost(extra), plan.info) else -1
-    while most >= 0 and most < limit and casting.can_pay(plan.state, payer, M.parse_cost(f"{{{most + 1}}}{extra}"), plan.info):
+    purpose = casting.Purpose(selected_cost_has_x=e.get('cost_has_x'))
+    most = 0 if not extra or casting.can_pay(plan.state, payer, M.parse_cost(extra), plan.info, purpose=purpose) else -1
+    while most >= 0 and most < limit and casting.can_pay(plan.state, payer, M.parse_cost(f"{{{most + 1}}}{extra}"), plan.info, purpose=purpose):
         most += 1
     if most < 0:  # (118.3: the part beside X can't be paid, so nothing can: not offered)
         plan.note(f"{plan.name(payer)} can't pay {extra} for {ctx.get('name') or 'it'}")
@@ -228,7 +259,8 @@ def start(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool | str:
     source = plan.state.cards.get(ctx.get("source_card") or "")
     decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay {{X}}? Choose X{hint}",
            options=options, source=source,
-           resume={"step": O.STEP, "ctx": ctx, "choose_x": {"bind": bind, "payer": payer, "life": life, "extra": extra}, "cost": f"{{0}}{extra}"})
+           resume={"step": O.STEP, "ctx": ctx, "choose_x": {"bind": bind, "payer": payer, "life": life, "extra": extra,
+                   "cost_has_x": e.get('cost_has_x')}, "cost": f"{{0}}{extra}"})
     return False
 
 
@@ -239,12 +271,27 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
 
     ctx, info = d.resume["ctx"], d.resume["choose_x"]
     bind, payer = info["bind"], info["payer"]
+    if info.get("color") is not None:
+        from app.rules import colored_amount_payments
+
+        colored_amount_payments.resume(plan, d, chosen)
+        return
+    if info.get("tap_cost"):
+        from app.rules import tap_x_payments
+
+        tap_x_payments.resume(plan, d, chosen)
+        return
+
     if chosen[0] == O.DECLINE:
         plan.note(f"{plan.name(payer)} didn't pay for {ctx.get('name') or 'it'}")
         _record(ctx, bind, False, 0)
         effects.continue_effects(plan, ctx)
         return
     n = int(chosen[0][len(CHOOSE):])
+    if info.get("energy"):
+        from app.rules import context
+
+        context.bind_amount(ctx, info.get("energy_as", "energy_paid"), n)
     extra = info.get("extra", "")
     if n == 0 and not extra:
         plan.note(f"{plan.name(payer)} paid {{0}} (X = 0) for {ctx.get('name') or 'it'}")
@@ -257,12 +304,11 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     cost = O.parse(text)
     assert cost is not None
     ctx.setdefault("paid_x", {})[bind] = n
-    opt = {"cost": text, "bind": bind, "payer": payer, "chosen": {}}
-    why = O.problem(plan, ctx, cost, payer)
+    opt = {"cost": text, "bind": bind, "payer": payer, "chosen": {}, "cost_has_x": info.get('cost_has_x')}
+    why = O.problem(plan, ctx, cost, payer, cost_has_x=info.get('cost_has_x'))
     if why is not None:
         from app.game.errors import ActionError
 
         raise ActionError(f"Can't pay {text}: {why}")
     O._pay(plan, ctx, opt, cost)
-    effects.continue_effects(plan, ctx)
 

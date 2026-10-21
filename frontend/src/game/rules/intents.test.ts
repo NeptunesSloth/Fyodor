@@ -3,7 +3,7 @@ import { useCardCache } from "../../state/cardCache";
 import { useGame } from "../../state/gameStore";
 import type { CardData } from "../../types/cards";
 import type { GameView } from "../../types/game";
-import { abilityLines, automationOn, canConcede, choose, concede, divide, dropAsIntent, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, send, tapForMana, useXPrompt } from "./intents";
+import { abilityLines, automationOn, canConcede, choose, concede, divide, dropAsIntent, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, send, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
 import { canSubmitChoice, doneLabel, legalClass, paidSymbol } from "./RulesHud";
 import { rulesMenu } from "./rulesMenu";
 
@@ -55,6 +55,7 @@ describe("automation intents", () => {
     expect(canConcede(view({ ...base, conceded: ["p1"] }), "p1")).toBe(false);
     expect(canConcede(view({ ...base, lost: { p1: "life" } }), "p1")).toBe(false);
     expect(canConcede(view({ ...base, winner: "p2" }), "p1")).toBe(false);
+    expect(canConcede(view({ ...base, draw_reason: "Mandatory loop" }), "p1")).toBe(false);
     expect(canConcede(view(undefined), "p1")).toBe(false); // no rules engine at this table
     expect(canConcede({ ...view(base), viewer: "__spectator__" } as GameView, "p1")).toBe(false);
     await concede();
@@ -186,6 +187,37 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "activate_ability", card_id: "m1", ability: 2 }]);
   });
 
+  it.each([
+    ["Street Wraith", "Creature — Wraith", "Swampwalk\nCycling—Pay 2 life. (Pay 2 life, Discard this card: Draw a card.)", "Cycling—Pay 2 life.", 1],
+    ["Edge of Autumn", "Sorcery", "If you control four or fewer lands, search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\nCycling—Sacrifice a land. (Sacrifice a land, Discard this card: Draw a card.)", "Cycling—Sacrifice a land.", 1],
+    ["Sojourner's Companion", "Artifact Creature — Frog", "Affinity for artifacts\nArtifact landcycling {2} ({2}, Discard this card: Search your library for an artifact land card, reveal it, put it into your hand, then shuffle.)", "Artifact landcycling {2}", 1],
+  ])("offers %s's cycling cost from the hand", (name, typeLine, oracle, label, index) => {
+    const base = view(RULES);
+    const source = card("cycling", "p1:hand", "cycling-data");
+    const v = { ...base, cards: { ...base.cards, cycling: source } } as unknown as GameView;
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards,
+      "cycling-data": { id: "cycling-data", name, type_line: typeLine, oracle_text: oracle } as CardData } });
+    const item = rulesMenu(v.cards.cycling!, v, "p1").find((item) => item !== "separator" && item.label === label);
+    if (!item || item === "separator") throw new Error("expected the cycling action");
+    item.onClick?.();
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "cycling", ability: index }]);
+  });
+
+  it.each(["Slivercycling {3}", "Cycling {1}{U}"])("offers a private hand grant using the server index: %s", (text) => {
+    const base = view({ ...RULES, stats: { c1: { abilities: [{ index: 100, kind: "keywords", text }] } } });
+    const item = rulesMenu(base.cards.c1!, base, "p1").find((item) => item !== "separator" && item.label === text);
+    if (!item || item === "separator") throw new Error("expected granted cycling action");
+    item.onClick?.();
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "c1", ability: 100 }]);
+  });
+
+  it("does not offer cycling for another player's visible hand grant", () => {
+    const base = view({ ...RULES, stats: { other: { abilities: [{ index: 100, kind: "keywords", text: "Slivercycling {3}" }] } } });
+    const other = { ...card("other", "p2:hand", "forest"), owner: "p2", controller: "p2" };
+    const v = { ...base, cards: { ...base.cards, other } } as unknown as GameView;
+    expect(labels(rulesMenu(v.cards.other!, v, "p1"))).not.toContain("Slivercycling {3}");
+  });
+
   it("offers a card in an opponent's exile only when the server lists it for you (Hostage Taker, Valgavoth)", () => {
     const listed = view({ ...RULES, hints: { castable: ["x1"] } });
     const v = { ...listed, cards: { ...listed.cards, x1: card("x1", "p2:exile", "firebolt") } } as unknown as GameView;
@@ -239,6 +271,62 @@ describe("rules card menu", () => {
     if (!up || up === "separator") throw new Error("expected Turn face up");
     up.onClick?.();
     expect(sent).toEqual([{ type: "turn_face_up", card_id: "mb" }]);
+  });
+
+  it("offers disguise and uses the server's current private face-up cost", () => {
+    const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true },
+      stats: { cb: { turn_up: [{ method: "disguise", cost: "{R}" }] } } });
+    const v = { ...base, cards: { ...base.cards, ch: card("ch", "p1:hand", "codebreaker"),
+      cb: { ...card("cb", "p1:battlefield", "codebreaker"), face_down: true } } } as unknown as GameView;
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards,
+      codebreaker: { id: "codebreaker", name: "Fugitive Codebreaker", type_line: "Creature — Human Rogue",
+        oracle_text: "Disguise {5}{R}. This cost is reduced by {1} for each instant and sorcery card in your graveyard." } as CardData } });
+    const down = rulesMenu(v.cards.ch!, v, "p1").find((i) => i !== "separator" && i.label === "Cast face down (disguise, {3})");
+    if (!down || down === "separator") throw new Error("expected disguise cast");
+    down.onClick?.();
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "ch", face_down: true }]);
+    const up = rulesMenu(v.cards.cb!, v, "p1").find((i) => i !== "separator" && i.label === "Turn face up (disguise, {R})");
+    if (!up || up === "separator") throw new Error("expected reduced disguise cost");
+    up.onClick?.();
+    expect(sent[1]).toEqual({ type: "turn_face_up", card_id: "cb", method: "disguise" });
+    const changed = { ...v, rules: { ...v.rules!, stats: { cb: { turn_up: [{ method: "disguise" as const, cost: "{3}{R}" }] } } } };
+    expect(labels(rulesMenu(changed.cards.cb!, changed, "p1"))).toContain("Turn face up (disguise, {3}{R})");
+  });
+
+  it("offers crew and equip lines with trailing restrictions or target cost rules", () => {
+    const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true,
+      activatable: [{ card_id: "train", ability: 1 }] } });
+    const v = { ...base, cards: { ...base.cards, train: card("train", "p1:battlefield", "locomotive"),
+      blade: card("blade", "p1:battlefield", "blades") } } as unknown as GameView;
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards,
+      locomotive: { id: "locomotive", name: "Luxurious Locomotive", type_line: "Artifact — Vehicle",
+        oracle_text: "Whenever this Vehicle attacks, create a Treasure token for each creature that crewed it this turn.\nCrew 1. Activate only once each turn." } as CardData,
+      blades: { id: "blades", name: "Warrior's Blades", type_line: "Artifact — Equipment",
+        oracle_text: "When this Equipment enters, it deals 3 damage to any target and you gain 3 life.\nEquipped creature gets +2/+1.\nEquip {3}. This ability costs {1} less to activate for each +1/+1 counter on the creature it targets." } as CardData } });
+    const crew = rulesMenu(v.cards.train!, v, "p1").find((i) => i !== "separator" && i.label.startsWith("Activate: Crew 1"));
+    if (!crew || crew === "separator") throw new Error("expected restricted crew");
+    expect(crew.disabled).toBe(false);
+    crew.onClick?.();
+    expect(sent[0]).toEqual({ type: "activate_ability", card_id: "train", ability: 1 });
+    const used = { ...v, rules: { ...v.rules!, hints: { ...v.rules!.hints, activatable: [] } } };
+    const disabled = rulesMenu(used.cards.train!, used, "p1").find((i) => i !== "separator" && i.label.startsWith("Activate: Crew 1"));
+    expect(disabled && disabled !== "separator" && disabled.disabled).toBe(true);
+    const equip = rulesMenu(v.cards.blade!, v, "p1").find((i) => i !== "separator" && i.label.startsWith("Activate: Equip {3}"));
+    if (!equip || equip === "separator") throw new Error("expected equip with cost rule");
+    equip.onClick?.();
+    expect(sent[1]).toEqual({ type: "activate_ability", card_id: "blade", ability: 2 });
+  });
+
+  it("offers equip planeswalker using its printed ability number", () => {
+    const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true } });
+    const v = { ...base, cards: { ...base.cards, lx: card("lx", "p1:battlefield", "luxior") } } as unknown as GameView;
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards,
+      luxior: { id: "luxior", name: "Luxior, Giada's Gift", type_line: "Legendary Artifact — Equipment",
+        oracle_text: "Equipped creature gets +1/+1 for each counter on it.\nEquipped permanent isn't a planeswalker and is a creature in addition to its other types.\nEquip planeswalker {1}\nEquip {3}" } as CardData } });
+    const ability = item(rulesMenu(v.cards.lx!, v, "p1"), "Activate: Equip planeswalker {1}");
+    expect(ability.disabled).toBe(false);
+    ability.onClick?.();
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "lx", ability: 2 }]);
   });
 
   it("offers a Room's halves to cast, and its locked doors to unlock (709.5)", () => {
@@ -340,11 +428,17 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "cast_spell", card_id: "k1", kicker: 1 }]);
     const multi = item(rulesMenu(v.cards.m1!, v, "p1"), "Cast with Multikicker {1}{G}");
     expect(multi.submenu?.map((i) => (i === "separator" ? "—" : i.label))).toEqual(
-      ["Kicked ×1", "Kicked ×2", "Kicked ×3", "Kicked ×4", "Kicked ×5", "Kicked ×6"]);
+      ["Kicked ×1", "Kicked ×2", "Kicked ×3", "Kicked ×4", "Kicked ×5", "Kicked ×6", "Other count…"]);
     const three = multi.submenu?.[2];
     if (!three || three === "separator") throw new Error("expected ×3");
     three.onClick?.();
     expect(sent[1]).toEqual({ type: "cast_spell", card_id: "m1", kicker: 3 });
+    const other = multi.submenu?.[6];
+    if (!other || other === "separator") throw new Error("expected Other count");
+    other.onClick?.();
+    expect(useXPrompt.getState()).toMatchObject({ action: { type: "cast_spell", card_id: "m1" }, field: "kicker" });
+    expect(sent).toHaveLength(2);
+    useXPrompt.setState({ action: null, field: "x_value" });
     expect(labels(rulesMenu(v.cards.c2!, v, "p1")).some((l) => /kicker/i.test(l))).toBe(false);  // no kicker line
   });
 
@@ -428,6 +522,19 @@ describe("rules card menu", () => {
     expect(item(rulesMenu(v.cards.r1!, v, "p1"), "Reconfigure: unattach ({2})").disabled).toBe(true);
   });
 
+  it("offers alternative-cost reconfigure attach and unattach with server availability", () => {
+    const base = view({ ...RULES, hints: { activatable: [{ card_id: "r1", ability: 2 }] } });
+    const v = { ...base, cards: { ...base.cards, r1: card("r1", "p1:battlefield", "ripper") } } as unknown as GameView;
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards,
+      ripper: { id: "ripper", name: "Razorfield Ripper", type_line: "Artifact Creature — Equipment Rhino",
+        oracle_text: "Whenever this creature or equipped creature attacks, you get {E}, then it gets +X/+X until end of turn, where X is the amount of {E} you have.\nReconfigure—Pay {2} or {E}{E}{E}. (Attach or unattach.)" } as CardData } });
+    const attach = item(rulesMenu(v.cards.r1!, v, "p1"), "Reconfigure: attach (Pay {2} or {E}{E}{E})");
+    expect(attach.disabled).toBe(false);
+    attach.onClick?.();
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "r1", ability: 2 }]);
+    expect(item(rulesMenu(v.cards.r1!, v, "p1"), "Reconfigure: unattach (Pay {2} or {E}{E}{E})").disabled).toBe(true);
+  });
+
   it("offers graveyard-activated abilities (113.6m) only for graveyard costs or server-listed ones", () => {
     const base = view({ ...RULES, hints: { activatable: [{ card_id: "g1", ability: 1 }] } });
     const v = { ...base, cards: { ...base.cards, g1: card("g1", "p1:graveyard", "scrounger"), g2: card("g2", "p1:graveyard", "looter"),
@@ -453,6 +560,21 @@ describe("rules card menu", () => {
     const ghoul = rulesMenu(v.cards.g3!, v, "p1").filter((i) => i !== "separator" && i.label.startsWith("Activate:"));
     expect(ghoul).toHaveLength(1);  // a graveyard cost, not listed right now: shown disabled
     expect(ghoul[0] !== "separator" && ghoul[0]?.disabled).toBe(true);
+  });
+
+  it("offers energy unearth from the graveyard when the server lists it", () => {
+    const base = view({ ...RULES, hints: { ...RULES.hints, activatable: [{ card_id: "col", ability: 2 }] } });
+    const v = { ...base, cards: { ...base.cards, col: card("col", "p1:graveyard", "colossus") } } as unknown as GameView;
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards,
+      colossus: { id: "colossus", name: "Salvation Colossus", type_line: "Artifact Creature — Construct",
+        oracle_text: "Flying, vigilance, trample\nWhenever you attack, other creatures you control get +2/+2 and gain indestructible until end of turn.\nUnearth—Pay eight {E}." } as CardData } });
+    const ability = rulesMenu(v.cards.col!, v, "p1").find((i) => i !== "separator" && i.label.startsWith("Activate: Unearth"));
+    if (!ability || ability === "separator") throw new Error("expected energy unearth");
+    expect(ability.disabled).toBe(false);
+    ability.onClick?.();
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "col", ability: 2 }]);
+    const unpaid = { ...v, rules: { ...v.rules!, hints: { ...v.rules!.hints, activatable: [] } } };
+    expect(labels(rulesMenu(unpaid.cards.col!, unpaid, "p1")).some((label) => label.startsWith("Activate"))).toBe(false);
   });
 
   it("shows nothing about hidden cards", () => {
@@ -490,6 +612,20 @@ describe("decision answers", () => {
     useXPrompt.setState({ action: null });
     void dropAsIntent(["c2"], { zone: "stack" }); // the drag-to-cast path asks too
     expect(useXPrompt.getState().action).toEqual({ type: "cast_spell", card_id: "c2" });
+  });
+
+  it("validates Other multikicker range and retains its count through a subsequent X prompt", () => {
+    useGame.setState({ view: view({ ...RULES, hints: { castable: ["c4"], x_kicker: ["c4"] } }) });
+    useXPrompt.setState({ action: { type: "cast_spell", card_id: "c4" }, field: "kicker" });
+    const before = useXPrompt.getState();
+    expect(submitNumericPrompt("1001")).toBe(false);
+    expect(useXPrompt.getState()).toBe(before);
+    expect(submitNumericPrompt("21")).toBe(true);
+    expect(sent).toHaveLength(0);
+    expect(useXPrompt.getState()).toMatchObject({ action: { type: "cast_spell", card_id: "c4", kicker: 21 }, field: "x_value" });
+    expect(submitNumericPrompt("3")).toBe(true);
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "c4", kicker: 21, x_value: 3 }]);
+    expect(useXPrompt.getState().action).toBeNull();
   });
 
   it("asks for X for an alternative cost or a kicker cost that has {X}, and only then (107.3a, wave 43D)", () => {

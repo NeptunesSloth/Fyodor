@@ -20,7 +20,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DecisionOption
-from app.rules import context
+from app.rules import context, values
 from app.rules.token_grammar import AT, at_spec
 
 if TYPE_CHECKING:
@@ -31,7 +31,8 @@ Context = dict[str, Any]
 _PERMANENT_TYPES = frozenset({"Artifact", "Creature", "Enchantment", "Land", "Planeswalker", "Battle"})
 # (-- triggers (wave 19B) -- "any number of creature cards", "a permanent card with mana value less than or equal to the number of lands you
 # control / that damage": the count is read as the card is chosen, 608.2h)
-PATTERN = (r"put (?P<cnt>an?|any number of|up to (?P<upto>\d+|one|two|three|four|five)) (?P<what>[^.]+?) cards?(?P<q> with total power and toughness \d+ or (?:less|greater)| of the chosen type)?"  # (wave 53B: "a creature card of the chosen type", Belbe's Portal)
+_UPTO = r"\d+|" + "|".join(word for word in values.NUMBERS if word not in ("a", "an"))
+PATTERN = (rf"put (?P<cnt>an?|any number of|up to (?P<upto>{_UPTO})) (?P<what>[^.]+?) cards?(?P<q> with total power and toughness \d+ or (?:less|greater)| of the chosen type)?"  # (wave 53B: "a creature card of the chosen type", Belbe's Portal)
            # -- put from hand (wave 30P) -- "with mana value 3 or less" / "X or less, where X is the number of attacking creatures you control"
            # (Kinscaer Sentry), "less than that creature's mana value" (Arni Metalbrow), "less than or equal to that creature's power" (Minn, Wily Illusionist; wave 44D), "with lesser power" (Shadowfax): the limit is read as the card is chosen
            r"(?: with (?:mana value (?:(?P<op>less than or equal to|less than|equal to) (?P<v>that damage|the number of [^.]+?|that creature's (?:mana value|power))"
@@ -61,7 +62,7 @@ def parse(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
     if len(sels) > 1:
         effect["alt"] = [x.key() for x in sels[1:]]
     if m["op"]:
-        from app.rules import language, values
+        from app.rules import language
 
         value = {"event_amount": 1} if m["v"] == "that damage" else values.parse_count(m["v"]) or language.x_definition(m["v"])
         if value is None:
@@ -87,7 +88,7 @@ def parse(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
     if m["cnt"] == "any number of":
         effect["many"] = True
     if m["upto"]:  # -- if you do (wave 44A) -- "put up to X land cards from your hand onto the battlefield tapped" (The Gitrog, Ravenous Ride): at most X, read as they are chosen
-        effect["many"], effect["cap"] = True, int(m["upto"]) if m["upto"].isdigit() else ("", "one", "two", "three", "four", "five").index(m["upto"])  # (wave 50I: "up to two")  # (X is the stand-in scripts._swap_x turns into the value, 608.2h)
+        effect["many"], effect["cap"] = True, int(m["upto"]) if m["upto"].isdigit() else values.NUMBERS[m["upto"]]  # (wave 50I: "up to two")  # (X is the stand-in scripts._swap_x turns into the value, 608.2h)
     if m["tapped"]:
         effect["tapped"] = True
     if m["atk"]:  # -- trigger tail (wave 15B) -- 508.4: its controller chooses whom it attacks (looking.attack_with_entered)

@@ -1,0 +1,273 @@
+[
+  {
+    "name": "Tibalt's Trickery",
+    "oracle_text": "Counter target spell. Choose 1, 2, or 3 at random. Its controller mills that many cards, then exiles cards from the top of their library until they exile a nonland card with a different name than that spell. They may cast that card without paying its mana cost. Then they put the exiled cards on the bottom of their library in a random order.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{R}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Lightning Bolt",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "type_line": "Instant",
+    "mana_cost": "{R}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "type_line": "Artifact",
+    "mana_cost": "{1}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Banefire",
+    "oracle_text": "Banefire deals X damage to any target.\nIf X is 5 or more, this spell can't be countered and the damage can't be prevented.",
+    "type_line": "Sorcery",
+    "mana_cost": "{X}{R}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Allosaurus Shepherd",
+    "oracle_text": "This spell can't be countered.\nGreen spells you control can't be countered.\n{4}{G}{G}: Until end of turn, each Elf creature you control has base power and toughness 5/5 and becomes a Dinosaur in addition to its other creature types.",
+    "type_line": "Creature \u2014 Elf Shaman",
+    "mana_cost": "{G}",
+    "layout": "normal",
+    "power": "1",
+    "toughness": "1",
+    "cmc": 1.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Brainstorm",
+    "oracle_text": "Draw three cards, then put two cards from your hand on top of your library in any order.",
+    "type_line": "Instant",
+    "mana_cost": "{U}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Kozilek, Butcher of Truth",
+    "oracle_text": "When you cast this spell, draw four cards.\nAnnihilator 4 (Whenever this creature attacks, defending player sacrifices four permanents of their choice.)\nWhen Kozilek is put into a graveyard from anywhere, its owner shuffles their graveyard into their library.",
+    "type_line": "Legendary Creature \u2014 Eldrazi",
+    "mana_cost": "{10}",
+    "layout": "normal",
+    "power": "12",
+    "toughness": "12",
+    "cmc": 10.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Annihilator"
+    ]
+  },
+  {
+    "name": "Gaea's Blessing",
+    "oracle_text": "Target player shuffles up to three target cards from their graveyard into their library.\nDraw a card.\nWhen this card is put into your graveyard from your library, shuffle your graveyard into your library.",
+    "type_line": "Sorcery",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Maddening Cacophony",
+    "oracle_text": "Kicker {3}{U}\nEach opponent mills eight cards. If this spell was kicked, instead each opponent mills half their library, rounded up.",
+    "type_line": "Sorcery",
+    "mana_cost": "{1}{U}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill",
+      "Kicker"
+    ]
+  },
+  {
+    "name": "Cosima, God of the Voyage // The Omenkeel",
+    "oracle_text": "At the beginning of your upkeep, you may exile Cosima. If you do, it gains \"Whenever a land you control enters, if Cosima is exiled, you may put a voyage counter on it. If you don't, return Cosima to the battlefield with X +1/+1 counters on it and draw X cards, where X is the number of voyage counters on it.\"\n//\nWhenever a Vehicle you control deals combat damage to a player, that player exiles that many cards from the top of their library. You may play lands from among those cards for as long as they remain exiled.\nCrew 1",
+    "type_line": "Legendary Creature \u2014 God // Legendary Artifact \u2014 Vehicle",
+    "mana_cost": "{2}{U} // {1}{U}",
+    "layout": "modal_dfc",
+    "power": "2",
+    "toughness": "4",
+    "cmc": 3.0,
+    "card_faces": [
+      {
+        "name": "Cosima, God of the Voyage",
+        "mana_cost": "{2}{U}",
+        "type_line": "Legendary Creature \u2014 God",
+        "oracle_text": "At the beginning of your upkeep, you may exile Cosima. If you do, it gains \"Whenever a land you control enters, if Cosima is exiled, you may put a voyage counter on it. If you don't, return Cosima to the battlefield with X +1/+1 counters on it and draw X cards, where X is the number of voyage counters on it.\"",
+        "power": "2",
+        "toughness": "4",
+        "colors": [
+          "U"
+        ]
+      },
+      {
+        "name": "The Omenkeel",
+        "mana_cost": "{1}{U}",
+        "type_line": "Legendary Artifact \u2014 Vehicle",
+        "oracle_text": "Whenever a Vehicle you control deals combat damage to a player, that player exiles that many cards from the top of their library. You may play lands from among those cards for as long as they remain exiled.\nCrew 1",
+        "power": "3",
+        "toughness": "3",
+        "colors": [
+          "U"
+        ]
+      }
+    ],
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Crew"
+    ]
+  },
+  {
+    "name": "Fling",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nFling deals damage equal to the sacrificed creature's power to any target.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{R}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Bruvac the Grandiloquent",
+    "oracle_text": "If an opponent would mill one or more cards, they mill twice that many cards instead. (To mill a card, a player puts the top card of their library into their graveyard.)",
+    "type_line": "Legendary Creature \u2014 Human Advisor",
+    "mana_cost": "{2}{U}",
+    "layout": "normal",
+    "power": "1",
+    "toughness": "4",
+    "cmc": 3.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "The Water Crystal",
+    "oracle_text": "Blue spells you cast cost {1} less to cast.\nIf an opponent would mill one or more cards, they mill that many cards plus four instead.\n{4}{U}{U}, {T}: Each opponent mills cards equal to the number of cards in your hand.",
+    "type_line": "Legendary Artifact",
+    "mana_cost": "{2}{U}{U}",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Hydroid Krasis",
+    "oracle_text": "When you cast this spell, you gain half X life and draw half X cards. Round down each time.\nFlying, trample\nThis creature enters with X +1/+1 counters on it.",
+    "type_line": "Creature \u2014 Jellyfish Hydra Beast",
+    "mana_cost": "{X}{G}{U}",
+    "layout": "normal",
+    "power": "0",
+    "toughness": "0",
+    "cmc": 2.0,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Trample"
+    ]
+  }
+]

@@ -1,0 +1,267 @@
+[
+  {
+    "name": "The Darkness Crystal",
+    "layout": "normal",
+    "mana_cost": "{2}{B}{B}",
+    "type_line": "Legendary Artifact",
+    "oracle_text": "Black spells you cast cost {1} less to cast.\nIf a nontoken creature an opponent controls would die, instead exile it and you gain 2 life.\n{4}{B}{B}, {T}: Put target creature card exiled with The Darkness Crystal onto the battlefield tapped under your control with two additional +1/+1 counters on it.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 4.0,
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Llanowar Elves",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Spike Feeder",
+    "layout": "normal",
+    "mana_cost": "{1}{G}{G}",
+    "type_line": "Creature \u2014 Spike",
+    "oracle_text": "This creature enters with two +1/+1 counters on it.\n{2}, Remove a +1/+1 counter from this creature: Put a +1/+1 counter on target creature.\nRemove a +1/+1 counter from this creature: You gain 2 life.",
+    "power": "0",
+    "toughness": "0",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 3.0,
+    "keywords": []
+  },
+  {
+    "name": "Corpsejack Menace",
+    "layout": "normal",
+    "mana_cost": "{2}{B}{G}",
+    "type_line": "Creature \u2014 Fungus",
+    "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, twice that many +1/+1 counters are put on it instead.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "cmc": 4.0,
+    "keywords": []
+  },
+  {
+    "name": "Murder",
+    "layout": "normal",
+    "mana_cost": "{1}{B}{B}",
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 3.0,
+    "keywords": []
+  },
+  {
+    "name": "Sol Ring",
+    "layout": "normal",
+    "mana_cost": "{1}",
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Ghostly Flicker",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "type_line": "Instant",
+    "oracle_text": "Exile two target artifacts, creatures, and/or lands you control, then return those cards to the battlefield under your control.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 3.0,
+    "keywords": []
+  },
+  {
+    "name": "Disenchant",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 2.0,
+    "keywords": []
+  },
+  {
+    "name": "Pull from Eternity",
+    "layout": "normal",
+    "mana_cost": "{W}",
+    "type_line": "Instant",
+    "oracle_text": "Put target face-up exiled card into its owner's graveyard.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Cremate",
+    "layout": "normal",
+    "mana_cost": "{B}",
+    "type_line": "Instant",
+    "oracle_text": "Exile target card from a graveyard.\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Solemnity",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "type_line": "Enchantment",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "cmc": 3.0,
+    "keywords": []
+  },
+  {
+    "name": "Vorinclex, Monstrous Raider",
+    "layout": "normal",
+    "mana_cost": "{4}{G}{G}",
+    "type_line": "Legendary Creature \u2014 Phyrexian Praetor",
+    "oracle_text": "Trample, haste\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead.\nIf an opponent would put one or more counters on a permanent or player, they put half that many of each of those kinds of counters on that permanent or player instead, rounded down.",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 6.0,
+    "keywords": [
+      "Haste",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Hardened Scales",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "type_line": "Enchantment",
+    "oracle_text": "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 1.0,
+    "keywords": []
+  },
+  {
+    "name": "Lithoform Engine",
+    "layout": "normal",
+    "mana_cost": "{4}",
+    "type_line": "Legendary Artifact",
+    "oracle_text": "{2}, {T}: Copy target activated or triggered ability you control. You may choose new targets for the copy.\n{3}, {T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy.\n{4}, {T}: Copy target permanent spell you control. (The copy becomes a token.)",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 4.0,
+    "keywords": []
+  },
+  {
+    "name": "Reroute",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Change the target of target activated ability with a single target. (Mana abilities can't be targeted.)\nDraw a card.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  }
+]

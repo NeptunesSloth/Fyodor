@@ -1,0 +1,107 @@
+[
+  {
+    "name": "Priest of Forgotten Gods",
+    "oracle_text": "{T}, Sacrifice two other creatures: Any number of target players each lose 2 life and sacrifice a creature of their choice. You add {B}{B} and draw a card. (Activate only as an instant.)",
+    "type_line": "Creature \u2014 Human Cleric",
+    "mana_cost": "{1}{B}",
+    "layout": "normal",
+    "power": "1",
+    "toughness": "2",
+    "cmc": 2.0,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Ornithopter",
+    "oracle_text": "Flying",
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "mana_cost": "{0}",
+    "layout": "normal",
+    "power": "0",
+    "toughness": "2",
+    "cmc": 0.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Stifle",
+    "oracle_text": "Counter target activated or triggered ability. (Mana abilities can't be targeted.)",
+    "type_line": "Instant",
+    "mana_cost": "{U}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Leyline of Sanctity",
+    "oracle_text": "If this card is in your opening hand, you may begin the game with it on the battlefield.\nYou have hexproof. (You can't be the target of spells or abilities your opponents control.)",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{W}{W}",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Platinum Emperion",
+    "oracle_text": "Your life total can't change. (You can't gain or lose life. You can't pay any amount of life except 0.)",
+    "type_line": "Artifact Creature \u2014 Golem",
+    "mana_cost": "{8}",
+    "layout": "normal",
+    "power": "8",
+    "toughness": "8",
+    "cmc": 8.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Solemn Simulacrum",
+    "oracle_text": "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nWhen this creature dies, you may draw a card.",
+    "type_line": "Artifact Creature \u2014 Golem",
+    "mana_cost": "{4}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "cmc": 4.0,
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  }
+]

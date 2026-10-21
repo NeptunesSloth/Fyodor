@@ -88,7 +88,7 @@ def clamp(state: GameState) -> None:
             if take > 0:
                 mana[sym] = take
                 left[(player, sym)] = room - take
-        if mana or units:
+        if mana or units or (rec.get("color") and _active(state, rec)):
             out.append({**rec, "mana": mana, "units": units})
     r.kept_mana = out
 
@@ -99,7 +99,11 @@ def _always(plan: Plan) -> dict[str, set[str]]:
 
     out: dict[str, set[str]] = {}
     for src, d in _statics(plan.state, plan.info, "keep_mana"):
-        out.setdefault(src.controller, set()).add(d["color"])
+        for pid in plan.live() if d.get('who')=='any' else [src.controller]:
+            out.setdefault(pid,set()).update('WUBRGC' if d['color']=='*' else [d['color']])
+    for rec in plan.rules.kept_mana:
+        if rec.get("color") and _active(plan.state, rec) and rec.get("player") in plan.state.players:
+            out.setdefault(rec["player"], set()).add(rec["color"])
     return out
 
 
@@ -121,8 +125,17 @@ def _to_colorless(plan: Plan, pid: str, keep: dict[str, int], keep_u: list[int])
         return
     if delta:
         delta["C"] = -sum(delta.values())
-    plan.do({"type": "rules_mana", "player": pid, "tap": [], "sacrifice": [], "delta": delta, "life": 0, "spend_units": [u.id for u in changed],
-             "add_units": [{**u.model_dump(exclude={"id"}), "sym": "C"} for u in changed], "label": ""}, actor=plan.active)
+    remaining = dict(delta)
+    first = True
+    while remaining or first:
+        part = {sym: max(-1000, min(1000, n)) for sym, n in remaining.items()}
+        plan.do({"type": "rules_mana", "player": pid, "tap": [], "sacrifice": [], "delta": part, "life": 0,
+                 "spend_units": [u.id for u in changed] if first else [],
+                 "add_units": [{**u.model_dump(exclude={"id"}), "sym": "C"} for u in changed] if first else [],
+                 "label": ""}, actor=plan.active)
+        remaining = {sym: n-part[sym] for sym, n in remaining.items() if n != part[sym]}
+        first = False
+
 
 
 def empty(plan: Plan) -> bool:
@@ -142,7 +155,7 @@ def empty(plan: Plan) -> bool:
         keep[pid].update({c: pool.mana[c] for c in colors if pool.mana.get(c)})
         keep_u[pid] = sorted({*keep_u[pid], *(u.id for u in pool.mana_units if u.sym in colors)})
     if not any(keep.values()) and not any(keep_u.values()) and not colorless:
-        r.kept_mana = []
+        r.kept_mana = [rec for rec in r.kept_mana if rec.get("color") and _active(state, rec)]
         return False
     for pid in colorless:  # (-- unspent mana (wave 35C) -- the colorless mana stays: nothing of theirs is lost)
         _to_colorless(plan, pid, keep[pid], keep_u[pid])
@@ -161,7 +174,13 @@ def empty(plan: Plan) -> bool:
 def keep(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Until end of turn, you don't lose this mana as steps and phases end": the mana the
     previous instruction of this resolution added (``ctx[ADDED]``) is kept."""
-    mana = {s: int(n) for s, n in (ctx.get(ADDED) or {}).items() if int(n) > 0}
+    if e.get("color"):
+        plan.rules.kept_mana.append({"player": ctx["controller"], "color": e["color"],
+                                     "turn": plan.state.turn.number, "until": e.get("until", "end_of_turn")})
+        return True
+    # New output receipts separate actual plain-pool additions from exact new units.
+    # A nominal aggregate must not also retain unrelated old plain mana of that type.
+    mana = {s: int(n) for s, n in (ctx.get('_mana_pool_added', ctx.get(ADDED)) or {}).items() if int(n) > 0}
     units = list(ctx.get("_mana_unit_ids") or ())  # (wave 18B: mana_units.restrict made the mana added into units)
     if not mana and not units:
         return True

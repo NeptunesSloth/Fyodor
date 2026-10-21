@@ -1,0 +1,28 @@
+{
+  "card": "Vexing Devil",
+  "oracle_id": "b582e485-c024-47f0-ad6f-b918d32288ba",
+  "mirror": "https://api.scryfall.com/cards/ba50e7df-9dec-4df8-94a5-5883bbedf0cb/rulings",
+  "rulings": [
+    {
+      "object": "ruling",
+      "oracle_id": "b582e485-c024-47f0-ad6f-b918d32288ba",
+      "source": "wotc",
+      "published_at": "2018-12-07",
+      "comment": "As Vexing Devil\u2019s ability resolves, the next opponent in turn order (or, if it\u2019s an opponent\u2019s turn, that opponent) chooses whether to be dealt 4 damage, then each other opponent in turn order does the same. If any of them do, you sacrifice Vexing Devil."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "b582e485-c024-47f0-ad6f-b918d32288ba",
+      "source": "wotc",
+      "published_at": "2018-12-07",
+      "comment": "No player may take actions between the time an opponent chooses to be dealt damage by Vexing Devil and the time you sacrifice Vexing Devil. This means that you can\u2019t use a spell or ability (such as Turn to Mist) to stop Vexing Devil from being sacrificed if a player chooses to be dealt damage."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "b582e485-c024-47f0-ad6f-b918d32288ba",
+      "source": "wotc",
+      "published_at": "2012-05-01",
+      "comment": "If a player chooses to have Vexing Devil deal 4 damage to them, but some or all of that damage is prevented or redirected, Vexing Devil will still be sacrificed."
+    }
+  ]
+}

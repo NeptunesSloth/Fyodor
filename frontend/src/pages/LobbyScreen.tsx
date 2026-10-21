@@ -15,6 +15,9 @@ import {
   kickFromLobby,
   leaveLobby,
   myDecks,
+  importPersonalDeck,
+  personalCollection,
+  syncPersonalCollection,
   rememberMyDeck,
   setLobbyProfile,
   setLobbyReady,
@@ -27,6 +30,7 @@ import {
 import { useGame } from "../state/gameStore";
 import type { DeckSummary } from "../types/decks";
 import type { LobbySeat, LobbySettings, LobbyView } from "../types/game";
+import { PersonalDeckImports } from "./PersonalDeckImports";
 import "./lobby.css";
 
 export const DECK_PRIVACY_LABEL: Record<LobbySettings["deck_privacy"], string> = {
@@ -305,6 +309,7 @@ function DeckListPeek({ list }: { list: { section: string; quantity: number; nam
 type Source = "table" | "mine" | "archidekt" | "paste" | "file";
 
 function ChooseDeck({ gameId, onClose, onDone }: { gameId: string; onClose: () => void; onDone: (l: LobbyView) => void }) {
+  const [companion, setCompanion] = useState("");
   const [hostDecks, setHostDecks] = useState<DeckSummary[] | null>(null);
   const [saved, setSaved] = useState<MyDeck[]>(() => myDecks());
   const [source, setSource] = useState<Source>(saved.length ? "mine" : "paste");
@@ -329,12 +334,21 @@ function ChooseDeck({ gameId, onClose, onDone }: { gameId: string; onClose: () =
     );
   }, [saved.length]);
 
+  const savedChanged = async () => {
+    setSaved(myDecks());
+    try { useGame.getState().applyLobby(await syncPersonalCollection(gameId)); }
+    catch (e) { toastError(e); }
+  };
+
   const submit = async (body: LobbyDeckBody, remember: boolean) => {
     setBusy(true);
     try {
-      const res = await submitLobbyDeck(gameId, body);
+      const imported = await importPersonalDeck(gameId, body);
+      if (remember || body.deck_id) rememberMyDeck(imported.name, body, imported.commanders, imported);
+      const res = await submitLobbyDeck(gameId, { name: imported.name, text: imported.text,
+        collection: personalCollection(), ...(companion ? { companion_id: companion } : {}) });
       const mine = res.seats.find((s) => s.id === res.viewer)?.deck;
-      if (remember && mine) rememberMyDeck(mine.name ?? body.name ?? "Deck", body, mine.commanders ?? []);
+
       toast(`Deck ready: ${mine?.name ?? "deck"} (${mine?.card_count ?? 0} cards)`);
       onDone(res);
     } catch (e) {
@@ -372,6 +386,13 @@ function ChooseDeck({ gameId, onClose, onDone }: { gameId: string; onClose: () =
           </button>
         ))}
       </div>
+      <label className="field">Companion from My decks (optional)
+        <select value={companion} disabled={busy} onChange={e => setCompanion(e.target.value)}>
+          <option value="">Use the deck's companion, if any</option>
+          {Array.from(new Map(saved.flatMap(d => d.companions ?? []).map(c => [c.name, c])).values()).map(c =>
+            <option key={c.name} value={c.printing_id}>{c.name}</option>)}
+        </select>
+      </label>
       <div className="deck-src-body">
         {source === "table" && hostDecks && (
           <div className="deck-pick-list">
@@ -387,14 +408,15 @@ function ChooseDeck({ gameId, onClose, onDone }: { gameId: string; onClose: () =
         )}
         {source === "mine" && (
           <div className="deck-pick-list">
-            {saved.length === 0 && <p className="hint">Decks you bring to a table are remembered in this browser for next time.</p>}
+            <PersonalDeckImports gameId={gameId} onSaved={savedChanged} disabled={busy} onBusyChange={setBusy} />
+            {saved.length === 0 && <p className="hint">No personal decks saved yet.</p>}
             {saved.map((d) => (
               <div key={d.id} className="deck-pick-row">
                 <button className="deck-pick" disabled={busy} onClick={() => void submit(d.body, true)}>
                   <b>{d.name}</b>
                   <span className="hint">{d.commanders.join(" & ") || (d.body.archidekt ? "Archidekt" : "Deck list")}</span>
                 </button>
-                <button className="tt-icon" title="Forget this deck" onClick={() => { forgetMyDeck(d.id); setSaved(myDecks()); }}>✕</button>
+                <button className="tt-icon" title="Forget this deck" onClick={() => { forgetMyDeck(d.id); void savedChanged(); }}>✕</button>
               </div>
             ))}
           </div>

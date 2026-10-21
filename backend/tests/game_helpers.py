@@ -78,3 +78,13 @@ def turn_on(s, level="full", *, arrived=(), land=False, player="p1"):
                 cid = group.split(":", 1)[1]
                 answers.append(f"{cid}:new" if cid in arrived else f"{cid}:old")
         act(s, d.player, type="choose", decision_id=d.id, option_ids=answers)
+
+
+def mana_pool(session: GameSession, pid: str = 'p1') -> dict[str, int]:
+    """The unrestricted pool players see, including remembered source identities."""
+    player = session.state.players[pid]
+    pool = dict(player.mana)
+    for unit in player.mana_units:
+        if not unit.only and not unit.riders:
+            pool[unit.sym] = pool.get(unit.sym, 0) + 1
+    return pool

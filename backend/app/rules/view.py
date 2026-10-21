@@ -17,7 +17,7 @@ from app.game.rules_state import cancelable, preset_name
 from app.game.state import GameState, zone_key
 from app.game.visibility import OMNISCIENT, can_see, mask_face_down
 from app.rules import characteristics as chars
-from app.rules import licids, read_pass
+from app.rules import read_pass
 from app.rules.casting import (
     activatable,
     alt_castable,
@@ -43,6 +43,8 @@ def _rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]
     if settings.automation == "off" or r is None:
         return None  # a dormant rules state (automation turned off) isn't shown
     prefs = r.prefs_for(viewer) if viewer in state.players else None
+    from app.rules import banding
+
     out: dict[str, Any] = {
         "automation": settings.automation,
         "preset": preset_name(settings.automation, settings.automation_options),
@@ -53,9 +55,11 @@ def _rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]
         "paused": r.paused,
         "priority": r.priority,
         "passed": list(r.passed),
+        "attacking_bands": banding.live_bands(state),
         "conceded": list(r.conceded),
         "lost": dict(r.lost),
         "winner": r.winner,
+        "draw_reason": r.draw_reason,
         "overrides": r.overrides,
         "decision": None,
         # Only your own preferences (your yields and payment settings are nobody else's business).
@@ -74,7 +78,7 @@ def _rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]
     d = r.decision
     if d is not None:
         out["decision"] = decision_view(state, d, viewer)
-    if viewer in state.players and viewer in live_players(state) and not r.paused:
+    if viewer in state.players and viewer in live_players(state) and not r.paused and r.draw_reason is None:
         try:  # -- controlling another player (wave 18H) -- 723.5: the controller's hints are for the player they act as
             seat = acting_as(state, viewer)
         except ValueError:  # the controlled player: nothing to do but concede (723.6)
@@ -144,21 +148,37 @@ def decision_view(state: GameState, d: Any, viewer: str) -> dict[str, Any]:
 
 
 def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, Any]]:
-    """Current power/toughness and keywords of visible battlefield creatures where the rules
-    change them (anthems, pumps, counters, crew …), so the table can show the real numbers."""
+    """Current battlefield characteristics and granted abilities of visible cards in hands/exile.
+
+    The visibility check precedes derivation/publication, so a hand grant reveals no hidden card.
+    """
+    from app.rules import licids
     from app.rules.layers import derive
 
     out: dict[str, dict[str, Any]] = {}
-    for cid in (c for z, ids in state.zones.items() if z.endswith(":battlefield") for c in ids):
+    for cid in (c for z, ids in state.zones.items() if z.endswith((":battlefield", ":hand", ":exile")) for c in ids):
         card = state.cards[cid]
-        if card.face_down or not (viewer == OMNISCIENT or can_see(state, card, viewer)):
+        if not (viewer == OMNISCIENT or can_see(state, card, viewer)):
+            continue
+        if card.face_down:
+            if card.zone.endswith(":battlefield") and (viewer == OMNISCIENT or acting_as(state, viewer) == card.controller):
+                from app.rules.casting import face_up_ways
+
+                printed_face = chars.of(card.model_copy(update={"face_down": False}), info)
+                ways = face_up_ways(card, printed_face, state=state, info=info)
+                if ways:
+                    out[cid] = {"turn_up": [{"method": method, "cost": cost} for method, (cost, _) in ways.items()]}
             continue
         printed = chars.of(card, info)
         now = derive(state, card, printed, info)
         entry: dict[str, Any] = {}
         granted = [{"index": a.index, "text": ops.shown(state, a.text), "kind": a.kind} for a in now.abilities if a.index >= 100]
         if granted:
-            entry["abilities"] = granted  # granted by other permanents (All Slivers have "…")
+            entry["abilities"] = granted  # Visibility was checked before reading any outside-zone grant.
+        if not card.zone.endswith(":battlefield"):
+            if entry:
+                out[cid] = entry
+            continue
         if now.doors is not None:
             entry["doors"] = sorted(now.doors)  # -- Rooms (wave 18G) -- 709.5c: public (the designations are on the table)
             from app.rules.copying import (

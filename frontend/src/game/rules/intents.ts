@@ -15,7 +15,7 @@ import type { DropResult } from "../dnd";
 
 /** -- X announced (wave 24D) -- 107.3a, 601.2b: a cast or activation that needs X (the hints' `x_cast`, `activatable[].x`) waits here
  * for the player's number (the XPrompt in RulesHud); free and alternative-cost casts make X 0 on the server (107.3b). */
-export const useXPrompt = create<{ action: Action | null }>(() => ({ action: null }));
+export const useXPrompt = create<{ action: Action | null; field: "x_value" | "kicker" }>(() => ({ action: null, field: "x_value" }));
 
 export function needsX(view: GameView | null, a: Action): boolean {
   const h = view?.rules?.hints;
@@ -28,9 +28,18 @@ export function needsX(view: GameView | null, a: Action): boolean {
 
 export const send = (action: Action): Promise<boolean> => {
   if (!needsX(useGame.getState().view, action)) return useGame.getState().send(action);
-  useXPrompt.setState({ action });
+  useXPrompt.setState({ action, field: "x_value" });
   return Promise.resolve(true);
 };
+
+/** The platform numeric prompt closes before send, so a kicked cost with X may open its next prompt. */
+export function submitNumericPrompt(text: string): boolean {
+  const { action, field } = useXPrompt.getState();
+  if (!action || !/^\d{1,4}$/.test(text) || Number(text) > 1000) return false;
+  useXPrompt.setState({ action: null, field: "x_value" });
+  void send({ ...action, [field]: Number(text) });
+  return true;
+}
 
 export function automationOn(view: GameView | null): boolean {
   return !!view?.rules && !view.rules.paused;
@@ -149,7 +158,7 @@ export const concede = () => send({ type: "concede" });
 export function canConcede(view: GameView | null, me: string | null): boolean {
   const rules = view?.rules;
   if (!view || !rules || !me || view.viewer === "__spectator__" || !view.seat_order.includes(me)) return false;
-  return !rules.winner && !rules.conceded.includes(me) && !(me in (rules.lost ?? {}));
+  return !rules.winner && !rules.draw_reason && !rules.conceded.includes(me) && !(me in (rules.lost ?? {}));
 }
 
 export const RESPONSE_CYCLE: ResponseMode[] = ["off", "auto", "on"];

@@ -1,0 +1,272 @@
+[
+  {
+    "name": "Burning Wish",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "You may reveal a sorcery card you own from outside the game and put it into your hand. Exile Burning Wish.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Cunning Wish",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "You may reveal an instant card you own from outside the game and put it into your hand. Exile Cunning Wish.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Living Wish",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "You may reveal a creature or land card you own from outside the game and put it into your hand. Exile Living Wish.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Glittering Wish",
+    "mana_cost": "{G}{W}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "You may reveal a multicolored card you own from outside the game and put it into your hand. Exile Glittering Wish.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Golden Wish",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Sorcery",
+    "oracle_text": "You may reveal an artifact or enchantment card you own from outside the game and put it into your hand. Exile Golden Wish.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Death Wish",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "You may put a card you own from outside the game into your hand. You lose half your life, rounded up. Exile Death Wish.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Wish",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "You may play a card you own from outside the game this turn.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Mastermind's Acquisition",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose one \u2014\n\u2022 Search your library for a card, put it into your hand, then shuffle.\n\u2022 Put a card you own from outside the game into your hand.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Fae of Wishes // Granted",
+    "mana_cost": "{1}{U} // {3}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Faerie Wizard // Sorcery \u2014 Adventure",
+    "oracle_text": "Flying\n{1}{U}, Discard two cards: Return this creature to its owner's hand.\n//\nYou may reveal a noncreature card you own from outside the game and put it into your hand.",
+    "power": "1",
+    "toughness": "4",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "adventure",
+    "card_faces": [
+      {
+        "name": "Fae of Wishes",
+        "mana_cost": "{1}{U}",
+        "type_line": "Creature \u2014 Faerie Wizard",
+        "oracle_text": "Flying\n{1}{U}, Discard two cards: Return this creature to its owner's hand.",
+        "power": "1",
+        "toughness": "4",
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      },
+      {
+        "name": "Granted",
+        "mana_cost": "{3}{U}",
+        "type_line": "Sorcery \u2014 Adventure",
+        "oracle_text": "You may reveal a noncreature card you own from outside the game and put it into your hand.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      }
+    ]
+  },
+  {
+    "name": "Spawnsire of Ulamog",
+    "mana_cost": "{10}",
+    "cmc": 10.0,
+    "type_line": "Creature \u2014 Eldrazi",
+    "oracle_text": "Annihilator 1 (Whenever this creature attacks, defending player sacrifices a permanent of their choice.)\n{4}: Create two 0/1 colorless Eldrazi Spawn creature tokens. They have \"Sacrifice this token: Add {C}.\"\n{20}: Cast any number of Eldrazi spells from among cards you own outside the game without paying their mana costs.",
+    "power": "7",
+    "toughness": "11",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Annihilator"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Legion Angel",
+    "mana_cost": "{2}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Angel Warrior",
+    "oracle_text": "Flying\nWhen this creature enters, you may reveal a card you own named Legion Angel from outside the game and put it into your hand.",
+    "power": "4",
+    "toughness": "3",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Pop Quiz",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Draw a card.\nLearn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.)",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Learn"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Environmental Sciences",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Sorcery \u2014 Lesson",
+    "oracle_text": "Search your library for a basic land card, reveal it, put it into your hand, then shuffle. You gain 2 life.",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "North Wind Avatar",
+    "mana_cost": "{2}{U}{U}{R}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Dragon Spirit Avatar",
+    "oracle_text": "Flying\nWhen this creature enters, if you cast it, you may put a card you own from outside the game into your hand.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "layout": "normal"
+  }
+]

@@ -43,6 +43,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from app.rules import selectors
+from app.rules.characteristics import PERMANENT_TYPES
 
 if TYPE_CHECKING:
     from app.rules.plan import Plan
@@ -58,8 +59,6 @@ AMOUNT = r"(?:twice [xX]|half [xX] rounded (?:up|down)|(?:two|three|four|five|si
 # 122.1d stun, 122.1h finality, 122.1i rad, 714 lore): an effect putting one of these
 # stays manual rather than placing an inert marker.
 UNMODELED_COUNTERS = frozenset({
-    "decayed", "exalted",  # (-- counters (wave 5H) -- the other keyword counters give their keyword in layer 6:
-    # app/rules/layers.keyword_counters, 122.1b, 613.1f, 613.7c)
     "rad"})  # (hone: wave 24C, 122.1j — layers._derive)  # (shield: 122.1c, wave 7C — shield_counters.py; lore: 714, sagas.py handles any lore counter put)  # (stun: 122.1d, wave 3F — keyword_actions.untap_stunned; finality: 122.1h, wave 3R4 — replacements.replace_move)
 
 BASIC_LAND_TYPES = ("Plains", "Island", "Swamp", "Mountain", "Forest")  # 205.3i
@@ -114,6 +113,7 @@ _ON = {"~": "self", "it": "it", "this creature": "self", "this permanent": "self
        "this enchantment": "self", "this land": "self", "this equipment": "self", "this aura": "self",
        "that creature": "it", "that permanent": "it"}
 _DISTINCT = {"card types": "types", "different card types": "types", "card type": "types",
+             "permanent types": "permanent_types", "permanent type": "permanent_types",
              "colors": "colors", "different colors": "colors", "color": "colors",
              "basic land types": "basic_land_types", "basic land type": "basic_land_types",
              "creature types": "creature_types", "different creature types": "creature_types",
@@ -147,7 +147,7 @@ _TYPE_WORDS = "|".join(selectors.CARD_TYPES)
 # -- ability words (wave 4F) -- converge: "the number of colors of mana spent to cast this spell", "for each color of
 # mana spent to cast it": the colors (105.1) among the mana actually spent on its total cost (601.2h), from the
 # spell's payment record (the same record for the permanent it became; a copy wasn't cast: none, 707.10)
-_COLORS_SPENT = re.compile(r"colors? of mana spent to cast (?:this spell|it|~|this creature|this permanent)")
+_COLORS_SPENT = re.compile(r"colors? of mana spent to cast (?:this spell|that spell|it|~|this creature|this permanent)")
 
 
 # -- X actions (wave 9A) -- 700.14-style "mana spent": the total amount of mana paid for the spell (601.2h), from its payment
@@ -214,6 +214,18 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     ``it`` is what a bare "it" means for the caller ("counters on it": the static's own source
     is "self"); None refuses it (a pronoun the caller can't bind is never guessed)."""
     p = phrase.strip()
+    from app.rules import linked_aggregates
+
+    if (linked := linked_aggregates.parse_value(p)) is not None:
+        return linked
+    from app.rules import cast_mana_totals, player_max_counts
+
+    if (cast_total := cast_mana_totals.parse(p)) is not None:
+        return cast_total
+
+    maximum = player_max_counts.parse(p)
+    if maximum is not None:
+        return maximum
     if p.endswith(" beyond the first"):  # -- keywords (wave 15E) -- rampage 702.23a: "for each creature blocking it beyond the first"
         inner = _parse_count(p[: -len(" beyond the first")], it=it)
         return None if inner is None else {"minus": [inner, 1]}
@@ -319,8 +331,12 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"mutated": 1}  # (702.140: how many spells merged with it)
     if what in ("creature it devoured", "creature ~ devoured"):  # -- keyword mechanics (wave 9D) -- 702.82b
         return {"devoured": 1}
+    if (paid_group := re.fullmatch(r"(?P<symbols>(?:\{[WUBRG]\}){2,}) spent to cast (?:this spell|it|~|this creature|this permanent)", what)) is not None:
+        symbols = re.findall(r"\{([WUBRG])\}", paid_group['symbols'])
+        if len(set(symbols)) == 1:
+            return {'mana_pairs': {'color': symbols[0], 'size': len(symbols)}}
     if _COLORS_SPENT.fullmatch(what):  # -- ability words (wave 4F) -- converge
-        return {"colors_spent": 1}
+        return {"colors_spent": "event" if what.endswith("that spell") else 1}
     m = _MANA_FROM.fullmatch(what)  # -- mana provenance (wave 18B) -- "the amount of {S} spent to cast this spell"
     if m:
         return {"mana_from": "Snow" if m["what"] is None else _FROM_TAGS[m["what"].lower()]}
@@ -462,6 +478,12 @@ def _sized(what: str, it: str | None) -> Value | None:
     """"2 plus the number of Lessons in your graveyard" (a sum), "the number of spells you've cast
     this turn" (the turn's spell count, 601.2i). ``{"spells_cast": "you"}`` reads it as the effect
     is carried out (608.2h)."""
+    if re.fullmatch(r"(?:the number of )?spells? you(?:'ve| have) cast (?:this turn from anywhere other than your hand|from anywhere other than your hand this turn)", what):
+        from app.rules import conditions
+
+        key = conditions._history_sel("spell", "stack")
+        assert key is not None
+        return {"spells_cast": "you", "sel": key, "from": "not_hand"}
     m = _N_PLUS.match(what)
     if m:
         inner = parse_count(m["v"], it=it)
@@ -518,12 +540,16 @@ _TURN_ENTERED = re.compile(r"^(?:the number of )?(?P<sel>(?:nontoken )?(?:creatu
 
 
 def _turn_amount(what: str) -> Value | None:
+    if what in ("{E} you've paid or lost this turn", "the amount of {E} you've paid or lost this turn"):
+        return {"turn_history": "energy_lost"}
     if m := _OPPONENTS_HAND.match(what):  # each opponent whose hand size now says so (the count of a hand is public)
         n = int(m["n"]) if m["n"].isdigit() else NUMBERS.get(m["n"])
         return {"opponents_hand": m["cmp"], "n": n} if n is not None else None
     if m := _TURN_ENTERED.match(what):
         sel = selectors.parse(m["sel"])
         return {"turn_history": "entered", "sel": sel.key()} if sel is not None else None
+    if re.fullmatch(r"(?:the )?(?:number of )?cards put into your graveyard from anywhere this turn", what):
+        return {"turn_history": "graveyard_entries"}
     if re.fullmatch(r"(?:the )?(?:number of )?times you descended this turn", what):  # -- commander sweep (wave 49B) -- 700.11: the permanent cards put into your graveyard from anywhere (The Mycotyrant)
         return {"turn_history": "descended"}
     m = _TURN_LIFE.match(what)
@@ -609,7 +635,7 @@ def _normalise(what: str) -> str:
     """Noun phrases the selector grammar spells differently: "cards in all graveyards" (400.1:
     every player's), "instant and sorcery cards" (cards of either type: a list, not "artifact
     creature"'s both-types reading)."""
-    out = re.sub(r"\b(?:from|in) all graveyards$", "in graveyards", re.sub(r" on the battlefield(?=$| named ~| with )", "", what))  # (sized amounts, wave 3D)
+    out = re.sub(r"\b(?:from|in) all graveyards$", "in graveyards", re.sub(r" on the battlefield(?=$| named | with )", "", what))  # Literal names remain literal (201.5).
     return re.sub(rf"\b(?P<a>{_TYPE_WORDS}) and (?P<b>{_TYPE_WORDS}) (?P<n>cards?|spells?)\b", r"\g<a> or \g<b> \g<n>", out)
 
 
@@ -627,11 +653,36 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     """The number a value stands for right now (never negative: 107.1b)."""
     if isinstance(v, int):
         return max(0, v)
+    if isinstance(v, dict) and 'event_x' in v:
+        return max(0, int((ctx.get('event') or {}).get('x') or 0))
+    if isinstance(v, dict) and 'activation_life' in v:
+        return max(0, int(((ctx.get('event') or {}).get('activation_cost') or {}).get('life') or 0))
+    if "linked_pool" in v:
+        from app.rules import linked_aggregates
+
+        return max(0, int(linked_aggregates.aggregate(plan, ctx, v['linked_pool'])))
     you = ctx["controller"]
+    if "sum_for_players" in v:
+        from app.rules import target_player_counts
+
+        return target_player_counts.evaluate(plan, ctx, v)
+    if "cast_mana_total" in v:
+        from app.rules import cast_mana_totals
+
+        return cast_mana_totals.evaluate(plan, ctx, v)
+    if "max_player_count" in v:
+        from app.rules import player_max_counts
+
+        return player_max_counts.evaluate(plan, ctx, v)
     if "players_where" in v:  # -- per-player filters (wave 23A) -- the players a predicate holds for (app/rules/player_filter.py)
         from app.rules import player_filter
 
         return player_filter.amount(plan, ctx, v)
+    if "live_ref_count" in v:  # Exact current incarnations, never objects that left and returned (400.7).
+        from app.rules import context
+
+        return sum(1 for cid in context.objects(plan, ctx, v["live_ref_count"])
+                   if not v.get("zone") or plan.state.cards[cid].zone.endswith(":" + v["zone"]))
     if "ref_count" in v:  # -- "this way" outcomes (wave 4A) -- what an earlier instruction actually did
         from app.rules import this_way
 
@@ -692,7 +743,16 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         record = plan.rules.payments.get(ctx.get("source_object") or "")
         return len({c.object_id for c in record.contributions if c.kind == "convoke"}) if record is not None else 0
     if "colors_spent" in v:  # -- ability words (wave 4F) -- converge (a spell cast by hand: no mana known, 0)
-        record = plan.rules.payments.get(ctx.get("source_object") or "")
+        if v['colors_spent'] == 'event':
+            if isinstance((ctx.get("event") or {}).get("mana_spent"),dict):
+                return sum(n>0 for c,n in ctx["event"]["mana_spent"].items() if c in "WUBRG")
+            from app.rules import context
+
+            refs = context._object_refs(ctx, context.EVENT)
+            payment_oid = refs[0].object_id if len(refs) == 1 else ''
+        else:
+            payment_oid = ctx.get('source_object') or ''
+        record = plan.rules.payments.get(payment_oid)
         if record is None:
             return 0
         if not record.mana_known:  # -- review (wave 4R) -- cast by hand: say the 0 isn't the colors spent
@@ -701,6 +761,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                       "adjust by hand", [record.card] if record.card in plan.state.cards else ())
             return 0
         return sum(1 for c in "WUBRG" if record.mana_spent.get(c, 0) > 0)
+    if 'mana_pairs' in v:
+        record = plan.rules.payments.get(ctx.get('source_object') or '')
+        if record is None or not record.mana_known:
+            return 0
+        group = v['mana_pairs']
+        return record.mana_spent.get(group['color'], 0) // group['size']
     if "mana_from" in v:  # -- mana provenance (wave 18B) -- {S} (107.4h) or mana from a Treasure ... spent to cast the source
         record = plan.rules.payments.get(ctx.get("source_object") or "")
         if record is None or not record.mana_known:
@@ -708,6 +774,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                       [record.card] if record is not None and record.card in plan.state.cards else ())
             return 0
         return sum(1 for t in record.mana_tags if v["mana_from"] in t)
+    if "spell_payment" in v:
+        from app.rules import spell_payment_facts
+
+        return spell_payment_facts.amount(plan,ctx,v["spell_payment"]) or 0
     if "mana_spent" in v:  # -- X actions (wave 9A) -- a spell cast by hand: no mana known, 0 (and said so)
         return _mana_spent(plan, ctx, v["mana_spent"])
     if "graveyards_with" in v:  # -- trigger other (wave 44D) -- the graveyards of the players still in the game
@@ -770,6 +840,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import history
 
         return len({"Kindred" if t == "Tribal" else t for n in history.log_for(plan).casts if n.player == ctx["controller"] for t in n.types if t in CARD_TYPES})
+    if 'crafted_colors' in v:
+        from app.rules import mana_crafted_profiles
+
+        if (ctx.get('source_object') or '') not in plan.rules.crafted_materials:
+            raise NoChosenPlayer  # Legacy craft history is unknown, not an invented zero-color receipt.
+        return len(mana_crafted_profiles.colors(plan, ctx))
     if "spells_cast" in v:  # -- sized amounts (wave 3D) -- "the number of spells you've cast this turn"
         from app.rules import context
 
@@ -806,6 +882,15 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return abs(evaluate(plan, ctx, v["diff"][0]) - evaluate(plan, ctx, v["diff"][1]))
     if "minus" in v:  # -- refused zones/sized (wave 3R4) -- 107.1b: a negative result is 0
         return max(0, evaluate(plan, ctx, v["minus"][0]) - evaluate(plan, ctx, v["minus"][1]))
+    if "defending_player_graveyard_count" in v:
+        from app.rules import defending
+
+        sel = selectors.from_key(v["defending_player_graveyard_count"])
+        return sum(len(selectors.candidates(plan, selectors.replace(sel, zone_owner=f"player:{p}"), you, ctx.get("source_card"))) for p in defending.players(plan, ctx))
+    if "hand" in v and v["hand"] == "defending_player":
+        from app.rules import defending
+
+        return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in defending.players(plan, ctx))
     if "hand" in v and v["hand"] == "event":  # -- refused zones/sized (wave 3R4) -- the trigger's player ("that player")
         from app.rules import context
 
@@ -861,6 +946,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sum(n for c, n in me.mana.items() if v["unspent"] in ("", c)) + sum(1 for u in me.mana_units if v["unspent"] in ("", u.sym))
     if "dungeons_completed" in v:  # -- dungeons (wave 45B) -- the different names among the dungeons you completed (309.7)
         return len(set(plan.rules.completed_dungeons.get(you, ())))
+    if "players_with_counters" in v:
+        spec=v["players_with_counters"]
+        return sum(int(plan.state.players[p].resources.get(spec["kind"],0))>=spec["at_least"]
+                   for p in plan.live() if spec["who"]!="opponents" or p!=you)
     if "player_counters" in v:
         if v.get("of") == "opponents":  # (wave 3E) "poison counters your opponents have": all of them together
             return sum(max(0, int(plan.state.players[p].resources.get(v["player_counters"], 0))) for p in plan.live() if p != you)
@@ -873,6 +962,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "turns_taken" in v:  # -- most-played cards (wave 43B) -- "your first, second, or third turn of the game" (Starting Town): the turns you have begun, this one included
         tt = plan.rules.turns_taken
         return tt.get(you, 0) if tt else int(plan.state.turn.active_player == you)  # (before the first turn ends nothing is counted: it is the first player's first)
+    if "commander_casts_of" in v:
+        got = _object(plan, ctx, v["commander_casts_of"])
+        if got is None or not got[0].commander_key:
+            return 0
+        card = got[0]
+        return plan.state.players[card.owner].commander_casts.get(card.commander_key, 0)
     if "commander_casts" in v:  # -- triggers (wave 19B) --
         return sum(plan.state.players[you].commander_casts.values())
     if "exiled_with" in v:  # -- resolution memory (wave 22D) -- Unlicensed Hearse: "the number of cards exiled with it"
@@ -901,6 +996,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return keyword_soup.count(plan, ctx, v["among"], v["abilities_among"])
     if "devotion" in v:
         return _devotion(plan, you, v["devotion"])
+    if ("sum" in v or "max" in v) and str(v.get("of") or "").startswith("ref:"):
+        from app.rules import context
+
+        stat = v.get("sum") or v["max"]
+        nums = [ref_stat for _, ch in context.infos(plan, ctx, v["of"][4:]) if (ref_stat := _stat_of(ch, stat)) is not None]
+        return max(0, sum(nums) if "sum" in v else max(nums or [0]))
     if ("sum" in v or "max" in v) and v.get("of") == "event":  # -- event batches (wave 34C) -- "their total power" / "the greatest power among them": the
         from app.rules import (
             context,  # objects a "one or more" trigger's event holds (603.2c), as they were (608.2h)
@@ -916,7 +1017,7 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                  for c in selectors.candidates(plan, selectors.from_key(key), you, _other_than(ctx))]
         nums = [n for n in found if n is not None]
         return max(0, sum(nums) if "sum" in v else max(nums or [0]))
-    for stat in ("power", "toughness", "mana_value", "colors"):
+    for stat in ("power", "toughness", "base_power", "mana_value", "colors"):
         if stat in v:
             got = _object(plan, ctx, v[stat])
             if got is None:
@@ -971,6 +1072,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
 
 def evaluate_signed(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     """A modification's amount, with its sign ("-1/-1 for each …": ``{"neg": …}``; 613.4c)."""
+    if isinstance(v, dict) and (v.get('linked_pool') or {}).get('projection') == 'power':
+        from app.rules import linked_aggregates
+
+        return int(linked_aggregates.aggregate(plan, ctx, v['linked_pool']))
     if isinstance(v, dict) and "neg" in v:
         return -evaluate(plan, ctx, v["neg"])
     return evaluate(plan, ctx, v)
@@ -986,6 +1091,8 @@ def _signed_stat(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
 
 
 def _stat_of(ch: Any, stat: str) -> int | None:
+    if stat == "base_power":
+        return ch.base_pt[0] if ch.base_pt is not None else _stat_of(ch, "power")
     if stat == "mana_value":
         return int(ch.mana_value)
     if stat == "power_or_toughness":  # -- value grammar (wave 23C) -- "the greatest power and/or toughness among …": each object's larger number
@@ -1018,6 +1125,8 @@ def _distinct(plan: Plan, ctx: dict[str, Any], kind: str, key: str) -> int:
         ch = plan.ch(plan.state.cards[cid])
         if kind == "types":
             found |= {"Kindred" if t == "Tribal" else t for t in ch.types if t in CARD_TYPES}
+        elif kind == "permanent_types":
+            found |= ch.types & PERMANENT_TYPES
         elif kind == "colors":
             found |= set(ch.colors)
         elif kind == "basic_land_types":
@@ -1101,7 +1210,9 @@ def _devotion(plan: Plan, you: str, colors: list[str]) -> int:
     for card in plan.state.cards.values():
         if not card.zone.endswith(":battlefield") or card.controller != you or not plan.in_game(card):
             continue
-        for sym in _MANA_SYMBOL.findall(copiable(plan.state, card, plan.info).mana_cost):
+        copy_ch=copiable(plan.state,card,plan.info)
+        total += sum(a.text=='Your devotion to each color and each combination of colors is increased by one.' for a in copy_ch.abilities)
+        for sym in _MANA_SYMBOL.findall(copy_ch.mana_cost):
             if set(sym.split("/")) & wanted:
                 total += 1
     return total
@@ -1210,6 +1321,8 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
 def _mana_spent(plan: Plan, ctx: dict[str, Any], which: str) -> int:
     from app.rules import context
 
+    if which == "event" and isinstance((ctx.get("event") or {}).get("mana_spent"),dict):
+        return sum(ctx["event"]["mana_spent"].values())
     if which == "event":  # (the spell as cast: its record is kept under the object that was on the stack)
         refs = context._object_refs(ctx, context.EVENT)
         oid = refs[0].object_id if len(refs) == 1 else ""

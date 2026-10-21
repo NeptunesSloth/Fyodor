@@ -8,8 +8,8 @@
   every chunk of damage dealt at that time (you AND the creature, several sources); a shield that prevents nothing is not used up (609.7b).
 * 614.9: redirection to that source's controller / a target; 615.5: an additional effect that counts the damage prevented (Awe Strike,
   Bone Mask, Ria Ivor's tokens); "prevent half that damage, rounded down" (Dark Sphere); 611.2a: this turn, or this combat.
-* Kept manual: Penance (a cost this engine has no word for), Dazzling Reflection ("that creature" after a value), Circle of Protection:
-  Shadow, Rhystic Circle ("any player may pay"), Forcefield ("all but 1"), Nova Pentacle (an opponent's choice), Eye for an Eye, Shadowbane
+* Kept manual: Penance (a cost this engine has no word for), Circle of Protection:
+  Shadow, Rhystic Circle ("any player may pay"), Nova Pentacle (an opponent's choice), Eye for an Eye, Shadowbane
   ("you and/or creatures you control") and New Way Forward (a reflexive trigger).
 """
 
@@ -107,7 +107,6 @@ def test_the_one_shot_shield_cards_are_full(name):
     # an opponent chooses the creature / all but one / an extra damage event / a reflexive trigger / two recipients
     # (wave 39A: "Any player may pay {1}. If no one does, …" (Rhystic Circle) is read now: tests/test_rules_wave39a_edicts.py)
     "{3}, {T}: The next time a source of your choice would deal damage to you this turn, that damage is dealt to target creature of an opponent's choice instead.",
-    "{1}: The next time an unblocked creature of your choice would deal combat damage to you this turn, prevent all but 1 of that damage.",
     "The next time a source of your choice would deal damage to you this turn, instead that source deals that much damage to you and ~ deals that much damage to that source's controller.",
     "The next time a source of your choice would deal damage to you this turn, prevent that damage. When damage is prevented this way, ~ deals that much damage to that source's controller and you draw that many cards.",
     "The next time a source of your choice would deal damage to you and/or creatures you control this turn, prevent that damage.",

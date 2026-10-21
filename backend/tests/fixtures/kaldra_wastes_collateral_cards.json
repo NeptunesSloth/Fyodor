@@ -1,0 +1,264 @@
+[
+  {
+    "name": "Shield of Kaldra",
+    "mana_cost": "{4}",
+    "type_line": "Legendary Artifact \u2014 Equipment",
+    "oracle_text": "Equipment named Sword of Kaldra, Shield of Kaldra, and Helm of Kaldra have indestructible.\nEquipped creature has indestructible. (Damage and effects that say \"destroy\" don't destroy it.)\nEquip {4}",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 4.0,
+    "keywords": [
+      "Equip"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Sword of Kaldra",
+    "mana_cost": "{4}",
+    "type_line": "Legendary Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +5/+5.\nWhenever equipped creature deals damage to a creature, exile that creature. (Exile it only if it's still on the battlefield.)\nEquip {4} ({4}: Attach to target creature you control. Equip only as a sorcery.)",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 4.0,
+    "keywords": [
+      "Equip"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Helm of Kaldra",
+    "mana_cost": "{3}",
+    "type_line": "Legendary Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature has first strike, trample, and haste.\n{1}: If you control Equipment named Helm of Kaldra, Sword of Kaldra, and Shield of Kaldra, create Kaldra, a legendary 4/4 colorless Avatar creature token. Attach those Equipment to it.\nEquip {2}",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 3.0,
+    "keywords": [
+      "Equip"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Walker of the Wastes",
+    "mana_cost": "{4}{C}",
+    "type_line": "Creature \u2014 Eldrazi",
+    "oracle_text": "({C} represents colorless mana.)\nTrample\nThis creature gets +1/+1 for each land you control named Wastes.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 5.0,
+    "keywords": [
+      "Trample"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Wastes",
+    "mana_cost": "",
+    "type_line": "Basic Land",
+    "oracle_text": "{T}: Add {C}.",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 0.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Snow-Covered Wastes",
+    "mana_cost": "",
+    "type_line": "Basic Snow Land",
+    "oracle_text": "{T}: Add {C}.",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 0.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Darksteel Citadel",
+    "mana_cost": "",
+    "type_line": "Artifact Land",
+    "oracle_text": "Indestructible\n{T}: Add {C}.",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 0.0,
+    "keywords": [
+      "Indestructible"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "cmc": 2.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Liquimetal Coating",
+    "mana_cost": "{2}",
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Target permanent becomes an artifact in addition to its other types until end of turn.",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 2.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "March of the Machines",
+    "mana_cost": "{3}{U}",
+    "type_line": "Enchantment",
+    "oracle_text": "Each noncreature artifact is an artifact creature with power and toughness each equal to its mana value. (Equipment that's a creature can't equip a creature.)",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 4.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Turn to Frog",
+    "mana_cost": "{1}{U}",
+    "type_line": "Instant",
+    "oracle_text": "Until end of turn, target creature loses all abilities and becomes a blue Frog with base power and toughness 1/1.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 2.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Shadowspear",
+    "mana_cost": "{1}",
+    "type_line": "Legendary Artifact \u2014 Equipment",
+    "oracle_text": "Equipped creature gets +1/+1 and has trample and lifelink.\n{1}: Permanents your opponents control lose hexproof and indestructible until end of turn.\nEquip {2}",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 1.0,
+    "keywords": [
+      "Equip"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Lightning Bolt",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 1.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Ghost Quarter",
+    "mana_cost": "",
+    "type_line": "Land",
+    "oracle_text": "{T}: Add {C}.\n{T}, Sacrifice this land: Destroy target land. Its controller may search their library for a basic land card, put it onto the battlefield, then shuffle.",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 0.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Blood Moon",
+    "mana_cost": "{2}{R}",
+    "type_line": "Enchantment",
+    "oracle_text": "Nonbasic lands are Mountains.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "cmc": 3.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Urborg, Tomb of Yawgmoth",
+    "mana_cost": "",
+    "type_line": "Legendary Land",
+    "oracle_text": "Each land is a Swamp in addition to its other land types.",
+    "colors": [],
+    "color_identity": [],
+    "cmc": 0.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Clever Impersonator",
+    "mana_cost": "{2}{U}{U}",
+    "type_line": "Creature \u2014 Shapeshifter",
+    "oracle_text": "You may have this creature enter as a copy of any nonland permanent on the battlefield.",
+    "power": "0",
+    "toughness": "0",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "cmc": 4.0,
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Vesuva",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land",
+    "oracle_text": "You may have this land enter tapped as a copy of any land on the battlefield.",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Song of the Dryads",
+    "oracle_text": "Enchant permanent\nEnchanted permanent is a colorless Forest land.",
+    "type_line": "Enchantment \u2014 Aura",
+    "mana_cost": "{2}{G}",
+    "layout": "normal",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "cmc": 3.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  }
+]

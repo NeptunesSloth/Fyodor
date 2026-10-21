@@ -95,9 +95,11 @@ def life_lock(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                                  "label": label})
         plan.note(f"Players can't lose life until end of turn ({label})", actor=pid)
         return True
-    r.life_locks.append({"id": secrets.token_hex(4), "player": pid, "controller": pid, "gain": True, "lose": True, "until": e["until"], "turn": turn,
+    lose_only = bool(e.get("lose_only"))
+    r.life_locks.append({"id": secrets.token_hex(4), "player": pid, "controller": pid, "gain": not lose_only, "lose": True, "until": e["until"], "turn": turn,
                          "label": label})
-    plan.note(f"{plan.name(pid)}'s life total can't change {'until end of turn' if e['until'] == 'turn' else 'until their next turn'} ({label})",
+    restriction = f"{plan.name(pid)} can't lose life" if lose_only else f"{plan.name(pid)}'s life total can't change"
+    plan.note(f"{restriction} {'until end of turn' if e['until'] == 'turn' else 'until their next turn'} ({label})",
               actor=pid)
     return True
 

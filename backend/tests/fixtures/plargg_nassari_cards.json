@@ -1,0 +1,384 @@
+[
+  {
+    "name": "Plargg and Nassari",
+    "layout": "normal",
+    "mana_cost": "{3}{R}{R}",
+    "cmc": 5.0,
+    "type_line": "Legendary Creature \u2014 Orc Efreet",
+    "oracle_text": "At the beginning of your upkeep, each player exiles cards from the top of their library until they exile a nonland card. An opponent chooses a nonland card exiled this way. You may cast up to two spells from among the other cards exiled this way without paying their mana costs.",
+    "power": "5",
+    "toughness": "4",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Opt",
+    "layout": "normal",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Scry"
+    ]
+  },
+  {
+    "name": "Ancestral Vision",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Suspend 4\u2014{U} (Rather than cast this card from your hand, pay {U} and exile it with four time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)\nTarget player draws three cards.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Suspend"
+    ]
+  },
+  {
+    "name": "Endless One",
+    "layout": "normal",
+    "mana_cost": "{X}",
+    "cmc": 0.0,
+    "type_line": "Creature \u2014 Eldrazi",
+    "oracle_text": "This creature enters with X +1/+1 counters on it.",
+    "power": "0",
+    "toughness": "0",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Valki, God of Lies // Tibalt, Cosmic Impostor",
+    "layout": "modal_dfc",
+    "mana_cost": "{1}{B} // {5}{B}{R}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 God // Legendary Planeswalker \u2014 Tibalt",
+    "oracle_text": "When Valki enters, each opponent reveals their hand. For each opponent, exile a creature card they revealed this way until Valki leaves the battlefield.\n{X}: Choose a creature card exiled with Valki with mana value X. Valki becomes a copy of that card.\n//\nAs Tibalt enters, you get an emblem with \"You may play cards exiled with Tibalt, Cosmic Impostor, and you may spend mana as though it were mana of any color to cast those spells.\"\n+2: Exile the top card of each player's library.\n\u22123: Exile target artifact or creature.\n\u22128: Exile all graveyards. Add {R}{R}{R}.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "B",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Valki, God of Lies",
+        "mana_cost": "{1}{B}",
+        "type_line": "Legendary Creature \u2014 God",
+        "oracle_text": "When Valki enters, each opponent reveals their hand. For each opponent, exile a creature card they revealed this way until Valki leaves the battlefield.\n{X}: Choose a creature card exiled with Valki with mana value X. Valki becomes a copy of that card.",
+        "power": "2",
+        "toughness": "1",
+        "colors": [
+          "B"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "normal": "https://cards.scryfall.io/normal/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "large": "https://cards.scryfall.io/large/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969"
+        }
+      },
+      {
+        "name": "Tibalt, Cosmic Impostor",
+        "mana_cost": "{5}{B}{R}",
+        "type_line": "Legendary Planeswalker \u2014 Tibalt",
+        "oracle_text": "As Tibalt enters, you get an emblem with \"You may play cards exiled with Tibalt, Cosmic Impostor, and you may spend mana as though it were mana of any color to cast those spells.\"\n+2: Exile the top card of each player's library.\n\u22123: Exile target artifact or creature.\n\u22128: Exile all graveyards. Add {R}{R}{R}.",
+        "loyalty": "5",
+        "colors": [
+          "B",
+          "R"
+        ],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "normal": "https://cards.scryfall.io/normal/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "large": "https://cards.scryfall.io/large/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/1/b/1bf41c85-48d0-4a5d-a6c4-5742080061c5.jpg?1783927969"
+        }
+      }
+    ]
+  },
+  {
+    "name": "Bonecrusher Giant // Stomp",
+    "layout": "adventure",
+    "mana_cost": "{2}{R} // {1}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Giant // Instant \u2014 Adventure",
+    "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.\n//\nDamage can't be prevented this turn. Stomp deals 2 damage to any target.",
+    "power": "4",
+    "toughness": "3",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Bonecrusher Giant",
+        "mana_cost": "{2}{R}",
+        "type_line": "Creature \u2014 Giant",
+        "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.",
+        "power": "4",
+        "toughness": "3"
+      },
+      {
+        "name": "Stomp",
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant \u2014 Adventure",
+        "oracle_text": "Damage can't be prevented this turn. Stomp deals 2 damage to any target."
+      }
+    ]
+  },
+  {
+    "name": "Rule of Law",
+    "layout": "normal",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Each player can't cast more than one spell each turn.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Drannith Magistrate",
+    "layout": "normal",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "Your opponents can't cast spells from anywhere other than their hands.",
+    "power": "1",
+    "toughness": "3",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Skaab Ruinator",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Zombie Horror",
+    "oracle_text": "As an additional cost to cast this spell, exile three creature cards from your graveyard.\nFlying\nYou may cast this card from your graveyard.",
+    "power": "5",
+    "toughness": "6",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Fling",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nFling deals damage equal to the sacrificed creature's power to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Demon of Catastrophes",
+    "layout": "normal",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Demon",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nFlying, trample",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Counterspell",
+    "layout": "normal",
+    "mana_cost": "{U}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Counter target spell.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Laelia, the Blade Reforged",
+    "layout": "normal",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Spirit Warrior",
+    "oracle_text": "Haste\nWhenever Laelia attacks, exile the top card of your library. You may play that card this turn.\nWhenever one or more cards are put into exile from your library and/or your graveyard, put a +1/+1 counter on Laelia.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Haste"
+    ]
+  },
+  {
+    "name": "Dryad Arbor",
+    "layout": "normal",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Land Creature \u2014 Forest Dryad",
+    "oracle_text": "(This land isn't a spell, it's affected by summoning sickness, and it has \"{T}: Add {G}.\")",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Grinning Demon",
+    "layout": "normal",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Demon",
+    "oracle_text": "At the beginning of your upkeep, you lose 2 life.\nMorph {2}{B}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Morph"
+    ]
+  },
+  {
+    "name": "Branchloft Pathway // Boulderloft Pathway",
+    "layout": "modal_dfc",
+    "mana_cost": " // ",
+    "cmc": 0.0,
+    "type_line": "Land // Land",
+    "oracle_text": "{T}: Add {G}.\n//\n{T}: Add {W}.",
+    "colors": [],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Branchloft Pathway",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "{T}: Add {G}.",
+        "colors": [],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/front/0/5/0511e232-2a72-40f5-a400-4f7ebc442d17.jpg?1783929314",
+          "normal": "https://cards.scryfall.io/normal/front/0/5/0511e232-2a72-40f5-a400-4f7ebc442d17.jpg?1783929314",
+          "large": "https://cards.scryfall.io/large/front/0/5/0511e232-2a72-40f5-a400-4f7ebc442d17.jpg?1783929314",
+          "art_crop": "https://cards.scryfall.io/art_crop/front/0/5/0511e232-2a72-40f5-a400-4f7ebc442d17.jpg?1783929314"
+        }
+      },
+      {
+        "name": "Boulderloft Pathway",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "{T}: Add {W}.",
+        "colors": [],
+        "image_uris": {
+          "small": "https://cards.scryfall.io/small/back/0/5/0511e232-2a72-40f5-a400-4f7ebc442d17.jpg?1783929314",
+          "normal": "https://cards.scryfall.io/normal/back/0/5/0511e232-2a72-40f5-a400-4f7ebc442d17.jpg?1783929314",
+          "large": "https://cards.scryfall.io/large/back/0/5/0511e232-2a72-40f5-a400-4f7ebc442d17.jpg?1783929314",
+          "art_crop": "https://cards.scryfall.io/art_crop/back/0/5/0511e232-2a72-40f5-a400-4f7ebc442d17.jpg?1783929314"
+        }
+      }
+    ]
+  }
+]

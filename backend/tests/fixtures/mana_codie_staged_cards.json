@@ -1,0 +1,382 @@
+[
+  {
+    "name": "Fire // Ice",
+    "layout": "split",
+    "mana_cost": "{1}{R} // {1}{U}",
+    "cmc": 4.0,
+    "type_line": "Instant // Instant",
+    "oracle_text": "Fire deals 2 damage divided as you choose among one or two targets.\n//\nTap target permanent.\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Fire",
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant",
+        "oracle_text": "Fire deals 2 damage divided as you choose among one or two targets.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      },
+      {
+        "name": "Ice",
+        "mana_cost": "{1}{U}",
+        "type_line": "Instant",
+        "oracle_text": "Tap target permanent.\nDraw a card.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      }
+    ]
+  },
+  {
+    "name": "Bonecrusher Giant // Stomp",
+    "layout": "adventure",
+    "mana_cost": "{2}{R} // {1}{R}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Giant // Instant \u2014 Adventure",
+    "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.\n//\nDamage can't be prevented this turn. Stomp deals 2 damage to any target.",
+    "power": "4",
+    "toughness": "3",
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Bonecrusher Giant",
+        "mana_cost": "{2}{R}",
+        "type_line": "Creature \u2014 Giant",
+        "oracle_text": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.",
+        "power": "4",
+        "toughness": "3",
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      },
+      {
+        "name": "Stomp",
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant \u2014 Adventure",
+        "oracle_text": "Damage can't be prevented this turn. Stomp deals 2 damage to any target.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      }
+    ]
+  },
+  {
+    "name": "Bala Ged Recovery // Bala Ged Sanctuary",
+    "layout": "modal_dfc",
+    "mana_cost": "{2}{G} // ",
+    "cmc": 3.0,
+    "type_line": "Sorcery // Land",
+    "oracle_text": "Return target card from your graveyard to your hand.\n//\nThis land enters tapped.\n{T}: Add {G}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Bala Ged Recovery",
+        "mana_cost": "{2}{G}",
+        "type_line": "Sorcery",
+        "oracle_text": "Return target card from your graveyard to your hand.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "G"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "Bala Ged Sanctuary",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "This land enters tapped.\n{T}: Add {G}.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [],
+        "image_face": 1
+      }
+    ]
+  },
+  {
+    "name": "Pestilent Cauldron // Restorative Burst",
+    "layout": "modal_dfc",
+    "mana_cost": "{2}{B} // {3}{G}{G}",
+    "cmc": 3.0,
+    "type_line": "Artifact // Sorcery",
+    "oracle_text": "{T}, Discard a card: Create a 1/1 black and green Pest creature token with \"When this token dies, you gain 1 life.\"\n{1}, {T}: Each opponent mills cards equal to the amount of life you gained this turn.\n{4}, {T}: Exile four target cards from a single graveyard. Draw a card.\n//\nReturn up to two target creature, land, and/or planeswalker cards from your graveyard to your hand. Each player gains 4 life. Exile Restorative Burst.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B",
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "card_faces": [
+      {
+        "name": "Pestilent Cauldron",
+        "mana_cost": "{2}{B}",
+        "type_line": "Artifact",
+        "oracle_text": "{T}, Discard a card: Create a 1/1 black and green Pest creature token with \"When this token dies, you gain 1 life.\"\n{1}, {T}: Each opponent mills cards equal to the amount of life you gained this turn.\n{4}, {T}: Exile four target cards from a single graveyard. Draw a card.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "B"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "Restorative Burst",
+        "mana_cost": "{3}{G}{G}",
+        "type_line": "Sorcery",
+        "oracle_text": "Return up to two target creature, land, and/or planeswalker cards from your graveyard to your hand. Each player gains 4 life. Exile Restorative Burst.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "G"
+        ],
+        "image_face": 1
+      }
+    ]
+  },
+  {
+    "name": "Jwari Disruption // Jwari Ruins",
+    "layout": "modal_dfc",
+    "mana_cost": "{1}{U} // ",
+    "cmc": 2.0,
+    "type_line": "Instant // Land",
+    "oracle_text": "Counter target spell unless its controller pays {1}.\n//\nThis land enters tapped.\n{T}: Add {U}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": [
+      {
+        "name": "Jwari Disruption",
+        "mana_cost": "{1}{U}",
+        "type_line": "Instant",
+        "oracle_text": "Counter target spell unless its controller pays {1}.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "U"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "Jwari Ruins",
+        "mana_cost": "",
+        "type_line": "Land",
+        "oracle_text": "This land enters tapped.\n{T}: Add {U}.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [],
+        "image_face": 1
+      }
+    ]
+  },
+  {
+    "name": "Village Rites",
+    "layout": "normal",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Blaze",
+    "layout": "normal",
+    "mana_cost": "{X}{R}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Blaze deals X damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Divination",
+    "layout": "normal",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Draw two cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Rancor",
+    "layout": "normal",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nEnchanted creature gets +2/+0 and has trample.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Enchant"
+    ]
+  },
+  {
+    "name": "Jace Beleren",
+    "layout": "normal",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker \u2014 Jace",
+    "oracle_text": "+2: Each player draws a card.\n\u22121: Target player draws a card.\n\u221210: Target player mills twenty cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "3",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Invasion of Zendikar // Awakened Skyclave",
+    "layout": "transform",
+    "mana_cost": "{3}{G} // ",
+    "cmc": 4.0,
+    "type_line": "Battle \u2014 Siege // Creature \u2014 Elemental",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.\n//\nVigilance, haste\nAs long as this creature is on the battlefield, it's a land in addition to its other types.\n{T}: Add one mana of any color.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Vigilance",
+      "Transform",
+      "Haste"
+    ],
+    "card_faces": [
+      {
+        "name": "Invasion of Zendikar",
+        "mana_cost": "{3}{G}",
+        "type_line": "Battle \u2014 Siege",
+        "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": "3",
+        "colors": [
+          "G"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "Awakened Skyclave",
+        "mana_cost": "",
+        "type_line": "Creature \u2014 Elemental",
+        "oracle_text": "Vigilance, haste\nAs long as this creature is on the battlefield, it's a land in addition to its other types.\n{T}: Add one mana of any color.",
+        "power": "4",
+        "toughness": "4",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "G"
+        ],
+        "image_face": 1
+      }
+    ]
+  }
+]

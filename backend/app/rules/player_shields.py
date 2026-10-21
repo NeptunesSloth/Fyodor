@@ -53,6 +53,10 @@ _STATIC_PROTECTION = re.compile(r"^you and (?P<perm>permanents|creatures) you co
 
 def static_definition(text: str) -> Definition | None:
     t = _lower_first(text.strip().rstrip("."))
+    if t == "you have protection from the chosen card name":
+        return {"kind": "static", "static": "player_shield", "shield": "protection", "quality": "chosen_name", "effects": []}
+    if t == "you have protection from each of your opponents":
+        return {"kind": "static", "static": "player_shield", "shield": "protection", "quality": "opponents", "effects": []}
     if (p := _STATIC_PROTECTION.fullmatch(t)) is not None:  # -- counters (wave 44C) -- 702.16b: you have protection from that quality, as the permanents do (a layer-6 grant)
         from app.rules import protection, statics
 
@@ -217,7 +221,15 @@ def _shields(plan: Plan, player: str) -> list[tuple[str, str | None, str]]:
            if x.get("player") == player and (x.get("until") != "turn" or x.get("turn") == turn)]
     for src, d in cast_limits._statics(plan.state, plan.info, "player_shield"):
         if src.controller == player:
-            out.append((d["shield"], None, src.name or "a permanent"))
+            if d.get("quality") == "chosen_name":
+                from app.rules import card_names, source_qualities
+
+                if (name := card_names.chosen(plan, src.id)) is not None:
+                    out.append(("protection", source_qualities.name_quality(name), src.name or "a permanent"))
+            elif d.get("quality") == "opponents":
+                out.extend(("protection", f"player:{p}", src.name or "a permanent") for p in plan.live() if p != player)
+            else:
+                out.append((d["shield"], None, src.name or "a permanent"))
     from app.rules import statics
 
     for src, d in cast_limits._statics(plan.state, plan.info, "grant"):
@@ -246,14 +258,18 @@ def can_target(plan: Plan, chooser: str, player: str, source: Characteristics | 
     """702.11c / 702.18a / 702.16b: may ``chooser``'s spell or ability (from ``source``) target ``player``?"""
     if not plan.rules.player_shields and not _any_static(plan.state, plan.info):
         return True
-    from app.rules import protection
+    from dataclasses import replace
 
+    from app.rules import hexproof_targeting, protection
+
+    target_source = replace(source, targeting_controller=chooser) if source is not None else Characteristics(name='', targeting_controller=chooser)
+    ignores_hexproof = hexproof_targeting.ignores(plan, chooser, player=player)
     for shield, quality, _ in _shields(plan, player):
-        if shield == "shroud" or (shield == "hexproof" and chooser != player):
+        if shield == "shroud" or (shield == "hexproof" and chooser != player and not ignores_hexproof):
             return False
-        if shield == "protection" and _protects(quality, source):
+        if shield == "protection" and _protects(quality, target_source):
             return False
-        if shield == "hexproof_from" and chooser != player and source is not None and any(q(source) for q in protection.hexproof(f"hexproof from {quality}") or []):
+        if shield == "hexproof_from" and chooser != player and not ignores_hexproof and source is not None and any(q(target_source) for q in protection.hexproof(f"hexproof from {quality}") or []):
             return False  # (wave 51B) 702.11d: spells and abilities your opponents control from that quality
     return True
 

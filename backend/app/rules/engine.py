@@ -46,7 +46,9 @@ from app.rules import (
     combat,
     combat_rules,  # -- combat (wave 5C) --
     copying,
+    cost_moves,
     cost_payment,
+    counter_destinations,
     coverage,
     delayed,
     effects,
@@ -58,12 +60,14 @@ from app.rules import (
     hideaway,  # -- hideaway (wave 29D) --
     kinship,  # -- kinship (wave 9C) --
     layers,
+    library_placements,
     licids,  # -- licids (wave 50A) --
     looking,
     merged,  # -- merged permanents (wave 18D) --
     miracle,  # -- casting extras (wave 18E) --
     modal_abilities,
     next_untap,  # -- next untap step (wave 6A) --
+    nonmana_combat_costs,
     opening_hand,  # -- opening hand (wave 18C) --
     optional_payment,
     permissions,
@@ -72,6 +76,7 @@ from app.rules import (
     player_control,  # -- controlling another player (wave 18H) --
     reconcile,
     recursion,  # -- static_other sweep (wave 17C) --
+    regeneration_choices,
     replacements,
     rooms,  # -- Rooms (wave 18G) --
     sba,
@@ -80,6 +85,9 @@ from app.rules import (
     triggers,
     untap_choice,  # -- untap choice (wave 7F) --
 )
+
+# Saved payment decisions must resume in a fresh process before another special action runs.
+from app.rules import special_payment_tails as _special_payment_tails  # noqa: F401
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.leave import leave_game
 from app.rules.plan import Plan, decide, require_no_decision, require_priority
@@ -112,6 +120,8 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
         PREFS[intent.type](plan, intent)
         plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
         return plan.steps
+    if state.rules.draw_reason is not None:
+        raise ActionError("The game is over: draw")
     if state.rules.paused and intent.type != "concede":  # (104.3a: conceding is possible at any time)
         raise ActionError("Automation is paused by the host. Use the table tools meanwhile.")
     if state.pregame is not None and not state.pregame.finished:
@@ -145,6 +155,9 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
     settle(plan)
     if intent.type != "repeat_sequence":
         remember_intent(plan, intent)
+    from app.rules import linked_exile_look
+
+    linked_exile_look.refresh(plan)
     permissions.refresh_reveals(plan.state, plan.info)  # 401.5: which top library cards the table reveals now
     hideaway.refresh(plan.state)  # -- hideaway (wave 29D) -- 406.3, 702.75a: who may look at the cards the permanents hid
     plan.rules.engine_version = RULES_ENGINE_VERSION
@@ -165,6 +178,14 @@ def begin(plan: Plan) -> None:
     """Before an intent: take in what happened by hand since the engine last acted (a land put
     onto the battlefield by hand still counts as the land for the turn), then start a fresh
     event list (keeping events not yet collected for triggers). Expired remembered answers are dropped."""
+    from app.rules import hand_size
+
+    hand_size.bound_legacy(plan)
+    from app.rules import life_game_history
+
+    life_game_history.begin(plan)
+    from app.rules import previous_own_turns
+    previous_own_turns.begin(plan)
     absorb_manual_events(plan)
     layers.control_sync(plan)  # -- control (wave 3K) -- an Aura or effect source moved by hand: control follows (613.1b)
     # (keep what hasn't been looked at for triggers yet: a resolution that stopped for a
@@ -181,6 +202,9 @@ def begin(plan: Plan) -> None:
     r.loyalty_used = {k: t for k, t in r.loyalty_used.items() if t == turn}
     r.loyalty_second = {k: t for k, t in r.loyalty_second.items() if t == turn}
     r.once_per_turn = {k: t for k, t in r.once_per_turn.items() if t == turn}
+    from app.rules import linked_exile_look
+
+    linked_exile_look.refresh(plan)
     permissions.refresh_reveals(plan.state, plan.info)  # (a permanent put onto the table by hand since)
     hideaway.refresh(plan.state)  # (-- hideaway (wave 29D) -- a permanent whose control was taken by hand since)
 
@@ -203,7 +227,7 @@ def absorb_manual_events(plan: Plan) -> None:
             # -- refused modal/conditional (wave 3R1) -- cast by hand: where from is known, what paid for it isn't
             oid = plan.oid(card)
             if oid not in r.payments:
-                r.payments[oid] = PaymentRecord(card=card.id, controller=card.controller, cast_from=from_zone,
+                r.payments[oid] = PaymentRecord(card=card.id, controller=card.controller, cast_from=from_zone, cast_from_player=owner,
                                                 mana_known=False, alternative="manual",
                                                 cast_main=plan.state.turn.active_player == card.controller
                                                 and plan.state.turn.phase in MAIN_PHASES)
@@ -221,8 +245,11 @@ def absorb_manual_events(plan: Plan) -> None:
 
 def settle(plan: Plan) -> None:
     """After every intent: state-based actions, triggered abilities, and make sure someone can act."""
+    if plan.rules.draw_reason is not None:
+        return
     permissions.free_cast_abandoned(plan)  # -- refused look/cast-free (wave 3R5) -- a cancelled mid-resolution cast (608.2g)
     layers.control_sync(plan)  # -- control (wave 3K) -- continuous effects first (613.1b), then state-based actions
+    combat.sync_attacking(plan)
     sba.check(plan)
     r = plan.rules
     if r.decision is None and len(plan.live()) > 1 and (r.priority is None or r.priority not in plan.live()):
@@ -421,8 +448,11 @@ def advance(plan: Plan) -> None:
     in this step, resolve the stack when everyone passed, move to the next step when the stack
     is empty and everyone passed."""
     while True:
+        from app.rules import mana_named_land_profiles
+
+        mana_named_land_profiles.refresh_reveals(plan)
         r = plan.rules
-        if r.decision is not None:
+        if r.decision is not None or r.draw_reason is not None:
             return
         sba.check(plan)  # before anyone gets priority (rule 117.5)
         if r.decision is not None:
@@ -477,7 +507,16 @@ def pass_priority(plan: Plan, a: A.PassPriority) -> None:
 # -- turn structure ----------------------------------------------------------------------
 def _mark_step(plan: Plan) -> None:
     r = plan.rules
-    r.step = f"{plan.state.turn.number}:{plan.state.turn.phase}"
+    for pending in r.delayed:
+        if pending.created_step is None:
+            pending.created_step = r.step_serial
+    r.step_serial += 1
+    if r.step_count_turn != plan.state.turn.number:
+        r.step_counts = {}
+        r.step_count_turn = plan.state.turn.number
+    phase = plan.state.turn.phase
+    r.step_counts[phase] = r.step_counts.get(phase, 0) + 1
+    r.step = f"{plan.state.turn.number}:{phase}"
     r.passed = []
     r.priority = plan.active if plan.active in plan.live() else plan.after(plan.active)
 
@@ -520,15 +559,33 @@ def next_step(plan: Plan) -> None:
         return
     if phase == "end_combat":
         combat.end_combat(plan)
-    extra = combat_rules.next_phase(plan) if phase in ("main1", "main2", "end_combat") else None  # -- combat (wave 5C) -- 500.8
+    inserted = r.extra_steps.pop(0) if r.extra_steps else None
+    finish_phase = inserted == "phase"
+    if finish_phase:
+        inserted = None
+    boundary = phase in ("main1", "main2", "end_combat", "end") or (phase == "draw" and r.extra_beginning) or (phase == "upkeep" and r.upkeep_only) or finish_phase
+    extra = inserted if inserted is not None else combat_rules.next_phase(plan) if boundary else None
+    if inserted is None and (finish_phase or phase == "draw"):
+        r.extra_beginning = False
+    if inserted is None:
+        r.upkeep_only = extra == "upkeep" and r.combat_tag == "upkeep_only"
     if extra is not None:
         plan.do({"type": "phase", "to": extra, "force": True}, actor=plan.active)
+        if extra == "untap":
+            r.extra_beginning = True
+            _mark_step(plan)
+            extra_untap_step(plan)
+            return
     elif phase == "declare_attackers" and r.no_attackers:
         # Nobody attacked: skip declare blockers and combat damage (rule 508.8).
         plan.do({"type": "phase", "to": "end_combat", "force": True}, actor=plan.active)
     else:
         plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
     effects.skips.skip_steps(plan)  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped step or combat phase
+    if plan.state.turn.phase == "untap" and r.extra_beginning:
+        _mark_step(plan)
+        extra_untap_step(plan)
+        return
     _mark_step(plan)
     on_step_start(plan)
 
@@ -540,7 +597,13 @@ def _keep_tapped(plan: Plan) -> list[str]:
     controllers' untap steps.", "Creatures with power 3 or greater don't untap …"), all of which
     app/rules/layers.py puts in ``Characteristics.imposed`` for whatever matches right now."""
     return [c.id for c in plan.state.cards.values() if c.tapped and c.zone.endswith(":battlefield")
-            and not plan.manual(c) and "doesnt_untap" in scripts.statics(plan.ch(c))]  # (wave 29C: all of them — a cut list untapped the rest)
+            and not plan.manual(c) and _untap_restricted(plan, c)]  # (wave 29C: all of them — a cut list untapped the rest)
+
+
+def _untap_restricted(plan: Plan, card: CardInstance) -> bool:
+    from app.rules import previous_own_turns
+    rules = scripts.statics(plan.ch(card))
+    return "doesnt_untap" in rules or (previous_own_turns.UNTAP in rules and previous_own_turns.attacked(plan.state, card) is not False)
 
 
 def _exerted(plan: Plan, player: str) -> list[str]:
@@ -556,6 +619,8 @@ def _exerted(plan: Plan, player: str) -> list[str]:
 
 
 def start_next_turn(plan: Plan) -> None:
+    from app.game.rules_state import complete_own_turn
+    complete_own_turn(plan.state)
     combat_rules.new_turn(plan)  # -- combat (wave 5C) -- added phases belong to the turn that ends
     keep = _keep_tapped(plan)
     # -- extra turns (wave 8A) -- 500.7: an extra turn comes first (the latest created first); otherwise the turn order goes
@@ -568,6 +633,7 @@ def start_next_turn(plan: Plan) -> None:
     keep += [c for c in next_untap.kept(plan, upcoming) if c not in keep]
     skipped: list[tuple[str, int]] = []  # 800.4k: a departed player's turn doesn't begin
     previous = (plan.active, plan.state.turn.number)
+    plan.rules.previous_turn = previous
     # -- refused grants/replacements (wave 3R2) -- 614.10: skipped turns (they never begin: nothing ends with
     # them, 500.4) and a skipped untap step (nothing untaps, 502.2's day / night check doesn't happen)
     skip_to = extra or effects.skips.next_active(plan, base)
@@ -607,6 +673,9 @@ def start_next_turn(plan: Plan) -> None:
     if not tt:
         tt[previous[0]] = 1
     tt[plan.active] = tt.get(plan.active, 0) + 1
+    from app.rules import attack_destinations
+
+    attack_destinations.begin_window(plan, "next_turn")
     player_control.turn_began(plan)  # -- controlling another player (wave 18H) -- 723.1: the whole turn, its untap choices too
     if untap_choice.ask(plan, asked, {"stunned": stunned, "previous": list(previous), "skipped": [list(s) for s in skipped],
                                       "plain": stay is None, "keep": keep}, limited):  # (wave 7F) the untap step waits for the choice
@@ -614,21 +683,45 @@ def start_next_turn(plan: Plan) -> None:
     finish_turn_start(plan, stunned, previous, skipped, stay is None, keep)
 
 
+def extra_untap_step(plan: Plan) -> None:
+    from app.rules import next_untap, phasing, untap_choice
+
+    pid = plan.active
+    keep = _keep_tapped(plan)
+    stay = effects.skips.untap_skipped(plan, pid)
+    if stay is None:
+        phasing.untap_step(plan, pid)
+    keep = list(dict.fromkeys([*keep, *(stay or []), *_keep_tapped(plan), *_exerted(plan, pid), *next_untap.kept(plan, pid)]))
+    asked = untap_choice.candidates(plan, pid, keep) if stay is None else []
+    limited = untap_choice.limited(plan, pid, [*keep, *asked]) if stay is None else []
+    keep = list(dict.fromkeys([*keep, *asked, *(c for g in limited for c in g[0])]))
+    stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep]) if stay is None else []
+    keep = list(dict.fromkeys([*keep, *stunned]))
+    previous = plan.rules.previous_turn or (plan.state.seat_order[(plan.state.seat_order.index(pid) - 1) % len(plan.state.seat_order)], max(0, plan.state.turn.number - 1))
+    finish = {"stunned": stunned, "previous": list(previous), "skipped": [], "plain": stay is None, "keep": keep, "same_turn": True}
+    if untap_choice.ask(plan, asked, finish, limited):
+        return
+    finish_turn_start(plan, stunned, previous, [], stay is None, keep, same_turn=True)
+
+
 def finish_turn_start(plan: Plan, stunned: list[str], previous: tuple[str, int], skipped: list[tuple[str, int]], plain: bool,
-                      keep: list[str]) -> None:
+                      keep: list[str], same_turn: bool = False) -> None:
     """The rest of the turn's beginning after the untap step's permanents were chosen (``plain``: the untap step happened)."""
     stay: list[str] | None = None if plain else []
     effects.keyword_actions.lose_stun(plan, [c for c in stunned if c in plan.state.cards and plan.state.cards[c].controller == plan.active],
                                       plan.active)
-    delayed.turn_began(plan, skipped)  # 500.4, 800.4m: "until your next turn" effects end
+    if not same_turn:
+        delayed.turn_began(plan, skipped)  # 500.4, 800.4m: "until your next turn" effects end
     if stay is None:  # -- activation costs (wave 4H) -- 701.43a: that untap step happened; 614.10a: a skipped one doesn't count
         plan.rules.exerted = {k: p for k, p in plan.rules.exerted.items()
                               if p != plan.active and plan.rules.object_id(k.rsplit(".", 1)[0]) == k}
     if stay is None:  # -- next untap step (wave 6A) -- that untap step happened (614.10a: a skipped one doesn't count)
         next_untap.untap_step_done(plan, plan.active)
+        from app.rules import contextual_mana_outcomes
+        contextual_mana_outcomes.untap_operations(plan, plan.active)
     if stay is None:  # (wave 3R2: not in a skipped untap step)
         effects.designations.untap_day_night(plan, *previous)  # -- (wave 3E) 502.2: day / night --
-    if not plan.state.settings.auto_untap and stay is None:
+    if (same_turn or not plan.state.settings.auto_untap) and stay is None:
         plan.do({"type": "untap_all", "player": plan.active, "keep_tapped": keep}, actor=plan.active)
     if stay is None:  # -- mana riders (wave 5A) -- 502.3: Seedborn Muse untaps the others' permanents in this untap step
         effects._untap_riders.other_untap_step(plan)
@@ -657,7 +750,7 @@ def on_step_start(plan: Plan) -> None:
             triggers.at_step_generic(plan)
         return
     if phase == "draw":
-        first_turn_skip = state.turn.number == 1 and len(plan.live()) == 2
+        first_turn_skip = state.turn.number == 1 and len(plan.live()) == 2 and plan.rules.step_counts.get("draw", 1) == 1
         if first_turn_skip:
             plan.note(f"{plan.name(ap)} skips the first draw (two-player game)")
         else:
@@ -690,6 +783,9 @@ def on_step_start(plan: Plan) -> None:
         effects.designations.rad_trigger(plan)
     elif phase == "begin_combat":  # -- combat (wave 5C) -- "if it's the first combat phase of the turn"
         combat_rules.combat_began(plan)
+        from app.rules import attack_destinations
+
+        attack_destinations.begin_window(plan, "next_combat")
         delayed.at_step(plan, "begin_combat")  # -- commander sweep (wave 49B) -- 603.7: "At the beginning of that combat" (Moraug), the one combat phase a tagged trigger waits for
     elif phase == "end_combat":  # -- (wave 3E) delayed triggers "at end of combat" (511.2, 603.7: the Ring's sacrifice) --
         delayed.at_step(plan, "end_combat")
@@ -762,7 +858,7 @@ def cleanup_step(plan: Plan) -> None:
     hand = plan.state.zones.get(zone_key(ap, "hand"), [])
     from app.rules import hand_size  # -- hand size (wave 4J) -- "You have no maximum hand size." (402.2)
 
-    limit = hand_size.maximum(plan, ap)  # -- static statics (wave 10B) -- (changed by statics; None: no maximum)
+    limit = hand_size.maximum(plan, ap, warn_legacy=True)  # -- static statics (wave 10B) -- (changed by statics; None: no maximum)
     excess = 0 if limit is None else len(hand) - limit
     if excess > 0:
         decide(
@@ -790,6 +886,9 @@ def finish_cleanup(plan: Plan) -> None:
         r.cleanup_again = True
         _mark_step(plan)
         return
+    # 500.4: cleanup normally ends without priority, so next_step is not called.
+    # End-of-turn retention has expired; permanent retention still applies.
+    empty_pools(plan)
     start_next_turn(plan)
 
 
@@ -800,6 +899,7 @@ def turn_cleanup(plan: Plan) -> None:
     if plan.rules.effects:
         layers.end_of_turn(plan)
     plan.rules.regen_shields = {}  # regeneration shields last "this turn"
+    plan.rules.regeneration_riders = []
     plan.rules.no_regen = []  # (wave 19E) and so does "can't be regenerated this turn"
     plan.rules.prevention = {}  # and so do prevention shields
     plan.rules.prevention_riders = {}
@@ -834,6 +934,9 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
     from app.rules import x_spells
 
     oid = plan.oid(card_id)
+    printed_delve = plan.state.cards[card_id].zone == STACK and any(
+        ab.index < 100 and ab.kind == 'keywords' and 'delve' in ab.keywords
+        for ab in plan.ch(plan.state.cards[card_id]).abilities)
     if not countered and x_spells.left_stack_itself(plan, card_id):
         return
     from app.rules import (
@@ -842,13 +945,20 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
 
     if oid in plan.rules.exile_resolves and resolve_exile.resolved(plan, card_id, controller, countered):  # (first: the controller picks, 616.1; this one has "If you do")
         return
-    if oid in plan.rules.rebound_cast:  # 702.88a rebound: exiled as it resolves, cast again next upkeep
-        plan.rules.rebound_cast = [o for o in plan.rules.rebound_cast if o != oid]
-        if not countered:
-            card = plan.state.cards[card_id]
-            plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "exile"}}, actor=controller)
-            plan.rules.rebounding.append(card_id)
-            return
+    was_rebound = oid in plan.rules.rebound_cast
+    plan.rules.rebound_cast = [o for o in plan.rules.rebound_cast if o != oid]
+    card = plan.state.cards[card_id]
+    record = plan.rules.payments.get(oid)
+    # 109.5, 702.88a: a static ability's "your hand" is the CURRENT
+    # controller's hand. A control change can enable or disable rebound.
+    hand_player = (record.cast_from_player or record.controller) if record is not None else card.owner if was_rebound else None
+    from_hand = record.cast_from == "hand" if record is not None else was_rebound
+    if not countered and from_hand and hand_player == controller and "rebound" in plan.ch(card).keywords:
+        plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "exile"}}, actor=controller)
+        plan.rules.rebounding.append(card_id)
+        plan.rules.rebound_objects[card_id] = plan.oid(card_id)
+        plan.rules.rebound_controllers[card_id] = controller
+        return
     if oid in plan.rules.buyback:
         plan.rules.buyback = [o for o in plan.rules.buyback if o != oid]
         if not countered and oid not in plan.rules.flashback:
@@ -905,12 +1015,19 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         record = plan.rules.payments.pop(oid, None)
         if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
-            if (paid := [c for c in record.exiled if c != card_id and c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]) \
+            if (paid := [c for c in record.exiled if c != card_id and c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")
+                        and (not record.exiled_objects or plan.oid(c) in record.exiled_objects)]) \
                     and any(ab.index < 100 and ab.kind not in ("triggered", "activated") and re.search(r"\bexile\b", ab.text, re.IGNORECASE)
                             and re.search(r"\bcost\b|^escape", ab.text, re.IGNORECASE) for ab in plan.ch(plan.state.cards[card_id]).abilities):
                 # -- resolution memory (wave 22D) -- 607.2q: the cards exiled to pay the permanent spell's cost are "exiled with" the permanent
                 # (review 22D: only through a cost an ability printed on it allows — not an escape cost Underworld Breach grants)
                 plan.rules.exiled_with[plan.oid(card_id)] = [*plan.rules.exiled_with.get(plan.oid(card_id), []), *(plan.oid(c) for c in paid)]
+            if printed_delve:
+                delved_objects = [c.exiled_object_id for c in record.contributions if c.kind == 'delve' and c.exiled_object_id
+                                  and c.card in plan.state.cards and plan.state.cards[c.card].zone.endswith(':exile')
+                                  and plan.oid(c.card) == c.exiled_object_id]
+                key = plan.oid(card_id)
+                plan.rules.exiled_with[key] = list(dict.fromkeys([*plan.rules.exiled_with.get(key, []), *delved_objects]))
         if oid in plan.rules.bestowed:  # -- keywords (wave 15E) -- the bestowed Aura permanent is the spell it was (702.103b)
             plan.rules.bestowed = [o for o in plan.rules.bestowed if o != oid]
             if card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
@@ -953,12 +1070,12 @@ def resolve_top_of_stack(plan: Plan) -> None:
         or ("Aura" in ch.subtypes and aura_target is None)
     if aura_target is not None and not manual:
         selector = attachments.enchant_selector(ch)
-        if (selector is None or not still_legal(plan, selector, controller, aura_target, as_spell(ch))) and bestow.is_bestowed(plan.state, top):
+        if (selector is None or not still_legal(plan, selector, controller, aura_target, as_spell(ch, top.stack_info.x if top.stack_info else 0))) and bestow.is_bestowed(plan.state, top):
             bestow.cease(plan, top, "its target is illegal")  # -- keywords (wave 15E) -- 702.103e: it resolves as a creature spell
             aura_target = None
             ch = plan.ch(top)
             manual = ch.is_instant_or_sorcery or ch.is_ability or needs_manual_resolution(ch) or plan.manual(top)
-        elif selector is None or not still_legal(plan, selector, controller, aura_target, as_spell(ch)):
+        elif selector is None or not still_legal(plan, selector, controller, aura_target, as_spell(ch, top.stack_info.x if top.stack_info else 0)):
             # 608.2b / 303.4g: its target is illegal: it doesn't resolve and goes to the graveyard
             plan.note(f"{ch.name or 'The Aura'} does nothing: its target is no longer legal")
             plan.do({"type": "move", "card_ids": [top_id], "to": {"player": top.owner, "zone": "graveyard"}}, actor=controller)
@@ -978,6 +1095,13 @@ def resolve_top_of_stack(plan: Plan) -> None:
     if sneaked or (entering and rider.get("tapped")):
         ep["tapped"] = True  # -- keywords (wave 30I) -- 702.190b: a permanent spell whose sneak cost was paid enters tapped (and attacking, below)
     x = top.stack_info.x if top.stack_info else None
+    if ep.get('divert_zone') == 'exile':
+        from app.rules import entry_payment_diversion
+
+        plan.rules.payments.pop(plan.oid(top_id), None)
+        entry_payment_diversion.divert(plan, top_id, controller)
+        _after_resolution(plan)
+        return
     if ep.get("life"):
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
         _replace_life.lose_life(plan, [(controller, int(ep["life"]))], actor=controller)
@@ -999,6 +1123,13 @@ def resolve_top_of_stack(plan: Plan) -> None:
 
     amplify.reveal(plan, ep, controller)
     replacements.turn_down(plan, ep, controller)  # -- hidden exile (wave 18A) --
+    from app.rules import creature_entry_redirect
+
+    if entering and creature_entry_redirect.exiles(plan, top, controller):
+        plan.do({"type": "move", "card_ids": [top_id], "to": {"player": top.owner, "zone": "exile"}}, actor=controller)
+        plan.rules.payments.pop(plan.oid(top_id), None)
+        _after_resolution(plan)
+        return
     leave_stack(plan, top_id, controller, tapped=bool(ep["tapped"]))
     if entering:
         rooms.entered(plan, top_id)  # -- Rooms (wave 18G) -- 709.5d: the cast half's door is unlocked as it enters
@@ -1098,12 +1229,33 @@ def land_play_grant(state: GameState, player: str, card: CardInstance, ch: Chara
     return permissions.with_choices(found[0], found) if found else None
 
 
+def _exiled_land_probe(state: GameState, player: str, card: CardInstance, info: CardInfo | None,
+                       via: str | None = None) -> tuple[CardInstance, Characteristics] | None:
+    """A face-down exile object is played face up only under current authority (406.3). Never turn the real card over to probe it."""
+    from app.game.visibility import can_see
+    from app.rules import characteristics as chars
+    from app.rules.layers import derive
+
+    if info is None or not can_see(state, card, player):
+        return None
+    probe = card.model_copy(update={'face_down': False, 'face_down_kind': None, 'face_down_as': None})
+    ch = derive(state, probe, chars.of(probe, info), info)
+    if land_play_grant(state, player, card, ch, info, via) is None:
+        return None
+    return probe, ch
+
+
 def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, *,
                       check_priority: bool = True, info: CardInfo | None = None) -> str | None:
     """Why ``player`` can't play ``card`` as a land right now (None if they can)."""
     r = state.rules
     if r is None:
         return "Rules automation is off"
+    if card.face_down and card.zone.endswith(':exile') and ch.face_down:
+        visible = _exiled_land_probe(state, player, card, info)
+        if visible is None:
+            return "You aren't authorized to play that face-down exiled card"
+        _, ch = visible
     if not ch.is_land:
         return f"{ch.name or 'That card'} isn't a land"
     if land_play_grant(state, player, card, ch, info) is None:
@@ -1116,12 +1268,12 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
         return "You can only play a land while the stack is empty"
     from app.rules import cast_limits
 
-    if info is not None and (barred := next((src for src, _ in cast_limits._statics(state, info, "cant_play_lands") if src.controller == player), None)) is not None:
+    if info is not None and (barred := next((src for src, d in cast_limits._statics(state, info, "cant_play_lands") if d.get("players") or src.controller == player), None)) is not None:
         return f"{barred.name or 'A permanent'}: you can't play lands"  # -- most-played cards III (wave 46C) -- 305.1
     if info is not None and card.zone.endswith(":graveyard") and (barred := next(
             (src for src, _ in cast_limits._statics(state, info, "cant_play_gy_lands") if src.controller != player), None)) is not None:
         return f"{barred.name or 'A permanent'}: you can't play land cards from graveyards"  # -- cant restrictions (wave 50G) -- Tomik, Distinguished Advokist
-    if (why := cast_limits.land_problem(state, player, ch)) is not None:
+    if (why := cast_limits.land_problem(state, player, ch, info)) is not None:
         return why  # -- chosen filters (wave 53B) -- Conjurer's Ban: a land with the chosen name can't be played until a turn
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
@@ -1141,6 +1293,11 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     probe = card.model_copy(update={"face": a.face}) if a.face is not None else card
     if probe.face and (plan.info.get(card.card_id or "") or {}).get("layout") != "modal_dfc":
         raise ActionError("Only a modal double-faced card can be played with its back face up (712.12)")
+    if probe.face_down and card.zone.endswith(':exile'):
+        visible = _exiled_land_probe(plan.state, plan.actor, probe, plan.info, a.via)
+        if visible is None:
+            raise ActionError("You aren't authorized to play that face-down exiled card")
+        probe, _ = visible
     problem = land_play_problem(plan.state, plan.actor, card, plan.ch(probe), info=plan.info)
     if problem:
         raise ActionError(problem)
@@ -1161,12 +1318,20 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
                        "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
         return
     if ep.get("choice") is not None:
-        prompt, options = replacements.shock_prompt(plan.ch(probe).name or "", ep["choice"]["life"], bool(ep["choice"].get("untapped")))
+        prompt, options = replacements.choice_prompt(plan, probe, plan.actor, ep['choice'])
         decide(plan, player=plan.actor, kind="choose_one", prompt=prompt, options=options,
                resume={"step": "shock", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})}, source=card)
         return
     if a.face is not None and a.face != card.face:
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
+    from app.game.rules_state import snapshot
+
+    played_snapshot = snapshot(plan.state, card.id)
+    from app.rules import characteristics as played_chars
+    from app.rules import granted
+
+    played_snapshot.abilities, played_snapshot.keywords, played_snapshot.traits = granted.last_existed(
+        played_chars.of(plan.state.cards[card.id], plan.info), plan.ch(plan.state.cards[card.id]))
     if ep.get("life"):
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
         _replace_life.lose_life(plan, [(plan.actor, int(ep["life"]))])
@@ -1177,9 +1342,13 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
         ep["divert"] = True
     if ep.get("divert"):
         enter_cost.divert(plan, card.id, plan.actor)
+        from app.game.rules_state import emit
+
+        emit(plan.state, "land_played", object_id=played_snapshot.object_id, card=card.id, player=plan.actor,
+             from_zone=played_snapshot.zone, played_snapshot=played_snapshot)
         plan.rules.entry_choices.pop(card.id, None)
         if grant is not None and grant.how == "permission":
-            permissions.consume(plan, grant)
+            permissions.consume(plan, grant, card_id=card.id, verb="play")
         r = plan.rules
         r.lands_played[plan.actor] = TurnCount(turn=plan.state.turn.number, count=r.lands_this_turn(plan.actor, plan.state.turn.number) + 1)
         r.passed = []
@@ -1196,7 +1365,7 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     plan.do(payload)
     plan.rules.entry_choices.pop(card.id, None)
     if grant is not None and grant.how == "permission":
-        permissions.consume(plan, grant)  # ("once during each of your turns")
+        permissions.consume(plan, grant, card_id=card.id, verb="play")  # ("once during each of your turns")
         plan.note(f"{plan.name(plan.actor)} plays {card.name} from their {from_where} ({grant.label})", [card.id])
     replacements.after_entry(plan, card.id, plan.actor, choices=ep.get("choices"))
     permissions.gain_on_entry(plan, card.id, plan.actor, grant.enters if grant is not None else None)  # (-- cast permissions (wave 30Q) -- "If you do, it gains …")
@@ -1204,7 +1373,11 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     from app.game.rules_state import emit
 
     if plan.state.cards[card.id].zone.endswith(":battlefield"):
-        emit(plan.state, "land_played", object_id=plan.oid(card.id), card=card.id, player=plan.actor)
+        emit(plan.state, "land_played", object_id=plan.oid(card.id), card=card.id, player=plan.actor,
+             from_zone=played_snapshot.zone)
+    else:
+        emit(plan.state, "land_played", object_id=played_snapshot.object_id, card=card.id, player=plan.actor,
+             from_zone=played_snapshot.zone, played_snapshot=played_snapshot)
     r = plan.rules
     turn = plan.state.turn.number
     r.lands_played[plan.actor] = TurnCount(turn=turn, count=r.lands_this_turn(plan.actor, turn) + 1)
@@ -1273,6 +1446,8 @@ def choose(plan: Plan, a: A.Choose) -> None:
     effects.check_total_power(plan, d, chosen)  # -- per-player choices (wave 30K) -- "total power 4 or less" (Slaughter the Strong)
     plan.rules.decision = None
     step = (d.resume or {}).get("step")
+    zero_modes = (d.resume or {}).get("zero_modes_object")
+    plan.locked_zero_modes = zero_modes if isinstance(zero_modes, str) else None
     RESUME[str(step)](plan, d, chosen)
     if plan.rules.payment_outer is not None:  # -- nested payment choices (wave 28D) -- back to the payment the choice was nested in
         casting.resume_outer(plan)
@@ -1303,11 +1478,16 @@ def concede(plan: Plan, _: A.Action) -> None:
     if r.winner is not None:
         raise ActionError(f"The game is over: {plan.name(r.winner)} won")
     _require_seated(plan)
+    from app.rules import life_game_history
+
     r.conceded.append(plan.actor)
+    if r.declaration_cost_reserved and r.declaration_cost_reserved.payer == plan.actor:
+        r.declaration_cost_reserved = None
     plan.note(f"{plan.name(plan.actor)} conceded")
     casting.unnest(plan)  # (review 28D: a payment prompt a nested choice set aside is the decision settled)
     pending = r.decision
     leave_game(plan, plan.actor)
+    life_game_history.loss_events(plan, [plan.actor], prior_leave=True)
     left = plan.live()
     if len(left) == 1:  # 104.2a: at once, overriding "can't win the game" (review of wave 10B)
         plan.note(f"{plan.name(left[0])} is the last player standing")
@@ -1475,6 +1655,9 @@ INTENTS: dict[str, Callable[[Plan, Any], None]] = {
     "concede": concede,
     "repeat_sequence": repeat_sequence,
 }
+from app.rules import reveal_mana as _reveal_mana  # noqa: E402, I001
+
+
 RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "manual_done": _resume_manual_done,
     "combat_damage": _resume_combat_damage,
@@ -1485,9 +1668,11 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "untap_keep": untap_choice.resume,  # -- untap choice (wave 7F) --
     "untap_limit": untap_choice.resume_limit,  # -- untap restrictions (wave 13E) --
     "sba_confirm": sba.resume_confirm,
+    "regeneration_replacement": regeneration_choices.resume,
     "reconcile": reconcile.resume_reconcile,
     "payment": casting.resume_payment,
     "pay_mana": casting.resume_pay_mana,
+    "x_allocation": casting.resume_x_allocation,
     "look": effects.resume_look,
     "order_library": effects.resume_order_library,
     "may": effects.resume_may,
@@ -1509,11 +1694,18 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "tap_choice": effects._this_way.resume_tap_choice,  # -- "this way" outcomes (wave 4A) --
     "untap_choice": effects._untap_riders.resume_untap_choice,  # -- mana riders (wave 5A) -- "Untap up to three lands."
     "pick_looked": effects.resume_pick_looked,
+    "multiplayer_look": effects._multiplayer_look.resume,
     "kinship_look": kinship.resume_look,  # -- kinship (wave 9C) --
     "kinship_reveal": kinship.resume_reveal,
+    "reveal_mana": _reveal_mana.resume,
+    "reveal_mana_replace": _reveal_mana.resume_replace,
+    "reveal_mana_type": _reveal_mana.resume_type,
+    "reveal_mana_extra": _reveal_mana.resume_extra,
     "reveal_hand_cards": effects._reveal_hand.resume,  # -- if you do (wave 10C) --
     "reveal_some": effects._reveal_hand.resume_some,  # -- hand disruption (wave 52C) --
     "library_place": effects.resume_library_place,
+    "counter_destination": counter_destinations.resume,
+    "library_placements": library_placements.resume,
     "shuffle_library": effects.resume_shuffle_library,
     "cast_modes": casting.resume_cast_modes,
     "cast_slot_target": casting.resume_cast_slot_target,
@@ -1547,13 +1739,19 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "mana_ability": casting.resume_mana_ability,
     "crew": casting.resume_crew,
     "ability_cost": cost_payment.resume_choice,
+    "declaration_cost_order": nonmana_combat_costs.resume_order,
+    "cost_moves": cost_moves.resume,
     "opening_hand": opening_hand.resume,  # -- opening hand (wave 18C) -- 103.6
     "opening_exile": opening_hand.resume_exile,
     "exert_attackers": exert.resume,  # -- static wordings (wave 6E) -- 508.1g
     "enlist": enlist.resume,  # -- casting extras (wave 18E) -- 702.154a
     "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a
     "gift": gift.resume,  # -- gift (wave 23D) -- 702.174a
+    "free_multikicker": casting.resume_free_multikicker,
     "free_optional": casting.resume_free_optional,  # -- free-cast optional costs (wave 41D) -- 118.9d, 601.2b
+    "casualty_x": casting.resume_casualty_x,
+    "flashback_choice": casting.resume_flashback_choice,
+    "spell_symbols": casting.resume_spell_symbols,
     "free_x": casting.resume_free_x,  # -- cast keywords (wave 43D) -- 107.3a: the X of a kicker or miracle cost paid on a free cast
     "slot": permissions.resume_slot,  # -- cast permissions (wave 30Q) -- Muldrotha: which permanent type a cast uses up
     "legend_rule": sba.resume_legend_rule,
@@ -1577,6 +1775,35 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     # -- copy system (wave 2F): copies of spells and abilities — same or new targets for several
     # copies, one copy's targets (707.10c), a copy made by hand (app/rules/copying.py) --
     **copying.RESUME,
+    **effects._hand_library_exchange.RESUME,
 }
 # (the draw step, once its draw is done after a 616.1 choice: its "at the beginning of" triggers)
 effects.replace.THEN["draw_step"] = lambda plan, then: triggers.at_step_generic(plan)
+
+from app.rules import delegated_target_announcements as _delegated_target_announcements  # noqa: E402
+
+RESUME.update(_delegated_target_announcements.RESUME)
+
+from app.rules import numeric_roll_finalization42 as _numeric_roll_finalization42  # noqa: E402, I001
+
+RESUME.update(_numeric_roll_finalization42.RESUME)
+
+from app.rules import prevention_frontier_bridge as _joint_prevention  # noqa: E402, I001
+
+RESUME.update(_joint_prevention.RESUME)
+
+from app.rules import combat_player_scope43 as _combat_player_scope43  # noqa: E402, I001
+
+RESUME.update(_combat_player_scope43.RESUME)
+
+from app.rules import prevention_frontier_cards as _joint_prevention_cards  # noqa: E402, I001
+
+RESUME.update(_joint_prevention_cards.RESUME)
+
+from app.rules import fixed_top_graveyard_cost46 as _fixed_top_graveyard_cost46  # noqa: E402
+
+RESUME["fixed_top_cost_order46"] = _fixed_top_graveyard_cost46.resume_order
+
+from app.rules import chosen_color_pairs45 as _chosen_color_pairs45  # noqa: E402
+
+RESUME.update(_chosen_color_pairs45.RESUME)

@@ -12,12 +12,15 @@ out a locked door's abilities (``AbilityText.section`` is the door, as it is the
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from app.game import actions as A
 from app.game.errors import ActionError
 from app.game.rules_state import emit
 from app.game.state import STACK
 from app.rules import characteristics as chars
 from app.rules import mana as M
+from app.rules import payment_continuations as pc
 from app.rules.copying import room_printing
 from app.rules.plan import Plan, require_no_decision, require_priority
 
@@ -46,9 +49,18 @@ def entered(plan: Plan, card_id: str) -> None:
         unlock(plan, card_id, card.face + 1)  # type: ignore[union-attr]
 
 
+def unlock_cost(plan: Plan, player: str, cost: M.ManaCost) -> M.ManaCost:
+    """Unlocking is a special action: only modifiers naming unlock costs apply."""
+    from app.rules import permissions
+
+    reduction = sum(int(d["reduce"]) for source, _, d in permissions._table_statics(plan.state, plan.info, {"unlock_cost"})
+                    if source.controller == player)
+    return cost.plus_generic(-min(cost.generic, reduction))
+
+
 def unlock_action(plan: Plan, a: A.UnlockDoor) -> None:
     """116.2m, 709.5e: a special action any time you have priority in your main phase with an empty stack; it doesn't use the stack."""
-    from app.rules.casting import MAIN_PHASES, Purpose, can_pay, pay, pay_from_pool, payment_mode
+    from app.rules.casting import MAIN_PHASES, Purpose, can_pay, pay_from_pool, pay_then, payment_mode
 
     require_no_decision(plan)
     require_priority(plan)
@@ -63,14 +75,33 @@ def unlock_action(plan: Plan, a: A.UnlockDoor) -> None:
     if a.door in doors_of(plan, card.id):
         raise ActionError("That door is already unlocked")
     half = chars.half_from_data(data, a.door - 1)
-    cost = M.parse_cost(half.mana_cost)
+    cost = unlock_cost(plan, plan.actor, M.parse_cost(half.mana_cost))
     why = f"paid {cost.text()} to unlock {half.name}"
-    purpose = Purpose(ability_of=half)
+    purpose = Purpose(ability_of=half, special="unlock")
     if payment_mode(plan, plan.actor) == "self":
         pay_from_pool(plan, plan.actor, cost, why, purpose=purpose)
+        _unlocked(plan, _Unlocked(card.id, plan.oid(card), a.door), None)
+        return
     else:
         if not can_pay(state, plan.actor, cost, plan.info, purpose=purpose):
             raise ActionError(f"Not enough mana to pay {cost.text()}")
-        pay(plan, plan.actor, cost, why, sources=a.sources, purpose=purpose)
-    unlock(plan, card.id, a.door)
+        tail = pc.continuation(plan, "room_unlocked", _Unlocked(card.id, plan.oid(card), a.door))
+        pay_then(plan, plan.actor, cost, why, sources=a.sources, purpose=purpose, then=tail)
+        return
+
+
+@dataclass
+class _Unlocked:
+    card: str
+    object_id: str
+    door: int
+
+
+def _unlocked(plan: Plan, frame: _Unlocked, payment: M.Payment | None) -> None:
+    card = plan.state.cards.get(frame.card)
+    if card is not None and plan.oid(card) == frame.object_id and card.zone.endswith(":battlefield"):
+        unlock(plan, card.id, frame.door)
     plan.rules.passed = []
+
+
+pc.register("room_unlocked", _Unlocked, _unlocked)

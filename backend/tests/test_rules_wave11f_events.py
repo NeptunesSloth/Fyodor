@@ -183,7 +183,6 @@ def test_enters_under_a_players_control_is_that_players_permanent_entering(text,
 
 
 @pytest.mark.parametrize("text", [
-    "a permanent an opponent owns enters the battlefield under your control",  # ownership is another thing
     "a source deals 4 or more damage",  # (a threshold needs a recipient: the damage one source dealt one recipient)
     "a creature has activated an ability",
 ])

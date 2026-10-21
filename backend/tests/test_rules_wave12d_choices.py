@@ -18,7 +18,7 @@ from app.cards.repository import CardRepository
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act, deck, enable
+from tests.game_helpers import act, deck, enable, mana_pool
 from tests.test_rules_control import answer, cast, chars, check, look, put
 from tests.test_rules_delayed import next_end_step
 from tests.test_rules_effects import mana, pass_until_stack_empty
@@ -166,7 +166,7 @@ def test_eladamris_vineyard_adds_mana_for_whoever_s_main_phase_it_is(cards):
     next_end_step(s)
     to_turn(s, 2)
     pass_until_stack_empty(s)
-    assert s.state.players["p2"].mana == {"G": 2} and s.state.players["p1"].mana == {}  # Bob's pool, not Alice's
+    assert mana_pool(s, "p2") == {"G": 2} and mana_pool(s) == {}  # Bob's pool, not Alice's
     check(s)
 
 
@@ -179,7 +179,7 @@ def test_tangleroot_adds_mana_for_the_player_who_cast(cards):
     mana(s, "p2", G=1, U=1)
     act(s, "p2", type="cast_spell", card_id=bear.id)
     pass_until_stack_empty(s)
-    assert s.state.players["p2"].mana == {"G": 1} and s.state.players["p1"].mana == {}
+    assert mana_pool(s, "p2") == {"G": 1} and mana_pool(s) == {}
     check(s)
 
 
@@ -193,7 +193,7 @@ def test_the_warring_triad_lets_a_target_player_choose_the_color(cards):
     assert d is not None and d.player == "p2"  # 106.4: it is Bob who adds the mana, so Bob chooses
     act(s, "p2", type="choose", decision_id=d.id, option_ids=["R"])
     pass_until_stack_empty(s)
-    assert s.state.players["p2"].mana == {"R": 1} and s.state.players["p1"].mana == {}
+    assert mana_pool(s, "p2") == {"R": 1} and mana_pool(s) == {}
     check(s)
 
 
@@ -283,7 +283,7 @@ def test_tidal_warrior_sets_the_land_type_and_takes_the_rules_text_away(cards):
     assert now.subtypes == {"Island"} and "Land" in now.types
     assert abilities(s, tower) == ["{T}: Add {U}."]  # 305.7: only the new type's intrinsic mana ability
     act(s, "p1", type="activate_ability", card_id=tower.id, ability=91)
-    assert s.state.players["p1"].mana == {"U": 1}
+    assert mana_pool(s) == {"U": 1}
     next_end_step(s)  # until end of turn
     assert chars(s, tower).subtypes == frozenset()
     assert abilities(s, tower) == ["{T}: Add one mana of any color in your commander's color identity."]

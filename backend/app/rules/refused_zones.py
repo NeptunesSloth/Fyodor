@@ -46,11 +46,25 @@ _GIFTS = re.compile(
     r"Search your library for up to (?P<n>two|three|four|five) (?P<sel>(?:[a-z]+ )?cards?) with different names and reveal "
     r"them\. (?P<who>Target opponent|An opponent) chooses (?P<k>one|two) of those cards\. Put the chosen cards? into your "
     r"graveyard and the rest (?P<rest>into your hand|onto the battlefield tapped)(?:\. Then shuffle|, then shuffle)\.")
+_EXACT_SPLIT = re.compile(
+    r"Search your library for (?P<n>two|three|four|five) cards and reveal them\. "
+    r"Target opponent chooses one\. Put that card into your hand and the rest into your graveyard\. Then shuffle\.")
 _N = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 
 
 def gifts_ability(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """The whole text of a Gifts-style spell as one effect (scripts.parse_effects), or None."""
+    from app.rules import search_packets
+
+    if (packet := search_packets.parse(body)) is not None:
+        return packet
+    if exact := _EXACT_SPLIT.fullmatch(body.strip()):
+        exact_sel = selectors.parse("card")
+        assert exact_sel is not None
+        exact_key = selectors.replace(exact_sel, zones=("library",), zone_owner="you", card=True).key()
+        return [{"do": "gifts", "sel": exact_key, "max": _N[exact["n"]], "k": 1, "label": "cards",
+                 "chooser": "target", "exact": True, "different_names": False,
+                 "chosen_to": "hand", "rest": "graveyard"}], "opponent", False
     m = _GIFTS.fullmatch(body.strip())
     if m is None:
         return None
@@ -65,8 +79,6 @@ def gifts_ability(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
 
 
 def gifts(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    from app.rules import characteristics as chars
-
     pid = ctx["controller"]
     library = plan.state.zones.get(zone_key(pid, "library"), [])
     from app.rules import (
@@ -79,12 +91,19 @@ def gifts(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     else:
         prohibitions.note_search(plan, pid, pid)  # -- most-played cards (wave 43B) -- "Whenever an opponent searches their library"; Aven Mindcensor: the top four
         library = library[:prohibitions.search_depth(plan, pid)]
+    from app.rules import card_names
+
     sel = selectors.from_key(e["sel"])
-    matching = [c for c in library
-                if selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
-    decide(plan, player=pid, kind="choose_cards", prompt=f"Search your library (up to {e['max']} {e['label']} with different names)",
+    pool = [*library, *(plan.state.zones.get(zone_key(pid, "graveyard"), []) if "graveyard" in e.get("zones", []) else [])]
+    matching = [c for c in pool
+                if selectors.matches(plan, sel, plan.state.cards[c], plan.ch(plan.state.cards[c]), pid)
+                and (not e.get("excluded_name") or not card_names.has_name(plan.ch(plan.state.cards[c]), e["excluded_name"]))]
+    count = min(e["max"], len(matching))
+    quantity = str(e["max"]) if e.get("exact") else f"up to {e['max']}"
+    names = " with different names" if e.get("different_names", True) else ""
+    decide(plan, player=pid, kind="choose_cards", prompt=f"Search your library ({quantity} {e['label']}{names})",
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in matching],
-           min_choices=0, max_choices=min(e["max"], len(matching)), resume={"step": "gifts_found", "ctx": ctx, "e": e},
+           min_choices=count if e.get("exact") else 0, max_choices=count, resume={"step": "gifts_found", "ctx": ctx, "e": e},
            decider=player_control.search_controller(plan, pid))  # (wave 18H) 723.2: Opposition Agent
     return False
 
@@ -94,19 +113,44 @@ def resume_gifts_found(plan: Plan, d: Any, chosen: list[str]) -> None:
 
     ctx, e = d.resume["ctx"], d.resume["e"]
     names = [(plan.state.cards[c].name or "").lower() for c in chosen]
-    if len(set(names)) != len(names):
+    from app.rules import card_names
+
+    unique = (not any(card_names.share(plan.ch(plan.state.cards[a]), plan.ch(plan.state.cards[b]))
+                      for i, a in enumerate(chosen) for b in chosen[i + 1:]) if e.get("packet") else len(set(names)) == len(names))
+    if e.get("different_names", True) and not unique:
         from app.game.errors import ActionError
 
         raise ActionError("The cards you find must have different names")
-    if agents := player_control.search_exile(plan, d.player):  # (wave 18H) Opposition Agent: each card found is exiled (a new
-        for cid in chosen:  # object, 400.7: the piles are never made) and its controller may play it
+    if e.get("different_power"):
+        powers = [plan.ch(plan.state.cards[c]).pt for c in chosen]
+        numbers = [pt[0] if pt is not None else 0 for pt in powers]
+        if len(set(numbers)) != len(numbers):
+            from app.game.errors import ActionError
+
+            raise ActionError("The cards you find must have different powers")
+    agents = player_control.search_exile(plan, d.player)
+    diverted = [c for c in chosen if agents and plan.state.cards[c].zone.endswith(":library")]
+    if diverted:  # (wave 18H) Opposition Agent: each card found is exiled (a new
+        for cid in diverted:  # object, 400.7: the piles are never made) and its controller may play it
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": d.player, "zone": "exile"}}, actor=d.player)
-        player_control.permit_exiled(plan, agents, list(chosen))
-        _gifts_finish(plan, ctx, e, [], [])
-        return
+        player_control.permit_exiled(plan, agents, diverted)
+        chosen = [c for c in chosen if c not in diverted]
+        if not chosen:
+            _gifts_finish(plan, ctx, e, [], [])
+            return
+    if e.get("exile_first") and chosen:
+        plan.do({"type": "move", "card_ids": list(chosen), "to": {"player": d.player, "zone": "exile"}}, actor=d.player)
     for cid in chosen:
         plan.do({"type": "reveal", "card_ids": [cid]}, actor=d.player)  # 701.20a: to everyone
     found = list(chosen)
+    if e.get("packet"):
+        e = {**e, "found_objects": {c: plan.oid(plan.state.cards[c]) for c in found}}
+    if e.get("chooser") == "random_distinct_three":
+        import secrets
+
+        picked = (plan.rng or secrets.SystemRandom()).sample(found, 1) if len(found) == 3 and unique else []
+        _gifts_finish(plan, ctx, e, found, picked)
+        return
     if len(found) <= e["k"]:
         _gifts_finish(plan, ctx, e, found, found)
         return
@@ -131,7 +175,7 @@ def resume_gifts_opponent(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 def _ask_opponent(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], found: list[str], opponent: str) -> None:
-    decide(plan, player=opponent, kind="choose_cards", prompt=f"{ctx.get('name') or 'Gifts'}: choose {e['k']} for the graveyard",
+    decide(plan, player=opponent, kind="choose_cards", prompt=f"{ctx.get('name') or 'Gifts'}: choose {e['k']} for the {e.get('chosen_to', 'graveyard')}",
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in found],
            min_choices=e["k"], max_choices=e["k"], resume={"step": "gifts_split", "ctx": ctx, "e": e, "found": found})
 
@@ -144,17 +188,26 @@ def _gifts_finish(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], found: lis
     from app.rules import attachments, effects
 
     pid = ctx["controller"]
-    found = [c for c in found if plan.state.cards[c].zone == zone_key(pid, "library")]
-    to_gy = [c for c in found if c in chosen]
+    found = [c for c in found if c in plan.state.cards and (
+        plan.oid(plan.state.cards[c]) == e["found_objects"].get(c) if e.get("packet") else
+        plan.state.cards[c].zone == zone_key(pid, "library"))]
+    picked = [c for c in found if c in chosen]
     rest = [c for c in found if c not in chosen]
-    if to_gy:
-        plan.do({"type": "move", "card_ids": to_gy, "to": {"player": pid, "zone": "graveyard"}}, actor=pid)
-    if rest and e["rest"] == "battlefield_tapped":
-        entries = [{"card": c, "player": pid, "actor": pid, "tapped": True} for c in rest]
+    if picked:
+        plan.do({"type": "move", "card_ids": picked, "to": {"player": pid, "zone": e.get("chosen_to", "graveyard")}}, actor=pid)
+    if rest and e["rest"] in ("battlefield", "battlefield_tapped"):
+        entries = [{"card": c, "player": pid, "actor": pid, "tapped": e["rest"] == "battlefield_tapped"} for c in rest]
         if not attachments.enter(plan, entries, ctx, shuffle=pid):
             return  # (an Aura chooses what it enchants; the library is shuffled on resume)
+    elif rest and e["rest"] == "cast":
+        from app.rules import context
+
+        context.bind_objects(plan, ctx, "packet_casts", rest)
+        at = ctx["next"]
+        ctx["effects"][at:at] = [{"do": "free_cast", "zone": "that", "who": "ref:packet_casts", "n": 99,
+                                  "exact_refs": True, "optional": True}]
     elif rest:
-        plan.do({"type": "move", "card_ids": rest, "to": {"player": pid, "zone": "hand"}}, actor=pid)
+        plan.do({"type": "move", "card_ids": rest, "to": {"player": pid, "zone": e["rest"]}}, actor=pid)
     plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
     effects.continue_effects(plan, ctx)
 

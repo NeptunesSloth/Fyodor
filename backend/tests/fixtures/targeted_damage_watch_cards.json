@@ -1,0 +1,133 @@
+[
+  {
+    "name": "Great Train Heist",
+    "oracle_text": "Spree (Choose one or more additional costs.)\n+ {2}{R} \u2014 Untap all creatures you control. If it's your combat phase, there is an additional combat phase after this phase.\n+ {2} \u2014 Creatures you control get +1/+0 and gain first strike until end of turn.\n+ {R} \u2014 Choose target opponent. Whenever a creature you control deals combat damage to that player this turn, create a tapped Treasure token.",
+    "type_line": "Instant",
+    "mana_cost": "{R}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Treasure",
+      "Spree"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Runeclaw Bear",
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}",
+    "layout": "normal",
+    "power": "2",
+    "toughness": "2",
+    "cmc": 2.0,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Fencing Ace",
+    "oracle_text": "Double strike (This creature deals both first-strike and regular combat damage.)",
+    "type_line": "Creature \u2014 Human Soldier",
+    "mana_cost": "{1}{W}",
+    "layout": "normal",
+    "power": "1",
+    "toughness": "1",
+    "cmc": 2.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Double strike"
+    ]
+  },
+  {
+    "name": "Lightning Bolt",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "type_line": "Instant",
+    "mana_cost": "{R}",
+    "layout": "normal",
+    "cmc": 1.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Leyline of Sanctity",
+    "oracle_text": "If this card is in your opening hand, you may begin the game with it on the battlefield.\nYou have hexproof. (You can't be the target of spells or abilities your opponents control.)",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{W}{W}",
+    "layout": "normal",
+    "cmc": 4.0,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Reverberate",
+    "oracle_text": "Copy target instant or sorcery spell. You may choose new targets for the copy.",
+    "type_line": "Instant",
+    "mana_cost": "{R}{R}",
+    "layout": "normal",
+    "cmc": 2.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Aggravated Assault",
+    "oracle_text": "{3}{R}{R}: Untap all creatures you control. After this main phase, there is an additional combat phase followed by an additional main phase. Activate only as a sorcery.",
+    "type_line": "Enchantment",
+    "mana_cost": "{2}{R}",
+    "layout": "normal",
+    "cmc": 3.0,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  }
+]

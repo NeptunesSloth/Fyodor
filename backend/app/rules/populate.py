@@ -16,7 +16,10 @@
 
 "Populate. The token enters tapped and attacking." (Ghired, wave 46A) is "populate tapped and attacking": the copy is created attacking (508.4).
 
-Refused (left manual, unknown wording): "Populate X times", "for each of them" in a "one or more" trigger (Kambal), a phrase with a target
+Repeated populate uses the ordinary repeat instruction, choosing independently each time.
+Its created tokens are recorded for later instructions, including after token replacements.
+
+Refused (left manual, unknown wording): "for each of them" in a "one or more" trigger (Kambal), a phrase with a target
 the copy text doesn't name.
 """
 
@@ -82,13 +85,14 @@ def parse_for_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
 def populate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.36a-b: choose a creature token you control (the controller's choice when there are
     several), then create a token that's a copy of it."""
-    from app.rules import selectors
+    from app.rules import effects, selectors
     from app.rules.plan import decide
 
     pid = ctx["controller"]
     mine = [c for c in selectors.candidates(plan, selectors.from_key(CREATURE_TOKENS_KEY), pid, ctx.get("source_card"))
             if plan.state.cards[c].zone.endswith(":battlefield")]
     if not mine:
+        effects._remember(plan, ctx, e, [])  # CR 701.36b: later riders have no token to act on
         plan.note("Populate: no creature token to copy (701.36b)", actor=pid)
         return True
     if len(mine) == 1:
@@ -107,7 +111,8 @@ def _copy(plan: Plan, ctx: Context, cid: str, attacking: bool = False) -> bool:
     k = int(ctx.get("next") or 0) - 1
     effects = list(ctx.get("effects") or [])
     # (-- cant restrictions (wave 46A) -- "Populate. The token enters tapped and attacking." (Ghired): 508.4, the copy's controller chooses what it attacks)
-    e = {"do": "token_copy", "n": 1, "who": f"object:{plan.oid(cid)}", **({"attacking": True, "tapped": True} if attacking else {})}
+    previous = effects[k] if 0 <= k < len(effects) and effects[k].get("do") == "populate" else {}
+    e = {**previous, "do": "token_copy", "n": 1, "who": f"object:{plan.oid(cid)}", **({"attacking": True, "tapped": True} if attacking else {})}
     if 0 <= k < len(effects) and effects[k].get("do") == "populate":
         effects[k] = e
         ctx["effects"] = effects
@@ -156,6 +161,17 @@ def left_battlefield(plan: Plan, ctx: Context, who: str, their: bool) -> list[tu
         oids = record.sacrificed_objects if record is not None else []
         if len(oids) == 1 and (snap := plan.rules.lki.get(oids[0])) is not None and snap.zone.endswith("battlefield"):
             snaps.append(snap)
+    elif who == "cost:exiled":
+        # 608.2h, 111.12: a card exiled as the cost can leave exile before the
+        # copy instruction resolves. Use its last known copiable values there.
+        sid = ctx.get("stack_id")
+        record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+        for exile_oid in record.exiled_objects if record is not None else []:
+            card = plan.state.cards.get(exile_oid.rsplit(".", 1)[0])
+            if card is None or plan.oid(card) != exile_oid or not card.zone.endswith(":exile"):
+                snap = plan.rules.lki.get(exile_oid)
+                if snap is not None and snap.zone.endswith(":exile"):
+                    snaps.append(snap)
     elif who == "self":
         oid = ctx.get("source_object")
         src = plan.state.cards.get(ctx.get("source_card") or "")
@@ -194,11 +210,8 @@ def left_battlefield(plan: Plan, ctx: Context, who: str, their: bool) -> list[tu
             out.append((f"a copy of {name} as it last existed (608.2h: its text isn't recorded)", ""))
             continue
         layout = (plan.info.get(recipe.printing) or {}).get("layout") if recipe.printing else None
-        ch = copying.characteristics(recipe, plan.info)
         if (layout == "meld" and recipe.face) or (layout in copying.DOUBLE_FACED and layout not in copying.TWO_FACED_TOKENS):
             out.append((f"a copy of {name} (a double-faced or melded object, 707.8a)", ""))
-        elif "Aura" in ch.subtypes or "Room" in ch.subtypes:
-            out.append((f"a copy of {name} (an Aura or a Room: 303.4f, 709.5)", ""))
         else:
             out.append((recipe, maker))
     return out

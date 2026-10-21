@@ -74,8 +74,20 @@ export function seatToken(gameId: string): string | null {
 // ---------------------------------------------------------------------------- lobby
 
 /** A deck definition a player brings: content only (the host never reads files by path). */
+export type PersonalEntry = Pick<import("../types/decks").DeckEntry, "section" | "quantity" | "name" | "printing_id"> &
+  Partial<import("../types/decks").DeckEntry>;
+export interface PersonalDeck {
+  name: string;
+  text: string;
+  entries: PersonalEntry[];
+  commanders: string[];
+  companions: { name: string; printing_id: string }[];
+}
+
 export interface LobbyDeckBody {
   name?: string;
+  collection?: PersonalEntry[];
+  companion_id?: string;
   text?: string;
   archidekt?: string;
   json?: string;
@@ -90,6 +102,8 @@ const seatHeaders = (gameId: string): Record<string, string> => {
 const lobbyPath = (gameId: string, rest = "") => `/games/${encodeURIComponent(gameId)}/lobby${rest}`;
 
 export const getLobby = (gameId: string) => api.get<LobbyView | { phase: "playing" }>(lobbyPath(gameId), seatHeaders(gameId));
+export const syncPersonalCollection = (gameId: string) => api.post<LobbyView>(lobbyPath(gameId, "/collection"), { collection: personalCollection() }, seatHeaders(gameId));
+export const importPersonalDeck = (gameId: string, body: LobbyDeckBody) => api.post<PersonalDeck>(lobbyPath(gameId, "/import"), body, seatHeaders(gameId));
 export const submitLobbyDeck = (gameId: string, body: LobbyDeckBody) => api.post<LobbyView>(lobbyPath(gameId, "/deck"), body, seatHeaders(gameId));
 export const clearLobbyDeck = (gameId: string) => api.del<LobbyView>(lobbyPath(gameId, "/deck"), seatHeaders(gameId));
 export const setLobbyReady = (gameId: string, ready: boolean) => api.post<LobbyView>(lobbyPath(gameId, "/ready"), { ready }, seatHeaders(gameId));
@@ -113,9 +127,11 @@ export interface MyDeck {
   body: LobbyDeckBody;
   commanders: string[];
   savedAt: number;
+  sourceKey?: string;
+  entries?: PersonalEntry[];
+  companions?: PersonalDeck["companions"];
 }
 const MY_DECKS = "fyodor.myDecks";
-const MAX_MY_DECKS = 20;
 
 export function myDecks(): MyDeck[] {
   try {
@@ -127,16 +143,40 @@ export function myDecks(): MyDeck[] {
   }
 }
 
-export function rememberMyDeck(name: string, body: LobbyDeckBody, commanders: string[]): void {
-  if (body.deck_id) return; // host-library decks are already stored on the host
-  const key = JSON.stringify(body);
-  const list = myDecks().filter((d) => JSON.stringify(d.body) !== key && d.name !== name);
-  list.unshift({ id: Math.random().toString(36).slice(2, 10), name, body, commanders, savedAt: Date.now() });
-  try {
-    localStorage.setItem(MY_DECKS, JSON.stringify(list.slice(0, MAX_MY_DECKS)));
-  } catch {
-    /* storage full or unavailable: not remembered, nothing else breaks */
+export function rememberMyDeck(name: string, body: LobbyDeckBody, commanders: string[], imported?: PersonalDeck): void {
+  if (body.deck_id && !imported) return;
+  // A URL is an import source, not an offline copy. Persist the resolved list when available.
+  const savedBody: LobbyDeckBody = imported ? { name: imported.name, text: imported.text }
+    : { name: body.name, text: body.text, json: body.json, archidekt: body.archidekt };
+  const key = JSON.stringify(savedBody);
+  const sourceKey = body.archidekt ? `archidekt:${body.archidekt.match(/(?:decks\/)?(\d+)/)?.[1] ?? body.archidekt}`
+    : body.deck_id ? `host:${body.deck_id}` : undefined;
+  const previous = myDecks().find(d => JSON.stringify(d.body) === key || (sourceKey && d.sourceKey === sourceKey));
+  const list = myDecks().filter(d => d.id !== previous?.id && JSON.stringify(d.body) !== key);
+  list.unshift({ id: previous?.id ?? Math.random().toString(36).slice(2, 10), name, body: savedBody, commanders,
+    sourceKey: sourceKey ?? previous?.sourceKey,
+    entries: imported?.entries.map(({ name, quantity, section, printing_id, oracle_id }) => ({ name, quantity, section, printing_id, oracle_id })),
+    companions: imported?.companions, savedAt: Date.now() });
+  // Never silently drop old decks or report a save when browser storage is full.
+  try { localStorage.setItem(MY_DECKS, JSON.stringify(list)); }
+  catch { throw new Error("Could not save My decks on this device. Export a backup or free browser storage, then retry."); }
+}
+
+export function personalCollection(): PersonalEntry[] {
+  const owned = new Map<string, PersonalEntry>();
+  for (const entry of myDecks().flatMap(d => d.entries ?? [])) {
+    if (entry.section === "tokens" || entry.section === "maybeboard" || !entry.printing_id) continue;
+    const key = entry.oracle_id ?? entry.printing_id;
+    const prior = owned.get(key);
+    if (prior) prior.quantity += entry.quantity;
+    else owned.set(key, { ...entry, section: "main" });
   }
+  // Preserve quantity while keeping each submitted entry inside the deck-entry API bounds.
+  return Array.from(owned.values()).flatMap(entry => {
+    const chunks: PersonalEntry[] = [];
+    for (let remaining = entry.quantity; remaining > 0; remaining -= 999) chunks.push({ ...entry, quantity: Math.min(remaining, 999) });
+    return chunks;
+  });
 }
 
 export function forgetMyDeck(id: string): void {

@@ -81,18 +81,32 @@ def permanent_cards_entered(plan: Plan, player: str, *, last: bool = False) -> i
     return n
 
 
+def graveyard_entries(plan: Plan, player: str, *, last: bool = False) -> int:
+    """Physical-card arrival events, regardless of card type or whether the card remains there (608.2i)."""
+    return sum(1 for arrival in log_for(plan, last).entered_graveyard
+               if arrival.owner == player and (card := plan.state.cards.get(arrival.card)) is not None
+               and card.card_id is not None and not card.is_token and card.ability is None)
+
+
 def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     """Is this ``{"history": …}`` condition true for the ability's controller right now?"""
     kind = cond["history"]
     me: str = ctx["controller"]
     n = int(cond.get("n", 1))
     log = log_for(plan, bool(cond.get("last")))
+    if kind == "played_from_exile":
+        return (any(c.player == me and c.cast_from == "exile" for c in log.casts)
+                or any(f.kind == "land_play" and f.player == me and (f.from_zone or '').endswith(':exile')
+                       for f in log.facts))
     if kind == "attacked":
         return bool(log.attacked) if cond.get("who") == "any" else me in log.attacked
     if kind in _WAVE_4D:  # -- this-turn history (wave 4D) --
         return _WAVE_4D[kind](plan, ctx, cond, log)
     if kind == "gained":
-        return log.gained.get(me, 0) >= n
+        players = [p for p in plan.live() if p != me] if cond.get("who") == "opponent" else [me]
+        return any(log.gained.get(p, 0) >= n for p in players)
+    if kind == "energy_lost":
+        return log.energy_lost.get(me, 0) >= n
     if kind == "drew":  # (-- most-played cards (wave 49A) -- "an opponent has drawn four or more cards this turn": one opponent still in the game, Even the Score)
         return any(log.drew.get(p, 0) >= n for p in ([p for p in plan.live() if p != me] if cond.get("who") == "opponent" else [me]))
     if kind == "spells":
@@ -102,7 +116,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
         players = [me] if who == "you" else [p for p in plan.live() if p != me] if who == "opponent" else list(plan.live())
         return any(log.lost.get(p, 0) >= n for p in players)
     if kind == "left_graveyard":
-        return me in log.left_graveyard
+        return log.left_graveyard.count(me) >= n
+    if kind == "graveyard_entries":
+        players = [p for p in plan.live() if p != me] if cond.get("who") == "opponent" else [me]
+        return any(graveyard_entries(plan, p, last=bool(cond.get("last"))) >= n for p in players)
     if kind == "descended":
         return permanent_cards_entered(plan, me, last=bool(cond.get("last"))) >= n
     if kind == "died":
@@ -112,6 +129,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     if kind == "warped":  # -- void (wave 19E) -- "a spell was warped this turn": cast for its warp cost (702.185a), by anyone
         return any(c.alt == "warp" for c in log.casts)
     if kind == "entered":  # -- refused modal/conditional (wave 3R1) --
+        if cond.get("one_opponent"):
+            return any(entered(plan, ctx, cond, log, controller=p) >= n for p in plan.live() if p != me)
         return entered(plan, ctx, cond, log) >= n
     if kind == "entered_self":
         return any(e.object_id == _source_object(plan, ctx) for e in log.entered)
@@ -139,7 +158,7 @@ def entry_came_from(plan: Plan, object_id: str | None, want: str, you: str) -> b
 
 
 # -- refused modal/conditional (wave 3R1) --
-def entered(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> int:
+def entered(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog, *, controller: str | None = None) -> int:
     """How many permanents matching ``cond["sel"]`` entered the battlefield under the ability controller's control
     this turn ("another": not the source object itself). 608.2i: read as each was when it entered — its card types
     and subtypes then — and otherwise as it is, or as it last existed if it has left since."""
@@ -157,7 +176,7 @@ def entered(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog)
 
     other = {r.object_id for r in context._object_refs(ctx, context.EVENT)} if cond.get("other") == "event" else {_source_object(plan, ctx)}
     for e in log.entered:
-        if (e.controller != me) != (cond.get("who") == "opponent") \
+        if (e.controller != controller if controller is not None else (e.controller != me) != (cond.get("who") == "opponent")) \
                 or (cond.get("other") and e.object_id in other):  # ("who": wave 4D)
             continue
         card = plan.state.cards.get(e.card)
@@ -170,6 +189,10 @@ def entered(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog)
             card, ch = _snapshot_card(plan, snap)
         if e.types is not None:
             ch = replace(ch, types=frozenset(e.types), subtypes=frozenset(e.subtypes or ()))
+        if e.colors is not None:
+            ch = replace(ch, colors=frozenset(e.colors))
+        elif sel.colors or sel.not_colors or sel.colorless is not None or sel.multicolored is not None:
+            continue  # Older saves do not establish the permanent's color as it entered.
         probe = card.model_copy(update={"zone": f"{me}:battlefield", "controller": me}) \
             if not card.zone.endswith(":battlefield") else card
         if selectors.matches(plan, replace(sel, zones=("battlefield",), controller=None, other=False), probe, ch, me, None):
@@ -205,10 +228,18 @@ def note_cast(plan: Plan, card: Any) -> None:
     if log is None:
         return
     ch = plan.ch(card)
+    from app.cards.names import normalize_name
+    from app.rules import card_names
+
+    totals = plan.rules.named_casts_game.setdefault(card.controller, {})
+    for name in card_names.names_of(ch):
+        key = normalize_name(name)
+        totals[key] = totals.get(key, 0) + 1
     record = plan.rules.payments.get(plan.oid(card))
-    log.casts.append(CastNote(player=card.controller, object_id=plan.oid(card), types=sorted(ch.types),
+    log.casts.append(CastNote(player=card.controller, object_id=plan.oid(card), names=card_names.names_of(ch), types=sorted(ch.types),
                               subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes), colors=sorted(ch.colors),
                               mv=float(_stack_mv(card, ch)), cast_from=record.cast_from if record is not None else None,
+                              mana_tags=[list(tags) for tags in record.mana_tags] if record is not None and record.mana_known else [],
                               alt=record.alternative if record is not None else None, x_cost="{X}" in ch.mana_cost,
                               keywords=sorted(ch.keywords), face_down=bool(card.face_down)))
 
@@ -224,24 +255,38 @@ def _stack_mv(card: Any, ch: Any) -> int:
 def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> None:
     """The facts of a batch of events (app/rules/triggers.py reads the same events for triggers), kept for the turn
     (``into``: a scratch log instead, for events not yet looked at — review 23C)."""
-    from app.game.rules_state import TurnFact, turn_log_now
+    from app.game.rules_state import ObjectRef, TurnFact, turn_log_now
     from app.rules.triggers import _facts
 
     log = into if into is not None else turn_log_now(plan.state)
     if log is None:
         return
+    from app.rules import roll_result_history42
+
+    roll_result_history42.note(plan, events, log)
     for e in events:
-        if e.kind not in ("zone_change", "sacrificed", "damage", "counters", "milled") or e.turn != plan.state.turn.number:
+        if e.kind not in ("zone_change", "sacrificed", "damage", "counters", "milled", "land_played") or e.turn != plan.state.turn.number:
             continue
         for kind, obj, ch, player, info in _facts(plan, e, {"cast_from": {}}):
             what: dict[str, Any] = {"types": sorted(ch.types), "subtypes": sorted(ch.subtypes),
                                     "supertypes": sorted(ch.supertypes)} if ch is not None else {}
-            if kind == "create_token" and obj is not None:  # 111.2: the player who creates a token is its owner
+            if kind == "land_played" and player is not None:
+                log.facts.append(TurnFact(kind="land_play", player=player, object_id=info.get("oid"),
+                                          from_zone=info.get("played_from"), **what))
+            elif kind == "create_token" and obj is not None:  # 111.2: the player who creates a token is its owner
                 log.facts.append(TurnFact(kind="token", player=obj.owner, object_id=info.get("oid"), token=True, **what))
             elif kind == "discard" and not (info.get("to") or "").endswith(":graveyard"):
-                continue  # (review 23D: a discard put elsewhere instead was noted as it was replaced, note_discards)
+                # The replacement already counted the discard. Attach only its exact
+                # public result, never a later incarnation of the physical card.
+                for fact in reversed(log.facts):
+                    if fact.kind == "discard" and fact.object_id == e.object_id:
+                        fact.discarded_results = ([ObjectRef(card=obj.id, object_id=info["oid"], zone=info.get("to"))]
+                            if obj is not None and info.get("oid") and (info.get("to") or "").rsplit(":", 1)[-1] not in ("hand", "library") else [])
+                        break
+                continue
             elif kind in ("discard", "sacrifice") and player is not None and obj is not None:
                 log.facts.append(TurnFact(kind=kind, player=player, object_id=info.get("oid"), token=obj.is_token, batch=e.batch if kind == "discard" else 0,
+                                          discarded_results=[ObjectRef(card=obj.id, object_id=info["oid"], zone=info.get("to"))] if kind == "discard" and info.get("oid") else None,
                                           **what))  # (-- trigger other (wave 36A) -- the batch of a discard: "for the first time each turn")
             elif kind == "dealt_damage" and obj is None and info.get("recipient"):  # a player was dealt damage (120.3)
                 log.facts.append(TurnFact(kind="damage", player=info["recipient"], amount=int(info.get("amount") or 0),
@@ -256,8 +301,9 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
             elif kind == "deal_damage" and info.get("recipient") and log.facts and log.facts[-1].kind == "damage":
                 # its source, as it was as it dealt that damage (608.2i)
                 log.facts[-1].source_types, log.facts[-1].source_supertypes = what["types"], what["supertypes"]
+                log.facts[-1].source_colors = sorted(ch.colors) if ch is not None else []
                 log.facts[-1].source_subtypes = what["subtypes"]  # (wave 17C: prowl, 702.76a)
-                log.facts[-1].source_controller = obj.controller if obj is not None else None
+                log.facts[-1].source_controller = info.get("actor")  # Frozen at damage commit; None is legacy unknown.
                 log.facts[-1].source_commander = obj is not None and obj.commander_key is not None  # (wave 43D: freerunning, 702.173a; 903.3)
             elif kind == "deal_damage" and info.get("other_oid") and log.facts and log.facts[-1].kind == "damaged" \
                     and log.facts[-1].object_id == info["other_oid"] and log.facts[-1].source == info.get("oid"):
@@ -266,6 +312,7 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
                 last = log.facts[-1]
                 last.source_subtypes, last.source_controller = what["subtypes"], obj.controller if obj is not None else None
                 last.source_types, last.source_supertypes = what["types"], what["supertypes"]
+                last.source_colors = sorted(ch.colors) if ch is not None else []
                 last.source_spell = obj is not None and obj.zone == "stack" and obj.ability is None
             elif kind == "mill" and obj is not None:  # -- free cast (wave 40D) -- 701.17a: this object was milled ("cards in your graveyard that were milled this turn", Raul)
                 log.facts.append(TurnFact(kind="mill", player=player or obj.owner, object_id=info.get("oid"), **what))
@@ -281,15 +328,16 @@ def note_discards(plan: Plan, card_ids: list[str]) -> None:
     """Cards discarded from their owners' hands that a replacement put somewhere other than the graveyard (702.35a
     madness, "exile it instead"): discarded all the same (701.9a; the card is revealed as it goes to exile)."""
     from app.game.rules_state import TurnFact, turn_log_now
+    from app.rules import outside_battlefield_self
 
     log = turn_log_now(plan.state)
     for cid in card_ids:
         card = plan.state.cards.get(cid)
         if log is None or card is None:
             continue
-        ch = chars.of(card, plan.info)
+        ch = outside_battlefield_self.apply(chars.of(card, plan.info))
         log.facts.append(TurnFact(kind="discard", player=card.owner, object_id=plan.oid(card), types=sorted(ch.types),
-                                  subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes)))
+                                  subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes), discarded_results=[]))
 
 
 def note_look(plan: Plan, player: str, kind: str, looked: int = 0) -> None:
@@ -469,7 +517,10 @@ def _cast_counts(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: Tur
     for note in log.casts:
         if note.object_id in stop:
             break
-        if cond.get("from") and note.cast_from != cond["from"]:
+        if cond.get("from") == "not_hand":
+            if note.cast_from is None or note.cast_from == "hand":
+                continue
+        elif cond.get("from") and note.cast_from != cond["from"]:
             continue
         if me_src is not None and me_src in (note.object_id, note.became):
             continue
@@ -591,7 +642,13 @@ def _object_history(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: 
     elif what == "enlisted":  # -- trailing & intervening ifs (wave 38A) -- 702.154a: in this combat phase (500.8), fixed once it was (603.4: still so as it resolves)
         got = any(log.enlisted.get(i) == plan.rules.combats for i in ids)
     elif what == "attacked_or_blocked":
-        got = bool(ids & set(log.blockers)) or any(a in ids for attacking in log.attackers.values() for a in attacking)
+        if cond.get("this_combat"):
+            from app.game.state import COMBAT_PHASES
+
+            got = plan.state.turn.phase in COMBAT_PHASES and any(
+                log.declared.get(i) == plan.rules.combats or log.declared_blockers.get(i) == plan.rules.combats for i in ids)
+        else:
+            got = bool(ids & set(log.blockers)) or any(a in ids for attacking in log.attackers.values() for a in attacking)
     elif what == "damaged":
         got = total("damaged", lambda f: f.object_id in ids) >= n
     elif what == "damaged_by":  # -- trigger damage (wave 39B) -- a Giant, Wizard or spell you controlled dealt it damage (the source as it was, 608.2i)
@@ -638,8 +695,12 @@ def _source_damage(ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> b
     for f in log.facts:
         src = f.object_id if f.kind == "damage" else f.source if f.kind == "damaged" else None
         if src is not None and f.amount > 0 and f.source_controller == ctx["controller"]:
+            if cond.get("combat") is not None and f.combat != cond["combat"]:
+                continue
+            if cond.get("source_colors") and not set(cond["source_colors"]) & set(f.source_colors):
+                continue
             per[src] = per.get(src, 0) + f.amount
-    return any(n >= int(cond["n"]) for n in per.values())
+    return sum(per.values()) >= int(cond["n"]) if cond.get("total") else any(n >= int(cond["n"]) for n in per.values())
 
 
 def _prowl(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
@@ -687,6 +748,12 @@ def _departed(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLo
             continue
         _, ch = _snapshot_card(plan, snap)
         types = d.types if d.types is not None else ch.types
+        if cond.get('not_name'):
+            from app.cards.names import normalize_name
+            from app.rules import card_names
+
+            if normalize_name(cond['not_name']) in {normalize_name(name) for name in card_names.names_of(ch)}:
+                continue
         if cond.get("not_named") and named_like(plan, ctx, ch):
             continue
         if note_matches(sel, types, ch.subtypes, ch.supertypes, ch.colors, float(ch.mana_value), snap.is_token):
@@ -727,6 +794,12 @@ def _attacked_with(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: A
     return False
 
 
+def _rolled_result(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
+    from app.rules import roll_result_history42
+
+    return roll_result_history42.holds(plan, ctx, cond, log)
+
+
 _WAVE_4D: dict[str, Any] = {
     "tokens": lambda plan, ctx, cond, log: _facts_holds(plan, ctx, {**cond, "kind": "token"}, log),
     "attackers": lambda plan, ctx, cond, log: len(log.attackers.get(ctx["controller"], [])) >= int(cond.get("n", 1)),
@@ -747,6 +820,7 @@ _WAVE_4D: dict[str, Any] = {
     "attackers_power": lambda plan, ctx, cond, log: plan.rules.attack_power.get(ctx["controller"], 0) >= int(cond["n"]),
     "self_attacked": lambda plan, ctx, cond, log: _self_attacked(plan, ctx, cond, log),
     "graveyard_cards": lambda plan, ctx, cond, log: _graveyard_cards(plan, ctx, cond, log),
+    "rolled_result": _rolled_result,
     "rolled": lambda plan, ctx, cond, log: log.rolled.get(ctx["controller"], 0) >= int(cond["n"]),  # -- dice (wave 24B) --
 }
 
@@ -769,6 +843,8 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     log = log_for(plan)
     me = ctx["controller"]
     kind = v["turn_history"]
+    if kind == "energy_lost":
+        return log.energy_lost.get(me, 0)
     if kind == "gained":
         return log.gained.get(me, 0)
     if kind == "lost":
@@ -777,6 +853,11 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         return max(log.gained.get(me, 0), log.lost.get(me, 0))
     if kind == "drew":
         return log.drew.get(me, 0)
+    if kind == "opp_drew_max":
+        # Thought Sponge explicitly counts opponents who have left the game.
+        return max((n for player, n in log.drew.items() if player != me), default=0)
+    if kind == "graveyard_entries":
+        return graveyard_entries(plan, me)
     if kind == "descended":  # (wave 49B) 700.11: "the number of times you descended this turn" is the number of permanent cards put into your graveyard from anywhere
         return permanent_cards_entered(plan, me)
     if kind == "opp_drew":  # -- commanders (wave 47A) -- "for each card your opponents have drawn this turn" (Heliod, the Radiant Dawn)
@@ -837,7 +918,7 @@ def _graveyard_cards(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log:
     characteristics are the same in any zone but the battlefield and the stack, so they're read from the card."""
     from dataclasses import replace
 
-    from app.rules import selectors
+    from app.rules import outside_battlefield_self, selectors
 
     sel = replace(selectors.from_key(cond["sel"]), zone_owner=None, card=False)
     n = 0
@@ -845,7 +926,7 @@ def _graveyard_cards(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log:
         card = plan.state.cards.get(arrival.card)
         if arrival.owner != ctx["controller"] or card is None:
             continue
-        ch = chars.of(card, plan.info)
+        ch = outside_battlefield_self.apply(chars.of(card, plan.info))
         if note_matches(sel, ch.types, ch.subtypes, ch.supertypes, ch.colors, float(ch.mana_value)):
             n += 1
     return _cmp(n, cond)
@@ -856,3 +937,24 @@ def resolution_holds(ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     got = ((ctx.get("refs") or {}).get("resolution") or {}).get("n")
     return got is not None and int(got) == int(cond["n"])
 # -- end this-turn history (wave 4D) --
+
+
+def cast_names_this_turn(plan: Plan, player: str | None = None) -> tuple[set[str], list[Any]]:
+    """Known public as-cast names and old receipts lacking them; never infer from a new object.
+
+    A known positive match is conclusive even when another receipt is unknown. A
+    negative answer is conclusive only when the second component is empty.
+    """
+    from app.cards.names import normalize_name
+
+    names: set[str] = set()
+    unknown = []
+    for note in log_for(plan).casts:
+        if player is not None and note.player != player:
+            continue
+        if note.names is None:
+            if not note.face_down:
+                unknown.append(note)
+        else:
+            names.update(normalize_name(name) for name in note.names)
+    return names, unknown

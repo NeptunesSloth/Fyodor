@@ -16,7 +16,7 @@ from app.game.errors import ActionError
 from app.rules import cast_limits, coverage, scripts
 from app.rules.casting import activatable, castable
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act, zone
+from tests.game_helpers import act, mana_pool, zone
 from tests.test_rules_conditionals import settle, to_hand, to_turn
 from tests.test_rules_effects import mana
 from tests.test_rules_wave5b_stack_interaction import build as _build
@@ -217,11 +217,11 @@ def test_grand_abolisher_stops_spells_and_mana_abilities_of_creatures_and_artifa
         act(s, "p2", type="activate_ability", card_id=ring.id, ability=0)
     assert {a["card_id"] for a in activatable(s.state, "p2", s.cards, check_priority=False)}.isdisjoint({ring.id, elves.id})
     act(s, "p2", type="activate_ability", card_id=island, ability=0)  # (a land: not an artifact, creature or enchantment)
-    assert s.state.players["p2"].mana.get("U", 0) >= 1
+    assert mana_pool(s,"p2").get("U", 0) >= 1
     settle(s)
     to_turn(s, 2)  # Bob's own turn: the limit is off
     act(s, "p2", type="activate_ability", card_id=ring.id, ability=0)
-    assert s.state.players["p2"].mana.get("C", 0) >= 2
+    assert mana_pool(s,"p2").get("C", 0) >= 2
     roundtrip(s)
 
 
@@ -369,7 +369,7 @@ def test_thousand_year_elixir_lets_a_new_creature_tap_for_mana(cards):
         act(s, "p1", type="activate_ability", card_id=elves.id, ability=0)
     field(s, "Thousand-Year Elixir")
     act(s, "p1", type="activate_ability", card_id=elves.id, ability=0)
-    assert s.state.cards[elves.id].tapped and s.state.players["p1"].mana.get("G", 0) == 1
+    assert s.state.cards[elves.id].tapped and mana_pool(s,"p1").get("G", 0) == 1
     roundtrip(s)
 
 

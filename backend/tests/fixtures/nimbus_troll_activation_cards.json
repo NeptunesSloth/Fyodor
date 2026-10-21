@@ -1,0 +1,148 @@
+[
+  {
+    "name": "Knight of the Holy Nimbus",
+    "mana_cost": "{W}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Rebel Knight",
+    "oracle_text": "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\nIf this creature would be destroyed, regenerate it. (Tap it, remove it from combat, and heal all damage on it.)\n{2}: This creature can't be regenerated this turn. Only your opponents may activate this ability.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flanking",
+      "Heal",
+      "Regenerate"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Clergy of the Holy Nimbus",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Human Cleric",
+    "oracle_text": "If this creature would be destroyed, regenerate it.\n{1}: This creature can't be regenerated this turn. Only your opponents may activate this ability.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Regenerate"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Mossbridge Troll",
+    "mana_cost": "{5}{G}{G}",
+    "cmc": 7.0,
+    "type_line": "Creature \u2014 Troll",
+    "oracle_text": "If this creature would be destroyed, regenerate it.\nTap any number of untapped creatures you control other than this creature with total power 10 or greater: This creature gets +20/+20 until end of turn.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Regenerate"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Gigantosaurus",
+    "mana_cost": "{G}{G}{G}{G}{G}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Dinosaur",
+    "oracle_text": "",
+    "power": "10",
+    "toughness": "10",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Colossal Dreadmaw",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Dinosaur",
+    "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Trample"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Char-Rumbler",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Elemental",
+    "oracle_text": "Double strike\n{R}: This creature gets +1/+0 until end of turn.",
+    "power": "-1",
+    "toughness": "3",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Double strike"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Faith's Fetters",
+    "mana_cost": "{3}{W}",
+    "cmc": 4.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant permanent\nWhen this Aura enters, you gain 4 life.\nEnchanted permanent can't attack or block, and its activated abilities can't be activated unless they're mana abilities.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Murder",
+    "mana_cost": "{1}{B}{B}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  }
+]

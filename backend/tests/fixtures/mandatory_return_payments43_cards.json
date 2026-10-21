@@ -1,0 +1,37 @@
+[
+  {
+    "id": "e5246540-5a84-41d8-9e30-8e7a6c0e84e1",
+    "oracle_id": "bf9221f5-a4b2-4074-901c-0fa3c2bda80c",
+    "name": "Mistbreath Elder",
+    "layout": "normal",
+    "set_code": "blb",
+    "set_name": "Bloomburrow",
+    "collector_number": "184",
+    "rarity": "rare",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Frog Warrior",
+    "oracle_text": "At the beginning of your upkeep, return another creature you control to its owner's hand. If you do, put a +1/+1 counter on this creature. Otherwise, you may return this creature to its owner's hand.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-08-02",
+    "artist": "Jason Kang",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

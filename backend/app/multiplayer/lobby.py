@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, field_validator
 from app.game.factory import DeckCard
 from app.game.mulligan import PRESETS, resolve_policy
 from app.game.rules_state import AutomationLevel
-from app.game.state import MulliganPolicy
+from app.game.state import CollectionCard, MulliganPolicy
 from app.textutil import clean_text
 
 DeckPrivacy = Literal["private", "commander_only", "public"]
@@ -73,6 +73,8 @@ class SubmittedDeck:
     warnings: dict[str, list[dict[str, Any]]] = field(default_factory=dict)  # table format -> advisory warnings
     # How much of the deck the rules engine automates: card counts per coverage level.
     coverage: dict[str, int] = field(default_factory=dict)
+    collection: list[CollectionCard] = field(default_factory=list)
+    offline: dict[str, Any] = field(default_factory=dict)
     commander_ids: list[str] = field(default_factory=list)  # printings, for the seat card's art
 
     def entries_public(self) -> list[dict[str, Any]]:
@@ -100,6 +102,7 @@ class LobbySeatInfo:
     color: str | None = None
     deck: SubmittedDeck | None = None
     ready: bool = False
+    collection: list[CollectionCard] = field(default_factory=list)
     last_fetch: float = -1e9  # monotonic time of the last Archidekt fetch (rate limit)
 
 
@@ -118,6 +121,7 @@ def deck_summary(deck: SubmittedDeck | None, *, privacy: DeckPrivacy, own: bool,
         summary["list"] = deck.entries_public()
     if own:
         summary["report"] = deck.report
+        summary["offline"] = deck.offline
     # Deck checks are advisory ("Play anyway"). Their text names cards, so only the owner (or
     # everyone, with a public list) reads it; with commander-only privacy the others just see how
     # many there are, and with a private deck nothing at all.
