@@ -400,6 +400,7 @@ EventKind = Literal[
     "evolved",  # An evolve keyword ability actually put one or more +1/+1 counters.
     "exerted",  # 701.43: the player exerted this permanent
     "spell_cast",  # a player cast a spell (the object is the spell on the stack)
+    "investigated",  # A completed investigate action, independent of replaced token count.
     "cycled",  # a player cycled a card (702.29: "when you cycle …")
     "foretold",  # A completed native foretell special action, not an effect making a card foretold.
     "milled",  # -- triggers (wave 17D) -- 701.17a: ``player`` milled ``card`` (read where it lies, in their graveyard)
@@ -1290,6 +1291,10 @@ class CombatHistoryNotice(BaseModel):
     notified: bool = False
 
 
+class FirstEventHistoryNotice78(CombatHistoryNotice):
+    """An unresolved first-action qualification from a legacy midturn save."""
+
+
 class CombatReceipt(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
@@ -1373,6 +1378,8 @@ class RulesState(BaseModel):
     graveyard_history_from_turn: int | None = None  # Complete physical-card arrival history; None is legacy unknown.
     turn_seen: int = 0  # last turn number the bookkeeping saw
     target_activation_history_turn: int | None = None  # Unknown on legacy midturn saves; complete after a native turn boundary.
+    first_event_history_turn78: int | None = None
+    first_event_notices78: list[FirstEventHistoryNotice78] = Field(default_factory=list)
     turn_started: dict[str, int] = Field(default_factory=dict)  # player -> number of their latest turn
     controlled_since: dict[str, ControlMark] = Field(default_factory=dict)
     # -- control (wave 3K) -- the cards whose controller a layer-2 effect set (so that when the effect ends
@@ -1712,6 +1719,7 @@ def start_rules(state: GameState) -> RulesState:
         step=f"{state.turn.number}:{state.turn.phase}",
         priority=state.turn.active_player,
         turn_seen=state.turn.number,
+        first_event_history_turn78=(state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None),
         cast_history_complete=True if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
         target_activation_history_turn=state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
         coin_history_from_turn=state.turn.number if state.seq <= 1 else state.turn.number + 1,
@@ -1957,6 +1965,7 @@ def track(state: GameState, before: Capture | None = None, *, manual: bool = Fal
     if rules.turn_seen != state.turn.number:
         rules.turn_seen = state.turn.number
         rules.target_activation_history_turn = state.turn.number
+        rules.first_event_history_turn78 = state.turn.number
         rules.turn_started[state.turn.active_player] = state.turn.number
     turn_log_now(state)  # Initialize even empty turns; completed-own-turn summaries must not skip them.
     on_battlefield: set[str] = set()

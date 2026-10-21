@@ -193,7 +193,6 @@ def test_printed_own_upkeep_native_payment_or_sacrifice(cards, name, color, land
     settle(s)
     d = s.state.rules.decision
     assert d and d.player == 'p1'
-    print('UPKEEP', pay, d.kind, [(o.id,o.label) for o in d.options])
     if pay:
         act(s, 'p1', type='activate_ability', card_id=resource.id, ability=0)
     act(s, 'p1', type='choose', decision_id=d.id, option_ids=['pay' if pay else 'sacrifice'])
@@ -232,3 +231,61 @@ def test_manual_move_cannot_forge_server_entry_putter_receipt(cards):
     settle(s)
     assert s.state.rules.decision is None and s.state.players['p2'].life == 40
     roundtrip(s)
+
+
+def test_second_sunrise_retains_each_actual_owner_putter(cards):
+    s = setup(cards)
+    put(s, NAMES[0], 'battlefield', 'p3')
+    a = put(s, 'Dryad Arbor', 'battlefield')
+    b = put(s, 'Dryad Arbor', 'battlefield', 'p2')
+    removal = put(s, 'Pyroclasm', 'hand')
+    mana(s, C=1, R=1)
+    act(s, 'p1', type='cast_spell', card_id=removal.id)
+    settle(s)
+    assert a.zone == 'p1:graveyard' and b.zone == 'p2:graveyard'
+    source = put(s, 'Second Sunrise', 'hand')
+    wait_priority(s, 'p1')
+    mana(s, C=1, W=2)
+    act(s, 'p1', type='cast_spell', card_id=source.id)
+    assert sorted(decline_all(s)) == ['p1', 'p2']
+    assert s.state.players['p1'].life == s.state.players['p2'].life == 37
+    assert a.zone == 'p1:battlefield' and b.zone == 'p2:battlefield'
+    roundtrip(s)
+
+
+@pytest.mark.parametrize('name,land', [(NAMES[0], 'Forest'), (NAMES[1], 'Swamp')])
+def test_true_cold_putter_payment_preserves_actor_and_own_recipient(cards, tmp_path, name, land):
+    import subprocess
+    import sys
+
+    from tests.test_rules_wave30m_durations import to_phase
+
+    s = setup(cards)
+    put(s, name, 'battlefield')
+    recipient = put(s, 'Grizzly Bears', 'battlefield', 'p2')
+    incoming = put(s, land, 'hand', 'p2')
+    to_phase(s, 'main1', turn=5)
+    act(s, 'p2', type='play_land', card_id=incoming.id)
+    settle(s)
+    assert s.state.rules.decision.player == 'p2'
+    saved = tmp_path / 'putter76.json'
+    saved.write_text(s.state.model_dump_json())
+    code = r"""
+import sys
+from pathlib import Path
+from app.cards.images import ImageStore
+from app.cards.repository import CardRepository
+from app.game.session import GameSession
+from app.game.state import GameState
+from tests.test_rules_entry_putter_receipts76 import pay_counter
+repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
+recipient=s.state.cards[sys.argv[3]]
+pay_counter(s,'p2',recipient)
+assert recipient.counters=={'-1/-1':1}
+assert s.state.players['p1'].life==s.state.players['p2'].life==40
+GameState.model_validate_json(s.state.model_dump_json())
+"""
+    result = subprocess.run([sys.executable, '-c', code, str(saved), str(cards.db_path), recipient.id],
+                            capture_output=True, text=True, timeout=90)
+    assert result.returncode == 0, result.stdout + result.stderr

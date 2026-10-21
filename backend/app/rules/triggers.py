@@ -535,6 +535,8 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
             return [("land_played", played_card, played_ch, e.player, {"oid": e.object_id, "actor": e.player, "snap": e.played_snapshot, "played_from": e.from_zone})]
         got = _object_then(plan, e.card, e.object_id)
         return [("land_played", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "played_from": e.from_zone})] if got is not None else []
+    if e.kind == 'investigated':
+        return [('investigate', None, None, e.player, {'actor': e.actor or e.player, 'amount': 1})]
     if e.kind == "foretold":
         return [("foretell", None, None, e.player, {"actor": e.player, "amount": 1})]
     if e.kind == "cycled":  # 702.29: the card is in its owner's graveyard now (702.29c)
@@ -735,6 +737,10 @@ _PAIRED = {"block": "block_pair", "blocked": "blocked_pair"}
 
 
 def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: Fact, *, source_oid: str | None = None) -> bool:
+    if cond.get('first_event78'):
+        from app.rules import first_event_receipts78
+
+        return first_event_receipts78.matches(plan, cond, watcher, fact, source_oid)
     from app.rules import selectors
 
     event, obj, och, player, info = fact
@@ -1563,6 +1569,9 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
     from app.rules import trigger_damage_threshold70
 
     r = plan.rules
+    from app.rules import first_event_receipts78
+
+    first_batches78: dict[str, tuple[int, bool | None]] = {}
     simultaneous_damage = trigger_damage_threshold70.amounts(events)
     if r.draws_turn != plan.state.turn.number:
         r.draws_turn, r.draws_this_turn = plan.state.turn.number, {}
@@ -1638,6 +1647,7 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
                           watchers=frozen_watchers, left=frozen_left)
             continue
         facts = _facts(plan, e, window)
+        first_event_receipts78.annotate(plan, facts, e.batch, first_batches78)
         for fact in facts:
             if fact[0] == 'dealt_damage' and fact[4].get('oid'):
                 fact[4]['simultaneous_amount'] = simultaneous_damage.get((e.batch, fact[4]['oid']), 0)
@@ -2551,6 +2561,10 @@ def flush(plan: Plan) -> bool:
     from app.rules import combat_player_scope43
 
     if combat_player_scope43.ask_pending(plan):
+        return True
+    from app.rules import first_event_receipts78
+
+    if first_event_receipts78.ask_pending(plan):
         return True
     r = plan.rules
     r.pending_triggers = [t for t in r.pending_triggers if t.controller in plan.live()]

@@ -1165,6 +1165,10 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
     -- replacement effects stage 2 (wave 2E) -- Through the token choke point (app/rules/replace.py:
     614.16, 616.1 per creating player in APNAP order). ``then``: how a caller other than the
     resolver goes on after a paused choice (the resolver itself: its effects continue)."""
+    if e.get('investigate78'):
+        from app.rules import first_event_receipts78
+
+        return first_event_receipts78.investigate(plan, ctx, e)
     t = e["token"]
     count = _amount(plan, ctx, e["n"])
     if count <= 0 and not e.get("more"):  # (wave 34C: a list of kinds is judged kind by kind below: "create X A tokens and two B tokens", X = 0)
@@ -6673,3 +6677,8 @@ PRIMITIVES['targeting_actor_damage77'] = _targeting_sources77.damage_actor
 from app.rules import conditional_free_casts68 as _conditional_free_casts68  # noqa: E402
 
 PRIMITIVES["next_free_cast68"] = _conditional_free_casts68.next_free
+
+
+from app.rules import first_event_receipts78 as _first_event78  # noqa: E402
+
+PRIMITIVES['investigate_complete78'] = _first_event78.complete

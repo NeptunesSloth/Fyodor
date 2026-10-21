@@ -1808,3 +1808,8 @@ RESUME["fixed_top_cost_order46"] = _fixed_top_graveyard_cost46.resume_order
 from app.rules import chosen_color_pairs45 as _chosen_color_pairs45  # noqa: E402
 
 RESUME.update(_chosen_color_pairs45.RESUME)
+
+
+from app.rules import first_event_receipts78 as _first_event78  # noqa: E402
+
+RESUME['first_event_legacy_done78'] = _first_event78.legacy_done

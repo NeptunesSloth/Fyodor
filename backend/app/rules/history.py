@@ -271,6 +271,9 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
     from app.rules import controller_turn_history69
 
     controller_turn_history69.note(events, log, plan.state.turn.number)
+    from app.rules import first_event_receipts78
+
+    first_event_receipts78.note_events(plan, events, log)
     for e in events:
         if e.kind not in ("zone_change", "sacrificed", "damage", "counters", "milled", "land_played") or e.turn != plan.state.turn.number:
             continue

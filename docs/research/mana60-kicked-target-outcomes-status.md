@@ -1,0 +1,9 @@
+# Kicked target and mode outcomes (mana60)
+
+Inscription of Insight, Waste Management and The Eagles Are Coming! now use their actual announced kicker state to choose native target groups and modes. Insight’s final token takes the chosen player’s hand size at resolution, including when that player is a later target slot after bounce and draw modes. Kicked Inscriptions allow any number of distinct modes, including an explicitly chosen zero. Existing Abundance and Ruin receive the same zero-mode correction. A saved zero-mode selection keeps its original object authority when native mana activation completes a pending payment.
+
+Waste Management selects up to two cards in one graveyard when unkicked or a player’s entire graveyard when kicked, then creates Rogues for the creature cards actually exiled. Eagles chooses one owned creature or any number when kicked, returns the actual objects and freezes their successful battlefield-to-hand departure count for the next upkeep. That count includes returned creature tokens after they cease to exist and excludes a commander sent to the command zone instead. Native binding namespaces are retained through whole-definition compilation and delayed saves.
+
+Production20 cases pass, including three fresh-process scenarios, a zero-mode saved mana-payment continuation, grouped modal hand-size targets, both kicker states, single-graveyard restrictions, real zero target selections, ownership rather than control, returned tokens and commander replacement. Thirty-nine directly affected modal/kicker/payment regressions pass. Scoped five-file types and production Ruff pass. Exact evidence: `/tmp/fyodor-mana60-production-admission-manifest.json`.
+
+Four reserved kicker gaps remain: Thieving Skydiver, Monstrous War-Leech, Agonizing Demise and Wicker Picker.

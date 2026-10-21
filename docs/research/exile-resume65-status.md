@@ -61,3 +61,12 @@ Production 37 whole/negative/cold tests and focused five regressions passed. Myp
 Aetherflux Conduit, Chandra Ablaze, Ashiok, Nightmare Muse, Counterlash, Brain in a Jar, and Tetsuo, Imperial Champion are production FULL after concrete canonical/ruling and source review. Existing native free-cast continuations handle filtered hand/graveyard/exile pools, original target spell-face types, original source counter LKI, max attached Equipment value, normal additional costs, and X0. Ashiok’s bounced permanent’s **owner** exiles from their hand; a differing former controller does not. Counterlash’s free cast remains available when its legal target cannot be countered.
 
 Production 34 whole/negative/cold cases and two native legacy event-type regressions passed. Four affected sources passed mypy; owned and shared scoped sources/tests passed Ruff. Six cold cases reopen pending choices in a fresh Python process. Proof manifest: `/tmp/exile-resume67-admitted-manifest.json`. These six belong to the checkpoint55 queue, after checkpoint54. Cumulative owned closed cards:31. No adapters or classifier-only promotions.
+
+
+## Conditional free-cast68: seven whole cards
+
+Omnipresence, Aluren, Fires of Invention, Vision, Spectral Synthezoid, Weftwalking, Once Upon a Time, and World War Hulk are production FULL after concrete source and canonical/ruling review. Native permission and cast-count foundations enforce dynamic creature/land ceilings, per-object once-per-own-turn limits, first-spell predicates, both Fires restrictions, and next matching spell consumption even when paid normally. World War Hulk’s three chapters resolve natively.
+
+Once Upon a Time requires an explicit nullable complete-game-history receipt, initialized only when new RulesState construction observes a prior rule-free table at sequence <=1 and turn1. Missing legacy receipts remain unknown across turns. Aluren’s flash authority is coupled to choosing its free casting option; native response detection preserves that option, independent flash still permits normal paid casting, and mandatory additional costs remain payable.
+
+Production 37 whole/negative/cold cases and focused six regressions passed. Seven genuine cold cases reopen saved static or stored casting authority in a fresh process. Six affected sources passed strict mypy and owned/shared scopes passed Ruff. Proof manifest: `/tmp/exile-resume68-admitted-manifest.json`. These seven are later than checkpoint55. Cumulative owned closed cards:38. No adapters or classifier-only admissions.

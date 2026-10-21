@@ -1980,7 +1980,7 @@ def _exile_until(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 @effect(r"investigate")
 def _investigate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     type_line, text = PREDEFINED_TOKENS["Clue"]
-    return [{"do": "create_token", "who": "you", "n": 1,
+    return [{"do": "create_token", "investigate78": True, "who": "you", "n": 1,
              "token": {"name": "Clue", "power": None, "toughness": None, "colors": [], "type_line": type_line, "text": text}}], None
 
 
@@ -1992,7 +1992,7 @@ def _investigate_times(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | No
 @effect(r"investigate that many times")  # -- triggers (wave 19B) -- 701.16a: one Clue each time, as many times as the event's amount
 def _investigate_many(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     type_line, text = PREDEFINED_TOKENS["Clue"]
-    return [{"do": "create_token", "who": "you", "n": {"event_amount": 1},
+    return [{"do": "create_token", "investigate78": True, "who": "you", "n": {"event_amount": 1},
              "token": {"name": "Clue", "power": None, "toughness": None, "colors": [], "type_line": type_line, "text": text}}], None
 
 
@@ -5721,6 +5721,10 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import first_event_receipts78
+
+    if (first78 := first_event_receipts78.definition(ability, ch)) is not None:
+        return first78
     from app.rules import graveyard_return57
 
     if (return57 := graveyard_return57.definition(ability, ch)) is not None:
@@ -7675,6 +7679,10 @@ def _event_refs_ok(d: Definition) -> bool:
     generic trigger condition whose event has that player or amount can use them. A "one or more"
     trigger has one event per batch (603.2c) — per damaged player for damage to players, per
     acting player for a player's actions — so it can too."""
+    from app.rules import first_event_receipts78
+
+    if not first_event_receipts78.recipes_ok(d):
+        return False
     from app.rules import entry_receipt56
     if (picked := [i for i, e in enumerate(d.get("effects") or []) if e.get("do") == "choose_value" and e.get("what") == "player with the most life or tied for most life"]):
         # -- block events (wave 53C) -- "that player" after "Choose a player with the most life…" is the player chosen (effects._bind_chosen_player), not an event's

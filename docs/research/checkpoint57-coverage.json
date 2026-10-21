@@ -1,0 +1,43 @@
+{
+  "baseline": "checkpoint56",
+  "checkpoint": "checkpoint57",
+  "database_metadata_equal": true,
+  "card_name_set_equal": true,
+  "summary": {
+    "FULL": 29715,
+    "PARTIAL": 2353
+  },
+  "promotions": [
+    "Aluren",
+    "Crawling Sensation",
+    "Erdwal Illuminator",
+    "Fires of Invention",
+    "Inscription of Insight",
+    "Omnipresence",
+    "Once Upon a Time",
+    "The Eagles Are Coming!",
+    "Valiant Rescuer",
+    "Vision, Spectral Synthezoid",
+    "Waste Management",
+    "Weftwalking",
+    "World War Hulk"
+  ],
+  "regressions": [],
+  "unexpected": [],
+  "missing": [],
+  "source_module_count": 830,
+  "source_mypy": "PASS830 original frozen source",
+  "source_ruff": "PASS original frozen source",
+  "core_checks": "PASS54 frozen core tests",
+  "additional_target": {
+    "baseline": "checkpoint48",
+    "verified": 253,
+    "target": 1500,
+    "remaining": 1247
+  },
+  "admissions_status": "All13 have closed native whole/negative/cold and scoped related/type evidence. Later source work excluded.",
+  "quality_repairs": [
+    "Hojo first-turn history initialized only for trusted fresh-game construction;4 native/legacy/cold checks pass, no extra promotion.",
+    "Existing Abundance/Ruin zero-mode declarations and saved payment continuation preserve explicit empty choices; no extra promotion."
+  ]
+}

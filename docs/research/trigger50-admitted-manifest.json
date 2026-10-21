@@ -96,7 +96,10 @@
     "Rambling Possum",
     "Bounding Felidar",
     "Leyline of Combustion",
-    "Mirror-Shield Hoplite"
+    "Mirror-Shield Hoplite",
+    "Erdwal Illuminator",
+    "Valiant Rescuer",
+    "Crawling Sensation"
   ],
   "expected_promotions": [
     "Archivist of Gondor",
@@ -194,7 +197,10 @@
     "Rambling Possum",
     "Bounding Felidar",
     "Leyline of Combustion",
-    "Mirror-Shield Hoplite"
+    "Mirror-Shield Hoplite",
+    "Erdwal Illuminator",
+    "Valiant Rescuer",
+    "Crawling Sensation"
   ],
   "production_focused": {
     "count": 16,
@@ -1094,5 +1100,31 @@
     },
     "excluded_overlap": "Professor Hojo separately admitted and counted once by mana58 after native cost13/3cold + integrated whole5/1cold production PASS; not counted in trigger77 exact2.",
     "cost_dependency_manifest": "/tmp/fyodor-mana58-hojo-production-admission-manifest.json"
+  },
+  "first_event_receipts78_production": {
+    "baseline": "checkpoint56",
+    "names": [
+      "Erdwal Illuminator",
+      "Valiant Rescuer",
+      "Crawling Sensation"
+    ],
+    "status": "PRODUCTION_VERIFIED_PENDING_NEXT_CATALOG",
+    "whole_checks": 30,
+    "genuine_cold_checks": 6,
+    "production_log": "/tmp/trigger78-production.log",
+    "related_checks": 11,
+    "related_log": "/tmp/trigger78-related-production11.log",
+    "types_checked": 7,
+    "types_log": "/tmp/trigger78-production-types.log",
+    "ruff_log": "/tmp/trigger78-production-ruff.log",
+    "canonical": "/tmp/trigger78-first-events-canonical.json",
+    "rulings": "/tmp/trigger78-first-events-rulings.json",
+    "reviewer": "root",
+    "scope": "Real completed investigate actions split N into native single-Clue actions with token replacements; direct Clue creation distinct. First cycle/investigate/landGY receipts recorded without watcher, same-batch lands aggregateonce. Native turn1 completeness and unknown legacy notice/cold/recovery. Existing bound investigate token receipts explicitly unsupported (151cardscan0bindings). All printed bodies paid and native.",
+    "source_sha256": {
+      "app/rules/first_event_receipts78.py": "07db82abe12a7c67b313da45974b8ce99f263a06bd1c6a99be81288730024d09",
+      "tests/test_rules_first_event_receipts78.py": "441c191b46c0c28369e55c0dc5e2201fb705431b8b4dcc0f73885b3c73338927",
+      "tests/fixtures/first_event_receipts78_cards.json": "077b9ad96c47c499c509f68ff2ae50ea125c902f1a23a5968e7453de19d868ef"
+    }
   }
 }

@@ -356,3 +356,141 @@ def test_glamerdye_native_retrace_discards_actual_land(cards):
     assert source.zone == 'p1:graveyard' and land.zone == 'p1:graveyard'
     assert any('protection from green' in a.text.lower() for a in Plan(s.state, 'p1', s.cards, None).ch(knight).abilities)
     roundtrip(s)
+
+
+def cold_run(s, cards, tmp_path, code, *args):
+    import os
+    import subprocess
+    import sys
+
+    import app
+
+    saved = tmp_path / 'text71.json'
+    saved.write_text(s.state.model_dump_json())
+    backend = Path(app.__file__).resolve().parents[1]
+    prefix = r"""
+import sys
+from pathlib import Path
+from app.cards.images import ImageStore
+from app.cards.repository import CardRepository
+from app.game.session import GameSession
+from app.game.state import GameState
+from app.rules.plan import Plan
+from tests.test_rules_text_changes71 import choose, cast
+from tests.test_rules_designations import roundtrip
+repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
+s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
+"""
+    result = subprocess.run([sys.executable, '-c', prefix + code, str(saved), str(cards.db_path), *args],
+                            cwd=backend, env={**os.environ, 'PYTHONPATH': str(backend)},
+                            capture_output=True, text=True, timeout=180, check=False)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_true_cold_pending_replacement_word(cards, tmp_path):
+    s, land, _ = setup(cards)
+    cast(s, 'Mind Bend', [land.id])
+    choose(s, 'Swamp')
+    cold_run(s, cards, tmp_path, r"""
+assert s.state.rules.decision.player=='p1'
+choose(s,'Island')
+land=s.state.cards[sys.argv[3]]
+assert Plan(s.state,'p1',s.cards,None).ch(land).subtypes==frozenset({'Island'})
+roundtrip(s)
+""", land.id)
+
+
+def test_true_cold_pending_splice_text_receipt(cards, tmp_path):
+    s, _, bear = setup(cards)
+    reach = put(s, 'Reach Through Mists', 'hand', 'p2')
+    ray = put(s, 'Glacial Ray', 'hand', 'p2')
+    mana(s, pid='p2', C=1, U=1, R=1)
+    wait_priority(s, 'p2')
+    act(s, 'p2', type='cast_spell', card_id=reach.id, splice=[ray.id], targets=[bear.id], sources=[])
+    source = put(s, 'Sleight of Mind', 'hand')
+    mana(s, U=1)
+    wait_priority(s, 'p1')
+    act(s, 'p1', type='cast_spell', card_id=source.id, targets=[reach.id], sources=[])
+    settle(s)
+    choose(s, 'red')
+    cold_run(s, cards, tmp_path, r"""
+reach=s.state.cards[sys.argv[3]]
+receipt=s.state.rules.payments[s.state.rules.object_id(reach.id)].splice_text71
+assert receipt is not None and receipt.abilities
+choose(s,'green')
+assert s.state.cards[sys.argv[4]].zone=='p1:graveyard'
+assert s.state.cards[sys.argv[5]].zone=='p2:hand'
+assert reach.zone=='p2:graveyard'
+roundtrip(s)
+""", reach.id, bear.id, ray.id)
+
+
+def test_true_cold_modified_static_source(cards, tmp_path):
+    from tests.test_rules_combat_equipment_blocks70 import equip
+
+    s, _, bear = setup(cards)
+    sword = cast(s, 'Sword of Fire and Ice', [])
+    equip(s, sword, bear)
+    cast(s, 'Sleight of Mind', [sword.id])
+    choose(s, 'red')
+    choose(s, 'green')
+    cold_run(s, cards, tmp_path, r"""
+from app.game.errors import ActionError
+from tests.game_helpers import act
+from tests.test_rules_designations import put
+from tests.test_rules_bandmate_references import mana,wait_priority
+bear=s.state.cards[sys.argv[3]]
+cast(s,'Lightning Bolt',[bear.id])
+source=put(s,'Giant Growth','hand')
+mana(s,G=1)
+wait_priority(s,'p1')
+before=s.state.model_dump_json()
+try:
+    act(s,'p1',type='cast_spell',card_id=source.id,targets=[bear.id],sources=[])
+except ActionError:
+    pass
+else:
+    raise AssertionError('changed source protection must reject green spell')
+assert s.state.model_dump_json()==before
+roundtrip(s)
+""", bear.id)
+
+
+def test_cipher_native_combat_trigger_casts_free_text_change_copy(cards):
+    s, _, bear = setup(cards)
+    knight = put(s, 'Black Knight', 'battlefield')
+    source = cast(s, 'Trait Doctoring', [knight.id])
+    choose(s, 'white')
+    choose(s, 'green')
+    choose(s, bear.id)
+    assert source.zone == 'p1:exile'
+    to_phase(s, 'declare_attackers', turn=7)
+    act(s, 'p1', type='declare_attackers', attackers=[{'card_id': bear.id, 'target': 'p3'}])
+    seen_words = []
+    for _ in range(90):
+        d = s.state.rules.decision
+        if s.state.turn.phase == 'main2' and not s.state.zones.get('stack') and d is None:
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type='pass_priority')
+        elif d.kind == 'declare_blockers':
+            act(s, d.player, type='declare_blockers', blocks=[])
+        else:
+            ids = [o.id for o in d.options]
+            if 'yes' in ids:
+                value = 'yes'
+            elif knight.id in ids:
+                value = knight.id
+            elif 'white' in ids:
+                value = 'white'
+                seen_words.append(value)
+            elif 'green' in ids:
+                value = 'green'
+                seen_words.append(value)
+            else:
+                raise AssertionError((d.prompt, ids))
+            act(s, d.player, type='choose', decision_id=d.id, option_ids=[value])
+    assert seen_words == ['white', 'green']
+    assert source.zone == 'p1:exile'
+    assert any('protection from green' in a.text.lower() for a in Plan(s.state, 'p1', s.cards, None).ch(knight).abilities)
+    roundtrip(s)
