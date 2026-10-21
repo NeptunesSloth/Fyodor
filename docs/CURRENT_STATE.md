@@ -1,6 +1,6 @@
 Wrap-up requested: verified implementation stops at checkpoint57. Uninstalled proposals are preserved separately and excluded from production admissions.
 
-Verified implementation was merged in [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). The wrap-up branch `codex/card-automation-wrap-up` preserves the remaining uninstalled research. PR #18 and PR #19 references below describe historical implementation reviews.
+Verified implementation was merged in [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). [Wrap-up PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20) preserves the remaining uninstalled research on `codex/card-automation-wrap-up`. PR #18 and PR #19 references below describe historical implementation reviews.
 
 ## CHECKPOINT57 VERIFIED — WRAPPED UP
 
