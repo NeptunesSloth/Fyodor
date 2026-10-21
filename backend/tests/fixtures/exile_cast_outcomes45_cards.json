@@ -908,5 +908,22 @@
       "R"
     ],
     "keywords": []
+  },
+  {
+    "name": "Ancestral Vision",
+    "oracle_text": "Suspend 4\u2014{U} (Rather than cast this card from your hand, pay {U} and exile it with four time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)\nTarget player draws three cards.",
+    "type_line": "Sorcery",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "layout": "normal",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Suspend"
+    ]
   }
 ]

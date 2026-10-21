@@ -69,6 +69,13 @@ def parse(body: str) -> tuple[list[dict[str,Any]],Any,bool] | None:
         native=scripts.parse_effects('Each opponent mills three cards.')
         assert native is not None
         return [*native[0],step('opponent_graveyards')],native[1],False
+    if text=='you may cast an instant or sorcery spell with mana value 1 or 2 from your hand without paying its mana cost':
+        key=packets.selector('instant or sorcery spells with mana value 1 or 2')
+        return [{'do':'free_cast','zone':'hand','optional':True,'n':1,'filter':key}],None,False
+    if text=='exile target instant or sorcery card from your graveyard. copy it. you may cast the copy':
+        native=scripts.parse_effects('Exile target instant or sorcery card from your graveyard. Copy it. You may cast the copy without paying its mana cost.')
+        assert native is not None and native[0][-1]['do']=='free_cast'
+        return [*native[0][:-1],{**native[0][-1],'paid':True}],native[1],False
     talent='target opponent reveals the top seven cards of their library. you may cast an instant or sorcery spell from among them without paying its mana cost. then that player puts the rest into their graveyard'
     mastery='if there are two or more instant and/or sorcery cards in your graveyard, you may cast up to two instant and/or sorcery spells from among the revealed cards instead of one'
     if text in (talent,talent+'. '+mastery):
@@ -237,6 +244,7 @@ LIVE_DEFINITIONS: frozenset[str]=frozenset({
 })
 
 LIVE_BODIES: frozenset[str]=frozenset({
+    "each opponent mills three cards, then you may cast a spell from each opponent's graveyard without paying its mana cost. if a spell cast this way would be put into a graveyard, exile it instead",
     'target opponent reveals the top seven cards of their library. you may cast an instant or sorcery spell from among them without paying its mana cost. then that player puts the rest into their graveyard',
     'target opponent reveals the top seven cards of their library. you may cast an instant or sorcery spell from among them without paying its mana cost. then that player puts the rest into their graveyard. if there are two or more instant and/or sorcery cards in your graveyard, you may cast up to two instant and/or sorcery spells from among the revealed cards instead of one',
     "target opponent mills nine cards, then you may cast an instant or sorcery spell from that player's graveyard without paying its mana cost. if that spell would be put into a graveyard, exile it instead",

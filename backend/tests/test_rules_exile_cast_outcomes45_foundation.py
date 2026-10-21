@@ -2120,3 +2120,251 @@ def test_jetsam_actual_countering_source_prevents_all_mill_and_cast_choices(card
     assert s.state.cards[source.id].zone=='p1:graveyard'
     assert s.state.rules.decision is None and s.state.rules.free_cast_then is None
     roundtrip(s)
+
+
+def test_jetsam_actual_free_off_turn_cast_uses_active_player_opponent_graveyard_first(cards):
+    s=setup(cards,'Flotsam // Jetsam','Mindclaw Shaman','Flicker of Fate')
+    host=put(s,'Mindclaw Shaman','battlefield')
+    to_phase(s,'main1',turn=3)
+    source=put(s,'Flotsam // Jetsam','hand',pid='p3')
+    first=put(s,'Divination','graveyard',pid='p3')
+    second=put(s,"Ashnod's Altar",'graveyard',pid='p2')
+    for _ in range(3):
+        if s.state.rules.priority=='p1':
+            break
+        act(s,s.state.rules.priority,type='pass_priority')
+    cast(s,'Flicker of Fate',targets=[host.id])
+    answer(s,['p3'])
+    answer(s,[source.id+'@1'])
+    assert s.state.rules.decision.resume['step']=='free_cast_pick'
+    assert first.id in [o.id for o in s.state.rules.decision.options]
+    assert second.id not in [o.id for o in s.state.rules.decision.options]
+    answer(s,[first.id])
+    assert s.state.cards[first.id].zone=='stack'
+    assert second.id in [o.id for o in s.state.rules.decision.options]
+    answer(s,[second.id])
+    assert s.state.cards[first.id].zone=='p3:exile'
+    assert s.state.cards[second.id].zone=='p1:battlefield'
+    assert s.state.cards[source.id].zone=='p3:graveyard'
+    roundtrip(s)
+
+
+def test_jetsam_actual_optional_decline_keeps_all_graveyard_cards_without_later_permission(cards):
+    s=setup(cards,'Flotsam // Jetsam','Forest')
+    put(s,'Grizzly Bears','battlefield')
+    first=put(s,'Divination','graveyard',pid='p2')
+    land=put(s,'Forest','graveyard',pid='p2')
+    second=put(s,'Giant Growth','graveyard',pid='p3')
+    own=put(s,"Ashnod's Altar",'graveyard')
+    source=put(s,'Flotsam // Jetsam','hand')
+    mana(s,U=2,C=4)
+    act(s,'p1',type='cast_spell',card_id=source.id,face=1)
+    settle(s)
+    ids=[o.card_id for o in s.state.rules.decision.options]
+    assert first.id in ids and land.id not in ids and own.id not in ids and second.id not in ids
+    answer(s,[])
+    assert second.id in [o.card_id for o in s.state.rules.decision.options]
+    answer(s,[])
+    assert s.state.cards[first.id].zone=='p2:graveyard'
+    assert s.state.cards[second.id].zone=='p3:graveyard'
+    assert s.state.rules.free_cast_then is None and not s.state.rules.permissions
+    roundtrip(s)
+
+
+def test_jetsam_actual_x_zero_and_mandatory_additional_discard_are_native_cast_costs(cards):
+    s=setup(cards,'Flotsam // Jetsam','Earthquake','Cathartic Reunion','Murder')
+    first=put(s,'Earthquake','graveyard',pid='p2')
+    second=put(s,'Cathartic Reunion','graveyard',pid='p3')
+    murder=put(s,'Murder','hand')
+    bear=put(s,'Grizzly Bears','hand')
+    before={p:s.state.players[p].life for p in ('p1','p2','p3')}
+    source=put(s,'Flotsam // Jetsam','hand')
+    mana(s,U=2,C=4)
+    act(s,'p1',type='cast_spell',card_id=source.id,face=1)
+    settle(s)
+    answer(s,[first.id])
+    assert s.state.cards[first.id].zone=='stack'
+    answer(s,[second.id])
+    if s.state.rules.decision is not None:
+        assert s.state.rules.decision.resume['step']=='ability_cost'
+        answer(s,[murder.id,bear.id])
+    assert all(s.state.players[p].life==value for p,value in before.items())
+    assert all(s.state.cards[c.id].zone=='p1:graveyard' for c in (murder,bear))
+    assert s.state.cards[first.id].zone=='p2:exile'
+    assert s.state.cards[second.id].zone=='p3:exile'
+    roundtrip(s)
+
+
+@pytest.mark.parametrize('pay',[False,True])
+def test_jetsam_actual_free_spell_cost_increase_pay_or_cancel_continues_other_opponent_cursor(cards,pay):
+    s=setup(cards,'Flotsam // Jetsam','Thalia, Guardian of Thraben')
+    put(s,'Thalia, Guardian of Thraben','battlefield')
+    first=put(s,'Divination','graveyard',pid='p2')
+    second=put(s,'Giant Growth','graveyard',pid='p3')
+    source=put(s,'Flotsam // Jetsam','hand')
+    mana(s,U=2,C=5)
+    act(s,'p1',type='cast_spell',card_id=source.id,face=1)
+    settle(s)
+    act(s,'p1',type='clear_mana',player='p1')
+    act(s,'p1',type='set_prefs',payment='self')
+    answer(s,[first.id])
+    assert s.state.rules.decision.resume['step']=='pay_mana'
+    if pay:
+        mana(s,C=1)
+    answer(s,['pay' if pay else 'cancel'])
+    assert s.state.rules.decision.resume['step']=='free_cast_pick'
+    assert second.id in [o.id for o in s.state.rules.decision.options]
+    answer(s,[])
+    assert s.state.cards[first.id].zone==('p2:exile' if pay else 'p2:graveyard')
+    assert s.state.cards[second.id].zone=='p3:graveyard'
+    assert s.state.rules.free_cast_then is None and not s.state.rules.permissions
+    roundtrip(s)
+
+
+def founding_chapter(cards,chapter,*,first_hand=None,third_graveyard=None,battlefield=None,generic=1):
+    s=setup(cards,'Founding the Third Path',*(first_hand or []),*(third_graveyard or []),*(battlefield or []))
+    for name in first_hand or []:
+        put(s,name,'hand')
+    for name in third_graveyard or []:
+        put(s,name,'graveyard')
+    for name in battlefield or []:
+        put(s,name,'battlefield')
+    put(s,'Grizzly Bears','battlefield')
+    source=put(s,'Founding the Third Path','hand')
+    mana(s,U=1,C=generic)
+    act(s,'p1',type='cast_spell',card_id=source.id)
+    settle(s)
+    d=s.state.rules.decision
+    assert 'chapter number' in d.prompt
+    answer(s,[str(chapter)])
+    return s,source
+
+
+def test_founding_actual_read_ahead_one_free_hand_spell_then_next_turn_chapter_two_mills_four(cards):
+    s,source=founding_chapter(cards,1,first_hand=['Giant Growth','Divination'])
+    growth=next(c for c in s.state.cards.values() if c.name=='Giant Growth' and c.zone=='p1:hand')
+    divination=next(c for c in s.state.cards.values() if c.name=='Divination' and c.zone=='p1:hand')
+    assert s.state.rules.decision.resume['step']=='free_cast_pick'
+    assert divination.id not in [o.card_id for o in s.state.rules.decision.options]
+    # A legal creature target is chosen before this native spell is committed.
+    bear=next(c for c in s.state.cards.values() if c.name=='Grizzly Bears' and c.zone=='p1:battlefield')
+    answer(s,[growth.id])
+    if s.state.rules.decision is not None:
+        answer(s,[bear.id])
+    assert s.state.cards[growth.id].zone=='p1:graveyard'
+    before=len(s.state.zones['p2:library'])
+    to_phase(s,'draw',turn=4)
+    for _ in range(20):
+        if s.state.rules.decision is not None:
+            break
+        act(s,s.state.rules.priority,type='pass_priority')
+    assert 'p2' in [o.id for o in s.state.rules.decision.options]
+    answer(s,['p2'])
+    settle(s)
+    assert len(s.state.zones['p2:library'])==before-4-1
+    assert s.state.cards[source.id].counters.get('lore',0)==2
+    roundtrip(s)
+
+
+def test_founding_actual_read_ahead_three_exiles_original_then_copy_requires_ordinary_mana(cards):
+    s,source=founding_chapter(cards,3,third_graveyard=['Divination'])
+    original=next(c for c in s.state.cards.values() if c.name=='Divination' and c.zone=='p1:graveyard')
+    mana(s,U=1,C=2)
+    answer(s,[original.id])
+    assert s.state.cards[original.id].zone=='p1:exile'
+    d=s.state.rules.decision
+    assert d.resume['step']=='free_cast_pick'
+    copies=[o.card_id for o in d.options if o.card_id!=original.id]
+    assert len(copies)==1
+    act(s,'p1',type='clear_mana',player='p1')
+    act(s,'p1',type='set_prefs',payment='self')
+    answer(s,[copies[0]])
+    assert s.state.rules.decision.resume['step']=='pay_mana'
+    mana(s,U=1,C=2)
+    answer(s,['pay'])
+    assert s.state.cards[source.id].zone=='p1:graveyard'
+    assert s.state.cards[original.id].zone=='p1:exile'
+    roundtrip(s)
+
+
+def test_native_self_cast_can_pay_announced_x_using_non_tap_altar_mana_ability(cards):
+    s=setup(cards,'Earthquake')
+    altar=put(s,"Ashnod's Altar",'battlefield')
+    bear=put(s,'Grizzly Bears','battlefield')
+    spell=put(s,'Earthquake','hand')
+    act(s,'p1',type='set_prefs',payment='self')
+    mana(s,R=1)
+    act(s,'p1',type='cast_spell',card_id=spell.id,x_value=2)
+    assert s.state.rules.decision.resume['step']=='pay_mana'
+    act(s,'p1',type='activate_ability',card_id=altar.id,ability=0)
+    if s.state.rules.decision is not None and s.state.rules.decision.resume['step']=='ability_cost':
+        answer(s,[bear.id])
+    if s.state.rules.decision is not None:
+        assert s.state.rules.decision.resume['step']=='pay_mana'
+        answer(s,['pay'])
+    settle(s)
+    assert s.state.cards[bear.id].zone=='p1:graveyard'
+    assert s.state.cards[spell.id].zone=='p1:graveyard'
+    assert all(s.state.players[p].life==38 for p in ('p1','p2','p3'))
+    roundtrip(s)
+
+
+@pytest.mark.xfail(strict=True,reason='Paid immediate X picker currently treats AUTO mana approximation as legal numeric bound')
+def test_founding_paid_copy_x_choice_must_allow_legal_self_altar_mana(cards):
+    s,_=founding_chapter(cards,3,third_graveyard=['Earthquake'])
+    put(s,"Ashnod's Altar",'battlefield')
+    original=next(c for c in s.state.cards.values() if c.name=='Earthquake' and c.zone=='p1:graveyard')
+    mana(s,R=1)
+    answer(s,[original.id])
+    copy=s.state.rules.decision.options[0].id
+    act(s,'p1',type='set_prefs',payment='self')
+    answer(s,[copy])
+    assert s.state.rules.decision.resume['step']=='free_x'
+    assert 'x:2' in [o.id for o in s.state.rules.decision.options]
+
+
+def test_founding_actual_read_ahead_two_skips_hand_cast_and_can_target_self_for_four_card_mill(cards):
+    s,source=founding_chapter(cards,2,first_hand=['Divination'])
+    before=list(s.state.zones['p1:library'])
+    assert all(p in [o.id for o in s.state.rules.decision.options] for p in ('p1','p2','p3'))
+    answer(s,['p1'])
+    assert len(set(before)&set(s.state.zones['p1:graveyard']))==4
+    assert any(c.name=='Divination' and c.zone=='p1:hand' for c in s.state.cards.values())
+    assert s.state.cards[source.id].zone=='p1:battlefield'
+    assert s.state.cards[source.id].counters.get('lore',0)==2
+    assert s.state.rules.decision is None
+    roundtrip(s)
+
+
+def test_founding_actual_first_chapter_exact_one_or_two_actual_spell_face_from_own_hand(cards):
+    s,_=founding_chapter(cards,1,first_hand=['Ancestral Vision','Divination','Giant Growth','Two-Handed Axe // Sweeping Cleave','Forest'])
+    byname={c.name:c for c in s.state.cards.values() if c.zone=='p1:hand'}
+    ids=[o.id for o in s.state.rules.decision.options]
+    assert byname['Giant Growth'].id in ids
+    axe=byname['Two-Handed Axe // Sweeping Cleave']
+    assert axe.id+'@1' in ids and axe.id+'@0' not in ids
+    assert all(byname[name].id not in ids for name in ('Ancestral Vision','Divination','Forest'))
+    bear=next(c for c in s.state.cards.values() if c.name=='Grizzly Bears' and c.zone=='p1:battlefield')
+    answer(s,[axe.id+'@1'])
+    if s.state.rules.decision is not None:
+        answer(s,[bear.id])
+    assert s.state.cards[axe.id].zone=='p1:exile'
+    assert s.state.cards[byname['Giant Growth'].id].zone=='p1:hand'
+    roundtrip(s)
+
+
+def test_founding_actual_third_chapter_targets_only_own_instant_sorcery_card_and_decline_keeps_original_exiled(cards):
+    s,source=founding_chapter(cards,3,third_graveyard=['Divination','Two-Handed Axe // Sweeping Cleave','Forest'])
+    original=next(c for c in s.state.cards.values() if c.name=='Divination' and c.zone=='p1:graveyard')
+    ids=[o.card_id or o.id for o in s.state.rules.decision.options]
+    assert original.id in ids
+    assert all(c.id not in ids for c in s.state.cards.values() if c.zone=='p1:graveyard' and c.name in ('Forest','Two-Handed Axe // Sweeping Cleave'))
+    mana(s,U=1,C=2)
+    answer(s,[original.id])
+    copies=[o.card_id for o in s.state.rules.decision.options]
+    answer(s,[])
+    assert s.state.cards[original.id].zone=='p1:exile'
+    assert all(cid not in s.state.cards for cid in copies)
+    assert s.state.cards[source.id].zone=='p1:graveyard'
+    assert s.state.rules.free_cast_then is None
+    roundtrip(s)

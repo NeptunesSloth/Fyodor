@@ -1,3 +1,11 @@
+## CHECKPOINT48 VERIFIED — CONTINUING BATCH49
+
+Latest full catalog classification: **29,462 FULL / 2,606 PARTIAL**, 32,068 Commander-legal cards. All5 expected promotions appeared: Wicked Akuba, Sailors' Bane, Hearth Elemental // Stoke Genius, Quarum Trench Gnomes, Flotsam // Jetsam. Zero prior FULL losses and no unexpected or missing promotions. Permanent evidence: [checkpoint48-coverage.json](research/checkpoint48-coverage.json). Stable snapshot713 Python modules, SHA256 map `/tmp/fyodor-catalog48-source-hashes.json`, full native inventory `/tmp/fyodor-fortyeighth-inventory.json`;713 app/tools mypyPASS and configured snapshotRuffPASS. These are coverage classifications; automation remains incomplete.
+
+Focused production: Akuba13 unique cases including1 genuine cold +129 targeting/parser/core-related cases; Sailors/Hearth16 cases including2 genuine cold +92 cost-related; Quarum21 including2 genuine cold +203 related; Flotsam/Jetsam18 including1 genuine cold. Owned types3+2+4 and leaf types passed. Counts overlap and are not a global deduplicated test total.
+
+Post-snapshot batch49: Lashwhip Predator native6 including1 genuine cold +99 cost/condition-related +1 scoped typecheckPASS, outside the classification total. Sunglasses of Urza live-permission spending foundation is isolated and under review. Founding the Third Path remains unadmitted: its paid spell-copy X menu incorrectly treats AUTO affordability as a legal limit; native strict-xfail counterexample is retained and a typed Other-number continuation is being staged. Hall of Gemstone remains held for correct World-rule support. Continue automatically; do not mark all cards finished.
+
 ## CHECKPOINT47 VERIFIED — CONTINUING REMAINING CARDS
 
 Latest full catalog classification: **29,457 FULL / 2,611 PARTIAL**, 32,068 Commander-legal cards. All5 expected promotions appeared: Bogardan Phoenix, Rix Maadi Guildmage, Security Rhox, Reno and Rude, Diluvian Primordial. Zero prior FULL losses and no unexpected or missing promotions. Permanent audit summary: [checkpoint47-coverage.json](research/checkpoint47-coverage.json). Stable native audit snapshot `/tmp/fyodor-catalog47-snapshot`,711 parsed modules with SHA256 map; native inventory `/tmp/fyodor-fortyseventh-inventory.json`. Automation remains incomplete; these are coverage classifications.

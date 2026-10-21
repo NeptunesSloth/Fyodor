@@ -2783,5 +2783,733 @@
     "artist": "Ittoku",
     "edhrec_rank": 27468,
     "faces": []
+  },
+  {
+    "id": "71b03143-9e85-4061-88e6-ad621f75ec3b",
+    "oracle_id": "bcd2f70c-36c2-44b2-9d4b-1000e9bb62b6",
+    "name": "Platinum Emperion",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "uma",
+    "set_name": "Ultimate Masters",
+    "set_type": "masters",
+    "collector_number": "233",
+    "released_at": "2018-12-07",
+    "rarity": "mythic",
+    "mana_cost": "{8}",
+    "cmc": 8.0,
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "Your life total can't change. (You can't gain or lose life. You can't pay any amount of life except 0.)",
+    "power": "8",
+    "toughness": "8",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "produced_mana": null,
+    "all_parts": null,
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/7/1/71b03143-9e85-4061-88e6-ad621f75ec3b.jpg?1783933762",
+      "normal": "https://cards.scryfall.io/normal/front/7/1/71b03143-9e85-4061-88e6-ad621f75ec3b.jpg?1783933762",
+      "large": "https://cards.scryfall.io/large/front/7/1/71b03143-9e85-4061-88e6-ad621f75ec3b.jpg?1783933762",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/7/1/71b03143-9e85-4061-88e6-ad621f75ec3b.jpg?1783933762"
+    },
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "not_legal",
+      "timeless": "not_legal",
+      "gladiator": "not_legal",
+      "pioneer": "not_legal",
+      "modern": "legal",
+      "legacy": "legal",
+      "pauper": "not_legal",
+      "vintage": "legal",
+      "penny": "legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "not_legal",
+      "competitivebrawl": "not_legal",
+      "alchemy": "not_legal",
+      "paupercommander": "not_legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "not_legal",
+      "predh": "legal",
+      "tlr": "not_legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Igor Kieryluk",
+    "edhrec_rank": 4861,
+    "faces": []
+  },
+  {
+    "id": "d175a716-5b69-401b-9902-684a30810288",
+    "oracle_id": "5d22ab00-b454-4407-93d7-65b47f56cbaa",
+    "name": "Sailors' Bane",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "clb",
+    "set_name": "Commander Legends: Battle for Baldur's Gate",
+    "set_type": "draft_innovation",
+    "collector_number": "93",
+    "released_at": "2022-06-10",
+    "rarity": "uncommon",
+    "mana_cost": "{7}{U}{U}",
+    "cmc": 9.0,
+    "type_line": "Creature \u2014 Dragon Turtle",
+    "oracle_text": "This spell costs {1} less to cast for each card you own in exile and in your graveyard that's an instant card, a sorcery card, or a card that has an Adventure.\nWard {4} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {4}.)",
+    "power": "7",
+    "toughness": "7",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Ward"
+    ],
+    "produced_mana": null,
+    "all_parts": null,
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/d/1/d175a716-5b69-401b-9902-684a30810288.jpg?1783922779",
+      "normal": "https://cards.scryfall.io/normal/front/d/1/d175a716-5b69-401b-9902-684a30810288.jpg?1783922779",
+      "large": "https://cards.scryfall.io/large/front/d/1/d175a716-5b69-401b-9902-684a30810288.jpg?1783922779",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/d/1/d175a716-5b69-401b-9902-684a30810288.jpg?1783922779"
+    },
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "not_legal",
+      "timeless": "not_legal",
+      "gladiator": "not_legal",
+      "pioneer": "not_legal",
+      "modern": "not_legal",
+      "legacy": "legal",
+      "pauper": "not_legal",
+      "vintage": "legal",
+      "penny": "not_legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "not_legal",
+      "competitivebrawl": "not_legal",
+      "alchemy": "not_legal",
+      "paupercommander": "not_legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "not_legal",
+      "predh": "not_legal",
+      "tlr": "not_legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Brian Valeza",
+    "edhrec_rank": 14921,
+    "faces": []
+  },
+  {
+    "id": "a8f5f102-cc75-4cee-a117-4bdaaf86c2e9",
+    "oracle_id": "f01cf0c5-0ac6-4ad3-8642-dd21c8e8563e",
+    "name": "Hearth Elemental // Stoke Genius",
+    "lang": "en",
+    "layout": "adventure",
+    "set_code": "woe",
+    "set_name": "Wilds of Eldraine",
+    "set_type": "expansion",
+    "collector_number": "136",
+    "released_at": "2023-09-08",
+    "rarity": "uncommon",
+    "mana_cost": "{5}{R} // {1}{R}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Elemental // Sorcery \u2014 Adventure",
+    "oracle_text": "This spell costs {X} less to cast, where X is the number of cards in your graveyard that are instant cards, sorcery cards, and/or have an Adventure.\n//\nDiscard your hand, then draw two cards. (Then exile this card. You may cast the creature later from exile.)",
+    "power": "4",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "produced_mana": null,
+    "all_parts": [
+      {
+        "id": "fcf4c7fb-7859-4c11-8552-6817f5119d2e",
+        "component": "combo_piece",
+        "name": "On an Adventure",
+        "type_line": "Card"
+      },
+      {
+        "id": "a8f5f102-cc75-4cee-a117-4bdaaf86c2e9",
+        "component": "combo_piece",
+        "name": "Hearth Elemental // Stoke Genius",
+        "type_line": "Creature \u2014 Elemental // Sorcery \u2014 Adventure"
+      }
+    ],
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/a/8/a8f5f102-cc75-4cee-a117-4bdaaf86c2e9.jpg?1783915092",
+      "normal": "https://cards.scryfall.io/normal/front/a/8/a8f5f102-cc75-4cee-a117-4bdaaf86c2e9.jpg?1783915092",
+      "large": "https://cards.scryfall.io/large/front/a/8/a8f5f102-cc75-4cee-a117-4bdaaf86c2e9.jpg?1783915092",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/a/8/a8f5f102-cc75-4cee-a117-4bdaaf86c2e9.jpg?1783915092"
+    },
+    "legalities": {
+      "standard": "legal",
+      "future": "legal",
+      "historic": "legal",
+      "timeless": "legal",
+      "gladiator": "legal",
+      "pioneer": "legal",
+      "modern": "legal",
+      "legacy": "legal",
+      "pauper": "not_legal",
+      "vintage": "legal",
+      "penny": "not_legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "legal",
+      "brawl": "legal",
+      "competitivebrawl": "legal",
+      "alchemy": "not_legal",
+      "paupercommander": "not_legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "not_legal",
+      "predh": "not_legal",
+      "tlr": "not_legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Nicholas Gregory",
+    "edhrec_rank": 15510,
+    "faces": [
+      {
+        "name": "Hearth Elemental",
+        "mana_cost": "{5}{R}",
+        "type_line": "Creature \u2014 Elemental",
+        "oracle_text": "This spell costs {X} less to cast, where X is the number of cards in your graveyard that are instant cards, sorcery cards, and/or have an Adventure.",
+        "power": "4",
+        "toughness": "5"
+      },
+      {
+        "name": "Stoke Genius",
+        "mana_cost": "{1}{R}",
+        "type_line": "Sorcery \u2014 Adventure",
+        "oracle_text": "Discard your hand, then draw two cards. (Then exile this card. You may cast the creature later from exile.)"
+      }
+    ],
+    "card_faces": [
+      {
+        "name": "Hearth Elemental",
+        "mana_cost": "{5}{R}",
+        "type_line": "Creature \u2014 Elemental",
+        "oracle_text": "This spell costs {X} less to cast, where X is the number of cards in your graveyard that are instant cards, sorcery cards, and/or have an Adventure.",
+        "power": "4",
+        "toughness": "5"
+      },
+      {
+        "name": "Stoke Genius",
+        "mana_cost": "{1}{R}",
+        "type_line": "Sorcery \u2014 Adventure",
+        "oracle_text": "Discard your hand, then draw two cards. (Then exile this card. You may cast the creature later from exile.)"
+      }
+    ]
+  },
+  {
+    "id": "475d7e9a-759d-4523-a5cd-2a6e0d1b14ea",
+    "oracle_id": "68f36dfa-bbd2-4860-b09b-37e35136be72",
+    "name": "Bramble Familiar // Fetch Quest",
+    "lang": "en",
+    "layout": "adventure",
+    "set_code": "woe",
+    "set_name": "Wilds of Eldraine",
+    "set_type": "expansion",
+    "collector_number": "164",
+    "released_at": "2023-09-08",
+    "rarity": "rare",
+    "mana_cost": "{1}{G} // {5}{G}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Elemental Raccoon // Sorcery \u2014 Adventure",
+    "oracle_text": "{T}: Add {G}.\n{1}{G}, {T}, Discard a card: Return this creature to its owner's hand.\n//\nMill seven cards. Then put a creature, enchantment, or land card from among the milled cards onto the battlefield.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "produced_mana": "[\"G\"]",
+    "all_parts": [
+      {
+        "id": "1ee74605-63be-41cd-a6ba-1b33f8094ec9",
+        "component": "combo_piece",
+        "name": "Bramble Familiar // Fetch Quest",
+        "type_line": "Creature \u2014 Elemental Raccoon // Sorcery \u2014 Adventure"
+      },
+      {
+        "id": "fcf4c7fb-7859-4c11-8552-6817f5119d2e",
+        "component": "combo_piece",
+        "name": "On an Adventure",
+        "type_line": "Card"
+      }
+    ],
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/4/7/475d7e9a-759d-4523-a5cd-2a6e0d1b14ea.jpg?1783915084",
+      "normal": "https://cards.scryfall.io/normal/front/4/7/475d7e9a-759d-4523-a5cd-2a6e0d1b14ea.jpg?1783915084",
+      "large": "https://cards.scryfall.io/large/front/4/7/475d7e9a-759d-4523-a5cd-2a6e0d1b14ea.jpg?1783915084",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/4/7/475d7e9a-759d-4523-a5cd-2a6e0d1b14ea.jpg?1783915084"
+    },
+    "legalities": {
+      "standard": "legal",
+      "future": "legal",
+      "historic": "legal",
+      "timeless": "legal",
+      "gladiator": "legal",
+      "pioneer": "legal",
+      "modern": "legal",
+      "legacy": "legal",
+      "pauper": "not_legal",
+      "vintage": "legal",
+      "penny": "legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "legal",
+      "brawl": "legal",
+      "competitivebrawl": "legal",
+      "alchemy": "not_legal",
+      "paupercommander": "not_legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "not_legal",
+      "predh": "not_legal",
+      "tlr": "not_legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Simon Dominic",
+    "edhrec_rank": 3688,
+    "faces": [
+      {
+        "name": "Bramble Familiar",
+        "mana_cost": "{1}{G}",
+        "type_line": "Creature \u2014 Elemental Raccoon",
+        "oracle_text": "{T}: Add {G}.\n{1}{G}, {T}, Discard a card: Return this creature to its owner's hand.",
+        "power": "2",
+        "toughness": "2"
+      },
+      {
+        "name": "Fetch Quest",
+        "mana_cost": "{5}{G}{G}",
+        "type_line": "Sorcery \u2014 Adventure",
+        "oracle_text": "Mill seven cards. Then put a creature, enchantment, or land card from among the milled cards onto the battlefield."
+      }
+    ],
+    "card_faces": [
+      {
+        "name": "Bramble Familiar",
+        "mana_cost": "{1}{G}",
+        "type_line": "Creature \u2014 Elemental Raccoon",
+        "oracle_text": "{T}: Add {G}.\n{1}{G}, {T}, Discard a card: Return this creature to its owner's hand.",
+        "power": "2",
+        "toughness": "2"
+      },
+      {
+        "name": "Fetch Quest",
+        "mana_cost": "{5}{G}{G}",
+        "type_line": "Sorcery \u2014 Adventure",
+        "oracle_text": "Mill seven cards. Then put a creature, enchantment, or land card from among the milled cards onto the battlefield."
+      }
+    ]
+  },
+  {
+    "id": "18303862-4726-4136-814f-157aa7006579",
+    "oracle_id": "ae92942b-919c-4ea9-b693-85fcef765d5a",
+    "name": "Fire // Ice",
+    "lang": "en",
+    "layout": "split",
+    "set_code": "dmr",
+    "set_name": "Dominaria Remastered",
+    "set_type": "masters",
+    "collector_number": "215",
+    "released_at": "2023-01-13",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{R} // {1}{U}",
+    "cmc": 4.0,
+    "type_line": "Instant // Instant",
+    "oracle_text": "Fire deals 2 damage divided as you choose among one or two targets.\n//\nTap target permanent.\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "produced_mana": null,
+    "all_parts": null,
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/1/8/18303862-4726-4136-814f-157aa7006579.jpg?1783918420",
+      "normal": "https://cards.scryfall.io/normal/front/1/8/18303862-4726-4136-814f-157aa7006579.jpg?1783918420",
+      "large": "https://cards.scryfall.io/large/front/1/8/18303862-4726-4136-814f-157aa7006579.jpg?1783918420",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/1/8/18303862-4726-4136-814f-157aa7006579.jpg?1783918420"
+    },
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "not_legal",
+      "timeless": "not_legal",
+      "gladiator": "not_legal",
+      "pioneer": "not_legal",
+      "modern": "legal",
+      "legacy": "legal",
+      "pauper": "legal",
+      "vintage": "legal",
+      "penny": "not_legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "not_legal",
+      "competitivebrawl": "not_legal",
+      "alchemy": "not_legal",
+      "paupercommander": "legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "legal",
+      "predh": "legal",
+      "tlr": "legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "David Martin & Franz Vohwinkel",
+    "edhrec_rank": 13207,
+    "faces": [
+      {
+        "name": "Fire",
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant",
+        "oracle_text": "Fire deals 2 damage divided as you choose among one or two targets."
+      },
+      {
+        "name": "Ice",
+        "mana_cost": "{1}{U}",
+        "type_line": "Instant",
+        "oracle_text": "Tap target permanent.\nDraw a card."
+      }
+    ],
+    "card_faces": [
+      {
+        "name": "Fire",
+        "mana_cost": "{1}{R}",
+        "type_line": "Instant",
+        "oracle_text": "Fire deals 2 damage divided as you choose among one or two targets."
+      },
+      {
+        "name": "Ice",
+        "mana_cost": "{1}{U}",
+        "type_line": "Instant",
+        "oracle_text": "Tap target permanent.\nDraw a card."
+      }
+    ]
+  },
+  {
+    "id": "3930cca5-f10c-48eb-8ec8-2df521f5dfe9",
+    "oracle_id": "ed14be15-8f8d-4fe3-a147-f5da8ed873bf",
+    "name": "Conduit of Worlds",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "tdc",
+    "set_name": "Tarkir: Dragonstorm Commander",
+    "set_type": "commander",
+    "collector_number": "251",
+    "released_at": "2025-04-11",
+    "rarity": "rare",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "You may play lands from your graveyard.\n{T}: Choose target nonland permanent card in your graveyard. If you haven't cast a spell this turn, you may cast that card. If you do, you can't cast additional spells this turn. Activate only as a sorcery.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "produced_mana": null,
+    "all_parts": null,
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/3/9/3930cca5-f10c-48eb-8ec8-2df521f5dfe9.jpg?1783907050",
+      "normal": "https://cards.scryfall.io/normal/front/3/9/3930cca5-f10c-48eb-8ec8-2df521f5dfe9.jpg?1783907050",
+      "large": "https://cards.scryfall.io/large/front/3/9/3930cca5-f10c-48eb-8ec8-2df521f5dfe9.jpg?1783907050",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/3/9/3930cca5-f10c-48eb-8ec8-2df521f5dfe9.jpg?1783907050"
+    },
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "legal",
+      "timeless": "legal",
+      "gladiator": "legal",
+      "pioneer": "legal",
+      "modern": "legal",
+      "legacy": "legal",
+      "pauper": "not_legal",
+      "vintage": "legal",
+      "penny": "legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "legal",
+      "competitivebrawl": "legal",
+      "alchemy": "not_legal",
+      "paupercommander": "not_legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "not_legal",
+      "predh": "not_legal",
+      "tlr": "not_legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Jokubas Uogintas",
+    "edhrec_rank": 567,
+    "faces": []
+  },
+  {
+    "id": "705b4d97-2f50-47f7-9053-d748f4337553",
+    "oracle_id": "e4625704-1d52-44e4-804f-2f45644d76ac",
+    "name": "Muldrotha, the Gravetide",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "ecc",
+    "set_name": "Lorwyn Eclipsed Commander",
+    "set_type": "commander",
+    "collector_number": "128",
+    "released_at": "2026-01-23",
+    "rarity": "mythic",
+    "mana_cost": "{3}{B}{G}{U}",
+    "cmc": 6.0,
+    "type_line": "Legendary Creature \u2014 Elemental Avatar",
+    "oracle_text": "During each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard. (If a card has multiple permanent types, choose one as you play it.)",
+    "power": "6",
+    "toughness": "6",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "U"
+    ],
+    "keywords": [],
+    "produced_mana": null,
+    "all_parts": null,
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/7/0/705b4d97-2f50-47f7-9053-d748f4337553.jpg?1783904538",
+      "normal": "https://cards.scryfall.io/normal/front/7/0/705b4d97-2f50-47f7-9053-d748f4337553.jpg?1783904538",
+      "large": "https://cards.scryfall.io/large/front/7/0/705b4d97-2f50-47f7-9053-d748f4337553.jpg?1783904538",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/7/0/705b4d97-2f50-47f7-9053-d748f4337553.jpg?1783904538"
+    },
+    "legalities": {
+      "standard": "legal",
+      "future": "legal",
+      "historic": "legal",
+      "timeless": "legal",
+      "gladiator": "legal",
+      "pioneer": "legal",
+      "modern": "legal",
+      "legacy": "legal",
+      "pauper": "not_legal",
+      "vintage": "legal",
+      "penny": "legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "legal",
+      "brawl": "legal",
+      "competitivebrawl": "legal",
+      "alchemy": "legal",
+      "paupercommander": "not_legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "not_legal",
+      "predh": "not_legal",
+      "tlr": "not_legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Jason Rainville",
+    "edhrec_rank": 1101,
+    "faces": []
+  },
+  {
+    "id": "24553e98-29a9-47e3-91c7-9add708d9ad1",
+    "oracle_id": "56035e66-e730-436d-8de2-4ded7fd1b51e",
+    "name": "Lashwhip Predator",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "eoe",
+    "set_name": "Edge of Eternities",
+    "set_type": "expansion",
+    "collector_number": "195",
+    "released_at": "2025-08-01",
+    "rarity": "uncommon",
+    "mana_cost": "{4}{G}{G}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Plant Beast",
+    "oracle_text": "This spell costs {2} less to cast if your opponents control three or more creatures.\nReach",
+    "power": "5",
+    "toughness": "7",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Reach"
+    ],
+    "produced_mana": null,
+    "all_parts": null,
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/2/4/24553e98-29a9-47e3-91c7-9add708d9ad1.jpg?1783905935",
+      "normal": "https://cards.scryfall.io/normal/front/2/4/24553e98-29a9-47e3-91c7-9add708d9ad1.jpg?1783905935",
+      "large": "https://cards.scryfall.io/large/front/2/4/24553e98-29a9-47e3-91c7-9add708d9ad1.jpg?1783905935",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/2/4/24553e98-29a9-47e3-91c7-9add708d9ad1.jpg?1783905935"
+    },
+    "legalities": {
+      "standard": "legal",
+      "future": "legal",
+      "historic": "legal",
+      "timeless": "legal",
+      "gladiator": "legal",
+      "pioneer": "legal",
+      "modern": "legal",
+      "legacy": "legal",
+      "pauper": "not_legal",
+      "vintage": "legal",
+      "penny": "not_legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "legal",
+      "brawl": "legal",
+      "competitivebrawl": "legal",
+      "alchemy": "legal",
+      "paupercommander": "not_legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "not_legal",
+      "predh": "not_legal",
+      "tlr": "not_legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Brian Valeza",
+    "edhrec_rank": 19131,
+    "faces": []
+  },
+  {
+    "id": "5e227a63-abea-494e-9d66-6ff0a3da14ca",
+    "oracle_id": "d6ffdaf0-ac08-4de9-bbce-2eab2f86bcca",
+    "name": "Wind Drake",
+    "lang": "en",
+    "layout": "normal",
+    "set_code": "kld",
+    "set_name": "Kaladesh",
+    "set_type": "expansion",
+    "collector_number": "70",
+    "released_at": "2016-09-30",
+    "rarity": "common",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Drake",
+    "oracle_text": "Flying",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "produced_mana": null,
+    "all_parts": null,
+    "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/5/e/5e227a63-abea-494e-9d66-6ff0a3da14ca.jpg?1783937211",
+      "normal": "https://cards.scryfall.io/normal/front/5/e/5e227a63-abea-494e-9d66-6ff0a3da14ca.jpg?1783937211",
+      "large": "https://cards.scryfall.io/large/front/5/e/5e227a63-abea-494e-9d66-6ff0a3da14ca.jpg?1783937211",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/5/e/5e227a63-abea-494e-9d66-6ff0a3da14ca.jpg?1783937211"
+    },
+    "legalities": {
+      "standard": "not_legal",
+      "future": "not_legal",
+      "historic": "not_legal",
+      "timeless": "not_legal",
+      "gladiator": "not_legal",
+      "pioneer": "legal",
+      "modern": "legal",
+      "legacy": "legal",
+      "pauper": "legal",
+      "vintage": "legal",
+      "penny": "legal",
+      "commander": "legal",
+      "oathbreaker": "legal",
+      "standardbrawl": "not_legal",
+      "brawl": "not_legal",
+      "competitivebrawl": "not_legal",
+      "alchemy": "not_legal",
+      "paupercommander": "legal",
+      "duel": "legal",
+      "oldschool": "not_legal",
+      "premodern": "legal",
+      "predh": "legal",
+      "tlr": "legal"
+    },
+    "is_token": 0,
+    "digital": 0,
+    "promo": 0,
+    "artist": "Todd Lockwood",
+    "edhrec_rank": 26627,
+    "faces": []
   }
 ]

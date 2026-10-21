@@ -115,6 +115,7 @@ class Selector:
     # belonging to the last kind only. Only target phrases are read this way (parse_either); other consumers never see it.
     either: tuple[str, ...] = ()
     lost_life_this_turn: bool = False
+    damaged_by_source_this_turn: bool = False
 
     def key(self) -> str:
         """Canonical and compact: only fields that differ from the defaults."""
@@ -2022,7 +2023,7 @@ def defending_players(plan: Plan, source: str | None, attacker: str | None = Non
     return {d} if d else set()
 
 
-def matches_player(plan: Plan, sel: Selector, pid: str, you: str) -> bool:
+def matches_player(plan: Plan, sel: Selector, pid: str, you: str, *, source_object: str | None = None) -> bool:
     if sel.player is None or pid not in plan.live():
         return False
     if sel.player_exclude is not None and (not sel.player_exclude.startswith("player:") or pid == sel.player_exclude[7:]):
@@ -2031,6 +2032,14 @@ def matches_player(plan: Plan, sel: Selector, pid: str, you: str) -> bool:
         from app.rules.history import log_for
 
         if log_for(plan).lost.get(pid, 0) <= 0:
+            return False
+    if sel.damaged_by_source_this_turn:
+        from app.rules.history import log_for
+
+        if source_object is None or not any(
+            fact.kind == "damage" and fact.player == pid and fact.amount > 0 and fact.object_id == source_object
+            for fact in log_for(plan).facts
+        ):
             return False
     if sel.player == "opponent":
         return pid != you

@@ -6546,3 +6546,7 @@ RESUME.update(_random_vehicle_crash45.RESUME)
 from app.rules import quoted_prevention_loss47 as _quoted_prevention_loss47  # noqa: E402
 
 PRIMITIVES.update(_quoted_prevention_loss47.PRIMITIVES)
+
+from app.rules import mana_persistent_replacements48 as _mana_persistent_replacements48  # noqa: E402
+
+PRIMITIVES.update(_mana_persistent_replacements48.PRIMITIVES)

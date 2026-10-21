@@ -1619,6 +1619,12 @@ def _target_loses_after_loss(m: re.Match[str]) -> tuple[list[dict[str, Any]], st
     return [{"do": "lose_life", "who": "target", "n": num(m["n"])}], target.key()
 
 
+@effect(r"target player dealt damage by (?:~|this creature) this turn loses {N} life")
+def _target_loses_after_source_damage(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    target = selectors.Selector(player="any", damaged_by_source_this_turn=True)
+    return [{"do": "lose_life", "who": "target", "n": num(m["n"])}], target.key()
+
+
 # -- life lost (wave 8B) -- "Each opponent loses life equal to the life they lost this turn." (Wound Reflection): each
 # opponent's own total (the turn's log, 119.3), read for them as the instruction is carried out (608.2h)
 @effect(r"each opponent loses life equal to the life (?:they|that player) lost this turn")
@@ -5673,6 +5679,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (mana_followthrough := mana_followthrough_profiles.definition(ability, ch)) is not None:
         return mana_followthrough
+    from app.rules import mana_persistent_replacements48
+
+    if (persistent_mana := mana_persistent_replacements48.definition(ability, ch)) is not None:
+        return persistent_mana
     from app.rules import mana_security_rhox47
 
     if (rhox := mana_security_rhox47.definition(ability, ch)) is not None:

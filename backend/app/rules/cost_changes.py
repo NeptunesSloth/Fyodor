@@ -50,7 +50,11 @@ def _value(phrase: str) -> values.Value | None:
     m = _SELF_STAT.fullmatch(phrase.strip())
     if m:
         return {m["stat"]: "self"}
-    found = values.parse_count(phrase, it="self")
+    from app.rules import adventure_card_discounts48
+
+    found: values.Value | None = adventure_card_discounts48.value(phrase)
+    if found is None:
+        found = values.parse_count(phrase, it="self")
     if isinstance(found, dict) and ({"x", "event_amount", "ref_amount", "event_count", "kicked", "colors_spent"} & set(found)
                                     or "hand" in found and found["hand"] not in ("you",) or "life" in found and found["life"] == "target"):
         return None  # (nothing here has an X, a trigger event, targets or a payment to read)

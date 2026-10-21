@@ -762,6 +762,15 @@ class ObjectRef(BaseModel):
     snapshot: ObjectSnapshot | None = None  # as it last existed, when it had already left (603.10a)
 
 
+class ResolvedManaColorReplacement(BaseModel):
+    """One resolved white-to-colorless effect on an exact permanent, indefinitely."""
+
+    id: str
+    target: ObjectRef
+    op: Literal['white_to_colorless'] = 'white_to_colorless'
+    source_object: str | None = None
+
+
 class PhaseLifetime(BaseModel):
     """Direct phasing recipients held until one original source actually leaves (610.3)."""
 
@@ -1440,6 +1449,7 @@ class RulesState(BaseModel):
     # -- mana riders (wave 5A) -- "Until end of turn, whenever a player taps an Island for mana, that player adds an
     # additional {U}." (High Tide; app/rules/tap_mana.py): {"turn", "controller", "def"}
     tap_mana: list[dict[str, Any]] = Field(default_factory=list)
+    resolved_mana_replacements: list[ResolvedManaColorReplacement] = Field(default_factory=list)
     # 903.9b: commanders just put into their owner's hand / library (card id -> "hand" | "library")
     # whose owner hasn't yet said whether it goes to the command zone instead (asked before priority)
     pending_903_9b: dict[str, str] = Field(default_factory=dict)
