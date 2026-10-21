@@ -1,0 +1,59 @@
+{
+  "status": "PRODUCTION VERIFIED; additional exact3 from recursive graveyard either validation",
+  "baseline": "checkpoint55",
+  "cards": [
+    {
+      "name": "Endless Ranks of HYDRA",
+      "oracle_id": "2fb76cdf-438b-48f5-aceb-db637381d052",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Fear of Infinity",
+      "oracle_id": "018327d1-a3ba-4912-9c88-f0f0c54a1750",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Vivi's Persistence",
+      "oracle_id": "fd4a1f4b-674d-41f3-a9a6-c2b65bf5c1ab",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    }
+  ],
+  "whole_checks": 22,
+  "cold_paths": 3,
+  "test_files": [
+    "tests/test_rules_graveyardwatch57_expanded3.py"
+  ],
+  "logs": {
+    "production": "/tmp/resume-graveyardwatch57-expanded3-production.log",
+    "collection": "/tmp/resume-graveyardwatch57-expanded3-collection.log",
+    "ruff": "/tmp/resume-graveyardwatch57-expanded3-production-ruff.log"
+  },
+  "source_changed": false,
+  "implementation_manifest": "/tmp/resume-graveyardwatch57-production-manifest.json",
+  "types_evidence": "/tmp/resume-graveyardwatch57-production-types.log",
+  "types_modules_existing_source": 8,
+  "ruff_files": 1,
+  "canonical": "/tmp/resume-graveyardwatch57-expanded3-canonical.json",
+  "all_official_rulings": "/tmp/resume-graveyardwatch57-expanded3-rulings.json",
+  "canonical_proof": "/tmp/resume-graveyardwatch57-expanded3-production-canonical-proof.json",
+  "semantics": [
+    "Actual Reanimate enters your owned commander under opponent control: positive. You reanimate opponent commander under your control: negative. Both pairs also tested with actual later attacks, for both sorceries.",
+    "Native optional mana pay/decline and original source graveyard OID boundaries.",
+    "HYDRA actual spell creates exactly one2/1 black menace Villain per opponent; one-block menace attempt rejected atomically.",
+    "Vivi actual spell creates0/1 Wizard; its noncreature-spell trigger damages each opponent before the triggering Bolt resolves.",
+    "Fear actual enchantment entry, other-player negative, first-door negative then fully-unlocked Room return, original source OID guard.",
+    "Fear actual flying prohibits ground block; actual combat lifelink gains2; cannot-block attempt rejected atomically.",
+    "Three genuine fresh Python processes restore pending native returns without adapters/bootstrap."
+  ],
+  "exclusions": [
+    "These three were unexpected FULL promotions and withheld from expected until these whole proofs closed.",
+    "No generic owner parser repair: existing your-commander either branches already owner=you and no controller restriction.",
+    "Prior seven57 cards and prior related41 checks not recounted."
+  ]
+}

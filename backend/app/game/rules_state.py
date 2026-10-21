@@ -1630,6 +1630,7 @@ class RulesState(BaseModel):
     completed_own_turns: dict[str, CompletedOwnTurn] = Field(default_factory=dict)
     own_turn_history_known: list[str] = Field(default_factory=list)
     own_turn_history_notice: bool = False
+    cast_history_complete: bool | None = None  # True only when automation observed the trusted fresh-game boundary.
     named_casts_game: dict[str, dict[str, int]] = Field(default_factory=dict)  # public names when actually cast, per player, across turns
     entry_life_losses: dict[str, int] = Field(default_factory=dict)  # exact source incarnation / entry ability -> actual life lost
     entry_life_origins: list[str] = Field(default_factory=list)  # automatic entries observed with entry-life bookkeeping available
@@ -1711,6 +1712,8 @@ def start_rules(state: GameState) -> RulesState:
         step=f"{state.turn.number}:{state.turn.phase}",
         priority=state.turn.active_player,
         turn_seen=state.turn.number,
+        cast_history_complete=True if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
+        target_activation_history_turn=state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
         coin_history_from_turn=state.turn.number if state.seq <= 1 else state.turn.number + 1,
         graveyard_history_from_turn=state.turn.number if state.seq <= 1 else state.turn.number + 1,
         combat_memory=CombatMemory(known_empty=list(state.seat_order) if state.seq <= 1 else []),

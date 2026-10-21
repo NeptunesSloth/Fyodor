@@ -1244,6 +1244,7 @@ class Grant:
     use_trigger: PermissionUseTrigger | None = None
     spell_keywords: tuple[str, ...] = ()  # Abilities of a spell cast using this selected authority.
     flash: bool = False  # as though it had flash (601.3b)
+    flash_requires_free: bool = False  # This timing authority applies only to its zero-mana casting option.
     permission: str | None = None  # the stored Permission's id
     spend: str = ""  # -- as long as (wave 9B) -- "" | "type" | "color": how mana may be spent casting with it (118.14, 609.4b)
     once_key: str | None = None  # a static "once during each of your turns" ability's key
@@ -1381,7 +1382,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
     turn = state.turn.number
     where = _card_zone(state, player, card)
     oid = r.object_id(card.id)
-    from app.rules import permission_use_triggers43
+    from app.rules import conditional_free_casts68, permission_use_triggers43
 
     out: list[Grant] = []
     for p in r.permissions:
@@ -1443,6 +1444,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         for d in _definitions(ch).values():
             if d.get("static") == "permission" and d.get("self") and d.get("free") and d["zone"] == "hand" \
                     and (d.get("cond") != "commander" or _controls_commander(state, player)):
+                if not conditional_free_casts68.eligible(state, info, player, card, ch, d):
+                    continue
                 if d.get("while") is not None and not _while_holds(state, info, player, card, d["while"]):
                     continue
                 out.append(Grant("permission", f"{ch.name}: cast it without paying its mana cost", free=True, flash=bool(d.get("flash"))))
@@ -1485,6 +1488,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                              once_key=key if d["once"] else None, choice_key=key, enters=d.get("enters"), spend=d.get("spend", ""),
                              use_trigger=permission_use_triggers43.static_receipt(state, src, index, d.get("use_trigger"))))
             continue
+        if not conditional_free_casts68.eligible(state, info, player, card, ch, d):
+            continue
         permission_where = 'exile' if d.get('exile_counter') and card.zone.endswith(':exile') else where
         if d["zone"] != "any" and permission_where not in d.get("zones", [d["zone"]]):
             continue
@@ -1521,7 +1526,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         # cast ("choose one as you play it"); one grant per type still unused, the player picks which (cast_grant ``slot``)
         slots = [t for t in SLOT_TYPES if (t == "Land") == (verb == "play") and t in ch.types and r.once_per_turn.get(f"{key}:{t}") != turn] \
             if d.get("slots") else [""]
-        out += [Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"], free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
+        out += [Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"], flash_requires_free=bool(d.get("flash_requires_free")), free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
                       once_key=f"{key}:{slot}" if slot else key if d["once"] else None, choice_key=f"{key}:{slot}" if slot else key, extra=d.get("extra") or "", exile_gy=d.get("exile_gy", ""),
                       slot=slot, enters=d.get("enters"), spend=d.get("spend", "")) for slot in slots]
     # -- top of library (wave 5I) -- the player picks the permission they use (601.3): a once-each-turn one is offered

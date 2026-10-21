@@ -1,5 +1,13 @@
 Current review: [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). PR #18 was already merged; later work remained safely pushed on the same branch and is now included in the open continuation PR. Historical PR18 references below refer to that shared branch and earlier review.
 
+## CHECKPOINT56 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,702 FULL / 2,366 PARTIAL**, among 32,068 Commander-legal cards. **14 reviewed promotions** from checkpoint55; zero prior FULL regressions, unreviewed or missing promotions. Database metadata and card names match. **240 of 1,500 additional completions verified; 1,260 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
+
+Evidence: [checkpoint56-coverage.json](research/checkpoint56-coverage.json) and [827-module source hashes](research/checkpoint56-source-hashes.json). Original frozen source passes full mypy827, configured Ruff and 54 core engine/history/privacy tests. The14 comprise10 graveyard-return cards and4 conditional kicker effects. Three additional recursive-either trigger candidates were held until their dedicated22 native checks, including3 genuine cold saves, passed; the original11 expected set and additional review remain documented. All admitted cards have closed whole-card, negative, multiplayer, saved-game and relevant regression evidence.
+
+Current review is PR19; work is continuously pushed. Six workers continue conditional target/mode rules, optional payment continuations, first-event receipts, entry putter provenance, static free casting and text changes. The already admitted Hojo now has a separate fresh-turn1 constructor-marker repair with4 native/legacy/cold checks passing; it is not another promotion and follows this frozen source. Later source changes remain outside these totals until another audit. All remaining automation and the1,500-card target remain unfinished.
+
 ## CHECKPOINT55 VERIFIED — CONTINUING
 
 Latest full catalog classification: **29,688 FULL / 2,380 PARTIAL**, among 32,068 Commander-legal cards. **12 exact expected promotions** from checkpoint54; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **226 of 1,500 additional completions verified; 1,274 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.

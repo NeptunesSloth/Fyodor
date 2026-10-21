@@ -281,3 +281,17 @@ roundtrip(s)
     result = subprocess.run([sys.executable, '-c', code, str(saved), str(cards.db_path), altar.id, bear.id, gear.id, hojo.id],
                             cwd=Path(first_target_activation_cost58.__file__).resolve().parents[2], capture_output=True, text=True, timeout=90)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_true_fresh_turn_one_hojo_reduces_first_native_equip(cards):
+    from tests.test_rules_declaration_requirements33 import start
+    from tests.test_rules_shared_damage_choices import table
+    s = table(cards, ['Professor Hojo','Grizzly Bears','Silver-Inlaid Dagger'], [], [])
+    start(s, turn=1)
+    assert s.state.turn.number == 1
+    put(s, 'Professor Hojo', 'battlefield')
+    bear = put(s, 'Grizzly Bears', 'battlefield')
+    gear = put(s, 'Silver-Inlaid Dagger', 'battlefield')
+    equip(s, gear, bear)
+    assert gear.attached_to == bear.id and not mana_units.visible_pool(s.state, 'p1')
+    roundtrip(s)

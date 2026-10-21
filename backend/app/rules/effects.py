@@ -3021,6 +3021,9 @@ from app.rules import copying, graveyard_cost_grants57  # noqa: E402
 
 PRIMITIVES.update(graveyard_cost_grants57.PRIMITIVES)
 PRIMITIVES.update(copying.PRIMITIVES)
+from app.rules import kicked_target_outcomes60  # noqa: E402
+
+PRIMITIVES.update(kicked_target_outcomes60.PRIMITIVES)
 from app.rules import crew_saddle, phasing  # noqa: E402
 
 PRIMITIVES.update(phasing.PRIMITIVES)  # -- phasing (wave 13D) -- 702.26
@@ -6665,3 +6668,8 @@ PRIMITIVES.update({"mount_vehicle76": _saddled_receipts76.mount_vehicle,
 from app.rules import targeting_sources77 as _targeting_sources77  # noqa: E402
 
 PRIMITIVES['targeting_actor_damage77'] = _targeting_sources77.damage_actor
+
+
+from app.rules import conditional_free_casts68 as _conditional_free_casts68  # noqa: E402
+
+PRIMITIVES["next_free_cast68"] = _conditional_free_casts68.next_free

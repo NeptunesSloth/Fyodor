@@ -916,7 +916,7 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "hand" in v and v["hand"] == "opponent_max":  # (wave 42A) the opponent with the most cards in hand: that many (0 with no opponent)
         return max([len(plan.state.zones.get(f"{p}:hand", [])) for p in plan.live() if p != you] or [0])
     if "hand" in v:
-        players = [you] if v["hand"] == "you" else _target_players(plan, ctx)
+        players = [you] if v["hand"] == "you" else _target_players(plan, ctx, v["hand"] if str(v["hand"]).startswith("target:") else "target")
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in players)
     if "library" in v:  # -- static grants (wave 15A) -- "half their library": the cards in the library of the player it names
         from app.rules import context

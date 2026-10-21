@@ -1,0 +1,50 @@
+{
+  "baseline": "checkpoint55",
+  "checkpoint": "checkpoint56",
+  "database_metadata_equal": true,
+  "card_name_set_equal": true,
+  "summary": {
+    "FULL": 29702,
+    "PARTIAL": 2366
+  },
+  "promotions": [
+    "Chandra's Phoenix",
+    "Command the Stage",
+    "Dawn Evangel",
+    "Deathmist Raptor",
+    "Endless Ranks of HYDRA",
+    "Fear of Infinity",
+    "Grave Scrabbler",
+    "Molten Disaster",
+    "Scorching Lava",
+    "Skyfire Phoenix",
+    "Sword of the Meek",
+    "Urza's Rage",
+    "Vines of Vastwood",
+    "Vivi's Persistence"
+  ],
+  "regressions": [],
+  "unexpected": [],
+  "missing": [],
+  "source_module_count": 827,
+  "source_mypy": "PASS827 original frozen source",
+  "source_ruff": "PASS original frozen source",
+  "core_checks": "PASS54 frozen core tests",
+  "additional_target": {
+    "baseline": "checkpoint48",
+    "verified": 240,
+    "target": 1500,
+    "remaining": 1260
+  },
+  "admissions_status": "All14 have closed native whole/negative/cold and scoped related/type evidence. Later source work excluded.",
+  "initial_expected_count": 11,
+  "additional_promotion_review": {
+    "initial_unexpected": [
+      "Endless Ranks of HYDRA",
+      "Fear of Infinity",
+      "Vivi's Persistence"
+    ],
+    "disposition": "Held until full Oracle/rulings review and22 native production checks including3 genuine cold passed; no source repair or classifier change required. Added explicitly after proof closure.",
+    "evidence": "graveyardwatch57-expanded3-production.json"
+  }
+}

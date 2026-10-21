@@ -1,6 +1,6 @@
 # Automatic card-rule work queue
 
-The user explicitly requests automatic reassignment to the next biggest remaining groups when agents finish. Keep this instruction across checkpoints. The target remains at least 1,500 additional verified completions from checkpoint48; checkpoint55 verifies 226 cumulatively from checkpoint48, leaving 1,274 toward that target.
+The user explicitly requests automatic reassignment to the next biggest remaining groups when agents finish. Keep this instruction across checkpoints. The target remains at least 1,500 additional verified completions from checkpoint48; checkpoint56 verifies 240 cumulatively from checkpoint48, leaving 1,260 toward that target.
 
 Use the newest verified catalog inventory to choose coherent shared rule gaps. Broad family counts overlap and do not establish how many cards an implementation completes. Prefer reusable semantics with concrete whole-card candidates, rather than choosing individual cards solely for popularity.
 
@@ -17,4 +17,4 @@ After each batch, send the exact completed-card manifest, native whole-card/nega
 
 Each production admission requires the exact reviewed source, native whole-card and negative proofs, genuine cold continuation where applicable, and related checks. Production closures after checkpoint50 remain uncounted until the next frozen catalog diff.
 
-Current live worker names after restart: resume_triggers, resume_counters, resume_mana, resume_exile, resume_library, integration_review (now static/combat implementation). Checkpoint55 verifies12 additional promotions; target progress226/1,500. Later batches stay uncounted until their snapshot diff. Root remains active across checkpoints and status questions.
+Current live worker names after restart: resume_triggers, resume_counters, resume_mana, resume_exile, resume_library, integration_review (now static/combat implementation). Checkpoint56 verifies14 reviewed promotions; target progress240/1,500. Later batches stay uncounted until their snapshot diff. Root remains active across checkpoints and status questions.

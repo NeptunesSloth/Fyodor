@@ -1333,7 +1333,7 @@ def _free_cast_source(e: dict[str, Any], pronoun: str, intro: _Introducer | None
     return True
 
 
-_TARGET_REFS = ("who", "library", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player", "cards", "for_player", "that", "recipient_ref", "exclude_target", "excess_on")  # (that: -- player-relative selectors (wave 53A) --) ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)  # (for_player: wave 50I, "Target player gains X life, where X is the greatest power among creatures they control" in a mode with other groups)
+_TARGET_REFS = ("who", "hand", "library", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player", "cards", "for_player", "that", "recipient_ref", "exclude_target", "excess_on")  # (that: -- player-relative selectors (wave 53A) --) ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)  # (for_player: wave 50I, "Target player gains X life, where X is the greatest power among creatures they control" in a mode with other groups)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:
@@ -1777,8 +1777,12 @@ def _someone_creates(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
     subject (a pronoun is resolved later, resolve_it)."""
     from app.rules import language  # (a leaf module)
 
-    # -- token & pump wordings (wave 6C) -- "Its controller creates a 1/1 … token with changeling": the token grammar
-    made = _token_parse("create " + m["rest"]) if not re.search(r"\bfor each\b|, where ", m["rest"]) else None
+    # A targeted player's own hand is a frozen target reference, including grouped modal slots.
+    targeted_hand = m["s"] in ("target player", "target opponent") and m["rest"].endswith(
+        ", where X is the number of cards in their hand")
+    token_body = m["rest"].replace(
+        ", where X is the number of cards in their hand", ", where X is the number of cards in target player's hand") if targeted_hand else m["rest"]
+    made = _token_parse("create " + token_body) if targeted_hand or not re.search(r"\bfor each\b|, where ", m["rest"]) else None
     # (wave 38B: "that attacking player creates a tapped … token that's attacking that opponent" — token_grammar.create_attacking, by that player)
     if made is not None and all(e["do"] == "create_token" or (e["do"] == "create_attacking" and m["s"] in ("that player", "its controller")) for e in made):
         if m["s"] in ("target player", "target opponent"):
@@ -2778,6 +2782,11 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (creature_damage := creature_damage_followups.parse(body)) is not None:
         return creature_damage
+
+    from app.rules import kicked_target_outcomes60
+
+    if (kicked_targets := kicked_target_outcomes60.parse(body)) is not None:
+        return kicked_targets
 
     from app.rules import kicked_spell_outcomes59
 
@@ -6051,6 +6060,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (torch_exile65 := torch_exile_receipts65.definition(ability, ch)) is not None:
         return torch_exile65
+    from app.rules import conditional_free_casts68
+
+    if (conditional68 := conditional_free_casts68.definition(ability, ch)) is not None:
+        return conditional68
+
     from app.rules import immediate_cast_pools67
 
     if (immediate67 := immediate_cast_pools67.definition(ability, ch)) is not None:
@@ -8043,9 +8057,8 @@ def modal_header(text: str) -> tuple[int, int, bool, dict[str, Any] | None] | No
             {"object": "self", "cast": {"optional": "blight"}})):  # (-- blight (wave 51E) -- Pyrrhic Strike)
         return None
     both = m["k"] not in ("one or more", "any number")
-    # (-- most-played modal spells (wave 50I) -- "If this spell was kicked, choose any number instead." (Inscription of Abundance) reads as "one or more";
-    # ponytail: choosing no mode at all, which does nothing, isn't offered)
-    return 1, 1, False, {"cond": cond, "min": 1 if m["may"] or not both else 2, "max": 2 if both else 99}
+    # CR107.1c: "any number" includes zero; native mode decisions retain an explicitly empty choice.
+    return 1, 1, False, {"cond": cond, "min": 0 if m["k"] == "any number" else 1 if m["may"] or not both else 2, "max": 2 if both else 99}
 
 
 def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | None:

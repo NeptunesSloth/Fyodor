@@ -35,7 +35,7 @@ def cards(settings):
 
 
 def setup(cards):
-    s = table(cards, [c['name'] for c in DATA] + ['Swamp', 'Grizzly Bears', 'Sol Ring'], ['Grizzly Bears', 'Icy Manipulator', 'Elvish Visionary', 'Deathmark'], ['Grizzly Bears'])
+    s = table(cards, [c['name'] for c in DATA] + ['Swamp', 'Grizzly Bears', 'Sol Ring'], ['Grizzly Bears', 'Icy Manipulator', 'Elvish Visionary', 'Deathmark', 'Reach Through Mists', 'Glacial Ray', 'Sleight of Mind'], ['Grizzly Bears'])
     land = put(s, 'Swamp', 'battlefield')
     bear = put(s, 'Grizzly Bears', 'battlefield')
     start(s)
@@ -49,11 +49,11 @@ def choose(s, value):
     settle(s)
 
 
-def cast(s, name, targets):
+def cast(s, name, targets, **kwargs):
     c = put(s, name, 'hand')
     mana(s, C=8, U=5, W=5, B=5, R=5, G=5)
     wait_priority(s, 'p1')
-    act(s, 'p1', type='cast_spell', card_id=c.id, targets=list(targets), sources=[])
+    act(s, 'p1', type='cast_spell', card_id=c.id, targets=list(targets), sources=[], **kwargs)
     settle(s)
     return c
 
@@ -146,10 +146,12 @@ def modified_knight(cards):
     wait_priority(s, 'p1')
     act(s, 'p1', type='cast_spell', card_id=knight.id, targets=[], sources=[])
     old = s.state.rules.object_id(knight.id)
-    source = put(s, 'Sleight of Mind', 'hand')
-    mana(s, U=1)
-    wait_priority(s, 'p1')
-    act(s, 'p1', type='cast_spell', card_id=source.id, targets=[knight.id], sources=[])
+    assert knight.zone == 'stack'
+    source = put(s, 'Sleight of Mind', 'hand', 'p2')
+    mana(s, pid='p2', U=1)
+    wait_priority(s, 'p2')
+    assert knight.zone == 'stack'
+    act(s, 'p2', type='cast_spell', card_id=source.id, targets=[knight.id], sources=[])
     settle(s)
     choose(s, 'white')
     choose(s, 'green')
@@ -177,4 +179,180 @@ def test_native_copy_excludes_layer3_text_change_and_blink_resets_it(cards):
     ch = Plan(s.state, 'p1', s.cards, None).ch(knight)
     assert any('protection from white' in a.text.lower() for a in ch.abilities)
     assert not any('protection from green' in a.text.lower() for a in ch.abilities)
+    roundtrip(s)
+
+
+def test_entwined_native_modes_keep_distinct_original_targets(cards):
+    s, land, _ = setup(cards)
+    knight = cast(s, 'Black Knight', [])
+    cast(s, 'Spectral Shift', [land.id, knight.id], modes=[0, 1], kicker=1)
+    choose(s, 'Swamp')
+    choose(s, 'Island')
+    choose(s, 'white')
+    choose(s, 'green')
+    plan = Plan(s.state, 'p1', s.cards, None)
+    assert plan.ch(land).subtypes == frozenset({'Island'})
+    assert any('protection from green' in a.text.lower() for a in plan.ch(knight).abilities)
+    roundtrip(s)
+
+
+def test_modified_modal_spell_preserves_modes_and_changes_effect_color(cards):
+    s, _, _ = setup(cards)
+    guile = put(s, "Kaya's Guile", 'hand')
+    mana(s, C=1, W=1, B=1)
+    wait_priority(s, 'p1')
+    life = s.state.players['p1'].life
+    act(s, 'p1', type='cast_spell', card_id=guile.id, modes=[2, 3], targets=[], sources=[])
+    assert guile.zone == 'stack'
+    source = put(s, 'Sleight of Mind', 'hand', 'p2')
+    mana(s, pid='p2', U=1)
+    wait_priority(s, 'p2')
+    assert guile.zone == 'stack'
+    act(s, 'p2', type='cast_spell', card_id=source.id, targets=[guile.id], sources=[])
+    settle(s)
+    choose(s, 'white')
+    choose(s, 'red')
+    tokens = [c for c in s.state.cards.values() if c.is_token and c.zone == 'p1:battlefield']
+    assert len(tokens) == 1 and Plan(s.state, 'p1', s.cards, None).ch(tokens[0]).colors == frozenset({'B', 'R'})
+    assert s.state.players['p1'].life == life + 4
+    roundtrip(s)
+
+
+def test_modified_spliced_spell_keeps_original_paid_extra_text(cards):
+    s, _, bear = setup(cards)
+    reach = put(s, 'Reach Through Mists', 'hand', 'p2')
+    ray = put(s, 'Glacial Ray', 'hand', 'p2')
+    mana(s, pid='p2', C=1, U=1, R=1)
+    wait_priority(s, 'p2')
+    act(s, 'p2', type='cast_spell', card_id=reach.id, splice=[ray.id], targets=[bear.id], sources=[])
+    record = s.state.rules.payments[s.state.rules.object_id(reach.id)]
+    assert record.splice_text71 is not None and record.splice_text71.abilities
+    source = put(s, 'Sleight of Mind', 'hand')
+    mana(s, U=1)
+    wait_priority(s, 'p1')
+    act(s, 'p1', type='cast_spell', card_id=source.id, targets=[reach.id], sources=[])
+    settle(s)
+    choose(s, 'red')
+    choose(s, 'green')
+    assert bear.zone == 'p1:graveyard' and ray.zone == 'p2:hand' and reach.zone == 'p2:graveyard'
+    roundtrip(s)
+
+
+@pytest.mark.parametrize('changed', ['host', 'sword'])
+def test_text_change_affects_grant_source_but_not_granted_holder_text(cards, changed):
+    from tests.test_rules_combat_equipment_blocks70 import equip
+
+    s, _, bear = setup(cards)
+    sword = cast(s, 'Sword of Fire and Ice', [])
+    if changed == 'sword':
+        equip(s, sword, bear)
+    cast(s, 'Sleight of Mind', [bear.id if changed == 'host' else sword.id])
+    choose(s, 'red')
+    choose(s, 'green')
+    if changed == 'host':
+        equip(s, sword, bear)
+    for name, blocked in [('Lightning Bolt', changed == 'host'), ('Giant Growth', changed == 'sword')]:
+        source = put(s, name, 'hand')
+        mana(s, R=1, G=1)
+        wait_priority(s, 'p1')
+        if blocked:
+            before = s.state.model_dump_json()
+            with pytest.raises(ActionError):
+                act(s, 'p1', type='cast_spell', card_id=source.id, targets=[bear.id], sources=[])
+            assert s.state.model_dump_json() == before
+        else:
+            act(s, 'p1', type='cast_spell', card_id=source.id, targets=[bear.id], sources=[])
+            settle(s)
+    roundtrip(s)
+
+
+WHOLE = ['Mind Bend', 'Sleight of Mind', 'Magical Hack', 'Alter Reality', 'Glamerdye', 'Spectral Shift',
+         'Crystal Spray', 'Whim of Volrath', 'Trait Doctoring', 'Artificial Evolution']
+
+
+@pytest.mark.parametrize('name', WHOLE)
+def test_canonical_paid_whole_card_positive(name, cards):
+    s, land, bear = setup(cards)
+    knight = put(s, 'Black Knight', 'battlefield')
+    merfolk = put(s, 'Merfolk of the Pearl Trident', 'battlefield')
+    assert coverage.of_card_data(cards.resolve(name)).level == 'FULL'
+    if name == 'Artificial Evolution':
+        target, old, new = merfolk, 'Merfolk', 'Goblin'
+    elif name in ('Magical Hack', 'Spectral Shift'):
+        target, old, new = land, 'Swamp', 'Island'
+    else:
+        target, old, new = knight, 'white', 'green'
+    source = put(s, name, 'hand')
+    hand_before = len(s.state.zones['p1:hand'])
+    mana(s, U=5, C=5)
+    wait_priority(s, 'p1')
+    act(s, 'p1', type='cast_spell', card_id=source.id, targets=[target.id], sources=[],
+        **({'modes': [0]} if name == 'Spectral Shift' else {}))
+    record = s.state.rules.payments[s.state.rules.object_id(source.id)]
+    assert record.total_cost
+    settle(s)
+    choose(s, old)
+    if name == 'Artificial Evolution':
+        assert 'Wall' not in [o.id for o in s.state.rules.decision.options]
+    choose(s, new)
+    if name == 'Trait Doctoring':
+        choose(s, bear.id)
+        assert source.zone == 'p1:exile'
+    else:
+        assert source.zone == 'p1:graveyard'
+    current = Plan(s.state, 'p1', s.cards, None).ch(target)
+    if old == 'white':
+        assert any('protection from green' in a.text.lower() for a in current.abilities)
+    else:
+        assert new in current.subtypes and old not in current.subtypes
+    if name == 'Artificial Evolution':
+        assert current.name == 'Merfolk of the Pearl Trident'
+    if name == 'Crystal Spray':
+        assert len(s.state.zones['p1:hand']) == hand_before
+    roundtrip(s)
+
+
+def test_whim_buyback_and_end_of_turn_duration(cards):
+    s, _, _ = setup(cards)
+    knight = put(s, 'Black Knight', 'battlefield')
+    source = cast(s, 'Whim of Volrath', [knight.id], buyback=True)
+    choose(s, 'white')
+    choose(s, 'green')
+    assert source.zone == 'p1:hand'
+    assert any('protection from green' in a.text.lower() for a in Plan(s.state, 'p1', s.cards, None).ch(knight).abilities)
+    to_phase(s, 'main1', turn=7)
+    assert any('protection from white' in a.text.lower() for a in Plan(s.state, 'p1', s.cards, None).ch(knight).abilities)
+    roundtrip(s)
+
+
+def test_alter_reality_native_flashback_exiles_after_resolution(cards):
+    s, _, _ = setup(cards)
+    knight = put(s, 'Black Knight', 'battlefield')
+    source = put(s, 'Alter Reality', 'graveyard')
+    mana(s, U=2, C=1)
+    wait_priority(s, 'p1')
+    act(s, 'p1', type='cast_spell', card_id=source.id, targets=[knight.id], sources=[])
+    settle(s)
+    choose(s, 'white')
+    choose(s, 'green')
+    assert source.zone == 'p1:exile'
+    assert any('protection from green' in a.text.lower() for a in Plan(s.state, 'p1', s.cards, None).ch(knight).abilities)
+    roundtrip(s)
+
+
+def test_glamerdye_native_retrace_discards_actual_land(cards):
+    s, _, _ = setup(cards)
+    knight = put(s, 'Black Knight', 'battlefield')
+    source = put(s, 'Glamerdye', 'graveyard')
+    land = next(c for c in s.state.cards.values() if c.owner == 'p1' and c.name == 'Forest')
+    act(s, 'p1', type='move', card_ids=[land.id], to={'player': 'p1', 'zone': 'hand'})
+    mana(s, U=1, C=1)
+    wait_priority(s, 'p1')
+    act(s, 'p1', type='cast_spell', card_id=source.id, targets=[knight.id], sources=[],
+        cost_choices=[{'component': 0, 'cards': [land.id]}])
+    settle(s)
+    choose(s, 'white')
+    choose(s, 'green')
+    assert source.zone == 'p1:graveyard' and land.zone == 'p1:graveyard'
+    assert any('protection from green' in a.text.lower() for a in Plan(s.state, 'p1', s.cards, None).ch(knight).abilities)
     roundtrip(s)

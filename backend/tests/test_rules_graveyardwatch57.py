@@ -1,4 +1,4 @@
-"""Actual optional source counters pay before reflexive target selection."""
+"""Native graveyard return watchers preserve actual events and original object identities."""
 from __future__ import annotations
 
 import json

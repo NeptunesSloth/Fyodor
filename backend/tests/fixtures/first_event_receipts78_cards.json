@@ -1,0 +1,293 @@
+[
+  {
+    "name": "Erdwal Illuminator",
+    "mana_cost": "{1}{U}",
+    "type_line": "Creature \u2014 Spirit",
+    "oracle_text": "Flying\nWhenever you investigate for the first time each turn, investigate an additional time.",
+    "power": "1",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Investigate"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Valiant Rescuer",
+    "mana_cost": "{1}{W}",
+    "type_line": "Creature \u2014 Human Soldier",
+    "oracle_text": "Whenever you cycle another card for the first time each turn, create a 1/1 white Human Soldier creature token.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    "power": "3",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Cycling"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Crawling Sensation",
+    "mana_cost": "{2}{G}",
+    "type_line": "Enchantment",
+    "oracle_text": "At the beginning of your upkeep, you may mill two cards. (You may put the top two cards of your library into your graveyard.)\nWhenever one or more land cards are put into your graveyard from anywhere for the first time each turn, create a 1/1 green Insect creature token.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Secrets of the Key",
+    "mana_cost": "{U}",
+    "type_line": "Instant",
+    "oracle_text": "Investigate. If this spell was cast from a graveyard, investigate twice instead. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")\nFlashback {3}{U}",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Investigate",
+      "Flashback"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Wavesifter",
+    "mana_cost": "{3}{G}{U}",
+    "type_line": "Creature \u2014 Elemental",
+    "oracle_text": "Flying\nWhen this creature enters, investigate twice. (To investigate, create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")\nEvoke {G}{U} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)",
+    "power": "3",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Investigate",
+      "Evoke"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Cunning Maneuver",
+    "mana_cost": "{1}{R}",
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets +3/+1 until end of turn.\nCreate a Clue token. (It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Parallel Lives",
+    "mana_cost": "{3}{G}",
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Academy Manufactor",
+    "mana_cost": "{3}",
+    "type_line": "Artifact Creature \u2014 Assembly-Worker",
+    "oracle_text": "If you would create a Clue, Food, or Treasure token, instead create one of each.",
+    "power": "1",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Treasure",
+      "Food"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Remote Isle",
+    "mana_cost": "",
+    "type_line": "Land",
+    "oracle_text": "This land enters tapped.\n{T}: Add {U}.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Cycling"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Barren Moor",
+    "mana_cost": "",
+    "type_line": "Land",
+    "oracle_text": "This land enters tapped.\n{T}: Add {B}.\nCycling {B} ({B}, Discard this card: Draw a card.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Cycling"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Armageddon",
+    "mana_cost": "{3}{W}",
+    "type_line": "Sorcery",
+    "oracle_text": "Destroy all lands.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Millstone",
+    "mana_cost": "{2}",
+    "type_line": "Artifact",
+    "oracle_text": "{2}, {T}: Target player mills two cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Mill"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Declaration in Stone",
+    "mana_cost": "{1}{W}",
+    "type_line": "Sorcery",
+    "oracle_text": "Exile target creature and all other creatures its controller controls with the same name as that creature. That player investigates for each nontoken creature exiled this way.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Investigate"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Chatterfang, Squirrel General",
+    "mana_cost": "{2}{G}",
+    "type_line": "Legendary Creature \u2014 Squirrel Warrior",
+    "oracle_text": "Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)\nIf one or more tokens would be created under your control, those tokens plus that many 1/1 green Squirrel creature tokens are created instead.\n{B}, Sacrifice X Squirrels: Target creature gets +X/-X until end of turn.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [
+      "Landwalk",
+      "Forestwalk"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Deduce",
+    "mana_cost": "{1}{U}",
+    "type_line": "Instant",
+    "oracle_text": "Draw a card. Investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Investigate"
+    ],
+    "card_faces": null
+  }
+]

@@ -2388,6 +2388,8 @@ def _rerun(plan: Plan, d: Any, intent: Any, sources: list[str]) -> None:
     plan.locked_payment_context = d.resume.get('payment_context') if isinstance(d.resume,dict) else None
     plan.locked_cast_timing = d.resume.get('cast_timing_object') if isinstance(d.resume, dict) else None
     plan.locked_cast_greatest_power = d.resume.get('cast_greatest_power') if isinstance(d.resume, dict) else None
+    zero_modes = d.resume.get("zero_modes_object") if isinstance(d.resume, dict) else None
+    plan.locked_zero_modes = zero_modes if isinstance(zero_modes, str) else None
     try:
         INTENTS[intent.type](plan, intent)
     finally:
@@ -2396,6 +2398,7 @@ def _rerun(plan: Plan, d: Any, intent: Any, sources: list[str]) -> None:
         plan.locked_payment_context = None
         plan.locked_cast_timing = None
         plan.locked_cast_greatest_power = None
+        plan.locked_zero_modes = None
 
 
 def can_pay(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *, exclude: tuple[str, ...] = (),
@@ -2697,7 +2700,7 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
             and perm.controller == player:
         how = "prepared"  # -- prepared (wave 13C) -- 722.3c: its controller may cast the copy in exile
     found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
-    flash = any(g.flash for g in found)
+    flash = any(g.flash and (free or not g.flash_requires_free) for g in found)
     if how is None and info is not None and card.zone == zone_key(player, "foretell") and not free and card.owner == player \
             and _foretell_offers(state, player, card, ch, info):
         how = "foretell"  # -- hidden exile (wave 18A) -- 702.143a: cast from the foretell exile for the foretell cost (only that way)
@@ -3245,14 +3248,14 @@ def resume_free_multikicker(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 # -- cast without paying (wave 3C) --
-def free_castable(state: GameState, player: str, card: CardInstance, info: CardInfo) -> bool:
+def free_castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *, check_priority: bool = True) -> bool:
     """Whether any legal alternative permission can pay this face's required costs now."""
     from app.rules import alt_costs, spell_mana_floor
 
     faces = (0, 1) if chars.is_two_spell_card(card, info) else (None,)
     for face in faces:
         ch = chars.as_cast(card, info, face)
-        if cast_problem(state, player, card, ch, info=info, free=True) is not None:
+        if cast_problem(state, player, card, ch, info=info, free=True, check_priority=check_priority) is not None:
             continue
         manual = state.rules is not None and state.rules.card_mode(card.id) == "manual"
         printed = None if manual else costs.spell_additional_cost(ch.abilities)
@@ -6576,6 +6579,9 @@ def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
             ch = chars.of(card, info)
             if ("Instant" in ch.types or ch.has_flash or _flash_granted(state, player, card, ch, info) or flash_if(ch) is not None) \
                     and castable(state, player, card, info, check_priority=False):
+                return True
+            if any(g.flash and g.flash_requires_free for g in permissions.grants(state, player, card, ch, info, verb="cast")) and free_castable(
+                    state, player, card, info, check_priority=False):
                 return True
             # -- cost changers (wave 4I) -- an instant castable only for an alternative cost (Force of Will with no mana
             # open) is a response too: never auto-passed over
