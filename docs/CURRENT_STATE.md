@@ -1,5 +1,7 @@
 ## CHECKPOINT48 VERIFIED — CONTINUING BATCH49
 
+Post-snapshot Closing Statement: seven focused native/canonical cases PASS including genuine cold, own-end-step discount, own main phases/opponent end-step full cost, destruction and optional counter target.113 shared cost/condition regressions PASS; two scoped types and owned Ruff PASS. Actual database canonical read; official rulings fetch returned HTTP400, so no new ruling source is claimed. Exact current-step condition is evaluated alongside active-player ownership. Outside checkpoint48 audited totals.
+
 User target: complete at least **1,500 additional cards** from checkpoint48; target **30,962 FULL / at most1,106 PARTIAL**. Planning groups and deduplicated affected-card lists are in [remaining1500-plan.json](research/remaining1500-plan.json); these are priorities, not completed work.
 
 Post-snapshot Lumbering Megasloth: six native/canonical cases PASS, including genuine cold reload, actual paid-cost receipts, individual counters on all players and permanents, speed/nonpermanent exclusions, green cost floor, enters tapped, and actual chosen trample damage. Shared value/counter/Lashwhip regression run123PASS (overlaps focused cases); scoped values mypy and owned Ruff PASS. Outside checkpoint48 totals pending combined catalog audit.

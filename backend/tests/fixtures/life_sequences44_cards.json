@@ -10,8 +10,8 @@
     "rarity": "mythic",
     "mana_cost": "{2}{W}{W}",
     "cmc": 4.0,
-    "type_line": "Legendary Planeswalker \u2014 Ajani",
-    "oracle_text": "+1: You gain life equal to the number of creatures you control plus the number of planeswalkers you control.\n\u22122: Create a 2/2 white Cat Soldier creature token named Ajani's Pridemate with \"Whenever you gain life, put a +1/+1 counter on this token.\"\n0: If you have at least 15 life more than your starting life total, exile Ajani and each artifact and creature your opponents control.",
+    "type_line": "Legendary Planeswalker — Ajani",
+    "oracle_text": "+1: You gain life equal to the number of creatures you control plus the number of planeswalkers you control.\n−2: Create a 2/2 white Cat Soldier creature token named Ajani's Pridemate with \"Whenever you gain life, put a +1/+1 counter on this token.\"\n0: If you have at least 15 life more than your starting life total, exile Ajani and each artifact and creature your opponents control.",
     "power": null,
     "toughness": null,
     "loyalty": "5",
@@ -35,7 +35,7 @@
       {
         "id": "7801c326-d740-4cec-9268-05348ace8302",
         "name": "Ajani's Pridemate",
-        "type_line": "Token Creature \u2014 Cat Soldier"
+        "type_line": "Token Creature — Cat Soldier"
       }
     ],
     "related_cards": []
@@ -51,8 +51,8 @@
     "rarity": "mythic",
     "mana_cost": "{4}{W}{B}",
     "cmc": 6.0,
-    "type_line": "Legendary Planeswalker \u2014 Sorin",
-    "oracle_text": "+1: Reveal the top card of your library and put that card into your hand. Each opponent loses life equal to its mana value.\n\u2212X: Sorin deals X damage to target creature or planeswalker and you gain X life.\n\u22129: Create a number of 1/1 black Vampire Knight creature tokens with lifelink equal to the highest life total among all players.",
+    "type_line": "Legendary Planeswalker — Sorin",
+    "oracle_text": "+1: Reveal the top card of your library and put that card into your hand. Each opponent loses life equal to its mana value.\n−X: Sorin deals X damage to target creature or planeswalker and you gain X life.\n−9: Create a number of 1/1 black Vampire Knight creature tokens with lifelink equal to the highest life total among all players.",
     "power": null,
     "toughness": null,
     "loyalty": "6",
@@ -78,7 +78,7 @@
       {
         "id": "8989fdb4-723b-4c80-89b4-930ccac13b22",
         "name": "Vampire Knight",
-        "type_line": "Token Creature \u2014 Vampire Knight"
+        "type_line": "Token Creature — Vampire Knight"
       }
     ],
     "related_cards": []
@@ -129,7 +129,7 @@
     "rarity": "rare",
     "mana_cost": "{5}{W}{W}",
     "cmc": 7.0,
-    "type_line": "Creature \u2014 Angel",
+    "type_line": "Creature — Angel",
     "oracle_text": "Flying\nWhen this creature enters, if your life total is less than your starting life total, it becomes equal to your starting life total.",
     "power": "4",
     "toughness": "4",
@@ -222,7 +222,7 @@
       {
         "id": "7db68985-a1d5-4bd5-bfc6-c7208689d7df",
         "name": "Horror",
-        "type_line": "Token Artifact Creature \u2014 Horror"
+        "type_line": "Token Artifact Creature — Horror"
       }
     ],
     "related_cards": [
@@ -244,8 +244,8 @@
     "rarity": "rare",
     "mana_cost": "{2}{B}{B}",
     "cmc": 4.0,
-    "type_line": "Enchantment \u2014 Saga",
-    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 The Ring tempts you, then each player mills cards equal to your Ring-bearer's power.\nII \u2014 Destroy all nonlegendary creatures.\nIII \u2014 Each opponent loses 1 life for each creature card in that player's graveyard.",
+    "type_line": "Enchantment — Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — The Ring tempts you, then each player mills cards equal to your Ring-bearer's power.\nII — Destroy all nonlegendary creatures.\nIII — Each opponent loses 1 life for each creature card in that player's graveyard.",
     "power": null,
     "toughness": null,
     "loyalty": null,
@@ -319,7 +319,7 @@
       {
         "id": "f10d5813-7818-43e8-b08d-4ed8c54d0366",
         "name": "Zombie Druid",
-        "type_line": "Token Creature \u2014 Zombie Druid"
+        "type_line": "Token Creature — Zombie Druid"
       }
     ],
     "related_cards": [
@@ -341,8 +341,8 @@
     "rarity": "rare",
     "mana_cost": "{2}{B}{B}",
     "cmc": 4.0,
-    "type_line": "Creature \u2014 Spirit Horror",
-    "oracle_text": "When this creature enters, surveil 2. Then for each card you put on top of your library, you draw a card and you lose 3 life.\nDescend 8 \u2014 Whenever you draw a card, if there are eight or more permanent cards in your graveyard, target opponent loses 1 life and you gain 1 life.",
+    "type_line": "Creature — Spirit Horror",
+    "oracle_text": "When this creature enters, surveil 2. Then for each card you put on top of your library, you draw a card and you lose 3 life.\nDescend 8 — Whenever you draw a card, if there are eight or more permanent cards in your graveyard, target opponent loses 1 life and you gain 1 life.",
     "power": "4",
     "toughness": "4",
     "loyalty": null,
@@ -445,7 +445,7 @@
     "rarity": "uncommon",
     "mana_cost": "{2}{W}",
     "cmc": 3.0,
-    "type_line": "Creature \u2014 Angel",
+    "type_line": "Creature — Angel",
     "oracle_text": "Flying\nIf you would gain life, you gain that much life plus 1 instead.\nThis creature gets +2/+2 as long as you have 25 or more life.",
     "power": "2",
     "toughness": "2",
@@ -604,7 +604,7 @@
     "mana_cost": "{W}",
     "cmc": 1.0,
     "type_line": "Instant",
-    "oracle_text": "Choose one \u2014\n\u2022 Target player gains 3 life.\n\u2022 Prevent the next 3 damage that would be dealt to any target this turn.",
+    "oracle_text": "Choose one —\n• Target player gains 3 life.\n• Prevent the next 3 damage that would be dealt to any target this turn.",
     "power": null,
     "toughness": null,
     "loyalty": null,
@@ -669,7 +669,7 @@
     "rarity": "common",
     "mana_cost": "{1}{G}",
     "cmc": 2.0,
-    "type_line": "Creature \u2014 Bear",
+    "type_line": "Creature — Bear",
     "oracle_text": "",
     "power": "2",
     "toughness": "2",
@@ -704,7 +704,7 @@
     "rarity": "common",
     "mana_cost": "{G}",
     "cmc": 1.0,
-    "type_line": "Creature \u2014 Elf Druid",
+    "type_line": "Creature — Elf Druid",
     "oracle_text": "{T}: Add {G}.",
     "power": "1",
     "toughness": "1",
@@ -745,7 +745,7 @@
     "rarity": "common",
     "mana_cost": "",
     "cmc": 0.0,
-    "type_line": "Basic Land \u2014 Forest",
+    "type_line": "Basic Land — Forest",
     "oracle_text": "({T}: Add {G}.)",
     "power": null,
     "toughness": null,
@@ -789,7 +789,7 @@
     "rarity": "mythic",
     "mana_cost": "{7}",
     "cmc": 7.0,
-    "type_line": "Artifact Creature \u2014 Angel",
+    "type_line": "Artifact Creature — Angel",
     "oracle_text": "Flying\nYou can't lose the game and your opponents can't win the game.",
     "power": "4",
     "toughness": "4",
@@ -822,7 +822,7 @@
     "rarity": "rare",
     "mana_cost": "{R/G}{G}{G/W}",
     "cmc": 3.0,
-    "type_line": "Legendary Creature \u2014 Elf Druid",
+    "type_line": "Legendary Creature — Elf Druid",
     "oracle_text": "If you would create one or more tokens, you may instead create that many 2/2 green Cat creature tokens with haste or that many 3/1 green Dog creature tokens with vigilance.",
     "power": "3",
     "toughness": "3",
@@ -851,12 +851,12 @@
       {
         "id": "6736fe71-bd55-4602-b0aa-ece6193048a9",
         "name": "Dog",
-        "type_line": "Token Creature \u2014 Dog"
+        "type_line": "Token Creature — Dog"
       },
       {
         "id": "57bd0b29-0860-4ee3-832a-f62ba7bf4aac",
         "name": "Cat",
-        "type_line": "Token Creature \u2014 Cat"
+        "type_line": "Token Creature — Cat"
       }
     ],
     "related_cards": []
@@ -907,7 +907,7 @@
     "rarity": "mythic",
     "mana_cost": "{2}{G}{W}",
     "cmc": 4.0,
-    "type_line": "Legendary Creature \u2014 Human Soldier",
+    "type_line": "Legendary Creature — Human Soldier",
     "oracle_text": "{T}: Search your library for a legendary card, reveal that card, put it into your hand, then shuffle.",
     "power": "2",
     "toughness": "2",
@@ -1010,8 +1010,8 @@
     "rarity": "mythic",
     "mana_cost": "{1}{W}{W}",
     "cmc": 3.0,
-    "type_line": "Legendary Planeswalker \u2014 Gideon",
-    "oracle_text": "During your turn, Gideon Blackblade is a 4/4 Human Soldier creature with indestructible that's still a planeswalker.\nPrevent all damage that would be dealt to Gideon Blackblade during your turn.\n+1: Up to one other target creature you control gains your choice of vigilance, lifelink, or indestructible until end of turn.\n\u22126: Exile target nonland permanent.",
+    "type_line": "Legendary Planeswalker — Gideon",
+    "oracle_text": "During your turn, Gideon Blackblade is a 4/4 Human Soldier creature with indestructible that's still a planeswalker.\nPrevent all damage that would be dealt to Gideon Blackblade during your turn.\n+1: Up to one other target creature you control gains your choice of vigilance, lifelink, or indestructible until end of turn.\n−6: Exile target nonland permanent.",
     "power": null,
     "toughness": null,
     "loyalty": "4",
@@ -1256,7 +1256,7 @@
     "layout": "normal",
     "mana_cost": "{W}{W}{U}{U}{B}{B}{R}{R}{G}{G}",
     "cmc": 10.0,
-    "type_line": "Legendary Creature \u2014 Hydra Avatar",
+    "type_line": "Legendary Creature — Hydra Avatar",
     "oracle_text": "Protection from everything\nIf Progenitus would be put into a graveyard from anywhere, reveal Progenitus and shuffle it into its owner's library instead.",
     "power": "10",
     "toughness": "10",
@@ -1284,7 +1284,7 @@
     "layout": "normal",
     "mana_cost": "{2}{U}{B}",
     "cmc": 4.0,
-    "type_line": "Creature \u2014 Human Rogue",
+    "type_line": "Creature — Human Rogue",
     "oracle_text": "Flash\nIf an opponent would draw a card except the first one they draw in each of their draw steps, instead that player skips that draw and you draw a card.",
     "power": "3",
     "toughness": "1",
@@ -1324,7 +1324,7 @@
     "layout": "normal",
     "mana_cost": "{1}{W}",
     "cmc": 2.0,
-    "type_line": "Creature \u2014 Cat Soldier",
+    "type_line": "Creature — Cat Soldier",
     "oracle_text": "Whenever you gain life, put a +1/+1 counter on this creature.",
     "power": "2",
     "toughness": "2",
@@ -1342,7 +1342,7 @@
     "layout": "normal",
     "mana_cost": "{3}{B}{B}",
     "cmc": 5.0,
-    "type_line": "Creature \u2014 Nightmare Demon",
+    "type_line": "Creature — Nightmare Demon",
     "oracle_text": "Flying, trample\nPay 2 life: Surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)",
     "power": "6",
     "toughness": "6",
@@ -1427,7 +1427,7 @@
     "rarity": "uncommon",
     "mana_cost": "{B}",
     "cmc": 1.0,
-    "type_line": "Creature \u2014 Squirrel Warlock",
+    "type_line": "Creature — Squirrel Warlock",
     "oracle_text": "{T}, Pay 1 life: Draw a card. Activate only if three or more cards left your graveyard this turn or if you've sacrificed a Food this turn.",
     "power": "1",
     "toughness": "1",
@@ -1462,7 +1462,7 @@
     "rarity": "common",
     "mana_cost": "{1}",
     "cmc": 1.0,
-    "type_line": "Artifact Creature \u2014 Food Golem",
+    "type_line": "Artifact Creature — Food Golem",
     "oracle_text": "Haste (This creature can attack and {T} as soon as it comes under your control.)\n{1}: This creature can't be blocked this turn except by creatures with haste.\n{2}, {T}, Sacrifice this creature: You gain 3 life.",
     "power": "1",
     "toughness": "1",
@@ -1495,7 +1495,7 @@
     "rarity": "uncommon",
     "mana_cost": "{2}{B}{G}",
     "cmc": 4.0,
-    "type_line": "Creature \u2014 Spider",
+    "type_line": "Creature — Spider",
     "oracle_text": "Reach\nWhen this creature enters, you may sacrifice another creature. When you do, destroy target nonland permanent.\nWhen this creature dies, you may gain 1 life for each creature card in your graveyard. If you do, exile this card from your graveyard.",
     "power": "3",
     "toughness": "3",
@@ -1569,7 +1569,7 @@
     "rarity": "mythic",
     "mana_cost": "{3}{B}",
     "cmc": 4.0,
-    "type_line": "Legendary Enchantment Creature \u2014 God",
+    "type_line": "Legendary Enchantment Creature — God",
     "oracle_text": "Indestructible\nAs long as your devotion to black is less than five, Erebos isn't a creature. (Each {B} in the mana costs of permanents you control counts toward your devotion to black.)\nYour opponents can't gain life.\n{1}{B}, Pay 2 life: Draw a card.",
     "power": "5",
     "toughness": "7",
@@ -1606,7 +1606,7 @@
     "rarity": "uncommon",
     "mana_cost": "{W}",
     "cmc": 1.0,
-    "type_line": "Enchantment \u2014 Class",
+    "type_line": "Enchantment — Class",
     "oracle_text": "(Gain the next level as a sorcery to add its ability.)\nIf you would gain life, you gain that much life plus 1 instead.\n{3}{W}: Level 2\nWhenever you gain life, put a +1/+1 counter on target creature you control.\n{4}{W}: Level 3\nWhen this Class becomes level 3, return target creature card from your graveyard to the battlefield. You gain life equal to that creature's toughness.",
     "power": null,
     "toughness": null,
@@ -1641,7 +1641,7 @@
     "rarity": "uncommon",
     "mana_cost": "{2}{W}",
     "cmc": 3.0,
-    "type_line": "Creature \u2014 Angel",
+    "type_line": "Creature — Angel",
     "oracle_text": "Flying\nWhen this creature dies, exile it and each other player creates a 3/3 black Angel creature token with flying.",
     "power": "3",
     "toughness": "3",
@@ -1678,7 +1678,7 @@
     "rarity": "common",
     "mana_cost": "{2}{B}{B}",
     "cmc": 4.0,
-    "type_line": "Creature \u2014 Zombie Giant",
+    "type_line": "Creature — Zombie Giant",
     "oracle_text": "When this creature dies, target land becomes a Swamp. Exile this card.",
     "power": "4",
     "toughness": "2",
@@ -1713,7 +1713,7 @@
     "rarity": "uncommon",
     "mana_cost": "{1}{W/P}",
     "cmc": 2.0,
-    "type_line": "Artifact Creature \u2014 Phyrexian Wall",
+    "type_line": "Artifact Creature — Phyrexian Wall",
     "oracle_text": "({W/P} can be paid with either {W} or 2 life.)\nDefender\nWhen this creature dies during combat, it deals 6 damage to each creature it blocked this combat.",
     "power": "0",
     "toughness": "3",
@@ -1750,7 +1750,7 @@
     "rarity": "uncommon",
     "mana_cost": "{2}{U}{U}",
     "cmc": 4.0,
-    "type_line": "Creature \u2014 Hag",
+    "type_line": "Creature — Hag",
     "oracle_text": "When this creature dies, the base power and toughness of each creature that dealt damage to it this turn become 0/2. (This effect lasts indefinitely.)",
     "power": "2",
     "toughness": "2",
@@ -1785,7 +1785,7 @@
     "rarity": "common",
     "mana_cost": "{2}{B}",
     "cmc": 3.0,
-    "type_line": "Creature \u2014 Faerie Rogue",
+    "type_line": "Creature — Faerie Rogue",
     "oracle_text": "Flying\nWhen this creature dies, each player mills two cards. Then you may exile this card. When you do, put target creature or battle card from your graveyard on top of your library. (To mill two cards, a player puts the top two cards of their library into their graveyard.)",
     "power": "2",
     "toughness": "2",
@@ -1858,7 +1858,7 @@
     "rarity": "rare",
     "mana_cost": "{3}{U}",
     "cmc": 4.0,
-    "type_line": "Creature \u2014 Shapeshifter",
+    "type_line": "Creature — Shapeshifter",
     "oracle_text": "You may have this creature enter as a copy of any creature on the battlefield.",
     "power": "0",
     "toughness": "0",
@@ -1965,7 +1965,7 @@
     "rarity": "uncommon",
     "mana_cost": "{2}{U}",
     "cmc": 3.0,
-    "type_line": "Creature \u2014 Illusion Wall",
+    "type_line": "Creature — Illusion Wall",
     "oracle_text": "Defender, flying",
     "power": "0",
     "toughness": "6",
@@ -2003,7 +2003,7 @@
     "rarity": "uncommon",
     "mana_cost": "{2}{R}",
     "cmc": 3.0,
-    "type_line": "Creature \u2014 Human Wizard",
+    "type_line": "Creature — Human Wizard",
     "oracle_text": "{T}: This creature deals 1 damage to any target.",
     "power": "1",
     "toughness": "1",
@@ -2038,7 +2038,7 @@
     "rarity": "uncommon",
     "mana_cost": "{2}{U}",
     "cmc": 3.0,
-    "type_line": "Creature \u2014 Human Wizard Sorcerer",
+    "type_line": "Creature — Human Wizard Sorcerer",
     "oracle_text": "{T}: This creature deals 1 damage to any target.",
     "power": "1",
     "toughness": "1",
@@ -2111,7 +2111,7 @@
     "rarity": "rare",
     "mana_cost": "{1}{B}",
     "cmc": 2.0,
-    "type_line": "Creature \u2014 Rat",
+    "type_line": "Creature — Rat",
     "oracle_text": "This creature can't block.\nWhen this creature dies, create X 1/1 black Rat creature tokens with \"This token can't block,\" where X is the amount of damage dealt to it this turn.",
     "power": "3",
     "toughness": "2",
@@ -2130,13 +2130,13 @@
         "id": "45ba866b-eda5-45c0-8878-235abadc0a3c",
         "component": "combo_piece",
         "name": "Tangled Colony",
-        "type_line": "Creature \u2014 Rat"
+        "type_line": "Creature — Rat"
       },
       {
         "id": "1e0205f2-25c1-403b-b408-56e3f2d63b4d",
         "component": "token",
         "name": "Rat",
-        "type_line": "Token Creature \u2014 Rat"
+        "type_line": "Token Creature — Rat"
       }
     ],
     "image_uris": {
@@ -2258,7 +2258,7 @@
     "rarity": "uncommon",
     "mana_cost": "{3}{W}",
     "cmc": 4.0,
-    "type_line": "Creature \u2014 Griffin",
+    "type_line": "Creature — Griffin",
     "oracle_text": "Flying\nWhen this creature dies, exile it, then return the top creature card of your graveyard to the battlefield.",
     "power": "2",
     "toughness": "2",
@@ -2390,7 +2390,7 @@
     "rarity": "rare",
     "mana_cost": "{2}{R}{R}{R}",
     "cmc": 5.0,
-    "type_line": "Creature \u2014 Phoenix",
+    "type_line": "Creature — Phoenix",
     "oracle_text": "Flying\nWhen this creature dies, exile it if it had a death counter on it. Otherwise, return it to the battlefield under your control and put a death counter on it.",
     "power": "3",
     "toughness": "3",
@@ -2526,7 +2526,7 @@
     "rarity": "uncommon",
     "mana_cost": "{B}{R}",
     "cmc": 2.0,
-    "type_line": "Creature \u2014 Human Shaman",
+    "type_line": "Creature — Human Shaman",
     "oracle_text": "{B}{R}: Target blocking creature gets -1/-1 until end of turn.\n{B}{R}: Target player who lost life this turn loses 1 life.",
     "power": "2",
     "toughness": "2",
@@ -2662,7 +2662,7 @@
     "rarity": "common",
     "mana_cost": "{1}{U}",
     "cmc": 2.0,
-    "type_line": "Enchantment \u2014 Aura",
+    "type_line": "Enchantment — Aura",
     "oracle_text": "Enchant creature\nEnchanted creature has \"{T}: This creature deals 1 damage to any target.\"",
     "power": null,
     "toughness": null,
@@ -2731,7 +2731,7 @@
     "rarity": "common",
     "mana_cost": "{B}{B}",
     "cmc": 2.0,
-    "type_line": "Creature \u2014 Spirit",
+    "type_line": "Creature — Spirit",
     "oracle_text": "{B}: Target player dealt damage by this creature this turn loses 1 life.",
     "power": "2",
     "toughness": "2",
@@ -2798,7 +2798,7 @@
     "rarity": "mythic",
     "mana_cost": "{8}",
     "cmc": 8.0,
-    "type_line": "Artifact Creature \u2014 Golem",
+    "type_line": "Artifact Creature — Golem",
     "oracle_text": "Your life total can't change. (You can't gain or lose life. You can't pay any amount of life except 0.)",
     "power": "8",
     "toughness": "8",
@@ -2861,7 +2861,7 @@
     "rarity": "uncommon",
     "mana_cost": "{7}{U}{U}",
     "cmc": 9.0,
-    "type_line": "Creature \u2014 Dragon Turtle",
+    "type_line": "Creature — Dragon Turtle",
     "oracle_text": "This spell costs {1} less to cast for each card you own in exile and in your graveyard that's an instant card, a sorcery card, or a card that has an Adventure.\nWard {4} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {4}.)",
     "power": "7",
     "toughness": "7",
@@ -2930,7 +2930,7 @@
     "rarity": "uncommon",
     "mana_cost": "{5}{R} // {1}{R}",
     "cmc": 6.0,
-    "type_line": "Creature \u2014 Elemental // Sorcery \u2014 Adventure",
+    "type_line": "Creature — Elemental // Sorcery — Adventure",
     "oracle_text": "This spell costs {X} less to cast, where X is the number of cards in your graveyard that are instant cards, sorcery cards, and/or have an Adventure.\n//\nDiscard your hand, then draw two cards. (Then exile this card. You may cast the creature later from exile.)",
     "power": "4",
     "toughness": "5",
@@ -2955,7 +2955,7 @@
         "id": "a8f5f102-cc75-4cee-a117-4bdaaf86c2e9",
         "component": "combo_piece",
         "name": "Hearth Elemental // Stoke Genius",
-        "type_line": "Creature \u2014 Elemental // Sorcery \u2014 Adventure"
+        "type_line": "Creature — Elemental // Sorcery — Adventure"
       }
     ],
     "image_uris": {
@@ -2998,7 +2998,7 @@
       {
         "name": "Hearth Elemental",
         "mana_cost": "{5}{R}",
-        "type_line": "Creature \u2014 Elemental",
+        "type_line": "Creature — Elemental",
         "oracle_text": "This spell costs {X} less to cast, where X is the number of cards in your graveyard that are instant cards, sorcery cards, and/or have an Adventure.",
         "power": "4",
         "toughness": "5"
@@ -3006,7 +3006,7 @@
       {
         "name": "Stoke Genius",
         "mana_cost": "{1}{R}",
-        "type_line": "Sorcery \u2014 Adventure",
+        "type_line": "Sorcery — Adventure",
         "oracle_text": "Discard your hand, then draw two cards. (Then exile this card. You may cast the creature later from exile.)"
       }
     ],
@@ -3014,7 +3014,7 @@
       {
         "name": "Hearth Elemental",
         "mana_cost": "{5}{R}",
-        "type_line": "Creature \u2014 Elemental",
+        "type_line": "Creature — Elemental",
         "oracle_text": "This spell costs {X} less to cast, where X is the number of cards in your graveyard that are instant cards, sorcery cards, and/or have an Adventure.",
         "power": "4",
         "toughness": "5"
@@ -3022,7 +3022,7 @@
       {
         "name": "Stoke Genius",
         "mana_cost": "{1}{R}",
-        "type_line": "Sorcery \u2014 Adventure",
+        "type_line": "Sorcery — Adventure",
         "oracle_text": "Discard your hand, then draw two cards. (Then exile this card. You may cast the creature later from exile.)"
       }
     ]
@@ -3041,7 +3041,7 @@
     "rarity": "rare",
     "mana_cost": "{1}{G} // {5}{G}{G}",
     "cmc": 2.0,
-    "type_line": "Creature \u2014 Elemental Raccoon // Sorcery \u2014 Adventure",
+    "type_line": "Creature — Elemental Raccoon // Sorcery — Adventure",
     "oracle_text": "{T}: Add {G}.\n{1}{G}, {T}, Discard a card: Return this creature to its owner's hand.\n//\nMill seven cards. Then put a creature, enchantment, or land card from among the milled cards onto the battlefield.",
     "power": "2",
     "toughness": "2",
@@ -3062,7 +3062,7 @@
         "id": "1ee74605-63be-41cd-a6ba-1b33f8094ec9",
         "component": "combo_piece",
         "name": "Bramble Familiar // Fetch Quest",
-        "type_line": "Creature \u2014 Elemental Raccoon // Sorcery \u2014 Adventure"
+        "type_line": "Creature — Elemental Raccoon // Sorcery — Adventure"
       },
       {
         "id": "fcf4c7fb-7859-4c11-8552-6817f5119d2e",
@@ -3111,7 +3111,7 @@
       {
         "name": "Bramble Familiar",
         "mana_cost": "{1}{G}",
-        "type_line": "Creature \u2014 Elemental Raccoon",
+        "type_line": "Creature — Elemental Raccoon",
         "oracle_text": "{T}: Add {G}.\n{1}{G}, {T}, Discard a card: Return this creature to its owner's hand.",
         "power": "2",
         "toughness": "2"
@@ -3119,7 +3119,7 @@
       {
         "name": "Fetch Quest",
         "mana_cost": "{5}{G}{G}",
-        "type_line": "Sorcery \u2014 Adventure",
+        "type_line": "Sorcery — Adventure",
         "oracle_text": "Mill seven cards. Then put a creature, enchantment, or land card from among the milled cards onto the battlefield."
       }
     ],
@@ -3127,7 +3127,7 @@
       {
         "name": "Bramble Familiar",
         "mana_cost": "{1}{G}",
-        "type_line": "Creature \u2014 Elemental Raccoon",
+        "type_line": "Creature — Elemental Raccoon",
         "oracle_text": "{T}: Add {G}.\n{1}{G}, {T}, Discard a card: Return this creature to its owner's hand.",
         "power": "2",
         "toughness": "2"
@@ -3135,7 +3135,7 @@
       {
         "name": "Fetch Quest",
         "mana_cost": "{5}{G}{G}",
-        "type_line": "Sorcery \u2014 Adventure",
+        "type_line": "Sorcery — Adventure",
         "oracle_text": "Mill seven cards. Then put a creature, enchantment, or land card from among the milled cards onto the battlefield."
       }
     ]
@@ -3317,7 +3317,7 @@
     "rarity": "mythic",
     "mana_cost": "{3}{B}{G}{U}",
     "cmc": 6.0,
-    "type_line": "Legendary Creature \u2014 Elemental Avatar",
+    "type_line": "Legendary Creature — Elemental Avatar",
     "oracle_text": "During each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard. (If a card has multiple permanent types, choose one as you play it.)",
     "power": "6",
     "toughness": "6",
@@ -3388,7 +3388,7 @@
     "rarity": "uncommon",
     "mana_cost": "{4}{G}{G}",
     "cmc": 6.0,
-    "type_line": "Creature \u2014 Plant Beast",
+    "type_line": "Creature — Plant Beast",
     "oracle_text": "This spell costs {2} less to cast if your opponents control three or more creatures.\nReach",
     "power": "5",
     "toughness": "7",
@@ -3457,7 +3457,7 @@
     "rarity": "common",
     "mana_cost": "{2}{U}",
     "cmc": 3.0,
-    "type_line": "Creature \u2014 Drake",
+    "type_line": "Creature — Drake",
     "oracle_text": "Flying",
     "power": "2",
     "toughness": "2",
@@ -3526,7 +3526,7 @@
     "rarity": "uncommon",
     "mana_cost": "{10}{G}{G}",
     "cmc": 12.0,
-    "type_line": "Creature \u2014 Sloth Mutant",
+    "type_line": "Creature — Sloth Mutant",
     "oracle_text": "This spell costs {1} less to cast for each counter among players and permanents.\nTrample\nThis creature enters tapped.",
     "power": "8",
     "toughness": "8",
@@ -3580,5 +3580,42 @@
     "artist": "Daniel Romanovsky",
     "edhrec_rank": 11886,
     "faces": []
+  },
+  {
+    "id": "785e6d07-fe40-4723-b963-02da0a0987c7",
+    "oracle_id": "79ac7b6a-1c25-45f6-84b4-5c4a78d6fd6e",
+    "name": "Closing Statement",
+    "layout": "normal",
+    "set_code": "stx",
+    "set_name": "Strixhaven: School of Mages",
+    "collector_number": "169",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{W}{B}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "This spell costs {2} less to cast during your end step.\nDestroy target creature or planeswalker you don't control. Put a +1/+1 counter on up to one target creature you control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-04-23",
+    "artist": "Craig J Spearing",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
   }
 ]

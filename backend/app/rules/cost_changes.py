@@ -42,7 +42,7 @@ _SYMBOLS = r"\{(?P<n>\d+|X|[WUBRG](?:\}\{[WUBRG])*)\}"
 # "~'s power" / "this creature's power" ("this creature" is written ~ already: scripts.self_text)
 _SELF_STAT = re.compile(r"^~'s (?P<stat>power|toughness)$")
 _REST = re.compile(r"^(?:(?P<each> for each (?P<what>.+))|(?P<if> if (?P<cond>.+))|(?P<long> as long as (?P<cond2>.+))"
-                   r"|(?P<turn> during your turn)|(?P<x>, where X is (?P<v>.+)))?$")
+                   r"|(?P<turn> during your turn)|(?P<end> during your end step)|(?P<x>, where X is (?P<v>.+)))?$")
 
 
 def _value(phrase: str) -> values.Value | None:
@@ -119,6 +119,8 @@ def parse_change(symbol: str, direction: str, rest: str) -> Change | None:
         out["cond"] = cond
     if m["turn"]:
         out["cond"] = {"turn": "yours"}
+    if m["end"]:
+        out["cond"] = {"all": [{"turn": "yours"}, {"current_step": "end"}]}
     return out
 
 
