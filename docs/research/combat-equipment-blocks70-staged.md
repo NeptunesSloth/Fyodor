@@ -1,9 +1,7 @@
-# Kemba’s Legion: staged only
+# Kemba’s Legion: admitted exact one
 
-Exact one candidate, not yet admitted. The complete canonical card and all official rulings were read; the additional-block count uses current attached Equipment at declaration. Native existing fixed extra-block grants remain additive. Already declared blocks remain after Equipment destruction.
+Root approved the complete owned leaf and shared Plan API patch after native isolated whole13 passed, including a genuine cold pending blocker declaration. Source-preserving live installation retains all concurrent hooks. Production26 passed: whole13, eight focused declaration-group companion/lure/extra-block optimizer cases, and five fixed extra-block native regressions. Scoped shared-cache mypy of all three affected API files and Ruff passed.
 
-Isolated native whole13 passed, including one genuine cold pending-blocker declaration. Cases cover zero/one/two Equipment, Vigilance attack then subsequent block, Brave the Sands addition, re-equipping and controller changes, a copied Equipment’s current type, actual Flicker identity replacement and lost attachment, a copied Kemba host, and postdeclaration Equipment destruction. No coverage adapters.
+The complete canonical card and all official rulings were read. Additional blocks use current attached Equipment at declaration; independent extra-block permissions add. Proofs cover zero/one/two Equipment, Vigilance, Equipment movement/control, native Equipment copy and Flicker identity replacement, copied host, postdeclaration Equipment destruction retaining blocks, and genuine cold reload. No adapters or classification-only admissions.
 
-The exact proposed shared kernel changes block_limit to accept Plan and updates all six callers, including declaration-group optimization. Public scripts hook and shared kernel are not installed. Root approval and production focused related/type/Ruff gates remain required.
-
-Proof details and immutable owned-file hashes are recorded in combat-equipment-blocks70-staged-manifest.json.
+Exact hashes and proof paths: combat-equipment-blocks70-admitted-manifest.json.

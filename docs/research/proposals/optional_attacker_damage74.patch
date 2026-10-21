@@ -1,0 +1,13 @@
+--- a/app/rules/scripts.py
++++ b/app/rules/scripts.py
+@@ -5691,6 +5691,10 @@
+ 
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import optional_attacker_damage74
++
++    if (damage74 := optional_attacker_damage74.definition(ability, ch)) is not None:
++        return damage74
+     from app.rules import saddled_receipts76
+ 
+     if (mount76 := saddled_receipts76.definition(ability, ch)) is not None:

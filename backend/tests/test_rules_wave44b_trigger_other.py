@@ -608,10 +608,19 @@ def test_daredevil_exiles_the_top_card_and_gets_a_bonus_for_a_hero(cards, top, b
 def test_shizuko_gives_each_player_mana_that_they_keep_through_the_turn(cards):
     """Shizuko: "At the beginning of each player's upkeep, that player adds {G}{G}{G}. Until end of turn, they don't lose this mana as steps and phases end." Bob's
     upkeep: the mana is Bob's, and he still has it in his main phase (not Alice's pool, not emptied)."""
-    s = table(cards, ["Shizuko, Caller of Autumn"])
+    from app.rules.mana_units import visible_pool
+
+    s = table(cards, ["Shizuko, Caller of Autumn"], ["Grizzly Bears"])
     put(s, "Shizuko, Caller of Autumn")
     to_turn_of(s, "p2")
-    assert s.state.players["p2"].mana.get("G", 0) == 3 and s.state.players["p1"].mana.get("G", 0) == 0
+    assert visible_pool(s.state, "p2").get("G", 0) == 3 and visible_pool(s.state, "p1").get("G", 0) == 0
+    bear = card_named(s, "Grizzly Bears", "p2")
+    act(s, "p2", type="move", card_ids=[bear.id], to={"player": "p2", "zone": "hand"})
+    act(s, "p2", type="cast_spell", card_id=bear.id, sources=[])
+    settle(s)
+    assert bear.zone == "p2:battlefield" and visible_pool(s.state, "p2").get("G", 0) == 1
+    to_turn_of(s, "p1")
+    assert visible_pool(s.state, "p2").get("G", 0) == 0
     check(s)
 
 

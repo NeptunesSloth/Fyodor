@@ -1,0 +1,59 @@
+{
+  "status": "PRODUCTION VERIFIED; pending central frozen catalog diff",
+  "baseline": "checkpoint50",
+  "cards": [
+    {
+      "name": "Back for More",
+      "oracle_id": "670df8be-21cd-49d8-92e3-d7cc38b256d6",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    },
+    {
+      "name": "Jailbreak",
+      "oracle_id": "169cf74a-07bf-4841-83f3-904df8a0a39b",
+      "baseline_coverage": "PARTIAL",
+      "production_coverage": "FULL",
+      "adapters": false
+    }
+  ],
+  "whole_checks": 22,
+  "staged_related_checks": 62,
+  "whole_and_related_checks": 84,
+  "cold_paths": 2,
+  "test_files": [
+    "tests/test_rules_entry_receipt56.py"
+  ],
+  "staged_related_files": [
+    "tests/test_rules_reflexive_mill54.py",
+    "tests/test_rules_reflexive_token_return54.py",
+    "tests/test_rules_optional_counter55.py"
+  ],
+  "logs": {
+    "production": "/tmp/resume-entry-receipt56-production.log",
+    "related": "/tmp/resume-entry-receipt56-related-stage.log",
+    "types": "/tmp/resume-entry-receipt56-production-types.log",
+    "ruff": "/tmp/resume-entry-receipt56-production-ruff.log"
+  },
+  "types_modules": 3,
+  "ruff_files": 2,
+  "canonical": "/tmp/resume-entry-receipt56-production-canonical.json",
+  "all_official_rulings": "/tmp/resume-entry-receipt56-production-rulings.json",
+  "additional_authority": "/tmp/resume-entry56-trigger-suppression-rulings.json",
+  "canonical_proof": "/tmp/resume-entry-receipt56-production-canonical-proof.json",
+  "approved_source_sha256": "f52bc5918e25954f0c7c5d11a40188e46e0310490764b33c223708c4c916fa31",
+  "approved_hooks_sha256": "d48cf9e3415df4da6674458b0b2d92641717ea4ced961c547c62f7de46c2e324",
+  "semantics": [
+    "Typed per-instruction native committed Entry receipt: turn/index bound, original selected ObjectRefs, matching source_object/via, from_zone and new object ID.",
+    "As-entered copy recipe and native derived snapshots; late targets get actual entering object and mana value.",
+    "Native Aura/as-enter asynchronous choices preserve receipt and resume directly after return instruction.",
+    "Actual Cage prevention, no Aura host, supported Lake of the Dead entry-payment diversion, original object leave-return/fizzle and actual SBA death proofs.",
+    "Exact Jailbreak explicit entry cause honors native Torpor Orb suppression with permanent=False; Back action reflexive stays distinct.",
+    "Two genuine fresh-process cold restorations: pending private Aura host choice and pending late reflexive target."
+  ],
+  "exclusions": [
+    "No generic admission or parent event-reference guard relaxation; exact known entry child scopes checked independently.",
+    "Previously admitted batches not recounted.",
+    "Lotus Vale unsupported entry-cost behavior excluded as a proof source; native Lake of the Dead used."
+  ]
+}

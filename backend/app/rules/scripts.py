@@ -1352,7 +1352,7 @@ def rename_bindings(value: Any, prefix: str) -> Any:
         if k == 'of' and value.get('do') == 'discard_revealed' and isinstance(v, str):
             v = prefix + v
         elif k in ("as", "bind", "verdict", "succeeded", "flag", "did", "ref_amount", "ref_count", "live_ref_count",
-                 "bind_dealt", "bind_life_caps", "bind_damage_players", "life_caps", "bind_excess", "bind_hit", "paid_x", "perm_as", "bind_amount", "energy_as", "exclude", "lki") and isinstance(v, str) and v not in (this_way.COST, this_way.DEVOURED, "cond_ref"):  # (wave 53C: "lki", a reflexive ability's event binding)  # (wave 48B: the spell's own cost, a devourer's own sacrifices: one name for every line)  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
+                 "bind_dealt", "bind_life_caps", "bind_damage_players", "life_caps", "bind_excess", "bind_hit", "paid_x", "perm_as", "bind_amount", "energy_as", "exclude", "lki", "entry_receipt56") and isinstance(v, str) and v not in (this_way.COST, this_way.DEVOURED, "cond_ref"):  # (wave 53C: "lki", a reflexive ability's event binding)  # (wave 48B: the spell's own cost, a devourer's own sacrifices: one name for every line)  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
             v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on;
             # "flag": the verdict an "instead" / "Otherwise" clause reads)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
@@ -2649,6 +2649,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import entry_receipt56
+
+    if (entered := entry_receipt56.parse(body)) is not None:
+        return entered
     from app.rules import hand_library_choices52
 
     if (hand_library := hand_library_choices52.parse(body)) is not None:
@@ -5691,6 +5695,14 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import combat_soulbond_partner70
+
+    if (soulbond70 := combat_soulbond_partner70.definition(ability, ch)) is not None:
+        return soulbond70
+    from app.rules import optional_attacker_damage74
+
+    if (damage74 := optional_attacker_damage74.definition(ability, ch)) is not None:
+        return damage74
     from app.rules import saddled_receipts76
 
     if (mount76 := saddled_receipts76.definition(ability, ch)) is not None:
@@ -7606,6 +7618,7 @@ def _event_refs_ok(d: Definition) -> bool:
     generic trigger condition whose event has that player or amount can use them. A "one or more"
     trigger has one event per batch (603.2c) — per damaged player for damage to players, per
     acting player for a player's actions — so it can too."""
+    from app.rules import entry_receipt56
     if (picked := [i for i, e in enumerate(d.get("effects") or []) if e.get("do") == "choose_value" and e.get("what") == "player with the most life or tied for most life"]):
         # -- block events (wave 53C) -- "that player" after "Choose a player with the most life…" is the player chosen (effects._bind_chosen_player), not an event's
         d = {**d, "effects": [*d["effects"][:picked[0] + 1], *json.loads(json.dumps(d["effects"][picked[0] + 1:]).replace(
@@ -7668,7 +7681,7 @@ def _event_refs_ok(d: Definition) -> bool:
     # events of an "or" trigger is about one object (603.2c, the ruling: it triggers for each artifact), and so is the source's own death, its last-known snapshot)
     if '\\"evt:' in raw and d.get("trigger") not in ("attacks_self", "dies_self") and not (
             one_object(ev) or (ev is not None and ev["event"] == "either" and all(one_object(c) for c in ev["conds"]))) \
-            and '\\"evt:' in json.dumps({**d, "effects": [e for i, e in enumerate(d.get("effects") or []) if i not in _delayed.object_deferred(d.get("effects") or [])]}):
+            and '\\"evt:' in json.dumps({**d, "effects": [e for i, e in enumerate(d.get("effects") or []) if i not in (_delayed.object_deferred(d.get("effects") or []) | entry_receipt56.object_deferred(d.get("effects") or []))]}):
         # (wave 28D: the spell a cast trigger is about; -- turn-long triggers (wave 35B) -- or the one object a "When that creature dies this turn" trigger is about)
         return False  # -- reanimation (wave 16F) -- "lesser mana value": than the one object the event is about
     if "not_event" in raw and not (ev is not None and ev["event"] in ("targeted", "unblocked")):  # -- stack interaction (wave 23B) -- "other than that creature":

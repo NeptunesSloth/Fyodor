@@ -98,3 +98,76 @@ def test_hoplite_actual_backup_copies_and_grants_keywords(cards):
     settle(s)
     assert bear.counters.get('+1/+1',0) == 2
     assert {'flying','first strike','lifelink'} <= chars(s, bear).keywords
+
+
+@pytest.mark.parametrize('same', [True, False])
+def test_leyline_one_spell_repeated_or_multiple_permanent_targets_once(cards, same):
+    from tests.test_rules_trigger_upkeep_comparison75 import cast
+    s, source, bear, elf = setup(cards, 'Leyline of Combustion')
+    cast(s, 'Seeds of Strength', {'G':1, 'W':1}, [bear.id, bear.id if same else elf.id, bear.id], pid='p2', target_counts=[1,1,1])
+    assert s.state.players['p2'].life == 38
+
+
+def test_leyline_own_spell_does_not_trigger(cards):
+    from tests.test_rules_trigger_upkeep_comparison75 import cast
+    s, source, bear, elf = setup(cards, 'Leyline of Combustion')
+    cast(s, 'Giant Growth', {'G':1}, [bear.id])
+    assert s.state.players['p1'].life == 40
+
+
+def test_hoplite_nonbackup_activated_target_does_not_trigger(cards):
+    s, source, bear, elf = setup(cards, 'Mirror-Shield Hoplite')
+    dagger = put(s, 'Silver-Inlaid Dagger', 'battlefield')
+    mana(s, C=2)
+    act(s, 'p1', type='activate_ability', card_id=dagger.id, ability=2, targets=[bear.id], sources=[])
+    settle(s)
+    assert s.state.rules.decision is None and not bear.counters
+
+
+def test_hoplite_countered_original_backup_uses_native_lki_copy(cards):
+    from tests.test_rules_trigger_upkeep_comparison75 import cast
+    s, source, bear, elf = setup(cards, 'Mirror-Shield Hoplite')
+    cast(s, 'Boon-Bringer Valkyrie', {'C':3, 'W':2})
+    d = s.state.rules.decision
+    act(s, d.player, type='choose', decision_id=d.id, option_ids=[bear.id])
+    original = next(cid for cid, entry in s.state.rules.stack.items() if entry.name == 'Boon-Bringer Valkyrie')
+    cast(s, 'Stifle', {'U':1}, [original])
+    d = s.state.rules.decision
+    assert d is not None
+    act(s, d.player, type='choose', decision_id=d.id, option_ids=['keep'])
+    settle(s)
+    assert bear.counters.get('+1/+1',0) == 1
+    assert {'flying','first strike','lifelink'} <= chars(s, bear).keywords
+
+
+def test_hoplite_generic_counter_etb_is_not_backup(cards):
+    from tests.test_rules_trigger_upkeep_comparison75 import cast
+    s, source, bear, elf = setup(cards, 'Mirror-Shield Hoplite')
+    cast(s, 'Bond Beetle', {'G':1})
+    d = s.state.rules.decision
+    assert d is not None
+    act(s, d.player, type='choose', decision_id=d.id, option_ids=[bear.id])
+    settle(s)
+    assert s.state.rules.decision is None
+    assert bear.counters.get('+1/+1',0) == 1
+
+
+def test_copied_backup_retains_keyword_and_triggers_unused_hoplite(cards):
+    from tests.test_rules_trigger_upkeep_comparison75 import cast
+    s, source, bear, elf = setup(cards, 'Mirror-Shield Hoplite')
+    other = put(s, 'Grizzly Bears', 'battlefield', 'p2')
+    cast(s, 'Boon-Bringer Valkyrie', {'C':3, 'W':2})
+    d = s.state.rules.decision
+    act(s, d.player, type='choose', decision_id=d.id, option_ids=[other.id])
+    original = next(cid for cid, entry in s.state.rules.stack.items() if entry.name == 'Boon-Bringer Valkyrie')
+    cast(s, 'Return the Favor', {'C':1, 'R':2}, [original], modes=[0])
+    d = s.state.rules.decision
+    assert d is not None
+    act(s, d.player, type='choose', decision_id=d.id, option_ids=[bear.id])
+    settle(s)
+    d = s.state.rules.decision
+    assert d is not None
+    act(s, d.player, type='choose', decision_id=d.id, option_ids=['keep'])
+    settle(s)
+    assert bear.counters.get('+1/+1',0) == 2
+    assert other.counters.get('+1/+1',0) == 1

@@ -37,7 +37,7 @@ def cards(settings):
 NAME = 'Flowering Lumberknot'
 
 def setup(cards):
-    s = table(cards, [c['name'] for c in DATA] + ['Grizzly Bears'], ['Grizzly Bears'], ['Grizzly Bears'])
+    s = table(cards, [c['name'] for c in DATA] + ['Grizzly Bears'], ['Grizzly Bears', 'Act of Treason', 'Wingcrafter'], ['Grizzly Bears'])
     enemy = put(s, 'Grizzly Bears', 'battlefield', 'p2')
     start(s)
     return s, enemy
@@ -50,11 +50,11 @@ def choice(s, value):
     settle(s)
 
 
-def cast(s, name, targets=()):
-    c = put(s, name, 'hand')
-    mana(s, C=8, W=5, U=5, G=5, R=5)
-    wait_priority(s, 'p1')
-    act(s, 'p1', type='cast_spell', card_id=c.id, targets=list(targets), sources=[])
+def cast(s, name, targets=(), pid='p1'):
+    c = put(s, name, 'hand', pid)
+    mana(s, pid=pid, C=8, W=5, U=5, G=5, R=5)
+    wait_priority(s, pid)
+    act(s, pid, type='cast_spell', card_id=c.id, targets=list(targets), sources=[])
     settle(s)
     return c
 
@@ -125,10 +125,10 @@ def test_phase_out_ends_pair_for_duration_not_zone_change(cards):
 
 def test_control_change_ends_pair(cards):
     s, host, wing, _ = paired(cards)
-    to_phase(s, 'main1', turn=7)
-    act(s, 'p1', type='set_controller', card_ids=[wing.id], player='p3')
-    assert not s.state.rules.pairs
-    to_phase(s, 'declare_attackers', turn=7)
+    to_phase(s, 'main1', turn=8)
+    cast(s, 'Act of Treason', [wing.id], pid='p2')
+    assert wing.controller == 'p2' and not s.state.rules.pairs
+    to_phase(s, 'declare_attackers', turn=10)
     refused(s, host)
     roundtrip(s)
 
@@ -205,3 +205,33 @@ roundtrip(s)
                             cwd=backend, env={**os.environ, 'PYTHONPATH': str(backend)},
                             capture_output=True, text=True, timeout=180, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_partner_recovers_soulbond_without_new_pair(cards):
+    s, host, wing, _ = paired(cards)
+    to_phase(s, 'main1', turn=7)
+    cast(s, 'Humble', [wing.id])
+    assert len(s.state.rules.pairs) == 2
+    to_phase(s, 'declare_attackers', turn=10)
+    assert len(s.state.rules.pairs) == 2 and 'soulbond' in Plan(s.state, 'p1', s.cards, None).ch(wing).keywords
+    attack(s, host)
+    assert host.is_attacking
+    roundtrip(s)
+
+
+def test_native_copied_partner_has_current_soulbond(cards):
+    s, _ = setup(cards)
+    enemy_wing = put(s, 'Wingcrafter', 'battlefield', 'p2')
+    copied = cast(s, 'Phyrexian Metamorph')
+    choice(s, enemy_wing.id)
+    assert 'soulbond' in Plan(s.state, 'p1', s.cards, None).ch(copied).keywords
+    host = cast(s, NAME)
+    if s.state.rules.decision and any(o.id == 'yes' for o in s.state.rules.decision.options):
+        choice(s, 'yes')
+    if s.state.rules.decision:
+        choice(s, host.id)
+    assert len(s.state.rules.pairs) == 2
+    to_phase(s, 'declare_attackers', turn=7)
+    attack(s, host)
+    assert host.is_attacking
+    roundtrip(s)

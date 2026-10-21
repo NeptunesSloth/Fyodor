@@ -1,0 +1,7 @@
+# Graveyard keyword cost grants (mana57)
+
+Araumi of the Dead Tide and Cursecloth Wrappings now grant actual creature cards encore or embalm until end of turn using the card’s current mana cost. The explicit layer-six graveyard permission follows the original object only and persists after the granting source leaves. Existing native encore and embalm activation, exile payment, token copies, attack requirements, haste and delayed sacrifice carry out the resulting abilities.
+
+Araumi’s additional exile payment freezes the number of live opponents when its total activation cost is determined. Exiling its own target as payment is legal and then leaves that target invalid on resolution. An insufficient payment refuses atomically. Undefined mana costs never become free keyword costs. Announced X pays the actual keyword cost but does not become the created tokens’ X.
+
+Production13 native cases pass, including two fresh-process saved-game cases, source departure, original-object and end-of-turn expiry, two-opponent payment and token counts, target-as-cost fizzle, exact failed-payment state preservation, no-mana-cost Dryad Arbor, and both encore and embalm X boundaries. Seven existing native graveyard keyword and token-lifecycle cases pass. Scoped seven-file types and production Ruff pass. Both canonical database cards were PARTIAL in checkpoint52 and are FULL now, with no adapters. Exact evidence: `/tmp/fyodor-mana57-production-admission-manifest.json`.

@@ -47,3 +47,10 @@ Kumano's Blessing and Kumano Faces Kakkazan // Etching of Kumano are production 
 Sixteen unified native/cold cases passed in `/tmp/exile-resume65-static2-production.log`; three focused Aegar/exile regressions passed in `/tmp/exile-resume65-static-related3.log`; strict leaf mypy and Ruff passed. Native proofs include every Saga chapter and both faces, next-creature-only counter, actual haste attack, Flash on another player's turn, damage before the Aura entered, Aura departure, controlled versus opposing sources, simultaneous lethal damage including Etching itself, full prevention, original source/recipient blink successors (with actual Regrowth/recast), a focused native damage-event timing unit, and fresh-process damage-history continuation.
 
 New-only manifest: `/tmp/exile-resume65-static2-admitted-manifest.json`. Runesword and Whippoorwill remain outside the admitted damage/exile group.
+
+
+## Copy66: Chandra, Pyromaster and Mysterious Stranger
+
+Both cards are production FULL after concrete source/ruling review. Native original-object and successful exile packets compose existing card-copy and immediate free-cast continuations. Chandra has all three loyalty abilities, a relative optional creature group, and 0–3 copies from only this ultimate’s packet. Stranger announces one required target for each qualifying graveyard and copies one native random successful exile only if at least two moved.
+
+Production 37 whole/negative/cold tests and focused five regressions passed. Mypy passed three affected sources; Ruff passed owned leaf, shared scoped sources, and tests. Proof manifest: `/tmp/exile-resume66-admitted-manifest.json`. This is later than checkpoint53; no adapter or classifier-only admission. Cumulative owned closed cards:25.

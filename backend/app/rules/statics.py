@@ -1411,6 +1411,10 @@ def condition(text: str) -> dict[str, Any] | None:
 def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller: str) -> bool:
     """Is the condition true right now (611.3a)? ``source`` is the permanent with the static."""
     kind = cond.get("static")
+    if kind == "paired_with_soulbond70":
+        from app.rules import combat_soulbond_partner70
+
+        return combat_soulbond_partner70.holds(plan, source)
     if kind == "your_turn":
         return plan.state.turn.active_player == controller
     if kind == "not":  # "unless …"

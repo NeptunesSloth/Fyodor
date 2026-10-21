@@ -189,5 +189,61 @@
       "First strike"
     ],
     "card_faces": null
+  },
+  {
+    "name": "Return the Favor",
+    "mana_cost": "{R}{R}",
+    "type_line": "Instant",
+    "oracle_text": "Spree (Choose one or more additional costs.)\n+ {1} \u2014 Copy target instant spell, sorcery spell, activated ability, or triggered ability. You may choose new targets for the copy.\n+ {1} \u2014 Change the target of target spell or ability with a single target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Spree"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Bond Beetle",
+    "mana_cost": "{G}",
+    "type_line": "Creature \u2014 Insect",
+    "oracle_text": "When this creature enters, put a +1/+1 counter on target creature.",
+    "power": "0",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Lightning Bolt",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": null
   }
 ]

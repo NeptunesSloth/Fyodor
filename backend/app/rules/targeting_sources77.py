@@ -23,7 +23,7 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         kind = 'activated' if ability.text == HOJO else 'backup'
-        effects = native['effects'] if ability.text == HOJO else [{'do': 'copy_ability', 'who': 'event_ability'}]
+        effects = native['effects'] if ability.text == HOJO else [{'do': 'copy_ability', 'who': 'event_ability'}, {'do': 'copy_new_targets'}]
         return {**native, 'limit': 'once_each_turn', 'effects': effects,
                 'cond': {**native['cond'], 'aggregate': ability.text == HOJO, 'target_source77': kind}}
     if ability.text == LEYLINE:

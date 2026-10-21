@@ -2864,6 +2864,11 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
     if e.get("host"):  # -- refused zones/sized (wave 3R4) -- "attached to this creature / that creature"
         entries = _attached_entries(plan, ctx, e["host"], entries)
         cards = [x["card"] for x in entries]
+    if e.get("entry_receipt56"):
+        from app.rules import entry_receipt56
+
+        entry_receipt56.begin(plan, ctx, e["entry_receipt56"], cards)
+        entries = [{**entry, "via": ctx.get("source_object")} for entry in entries]
     done = attachments.enter(plan, entries, ctx)
     if done:  # (an Aura choosing what it enchants pauses: the binding then keeps what they were)
         _moved(plan, ctx, e, before)  # the permanents they became: new objects (400.7)
@@ -3768,6 +3773,12 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import conditions
     from app.rules.triggers import _add  # (triggers imports this module)
 
+    if e.get("entry_receipt56"):
+        from app.rules import entry_receipt56
+
+        entry_receipt56.finish(plan, ctx, e["entry_receipt56"])
+        if entry_receipt56.suppressed(plan, ctx, e):
+            return True
     if bool(ctx.get("dice")) if e.get("roll_result") else conditions.holds(plan, ctx, e["cond"]):
         # (-- resolution memory (wave 22D) -- "cond_ref": the objects the counted "… this way" instruction acted on: "When you discard a card
         # this way, … that card's mana value")
