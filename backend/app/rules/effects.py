@@ -4471,6 +4471,8 @@ CHOICE_LABELS = {"second color": "Chosen second color", "second basic land type"
                  "card type other than creature or land": "Chosen card type", "card type other than creature": "Chosen card type", "artifact, creature, enchantment, instant, or sorcery": "Chosen card type",
                  "number between 1 and 10": "Chosen number", "odd or even": "Chosen quality",  # (wave 49B: Talion, the Kindly Lord; wave 50J: Gollum, Riddle Master)
                  "two abilities from among first strike, vigilance, and lifelink": "Chosen abilities"}  # (wave 49B: Greymond, Avacyn's Stalwart)
+CHOICE_OPTIONS["direction"] = ["left", "right"]
+CHOICE_LABELS["direction"] = "Chosen direction"
 CHOICE_LABELS.update(entry_forms.CHOICE_LABELS)  # -- entry forms (wave 5F) -- "a color other than blue"
 CHOICE_LABELS.update({w: card_names.LABEL for w in card_names.ALL_WHATS})  # -- card names (wave 22B) -- 201.4
 
@@ -6600,3 +6602,12 @@ PRIMITIVES.update(_counter_event_packets50.PRIMITIVES)
 from app.rules import trigger_attached_artifact67 as _trigger_attached_artifact67  # noqa: E402
 
 PRIMITIVES.update(_trigger_attached_artifact67.PRIMITIVES)
+
+
+from app.rules import ring_counter_packets67 as _ring_counter_packets67  # noqa: E402
+
+PRIMITIVES.update(_ring_counter_packets67.PRIMITIVES)
+
+from app.rules import combat_teyo66 as _combat_teyo66  # noqa: E402
+
+PRIMITIVES.update(_combat_teyo66.PRIMITIVES)

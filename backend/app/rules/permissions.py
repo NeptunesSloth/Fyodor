@@ -1805,7 +1805,7 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
         return mana
     view = None
     increase, reduction = max(0, own), max(0, -own)
-    floor = False
+    floored_reduction = 0
     from app.rules import attachments
 
     for src, d in mods:
@@ -1814,6 +1814,21 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
         if d["who"] == "you" and src.controller != player:
             continue
         if d.get("attached_host") and (src.attached_to != card.id or not card.zone.endswith(":battlefield")):
+            continue
+        if d.get('condition') is not None:
+            from app.rules import conditions
+
+            view = view or _view(state, player, info)
+            if not conditions.holds(view, cost_changes.context(state, src.controller, src), d['condition']):
+                continue
+        if d.get('loyalty_only'):
+            from app.rules import oracle
+
+            if not oracle._LOYALTY.match(ability_text):
+                continue
+        if d.get('exhaust_only') and not ability_text.startswith('Exhaust — '):
+            continue
+        if d.get('boast_only') and not ability_text.startswith('Boast — '):
             continue
         if mana_ability and d.get("nonmana"):  # -- chosen filters (wave 53B) -- "unless they're mana abilities": a mana ability is not charged
             continue
@@ -1845,19 +1860,17 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
         if delta > 0:
             increase += delta
         elif delta < 0:
-            reduction -= delta
-            floor = floor or d["floor"]
-    if not increase and not reduction:
+            if d['floor']:
+                floored_reduction -= delta
+            else:
+                reduction -= delta
+    if not increase and not reduction and not floored_reduction:
         return mana
     cost = cost.plus_generic(increase)
-    # -- cost changers (wave 4I) -- the floor ("can't reduce … to less than one mana") limits only its own effect; the
-    # player orders reductions (601.2f), so the floored ones go first and the ability's own reduction after them
-    own_cut = max(0, -own)
-    cut = reduction - own_cut
-    if floor:
-        symbols = cost.generic + len(cost.colored) + len(cost.hybrid) + len(cost.phyrexian)
-        cut = min(cut, max(0, symbols - 1))
-    cut = min(cost.generic, cut + own_cut)
+    # 601.2f: floored reductions may be applied before unrestricted ones.
+    symbols = cost.generic + len(cost.colored) + len(cost.hybrid) + len(cost.phyrexian)
+    floored_cut = min(floored_reduction, max(0, symbols - 1))
+    cut = min(cost.generic, floored_cut + reduction)
     if capture is not None:
         capture[-1] = cut
     out = cost.plus_generic(-cut)

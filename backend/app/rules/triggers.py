@@ -1434,7 +1434,7 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             # table, but was absent for look-back events in its entry batch.
             # Conversely, an object leaving in this batch does not see the
             # incoming object's ETB (it still sees simultaneous deaths).
-            look_back = fact[0] in ("die", "leave", "sacrifice", "leave_graveyard", "unattached", "control_change")
+            look_back = fact[0] in ("die", "leave", "sacrifice", "exploit", "leave_graveyard", "unattached", "control_change")
             if batch >= 0 and ((look_back and batch == lo) or (not look_back and batch == hi)):
                 continue
             if not combat_player_scope43.printed_verdict(plan, whole, watcher, fact,
@@ -1442,6 +1442,11 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 continue
             # -- either with a batch half (wave 49D) -- 603.2c: "discards a card or mills one or more cards": the half this event is batches (or not) on its own
             cond = next((x for x in whole["conds"] if _cond_matches(plan, x, watcher, fact, source_oid=(left or {}).get(id(watcher)) or plan.oid(watcher))), whole) if whole["event"] == "either" and (whole.get("counter_union") or any(x.get("aggregate") or (x["event"] == "draw" and x.get("nth")) for x in whole["conds"])) else whole  # (-- trigger other (wave 52B) -- or a half that is "your second card each turn": Trouble in Pairs)
+            if cond.get('damage_at_least') is not None:
+                from app.rules import trigger_damage_threshold70
+
+                if not trigger_damage_threshold70.matches(cond, fact):
+                    continue
             nth = cond.get("nth") if cond["event"] == "draw" else None
             if nth and plan.rules.draws_this_turn.get(fact[3] or "", 0) != nth:
                 continue
@@ -1489,6 +1494,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 per = ""  # -- life floor (wave 35C) -- "one or more opponents lose life": every player's loss of the batch is one event (603.2c)
             if cond.get("subject") == "source":  # "that source's controller" is the event's player
                 event.players = [fact[3]] if fact[3] else []
+            if d.get('event_players_from_damage_recipient'):
+                event.players = [info['recipient']] if info.get('recipient') else []
             if cond.get("cause") == "opponent" and info.get("by"):  # -- discard causes (wave 50E) -- "that player loses 5 life" (Psychic Purge): the opponent whose spell or ability did it, not the discarder
                 event.players = [info["by"]]
             if anykind:  # (its steps are in batches of their own: keyed by the instruction, not the batch)
@@ -1539,7 +1546,10 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
 
 def _generic_events(plan: Plan, events: list[Event]) -> None:
     """Generic "When/Whenever [subject] [event]" conditions against the event log."""
+    from app.rules import trigger_damage_threshold70
+
     r = plan.rules
+    simultaneous_damage = trigger_damage_threshold70.amounts(events)
     if r.draws_turn != plan.state.turn.number:
         r.draws_turn, r.draws_this_turn = plan.state.turn.number, {}
     fired: Fired = {}
@@ -1614,6 +1624,9 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
                           watchers=frozen_watchers, left=frozen_left)
             continue
         facts = _facts(plan, e, window)
+        for fact in facts:
+            if fact[0] == 'dealt_damage' and fact[4].get('oid'):
+                fact[4]['simultaneous_amount'] = simultaneous_damage.get((e.batch, fact[4]['oid']), 0)
         for f in facts:
             if f[0] in ("discard", "dealt_damage", "deal_combat_damage_player", "counters_put"):
                 f[4]["batch"] = e.batch  # -- trigger other (wave 36A) -- the event batch, for "for the first time each turn" (_first_discard; wave 39B: _first_of)

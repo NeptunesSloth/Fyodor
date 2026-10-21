@@ -542,6 +542,8 @@ _TURN_ENTERED = re.compile(r"^(?:the number of )?(?P<sel>(?:nontoken )?(?:creatu
 
 
 def _turn_amount(what: str) -> Value | None:
+    if what == 'the total amount of noncombat damage dealt to your opponents this turn':
+        return {'turn_history': 'opponent_noncombat_damage'}
     if what in ("{E} you've paid or lost this turn", "the amount of {E} you've paid or lost this turn"):
         return {"turn_history": "energy_lost"}
     if m := _OPPONENTS_HAND.match(what):  # each opponent whose hand size now says so (the count of a hand is public)

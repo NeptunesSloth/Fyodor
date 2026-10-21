@@ -1,0 +1,104 @@
+[
+  {
+    "name": "Clandestine Meddler",
+    "mana_cost": "{2}{B}",
+    "type_line": "Creature \u2014 Vampire Rogue",
+    "oracle_text": "When this creature enters, suspect up to one other target creature you control. (A suspected creature has menace and can't block.)\nWhenever one or more suspected creatures you control attack, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+    "power": "3",
+    "toughness": "2",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Surveil",
+      "Suspect"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Absolving Lammasu",
+    "mana_cost": "{4}{W}",
+    "type_line": "Creature \u2014 Lammasu",
+    "oracle_text": "Flying\nWhen this creature enters, all suspected creatures are no longer suspected.\nWhen this creature dies, you gain 3 life and suspect up to one target creature an opponent controls. (A suspected creature has menace and can't block.)",
+    "power": "4",
+    "toughness": "3",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Suspect"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Unsummon",
+    "mana_cost": "{U}",
+    "type_line": "Instant",
+    "oracle_text": "Return target creature to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Lightning Bolt",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Act of Treason",
+    "mana_cost": "{2}{R}",
+    "type_line": "Sorcery",
+    "oracle_text": "Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn. (It can attack and {T} this turn.)",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": null
+  }
+]

@@ -331,5 +331,149 @@
     "related_tokens": [],
     "related_cards": [],
     "card_faces": []
+  },
+  {
+    "id": "63ecf91b-853b-41a5-b655-18cfeeddbab6",
+    "oracle_id": "a9d288b8-cdc1-4e55-a0c9-d6edfc95e65d",
+    "name": "Shock",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "598",
+    "rarity": "common",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Shock deals 2 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Jon Foster",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "88f3c600-66f1-4a5e-ba4f-61e9f7f7a1d9",
+    "oracle_id": "797155cd-faf4-4321-8629-c8c352392748",
+    "name": "Reclaim",
+    "layout": "normal",
+    "set_code": "ori",
+    "set_name": "Magic Origins",
+    "collector_number": "195",
+    "rarity": "common",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Put target card from your graveyard on top of your library.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2015-07-17",
+    "artist": "Andrew Robinson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "3ee34158-867f-4685-8f2b-af9469b628c3",
+    "oracle_id": "30997b43-fc13-41d3-8064-1ccc2cb6fd2b",
+    "name": "Raging Goblin",
+    "layout": "normal",
+    "set_code": "evg",
+    "set_name": "Duel Decks Anthology: Elves vs. Goblins",
+    "collector_number": "47",
+    "rarity": "common",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Goblin Berserker",
+    "oracle_text": "Haste (This creature can attack and {T} as soon as it comes under your control.)",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Haste"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2014-12-05",
+    "artist": "Jeff Miracola",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "806d4e61-004f-4e52-b2e8-ba11b922cc7d",
+    "oracle_id": "cc2b6e58-2d6f-495e-95f3-9496105c4cba",
+    "name": "Jace Beleren",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "850",
+    "rarity": "mythic",
+    "mana_cost": "{1}{U}{U}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker \u2014 Jace",
+    "oracle_text": "+2: Each player draws a card.\n\u22121: Target player draws a card.\n\u221210: Target player mills twenty cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "3",
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Aleksi Briclot",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
   }
 ]

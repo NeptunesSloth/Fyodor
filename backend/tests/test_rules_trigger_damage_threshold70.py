@@ -166,3 +166,16 @@ roundtrip(s)
 '''
     p = subprocess.run([sys.executable, '-c', code, str(saved), str(cards.db_path)],capture_output=True,text=True,timeout=90,cwd=Path(app.__file__).resolve().parents[1])
     assert p.returncode == 0, p.stdout + p.stderr
+
+
+def test_three_sequential_damage_modes_in_one_spell_do_not_add_to_threshold(cards):
+    s, source = setup(cards)
+    cast(s, 'Giant Growth', [source.id])
+    wait_priority(s, 'p1')
+    confluence = put(s, 'Fiery Confluence', 'hand')
+    mana(s, C=2, R=2)
+    act(s, 'p1', type='cast_spell', card_id=confluence.id, modes=[0, 0, 0], sources=[])
+    settle(s)
+    assert source.zone == 'p1:battlefield' and source.damage == 3
+    assert not clues(s)
+    roundtrip(s)

@@ -697,6 +697,10 @@ def attack_forbidden(plan: Plan, ch: Characteristics, target: str) -> bool:
                     and timed_damage_replacements.active(plan, rec) for rec in plan.rules.replacements)):
         return True
     own = scripts.statics(ch)
+    from app.rules import combat_teyo66
+
+    if combat_teyo66.forbidden(plan, own, target):
+        return True
     if "defender" in ch.keywords and "attack_despite_defender" not in own:
         for rule in own:
             if rule.startswith(previous_own_turns.DEFENDER + ':'):

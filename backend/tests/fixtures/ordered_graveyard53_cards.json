@@ -247,5 +247,11 @@
     "related_tokens": [],
     "related_cards": [],
     "card_faces": []
+  },
+  {
+    "name": "Tome Scour",
+    "oracle_text": "Target player mills five cards.",
+    "type_line": "Sorcery",
+    "mana_cost": "{U}"
   }
 ]

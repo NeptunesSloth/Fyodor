@@ -5687,6 +5687,30 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import ordered_graveyard53
+
+    if (ordered_graveyard := ordered_graveyard53.definition(ability, ch)) is not None:
+        return ordered_graveyard
+    from app.rules import trigger_upkeep_pay_return71
+
+    if (pay_return71 := trigger_upkeep_pay_return71.definition(ability, ch)) is not None:
+        return pay_return71
+    from app.rules import trigger_damage_threshold70
+
+    if (threshold70 := trigger_damage_threshold70.definition(ability, ch)) is not None:
+        return threshold70
+    from app.rules import combat_teyo66
+
+    if (direction66 := combat_teyo66.definition(ability, ch)) is not None:
+        return direction66
+    from app.rules import ring_counter_packets67
+
+    if (ring_packet67 := ring_counter_packets67.definition(ability, ch)) is not None:
+        return ring_packet67
+    from app.rules import combat_defender_aliases66
+
+    if (defender66 := combat_defender_aliases66.definition(ability, ch)) is not None:
+        return defender66
     from app.rules import trigger_attached_artifact67
 
     if (attached67 := trigger_attached_artifact67.definition(ability, ch)) is not None:
@@ -5904,6 +5928,15 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (damage_count65 := damage_target_counts65.definition(ability, ch)) is not None:
         return damage_count65
+    from app.rules import table_activation_modifiers52
+
+    if (table_activation := table_activation_modifiers52.definition(ability, ch)) is not None:
+        return table_activation
+
+    from app.rules import relative_damage_receipts65
+
+    if (relative_damage65 := relative_damage_receipts65.definition(ability, ch)) is not None:
+        return relative_damage65
     from app.rules import random_vehicle_crash45
 
     if (random_vehicle := random_vehicle_crash45.definition(ability, ch)) is not None:

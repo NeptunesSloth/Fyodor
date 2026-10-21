@@ -160,3 +160,32 @@ def test_convergence_reduces_land_card_but_embalmers_creature_only_filter_does_n
     assert source.zone == "p1:battlefield" and source.tapped
     assert not mana_units.visible_pool(s.state, "p1")
     roundtrip(s)
+
+
+def setup_taxed_loot(cards):
+    s = game(
+        cards, ["Boom Scholar", "Loot, the Pathfinder", "Painter's Servant", "Enchanted Evening", "Gloom"]
+    )
+    put(s, "Boom Scholar", "battlefield")
+    source = put(s, "Loot, the Pathfinder", "battlefield")
+    put(s, "Enchanted Evening", "battlefield")
+    painter = put(s, "Painter's Servant", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 2})
+    act(s, "p1", type="cast_spell", card_id=painter.id, sources=[])
+    answer(s)
+    put(s, "Gloom", "battlefield")
+    ch = Plan(s.state, "p1", cards, None).ch(source)
+    assert "W" in ch.colors and "Enchantment" in ch.types
+    return s, source
+
+
+def test_boom_reduces_actual_taxed_exhaust_mana_ability(cards):
+    from app.rules import casting
+
+    s, source = setup_taxed_loot(cards)
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 1, "G": 1})
+    index = next(i for i, _ in casting.mana_abilities(s.state, source, cards))
+    act(s, "p1", type="activate_ability", card_id=source.id, ability=index, mana_choice="R", sources=[])
+    answer(s)
+    assert source.tapped and mana_units.visible_pool(s.state, "p1") == {"R": 3}
+    roundtrip(s)

@@ -1912,6 +1912,10 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
 def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
     """The source's own physical state ("~ is tapped"): as it is while it's still that object on the
     battlefield, else as it last existed there (608.2h)."""
+    if test in ("graveyard_three_creatures_above", "graveyard_creature_directly_above"):
+        from app.rules import ordered_graveyard53
+
+        return ordered_graveyard53.holds(plan, ctx, test)
     card = plan.state.cards.get(ctx.get("source_card") or "")
     if test == "suspended":
         from app.rules import suspend_grants

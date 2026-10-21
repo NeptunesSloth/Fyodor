@@ -205,6 +205,8 @@ def _clause(clause: str) -> Restriction | None:
 
 
 def _condition(text: str) -> dict[str, Any] | None:
+    if text == 'three or more creature cards are above this card':
+        return {'object': 'self', 'test': 'graveyard_three_creatures_above'}
     from app.rules import conditions, selectors
 
     if text == 'it has no time counters on it':

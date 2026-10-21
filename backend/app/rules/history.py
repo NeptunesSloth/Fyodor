@@ -882,6 +882,11 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         return sum(f.amount for f in log.facts if f.kind == "damage" and f.player == me)
     if kind == "all_lost":  # -- activated other (wave 52D) -- the life every player lost this turn (119.3)
         return sum(n for p, n in log.lost.items() if p in plan.live())  # (-- review 52 -- 102.1: a player is one in the game; one who has left is none, as opp_lost reads it)
+    if kind == 'opponent_noncombat_damage':
+        # Chandra's Incinerator explicitly counts opponents who have left.
+        # Read actual damage receipts, independent of source and later life gain.
+        return sum(max(0, f.amount) for f in log.facts
+                   if f.kind == 'damage' and f.player != me and not f.combat)
     if kind in ("opp_lost", "opp_damage"):  # (the opponents still in the game: 800.4a)
         opps = {p for p in plan.live() if p != me}
         if kind == "opp_lost":

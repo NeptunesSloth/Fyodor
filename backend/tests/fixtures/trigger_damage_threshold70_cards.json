@@ -269,5 +269,40 @@
     "related_tokens": [],
     "related_cards": [],
     "card_faces": []
+  },
+  {
+    "id": "b35459f8-2231-4b89-a222-45e94d1b01d9",
+    "oracle_id": "3c22e031-4804-4c31-bd3c-c3f29d456b34",
+    "name": "Fiery Confluence",
+    "layout": "normal",
+    "set_code": "lcc",
+    "set_name": "The Lost Caverns of Ixalan Commander",
+    "collector_number": "226",
+    "rarity": "rare",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Choose three. You may choose the same mode more than once.\n\u2022 Fiery Confluence deals 1 damage to each creature.\n\u2022 Fiery Confluence deals 2 damage to each opponent.\n\u2022 Destroy target artifact.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-11-17",
+    "artist": "Kieran Yanner",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
   }
 ]
