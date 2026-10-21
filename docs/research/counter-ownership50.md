@@ -1,3 +1,5 @@
+Production update: approved exact hooks are installed. Adapter-free whole-card native/cold proofs PASS in /tmp/counter66-previous-ready-production.log (13 Augmenter,14 Jinxed,11 tide,6 cold total);134 relevant counter/state/receipt/multiplier regressions, scoped types7 and owned Ruff8 PASS. Actual-database baseline49PARTIAL->FULL confirmed for the exact4. Central catalog pending; /tmp/counter66-prior-ready-production-manifest.json.
+
 # Jinxed Choker: the receiving opponent puts the counter
 
 The exact end-step trigger delegates to the ordinary native target-opponent control transfer, then places its charge counter through native add_counters with the selected target as its actual putter. Counter replacements therefore inspect the receiving player's identity. The existing upkeep trigger freezes its controller when it triggers and determines the original source's counter count as it resolves. The already approved fixed counter-alternative primitive handles the printed paid activation.

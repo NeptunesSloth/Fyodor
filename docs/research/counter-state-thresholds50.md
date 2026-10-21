@@ -1,3 +1,5 @@
+Production update: approved exact hooks are installed. Adapter-free whole-card native/cold proofs PASS in /tmp/counter66-previous-ready-production.log (13 Augmenter,14 Jinxed,11 tide,6 cold total);134 relevant counter/state/receipt/multiplier regressions, scoped types7 and owned Ruff8 PASS. Actual-database baseline49PARTIAL->FULL confirmed for the exact4. Central catalog pending; /tmp/counter66-prior-ready-production-manifest.json.
+
 # Homarid and Tidal Influence: tide thresholds are native state triggers
 
 The exact shared printed line beginning “Whenever there are four or more tide counters” delegates to the existing native “When there are four or more tide counters” state-trigger grammar. Native state tracking allows only one waiting trigger per original source object, and ordinary removal removes only tide counters. This is a state trigger without an intervening condition: reducing its counters before resolution does not cancel the removal. All other printed entry, upkeep, static power and casting restrictions continue through their existing native paths.

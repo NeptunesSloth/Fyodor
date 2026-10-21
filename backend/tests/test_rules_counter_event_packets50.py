@@ -329,3 +329,28 @@ def test_old_save_with_no_counter_packet_does_not_infer_from_current_board(cards
         accept(s)
     assert not s.state.cards[source.id].counters
     assert s.state.cards[bear.id].counters == {'+1/+1': 1, 'reach': 1, 'deathtouch': 1}
+
+
+@pytest.mark.parametrize('name', [BOLD, MARVEL])
+def test_same_instruction_on_two_creatures_keeps_two_separate_packets(cards, name):
+    s, source, bear = setup(cards, name)
+    actor = 'p2' if name == BOLD else 'p1'
+    second = put(s, 'Grizzly Bears', 'battlefield', 'p3')
+    act(s, 'p1', type='set_controller', card_ids=[second.id], player=actor)
+    from tests.test_rules_wave30m_durations import to_phase
+
+    if actor == 'p2':
+        to_phase(s, 'main1', turn=5)
+    wait_priority(s, actor)
+    spell = put(s, 'Strength of the Pack', 'hand', actor)
+    mana(s, pid=actor, C=4, G=2)
+    act(s, actor, type='cast_spell', card_id=spell.id, sources=[])
+    resolve_only(s, spell)
+    assert len(s.state.zones['stack']) == 2
+    settle(s)
+    if name == MARVEL:
+        accept(s)
+        accept(s)
+    assert source.counters == {'+1/+1': 4 if name == BOLD else 6}
+    assert bear.counters == second.counters == {'+1/+1': 2}
+    roundtrip(s)

@@ -72,7 +72,12 @@
     "Desecrator Hag",
     "Righteous Indignation",
     "Ordruun Mentor",
-    "Moss-Pit Skeleton"
+    "Moss-Pit Skeleton",
+    "Blinkmoth Urn",
+    "Charging Hooligan",
+    "Cyclone Summoner",
+    "Gremlin Infestation",
+    "Artificer's Hex"
   ],
   "expected_promotions": [
     "Archivist of Gondor",
@@ -146,7 +151,12 @@
     "Desecrator Hag",
     "Righteous Indignation",
     "Ordruun Mentor",
-    "Moss-Pit Skeleton"
+    "Moss-Pit Skeleton",
+    "Blinkmoth Urn",
+    "Charging Hooligan",
+    "Cyclone Summoner",
+    "Gremlin Infestation",
+    "Artificer's Hex"
   ],
   "production_focused": {
     "count": 16,
@@ -831,5 +841,60 @@
     "related_checks": 38,
     "combined_log": "/tmp/trigger65-grave-counter-top-production.log",
     "root_admission": "Explicit independent native/canonical/rulings review approved; pending catalog diff"
+  },
+  "step_counts68_production": {
+    "baseline": "checkpoint49",
+    "names": [
+      "Blinkmoth Urn"
+    ],
+    "status": "PRODUCTION_VERIFIED_PENDING_NEXT_CATALOG",
+    "whole_checks": 13,
+    "genuine_cold_checks": 1,
+    "production_log": "/tmp/trigger68-urn-production.log",
+    "staged_log": "/tmp/trigger68-urn-staged.log",
+    "types_checked": 1,
+    "dependency": "Approved Domri permanent-spell entering-P/T repair production10 inclcold /tmp/fyodor-mana51-domri-production-boundaries.log; sourceCard mustalreadyenterbattlefield before characteristic derivation",
+    "scope": "Exact TEXT enabled alongside preexisting VISIONS_TEXT in ADMITTED_TEXTS; native step-player count and source/ability controller preserved; no callback/schema/core algorithm added"
+  },
+  "population_handcast69_production": {
+    "names": [
+      "Charging Hooligan",
+      "Cyclone Summoner"
+    ],
+    "reviewer": "root + resume_triggers",
+    "whole_checks": 28,
+    "genuine_cold_checks": 2,
+    "production_log": "/tmp/trigger69-hooligan-cyclone-production.log",
+    "related_checks": 68,
+    "related_log": "/tmp/trigger69-related-production.log",
+    "types_checked": 3,
+    "types_log": "/tmp/trigger69-types.log",
+    "scope": "Two exact definition dispatches and unchanged reviewed native leafs; no core algorithms/schema changes"
+  },
+  "attached_artifact67_production": {
+    "baseline": "checkpoint49",
+    "names": [
+      "Gremlin Infestation",
+      "Artificer's Hex"
+    ],
+    "status": "PRODUCTION_VERIFIED_PENDING_NEXT_CATALOG",
+    "whole_checks": 18,
+    "genuine_cold_checks": 2,
+    "production_log": "/tmp/trigger67-attached-production.log",
+    "staged_log": "/tmp/trigger67-attached-staged-final.log",
+    "related_checks": 34,
+    "related_log": "/tmp/trigger67-related.log",
+    "types_checked": 1,
+    "types_log": "/tmp/trigger67-production-types.log",
+    "ruff_log": "/tmp/trigger67-production-ruff.log",
+    "canonical": "/tmp/trigger67-attached-canonical.json",
+    "rulings": "/tmp/trigger67-attached-rulings.json",
+    "reviewer": "root",
+    "scope": "Exact two printed abilities. Existing typed host-reference receipt/current-LKI lookup, native damage and destruction; Hex native intervening attached_creature condition evaluates twice and final host determined at resolution. No shared algorithms/schema/emitter changes. Manual table Move events intentionally do not trigger card abilities; actual paid Disenchant is the death producer in positive/cold proofs.",
+    "source_sha256": {
+      "app/rules/trigger_attached_artifact67.py": "0fbf0583bc637cf83af48d7e863dec450ae3a0568408d6717f98dff70ae359c0",
+      "tests/test_rules_trigger_attached_artifact67.py": "ed6f189608645c1cb2c7501e017f0155d019046a81bc5cbde7bbefa14c7cfeb1",
+      "tests/fixtures/trigger_attached_artifact67_cards.json": "4170e28485646bdc8dd679a9b6332dab9a8e8358e5033c6b43d27c0efab4568d"
+    }
   }
 }

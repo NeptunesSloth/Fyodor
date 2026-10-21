@@ -1,5 +1,4 @@
 """Coax's exile alternative remains available under Commander rule 903.11."""
-import importlib.util
 import json
 from pathlib import Path
 
@@ -8,7 +7,6 @@ import pytest
 from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
-from app.rules import effects, outside_game, scripts
 from tests import test_rules_exile_cast_outcomes45_foundation as gameplay
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
@@ -30,17 +28,6 @@ def cards(settings):
     repo.close()
 
 
-@pytest.fixture(autouse=True)
-def staged(monkeypatch):
-    spec = importlib.util.spec_from_file_location('coax65_candidate', '/tmp/exile-resume-coax-outside_game.py')
-    assert spec and spec.loader
-    candidate = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(candidate)
-    monkeypatch.setattr(outside_game, 'combined', candidate.combined)
-    monkeypatch.setitem(effects.PRIMITIVES, 'outside_permission', candidate.permission)
-    scripts._cached.cache_clear()
-    yield
-    scripts._cached.cache_clear()
 
 
 def setup(cards):

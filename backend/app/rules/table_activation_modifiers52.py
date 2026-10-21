@@ -30,7 +30,6 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             "filter": selectors.Selector(
                 types=("Creature",), card=True, zones=("graveyard",), zone_owner="you"
             ).key(),
-            "who": "you",
         }
     if text == (
         "As long as you control your commander, activated abilities of cards in your graveyard cost {2} less "
@@ -41,7 +40,6 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return {
             **base,
             "filter": selectors.Selector(card=True, zones=("graveyard",), zone_owner="you").key(),
-            "who": "you",
             "floor": True,
             "condition": condition,
         }
@@ -55,7 +53,6 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if text == "Exhaust abilities of other permanents you control cost {2} less to activate.":
         return {
             **base,
-            "who": "you",
             "filter": selectors.Selector(other=True, controller="you").key(),
             "exhaust_only": True,
         }

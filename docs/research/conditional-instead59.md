@@ -1,3 +1,5 @@
+Production update: approved exact hooks are installed. Adapter-free full19 native cases (including3 genuine cold),299 related regressions, scoped mypy1 and owned Ruff2 pass. Exact3 new-only cards: Dark Temper, Will of the All-Hunter, Everflame Eidolon. Pending central catalog audit; no global total claim. Evidence /tmp/counter59-production-manifest.json.
+
 # Conditional instead branches 59 — staged only
 
 The exact native leaves for these three cards await root review and registration. They are outside the trigger peer's delegated registration scope. No live hook is installed and no promotion is counted.

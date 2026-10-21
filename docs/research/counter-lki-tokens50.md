@@ -1,3 +1,5 @@
+Production update: approved exact hooks are installed. Adapter-free whole-card native/cold proofs PASS in /tmp/counter66-previous-ready-production.log (13 Augmenter,14 Jinxed,11 tide,6 cold total);134 relevant counter/state/receipt/multiplier regressions, scoped types7 and owned Ruff8 PASS. Actual-database baseline49PARTIAL->FULL confirmed for the exact4. Central catalog pending; /tmp/counter66-prior-ready-production-manifest.json.
+
 # Ambitious Augmenter: all counter kinds copied from the departed object
 
 The exact printed death trigger rewrites only its counter-copy phrase to the existing native last-known-counter copy grammar. Existing token creation retains each created Fractal as the following effect's recipient. The original source object supplies every kind and quantity, including negative and non-stat counters; a returned physical successor does not supply the old object's counters. Existing native counter replacements apply separately to every token. Increment retains its ordinary mana-spent trigger and intervening condition.

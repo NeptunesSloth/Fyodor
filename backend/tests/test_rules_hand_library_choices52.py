@@ -54,7 +54,7 @@ def choose(s, ids):
 
 
 def setup(cards, name):
-    names = [name, 'Grizzly Bears', 'Llanowar Elves', 'Forest', 'Island', 'Sol Ring']
+    names = [name, 'Grizzly Bears', 'Llanowar Elves', 'Forest', 'Island', 'Sol Ring', 'Serra Angel']
     s = table(cards, names, names, names)
     source = put(s, name, 'hand')
     to_phase(s, 'main1', 4)
@@ -159,7 +159,7 @@ def test_loon_actual_two_triggers_return_self_then_draw_and_bottom(cards):
     roundtrip(s)
 
 
-@pytest.mark.parametrize('name', ['Dream Cache', 'Stunted Growth'])
+@pytest.mark.parametrize('name', ['Dream Cache', 'Stunted Growth', 'Sawtooth Loon'])
 def test_true_cold_hidden_hand_continuations(cards, tmp_path, name):
     import subprocess
     import sys
@@ -184,6 +184,11 @@ from tests.test_rules_hand_library_choices52 import settle
 repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'images'))
 s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
 name=sys.argv[3]
+source=sys.argv[4]
+if name=='Sawtooth Loon' and s.state.rules.decision.resume.get('step')!='put_back':
+ d=s.state.rules.decision
+ act(s,d.player,type='choose',decision_id=d.id,option_ids=[source])
+ settle(s)
 if name=='Dream Cache':
  d=s.state.rules.decision
  act(s,d.player,type='choose',decision_id=d.id,option_ids=['1'])
@@ -191,7 +196,7 @@ if name=='Dream Cache':
 d=s.state.rules.decision
 assert d is not None and d.kind=='choose_cards'
 pid=d.player
-ids=[o.id for o in d.options[:2 if name=='Dream Cache' else 3]]
+ids=[o.id for o in d.options if name!='Sawtooth Loon' or o.id!=source][:3 if name=='Stunted Growth' else 2]
 act(s,pid,type='choose',decision_id=d.id,option_ids=ids)
 settle(s)
 d=s.state.rules.decision
@@ -200,12 +205,51 @@ assert all(s.state.cards[c].zone==pid+':hand' for c in ids)
 act(s,pid,type='choose',decision_id=d.id,option_ids=list(reversed(ids)))
 settle(s)
 lib=s.state.zones[pid+':library']
-assert (lib[-2:]==ids if name=='Dream Cache' else lib[:3]==list(reversed(ids)))
+assert (lib[:3]==list(reversed(ids)) if name=='Stunted Growth' else lib[-2:]==ids)
+if name=='Sawtooth Loon':
+ if s.state.rules.decision is not None:
+  d=s.state.rules.decision
+  act(s,d.player,type='choose',decision_id=d.id,option_ids=[source])
+  settle(s)
+ assert s.state.cards[source].zone=='p1:hand'
 roundtrip(s)
 repo.close()
 """
     result = subprocess.run(
-        [sys.executable, '-c', code, str(saved), str(cards.db_path), name],
+        [sys.executable, '-c', code, str(saved), str(cards.db_path), name, source.id],
         cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, timeout=90,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_loon_can_return_another_white_creature_then_fly_past_ground_blocker(cards):
+    from app.game.errors import ActionError
+    from tests.test_rules_conditional_prevention import attack, damage
+
+    s, source = setup(cards, 'Sawtooth Loon')
+    angel = put(s, 'Serra Angel', 'battlefield')
+    blocker = put(s, 'Grizzly Bears', 'battlefield', 'p2')
+    cast(s, source)
+    for _ in range(8):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        if d.resume.get('step') == 'put_back':
+            choose(s, [o.id for o in d.options if o.id != angel.id][:2])
+        elif d.resume.get('step') == 'order_library':
+            choose(s, [o.id for o in d.options])
+        else:
+            assert any(o.id == angel.id for o in d.options)
+            choose(s, [angel.id])
+    assert angel.zone == 'p1:hand' and source.zone == 'p1:battlefield'
+    attack(s, [source], target='p2', turn=7)
+    to_phase(s, 'declare_blockers')
+    before = s.state.model_dump_json()
+    with pytest.raises(ActionError):
+        act(s, 'p2', type='declare_blockers', blocks=[{'blocker_id': blocker.id, 'attacker_id': source.id}])
+    assert s.state.model_dump_json() == before
+    act(s, 'p2', type='declare_blockers', blocks=[])
+    before_life = s.state.players['p2'].life
+    damage(s)
+    assert s.state.players['p2'].life == before_life - 2
+    roundtrip(s)

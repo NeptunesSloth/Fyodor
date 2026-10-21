@@ -1,0 +1,415 @@
+[
+  {
+    "id": "8569ad47-a243-402d-899f-4e6b17ea4e1e",
+    "oracle_id": "377d0fa7-1b3d-4b97-b066-dceeff3734d0",
+    "name": "Pramikon, Sky Rampart",
+    "layout": "normal",
+    "set_code": "c19",
+    "set_name": "Commander 2019",
+    "collector_number": "47",
+    "rarity": "mythic",
+    "mana_cost": "{U}{R}{W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Wall",
+    "oracle_text": "Flying, defender\nAs Pramikon enters, choose left or right.\nEach player may attack only the nearest opponent in the chosen direction and planeswalkers controlled by that opponent.",
+    "power": "1",
+    "toughness": "5",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Defender"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2019-08-23",
+    "artist": "Richard Wright",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "ffb70bd4-e876-4242-b5b4-bb7493710f0f",
+    "oracle_id": "0caf42f5-abff-48aa-9bbf-df6cba169ef3",
+    "name": "Mystic Barrier",
+    "layout": "normal",
+    "set_code": "c13",
+    "set_name": "Commander 2013",
+    "collector_number": "18",
+    "rarity": "rare",
+    "mana_cost": "{4}{W}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters and at the beginning of your upkeep, choose left or right.\nEach player may attack only the nearest opponent in the last chosen direction and planeswalkers controlled by that opponent.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2013-11-01",
+    "artist": "Matt Stewart",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "c66fa93a-6888-4297-b22e-7d69fd25c0d7",
+    "oracle_id": "0dfdf1a1-a3a9-490f-bd9d-dcba088c6785",
+    "name": "Teyo, Geometric Tactician",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "725",
+    "rarity": "rare",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Planeswalker \u2014 Teyo",
+    "oracle_text": "When Teyo enters, create a 0/4 white Wall creature token with defender and flying.\n+1: You and target opponent each draw a card.\n\u22122: Choose left or right. Until your next turn, each player may attack only the nearest opponent in the last chosen direction and planeswalkers controlled by that opponent.",
+    "power": null,
+    "toughness": null,
+    "loyalty": "3",
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Kieran Yanner",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "d08e421a-49ef-448c-9e04-9c5a7e5c071c",
+        "name": "Wall",
+        "type_line": "Token Creature \u2014 Wall"
+      }
+    ],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "8acbbe8f-9373-499f-bf15-1785fc800770",
+    "oracle_id": "6a84eda1-7e72-4b5a-849f-b6e177565aeb",
+    "name": "Mirage Mirror",
+    "layout": "normal",
+    "set_code": "m3c",
+    "set_name": "Modern Horizons 3 Commander",
+    "collector_number": "300",
+    "rarity": "rare",
+    "mana_cost": "{3}",
+    "cmc": 3.0,
+    "type_line": "Artifact",
+    "oracle_text": "{2}: This artifact becomes a copy of target artifact, creature, enchantment, or land until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-06-14",
+    "artist": "Craig J Spearing",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "407d6723-bf58-403e-b2ac-ba52c51d356f",
+    "oracle_id": "dd5a9ea5-0f27-4492-97d1-1a9970094c19",
+    "name": "Invasion of Mercadia // Kyren Flamewright",
+    "layout": "transform",
+    "set_code": "mom",
+    "set_name": "March of the Machine",
+    "collector_number": "147",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{R} // ",
+    "cmc": 2.0,
+    "type_line": "Battle \u2014 Siege // Creature \u2014 Goblin Spellshaper",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, you may discard a card. If you do, draw two cards.\n//\n{2}{R}, {T}, Discard a card: Create two 1/1 blue and red Elemental creature tokens. Creatures you control get +1/+0 and gain haste until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": "4",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Transform"
+    ],
+    "is_token": false,
+    "double_faced": true,
+    "image_faces": 2,
+    "has_image": false,
+    "released_at": "2023-04-21",
+    "artist": "Cristi Balanescu",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "28a7a9b0-d823-4b34-829f-ade81fc141e0",
+        "name": "Elemental",
+        "type_line": "Token Creature \u2014 Elemental"
+      }
+    ],
+    "related_cards": [],
+    "card_faces": [
+      {
+        "name": "Invasion of Mercadia",
+        "mana_cost": "{1}{R}",
+        "type_line": "Battle \u2014 Siege",
+        "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, you may discard a card. If you do, draw two cards.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": "4",
+        "colors": [
+          "R"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "Kyren Flamewright",
+        "mana_cost": "",
+        "type_line": "Creature \u2014 Goblin Spellshaper",
+        "oracle_text": "{2}{R}, {T}, Discard a card: Create two 1/1 blue and red Elemental creature tokens. Creatures you control get +1/+0 and gain haste until end of turn.",
+        "power": "3",
+        "toughness": "3",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "R"
+        ],
+        "image_face": 1
+      }
+    ]
+  },
+  {
+    "id": "1de30c12-2011-495a-be25-f7a46b23e142",
+    "oracle_id": "38515f89-348b-4cf3-b7bd-1f6fe4ce2fba",
+    "name": "Adeline, Resplendent Cathar",
+    "layout": "normal",
+    "set_code": "tdc",
+    "set_name": "Tarkir: Dragonstorm Commander",
+    "collector_number": "108",
+    "rarity": "rare",
+    "mana_cost": "{1}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Knight",
+    "oracle_text": "Vigilance\nAdeline's power is equal to the number of creatures you control.\nWhenever you attack, for each opponent, create a 1/1 white Human creature token that's tapped and attacking that player or a planeswalker they control.",
+    "power": "*",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Vigilance"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-04-11",
+    "artist": "Bryan Sola",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "5054bb15-ddd5-4e5e-a9fd-6bdf255f7fd3",
+        "name": "Human",
+        "type_line": "Token Creature \u2014 Human"
+      }
+    ],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "8bc7fdf0-3e1e-487c-833d-7c74aa02c0c1",
+    "oracle_id": "6879f5ce-7a1b-4606-bad1-885779b0d456",
+    "name": "Cloudshift",
+    "layout": "normal",
+    "set_code": "jmp",
+    "set_name": "Jumpstart",
+    "collector_number": "97",
+    "rarity": "common",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-07-17",
+    "artist": "Howard Lyon",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "7ac43e16-8b14-46f2-877a-600ea918766b",
+    "oracle_id": "a7e97fa9-4b72-4548-b854-5be5f18a6f1a",
+    "name": "Disenchant",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "572",
+    "rarity": "common",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Richard Kane Ferguson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "36959f2b-75b5-4d68-b193-ada980822fd9",
+    "oracle_id": "b1544f21-7e98-461b-aed5-e748b0168c52",
+    "name": "Swords to Plowshares",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "53",
+    "rarity": "uncommon",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature. Its controller gains life equal to its power.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Jesper Ejsing",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "b8c5e74c-96e7-4a1f-93b7-14d776fe4b2d",
+    "oracle_id": "4b7ac066-e5c7-43e6-9e7e-2739b24a905d",
+    "name": "Serra Angel",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "740",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Angel",
+    "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Vigilance"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-04-24",
+    "artist": "Greg Staples",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "ad2bbfa1-81e0-4683-b1dc-a3aaa9837690",
+        "name": "Treizeci, Sun of Serra",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  }
+]

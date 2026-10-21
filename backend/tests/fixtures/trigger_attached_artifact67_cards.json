@@ -399,5 +399,40 @@
     "related_tokens": [],
     "related_cards": [],
     "card_faces": []
+  },
+  {
+    "id": "47db94ce-e9f3-4bc3-b05f-17fde1d91329",
+    "oracle_id": "857d94f7-113c-45a4-a88a-5d087347d57f",
+    "name": "Leonin Shikari",
+    "layout": "normal",
+    "set_code": "c17",
+    "set_name": "Commander 2017",
+    "collector_number": "66",
+    "rarity": "rare",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Cat Soldier",
+    "oracle_text": "You may activate equip abilities any time you could cast an instant.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-08-25",
+    "artist": "Wayne England",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
   }
 ]

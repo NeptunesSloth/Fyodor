@@ -6595,3 +6595,8 @@ PRIMITIVES["lammasu_unsuspect57"] = _trigger_leaf57.unsuspect
 from app.rules import counter_event_packets50 as _counter_event_packets50  # noqa: E402
 
 PRIMITIVES.update(_counter_event_packets50.PRIMITIVES)
+
+
+from app.rules import trigger_attached_artifact67 as _trigger_attached_artifact67  # noqa: E402
+
+PRIMITIVES.update(_trigger_attached_artifact67.PRIMITIVES)

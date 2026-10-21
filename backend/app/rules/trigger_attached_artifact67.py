@@ -7,12 +7,20 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from app.rules.plan import Plan
 
+HEX = "At the beginning of your upkeep, if enchanted Equipment is attached to a creature, destroy that creature."
+
 TEXT = "At the beginning of your end step, this Aura deals 2 damage to enchanted artifact's controller."
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
-    from app.rules import scripts
+    from app.rules import scripts, selectors
 
+    if ability.kind == 'triggered' and ability.text == HEX:
+        native = scripts.define(replace(ability, text='At the beginning of your upkeep, draw a card.'), ch)
+        if native is None:
+            return None
+        return {**native, 'if': {'object': 'host', 'is': selectors.Selector(extras=('attached_creature',)).key()},
+                'effects': [{'do': 'host_creature_destroy67'}]}
     if ability.kind != 'triggered' or ability.text != TEXT:
         return None
     native = scripts.define(replace(ability, text=TEXT.replace("artifact's controller", "permanent's controller")), ch)
@@ -22,20 +30,18 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 
 
 def controller(plan: Plan, ctx: dict[str, Any]) -> str | None:
-    source = plan.state.cards.get(ctx.get('source_card') or '')
-    if (source is not None and source.zone.endswith(':battlefield')
-            and plan.oid(source) == ctx.get('source_object')):
-        host = plan.state.cards.get(source.attached_to or '')
-        return host.controller if host is not None and host.zone.endswith(':battlefield') else None
-    snap = plan.rules.lki.get(ctx.get('source_object') or '')
-    if snap is None or snap.attached_object is None:
+    from app.rules import attached_kindred_look
+
+    reference = attached_kindred_look.host_reference(plan, ctx, {})
+    if reference is None:
         return None
-    host = plan.state.cards.get(snap.attached_to or '')
+    host = plan.state.cards.get(reference.card)
     if (host is not None and host.zone.endswith(':battlefield')
-            and plan.oid(host) == snap.attached_object):
+            and plan.oid(host) == reference.object_id):
         return host.controller
-    original = plan.rules.lki.get(snap.attached_object)
+    original = plan.rules.lki.get(reference.object_id)
     return original.controller if original is not None else None
+
 
 
 def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -47,4 +53,17 @@ def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return effects.damage(plan, ctx, {'do': 'damage', 'who': 'player:' + player, 'n': e['n']})
 
 
-PRIMITIVES = {'attached_controller_damage67': run}
+def destroy_host_creature(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context, effects
+
+    equipment = effects._cards(plan, ctx, 'host')
+    if len(equipment) != 1:
+        return True
+    host = plan.state.cards.get(plan.state.cards[equipment[0]].attached_to or '')
+    if host is None or not host.zone.endswith(':battlefield') or not plan.ch(host).is_creature:
+        return True
+    context.bind_objects(plan, ctx, 'hex67_creature', [host.id])
+    return effects.destroy(plan, ctx, {'do': 'destroy', 'who': 'ref:hex67_creature'})
+
+
+PRIMITIVES = {'attached_controller_damage67': run, 'host_creature_destroy67': destroy_host_creature}

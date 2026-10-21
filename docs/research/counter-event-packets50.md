@@ -1,3 +1,5 @@
+Production update: reviewed typed packet kernel and exact2 hooks are installed. Adapter-free29 unique native cases PASS including2 genuine cold, actual doubled/copied trigger packets, two-creature separation and old-save no-inference.134 related receipt/multiplier/counter-kind/state checks,7 scoped types and8 owned Ruff files PASS. Exact new-only cards Bold Plagiarist and Captain Marvel, Apex Avenger; central catalog pending. Evidence /tmp/counter66-packets-production-manifest.json.
+
 # Committed counter event packets
 
 Bold Plagiarist and Captain Marvel, Apex Avenger need the counters actually put by one triggering instruction, rather than the recipient's counter total when the trigger resolves. The staged kernel captures each committed positive placement with its exact object, kind and amount. Native all-kind instruction joins preserve these entries and update native multiplied triggers. CounterPlacement moves into the data-only rules state module and is re-exported at its original import path; the new event list defaults empty for existing saves.

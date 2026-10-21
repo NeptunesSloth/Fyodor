@@ -1,0 +1,310 @@
+[
+  {
+    "id": "18cf2703-8512-49dd-8643-8f83b1e7a2cc",
+    "oracle_id": "1b841e8f-9484-4737-bd37-dfa11bd06883",
+    "name": "Aragorn, Company Leader",
+    "layout": "normal",
+    "set_code": "ltr",
+    "set_name": "The Lord of the Rings: Tales of Middle-earth",
+    "collector_number": "642",
+    "rarity": "rare",
+    "mana_cost": "{1}{G}{W}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Human Ranger",
+    "oracle_text": "Whenever the Ring tempts you, if you chose a creature other than Aragorn as your Ring-bearer, put your choice of a counter from among first strike, vigilance, deathtouch, and lifelink on Aragorn.\nWhenever you put one or more counters on Aragorn, put one of each of those kinds of counters on up to one other target creature.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "keywords": [
+      "Vigilance",
+      "Deathtouch"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-11-03",
+    "artist": "Anna Steinbauer",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "77dfb70e-42a5-44a0-977c-320bdb75e937",
+        "name": "Aragorn, Company Leader",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7215460e-8c06-47d0-94e5-d1832d0218af",
+        "name": "The Ring // The Ring Tempts You",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "42db2313-b13d-4292-bef2-bf86f989d32f",
+    "oracle_id": "4f958678-2a32-4a30-8fe7-47df9ada6b2f",
+    "name": "Birthday Escape",
+    "layout": "normal",
+    "set_code": "ltr",
+    "set_name": "The Lord of the Rings: Tales of Middle-earth",
+    "collector_number": "43",
+    "rarity": "common",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Draw a card. The Ring tempts you.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-06-23",
+    "artist": "David \u00c1lvarez",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "53cd9e3e-f211-4f9c-84a5-8c4593ff2af0",
+        "name": "Birthday Escape",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7215460e-8c06-47d0-94e5-d1832d0218af",
+        "name": "The Ring // The Ring Tempts You",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "17fa0b62-d474-4dc7-9631-9d0a9d99e5e2",
+    "oracle_id": "7b1a59db-0ffc-490b-a881-c8192f3747db",
+    "name": "Gift of the Viper",
+    "layout": "normal",
+    "set_code": "mh3",
+    "set_name": "Modern Horizons 3",
+    "collector_number": "156",
+    "rarity": "common",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Put a +1/+1 counter, a reach counter, and a deathtouch counter on target creature. Untap it.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-06-14",
+    "artist": "Madeline Boni",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "1cdd8e69-5a71-4933-914e-dfede7b1ac93",
+    "oracle_id": "01546b7d-a233-4176-8843-d732074dc5b6",
+    "name": "Doubling Season",
+    "layout": "normal",
+    "set_code": "cmm",
+    "set_name": "Commander Masters",
+    "collector_number": "283",
+    "rarity": "mythic",
+    "mana_cost": "{4}{G}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.\nIf an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-08-04",
+    "artist": "Chuck Lukacs",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "0a71fb62-acbd-49f5-842f-0fc9fa48afea",
+    "oracle_id": "f0b4331b-ddd3-4f11-ba16-67c651c8954c",
+    "name": "Solemnity",
+    "layout": "normal",
+    "set_code": "hou",
+    "set_name": "Hour of Devastation",
+    "collector_number": "22",
+    "rarity": "rare",
+    "mana_cost": "{2}{W}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Players can't get counters.\nCounters can't be put on artifacts, creatures, enchantments, or lands.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2017-07-14",
+    "artist": "Greg Opalinski",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "6417e616-0490-4d89-a8ab-9b92fcc62a29",
+    "oracle_id": "d5b9d250-92f5-40d8-b962-4ae4adb466c8",
+    "name": "Flicker of Fate",
+    "layout": "normal",
+    "set_code": "j22",
+    "set_name": "Jumpstart 2022",
+    "collector_number": "56",
+    "rarity": "common",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature or enchantment, then return it to the battlefield under its owner's control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-12-02",
+    "artist": "Sila",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "df606cf5-67dc-46f4-8c79-1d2f1d054391",
+    "oracle_id": "f0bbcabf-29e7-4c7e-893f-86b64d3620a9",
+    "name": "Virtue of Knowledge // Vantress Visions",
+    "layout": "adventure",
+    "set_code": "woe",
+    "set_name": "Wilds of Eldraine",
+    "collector_number": "76",
+    "rarity": "mythic",
+    "mana_cost": "{4}{U} // {1}{U}",
+    "cmc": 5.0,
+    "type_line": "Enchantment // Instant \u2014 Adventure",
+    "oracle_text": "If a permanent entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.\n//\nCopy target activated or triggered ability you control. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-09-08",
+    "artist": "Piotr Dura",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "fcf4c7fb-7859-4c11-8552-6817f5119d2e",
+        "name": "On an Adventure",
+        "component": "combo_piece"
+      },
+      {
+        "id": "7cc2173a-b7fb-4bd6-9c8e-73de91c6903a",
+        "name": "Virtue of Knowledge // Vantress Visions",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": [
+      {
+        "name": "Virtue of Knowledge",
+        "mana_cost": "{4}{U}",
+        "type_line": "Enchantment",
+        "oracle_text": "If a permanent entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      },
+      {
+        "name": "Vantress Visions",
+        "mana_cost": "{1}{U}",
+        "type_line": "Instant \u2014 Adventure",
+        "oracle_text": "Copy target activated or triggered ability you control. You may choose new targets for the copy.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      }
+    ]
+  }
+]

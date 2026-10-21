@@ -19,7 +19,7 @@ BASE = ("At the beginning of each player's first main phase, if this artifact is
         "that player adds {C}.")
 
 
-ADMITTED_TEXTS = frozenset({VISIONS_TEXT})
+ADMITTED_TEXTS = frozenset({VISIONS_TEXT, TEXT})
 
 
 def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | None:

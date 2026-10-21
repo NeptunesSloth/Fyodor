@@ -1,0 +1,3 @@
+Shipwreck Sifters production closure
+
+Native paid source casting and mandatory ETB draw/discard; Spirit-only, disturb-only, both qualified once, nonqualifying creature/noncreature, opponent native loot, Rest in Peace discard-to-exile, and genuine cold pending discard all pass (9). The exact union uses native keyword descriptors and current discard facts, with no selector/emitter/schema mutation.115 related checks pass; one self-exploit case fails identically against frozen checkpoint49 (proof /tmp/counter66-exploit-baseline49.log), left unchanged. Scoped mypy1/Ruff2 pass. Exact1 admission pending central catalog; /tmp/counter66-discard-production-manifest.json.

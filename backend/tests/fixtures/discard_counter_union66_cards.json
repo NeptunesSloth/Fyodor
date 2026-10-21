@@ -1,0 +1,323 @@
+[
+  {
+    "id": "8f295833-a83e-4b18-8007-c7f5d78e5624",
+    "oracle_id": "d70ee6f1-541b-43b4-897c-68a231beb894",
+    "name": "Shipwreck Sifters",
+    "layout": "normal",
+    "set_code": "mid",
+    "set_name": "Innistrad: Midnight Hunt",
+    "collector_number": "74",
+    "rarity": "common",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Spirit",
+    "oracle_text": "When this creature enters, draw a card, then discard a card.\nWhenever you discard a Spirit card or a card with disturb, put a +1/+1 counter on this creature.",
+    "power": "1",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-09-24",
+    "artist": "Svetlin Velinov",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "0e568af8-9ddf-4efd-92ec-74a54b811c03",
+    "oracle_id": "67a025eb-6e65-435c-becb-b51085175292",
+    "name": "Lantern Bearer // Lanterns' Lift",
+    "layout": "transform",
+    "set_code": "inr",
+    "set_name": "Innistrad Remastered",
+    "collector_number": "72",
+    "rarity": "common",
+    "mana_cost": "{U} // ",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Spirit // Enchantment \u2014 Aura",
+    "oracle_text": "Flying\nDisturb {2}{U} (You may cast this card from your graveyard transformed for its disturb cost.)\n//\nEnchant creature\nEnchanted creature gets +1/+1 and has flying.\nIf Lanterns' Lift would be put into a graveyard from anywhere, exile it instead.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Transform",
+      "Enchant",
+      "Disturb"
+    ],
+    "is_token": false,
+    "double_faced": true,
+    "image_faces": 2,
+    "has_image": false,
+    "released_at": "2025-01-24",
+    "artist": "Zoltan Boros",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": [
+      {
+        "name": "Lantern Bearer",
+        "mana_cost": "{U}",
+        "type_line": "Creature \u2014 Spirit",
+        "oracle_text": "Flying\nDisturb {2}{U} (You may cast this card from your graveyard transformed for its disturb cost.)",
+        "power": "1",
+        "toughness": "1",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "U"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "Lanterns' Lift",
+        "mana_cost": "",
+        "type_line": "Enchantment \u2014 Aura",
+        "oracle_text": "Enchant creature\nEnchanted creature gets +1/+1 and has flying.\nIf Lanterns' Lift would be put into a graveyard from anywhere, exile it instead.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "U"
+        ],
+        "image_face": 1
+      }
+    ]
+  },
+  {
+    "id": "5ef30b6c-0806-4bf6-9a84-c2aea8d84cf1",
+    "oracle_id": "a8fdbcdf-479d-4582-9ad5-9fbd4c740c29",
+    "name": "Spectral Sailor",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "746",
+    "rarity": "uncommon",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Spirit Pirate",
+    "oracle_text": "Flash (You may cast this spell any time you could cast an instant.)\nFlying\n{3}{U}: Draw a card.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Flash"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-04-24",
+    "artist": "Cristi Balanescu",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "cb76958b-9f53-43ff-95b2-00a066beccdc",
+    "oracle_id": "51233ade-70cd-4539-9f41-5ffab761da54",
+    "name": "Malevolent Hermit // Benevolent Geist",
+    "layout": "transform",
+    "set_code": "dbl",
+    "set_name": "Innistrad: Double Feature",
+    "collector_number": "61",
+    "rarity": "rare",
+    "mana_cost": "{1}{U} // ",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Wizard // Creature \u2014 Spirit Wizard",
+    "oracle_text": "{U}, Sacrifice this creature: Counter target noncreature spell unless its controller pays {3}.\nDisturb {2}{U} (You may cast this card from your graveyard transformed for its disturb cost.)\n//\nFlying\nNoncreature spells you control can't be countered.\nIf Benevolent Geist would be put into a graveyard from anywhere, exile it instead.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Flying",
+      "Transform",
+      "Disturb"
+    ],
+    "is_token": false,
+    "double_faced": true,
+    "image_faces": 2,
+    "has_image": false,
+    "released_at": "2022-01-28",
+    "artist": "Daarken",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": [
+      {
+        "name": "Malevolent Hermit",
+        "mana_cost": "{1}{U}",
+        "type_line": "Creature \u2014 Human Wizard",
+        "oracle_text": "{U}, Sacrifice this creature: Counter target noncreature spell unless its controller pays {3}.\nDisturb {2}{U} (You may cast this card from your graveyard transformed for its disturb cost.)",
+        "power": "2",
+        "toughness": "1",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "U"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "Benevolent Geist",
+        "mana_cost": "",
+        "type_line": "Creature \u2014 Spirit Wizard",
+        "oracle_text": "Flying\nNoncreature spells you control can't be countered.\nIf Benevolent Geist would be put into a graveyard from anywhere, exile it instead.",
+        "power": "2",
+        "toughness": "2",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "U"
+        ],
+        "image_face": 1
+      }
+    ]
+  },
+  {
+    "id": "6d740928-bf61-4420-a403-63097538b97d",
+    "oracle_id": "67362406-b1ca-49e2-800d-9050bfe8742a",
+    "name": "Merfolk Looter",
+    "layout": "normal",
+    "set_code": "afc",
+    "set_name": "Forgotten Realms Commander",
+    "collector_number": "86",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Merfolk Rogue",
+    "oracle_text": "{T}: Draw a card, then discard a card.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-07-23",
+    "artist": "Tristan Elwell",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  },
+  {
+    "id": "dc69f960-68ba-4315-8146-6a7a82047503",
+    "oracle_id": "02090581-61aa-4348-ad57-451be8ee91c2",
+    "name": "Ponder",
+    "layout": "normal",
+    "set_code": "tdc",
+    "set_name": "Tarkir: Dragonstorm Commander",
+    "collector_number": "159",
+    "rarity": "common",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Look at the top three cards of your library, then put them back in any order. You may shuffle.\nDraw a card.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-04-11",
+    "artist": "Dan Murayama Scott",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "9ce9c2e1-3e8a-4b9a-8da6-7b7fc5a897f6",
+        "name": "Preponderant Pearl",
+        "component": "combo_piece"
+      }
+    ],
+    "card_faces": []
+  },
+  {
+    "id": "d108c2b1-236e-4b8d-8445-d9749ccc4fea",
+    "oracle_id": "087f9ad7-e74f-40e2-8102-1ed2925d0418",
+    "name": "Rest in Peace",
+    "layout": "normal",
+    "set_code": "big",
+    "set_name": "The Big Score",
+    "collector_number": "4",
+    "rarity": "mythic",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-04-19",
+    "artist": "Grady Frederick",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": []
+  }
+]

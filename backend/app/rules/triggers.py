@@ -2698,7 +2698,15 @@ def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[s
                 r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
                 plan.note(f"{t.name}'s ability has no legal target and is removed")
                 return True
-            decide(plan, player=t.controller, kind="choose_one", prompt=f"{t.name}: choose a target",
+            choice_player = t.controller
+            if t.ability.get("target_choice") == "event_player":
+                event_players = list(t.event.players) if t.event is not None else []
+                if len(event_players) != 1 or event_players[0] not in plan.live():
+                    r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
+                    plan.note(f"{t.name}'s ability has no unique player to choose its target and is removed")
+                    return True
+                choice_player = event_players[0]
+            decide(plan, player=choice_player, kind="choose_one", prompt=f"{t.name}: choose a target",
                    options=[DecisionOption(id=x, label=label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
                    resume={"step": "trigger_target", "trigger": t.id})
             return False
