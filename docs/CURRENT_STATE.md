@@ -1,8 +1,8 @@
-Wrap-up requested: verified implementation stops at checkpoint57. Uninstalled proposals are preserved separately and excluded from production admissions.
+Work resumed at the user’s request after wrap-up. Verified implementation remains checkpoint57 until a new frozen audit. Six agents are closing saved proposals; uninstalled research remains excluded from production admissions.
 
 Verified implementation was merged in [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). [Wrap-up PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20) preserves the remaining uninstalled research on `codex/card-automation-wrap-up`. PR #18 and PR #19 references below describe historical implementation reviews.
 
-## CHECKPOINT57 VERIFIED — WRAPPED UP
+## CHECKPOINT57 VERIFIED — WORK RESUMED
 
 Latest full catalog classification: **29,715 FULL / 2,353 PARTIAL**, among32,068 Commander-legal cards. **13 exact expected promotions** from checkpoint56; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **253 of1,500 additional completions verified;1,247 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
 
