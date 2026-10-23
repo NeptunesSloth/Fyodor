@@ -1,0 +1,34 @@
+{
+  "baseline": "checkpoint59",
+  "checkpoint": "checkpoint60",
+  "database_metadata_equal": true,
+  "card_name_set_equal": true,
+  "summary": {
+    "FULL": 29808,
+    "PARTIAL": 2260
+  },
+  "promotions": [
+    "Balthier and Fran",
+    "Brokkos, Apex of Forever",
+    "Dawnhand Dissident",
+    "Fortune, Loyal Steed",
+    "Glamdring, Foe-hammer // Gleam of Death",
+    "Glass Asp",
+    "Hildibrand Manderville // Gentleman's Rise",
+    "In the Eye of Chaos",
+    "Ironsoul Enforcer",
+    "Mosswood Dreadknight // Dread Whispers",
+    "Nafs Asp",
+    "Paladin Class",
+    "Pillar Tombs of Aku",
+    "Quenchable Fire",
+    "Sabertooth Cobra",
+    "Tamiyo, Compleated Sage",
+    "The Abyss",
+    "Wargling",
+    "Will Kenrith"
+  ],
+  "regressions": [],
+  "unexpected": [],
+  "missing": []
+}

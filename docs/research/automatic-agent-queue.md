@@ -1,12 +1,12 @@
 # Automatic card-rule work queue
 
-Current status: work resumed at the user’s request after the wrap-up. Checkpoint59 is now the verified baseline. Six workers have disjoint assignments and continue to the next coherent group after closing a batch. New work is uncounted until reviewed and audited.
+Current status: work resumed at the user’s request after the wrap-up. Checkpoint60 is now the verified baseline. Six workers have disjoint assignments and continue to the next coherent group after closing a batch. New work is uncounted until reviewed and audited.
 
-The user explicitly requests automatic reassignment to the next biggest remaining groups when agents finish. Keep this instruction across checkpoints. The target remains at least 1,500 additional verified completions from checkpoint48; checkpoint59 verifies327 cumulatively from checkpoint48, leaving1,173 toward that target.
+The user explicitly requests automatic reassignment to the next biggest remaining groups when agents finish. Keep this instruction across checkpoints. The target remains at least 1,500 additional verified completions from checkpoint48; checkpoint60 verifies346 cumulatively from checkpoint48, leaving1,154 toward that target.
 
 Use the newest verified catalog inventory to choose coherent shared rule gaps. Broad family counts overlap and do not establish how many cards an implementation completes. Prefer reusable semantics with concrete whole-card candidates, rather than choosing individual cards solely for popularity.
 
-Current resumed ownership (checkpoint60 candidate saved, gates running):
+Current resumed ownership (checkpoint60 verified; next candidates isolated):
 
 - `cost68`: Land Grant/Spinning Darkness scout after closing all-player life-gain alternate costs70.
 - `combat84`: Razorgrass Invoker/Alluring Suitor87 after closing compound attack subjects86.

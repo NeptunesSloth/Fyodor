@@ -1,8 +1,14 @@
-Work resumed at the user’s request after wrap-up. Latest verified implementation is checkpoint59; checkpoint60 is saved to PR20 with nineteen integrated candidates and remains uncounted pending its consolidated native gate. Its exact inventory audit passed with no prior FULL regressions. Six agents continue next groups automatically.
+Work resumed at the user’s request after wrap-up. Latest verified implementation is checkpoint60, saved to PR20 with nineteen exact additions and no prior FULL regressions. Six agents continue next groups automatically.
 
 Verified implementation was merged in [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). [Active PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20) preserves subsequent verified implementation, the current candidate and remaining research on `codex/card-automation-wrap-up`. PR #18 and PR #19 references below describe historical implementation reviews.
 
 Checkpoint59 verifies42 further cards. See [integration evidence](research/resumed-checkpoint59-integrations.md). Later research remains uninstalled or uncounted until its next frozen audit.
+
+## CHECKPOINT60 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,808 FULL /2,260 PARTIAL**, among32,068 Commander-legal cards. **19 exact expected promotions** from checkpoint59; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **346 of1,500 additional completions verified;1,154 remain.** FULL is the engine coverage classification.
+
+Evidence: [coverage](research/checkpoint60-coverage.json), [868-module hashes](research/checkpoint60-source-hashes.json), [integration details](research/resumed-checkpoint60-integrations.md) and [validation logs](research/checkpoint60-validation). Frozen source passes full mypy868, configured Ruff,54 core tests,203 native card checks,141 casting regressions,93 frontend tests and frontend typing. No fresh full-suite claim. Six agents continue next groups automatically; subsequent candidates remain uncounted.
 
 ## CHECKPOINT59 VERIFIED — CONTINUING
 

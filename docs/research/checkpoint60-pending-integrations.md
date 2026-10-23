@@ -1,3 +1,5 @@
+CLOSED: checkpoint60 verified after203 consolidated native checks. See checkpoint60-coverage.json and resumed-checkpoint60-integrations.md. Candidate history below is retained.
+
 # Checkpoint60 frozen candidate — not yet admitted
 
 Baseline: verified checkpoint59 (29,789 FULL / 2,279 PARTIAL).
