@@ -493,5 +493,10 @@
     "original_sha256": "cb838d288438e0e1c774853a5e4b9aba404df98af698d6c52f6951007ceb43f9",
     "archived_sha256": "74e5cf1dbf491ccf4a46d52ead576f24095a530e266db14297ec5f0e69c3c09b",
     "numstat_preserved": null
+  },
+  "docs/research/proposals/morph-costs78/owned.patch": {
+    "original_sha256": "0a6e41a2aa55f83cb4d83cff360b76e41615e804b77d4e12274819845c84e62a",
+    "archived_sha256": "fe21914213c163c9b7c298fd06f0dc962f0c56a37c0f309eb03c94b784e21d13",
+    "numstat_preserved": true
   }
 }

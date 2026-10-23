@@ -8,12 +8,8 @@
   "native": {
     "passed": 32,
     "genuine_cold": 4,
-    "logs": [
-      "native26-uncorrected-harness.log",
-      "native-cold4-peer.log",
-      "native-phase2-peer.log"
-    ],
-    "note": "32 distinct green cases across26 ordinary cases in initial run, corrected external-PYTHONPATH fresh-process cold4, and corrected native-phased-zone assertion focused phase2. Initial run6 failures are honestly retained:4 subprocess import harness errors and2 incorrect fixture assertions, not source regressions."
+    "log": "native32-consolidated-peer.log",
+    "note": "Final corrected external-PYTHONPATH consolidated32 green on peer in_game guard source. Earlier failed harness/fixture logs retained for provenance."
   },
   "related": {
     "passed": 72,

@@ -9,3 +9,5 @@ Missing legacy fight history stays unknown via optional fight_history90_known. N
 Patch generated only against saved original stage files. Scripts hook insertion only; model fields additive. Root must combine fight_history90_known=True with cost68 search_history75_known=True in the same native TurnLog new-turn constructor. Suggested native test name test_rules_fight_receipts90.py and fixture fight_receipts90_cards.json. No live production files edited.
 
 Peer regression uses actual Safe Passage/Pit Fight and two separate actual Slip Out the Back casts. Phased original fighters retain OIDs but occupy native phased zone, which existing battlefield-zone predicate excludes. Explicit in_game guard additionally excludes objects retained after an owner/controller leaves the game. One remaining unphased fighter permits native Treasure activation; both phased fighters cause atomic rejection.
+
+Final corrected external-PYTHONPATH consolidated32 gate passed in911.94s under shared CPU load; archived native32-consolidated-peer.log. This supersedes split native provenance while retaining earlier harness logs honestly.

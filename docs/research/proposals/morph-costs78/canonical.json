@@ -1,0 +1,35 @@
+{
+  "id": "74aaf095-143a-43fc-a858-b1e82a4b906e",
+  "oracle_id": "7a4c2d47-3489-4e56-b38b-de2dddd942ad",
+  "name": "Exiled Doomsayer",
+  "layout": "normal",
+  "set_code": "scg",
+  "set_name": "Scourge",
+  "collector_number": "13",
+  "rarity": "rare",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature \u2014 Human Cleric",
+  "oracle_text": "All morph costs cost {2} more. (This doesn't affect the cost to cast creature spells face down.)",
+  "power": "1",
+  "toughness": "2",
+  "loyalty": null,
+  "defense": null,
+  "colors": [
+    "W"
+  ],
+  "color_identity": [
+    "W"
+  ],
+  "keywords": [],
+  "is_token": false,
+  "faces": [],
+  "double_faced": false,
+  "image_faces": 1,
+  "has_image": false,
+  "released_at": "2003-05-26",
+  "artist": "Brian Sn\u00f5ddy",
+  "commander_legal": "legal",
+  "related_tokens": [],
+  "related_cards": []
+}
