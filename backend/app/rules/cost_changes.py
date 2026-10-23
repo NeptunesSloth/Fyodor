@@ -660,6 +660,10 @@ ANY_TARGET: tuple[str, ...] = ("*any target*",)
 def static_delta(state: GameState, info: CardInfo, src: CardInstance, d: dict[str, Any], player: str,
                  card: CardInstance, ch: Characteristics, targets: tuple[str, ...] = ()) -> int | None:
     """The signed change a table cost changer makes to this spell now, or None when it doesn't apply to it."""
+    if d.get('caster_artifacts63'):
+        from app.rules import caster_turn_costs63
+
+        return caster_turn_costs63.artifact_count(state, info, player)
     if d.get('target_rule62'):
         from app.rules import target_cost_conditions62
 

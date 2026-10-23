@@ -3224,6 +3224,10 @@ def resume_look_may(plan: Plan, d: Any, chosen: list[str]) -> None:
 def _looked(plan: Plan, ctx: Context) -> tuple[str, list[str]]:
     """(the library's owner, the set-aside cards still in that library)."""
     pid = ctx.get("looked_owner") or ctx["controller"]
+    if ctx.get("looked_zone") == "public_milled59":
+        from app.rules import public_mill_attachment59
+
+        return public_mill_attachment59.looked(plan, ctx)
     library = plan.state.zones.get(zone_key(pid, ctx.get("looked_zone") or "library"), [])  # (wave 10C: milled cards, in the graveyard)
     return pid, [c for c in ctx.get("looked") or [] if c in library and (not ctx.get("looked_objects")
                  or ctx["looked_objects"].get(c) == plan.oid(plan.state.cards[c]))]
@@ -3236,6 +3240,10 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     looked at), "put those cards into your hand" (``which``: "all"), "put all land cards revealed
     this way into your hand" (a selector with no choice: every match)."""
     pid = ctx["controller"]
+    if e.get("public_mill59"):
+        from app.rules import public_mill_attachment59
+
+        public_mill_attachment59.prepare_public_mill(plan, ctx, e)
     owner, looked = _looked(plan, ctx)
     if e.get("by_owner"):  # -- most-played cards (wave 43B) -- "they put it onto the battlefield" / "that player puts it into their hand": the library's owner is the one who puts it
         pid = owner
@@ -3304,7 +3312,10 @@ def _picked(plan: Plan, ctx: Context, e: dict[str, Any], chosen: list[str]) -> b
     if e.get("did"):
         zone = {"battlefield_tapped": "battlefield", "battlefield_attacking": "battlefield", "top": "library",
                 "bottom": "library"}.get(e["to"], e["to"])
-        context.refs(ctx)[e["did"]] = {"kind": "probe", "to": zone, "cards": {c: plan.oid(plan.state.cards[c]) for c in chosen}}
+        if e.get("choice_payment59"):
+            context.bind_payment(ctx, e["did"], bool(chosen))
+        else:
+            context.refs(ctx)[e["did"]] = {"kind": "probe", "to": zone, "cards": {c: plan.oid(plan.state.cards[c]) for c in chosen}}
     if e["to"] in ("top_any", "bottom_any"):
         if len(chosen) > 1:
             _ask_order(plan, ctx, pid, _looked(plan, ctx)[0], chosen, "top" if e["to"] == "top_any" else "bottom")
@@ -6711,3 +6722,8 @@ PRIMITIVES.update(conditional_counter_riders77.PRIMITIVES)
 from app.rules import unblocked_choices79 as _unblocked79  # noqa: E402
 
 PRIMITIVES.update({'bone_entry79': _unblocked79.bone_entry, 'bone_finish79': _unblocked79.bone_finish, 'spy_reveal79': _unblocked79.spy_reveal})
+
+from app.rules import public_mill_attachment59 as _public_mill_attachment59  # noqa: E402
+
+PRIMITIVES.update(_public_mill_attachment59.PRIMITIVES)
+RESUME.update(_public_mill_attachment59.RESUME)

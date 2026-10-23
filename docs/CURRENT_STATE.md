@@ -2,6 +2,8 @@ Work resumed at the user’s request after wrap-up. Latest verified implementati
 
 Verified implementation was merged in [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). [Wrap-up PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20) preserves the remaining uninstalled research on `codex/card-automation-wrap-up`. PR #18 and PR #19 references below describe historical implementation reviews.
 
+After checkpoint58, five more reviewed cards are integrated with 41 passing production checks but remain outside verified totals pending the next full audit. See [pending integrations](research/checkpoint59-pending-integrations.md).
+
 ## CHECKPOINT58 VERIFIED — CONTINUING
 
 Latest full catalog classification: **29,747 FULL / 2,321 PARTIAL**, among 32,068 Commander-legal cards. **32 exact expected promotions** from checkpoint57; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **285 of 1,500 additional completions verified; 1,215 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.

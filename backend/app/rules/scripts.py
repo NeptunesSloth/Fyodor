@@ -2653,6 +2653,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import public_mill_attachment59
+
+    if (continued59 := public_mill_attachment59.parse(body, it, event_player)) is not None:
+        return continued59
     from app.rules import conditional_counter_riders77
 
     if (rider77 := conditional_counter_riders77.parse(body)) is not None:
@@ -6070,6 +6074,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (target_cost := target_cost_conditions62.definition(ability, ch)) is not None:
         return target_cost
+
+    from app.rules import caster_turn_costs63
+
+    if (caster_cost := caster_turn_costs63.definition(ability, ch)) is not None:
+        return caster_cost
 
     from app.rules import first_target_activation_cost58
 

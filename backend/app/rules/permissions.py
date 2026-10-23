@@ -1801,7 +1801,11 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
     """The mana part of an activated ability's cost after "Activated abilities of creatures you control cost {2} less to
     activate" and its increases: increases first, then reductions on the generic component only (118.7a, 601.2f), and with
     "can't reduce the mana in that cost to less than one mana" never below one mana. Costs with {X} are left alone."""
-    mods = [(src, d) for src, _, d in _table_statics(state, info, {"ability_cost_modifier"})]
+    cost_statics = _table_statics(state, info, {"ability_cost_modifier", "cost_modifier"})
+    mods = [(src, d) for src, _, d in cost_statics if d.get("static") == "ability_cost_modifier"]
+    from app.rules import caster_turn_costs63
+
+    mods += caster_turn_costs63.ability_modifiers(state, player, cost_statics)
     if capture is not None:
         capture.append(0)
     if not mods and not own:  # (own: the ability's "This ability costs {1} less …", wave 4I)

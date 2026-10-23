@@ -1,0 +1,44 @@
+{
+  "status": "Isolated review candidate; proof gates closed. UNINSTALLED, uncounted until root review/integration/frozen catalog audit.",
+  "names": [
+    "Cunning Nightbonder",
+    "Hum of the Radix",
+    "Tithe Taker"
+  ],
+  "source_stage": "/tmp/cost63-stage/backend",
+  "patch": "docs/research/proposals/caster-turn-costs63/production-candidate.patch",
+  "native": {
+    "passed": 24,
+    "cold": 3,
+    "runs": "15 initial +4 boundaries +3 cold +2 controller-negative disjoint tests on same unchanged app source; not a fresh consolidated all24 run."
+  },
+  "related": {
+    "passed": 27,
+    "deselected": 4,
+    "failed": 0,
+    "coverage": "Native Thryx/counterability, turn-cost, mana-ability, and all19 non-cold target62 regressions"
+  },
+  "types": "PASS 4 app files",
+  "ruff": "PASS full configured Ruff4 app files +native test",
+  "test_path": "backend/tests/test_rules_caster_turn_costs63.py",
+  "fixture_path": "backend/tests/fixtures/caster_turn_costs63_cards.json",
+  "source_hashes": {
+    "caster_turn_costs63.py": "ae4ab2f3afd1bdda5a7dec22662f47c359d11400854754f1e42b2ce85aa3d6f3",
+    "cost_changes.py": "ab133eff968941c81b8fb69ff0eda6cfa2e1cd31776634a9d32578eff8bd00bc",
+    "permissions.py": "829c84d0fef6f664a86a58f630e45efe5042a3063d61d03b84fbc768bfb3df43",
+    "scripts.py": "aff60d1ed221efdacaaed61b74d57fe823bbc80fa86a5e82867512dee8757c34"
+  },
+  "held": [
+    "Paladin Class has separate unclosed level3 trigger and is NOT included."
+  ],
+  "semantics": [
+    "Actual flash keyword rather than permission to cast as though flash, caster-relative native filter and existing uncounterable mark",
+    "Native actual Counterspell: protected own flash survives; opponent flash/nonflash Orrery spell counters normally",
+    "Nightbonder removed by actual Bolt before counter resolution loses current protection",
+    "Hum counts current controlled battlefield Artifact permanents for actual caster, independently of Hum controller; other players artifacts excluded",
+    "Generic increase applies with Omniscience waived base",
+    "Tithe taxes opponent spells/actual nonmana activations only during source controllers turn; current controller own activation and opponent mana ability exempt",
+    "Tithe original afterlife dies to actual taxed Bolt then creates flying1/1 Spirit",
+    "Atomic insufficient ability tax refused; all full states history/JSON roundtrip"
+  ]
+}

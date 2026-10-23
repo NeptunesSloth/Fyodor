@@ -43,5 +43,10 @@
     "original_sha256": "ea17e01f32cd98a6bd3f86c43668a1456acd16ad289a2b42a10f352a3b018d4b",
     "archived_sha256": "812a7e1612422a503529a70c465455819ef35d1db6a59d75e0f68e8f34f00fe0",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/caster-turn-costs63/production-candidate.patch": {
+    "original_sha256": "e3bea6a512e30a595612a3899253b16fea08ab2197500e446d9a56cd92fe8cbf",
+    "archived_sha256": "39c4978f1ec30aa6eee8b0c71a487bc3fe91cbf75b02c4ccb64d41c2f84e26f1",
+    "numstat_preserved": true
   }
 }
