@@ -1,6 +1,6 @@
-# Resumed integrations awaiting checkpoint58 audit
+# Verified resumed integrations — checkpoint58
 
-Seven source-preserving proposals were reviewed and integrated after the user resumed work. The frozen candidate contains839 app/tools modules and32 expected admissions, not yet verified promotions. The full catalog audit must match the exact expected set with no prior FULL regressions before totals change.
+Seven source-preserving proposals were reviewed and integrated after the user resumed work. The frozen source contains839 app/tools modules. The catalog audit confirmed32 exact promotions with no prior FULL regressions, unexpected or missing promotions. Root production checks pass212 cases; full mypy839, configured Ruff and54 core checks pass. Verified total29,747 FULL /2,321 PARTIAL; target285/1,500.
 
 | Stream | Exact candidate cards | Native evidence before integration | Related evidence |
 | --- | ---: | --- | --- |

@@ -1,6 +1,16 @@
-Work resumed at the user’s request after wrap-up. Verified implementation remains checkpoint57 until a new frozen audit. Six agents are closing saved proposals; uninstalled research remains excluded from production admissions.
+Work resumed at the user’s request after wrap-up. Latest verified implementation is checkpoint58; later batches remain uncounted until their next frozen audit. Six agents are closing saved proposals; uninstalled research remains excluded from production admissions.
 
 Verified implementation was merged in [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). [Wrap-up PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20) preserves the remaining uninstalled research on `codex/card-automation-wrap-up`. PR #18 and PR #19 references below describe historical implementation reviews.
+
+## CHECKPOINT58 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,747 FULL / 2,321 PARTIAL**, among 32,068 Commander-legal cards. **32 exact expected promotions** from checkpoint57; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **285 of 1,500 additional completions verified; 1,215 remain toward the target.** FULL is the engine coverage classification, not a guarantee of every interaction.
+
+Evidence: [checkpoint58-coverage.json](research/checkpoint58-coverage.json) and [839-module source hashes](research/checkpoint58-source-hashes.json). Original frozen source passes full mypy839, configured Ruff and 54 core engine/history/privacy tests. Root production runs pass 212 checks across seven native integration files and the repaired existing Ruxa case. Per-stream related checks overlap; no fresh full-suite result is claimed.
+
+The32 cover nonzero kicker X and original-object damage (2), optional library/graveyard continuations (5), text-changing effects excluding Swirl (10), top-library permissions excluding Falco (4), conditional counter effects (4), unblocked combat (3), and target-dependent activation/spell costs (4). Native checks cover actual costs, illegal/changed targets, replacements, source reincarnations, private views, copied abilities and fresh-process saves.
+
+Existing impending counter/type cache behavior and stale replicate/Ruxa regression expectations are repaired without additional card counts. Offline saved-library/collection/outside-game31 checks pass; test-only scheduler11 checks pass after correcting its import-order registration. Six agents continue next groups automatically. Swirl, Falco cost ordering, Chants putter provenance and later research remain held or uncounted. See [integration evidence](research/resumed-checkpoint58-integrations.md).
 
 ## CHECKPOINT57 VERIFIED — WORK RESUMED
 

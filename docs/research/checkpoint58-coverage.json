@@ -1,0 +1,72 @@
+{
+  "baseline": "checkpoint57",
+  "checkpoint": "checkpoint58",
+  "database_metadata_equal": true,
+  "card_name_set_equal": true,
+  "summary": {
+    "FULL": 29747,
+    "PARTIAL": 2321
+  },
+  "promotions": [
+    "Agonizing Demise",
+    "Alter Reality",
+    "Artificial Evolution",
+    "Beast Mode",
+    "Blood Spatter Analysis",
+    "Bone Dancer",
+    "Crystal Spray",
+    "Eden, Seat of the Sanctum",
+    "Ent's Fury",
+    "Ghostfire Blade",
+    "Glamerdye",
+    "Into the Pit",
+    "Isu the Abominable",
+    "Kopala, Warden of Waves",
+    "Magical Hack",
+    "Master of Cruelties",
+    "Mind Bend",
+    "Moment of Glory",
+    "Raft Security Officer",
+    "Recursive Recruitment",
+    "Serum-Core Chimera",
+    "Sleight of Mind",
+    "Spectral Shift",
+    "Stromgald Spy",
+    "Strong Back",
+    "The Belligerent",
+    "The Fourth Doctor",
+    "Thieving Skydiver",
+    "Trait Doctoring",
+    "Vengeful Villagers",
+    "Whim of Volrath",
+    "Winter Soldier, Icy Assassin"
+  ],
+  "regressions": [],
+  "unexpected": [],
+  "missing": [],
+  "source_module_count": 839,
+  "source_mypy": "PASS839 original frozen source",
+  "source_ruff": "PASS configured from backend project context, original frozen source",
+  "core_checks": "PASS54 frozen engine/history/privacy tests",
+  "native_production_checks": {
+    "passed": 212,
+    "note": "Seven native integration files total211 plus the repaired existing Ruxa case. Includes true fresh-process continuations; per-stream related checks overlap and are not summed."
+  },
+  "additional_target": {
+    "baseline": "checkpoint48",
+    "verified": 285,
+    "target": 1500,
+    "remaining": 1215
+  },
+  "quality_repairs": [
+    "Impending synthetic layer4 nodes invalidate dynamic counter-dependent table caches; full118-test casting-keyword file passes, no promotion.",
+    "Replicate preset tests account for generic typed-count entry; existing Ruxa assertion matches its already-FULL baseline, no promotion.",
+    "Test-only entry-harvest fixture registers in both continuation dispatch copies, independent of import order;11 pass, no production registration."
+  ],
+  "held": [
+    "Swirl the Mists",
+    "Falco Spara, Pactweaver",
+    "Tourach/Thelon Chants actual putter authority",
+    "Later staged batches are not included."
+  ]
+}

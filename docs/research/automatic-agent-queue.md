@@ -1,8 +1,8 @@
 # Automatic card-rule work queue
 
-Current status: work resumed at the user’s request after the wrap-up. Checkpoint57 remains the verified baseline. Six workers have disjoint assignments and continue to the next coherent group after closing a batch. New work is uncounted until reviewed and audited.
+Current status: work resumed at the user’s request after the wrap-up. Checkpoint58 is now the verified baseline. Six workers have disjoint assignments and continue to the next coherent group after closing a batch. New work is uncounted until reviewed and audited.
 
-The user explicitly requests automatic reassignment to the next biggest remaining groups when agents finish. Keep this instruction across checkpoints. The target remains at least 1,500 additional verified completions from checkpoint48; checkpoint57 verifies 253 cumulatively from checkpoint48, leaving 1,247 toward that target.
+The user explicitly requests automatic reassignment to the next biggest remaining groups when agents finish. Keep this instruction across checkpoints. The target remains at least 1,500 additional verified completions from checkpoint48; checkpoint58 verifies 285 cumulatively from checkpoint48, leaving 1,215 toward that target.
 
 Use the newest verified catalog inventory to choose coherent shared rule gaps. Broad family counts overlap and do not establish how many cards an implementation completes. Prefer reusable semantics with concrete whole-card candidates, rather than choosing individual cards solely for popularity.
 
@@ -28,4 +28,4 @@ After each batch, send the exact completed-card manifest, native whole-card/nega
 
 Each production admission requires the exact reviewed source, native whole-card and negative proofs, genuine cold continuation where applicable, and related checks. Production closures after checkpoint50 remain uncounted until the next frozen catalog diff.
 
-Current live worker names after restart: resume_triggers, resume_counters, resume_mana, resume_exile, resume_library, integration_review (now static/combat implementation). Checkpoint57 verifies13 additional promotions; target progress253/1,500. Later batches stay uncounted until their snapshot diff. Root remains active across checkpoints and status questions.
+Current live worker names after restart: resume_triggers, resume_counters, resume_mana, resume_exile, resume_library, integration_review (now static/combat implementation). Checkpoint58 verifies32 additional promotions; target progress285/1,500. Later batches stay uncounted until their snapshot diff. Root remains active across checkpoints and status questions.
