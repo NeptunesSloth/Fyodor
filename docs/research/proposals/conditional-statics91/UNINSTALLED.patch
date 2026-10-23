@@ -1,0 +1,39 @@
+--- /dev/null
++++ b/backend/app/rules/conditional_static_aliases91.py
+@@ -0,0 +1,23 @@
++"""Exact conditional statics expressed through existing native grant predicates."""
++from __future__ import annotations
++
++from typing import Any
++
++SHORT = 'As long as enchanted permanent is a creature, it gets -3/-0 and loses flying.'
++GROND = "As long as it's your turn and you control an Army, Grond is an artifact creature."
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import statics
++
++    if ability.kind != 'static':
++        return None
++    if ability.text == SHORT:
++        # Native attached_kind=creature already restricts this grant to creature hosts.
++        return statics.parse('Enchanted creature gets -3/-0 and loses flying.')
++    if ability.text == GROND:
++        native = statics.parse("As long as it's your turn, ~ is an artifact creature.")
++        army = statics.condition('you control an Army')
++        assert native is not None and army is not None
++        return {**native, 'conditions': [*native['conditions'], army]}
++    return None
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -6221,6 +6221,10 @@
+
+     if (counter_comparison := counter_event_comparisons50.definition(ability, ch)) is not None:
+         return counter_comparison
++    from app.rules import conditional_static_aliases91
++
++    if (conditional91 := conditional_static_aliases91.definition(ability, ch)) is not None:
++        return conditional91
+     from app.rules import world_upkeep83
+
+     if (world_upkeep := world_upkeep83.definition(ability, ch)) is not None:

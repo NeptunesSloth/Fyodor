@@ -483,5 +483,15 @@
     "original_sha256": "e52c66e4576f46eb478458b7aee63a1be3c6263e82f97daea1e01fcacaba08ce",
     "archived_sha256": "4058e4db6db6299909983150a1002087b8fd5ad1c9e7c909ee2dc39b63099e6f",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-statics91/UNINSTALLED.patch": {
+    "original_sha256": "01a4ef0de4ae63b7f383322dd4a9d3236a1ab9e664b60af90d1ede4b853cd9fd",
+    "archived_sha256": "949ef4fc34b89290e8943dff5c669f9b3362a35d6e3fcc4ad15a4715d1365bb4",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-statics91/held-manor/dependency-failure.log": {
+    "original_sha256": "cb838d288438e0e1c774853a5e4b9aba404df98af698d6c52f6951007ceb43f9",
+    "archived_sha256": "74e5cf1dbf491ccf4a46d52ead576f24095a530e266db14297ec5f0e69c3c09b",
+    "numstat_preserved": null
   }
 }

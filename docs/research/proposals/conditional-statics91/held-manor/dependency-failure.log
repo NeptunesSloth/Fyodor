@@ -1,0 +1,23 @@
+.......F..                                                               [100%]
+=================================== FAILURES ===================================
+________ test_native_manor_tracks_external_defender_and_timestamp_order ________
+
+cards = <app.cards.repository.CardRepository object at 0x7fe71f84cc20>
+
+    def test_native_manor_tracks_external_defender_and_timestamp_order(cards):
+        s=game(cards)
+        source=cast(s,'Manor Gargoyle')
+        wait_priority(s,'p1')
+        act(s,'p1',type='activate_ability',card_id=source.id,ability=2,sources=[])
+        settle(s)
+        assert not {'defender','indestructible'}&ch(s,source).keywords
+        cast(s,'Guard Duty',targets=[source.id])
+>       assert {'defender','indestructible','flying'}<=ch(s,source).keywords
+E       AssertionError: assert {'defender', ...destructible'} <= frozenset({'d...r', 'flying'})
+E
+E         Extra items in the left set:
+E         'indestructible'
+
+tests/test_rules_conditional_statics91.py:142: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_conditional_statics91.py::test_native_manor_tracks_external_defender_and_timestamp_order
