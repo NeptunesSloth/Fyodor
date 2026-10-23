@@ -1,0 +1,94 @@
+[
+  {
+    "card": {
+      "id": "662097e6-355f-4192-9fa7-4b8c22346a64",
+      "oracle_id": "444dea65-9be7-4b64-afd1-eebe44b285be",
+      "name": "Moonlight Bargain",
+      "layout": "normal",
+      "set_code": "c18",
+      "set_name": "Commander 2018",
+      "collector_number": "114",
+      "rarity": "rare",
+      "mana_cost": "{3}{B}{B}",
+      "cmc": 5.0,
+      "type_line": "Instant",
+      "oracle_text": "Look at the top five cards of your library. For each card, put that card into your graveyard unless you pay 2 life. Then put the rest into your hand.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2018-08-10",
+      "artist": "Nick Percival",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "card": {
+      "id": "ce37492e-4f07-4171-97d4-84f28fb4e2be",
+      "oracle_id": "a9bdf857-0c6b-4afa-afbb-aff7e4b61b09",
+      "name": "Sirocco",
+      "layout": "normal",
+      "set_code": "mir",
+      "set_name": "Mirage",
+      "collector_number": "192",
+      "rarity": "uncommon",
+      "mana_cost": "{1}{R}",
+      "cmc": 2.0,
+      "type_line": "Instant",
+      "oracle_text": "Target player reveals their hand. For each blue instant card revealed this way, that player discards that card unless they pay 4 life.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "R"
+      ],
+      "color_identity": [
+        "R"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "1996-10-08",
+      "artist": "Alan Rabinowitz",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "a9bdf857-0c6b-4afa-afbb-aff7e4b61b09",
+          "source": "wotc",
+          "published_at": "2014-02-01",
+          "comment": "If you target yourself with this spell, you must reveal your entire hand to the other players just as any other player would."
+        }
+      ]
+    }
+  }
+]

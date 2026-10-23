@@ -1,0 +1,37 @@
+{
+  "id": "4ef2b9aa-4f7c-4640-bb34-9775e1be0935",
+  "oracle_id": "eb70939f-c4ce-4224-ab74-acc24771d7f0",
+  "name": "Belt of Giant Strength",
+  "layout": "normal",
+  "set_code": "afc",
+  "set_name": "Forgotten Realms Commander",
+  "collector_number": "38",
+  "rarity": "rare",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Artifact \u2014 Equipment",
+  "oracle_text": "Equipped creature has base power and toughness 10/10.\nEquip {10}. This ability costs {X} less to activate, where X is the power of the creature it targets.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "defense": null,
+  "colors": [
+    "G"
+  ],
+  "color_identity": [
+    "G"
+  ],
+  "keywords": [
+    "Equip"
+  ],
+  "is_token": false,
+  "faces": [],
+  "double_faced": false,
+  "image_faces": 1,
+  "has_image": false,
+  "released_at": "2021-07-23",
+  "artist": "Viko Menezes",
+  "commander_legal": "legal",
+  "related_tokens": [],
+  "related_cards": []
+}

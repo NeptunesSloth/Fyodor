@@ -1,0 +1,25 @@
+{
+  "status": "CLOSED_FOR_ROOT_PRODUCTION_REVIEW; uninstalled/unadmitted",
+  "names": [
+    "Spell Queller"
+  ],
+  "patch": "review.patch",
+  "patch_sha256": "e2df4e7b50e0002f94ef8a7ac489e9b5454017608db98c29c2fee2420bb055e0",
+  "stage": "/tmp/queller77-stage",
+  "test": "native_tests.py -> backend/tests/test_rules_linked_owner_cast77.py",
+  "fixture": "cards.json -> backend/tests/fixtures/linked_owner_cast77_cards.json",
+  "authority": "Complete7 official rulings2025-01-24. Exact native ETB already supported; departure now gathers only current original linked exile ObjectRefs, switches to actual owner for native immediate free cast, then restores controller. No model or cost edits.",
+  "source_hashes": "source-hashes.json",
+  "native": {
+    "consolidated_passed": 9,
+    "genuine_cold": 2,
+    "log": "queller77-final9.log"
+  },
+  "related": {
+    "passed": 76,
+    "scope": "full linked_exile, wave30h_linked_exile and wave5b_stack_interaction",
+    "log": "queller77-related.log"
+  },
+  "mypy": "PASS3 final affected files",
+  "ruff": "PASS4 final affected source/native tests"
+}

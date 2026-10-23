@@ -1,0 +1,21 @@
+{
+  "candidate_names": [
+    "Winter's Night"
+  ],
+  "expected_promotions": 1,
+  "source_files": [
+    "backend/app/rules/contextual_mana_triggers.py"
+  ],
+  "patch": "UNINSTALLED.patch",
+  "test_destination": "backend/tests/test_rules_winter_night85.py",
+  "fixture_destination": "backend/tests/fixtures/winter_night85_cards.json",
+  "native_pass": 10,
+  "cold_roundtrips": 2,
+  "related_pass": 122,
+  "mypy_files": 1,
+  "ruff_files": 2,
+  "dependencies": [
+    "World duration foundation80"
+  ],
+  "admission": "root audit required; no live source edits"
+}

@@ -1,0 +1,13 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "eb70939f-c4ce-4224-ab74-acc24771d7f0",
+      "source": "wotc",
+      "published_at": "2021-07-23",
+      "comment": "Belt of Giant Strength will overwrite any previous effects that set the creature's power and toughness to specific numbers. Effects that otherwise modify the equipped creature's power and toughness will still apply no matter when they took effect. The same is true for +1/+1 counters."
+    }
+  ]
+}

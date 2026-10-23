@@ -1,0 +1,42 @@
+--- a/backend/app/rules/cost_changes.py
++++ b/backend/app/rules/cost_changes.py
+@@ -190,6 +190,10 @@
+     m = ABILITY_SENTENCE.fullmatch(sentence.strip())
+     if m is None or m["n"] in "WUBRG":
+         return None  # (a colored change to an activation cost isn't printed on any card the grammar was checked with)
++    if sentence.strip() == 'This ability costs {X} less to activate, where X is the power of the creature it targets.':
++        if 'Attach ~ to target creature you control.' not in body:
++            return None
++        return {'dir': -1, 'n': 1, 'target_power74': True}
+     counter_target = re.fullmatch(r" for each (?P<kind>[+-]\d+/[+-]\d+|[a-z]+) counter on the creature it targets", m["rest"].rstrip("."))
+     if counter_target is not None and m["n"].isdigit():
+         if "Attach ~ to target creature you control." not in body:
+@@ -217,14 +221,15 @@
+         chosen = targets if targets is not None else ((target,) if target and target != '?' else ())
+         if not target_cost_conditions62.available(state, player, card, change['own_target_rule62'], chosen, info, preview=target == '?'):
+             return 0
+-    if change.get("target_counters") or change.get('target_colors'):
++    if change.get("target_counters") or change.get('target_colors') or change.get('target_power74'):
+         from app.rules.targets import legal_targets
+
+         # Equip's initial affordability check uses the best legal target. Once the
+         # target is chosen, 601.2f locks the actual counter-based cost.
+         choices = legal_targets(view_of(state, player, info), "creature_you_control", player, ch, card.id) if target == "?" else [target] if target is not None else []
+         plan = view_of(state, player, info)
+-        n = max((len(plan.ch(state.cards[cid]).colors) if change.get('target_colors')
++        n = max((max(0, (plan.ch(state.cards[cid]).pt or (0, 0))[0]) if change.get('target_power74')
++                 else len(plan.ch(state.cards[cid]).colors) if change.get('target_colors')
+                  else state.cards[cid].counters.get(change['target_counters'], 0)
+                  for cid in choices if cid in state.cards), default=0)
+         return int(change["dir"]) * int(change["n"]) * n
+--- a/backend/app/rules/oracle.py
++++ b/backend/app/rules/oracle.py
+@@ -148,6 +148,8 @@
+
+
+ def _keywords_line(line: str) -> tuple[str, ...] | None:
++    if line == 'Equip {10}. This ability costs {X} less to activate, where X is the power of the creature it targets.':
++        return ('equip',)
+     from app.rules.conditional_own_discounts import flashback_line
+     from app.rules.random_choice_receipts import random_buyback
+

@@ -378,5 +378,25 @@
     "original_sha256": "f18a53eb79cc909ef0f0bb931886982edd42658b262193b1548d428d4f6c5ab2",
     "archived_sha256": "40e761993e2c4da389aa05fc2d79497445e5e4bbcca37825636b22c4a749bdef",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-untap87/UNINSTALLED.patch": {
+    "original_sha256": "f47a069490d1ce9318d52c02faeee82a954ee4079444a09b7c8fa6331fb6d875",
+    "archived_sha256": "c656557102dd80cb2844c740c2d7cc7f3c04139a084b08c2be3fd6b23fc35cb4",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/target-power-costs74/production-candidate.patch": {
+    "original_sha256": "30b076dcf436f95206e4b5c6122b7b5f73615acc0b7c6f9e881eac8aa22baf43",
+    "archived_sha256": "9bd06a873e11cecf724f84cba6cd385495236b464d8505bca9c3f57bd7315ed1",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/nonbattlefield-life-offers86/UNINSTALLED.patch": {
+    "original_sha256": "06132130cb5507f006e17eccb20794ad0ff2e8171432b5a330d48a09338e3db1",
+    "archived_sha256": "7bd875031134ea011c63d24464b418ba6067a6547a369fcda289245be198a584",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/linked-owner-cast77/review.patch": {
+    "original_sha256": "e2df4e7b50e0002f94ef8a7ac489e9b5454017608db98c29c2fee2420bb055e0",
+    "archived_sha256": "d9b6f4186f910af0fee07a28d64b6b93c9c2b3609e800e94f54d0c669ac226f9",
+    "numstat_preserved": true
   }
 }

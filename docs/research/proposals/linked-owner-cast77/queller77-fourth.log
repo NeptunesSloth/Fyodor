@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___ test_native_queller_exiles_and_owner_casts_sorcery_during_opponents_turn ___
+tests/test_rules_linked_owner_cast77.py:84: in test_native_queller_exiles_and_owner_casts_sorcery_during_opponents_turn
+    assert any(p.alternative == 'free' for p in s.state.rules.payments.values())
+E   assert False
+E    +  where False = any(<generator object test_native_queller_exiles_and_owner_casts_sorcery_during_opponents_turn.<locals>.<genexpr> at 0x7fdf9f477b90>)
+=========================== short test summary info ============================
+FAILED tests/test_rules_linked_owner_cast77.py::test_native_queller_exiles_and_owner_casts_sorcery_during_opponents_turn
+1 failed in 23.87s

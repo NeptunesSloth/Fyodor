@@ -1,0 +1,20 @@
+I001 [*] Import block is un-sorted or un-formatted
+  --> app/rules/linked_owner_cast77.py:24:5
+   |
+23 | def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+24 |     from app.rules import context, exile_packet_continuations as packets, exiled_with
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+25 |
+26 |     offers: list[dict[str, Any]] = []
+   |
+help: Organize imports
+   |
+23 | def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+   -     from app.rules import context, exile_packet_continuations as packets, exiled_with
+24 +     from app.rules import context, exiled_with
+25 +     from app.rules import exile_packet_continuations as packets
+26 |
+   |
+
+Found 1 error.
+[*] 1 fixable with `--fix`.

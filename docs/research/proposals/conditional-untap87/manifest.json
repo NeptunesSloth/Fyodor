@@ -1,0 +1,21 @@
+{
+  "candidate_names": [
+    "Quest for Renewal",
+    "Venarian Gold"
+  ],
+  "expected_promotions": 2,
+  "source_files": [
+    "backend/app/rules/conditional_untap87.py",
+    "backend/app/rules/scripts.py",
+    "backend/app/rules/untap_riders.py"
+  ],
+  "patch": "UNINSTALLED.patch",
+  "test_destination": "backend/tests/test_rules_conditional_untap87.py",
+  "fixture_destination": "backend/tests/fixtures/conditional_untap87_cards.json",
+  "native_pass": 12,
+  "cold_roundtrips": 2,
+  "related_pass": 54,
+  "mypy_files": 3,
+  "ruff_files": 4,
+  "admission": "root audit required; no live source edits"
+}

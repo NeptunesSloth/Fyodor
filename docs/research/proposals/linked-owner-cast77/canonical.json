@@ -1,0 +1,40 @@
+{
+  "id": "2b46a6c6-26d0-4ccb-84c9-2702f1a0f65b",
+  "oracle_id": "135135f2-1643-40db-91f2-bb7b956d212c",
+  "name": "Spell Queller",
+  "layout": "normal",
+  "set_code": "inr",
+  "set_name": "Innistrad Remastered",
+  "collector_number": "435",
+  "rarity": "rare",
+  "mana_cost": "{1}{W}{U}",
+  "cmc": 3.0,
+  "type_line": "Creature \u2014 Spirit",
+  "oracle_text": "Flash\nFlying\nWhen this creature enters, exile target spell with mana value 4 or less.\nWhen this creature leaves the battlefield, the exiled card's owner may cast that card without paying its mana cost.",
+  "power": "2",
+  "toughness": "3",
+  "loyalty": null,
+  "defense": null,
+  "colors": [
+    "U",
+    "W"
+  ],
+  "color_identity": [
+    "U",
+    "W"
+  ],
+  "keywords": [
+    "Flying",
+    "Flash"
+  ],
+  "is_token": false,
+  "faces": [],
+  "double_faced": false,
+  "image_faces": 1,
+  "has_image": false,
+  "released_at": "2025-01-24",
+  "artist": "Adam Paquette",
+  "commander_legal": "legal",
+  "related_tokens": [],
+  "related_cards": []
+}

@@ -1,0 +1,63 @@
+--- /dev/null
++++ b/backend/app/rules/linked_owner_cast77.py
+@@ -0,0 +1,37 @@
++"""Exact Spell Queller departure offers the original linked card to its owner now."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import TYPE_CHECKING, Any
++
++if TYPE_CHECKING:
++    from app.rules.characteristics import AbilityText, Characteristics
++    from app.rules.plan import Plan
++
++TEXT = "When this creature leaves the battlefield, the exiled card's owner may cast that card without paying its mana cost."
++
++
++def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | None:
++    from app.rules import scripts
++
++    if ability.text != TEXT:
++        return None
++    native = scripts.define(replace(ability, text="When this creature leaves the battlefield, return the exiled card to its owner's hand."), ch)
++    return {**native, 'effects': [{'do': 'linked_owner_cast77'}]} if native is not None else None
++
++
++def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import context, exiled_with
++    from app.rules import exile_packet_continuations as packets
++
++    offers: list[dict[str, Any]] = []
++    for i, cid in enumerate(exiled_with.cards(plan, ctx)):
++        binding = f'queller77_{i}'
++        context.bind_objects(plan, ctx, binding, [cid])
++        offers.extend([{'do': 'as_player', 'player': plan.state.cards[cid].owner},
++                       {'do': 'free_cast', 'zone': 'that', 'who': context.PREFIX + binding, 'exact_refs': True},
++                       {'do': 'as_player_end'}])
++    return packets.insert(ctx, offers)
++
++
++PRIMITIVES = {'linked_owner_cast77': run}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5769,6 +5769,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import linked_owner_cast77
++
++    if (owner77 := linked_owner_cast77.definition(ability, ch)) is not None:
++        return owner77
+     from app.rules import source_cohort87
+
+     if (admitted61 := source_cohort87.definition(ability, ch)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6770,3 +6770,7 @@
+
+ PRIMITIVES.update(_permanent83.PRIMITIVES)
+ RESUME.update(_permanent83.RESUME)
++
++from app.rules import linked_owner_cast77 as _linked_owner_cast77  # noqa: E402
++
++PRIMITIVES.update(_linked_owner_cast77.PRIMITIVES)

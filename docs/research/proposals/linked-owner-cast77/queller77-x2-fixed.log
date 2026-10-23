@@ -1,0 +1,16 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+______ test_real_queller_target_uses_announced_x_in_stack_mana_value77[2] ______
+tests/test_rules_linked_owner_cast77.py:176: in test_real_queller_target_uses_announced_x_in_stack_mana_value77
+    while s.state.rules.stack and s.state.rules.stack[-1].kind == 'trigger':
+                                  ^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: -1
+______ test_real_queller_target_uses_announced_x_in_stack_mana_value77[3] ______
+tests/test_rules_linked_owner_cast77.py:176: in test_real_queller_target_uses_announced_x_in_stack_mana_value77
+    while s.state.rules.stack and s.state.rules.stack[-1].kind == 'trigger':
+                                  ^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: -1
+=========================== short test summary info ============================
+FAILED tests/test_rules_linked_owner_cast77.py::test_real_queller_target_uses_announced_x_in_stack_mana_value77[2]
+FAILED tests/test_rules_linked_owner_cast77.py::test_real_queller_target_uses_announced_x_in_stack_mana_value77[3]
+2 failed, 6 deselected in 4.91s

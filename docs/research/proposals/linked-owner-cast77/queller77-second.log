@@ -1,0 +1,13 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___ test_native_queller_exiles_and_owner_casts_sorcery_during_opponents_turn ___
+tests/test_rules_linked_owner_cast77.py:71: in test_native_queller_exiles_and_owner_casts_sorcery_during_opponents_turn
+    assert queller.zone == 'p2:battlefield', (queller.zone, s.state.rules.decision, [(x.kind,x.source) for x in s.state.rules.stack])
+E   AssertionError: ('p1:library', None, [])
+E   assert 'p1:library' == 'p2:battlefield'
+E
+E     - p2:battlefield
+E     + p1:library
+=========================== short test summary info ============================
+FAILED tests/test_rules_linked_owner_cast77.py::test_native_queller_exiles_and_owner_casts_sorcery_during_opponents_turn
+1 failed in 14.16s

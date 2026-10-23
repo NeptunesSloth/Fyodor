@@ -1,0 +1,12 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___ test_native_queller_exiles_and_owner_casts_sorcery_during_opponents_turn ___
+tests/test_rules_linked_owner_cast77.py:86: in test_native_queller_exiles_and_owner_casts_sorcery_during_opponents_turn
+    assert not s.state.players['p1'].mana
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/workspace/Fyodor/backend/.venv/lib/python3.12/site-packages/pydantic/main.py:1105: in __getattr__
+    raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+E   AttributeError: 'PlayerState' object has no attribute 'mana_pool'
+=========================== short test summary info ============================
+FAILED tests/test_rules_linked_owner_cast77.py::test_native_queller_exiles_and_owner_casts_sorcery_during_opponents_turn
+1 failed in 20.77s
