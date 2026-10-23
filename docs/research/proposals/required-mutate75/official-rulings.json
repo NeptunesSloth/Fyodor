@@ -1,0 +1,29 @@
+{
+  "Brokkos, Apex of Forever": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "e9137b54-3464-4f57-95e3-f94bf2ac854e",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "Casting Brokkos with the permission granted by its last ability doesn't change when you can cast it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e9137b54-3464-4f57-95e3-f94bf2ac854e",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "If you cast Brokkos with the permission granted by its last ability, you must pay its mutate cost to cast it. You can't choose to pay its mana cost or another alternative cost."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "e9137b54-3464-4f57-95e3-f94bf2ac854e",
+        "source": "wotc",
+        "published_at": "2020-04-17",
+        "comment": "If another effect gives you permission to cast Brokkos from your graveyard, you may cast it for any cost associated with that permission."
+      }
+    ]
+  }
+}

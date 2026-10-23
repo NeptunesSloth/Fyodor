@@ -1,0 +1,7 @@
+{
+  "backend/app/game/rules_state.py": "bf89e38478e407dd88075f3529f80cbd599ed8927b45168448c117273b2a59a4",
+  "backend/app/rules/permissions.py": "c80f0ff918d9a5ac4141a70659a6ddb1a234f7b2e418c3ddd5c59f992c2cf0d7",
+  "backend/app/rules/delayed.py": "6089a53c16d734d1edcc844b6ec818f201c7871afbcb1e82f87213da28dc72c3",
+  "backend/app/rules/scripts.py": "fc2285c45799bb6e67e16e5698fce2c28e682cce7926c866e2a3dc1cd45879d7",
+  "backend/app/rules/effects.py": "da6e64b03ff9cfd2c948449ed6ec47c19fd3ffe3640f60675d0f127cc30a31e4"
+}

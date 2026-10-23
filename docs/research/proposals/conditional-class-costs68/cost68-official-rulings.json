@@ -1,0 +1,69 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "ac9d52b2-78a5-4b17-8aaf-1c1cb936a508",
+      "source": "wotc",
+      "published_at": "2021-07-23",
+      "comment": "Additional costs from Paladin Class cards are cumulative. For example, if you control two Paladin Class cards, spells your opponents cast cost {2} more to cast."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "ac9d52b2-78a5-4b17-8aaf-1c1cb936a508",
+      "source": "wotc",
+      "published_at": "2021-07-23",
+      "comment": "If Paladin Class is level 3 and you attack with exactly one creature, it won't get a power and toughness bonus, but it will get double strike."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "ac9d52b2-78a5-4b17-8aaf-1c1cb936a508",
+      "source": "wotc",
+      "published_at": "2021-07-23",
+      "comment": "Each Class has five abilities. The three in the major sections of its text box are class abilities. Class abilities can be static, activated, or triggered abilities. The other two are level abilities, one activated ability to advance the Class to level 2 and another to advance the Class to level 3."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "ac9d52b2-78a5-4b17-8aaf-1c1cb936a508",
+      "source": "wotc",
+      "published_at": "2021-07-23",
+      "comment": "Each Class starts with only the first of three class abilities. As the first level ability resolves, the Class becomes level 2 and gains the second class ability. As the second level ability resolves, the Class becomes level 3 and gains the third class ability."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "ac9d52b2-78a5-4b17-8aaf-1c1cb936a508",
+      "source": "wotc",
+      "published_at": "2021-07-23",
+      "comment": "Gaining a level won't remove abilities that a Class had at a previous level."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "ac9d52b2-78a5-4b17-8aaf-1c1cb936a508",
+      "source": "wotc",
+      "published_at": "2021-07-23",
+      "comment": "Gaining a level is a normal activated ability. It uses the stack and can be responded to."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "ac9d52b2-78a5-4b17-8aaf-1c1cb936a508",
+      "source": "wotc",
+      "published_at": "2021-07-23",
+      "comment": "You can't activate the first level ability of a Class unless that Class is level 1. Similarly, you can't activate the second level ability of a Class unless that Class is level 2."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "ac9d52b2-78a5-4b17-8aaf-1c1cb936a508",
+      "source": "wotc",
+      "published_at": "2021-07-23",
+      "comment": "You can multiclass or even control multiple Class enchantments of the same class. Each Class permanent tracks its own level separately."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "ac9d52b2-78a5-4b17-8aaf-1c1cb936a508",
+      "source": "wotc",
+      "published_at": "2021-07-23",
+      "comment": "Some Class cards have an effect that increases when more are under your control. For example, if you have multiple Barbarian Class cards, you roll that many additional dice and ignore that many of the lowest rolls."
+    }
+  ]
+}

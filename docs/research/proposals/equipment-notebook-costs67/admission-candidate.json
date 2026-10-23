@@ -1,0 +1,49 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW; no live source installation/admission",
+  "names": [
+    "Glamdring, Foe-hammer // Gleam of Death",
+    "Tamiyo, Compleated Sage"
+  ],
+  "stage": "/tmp/cost67-stage/backend",
+  "patch": "production-candidate.patch",
+  "native": {
+    "passed": 12,
+    "genuine_cold": 2,
+    "log": "cost67-native-final.log"
+  },
+  "related": {
+    "prior_passed": 14,
+    "prior_log": "cost67-related.log",
+    "note": "Prior14 exact command not retained; six additional explicitly scoped cases independently close dynamic quantity and cost locking.",
+    "additional_passed": 6,
+    "additional_log": "cost67-related-quantity6.log",
+    "additional_scope": "Native Vadrik, Ghalta and Blasphemous Act plus matching canonical cases in wave4i; -k vadrik or ghalta or blasphemous"
+  },
+  "mypy": {
+    "passed": 3,
+    "log": "cost67-types.log"
+  },
+  "ruff": {
+    "passed": 4,
+    "log": "cost67-ruff-final4.log"
+  },
+  "source_hashes": {
+    "app/rules/equipment_notebook_costs67.py": "5e546a909c3a9ba615075ae11bd0ceab00fffccd0a99c81dc38009b24c6a6c02",
+    "app/rules/cost_changes.py": "05cd4d622403cb253983a212e876f2acf68c4e872d9ff8b9a6fa5818918956f9",
+    "app/rules/scripts.py": "95a87e6927c71ce92fc5748349d5137b86526c6a2527e32e5d1a99e8965a3395",
+    "tests/test_rules_equipment_notebook_costs67.py": "e06220e36a86803a73777742e1f164ab88c3755a8f018dd76298c87864a19dbe",
+    "tests/fixtures/equipment_notebook_costs67_cards.json": "4134ce76d45273af8356a6d3d2be281a3786de1b313f0beef728c21e2b23287c"
+  },
+  "authorities": {
+    "canonical": "canonical.json",
+    "rulings": "official-rulings.json",
+    "all_published_rulings_read": true
+  },
+  "boundaries": [
+    "Actual equip/current power change and bearer blink; generic discount does not pay colored mana.",
+    "Actual Adventure mill/filter/exile/recast artifact.",
+    "Actual mana/life Compleated cast and loyalty count; +1 next untap; -X original grave card with atomic wrong-MV rejection.",
+    "Actual -7 correct legendary colorless Book token name, controller-only generic discount and native tap draw.",
+    "Fresh-process attached power pricing and fresh-process token creation/abilities."
+  ]
+}

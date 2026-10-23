@@ -1,0 +1,22 @@
+.....F.F                                                                 [100%]
+=================================== FAILURES ===================================
+_ test_genuine_cold_death_or_permission_retains_actual_original_object[pending_death] _
+tests/test_rules_grave_adventure74.py:209: in test_genuine_cold_death_or_permission_retains_actual_original_object
+    source, entry = pending_death(s, name)
+                    ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_grave_adventure74.py:189: in pending_death
+    entry = next(e for e in s.state.rules.stack.values() if e.kind == 'triggered' and e.source_card == source.id)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   StopIteration
+_ test_genuine_cold_death_or_permission_retains_actual_original_object[missing_original] _
+tests/test_rules_grave_adventure74.py:209: in test_genuine_cold_death_or_permission_retains_actual_original_object
+    source, entry = pending_death(s, name)
+                    ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_grave_adventure74.py:189: in pending_death
+    entry = next(e for e in s.state.rules.stack.values() if e.kind == 'triggered' and e.source_card == source.id)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   StopIteration
+=========================== short test summary info ============================
+FAILED tests/test_rules_grave_adventure74.py::test_genuine_cold_death_or_permission_retains_actual_original_object[pending_death]
+FAILED tests/test_rules_grave_adventure74.py::test_genuine_cold_death_or_permission_retains_actual_original_object[missing_original]
+2 failed, 6 passed, 7 deselected in 19.39s

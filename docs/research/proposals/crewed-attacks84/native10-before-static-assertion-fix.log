@@ -1,0 +1,26 @@
+........F.                                                               [100%]
+=================================== FAILURES ===================================
+_____________ test_actual_printed_cast_and_vehicle_static_branches _____________
+
+cards = <app.cards.repository.CardRepository object at 0x7f8552275730>
+
+    def test_actual_printed_cast_and_vehicle_static_branches(cards):
+        from app.rules.plan import Plan
+        from tests.test_rules_bandmate_references import wait_priority
+        s, source, bear, vehicle=setup84(cards)
+        act(s,'p1',type='move',card_ids=[source.id],to={'player':'p1','zone':'hand'})
+        mana(s,C=1,R=1,G=1);wait_priority(s,'p1')
+        act(s,'p1',type='cast_spell',card_id=source.id);settle(s)
+        assert s.state.cards[source.id].zone=='p1:battlefield'
+        crew81(s,vehicle,source)
+        plan=Plan(s.state,'p1',s.cards,None)
+        ch=plan.ch(s.state.cards[vehicle.id])
+        assert ch.pt==(4,4)
+>       assert ch.has_reach and ch.has_vigilance
+               ^^^^^^^^^^^^
+E       AttributeError: 'Characteristics' object has no attribute 'has_reach'. Did you mean: 'has_flash'?
+
+tests/test_balthier84.py:138: AttributeError
+=========================== short test summary info ============================
+FAILED ../../workspace/Fyodor/backend::test_actual_printed_cast_and_vehicle_static_branches
+1 failed, 9 passed in 47.33s

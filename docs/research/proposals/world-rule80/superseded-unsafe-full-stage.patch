@@ -1,0 +1,487 @@
+--- a/backend/app/game/engine.py
++++ b/backend/app/game/engine.py
+@@ -157,6 +157,13 @@
+     rules = state.rules
+     if rules is not None:
+         manual = action.type not in NOT_OVERRIDES
++        if manual and action.type in ('set_face', 'flip', 'face_down', 'merge'):
++            # A manual loss/regain between intents has no native World timing
++            # authority, even if its final copiable values match the old ones.
++            changed_worlds80 = getattr(action, 'card_ids', None) or [getattr(action, 'card_id', None)]
++            for cid80 in changed_worlds80:
++                if isinstance(cid80, str):
++                    rules.world_intervals80.pop(rules.object_id(cid80), None)
+         if manual and state.settings.automation != "off" and not rules.paused:
+             rules.overrides += 1
+             for entry in state.log[log_start:]:
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -1361,7 +1361,18 @@
+         return self
+
+
++class WorldInterval80(BaseModel):
++    """An uninterrupted native World interval, or explicitly unknown legacy history."""
++
++    card: str
++    since: int | None = None
++    observed_before: int
++    event_batch: int | None = None
++
++
+ class RulesState(BaseModel):
++    world_epoch80: int = 0
++    world_intervals80: dict[str, WorldInterval80] = Field(default_factory=dict)
+     combat_memory: CombatMemory | None = None  # None: unknown legacy previous combat.
+     untap_operations: list[UntapOperation] = Field(default_factory=list)
+     paused: bool = False  # the host paused automation: intents are refused, the sandbox works
+@@ -1452,8 +1463,6 @@
+     # -- exiled with (wave 6D) -- source object -> the objects its abilities exiled (607.2a: "the exiled card",
+     # "cards exiled with ~"; app/rules/exiled_with.py)
+     exiled_with: dict[str, list[str]] = Field(default_factory=dict)
+-    linked_exile_turns71: dict[str, dict[str, int]] = Field(default_factory=dict)  # Native link scope -> exact exile OID -> actual exile turn.
+-
+     created_with: dict[str, list[str]] = Field(default_factory=dict)  # exact created-token incarnations per source/borrowed scope
+     hideaway: dict[str, HideawayLook] = Field(default_factory=dict)  # -- hideaway (wave 29D) -- exiled object id -> who may look at it (702.75a)
+     # -- can't lose life (wave 29D) -- 119.7-119.8: resolved "your life total can't change" effects (app/rules/life_lock.py): {id, player, controller,
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -3503,14 +3503,10 @@
+             raise ActionError("Only a card with evoke can be cast for its evoke cost from your hand")
+         alternative = M.parse_cost(evoke)
+     if a.dash:
+-        if alternative is not None:
+-            raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
+         dash = keyword_cost(ch, "dash", DASH)
+-        if dash is None:
+-            raise ActionError("That spell has no dash cost")
+-        if grant is not None and (grant.how in ('flashback', 'foretell', 'escape') or grant.alt_mana or grant.life_mv):
+-            raise ActionError("The selected casting permission requires a different alternative cost (118.9a)")
+-        alternative = M.parse_cost(dash)  # 702.109a: the actual casting permission, not dash, determines the allowed zone.
++        if dash is None or card.zone != zone_key(plan.actor, "hand"):
++            raise ActionError("Only a card with dash can be cast for its dash cost from your hand")
++        alternative = M.parse_cost(dash)
+     if a.awaken:  # -- static_other sweep (wave 16B) -- 702.113a: an alternative cost; its text is the spell's "if cast for its awaken cost" line
+         if a.evoke or a.dash or a.face_down or alternative is not None or keyword_cost(ch, "awaken", AWAKEN) is None \
+                 or card.zone != zone_key(plan.actor, "hand"):
+@@ -3699,10 +3695,6 @@
+         add_objects = found_objects
+     emerge_reduction = 0  # -- casting extras (wave 18E) -- 702.119a: reduced by the sacrificed permanent's mana value; 702.180a: harmonize, by
+     # the tapped creature's power
+-    if a.dash:
+-        from app.rules import selected_keyword_costs65
+-
+-        emerge_reduction += selected_keyword_costs65.dash_discount(plan.state, plan.actor, plan.info)
+     if alt_offer is not None and alt_offer.tag == "blitz":
+         from app.rules import dynamic_keyword_costs55
+
+@@ -6642,27 +6634,22 @@
+ # -- responding -------------------------------------------------------------------------
+ def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
+     """Could ``player`` do anything at instant speed right now? (For Arena-style auto-passing.)"""
+-    from app.rules.pooled_casting_authorities71 import external_candidates
+-
+-    candidates = [cid for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard"),
+-                                 zone_key(player, "exile"), zone_key(player, "foretell"))
+-                  for cid in state.zones.get(key, [])]
+-    candidates += external_candidates(state, player, info)
+-    for cid in candidates:
+-        card = state.cards[cid]
+-        ch = chars.of(card, info)
+-        if ("Instant" in ch.types or ch.has_flash or _flash_granted(state, player, card, ch, info) or flash_if(ch) is not None) \
+-                and (castable(state, player, card, info, check_priority=False)
+-                     or free_castable(state, player, card, info, check_priority=False)):
+-            return True
+-        if any(g.flash and g.flash_requires_free for g in permissions.grants(state, player, card, ch, info, verb="cast")) and free_castable(
+-                state, player, card, info, check_priority=False):
+-            return True
+-        # -- cost changers (wave 4I) -- an instant castable only for an alternative cost (Force of Will with no mana
+-        # open) is a response too: never auto-passed over
+-        if ("Instant" in ch.types or ch.has_flash or "sneak" in ch.keywords) \
+-                and alt_castable(state, player, card, info, check_priority=False):  # (-- keywords (wave 30I) -- sneak: 702.190a)
+-            return True
++    for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard"), zone_key(player, "exile"),
++                zone_key(player, "foretell")):
++        for cid in state.zones.get(key, []):
++            card = state.cards[cid]
++            ch = chars.of(card, info)
++            if ("Instant" in ch.types or ch.has_flash or _flash_granted(state, player, card, ch, info) or flash_if(ch) is not None) \
++                    and castable(state, player, card, info, check_priority=False):
++                return True
++            if any(g.flash and g.flash_requires_free for g in permissions.grants(state, player, card, ch, info, verb="cast")) and free_castable(
++                    state, player, card, info, check_priority=False):
++                return True
++            # -- cost changers (wave 4I) -- an instant castable only for an alternative cost (Force of Will with no mana
++            # open) is a response too: never auto-passed over
++            if ("Instant" in ch.types or ch.has_flash or "sneak" in ch.keywords) \
++                    and alt_castable(state, player, card, info, check_priority=False):  # (-- keywords (wave 30I) -- sneak: 702.190a)
++                return True
+     return bool(activatable(state, player, info, check_priority=False)) or special_action(state, player, info, instant=True)  # (wave 50B: 116.2b, c: any time, so a response too)
+
+
+--- a/backend/app/rules/combat.py
++++ b/backend/app/rules/combat.py
+@@ -24,6 +24,7 @@
+ from app.rules.plan import Plan, decide, live_players
+ from app.rules.sba import power, toughness
+ from app.rules.statics import rule_arg, rule_selectors
++from app.rules.world_durations80 import native as world_native80
+
+ Round = Literal["only", "first", "second"]
+
+@@ -1372,6 +1373,7 @@
+     triggers.collect(plan)
+
+
++@world_native80
+ def end_combat(plan: Plan) -> None:
+     from app.rules import permissions
+
+--- a/backend/app/rules/delayed.py
++++ b/backend/app/rules/delayed.py
+@@ -54,6 +54,7 @@
+
+ from app.game.rules_state import DelayedTrigger, ObjectRef, TriggerEvent
+ from app.game.state import PHASES
++from app.rules.world_durations80 import native as world_native80
+
+ if TYPE_CHECKING:
+     from app.game.rules_state import ContinuousEffect, Event, PendingTrigger
+@@ -548,6 +549,7 @@
+     return list(getattr(getattr(action, "r", None), "ids", None) or [])
+
+
++@world_native80
+ def _end(plan: Plan, ended: list[ContinuousEffect]) -> None:
+     """The effects end, and with them the table markers they wrote (keyed by the effect: another
+     effect's marker with the same wording on the same creature stays)."""
+@@ -611,6 +613,7 @@
+         _end(plan, due)
+
+
++@world_native80
+ def expire(plan: Plan) -> None:
+     """611.2b: "for as long as …" effects end as soon as it stops being true (checked after every
+     table change: the source left, changed controller or untapped)."""
+@@ -644,6 +647,7 @@
+     return card is not None and card.counters.get(kind, 0) > 0
+
+
++@world_native80
+ def _drop(plan: Plan, effect: ContinuousEffect, kept: list[str]) -> None:
+     """Objects that no longer have the counter leave the effect (and its table markers)."""
+     gone = set(effect.affected) - set(kept)
+--- a/backend/app/rules/layers.py
++++ b/backend/app/rules/layers.py
+@@ -45,6 +45,7 @@
+ from app.rules import chosen as _chosen  # -- chosen filters (wave 53B) --
+ from app.rules import read_pass
+ from app.rules.characteristics import AbilityText, CardInfo, Characteristics
++from app.rules.world_durations80 import native as world_native80
+
+ if TYPE_CHECKING:
+     from app.rules.plan import Plan
+@@ -1571,6 +1572,7 @@
+ Duration = Literal["end_of_turn", "permanent", "end_of_combat", "next_turn", "end_of_next_turn"]  # (wave 31C: "next_turn" — a copy effect "until your next turn", copying.add_copy_effect)
+
+
++@world_native80
+ def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | None, controller: str,
+                power: int | None = None, toughness: int | None = None, add_keywords: tuple[str, ...] = (),
+                remove_keywords: tuple[str, ...] = (), add_types: tuple[str, ...] = (), duration: Duration = "end_of_turn",
+@@ -1596,6 +1598,7 @@
+     return effect
+
+
++@world_native80
+ def end_of_turn(plan: Plan) -> None:
+     """514.2: "until end of turn" effects end in the cleanup step."""
+     r = plan.rules
+--- a/backend/app/rules/permissions.py
++++ b/backend/app/rules/permissions.py
+@@ -1474,21 +1474,14 @@
+             for linked_effect in d.get("effects") or []:
+                 if linked_effect.get("do") == "borrowed_link_scope":
+                     linked_ctx["borrowed_link_scope"] = linked_effect["scope"]
+-            linked_scope = exiled_with.link_key(linked_ctx)
+             if not card.zone.endswith(":exile") or (card.face_down and not d.get("linked_face_down")) \
+-                    or oid not in r.exiled_with.get(linked_scope, []):
+-                continue
+-            if d.get('linked_current_turn71') and r.linked_exile_turns71.get(linked_scope, {}).get(oid) != turn:
+-                continue
+-            if not conditional_free_casts68.eligible(state, info, player, card, ch, d):
++                    or oid not in r.exiled_with.get(exiled_with.link_key(linked_ctx), []):
+                 continue
+             if d.get("filter") and not spell_matches(state, player, card, ch, d["filter"], info, source=src.id):
+                 continue
+             if d.get("if") is not None and not _linked_if(state, info, player, src, d["if"]):
+                 continue
+             key = f"{r.object_id(src.id)}:permission:{index}:{player}" if d.get("once_per_player") else f"{src.id}:permission:{index}"  # -- linked permissions (wave 30H) -- "You can't cast more than one spell this way each turn."
+-            if d.get('once_per_object71'):
+-                key = f"{r.object_id(src.id)}:permission:{index}"
+             if d["once"] and r.once_per_turn.get(key) == turn:
+                 continue
+             out.append(Grant("permission", src.name, zone_ok=True, free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
+@@ -1498,8 +1491,6 @@
+         if not conditional_free_casts68.eligible(state, info, player, card, ch, d):
+             continue
+         permission_where = 'exile' if d.get('exile_counter') and card.zone.endswith(':exile') else where
+-        if d.get('zone_owner') == 'any' and d['zone'] == 'graveyard' and card.zone.endswith(':graveyard'):
+-            permission_where = 'graveyard'
+         if d["zone"] != "any" and permission_where not in d.get("zones", [d["zone"]]):
+             continue
+         if d.get('foreign') and card.owner == player:
+@@ -1529,8 +1520,6 @@
+         if not top_library.static_ok(state, player, card, ch, info, d, src, verb):
+             continue
+         key = f"{r.object_id(src.id)}:permission:{index}"  # (-- review 30c -- 400.7: a new Muldrotha / Lurrus has new uses, the rulings 2020-11-10)
+-        if d.get('separate_verb71'):
+-            key += ':' + verb
+         if d["once"] and (r.once_per_turn.get(key) == turn or (state.turn.active_player != player and not d.get("once_any"))):
+             continue  # "once during each of your turns" ("once each turn": any turn, wave 5I)
+         # -- cast permissions (wave 30Q) -- Muldrotha: a use for each permanent type, a card of several types counting as one of them as it is played or
+@@ -1812,14 +1801,11 @@
+     """The mana part of an activated ability's cost after "Activated abilities of creatures you control cost {2} less to
+     activate" and its increases: increases first, then reductions on the generic component only (118.7a, 601.2f), and with
+     "can't reduce the mana in that cost to less than one mana" never below one mana. Costs with {X} are left alone."""
+-    cost_statics = _table_statics(state, info, {"ability_cost_modifier", "cost_modifier", "grant"})
++    cost_statics = _table_statics(state, info, {"ability_cost_modifier", "cost_modifier"})
+     mods = [(src, d) for src, _, d in cost_statics if d.get("static") == "ability_cost_modifier"]
+     from app.rules import caster_turn_costs63
+
+     mods += caster_turn_costs63.ability_modifiers(state, player, cost_statics)
+-    from app.rules import selected_keyword_costs65
+-
+-    mods += selected_keyword_costs65.ability_modifiers(state, player, cost_statics)
+     if capture is not None:
+         capture.append(0)
+     if not mods and not own:  # (own: the ability's "This ability costs {1} less …", wave 4I)
+@@ -2058,12 +2044,6 @@
+     """"<Spells> you cast this turn cost {N} less to cast" / "Until your next turn, <spells> you cast
+     cost {N} less to cast": a cost modifier for its controller's spells with that duration (601.2f,
+     611.2a; generic mana only, 118.7a), read with the table's static ones (``modifiers``)."""
+-    if e.get("recipient66"):
+-        from app.rules import effects
+-
+-        for recipient in effects._players(plan, ctx, e["recipient66"]):
+-            cost_modifier(plan, {**ctx, "controller": recipient}, {k: v for k, v in e.items() if k != "recipient66"})
+-        return True
+     pid = ctx["controller"]
+     from app.rules import values
+
+--- a/backend/app/rules/plan.py
++++ b/backend/app/rules/plan.py
+@@ -67,6 +67,8 @@
+         self.put_via: str | None = None  # -- trigger other (wave 51E) -- the object whose effect is putting cards onto the battlefield now (Entry.via)
+         self.moved: dict[str, bool] = {}  # card -> did one of its moves this intent make it a card others have seen (ops.seen_move)
+
++    world_depth80: int = 0
++
+     shuffle_after: list[str] | None = None  # An instruction completes all selected moves before shuffling.
+     shuffle_retained: tuple[ObjectRef, ...] = ()  # Same look instruction only; never a general shuffle immunity.
+
+@@ -134,6 +136,9 @@
+             graveyard_return57.freeze_attachments(self, before)
+         entered_before = (self.state.turn.number, len(self.rules.turn_log.entered)) if self.state.rules else None
+         gy_seen = graveyard_order.before(self, payload)
++        from app.rules import world_durations80
++
++        world_before80 = world_durations80.before(self) if resolved.type != 'rules_sync' else None
+         HANDLERS[resolved.type](self.state, resolved)
+         if before is not None and self.began is not None:
+             for cid, zone in before.zones.items():
+@@ -142,6 +147,8 @@
+                     self.moved[cid] = self.moved.get(cid, False) or seen_move(zone, c.zone, was)
+         track(self.state, before, actor=resolved.actor or None, group=getattr(resolved, "group", 0),
+               put_by=wither_put_by(resolved), declared=getattr(resolved, "declared", False))  # (5H, 7C, 17D; 45C: the attack declaration's tap)
++        if world_before80 is not None:
++            world_durations80.after(self, world_before80)
+         if self.rules.madness_declined:
+             from app.rules import discarded_references
+
+--- a/backend/app/rules/sba.py
++++ b/backend/app/rules/sba.py
+@@ -155,8 +155,10 @@
+             if sagas.must_sacrifice(plan, card, ch):
+                 out.dying.append((card, sagas.SACRIFICE_REASON))
+     # -- token & pump wordings (wave 6C) -- 704.5z: of one player's Roles on a permanent, only the newest stays
+-    from app.rules import roles
+-
++    from app.rules import roles, world_durations80
++
++    existing_deaths80 = {c.id for c, _ in out.dying}
++    out.dying += [(c, 'World rule (704.5k)') for c in world_durations80.dying(plan) if c.id not in existing_deaths80]
+     out.dying = [(c, why) for c, why in out.dying if c.id not in plan.rules.pending_616]  # (-- zone replacements (wave 22C) -- held)
+     dying = {c.id for c, _ in out.dying}
+     out.dying += [(c, "a newer Role of its controller is attached to the same permanent (704.5z)")
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -2653,10 +2653,6 @@
+
+
+ def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+-    from app.rules import stored_player_costs66
+-
+-    if (stored66 := stored_player_costs66.parse(body, event_player)) is not None:
+-        return stored66
+     from app.rules import object_mana_offers78
+
+     if (offered78 := object_mana_offers78.parse(body)) is not None:
+@@ -6109,11 +6105,6 @@
+     if (source_discount := source_spell_discounts64.definition(ability, ch)) is not None:
+         return source_discount
+
+-    from app.rules import selected_keyword_costs65
+-
+-    if (selected_keyword := selected_keyword_costs65.definition(ability, ch)) is not None:
+-        return selected_keyword
+-
+     from app.rules import first_target_activation_cost58
+
+     if (first_target_cost := first_target_activation_cost58.definition(ability, ch)) is not None:
+--- a/backend/app/rules/selectors.py
++++ b/backend/app/rules/selectors.py
+@@ -2413,12 +2413,6 @@
+
+             if card_names.has_name(ch, extra[9:]):
+                 return False
+-        if extra.startswith('paid_contributor81:'):
+-            from app.rules import crew_saddle
+-
+-            _, kind, original_source = extra.split(':', 2)
+-            if not crew_saddle.tapped_for(plan, kind, plan.oid(card), original_source):
+-                return False
+         if extra in ("crewed_it", "saddled_it"):  # (wave 23D)
+             from app.rules import crew_saddle
+
+--- a/backend/app/rules/targets.py
++++ b/backend/app/rules/targets.py
+@@ -226,10 +226,8 @@
+             oid = plan.oid(plan.state.cards[source_card])
+         return [p for p in plan.live() if selectors.matches_player(plan, sel, p, chooser, source_object=oid)
+                 and player_shields.can_target(plan, chooser, p, source)]
+-    from app.rules import crew_saddle_readers81, prohibitions
+-
+-    if source_object is not None:
+-        sel = crew_saddle_readers81.bound_target(sel, source_object)
++    from app.rules import prohibitions
++
+     if sel.other and source_card is not None and source_object is not None and (source_card not in plan.state.cards or plan.oid(source_card) != source_object):
+         sel = selectors.replace(sel, other=False)
+     out = []
+--- a/backend/app/rules/view.py
++++ b/backend/app/rules/view.py
+@@ -242,9 +242,6 @@
+     library = state.zones.get(zone_key(viewer, "library"), [])
+     if library and can_see(state, state.cards[library[0]], viewer):
+         candidates.append(library[0])
+-    from app.rules.pooled_casting_authorities71 import external_candidates
+-
+-    candidates = list(dict.fromkeys([*candidates, *external_candidates(state, viewer, info)]))
+     playable = []
+     for cid in candidates:
+         card = state.cards[cid]
+--- /dev/null
++++ b/backend/app/rules/world_durations80.py
+@@ -0,0 +1,101 @@
++"""Staged CR 704.5k interval receipts; not installed or admitted."""
++from __future__ import annotations
++
++from collections.abc import Callable, Iterator
++from contextlib import contextmanager
++from functools import wraps
++from typing import TYPE_CHECKING, Concatenate, ParamSpec, TypeVar
++
++from app.game.errors import ActionError
++from app.game.rules_state import WorldInterval80
++
++if TYPE_CHECKING:
++    from app.game.state import CardInstance
++    from app.rules.plan import Plan
++
++P = ParamSpec('P')
++T = TypeVar('T')
++
++
++def profile(plan: Plan) -> dict[str, str]:
++    """Read effective supertype, including phased history, without applying SBAs."""
++    from app.rules import layers
++
++    # Current native static supertype grants are Basic, Legendary and Snow.
++    # Layer 1 carries printed/token/copied World; a resolved World grant in
++    # layer 4 takes the conservative full scan. Unrelated tables never enter
++    # full layered derivation here.
++    added = any('World' in e.add_supertypes for e in plan.rules.effects)
++    return {plan.oid(c): c.id for c in plan.state.cards.values()
++            if c.zone.endswith((':battlefield', ':phased')) and plan.in_game(c)
++            and (added or 'World' in layers.copiable(plan.state, c, plan.info).supertypes)
++            and 'World' in plan.ch(c).supertypes}
++
++
++def observe(plan: Plan, current: dict[str, str]) -> None:
++    """Unknown existing history stays unknown, with an honest relative-age bound."""
++    r = plan.rules
++    r.world_intervals80 = {oid: v for oid, v in r.world_intervals80.items()
++                           if oid in current and v.card == current[oid]}
++    for oid, card in current.items():
++        if oid not in r.world_intervals80:
++            r.world_intervals80[oid] = WorldInterval80(card=card, observed_before=r.world_epoch80)
++
++
++def before(plan: Plan) -> dict[str, str] | None:
++    if plan.world_depth80:
++        return None
++    current = profile(plan)
++    observe(plan, current)
++    return current
++
++
++def after(plan: Plan, prior: dict[str, str]) -> None:
++    current = profile(plan)
++    gained = {oid: card for oid, card in current.items() if oid not in prior}
++    r = plan.rules
++    # Finish losses before issuing the shared interval start. Ordinary APNAP
++    # timestamps and object-ID ordering never decide a World comparison.
++    observe(plan, current)
++    if gained:
++        r.world_epoch80 += 1
++        for oid, card in gained.items():
++            r.world_intervals80[oid] = WorldInterval80(card=card, since=r.world_epoch80,
++                observed_before=r.world_epoch80, event_batch=r.batch)
++
++
++@contextmanager
++def atomic(plan: Plan) -> Iterator[None]:
++    prior = before(plan)
++    plan.world_depth80 += 1
++    try:
++        yield
++    finally:
++        plan.world_depth80 -= 1
++    if prior is not None:
++        after(plan, prior)
++
++
++def native(fn: Callable[Concatenate[Plan, P], T]) -> Callable[Concatenate[Plan, P], T]:
++    @wraps(fn)
++    def wrapped(plan: Plan, *args: P.args, **kwargs: P.kwargs) -> T:
++        with atomic(plan):
++            return fn(plan, *args, **kwargs)
++    return wrapped
++
++
++def dying(plan: Plan) -> list[CardInstance]:
++    current = profile(plan)
++    observe(plan, current)
++    worlds = [plan.state.cards[cid] for cid in current.values()
++              if plan.state.cards[cid].zone.endswith(':battlefield')]
++    if len(worlds) < 2:
++        return []
++    entries = [(c, plan.rules.world_intervals80[plan.oid(c)]) for c in worlds]
++    known = [v.since for _, v in entries if v.since is not None]
++    latest = max(known, default=0)
++    if any(v.since is None and v.observed_before >= latest for _, v in entries):
++        raise ActionError('The World rule needs historical World durations that this save does not record. '
++                          'Resolve the World rule with the table tools before continuing; no survivor was guessed.')
++    winners = [c for c, v in entries if v.since == latest]
++    return worlds if len(winners) != 1 else [c for c in worlds if c.id != winners[0].id]

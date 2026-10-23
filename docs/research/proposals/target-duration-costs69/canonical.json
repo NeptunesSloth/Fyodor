@@ -1,0 +1,49 @@
+{
+  "id": "406a3ae5-f57e-40ff-8eac-a01781f2329f",
+  "oracle_id": "20dbfc9a-172e-4065-bfde-d40de3131787",
+  "name": "Will Kenrith",
+  "layout": "normal",
+  "set_code": "clb",
+  "set_name": "Commander Legends: Battle for Baldur's Gate",
+  "collector_number": "738",
+  "rarity": "mythic",
+  "mana_cost": "{4}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Legendary Planeswalker \u2014 Will",
+  "oracle_text": "+2: Until your next turn, up to two target creatures each have base power and toughness 0/3 and lose all abilities.\n\u22122: Target player draws two cards. Until your next turn, instant, sorcery, and planeswalker spells that player casts cost {2} less to cast.\n\u22128: Target player gets an emblem with \"Whenever you cast an instant or sorcery spell, copy it. You may choose new targets for the copy.\"\nPartner with Rowan Kenrith\nWill Kenrith can be your commander.",
+  "power": null,
+  "toughness": null,
+  "loyalty": "4",
+  "defense": null,
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "keywords": [
+    "Partner with",
+    "Partner"
+  ],
+  "is_token": false,
+  "faces": [],
+  "double_faced": false,
+  "image_faces": 1,
+  "has_image": false,
+  "released_at": "2022-06-10",
+  "artist": "Anna Steinbauer",
+  "commander_legal": "legal",
+  "related_tokens": [],
+  "related_cards": [
+    {
+      "id": "bcf0514e-63b3-4695-93ae-527524d48c25",
+      "name": "Rowan Kenrith",
+      "component": "combo_piece"
+    },
+    {
+      "id": "3de08752-9fc4-4e6b-b30b-2d9d33a1e37b",
+      "name": "Will Kenrith Emblem",
+      "component": "combo_piece"
+    }
+  ]
+}

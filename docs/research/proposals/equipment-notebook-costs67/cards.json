@@ -1,0 +1,417 @@
+[
+  {
+    "id": "a5cfbfde-783e-46ca-b3cf-11f16209d6cb",
+    "oracle_id": "2802069f-201e-43a7-b5d3-43a95951a2ec",
+    "name": "Glamdring, Foe-hammer // Gleam of Death",
+    "layout": "adventure",
+    "set_code": "hob",
+    "set_name": "The Hobbit",
+    "collector_number": "174",
+    "rarity": "rare",
+    "mana_cost": "{2} // {3}{U}",
+    "cmc": 2.0,
+    "type_line": "Legendary Artifact \u2014 Equipment // Sorcery \u2014 Adventure",
+    "oracle_text": "Instant and sorcery spells you cast cost {X} less to cast, where X is equipped creature's power.\nEquip {2}\n//\nMill six cards, then put all instant and sorcery cards from among them into your hand. (Then exile this card. You may cast the artifact later from exile.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Equip",
+      "Mill"
+    ],
+    "is_token": false,
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-08-14",
+    "artist": "Chris Cold",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "card_faces": [
+      {
+        "name": "Glamdring, Foe-hammer",
+        "mana_cost": "{2}",
+        "type_line": "Legendary Artifact \u2014 Equipment",
+        "oracle_text": "Instant and sorcery spells you cast cost {X} less to cast, where X is equipped creature's power.\nEquip {2}",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      },
+      {
+        "name": "Gleam of Death",
+        "mana_cost": "{3}{U}",
+        "type_line": "Sorcery \u2014 Adventure",
+        "oracle_text": "Mill six cards, then put all instant and sorcery cards from among them into your hand. (Then exile this card. You may cast the artifact later from exile.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      }
+    ]
+  },
+  {
+    "id": "222a736e-d819-452d-aeda-eb848c4b2302",
+    "oracle_id": "021b4745-4a15-462c-a6b0-2dee1dc9d196",
+    "name": "Tamiyo, Compleated Sage",
+    "layout": "normal",
+    "set_code": "neo",
+    "set_name": "Kamigawa: Neon Dynasty",
+    "collector_number": "238",
+    "rarity": "mythic",
+    "mana_cost": "{2}{G}{G/U/P}{U}",
+    "cmc": 5.0,
+    "type_line": "Legendary Planeswalker \u2014 Tamiyo",
+    "oracle_text": "Compleated ({G/U/P} can be paid with {G}, {U}, or 2 life. If life was paid, this planeswalker enters with two fewer loyalty counters.)\n+1: Tap up to one target artifact or creature. It doesn't untap during its controller's next untap step.\n\u2212X: Exile target nonland permanent card with mana value X from your graveyard. Create a token that's a copy of that card.\n\u22127: Create Tamiyo's Notebook, a legendary colorless Book artifact token with \"Spells you cast cost {2} less to cast\" and \"{T}: Draw a card.\"",
+    "power": null,
+    "toughness": null,
+    "loyalty": "5",
+    "defense": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [
+      "Compleated"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-02-18",
+    "artist": "Chris Rahn",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "4b976756-e988-4211-95c2-0e3587118488",
+        "name": "Copy",
+        "type_line": "Token"
+      },
+      {
+        "id": "992cb1e0-e846-4710-b49e-a748e4ebffa5",
+        "name": "Tamiyo's Notebook",
+        "type_line": "Token Legendary Artifact"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "5898a9c4-c983-4807-af06-18111702ab59",
+        "name": "Tamiyo, Compleated Sage",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "bd0bf74e-14c1-4428-88d8-2181a080b5d0",
+    "oracle_id": "5748ebf1-24e3-499d-ab7c-c2cebd462a24",
+    "name": "Giant Growth",
+    "layout": "normal",
+    "set_code": "fdn",
+    "set_name": "Foundations",
+    "collector_number": "223",
+    "rarity": "common",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Matt Cavotta",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "cb3b35b8-f321-46d8-a441-6b9a6efa9021",
+    "oracle_id": "273b339c-964b-4a18-8eb5-ceb8abcdfd9e",
+    "name": "Divination",
+    "layout": "normal",
+    "set_code": "m19",
+    "set_name": "Core Set 2019",
+    "collector_number": "51",
+    "rarity": "common",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Draw two cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2018-07-13",
+    "artist": "Willian Murai",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "409f9b88-f03e-40b6-9883-68c14c37c0de",
+    "oracle_id": "14c8f55d-d177-4c25-a931-ebeb9e6062a0",
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "268",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "D. J. Cleland-Hura",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "a360fe4e-c9a6-42fa-a97a-8b5a0c19ef93",
+    "oracle_id": "218d9277-c179-4de3-9c7f-79b5a6d4fa38",
+    "name": "Merfolk of the Pearl Trident",
+    "layout": "normal",
+    "set_code": "m13",
+    "set_name": "Magic 2013",
+    "collector_number": "60",
+    "rarity": "common",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Merfolk",
+    "oracle_text": "",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2012-07-13",
+    "artist": "Ray Lago",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0852f9f3-d7ef-4d31-93e3-93bc7c5a4ec9",
+    "oracle_id": "4457ed35-7c10-48c8-9776-456485fdf070",
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "163",
+    "rarity": "uncommon",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Christopher Moeller",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "4f095067-cf24-4061-8626-dc68a66a0b36",
+        "name": "Toralf's Disciple",
+        "component": "combo_piece"
+      },
+      {
+        "id": "69b51576-532b-450e-a8bf-0482cac04618",
+        "name": "Thayan Evokers",
+        "component": "combo_piece"
+      },
+      {
+        "id": "618806ea-7ea8-4cfb-a8c1-c3defa34e7dd",
+        "name": "Indris, the Hydrostatic Surge",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "8bc7fdf0-3e1e-487c-833d-7c74aa02c0c1",
+    "oracle_id": "6879f5ce-7a1b-4606-bad1-885779b0d456",
+    "name": "Cloudshift",
+    "layout": "normal",
+    "set_code": "jmp",
+    "set_name": "Jumpstart",
+    "collector_number": "97",
+    "rarity": "common",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2020-07-17",
+    "artist": "Howard Lyon",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "08d405dc-180f-4edb-8c53-80a034ee622e",
+    "oracle_id": "fd74f8eb-0253-42dd-8277-186d4934da38",
+    "name": "Dismember",
+    "layout": "normal",
+    "set_code": "tsr",
+    "set_name": "Time Spiral Remastered",
+    "collector_number": "322",
+    "rarity": "special",
+    "mana_cost": "{1}{B/P}{B/P}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "({B/P} can be paid with either {B} or 2 life.)\nTarget creature gets -5/-5 until end of turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-03-19",
+    "artist": "Jason Felix",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "36921141-85d5-4f74-849f-b018b1a2645e",
+    "oracle_id": "a60348fa-b182-4667-9e38-15bdf3511f82",
+    "name": "Choking Tethers",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "298",
+    "rarity": "common",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Tap up to four target creatures.\nCycling {1}{U} ({1}{U}, Discard this card: Draw a card.)\nWhen you cycle this card, you may tap target creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Cycling"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Deruchenko Alexander",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

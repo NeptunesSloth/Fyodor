@@ -1,0 +1,47 @@
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5761,6 +5761,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import equipment_notebook_costs67
++
++    if (notebook67 := equipment_notebook_costs67.definition(ability, ch)) is not None:
++        return notebook67
+     from app.rules import upkeep_consequences81
+
+     if (admitted := upkeep_consequences81.definition(ability, ch)) is not None:
+--- a/backend/app/rules/cost_changes.py
++++ b/backend/app/rules/cost_changes.py
+@@ -47,6 +47,8 @@
+
+ def _value(phrase: str) -> values.Value | None:
+     """A quantity a cost change reads: "the total power of creatures you control", "~'s power"."""
++    if phrase.strip() == "equipped creature's power":
++        return {"power": "host"}
+     m = _SELF_STAT.fullmatch(phrase.strip())
+     if m:
+         return {m["stat"]: "self"}
+--- /dev/null
++++ b/backend/app/rules/equipment_notebook_costs67.py
+@@ -0,0 +1,20 @@
++"""Exact named token instruction preserves the token's name through self-text rewriting."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++NOTEBOOK = 'Create Tamiyo\'s Notebook, a legendary colorless Book artifact token with "Spells you cast cost {2} less to cast" and "{T}: Draw a card."'
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts
++
++    if ability.kind != 'loyalty' or ability.text.partition(':')[2].strip() != NOTEBOOK:
++        return None
++    native = scripts.define(replace(ability, text=f'{ability.cost}: Draw a card.'), ch)
++    parsed = scripts.parse_effects(NOTEBOOK + '.')
++    if native is None or parsed is None:
++        return None
++    effects, target, optional = parsed
++    return {**native, 'effects': effects, 'target': target, 'optional': optional}

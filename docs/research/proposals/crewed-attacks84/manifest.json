@@ -1,0 +1,36 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW_ONLY",
+  "cards": [
+    "Balthier and Fran"
+  ],
+  "native": {
+    "distinct": 10,
+    "genuine_cold": 1,
+    "note": "Final consolidated10 had9 passing plus one test assertion using nonexistent has_reach attribute. Corrected to keywords; selected actual printed static1 PASS. Source unchanged throughout. All10 distinct closed, not claimed as one consolidated green run."
+  },
+  "related": {
+    "passed": 18,
+    "files": [
+      "test_rules_crew.py",
+      "test_rules_conditional_extra_combat.py",
+      "test_rules_multiple_extra_combats.py"
+    ]
+  },
+  "types": {
+    "files": 3,
+    "result": "PASS"
+  },
+  "ruff": {
+    "files": 4,
+    "result": "PASS"
+  },
+  "patch": "reviewed.patch",
+  "stage": "/tmp/balthier84",
+  "source_hashes": {
+    "app/rules/crewed_attacks84.py": "5e4fc36ce7d97d3d8cceab1b116ef9666f8e46d782932bb50db529ce2a21a5b6",
+    "app/rules/scripts.py": "fa3e15ceb97f1cfd579ba2b12424d86eeffc78ea5f311f2f1c7f530dfd5758b1",
+    "app/rules/conditions.py": "12b4c8302aa42f76a344cd190a9df661dccb7b85847bd499343a8eb9ab28fbef"
+  },
+  "root_test": "backend/tests/test_rules_crewed_attacks84.py",
+  "fixture": "Reuse existing tests.test_rules_crew_saddle_readers81.cards canonical fixture"
+}

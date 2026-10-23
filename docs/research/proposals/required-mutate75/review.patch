@@ -1,0 +1,158 @@
+--- /dev/null
++++ b/backend/app/rules/required_mutate75.py
+@@ -0,0 +1,33 @@
++"""Brokkos grants its own graveyard only for a selected native mutate cost."""
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, Any
++
++if TYPE_CHECKING:
++    from app.game.state import CardInstance, GameState
++    from app.rules.characteristics import AbilityText, CardInfo, Characteristics
++
++TEXT = 'You may cast this card from your graveyard using its mutate ability.'
++
++
++def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | None:
++    if ability.text != TEXT:
++        return None
++    return {'kind': 'static', 'static': 'permission', 'zone': 'graveyard', 'once': False, 'flash': False,
++            'self': True, 'play': False, 'cast': True, 'filter': None, 'required_mutate75': True, 'effects': []}
++
++
++def candidate(state: GameState, player: str, card: CardInstance, ch: Characteristics) -> bool:
++    from app.game.state import zone_key
++    from app.rules import scripts
++
++    return state.rules is not None and card.owner == player and card.zone == zone_key(player, 'graveyard') \
++        and any(d.get('required_mutate75') for d in scripts.definitions(ch).values())
++
++
++def selected(state: GameState, player: str, card: CardInstance, ch: Characteristics,
++             info: CardInfo | None, key: str | None) -> bool:
++    from app.rules import alt_costs
++
++    return key is not None and info is not None and candidate(state, player, card, ch) \
++        and any(offer.key == key and offer.tag == 'mutate' for offer in alt_costs.offers(state, player, card, ch, info))
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5761,6 +5761,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import required_mutate75
++
++    if (mutate75 := required_mutate75.definition(ability, ch)) is not None:
++        return mutate75
+     from app.rules import conditional_attacks85
+
+     if (attacks85 := conditional_attacks85.definition(ability, ch)) is not None:
+--- a/backend/app/rules/permissions.py
++++ b/backend/app/rules/permissions.py
+@@ -1417,6 +1417,8 @@
+         self_ch = layers.derive(state, card, ch, info) if where == 'exile' and layers.affecting(state, card) else ch
+         for index, d in _definitions(self_ch).items():  # the card's own ability, functioning in the graveyard (113.6) / exile (wave 20D)
+             if d.get("static") == "permission" and d.get("self") and where in d.get("zones", [d["zone"]]):
++                if d.get('required_mutate75'):
++                    continue  # This authority exists only for a selected native mutate alternative.
+                 key = f"{card.id}:permission:{index}"
+                 if d["once"] and r.once_per_turn.get(key) == turn:
+                     continue
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -2692,7 +2692,8 @@
+
+
+ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None, *,
+-               free: bool = False, slot: str | None = None, via: str | None = None) -> permissions.Grant | None:
++               free: bool = False, slot: str | None = None, via: str | None = None,
++               alternative_key: str | None = None) -> permissions.Grant | None:
+     """How ``player`` may cast this card from where it is (601.3): from their hand, their commander
+     from the command zone, flashback from their graveyard, or a permission (app/rules/permissions):
+     a static ability on the table or one an effect granted. ``free``: they want to use a "without
+@@ -2709,6 +2710,10 @@
+             and perm.controller == player:
+         how = "prepared"  # -- prepared (wave 13C) -- 722.3c: its controller may cast the copy in exile
+     found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
++    from app.rules import required_mutate75
++
++    if not free and via is None and slot is None and required_mutate75.selected(state, player, card, ch, info, alternative_key):
++        how = 'mutate'  # Required native alternative; unrelated permissions remain selectable independently.
+     flash = any(g.flash and (free or not g.flash_requires_free) for g in found)
+     if how is None and info is not None and card.zone == zone_key(player, "foretell") and not free and card.owner == player \
+             and _foretell_offers(state, player, card, ch, info):
+@@ -2771,7 +2776,7 @@
+         return "Fyodor doesn't know what that card is. Use the table tools."
+     if ch.is_land:  # 305.9: a land card is played, never cast
+         return f"{ch.name or 'That card'} is a land: play it instead"
+-    grant = cast_grant(state, player, card, ch, info, free=free)
++    grant = cast_grant(state, player, card, ch, info, free=free, alternative_key=alternative_key)
+     if grant is None:
+         if free:
+             return "Nothing lets you cast that without paying its mana cost now"
+@@ -3169,8 +3174,11 @@
+     from app.rules import text_global_word71
+
+     ch = text_global_word71.prospective(state, card, ch, info)
++    from app.rules import required_mutate75
++
++    required_mutate = required_mutate75.candidate(state, player, card, ch)
+     blocked = cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is not None
+-    if blocked and cast_problem(state, player, card, ch, check_priority=check_priority, info=info, sneak=True) is not None:
++    if blocked and not required_mutate and cast_problem(state, player, card, ch, check_priority=check_priority, info=info, sneak=True) is not None:
+         return out
+     grant = cast_grant(state, player, card, ch, info)
+     in_graveyard = card.zone == zone_key(player, "graveyard")  # -- escape (wave 5I) -- from there: escape costs only
+@@ -3178,6 +3186,11 @@
+         return out  # (flashback is an alternative cost already: 118.9a)
+     view = permissions._view(state, player, info)
+     for offer in alt_costs.offers(state, player, card, ch, info):
++        if required_mutate:
++            grant = cast_grant(state, player, card, ch, info, alternative_key=offer.key)
++            blocked = cast_problem(state, player, card, ch, check_priority=check_priority, info=info, alternative_key=offer.key) is not None
++            if grant is None:
++                continue
+         if grant is not None and timing_problem(state, player, ch, grant) is not None and not offer.flash and offer.tag != "sneak":
+             continue
+         if blocked and offer.tag != "sneak":
+@@ -3434,12 +3447,12 @@
+     problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free, sneak=sneaking or timing_locked, announced=True, alternative_key=a.alt_cost, optional_keys=tuple(a.optional_costs))
+     if problem:
+         raise ActionError(problem)
+-    grant = cast_grant(plan.state, plan.actor, card, ch, plan.info, free=a.free, slot=a.slot, via=a.via)
++    grant = cast_grant(plan.state, plan.actor, card, ch, plan.info, free=a.free, slot=a.slot, via=a.via, alternative_key=a.alt_cost)
+     sac_at_cleanup = not a.free and flash_sac(plan.state, plan.actor, card, ch, plan.info)  # (-- flash auras (wave 46B) -- judged before it is on the stack)
+     if grant is not None and grant.how == "permission" and a.x_value and "{X}" in ch.mana_cost:
+         # -- review 30c -- 202.3e, 601.2e: "with mana value 3 or less" reads the X announced (Lurrus ruling 2020-04-17: "{X}{W} … with X as 1 but not as 2")
+         grant = cast_grant(plan.state, plan.actor, card, replace(ch, mana_value=ch.mana_value + a.x_value * ch.mana_cost.count("{X}")), plan.info,
+-                           free=a.free, slot=a.slot, via=a.via)
++                           free=a.free, slot=a.slot, via=a.via, alternative_key=a.alt_cost)
+         if grant is None:
+             raise ActionError(f"{ch.name} can't be cast this way with X = {a.x_value}: its mana value would be too high")
+     if a.slot is not None and grant is None:
+@@ -6644,6 +6657,7 @@
+ # -- responding -------------------------------------------------------------------------
+ def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
+     """Could ``player`` do anything at instant speed right now? (For Arena-style auto-passing.)"""
++    from app.rules import required_mutate75
+     from app.rules.pooled_casting_authorities71 import external_candidates
+
+     candidates = [cid for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard"),
+@@ -6653,9 +6667,16 @@
+     for cid in candidates:
+         card = state.cards[cid]
+         ch = chars.of(card, info)
++        if required_mutate75.candidate(state, player, card, ch):
++            for option in alt_castable(state, player, card, info, check_priority=False):
++                selected_grant = cast_grant(state, player, card, ch, info, alternative_key=option['id'])
++                if selected_grant is not None and selected_grant.flash:
++                    return True  # Timing-only grants must accompany this selected zone authority.
+         if ("Instant" in ch.types or ch.has_flash or _flash_granted(state, player, card, ch, info) or flash_if(ch) is not None) \
+                 and (castable(state, player, card, info, check_priority=False)
+-                     or free_castable(state, player, card, info, check_priority=False)):
++                     or free_castable(state, player, card, info, check_priority=False)
++                     or (required_mutate75.candidate(state, player, card, ch)
++                         and alt_castable(state, player, card, info, check_priority=False))):
+             return True
+         if any(g.flash and g.flash_requires_free for g in permissions.grants(state, player, card, ch, info, verb="cast")) and free_castable(
+                 state, player, card, info, check_priority=False):

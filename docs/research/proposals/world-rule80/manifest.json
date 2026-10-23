@@ -1,0 +1,49 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW; NOT LIVE, NEXT SNAPSHOT ONLY",
+  "production_promotions": 0,
+  "native": {
+    "world_cases": 14,
+    "core_cases": 54,
+    "total_passed": 68,
+    "genuine_fresh_process_cases": 2,
+    "log": "final-rebased68.log"
+  },
+  "types": {
+    "files": 8,
+    "result": "PASS",
+    "log": "final-rebased-types8.log"
+  },
+  "ruff": {
+    "files": 8,
+    "result": "PASS",
+    "log": "final-rebased-ruff8.log"
+  },
+  "stage": "/tmp/world81-rebased/backend",
+  "patch": "owned-world-only.patch",
+  "patch_sha256": "2e79c8cbbc56ae5d032b4c0bf39f2740ff87566615dae300b5606514203a79ab",
+  "base_hashes": "owned-world-only-base-hashes.json",
+  "source_hashes": "owned-world-only-source-hashes.json",
+  "base_app_tools_modules": 857,
+  "candidate_app_tools_modules": 858,
+  "owned_files": 8,
+  "no_world_benchmark": {
+    "board_permanents": 50,
+    "native_actions": 60,
+    "baseline_warm_median_seconds": 2.625918529985938,
+    "cached_warm_median_seconds": 2.6330385990440845,
+    "relative_delta_percent": 0.27114584770397965
+  },
+  "held_next_card": "In the Eye of Chaos recipe not included",
+  "superseded_unsafe_artifact": "superseded-unsafe-full-stage.patch MUST NOT APPLY",
+  "boundaries": [
+    "Unique shortest uninterrupted World interval survives; simultaneous newest tie kills ALL Worlds including older ones.",
+    "Independent epoch receipt, never object-ID or APNAP timestamp ordering.",
+    "Native copy entry, acquisition, loss/regain and simultaneous expiry; uninterrupted World-to-World copy retains interval.",
+    "Phased objects excluded from SBA while interval retained; copy expiry while phased gives correct regained interval, both cold cases persist exact histories.",
+    "Unknown legacy comparison rejects atomically unless later native acquisition proves relative age.",
+    "Manual face/flip/face_down/merge invalidates original interval honestly; native mutations prove intervals.",
+    "Indestructibility/type-change does not erase World; normal graveyard destination replacement applies.",
+    "Candidate-carrier cache preserves full copiable/object signature, actual World membership rederived.",
+    "Eight-file owned delta preserves all current857 linked-exile, Dash, flashback-X, counter72 and script/permission hooks."
+  ]
+}

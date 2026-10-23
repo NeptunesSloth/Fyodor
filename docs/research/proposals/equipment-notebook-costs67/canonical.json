@@ -1,0 +1,119 @@
+{
+  "Glamdring, Foe-hammer // Gleam of Death": {
+    "id": "a5cfbfde-783e-46ca-b3cf-11f16209d6cb",
+    "oracle_id": "2802069f-201e-43a7-b5d3-43a95951a2ec",
+    "name": "Glamdring, Foe-hammer // Gleam of Death",
+    "layout": "adventure",
+    "set_code": "hob",
+    "set_name": "The Hobbit",
+    "collector_number": "174",
+    "rarity": "rare",
+    "mana_cost": "{2} // {3}{U}",
+    "cmc": 2.0,
+    "type_line": "Legendary Artifact \u2014 Equipment // Sorcery \u2014 Adventure",
+    "oracle_text": "Instant and sorcery spells you cast cost {X} less to cast, where X is equipped creature's power.\nEquip {2}\n//\nMill six cards, then put all instant and sorcery cards from among them into your hand. (Then exile this card. You may cast the artifact later from exile.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Equip",
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [
+      {
+        "name": "Glamdring, Foe-hammer",
+        "mana_cost": "{2}",
+        "type_line": "Legendary Artifact \u2014 Equipment",
+        "oracle_text": "Instant and sorcery spells you cast cost {X} less to cast, where X is equipped creature's power.\nEquip {2}",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      },
+      {
+        "name": "Gleam of Death",
+        "mana_cost": "{3}{U}",
+        "type_line": "Sorcery \u2014 Adventure",
+        "oracle_text": "Mill six cards, then put all instant and sorcery cards from among them into your hand. (Then exile this card. You may cast the artifact later from exile.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      }
+    ],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-08-14",
+    "artist": "Chris Cold",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  "Tamiyo, Compleated Sage": {
+    "id": "222a736e-d819-452d-aeda-eb848c4b2302",
+    "oracle_id": "021b4745-4a15-462c-a6b0-2dee1dc9d196",
+    "name": "Tamiyo, Compleated Sage",
+    "layout": "normal",
+    "set_code": "neo",
+    "set_name": "Kamigawa: Neon Dynasty",
+    "collector_number": "238",
+    "rarity": "mythic",
+    "mana_cost": "{2}{G}{G/U/P}{U}",
+    "cmc": 5.0,
+    "type_line": "Legendary Planeswalker \u2014 Tamiyo",
+    "oracle_text": "Compleated ({G/U/P} can be paid with {G}, {U}, or 2 life. If life was paid, this planeswalker enters with two fewer loyalty counters.)\n+1: Tap up to one target artifact or creature. It doesn't untap during its controller's next untap step.\n\u2212X: Exile target nonland permanent card with mana value X from your graveyard. Create a token that's a copy of that card.\n\u22127: Create Tamiyo's Notebook, a legendary colorless Book artifact token with \"Spells you cast cost {2} less to cast\" and \"{T}: Draw a card.\"",
+    "power": null,
+    "toughness": null,
+    "loyalty": "5",
+    "defense": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": [
+      "Compleated"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-02-18",
+    "artist": "Chris Rahn",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "4b976756-e988-4211-95c2-0e3587118488",
+        "name": "Copy",
+        "type_line": "Token"
+      },
+      {
+        "id": "992cb1e0-e846-4710-b49e-a748e4ebffa5",
+        "name": "Tamiyo's Notebook",
+        "type_line": "Token Legendary Artifact"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "5898a9c4-c983-4807-af06-18111702ab59",
+        "name": "Tamiyo, Compleated Sage",
+        "component": "combo_piece"
+      }
+    ]
+  }
+}

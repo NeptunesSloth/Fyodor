@@ -218,5 +218,75 @@
     "original_sha256": "6dd9540ea9a0cd5e258af1db59f7fef00896f1d10cd6f3dc5db783b14238357f",
     "archive_sha256": "e6402c0cf9814604db1f24a75ba4ac8f678fd1752b4ef7d1af864d8112d78aad",
     "numstat_unchanged": true
+  },
+  "docs/research/proposals/conditional-class-costs68/production-candidate.patch": {
+    "original_sha256": "85ff1574281a09d34dd0074d24371b7199d527c7db49f33f1707488f52ab1489",
+    "archived_sha256": "88d091ba293cf7f38411ee64223aa3a94ed9b225f76389350a4b73c4d1d7a567",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/crewed-attacks84/reviewed.patch": {
+    "original_sha256": "86e5538f1e8f9a037956cf221871d67ef801866e8d14391588fcfbfd2f4302d1",
+    "archived_sha256": "efe376c523e014ed4993d37eb0c8163edfaf548e6a9636fbb81772c12f8cd0aa",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/dawnhand-counter-order73/review.patch": {
+    "original_sha256": "154ca603a7c8fcc45b919a39c6e4fc2ce4548c94367200f74bfe5f0ac3feae3f",
+    "archived_sha256": "17f0b65e7c29202f5a4dc58b63bbd1b5f905c9812320efcccd18ec319115931b",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/deferred-payment-window82/UNINSTALLED.patch": {
+    "original_sha256": "78fe55a48a686a60b53fbe6f053ec9dc1243e4b857c10401b922d2059d3b13c8",
+    "archived_sha256": "9c036a9ef32766b0e76059308674a7d856817145c06e7af40e1243228155dde3",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/equipment-notebook-costs67/production-candidate.patch": {
+    "original_sha256": "d8406edcbd98945711d4928728191ed68042903ad180bedca29fe7759befafbb",
+    "archived_sha256": "6bfba33a52af9bbd8a9b2849aaf948d9fc57296dd856e47e6feb8fef720b9838",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/eye-chaos82/review.patch": {
+    "original_sha256": "41c4d1e62612e26feaedaabe29c12f1d51a829efa44f0f95c3efb7e14f785275",
+    "archived_sha256": "83b8e3f5ca20fca2070365a0ffb18dadbdca4710f50f0b9284b057e70c77d8ee",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/fortune83/reviewed.patch": {
+    "original_sha256": "a2cb9381c1a1c4c652b3de6093f68b673d91cf50c0d097ff3edcff97829ef66d",
+    "archived_sha256": "602de2f58b4c00f9d8bc3788487abacc47a0474814fc51b3a543c25a39cb8e5d",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/grave-adventure74/review.patch": {
+    "original_sha256": "1087b4986be241e980ae4c1e2daef1d0653c64a303087eb36378f8b34b8df294",
+    "archived_sha256": "4e3758688ea10befca0d238fa990c2513160f55addf2d431d41280fa60bf3c52",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/required-mutate75/review.patch": {
+    "original_sha256": "6304e9ec7be32402b92b6fe9491667d20c960414ef5f418c6c61b4e02ba7702e",
+    "archived_sha256": "bfd5f0a5183ec357e1eff0c9b9cdff24380ce32f5f447fde517850916512faed",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/target-duration-costs69/production-candidate.patch": {
+    "original_sha256": "05b341fe98b0609cbacdc31496fc5e61635c0b7b67390e761badc5c9b0e5382c",
+    "archived_sha256": "0d868ab05e006f7382fd7d983707236355fc75c6013ae33eb170dd2e6f5f35fd",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/world-rule80/owned-world-only.patch": {
+    "original_sha256": "2e79c8cbbc56ae5d032b4c0bf39f2740ff87566615dae300b5606514203a79ab",
+    "archived_sha256": "68f38c01ab49adf36d950b89179a0571960750cf16862e736ff9ff9da6606c8a",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/world-rule80/draft-review.patch": {
+    "original_sha256": "cae65b83b37e322c54f9fb17116418fda947b8498d4c76235a6df01ca4a29314",
+    "archived_sha256": "575a1fe913e876b4604c4ea4c802fbb6ea9d06cd2e8b457561675d326ee4f5ef",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/world-rule80/superseded-unsafe-full-stage.patch": {
+    "original_sha256": "ec2f20b9d9f7937687036075b7efeab6a5742abcfae49d6768b2af24369b0ca5",
+    "archived_sha256": "6e22181e06ca7b8fc610a441577e848ccf8b2bbecd803c01cc13a583168f2de9",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/world-upkeep83/review.patch": {
+    "original_sha256": "a453b6baa5170acc9061c1a0069fd11b0aab9f0b73454e93725b85d56b293810",
+    "archived_sha256": "d2131f0e916959eeee03fb9a90ef34d8f5d47700309265b6f4d10438533506be",
+    "numstat_preserved": true
   }
 }

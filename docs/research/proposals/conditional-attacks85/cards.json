@@ -1,0 +1,54 @@
+[
+  {
+    "name": "Ironsoul Enforcer",
+    "mana_cost": "{4}{W}",
+    "cmc": 5.0,
+    "type_line": "Artifact Creature \u2014 Human Samurai",
+    "oracle_text": "Whenever this creature or a commander you control attacks alone, return target artifact card from your graveyard to the battlefield.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Wargling",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Wolf",
+    "oracle_text": "Ferocious \u2014 Whenever this creature attacks while you control a creature with power 4 or greater, until end of turn, this creature gets +1/+0 and creatures you control gain trample.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Ferocious"
+    ]
+  },
+  {
+    "name": "Cytoshape",
+    "mana_cost": "{1}{G}{U}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose a nonlegendary creature on the battlefield. Target creature becomes a copy of that creature until end of turn.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "keywords": []
+  }
+]

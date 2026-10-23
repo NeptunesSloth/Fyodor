@@ -1,0 +1,14 @@
+....F.                                                                   [100%]
+=================================== FAILURES ===================================
+___ test_own_mutate_authority_does_not_consume_the_other_creature_permission ___
+tests/test_rules_required_mutate75.py:124: in test_own_mutate_authority_does_not_consume_the_other_creature_permission
+    assert s.state.rules.once_per_turn == before
+E   AssertionError: assert {'drawstep:p1...ture': 1, ...} == {'drawstep:p1...ture': 1, ...}
+E
+E     Omitting 10 identical items, use -vv to show
+E     Left contains 2 more items:
+E     {'targeted:any:77b14c503841.6': 1, 'targeted:by:77b14c503841.6': 1}
+E     Use -v to get more diff
+=========================== short test summary info ============================
+FAILED tests/test_rules_required_mutate75.py::test_own_mutate_authority_does_not_consume_the_other_creature_permission
+1 failed, 5 passed in 4.77s

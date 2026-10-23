@@ -1,0 +1,32 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW; requires separate World foundation, not live",
+  "names": [
+    "In the Eye of Chaos"
+  ],
+  "production_promotions_pending": 1,
+  "patch": "review.patch",
+  "patch_sha256": "41c4d1e62612e26feaedaabe29c12f1d51a829efa44f0f95c3efb7e14f785275",
+  "base_sha256": "827d4e51e6ef1b0e6ec6ab2eaa396167cdda01210c895289f61a8f6e7614914a",
+  "candidate_sha256": "32339db5e407555f8e376003a633edcf3a12706520fe896a2fa7c967d721ed6d",
+  "stage": "/tmp/chaos82-stage/backend",
+  "native": {
+    "passed": 10,
+    "composition": "Consolidated9 plus distinct faithful-legacy omission1; same unchanged source",
+    "genuine_cold": 2
+  },
+  "related": {
+    "upkeep79": 43,
+    "world_with_chaos_enabled": 14,
+    "total_disjoint": 57
+  },
+  "types": "1source PASS",
+  "ruff": "source+test2 PASS",
+  "world_dependency": "../world-rule80/owned-world-only.patch (zero promotions)",
+  "world_test_helper_update": "../world-rule80/native_tests.py updated to pay genuine Chaos tax before copy-spell choices; World14 passes with this recipe enabled",
+  "boundaries": [
+    "Original instant cast payer, actual announced X mana value, uncounterable spells, event spell gone before own tax.",
+    "Actual newer World replaces Chaos; sorcery-speed noninstant does not trigger tax; post-source-departure pending native tax survives actual Abrupt Decay.",
+    "Actual optional payment/decline through fresh process preserves original payer.",
+    "Missing original event object in old save produces explicit manual handling, never invented zero mana value."
+  ]
+}

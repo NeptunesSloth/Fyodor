@@ -1,0 +1,13 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "570cb560-c246-4652-b230-ab34f966c78a",
+      "source": "wotc",
+      "published_at": "2025-06-06",
+      "comment": "Balthier and Fran's last ability doesn't give you any additional main phases. This means that you will move directly from the end of combat step of one combat phase to the beginning of combat step of the next one."
+    }
+  ]
+}

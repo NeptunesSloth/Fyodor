@@ -1,0 +1,229 @@
+[
+  {
+    "id": "48ead72b-f3f5-4065-a33c-0992cf1fdb34",
+    "oracle_id": "115c7ca7-c27b-43ca-9281-be6913e90059",
+    "name": "Sabertooth Cobra",
+    "layout": "normal",
+    "set_code": "mir",
+    "set_name": "Mirage",
+    "collector_number": "238",
+    "rarity": "common",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Snake",
+    "oracle_text": "Whenever this creature deals damage to a player, that player gets a poison counter. The player gets another poison counter at the beginning of their next upkeep unless they pay {2} before that step. (A player with ten or more poison counters loses the game.)",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1996-10-08",
+    "artist": "Andrew Robinson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "8a9cb417-8709-4336-be36-2fb0cea31fe1",
+        "name": "Poison Counter",
+        "component": "combo_piece"
+      }
+    ],
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "115c7ca7-c27b-43ca-9281-be6913e90059",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "The ability still gives a poison counter even if Sabertooth Cobra leaves the battlefield before the next upkeep."
+        }
+      ]
+    }
+  },
+  {
+    "id": "118253e9-f33a-455d-b785-dd9df657e7cf",
+    "oracle_id": "22abc3e8-49bb-475a-8248-0ce85274913c",
+    "name": "Glass Asp",
+    "layout": "normal",
+    "set_code": "tsp",
+    "set_name": "Time Spiral",
+    "collector_number": "197",
+    "rarity": "common",
+    "mana_cost": "{1}{G}{G}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Snake",
+    "oracle_text": "Whenever this creature deals combat damage to a player, that player loses 2 life at the beginning of their next draw step unless they pay {2} before that step.",
+    "power": "2",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2006-10-06",
+    "artist": "Richard Kane Ferguson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "22abc3e8-49bb-475a-8248-0ce85274913c",
+          "source": "wotc",
+          "published_at": "2006-09-25",
+          "comment": "After Glass Asp\u2019s triggered ability resolves, the affected player has the ability to perform a special action of paying {2}. This action may be performed any time the player has priority, and it doesn\u2019t use the stack. It may be performed only once. Once that player\u2019s next draw step begins, the player no longer has the ability to perform this action. If the player performed the action, the delayed \u201close 2 life\u201d triggered ability won\u2019t trigger. Otherwise, it will."
+        }
+      ]
+    }
+  },
+  {
+    "id": "0db4a4ef-20a8-415f-8d7d-a6740b482f73",
+    "oracle_id": "da7bc9d6-a0cc-407a-bed9-d677c2dd74f2",
+    "name": "Nafs Asp",
+    "layout": "normal",
+    "set_code": "4ed",
+    "set_name": "Fourth Edition",
+    "collector_number": "264",
+    "rarity": "common",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Snake",
+    "oracle_text": "Whenever this creature deals damage to a player, that player loses 1 life at the beginning of their next draw step unless they pay {1} before that draw step.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1995-04-01",
+    "artist": "Christopher Rush",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "da7bc9d6-a0cc-407a-bed9-d677c2dd74f2",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "If its damage gets redirected to its controller, it will still trigger the ability."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "da7bc9d6-a0cc-407a-bed9-d677c2dd74f2",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "The player can pay the {1} mana at any time after damage is done before the draw step of that player\u2019s turn. People commonly pay during upkeep."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "da7bc9d6-a0cc-407a-bed9-d677c2dd74f2",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "If it damages a player twice, they get to pay or take damage twice during their next draw step."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "da7bc9d6-a0cc-407a-bed9-d677c2dd74f2",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "The ability does not cause itself to trigger again. It cause loss of life, and not damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "ee1c0ded-2a80-4ed4-b9fc-3a18bf5c3239",
+    "oracle_id": "d2eeb1eb-38c0-4b76-ad96-a53b6bdc00e1",
+    "name": "Quenchable Fire",
+    "layout": "normal",
+    "set_code": "con",
+    "set_name": "Conflux",
+    "collector_number": "70",
+    "rarity": "common",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Quenchable Fire deals 3 damage to target player or planeswalker. It deals an additional 3 damage to that player or planeswalker at the beginning of your next upkeep step unless that player or that planeswalker's controller pays {U} before that step.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2009-02-06",
+    "artist": "Jean-S\u00e9bastien Rossbach",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "d2eeb1eb-38c0-4b76-ad96-a53b6bdc00e1",
+          "source": "wotc",
+          "published_at": "2009-02-01",
+          "comment": "After Quenchable Fire resolves, the targeted player becomes able to perform a special action of paying {U}. This action may be performed any time the player has priority, and it doesn\u2019t use the stack. It may be performed only once, and only before your next upkeep begins. If the player has performed the action by then, the \u201cdeal an additional 3 damage\u201d ability won\u2019t trigger. Otherwise, it will. If it triggers, the player can\u2019t stop it by paying {U}."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "d2eeb1eb-38c0-4b76-ad96-a53b6bdc00e1",
+          "source": "wotc",
+          "published_at": "2009-02-01",
+          "comment": "Quenchable Fire\u2019s delayed triggered ability (and the special action of paying {U}) will affect the player who was targeted by the spell, even if the original 3 damage is prevented or redirected to a different permanent or player."
+        }
+      ]
+    }
+  }
+]

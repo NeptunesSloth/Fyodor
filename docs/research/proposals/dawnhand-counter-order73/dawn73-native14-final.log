@@ -1,0 +1,30 @@
+............F.                                                           [100%]
+=================================== FAILURES ===================================
+____ test_dawnhand_native_blight_one_surveil_executes_actual_first_ability _____
+tests/test_rules_dawnhand_counter_order73.py:348: in test_dawnhand_native_blight_one_surveil_executes_actual_first_ability
+    answer(s, [top[0]])
+tests/test_rules_controller_tutors.py:53: in answer
+    act(s, d.decider or d.player, type='choose', decision_id=d.id, option_ids=ids)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:162: in compile_intent
+    handler(plan, intent)
+app/rules/engine.py:1443: in choose
+    raise ActionError("Choose from the options offered")
+E   app.game.errors.ActionError: Choose from the options offered
+=============================== warnings summary ===============================
+../../workspace/Fyodor/backend/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /workspace/Fyodor/backend/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_rules_dawnhand_counter_order73.py::test_dawnhand_native_blight_one_surveil_executes_actual_first_ability
+1 failed, 13 passed, 1 warning in 264.49s (0:04:24)

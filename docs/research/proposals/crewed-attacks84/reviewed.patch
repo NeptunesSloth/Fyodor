@@ -1,0 +1,56 @@
+--- /dev/null
++++ b/backend/app/rules/crewed_attacks84.py
+@@ -0,0 +1,27 @@
++"""Balthier and Fran read actual original crew contributors at native attack triggers."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++TEXT = "Whenever a Vehicle crewed by ~ this turn attacks, if it's the first combat phase of the turn, you may pay {1}{R}{G}. If you do, after this phase, there is an additional combat phase."
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts
++
++    if ability.kind != 'triggered' or scripts.self_text(ability.text, ch.name) != TEXT:
++        return None
++    proxy = TEXT.replace(' crewed by ~ this turn', '')
++    native = scripts.define(replace(ability, text=proxy), ch)
++    if native is None:
++        return None
++    return {**native, 'if': {'all': [native['if'], {'crewed_by_source84': True}]}}
++
++
++def holds(plan: Any, ctx: dict[str, Any]) -> bool:
++    from app.rules import crew_saddle
++
++    event = ctx.get('event') or {}
++    return any(crew_saddle.tapped_for(plan, 'crew', ctx.get('source_object'), ref.get('object_id'))
++               for ref in event.get('objects') or [])
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5761,6 +5761,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import crewed_attacks84
++
++    if (crewed84 := crewed_attacks84.definition(ability, ch)) is not None:
++        return crewed84
+     from app.rules import upkeep_consequences81
+
+     if (admitted := upkeep_consequences81.definition(ability, ch)) is not None:
+--- a/backend/app/rules/conditions.py
++++ b/backend/app/rules/conditions.py
+@@ -1524,6 +1524,10 @@
+
+
+ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
++    if cond.get('crewed_by_source84'):
++        from app.rules import crewed_attacks84
++
++        return crewed_attacks84.holds(plan, ctx)
+     if 'chosen_color_pair_overlap' in cond:
+         from app.rules import chosen_color_pairs45
+

@@ -1,0 +1,33 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW_ONLY",
+  "cards": [
+    "Fortune, Loyal Steed"
+  ],
+  "native": {
+    "passed": 11,
+    "genuine_cold": 1,
+    "log": "unified11.log"
+  },
+  "related": {
+    "passed": 31,
+    "files": [
+      "test_rules_saddled_receipts76.py",
+      "test_rules_delayed_combat_blinks50.py"
+    ],
+    "log": "related31.log"
+  },
+  "mypy": "one source PASS",
+  "ruff": "source and test PASS",
+  "patch": "reviewed.patch",
+  "stage": "/tmp/fortune83/backend",
+  "source_hashes": {
+    "fortune83.py": "221db53a439456a1d6e797bc513f63ff9494828237b08300e9d5758b4faa2929",
+    "native_tests.py": "9c08ed109c64440d01f60748241d74db5e4820c65d811ad5239dda3ec179858c",
+    "reviewed.patch": "a2cb9381c1a1c4c652b3de6093f68b673d91cf50c0d097ff3edcff97829ef66d"
+  },
+  "notes": [
+    "No live source edits/commits by child",
+    "Patch hooks require preserving current sibling registrations",
+    "Canonical/all official rulings preserved"
+  ]
+}

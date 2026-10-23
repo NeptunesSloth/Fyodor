@@ -1,0 +1,44 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW; UNINSTALLED and not admitted",
+  "names": [
+    "Sabertooth Cobra",
+    "Glass Asp",
+    "Nafs Asp",
+    "Quenchable Fire"
+  ],
+  "source_patch": "UNINSTALLED.patch",
+  "native": {
+    "distinct": 26,
+    "genuine_cold": 2,
+    "whole_log": "whole25.log",
+    "portable_cold_recheck": "portable-cold2.log",
+    "note": "Whole25 passed; two existing cold cases passed again after making cwd derive the imported app root. One further disjoint real planeswalker-control-change payer/atomic-priority case passed.26 distinct cases; no fresh consolidated26 run claimed.",
+    "additional_control_change_case": "quench-payer-control1.log"
+  },
+  "related": {
+    "backend": 113,
+    "frontend": 45
+  },
+  "typing": "mypy9 PASS; frontend tsc PASS",
+  "ruff": "configured10 PASS before test-only cwd portability adjustment",
+  "source_stage": "/tmp/deferred82-stage",
+  "source_hashes": {
+    "app/game/actions.py": "2187cdc6a3f4a5c617c0d6bd2d90fc1aa5323c8d70ab37e1fa3455772d3b8779",
+    "app/game/rules_state.py": "6b643e675ea7469bcdf6827a456aea2eba0a5c6d4ca173e2ada5921160b7b4a6",
+    "app/rules/deferred_payment82.py": "73697a439dee4d784a3a6369bd0efceebeceb8e6e2e25b18c701d14be9607045",
+    "app/rules/scripts.py": "bf362b36df06f1b7c66b335f71cc2193ccbbfc2df3ac1145f93821b7d570ba52",
+    "app/rules/effects.py": "b8b9efddab2589ac75bfc9a957c20e486167c538e495121acf588af8406f4486",
+    "app/rules/engine.py": "3d5d34405703845efaeea25b2a08ef7a804d3b1a7770a09b17c3bc90aab15d3d",
+    "app/rules/delayed.py": "56eefd49b06b72c277a159ee5048b9d08cf3b4ef60b7b62658de4833dc4b6fb0",
+    "app/rules/casting.py": "dc88ee79009ee5d95bd224aedead6073fff1263a77b80cdcbb00ab5b182e1e22",
+    "app/rules/view.py": "aa8ecaac1956adeb182b01dbd62d6852b7ffa2baced9efc319bcf9e4fa07206d",
+    "frontend/src/types/game.ts": "76527a772a9454b406c9006c1bb1cf7cc5b41252bfec11494726821637c38a23",
+    "frontend/src/game/rules/RulesHud.tsx": "8af95fcd0cccf5666f7d32ea29b9a9165ae0668ad5e4a0304efba8305290e4db"
+  },
+  "patch_sha256": "78fe55a48a686a60b53fbe6f053ec9dc1243e4b857c10401b922d2059d3b13c8",
+  "test_source_sha256": "417ca76d9a06231e89fc1f4fa39cbd5b3c0770499946146312097f6d793e1081",
+  "fixture_source": "cards.json",
+  "install_test_path": "backend/tests/test_rules_deferred_payment82.py",
+  "install_fixture_path": "backend/tests/fixtures/deferred82_cards.json",
+  "authority_note": "quench-payer-authority.md"
+}
