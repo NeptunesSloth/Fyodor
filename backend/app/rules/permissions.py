@@ -1417,6 +1417,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         self_ch = layers.derive(state, card, ch, info) if where == 'exile' and layers.affecting(state, card) else ch
         for index, d in _definitions(self_ch).items():  # the card's own ability, functioning in the graveyard (113.6) / exile (wave 20D)
             if d.get("static") == "permission" and d.get("self") and where in d.get("zones", [d["zone"]]):
+                if d.get('required_mutate75'):
+                    continue  # This authority exists only for a selected native mutate alternative.
                 key = f"{card.id}:permission:{index}"
                 if d["once"] and r.once_per_turn.get(key) == turn:
                     continue
@@ -1492,7 +1494,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             if d["once"] and r.once_per_turn.get(key) == turn:
                 continue
             out.append(Grant("permission", src.name, zone_ok=True, free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
-                             once_key=key if d["once"] else None, choice_key=key, enters=d.get("enters"), spend=d.get("spend", ""),
+                             once_key=key if d["once"] else None, choice_key=key, enters=d.get("enters"), spend=d.get("spend", ""), extra=d.get("extra", ""),
                              use_trigger=permission_use_triggers43.static_receipt(state, src, index, d.get("use_trigger"))))
             continue
         if not conditional_free_casts68.eligible(state, info, player, card, ch, d):
@@ -1712,7 +1714,7 @@ def modifiers(state: GameState, player: str, card: CardInstance, ch: Characteris
                                   filter=d["filter"], until="permanent", source=r.object_id(src.id), label=src.name,
                                   mana=cost_changes.stored_mana(d)))
     found += [m for m in r.cost_modifiers  # ("until your next turn": over once its controller's next turn began)
-              if not (m.until == "next_turn" and r.turn_started.get(m.controller, 0) > m.turn)]
+              if not (m.until == "next_turn" and r.turn_started.get(m.until_player or m.controller, 0) > m.turn)]
     out = []
     for m in found:
         if m.from_zones:
@@ -2013,7 +2015,7 @@ def expire(plan: Plan) -> None:
         keep.append(p)
     r.permissions = keep
     r.cost_modifiers = [m for m in r.cost_modifiers if m.until != "end_of_turn"
-                        and not (m.until == "next_turn" and r.turn_started.get(m.controller, 0) > m.turn)]
+                        and not (m.until == "next_turn" and r.turn_started.get(m.until_player or m.controller, 0) > m.turn)]
 
 
 SOURCE_UNTIL = ("source_controlled", "source_on_battlefield")  # (-- durations (wave 30M) -- Permission.until: "for as long as you control ~")
@@ -2070,11 +2072,12 @@ def cost_modifier(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     delta = e["dir"] * values.evaluate(plan, ctx, e["delta"]) if isinstance(e["delta"], dict) else int(e["delta"])  # (wave 44D: an amount read now, 611.2a)
     plan.rules.cost_modifiers.append(CostModifier(
         id=secrets.token_hex(4), controller=pid, delta=delta, caster=e.get("caster") or ("any" if e.get("any") else "you"), filter=e.get("filter"),  # (wave 53B: Cheering Fanatic, everybody's spells)
-        until=e["until"], turn=plan.state.turn.number, source=ctx.get("source_object"),
+        until=e["until"], until_player=e.get("until_player69"), turn=plan.state.turn.number, source=ctx.get("source_object"),
         from_zones=list(e.get("from_zones") or []), label=(ctx.get("name") or "An effect")[:120]))
     amount = f"{{{abs(delta)}}} {'less' if delta < 0 else 'more'}"
-    plan.note(f"{plan.name(pid)}'s spells cost {amount} to cast "
-              + ("until their next turn" if e["until"] == "next_turn" else "this turn") + f" ({ctx.get('name') or 'an effect'})")
+    duration_owner = e.get('until_player69') or pid
+    duration = (f"until {plan.name(duration_owner)}’s next turn" if duration_owner != pid else "until their next turn") if e["until"] == "next_turn" else "this turn"
+    plan.note(f"{plan.name(pid)}'s spells cost {amount} to cast {duration} ({ctx.get('name') or 'an effect'})")
     return True
 
 

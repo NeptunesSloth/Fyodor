@@ -1939,7 +1939,7 @@ def record_payment(plan: Plan, card_id: str, record: PaymentRecord) -> None:
     r.payments[plan.oid(card_id)] = record
 
 
-def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility | A.EndEffect, cost: M.ManaCost, what: str, *,  # (-- licids (wave 50A) -- EndEffect)
+def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility | A.EndEffect | A.PayDeferred, cost: M.ManaCost, what: str, *,  # (-- licids (wave 50A) -- EndEffect)
                  exclude: tuple[str, ...] = (), purpose: Purpose | None = None, then: dict[str, Any] | None = None,
                  cast_greatest_power: int | None = None, counter_cost_origins70: list[ObjectRef] | None = None) -> bool:
     """Before a spell or ability is put on the stack: does the player want to see or choose the
@@ -2692,7 +2692,8 @@ def from_command_zone(card: CardInstance, player: str) -> bool:
 
 
 def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None, *,
-               free: bool = False, slot: str | None = None, via: str | None = None) -> permissions.Grant | None:
+               free: bool = False, slot: str | None = None, via: str | None = None,
+               alternative_key: str | None = None) -> permissions.Grant | None:
     """How ``player`` may cast this card from where it is (601.3): from their hand, their commander
     from the command zone, flashback from their graveyard, or a permission (app/rules/permissions):
     a static ability on the table or one an effect granted. ``free``: they want to use a "without
@@ -2709,6 +2710,10 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
             and perm.controller == player:
         how = "prepared"  # -- prepared (wave 13C) -- 722.3c: its controller may cast the copy in exile
     found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
+    from app.rules import required_mutate75
+
+    if not free and via is None and slot is None and required_mutate75.selected(state, player, card, ch, info, alternative_key):
+        how = 'mutate'  # Required native alternative; unrelated permissions remain selectable independently.
     flash = any(g.flash and (free or not g.flash_requires_free) for g in found)
     if how is None and info is not None and card.zone == zone_key(player, "foretell") and not free and card.owner == player \
             and _foretell_offers(state, player, card, ch, info):
@@ -2771,7 +2776,7 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
         return "Fyodor doesn't know what that card is. Use the table tools."
     if ch.is_land:  # 305.9: a land card is played, never cast
         return f"{ch.name or 'That card'} is a land: play it instead"
-    grant = cast_grant(state, player, card, ch, info, free=free)
+    grant = cast_grant(state, player, card, ch, info, free=free, alternative_key=alternative_key)
     if grant is None:
         if free:
             return "Nothing lets you cast that without paying its mana cost now"
@@ -3169,8 +3174,11 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
     from app.rules import text_global_word71
 
     ch = text_global_word71.prospective(state, card, ch, info)
+    from app.rules import required_mutate75
+
+    required_mutate = required_mutate75.candidate(state, player, card, ch)
     blocked = cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is not None
-    if blocked and cast_problem(state, player, card, ch, check_priority=check_priority, info=info, sneak=True) is not None:
+    if blocked and not required_mutate and cast_problem(state, player, card, ch, check_priority=check_priority, info=info, sneak=True) is not None:
         return out
     grant = cast_grant(state, player, card, ch, info)
     in_graveyard = card.zone == zone_key(player, "graveyard")  # -- escape (wave 5I) -- from there: escape costs only
@@ -3178,6 +3186,11 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
         return out  # (flashback is an alternative cost already: 118.9a)
     view = permissions._view(state, player, info)
     for offer in alt_costs.offers(state, player, card, ch, info):
+        if required_mutate:
+            grant = cast_grant(state, player, card, ch, info, alternative_key=offer.key)
+            blocked = cast_problem(state, player, card, ch, check_priority=check_priority, info=info, alternative_key=offer.key) is not None
+            if grant is None:
+                continue
         if grant is not None and timing_problem(state, player, ch, grant) is not None and not offer.flash and offer.tag != "sneak":
             continue
         if blocked and offer.tag != "sneak":
@@ -3434,12 +3447,12 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free, sneak=sneaking or timing_locked, announced=True, alternative_key=a.alt_cost, optional_keys=tuple(a.optional_costs))
     if problem:
         raise ActionError(problem)
-    grant = cast_grant(plan.state, plan.actor, card, ch, plan.info, free=a.free, slot=a.slot, via=a.via)
+    grant = cast_grant(plan.state, plan.actor, card, ch, plan.info, free=a.free, slot=a.slot, via=a.via, alternative_key=a.alt_cost)
     sac_at_cleanup = not a.free and flash_sac(plan.state, plan.actor, card, ch, plan.info)  # (-- flash auras (wave 46B) -- judged before it is on the stack)
     if grant is not None and grant.how == "permission" and a.x_value and "{X}" in ch.mana_cost:
         # -- review 30c -- 202.3e, 601.2e: "with mana value 3 or less" reads the X announced (Lurrus ruling 2020-04-17: "{X}{W} … with X as 1 but not as 2")
         grant = cast_grant(plan.state, plan.actor, card, replace(ch, mana_value=ch.mana_value + a.x_value * ch.mana_cost.count("{X}")), plan.info,
-                           free=a.free, slot=a.slot, via=a.via)
+                           free=a.free, slot=a.slot, via=a.via, alternative_key=a.alt_cost)
         if grant is None:
             raise ActionError(f"{ch.name} can't be cast this way with X = {a.x_value}: its mana value would be too high")
     if a.slot is not None and grant is None:
@@ -3688,7 +3701,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if add_cost is not None:
         from app.rules import counter_cost_order70
 
-        counter_first70 = bool(grant is not None and grant.extra == counter_cost_order70.TEXT
+        counter_first70 = bool(grant is not None and counter_cost_order70.selected(grant.extra)
                                and counter_cost_order70.index(add_cost) is not None)
         problem_cost70 = counter_cost_order70.preflight(add_cost) if counter_first70 else add_cost
         problem = additional_problem(plan, problem_cost70, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
@@ -3780,7 +3793,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     from app.rules import as_cast_values42
 
     cast_greatest_power = as_cast_values42.capture(plan, definition)
-    origins70 = counter_cost_order70.capture(plan, add_cost, add_objects) if add_cost is not None and grant is not None and grant.extra == counter_cost_order70.TEXT else None
+    origins70 = counter_cost_order70.capture(plan, add_cost, add_objects) if add_cost is not None and grant is not None and counter_cost_order70.selected(grant.extra) else None
     if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=purpose,
                     cast_greatest_power=cast_greatest_power, counter_cost_origins70=origins70):
         return
@@ -3812,7 +3825,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if commander_cast and not plan.state.settings.auto_commander_tax and card.commander_key:
         plan.do({"type": "commander_tax", "commander": card.commander_key, "delta": 2})
     data = _PostCast(a, add_cost, add_objects, alt_offer, aura, bargained, bestowed_cast, card, card_was_in_hand, cast_zone, ch, chosen, commander_cast, definition, entwined, escaping, flashback, foretold, free, from_oid, from_where, gift_to, grant, harmonized, jumped, kicked, mutating_cast, optional, picked, picked_targets, sac_at_cleanup, slot_specs, slots)
-    if add_cost is not None and grant is not None and grant.extra == counter_cost_order70.TEXT:
+    if add_cost is not None and grant is not None and counter_cost_order70.selected(grant.extra):
         data.counter_cost_origins70 = origins70
     data.cast_greatest_power = cast_greatest_power
     from app.rules import card_names
@@ -3963,7 +3976,7 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
             record.life += a.x_value
         from app.rules import counter_cost_order70
 
-        if grant is not None and grant.extra == counter_cost_order70.TEXT:
+        if grant is not None and counter_cost_order70.selected(grant.extra):
             counter_cost_order70.guard(plan, add_cost, card, add_objects, data.counter_cost_origins70)
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile, return, tap …
         plan.reserved_life = 0  # (wave 29C: paid now; later payments of this intent are their own)
@@ -6644,6 +6657,7 @@ def resume_mana_ability(plan: Plan, d: Any, chosen: list[str]) -> None:
 # -- responding -------------------------------------------------------------------------
 def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
     """Could ``player`` do anything at instant speed right now? (For Arena-style auto-passing.)"""
+    from app.rules import required_mutate75
     from app.rules.pooled_casting_authorities71 import external_candidates
 
     candidates = [cid for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard"),
@@ -6653,9 +6667,16 @@ def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
     for cid in candidates:
         card = state.cards[cid]
         ch = chars.of(card, info)
+        if required_mutate75.candidate(state, player, card, ch):
+            for option in alt_castable(state, player, card, info, check_priority=False):
+                selected_grant = cast_grant(state, player, card, ch, info, alternative_key=option['id'])
+                if selected_grant is not None and selected_grant.flash:
+                    return True  # Timing-only grants must accompany this selected zone authority.
         if ("Instant" in ch.types or ch.has_flash or _flash_granted(state, player, card, ch, info) or flash_if(ch) is not None) \
                 and (castable(state, player, card, info, check_priority=False)
-                     or free_castable(state, player, card, info, check_priority=False)):
+                     or free_castable(state, player, card, info, check_priority=False)
+                     or (required_mutate75.candidate(state, player, card, ch)
+                         and alt_castable(state, player, card, info, check_priority=False))):
             return True
         if any(g.flash and g.flash_requires_free for g in permissions.grants(state, player, card, ch, info, verb="cast")) and free_castable(
                 state, player, card, info, check_priority=False):
@@ -6682,9 +6703,11 @@ def special_action(state: GameState, player: str, info: CardInfo, *, instant: bo
     (116.2m) or pay {3} for the companion (116.2g): those two in their main phase with the stack empty (``instant``: only the first two, a response).
     For the auto-pass (``can_act``, ``has_responses``): a player who can must not be passed over. A morph cost that isn't mana is counted without checking it can be paid (a stop too many,
     never one too few; ponytail: the hint of suspend, foretell and plot, 116.2f, h, k, isn't read)."""
-    from app.rules import licids
+    from app.rules import deferred_payment82, licids
     from app.rules.copying import room_printing
 
+    if any(can_pay(state, player, M.parse_cost(w.cost), info, purpose=Purpose()) for w in deferred_payment82.active(state, player)):
+        return True
     r = state.rules
     main = not instant and state.turn.active_player == player and state.turn.phase in MAIN_PHASES and not state.zones.get(STACK)
     ends = r is not None and any(x.end_cost for x in r.effects)

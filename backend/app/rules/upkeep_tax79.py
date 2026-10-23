@@ -19,6 +19,7 @@ AURAS = {
 HEX = 'At the beginning of your upkeep, for each player, ~ deals 1 damage to that player unless they pay {B} or {3}.'
 DRACO = 'At the beginning of your upkeep, sacrifice ~ unless you pay {10}. This cost is reduced by {2} for each basic land type among lands you control.'
 WIZARD = "{1}{B}: Counter target black spell unless that spell's controller pays {B} or {3}."
+CHAOS = 'Whenever a player casts an instant spell, counter it unless that player pays {X}, where X is its mana value.'
 BIND = 'tax79_paid'
 
 
@@ -38,6 +39,12 @@ def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | No
             pay.update(cost='{0}', per='{1}', n={'mana_value': 'event'})
         action = {'do': 'destroy', 'who': 'event'} if mode == 'erosion' else native['effects'][0]
         return {**native, 'effects': [{'do': 'tax_event_known79', 'mode': mode}, pay, unpaid, action]}
+    if text == CHAOS:
+        native = scripts.define(replace(ability, text=text.replace('{X}, where X is its mana value', '{3}')), ch)
+        assert native is not None
+        payment, *tail = native['effects']
+        return {**native, 'effects': [{'do': 'tax_event_known79', 'mode': 'chaos'},
+                                      {**payment, 'cost': '{0}', 'per': '{1}', 'n': {'mana_value': 'event'}}, *tail]}
     if text == DRACO:
         native = scripts.define(replace(ability, text='At the beginning of your upkeep, sacrifice ~ unless you pay {10}.'), ch)
         domain = values.parse_count('the number of basic land types among lands you control')
@@ -60,13 +67,16 @@ def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | No
 
 
 def require_event(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    from app.rules import context
+    from app.rules import context, effects
     from app.rules.plan import decide
 
     refs = context._object_refs(ctx, context.EVENT)
     players = (ctx.get('event') or {}).get('players') or []
     if len(refs) == 1 and len(players) == 1:
         if players[0] not in plan.live():
+            ctx['next'] = len(ctx['effects'])
+            return True
+        if e['mode'] == 'chaos' and not effects._stack_targets(plan, ctx, {'who': 'event_spell'}):
             ctx['next'] = len(ctx['effects'])
             return True
         if e['mode'] != 'tithe' or context.info(plan, ctx, context.EVENT) is not None:

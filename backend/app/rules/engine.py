@@ -50,6 +50,7 @@ from app.rules import (
     cost_payment,
     counter_destinations,
     coverage,
+    deferred_payment82,
     delayed,
     effects,
     enlist,  # -- casting extras (wave 18E) --
@@ -102,7 +103,7 @@ NOT_YET: dict[str, str] = {}
 RULES_ENGINE_VERSION = 2  # bump when the rules engine's behaviour changes (saved with scenarios/diagnostics)
 PREF_INTENTS = frozenset({"set_stops", "set_prefs", "set_card_automation"})  # allowed any time
 ACTION_INTENTS = frozenset({"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers",
-                            "repeat_sequence", "turn_face_up", "unlock_door", "end_effect"})
+                            "repeat_sequence", "turn_face_up", "unlock_door", "end_effect", "pay_deferred"})
 
 
 def automation_on(state: GameState) -> bool:
@@ -751,6 +752,8 @@ def on_step_start(plan: Plan) -> None:
     state = plan.state
     phase = state.turn.phase
     ap = plan.active
+    if phase == "draw":
+        delayed.at_step(plan, "draw")  # The early-payment deadline closes as the step begins, before any draw choice.
     if not plan.has_active_player() and phase in ("draw", "declare_attackers", "cleanup"):
         # 800.4j: the turn goes on without its active player — their turn-based actions (the draw,
         # 504.1; declaring attackers, 508.1; discarding to hand size, 514.1) don't happen; the
@@ -1660,6 +1663,7 @@ INTENTS: dict[str, Callable[[Plan, Any], None]] = {
     "cast_spell": casting.cast_spell,
     "turn_face_up": casting.turn_face_up,
     "unlock_door": rooms.unlock_action,
+    "pay_deferred": deferred_payment82.pay,
     "end_effect": licids.end_effect,  # -- licids (wave 50A) -- 116.2c
     "miracle_reveal": miracle.reveal,  # -- casting extras (wave 18E) --
     "activate_ability": casting.activate_ability,

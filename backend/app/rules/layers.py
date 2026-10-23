@@ -45,6 +45,7 @@ from app.game.state import CardInstance, GameState
 from app.rules import chosen as _chosen  # -- chosen filters (wave 53B) --
 from app.rules import read_pass
 from app.rules.characteristics import AbilityText, CardInfo, Characteristics
+from app.rules.world_durations80 import native as world_native80
 
 if TYPE_CHECKING:
     from app.rules.plan import Plan
@@ -1571,6 +1572,7 @@ Layer = Literal["1", "2", "3", "4", "5", "6", "7a", "7b", "7c", "7d"]
 Duration = Literal["end_of_turn", "permanent", "end_of_combat", "next_turn", "end_of_next_turn"]  # (wave 31C: "next_turn" — a copy effect "until your next turn", copying.add_copy_effect)
 
 
+@world_native80
 def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | None, controller: str,
                power: int | None = None, toughness: int | None = None, add_keywords: tuple[str, ...] = (),
                remove_keywords: tuple[str, ...] = (), add_types: tuple[str, ...] = (), duration: Duration = "end_of_turn",
@@ -1596,6 +1598,7 @@ def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | N
     return effect
 
 
+@world_native80
 def end_of_turn(plan: Plan) -> None:
     """514.2: "until end of turn" effects end in the cleanup step."""
     r = plan.rules

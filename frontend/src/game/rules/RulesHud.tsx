@@ -45,6 +45,13 @@ export function AutomationHud() {
           </button>
         </>
       )}
+      {seated && rules?.hints.deferred_payments?.map((window) => (
+        <button key={window.id} className="auto-pill" data-testid="pay-deferred"
+          disabled={!rules.hints.has_priority || !!rules.decision || rules.paused}
+          onClick={() => void send({ type: "pay_deferred", window_id: window.id })}>
+          Pay <ManaText text={window.cost} /> to prevent {window.name}
+        </button>
+      ))}
       {canConcede(view, me) && (conceding ? (
         <span className="auto-pill" data-testid="concede-confirm">
           Concede the game?{" "}

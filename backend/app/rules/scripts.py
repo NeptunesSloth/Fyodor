@@ -5761,6 +5761,41 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import required_mutate75
+
+    if (mutate75 := required_mutate75.definition(ability, ch)) is not None:
+        return mutate75
+    from app.rules import conditional_attacks85
+
+    if (attacks85 := conditional_attacks85.definition(ability, ch)) is not None:
+        return attacks85
+    from app.rules import target_duration_costs69
+    if (duration69 := target_duration_costs69.definition(ability, ch)) is not None:
+        return duration69
+    from app.rules import equipment_notebook_costs67
+
+    if (admitted := equipment_notebook_costs67.definition(ability, ch)) is not None:
+        return admitted
+    from app.rules import conditional_class_costs68
+
+    if (admitted := conditional_class_costs68.definition(ability, ch)) is not None:
+        return admitted
+    from app.rules import fortune83
+
+    if (admitted := fortune83.definition(ability, ch)) is not None:
+        return admitted
+    from app.rules import crewed_attacks84
+
+    if (admitted := crewed_attacks84.definition(ability, ch)) is not None:
+        return admitted
+    from app.rules import grave_adventure74
+
+    if (admitted := grave_adventure74.definition(ability, ch)) is not None:
+        return admitted
+    from app.rules import deferred_payment82
+
+    if (window82 := deferred_payment82.definition(ability, ch)) is not None:
+        return window82
     from app.rules import upkeep_consequences81
 
     if (admitted := upkeep_consequences81.definition(ability, ch)) is not None:
@@ -6098,6 +6133,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (counter_comparison := counter_event_comparisons50.definition(ability, ch)) is not None:
         return counter_comparison
+    from app.rules import world_upkeep83
+
+    if (world_upkeep := world_upkeep83.definition(ability, ch)) is not None:
+        return world_upkeep
     from app.rules import upkeep_target_choice65
 
     if (upkeep_choice65 := upkeep_target_choice65.definition(ability, ch)) is not None:

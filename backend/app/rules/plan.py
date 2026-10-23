@@ -67,6 +67,9 @@ class Plan:
         self.put_via: str | None = None  # -- trigger other (wave 51E) -- the object whose effect is putting cards onto the battlefield now (Entry.via)
         self.moved: dict[str, bool] = {}  # card -> did one of its moves this intent make it a card others have seen (ops.seen_move)
 
+    world_depth80: int = 0
+    world_candidates80: tuple[tuple, tuple[str, ...]] | None = None
+
     shuffle_after: list[str] | None = None  # An instruction completes all selected moves before shuffling.
     shuffle_retained: tuple[ObjectRef, ...] = ()  # Same look instruction only; never a general shuffle immunity.
 
@@ -134,6 +137,9 @@ class Plan:
             graveyard_return57.freeze_attachments(self, before)
         entered_before = (self.state.turn.number, len(self.rules.turn_log.entered)) if self.state.rules else None
         gy_seen = graveyard_order.before(self, payload)
+        from app.rules import world_durations80
+
+        world_before80 = world_durations80.before(self) if resolved.type != 'rules_sync' else None
         HANDLERS[resolved.type](self.state, resolved)
         if before is not None and self.began is not None:
             for cid, zone in before.zones.items():
@@ -142,6 +148,8 @@ class Plan:
                     self.moved[cid] = self.moved.get(cid, False) or seen_move(zone, c.zone, was)
         track(self.state, before, actor=resolved.actor or None, group=getattr(resolved, "group", 0),
               put_by=wither_put_by(resolved), declared=getattr(resolved, "declared", False))  # (5H, 7C, 17D; 45C: the attack declaration's tap)
+        if world_before80 is not None:
+            world_durations80.after(self, world_before80)
         if self.rules.madness_declined:
             from app.rules import discarded_references
 

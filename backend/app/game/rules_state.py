@@ -908,6 +908,17 @@ class PendingTrigger(BaseModel):
     event: TriggerEvent | None = None  # what it triggered on
 
 
+class DeferredPaymentWindow(BaseModel):
+    """116.2c: one early-payment special action suppresses its exact delayed trigger."""
+
+    id: str
+    payer: str
+    cost: str
+    delayed: str
+    name: str
+    source_card: str | None = None
+
+
 class DelayedTrigger(BaseModel):
     """A delayed triggered ability (CR 603.7), created as a spell or ability resolved (603.7a) and
     waiting for its trigger event. Everything it will need is captured now: the objects it refers
@@ -1229,6 +1240,7 @@ class CostModifier(BaseModel):
     # "permanent" (a static, read from the table), "end_of_turn" ("… you cast this turn cost …": ends in
     # cleanup, 514.2) or "next_turn" ("Until your next turn, …": ends as its controller's next turn begins)
     until: Literal["end_of_turn", "permanent", "next_turn"] = "end_of_turn"
+    until_player: str | None = None  # Captured duration owner when different from the beneficiary.
     turn: int = 0  # the turn it was created
     source: str | None = None
     label: str = Field(default="", max_length=120)
@@ -1361,7 +1373,18 @@ class ChosenColorPairReceipt(BaseModel):
         return self
 
 
+class WorldInterval80(BaseModel):
+    """An uninterrupted native World interval, or explicitly unknown legacy history."""
+
+    card: str
+    since: int | None = None
+    observed_before: int
+    event_batch: int | None = None
+
+
 class RulesState(BaseModel):
+    world_epoch80: int = 0
+    world_intervals80: dict[str, WorldInterval80] = Field(default_factory=dict)
     combat_memory: CombatMemory | None = None  # None: unknown legacy previous combat.
     untap_operations: list[UntapOperation] = Field(default_factory=list)
     paused: bool = False  # the host paused automation: intents are refused, the sandbox works
@@ -1474,6 +1497,7 @@ class RulesState(BaseModel):
     # the turn binds (ruling 2008-08-01: with two, a creature must be in both chosen piles), and a creature that entered later is no object in any pile
     attack_piles: list[list[Any]] = Field(default_factory=list)
     opening_revealed: list[str] = Field(default_factory=list)  # -- opening hand (wave 18C) -- cards revealed until the first turn (103.6b)
+    deferred_payments: list[DeferredPaymentWindow] = Field(default_factory=list)
     delayed: list[DelayedTrigger] = Field(default_factory=list)  # delayed triggered abilities (603.7; app/rules/delayed.py)
     exile_if_leaves: list[str] = Field(default_factory=list)  # objects exiled instead of leaving (unearth)
     # Replacement / prevention records with a duration (app/rules/replacements.py): "Prevent all

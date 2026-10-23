@@ -47,6 +47,8 @@ _REST = re.compile(r"^(?:(?P<each> for each (?P<what>.+))|(?P<if> if (?P<cond>.+
 
 def _value(phrase: str) -> values.Value | None:
     """A quantity a cost change reads: "the total power of creatures you control", "~'s power"."""
+    if phrase.strip() == "equipped creature's power":
+        return {"power": "host"}
     m = _SELF_STAT.fullmatch(phrase.strip())
     if m:
         return {m["stat"]: "self"}

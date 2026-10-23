@@ -1524,6 +1524,10 @@ def bind_objects(cond: Condition, who: str) -> Condition:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if cond.get('crewed_by_source84'):
+        from app.rules import crewed_attacks84
+
+        return crewed_attacks84.holds(plan, ctx)
     if 'chosen_color_pair_overlap' in cond:
         from app.rules import chosen_color_pairs45
 

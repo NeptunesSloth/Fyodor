@@ -112,6 +112,25 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             if native
             else None
         )
+    if (
+        text
+        == "During your turn, you may cast creature spells from among cards you own exiled with ~ by removing three counters from among creatures you control in addition to paying their other costs."
+    ):
+        native = permissions.define_static(
+            "You may cast spells from among cards exiled with ~.", "static", lines
+        )
+        creatures = selectors.Selector(zones=("stack",), types=("Creature",)).key()
+        return (
+            {
+                **native,
+                "during": "your_turn",
+                "own": True,
+                "filter": creatures,
+                "extra": "Remove three counters from among creatures you control",
+            }
+            if native
+            else None
+        )
     return None
 
 

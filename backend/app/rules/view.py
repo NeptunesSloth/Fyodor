@@ -222,6 +222,11 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
         mine = [c for c in state.rules.miracle if c in state.cards and state.cards[c].owner == viewer]
         if mine:
             out["miracle"] = mine
+    from app.rules import deferred_payment82
+
+    windows = deferred_payment82.active(state, viewer)
+    if windows:
+        out["deferred_payments"] = [{"id": w.id, "cost": w.cost, "name": w.name} for w in windows]
     if not out["has_priority"]:
         return out
     # Your hand, your commander, your graveyard and exile (flashback, "you may play that card this

@@ -54,6 +54,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DelayedTrigger, ObjectRef, TriggerEvent
 from app.game.state import PHASES
+from app.rules.world_durations80 import native as world_native80
 
 if TYPE_CHECKING:
     from app.game.rules_state import ContinuousEffect, Event, PendingTrigger
@@ -305,8 +306,8 @@ def describe_when(when: dict[str, Any]) -> str:
         return "at the beginning of that combat"
     if when.get("whose") == "this_turn" and when.get("step") == "begin_combat":
         return "at the beginning of each combat this turn"
-    whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's", "owner": "its owner's next"}[when["whose"]]
-    step = {"end": "end step", "main": "main phase", "cleanup": "cleanup step"}.get(when["step"], "upkeep")  # (main: wave 5B)
+    whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's", "owner": "its owner's next", "payer": "the affected player's next"}[when["whose"]]
+    step = {"end": "end step", "main": "main phase", "cleanup": "cleanup step", "draw": "draw step"}.get(when["step"], "upkeep")  # (main: wave 5B)
     return f"at the beginning of {whose} {step}"
 
 
@@ -376,7 +377,7 @@ def _step_due(plan: Plan, t: DelayedTrigger, phase: str) -> bool:
         return later_turn or same_turn_before
     if whose == "you":
         return plan.active == t.controller and (later_turn or same_turn_before)
-    if whose == "owner":
+    if whose in ("owner", "payer"):
         return plan.active == w.get("player") and (later_turn or same_turn_before)
     return later_turn  # "the next turn's upkeep"
 
@@ -389,6 +390,9 @@ def at_step(plan: Plan, phase: str) -> None:
         r.permissions = [p for p in r.permissions if not (p.until == "next_upkeep" and (p.until_player or p.player) == plan.active
                           and (p.granted_step is None or r.step_serial > p.granted_step))]
     due = [t for t in r.delayed if _step_due(plan, t, phase)]
+    due_ids = {t.id for t in due}
+    live_ids = {t.id for t in r.delayed}
+    r.deferred_payments = [w for w in r.deferred_payments if w.delayed in live_ids and w.delayed not in due_ids]
     if not due:
         return
     r.delayed = [t for t in r.delayed if t not in due or not t.once]
@@ -548,6 +552,7 @@ def marker_ids(action: Any) -> list[str]:
     return list(getattr(getattr(action, "r", None), "ids", None) or [])
 
 
+@world_native80
 def _end(plan: Plan, ended: list[ContinuousEffect]) -> None:
     """The effects end, and with them the table markers they wrote (keyed by the effect: another
     effect's marker with the same wording on the same creature stays)."""
@@ -583,8 +588,8 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     # CR 800.4m: an "until your next turn" cost effect also ends when a
     # departed player's next turn would have begun.
     r.cost_modifiers = [m for m in r.cost_modifiers if not (m.until == "next_turn" and (
-        (m.controller == active and turn > m.turn)
-        or any(m.controller == p and n > m.turn for p, n in skipped or ())))]
+        ((m.until_player or m.controller) == active and turn > m.turn)
+        or any((m.until_player or m.controller) == p and n > m.turn for p, n in skipped or ())))]
     from app.rules import timed_damage_replacements
 
     timed_damage_replacements.turn_began(plan, skipped)
@@ -611,6 +616,7 @@ def end_of_next_turn(plan: Plan) -> None:
         _end(plan, due)
 
 
+@world_native80
 def expire(plan: Plan) -> None:
     """611.2b: "for as long as …" effects end as soon as it stops being true (checked after every
     table change: the source left, changed controller or untapped)."""
@@ -644,6 +650,7 @@ def _has_counter(plan: Plan, oid: str, kind: str) -> bool:
     return card is not None and card.counters.get(kind, 0) > 0
 
 
+@world_native80
 def _drop(plan: Plan, effect: ContinuousEffect, kept: list[str]) -> None:
     """Objects that no longer have the counter leave the effect (and its table markers)."""
     gone = set(effect.affected) - set(kept)

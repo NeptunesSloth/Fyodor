@@ -6729,3 +6729,21 @@ PRIMITIVES.update(_pooled_casting_authorities71.PRIMITIVES)
 from app.rules import demonic_covenant62 as _demonic_covenant62  # noqa: E402, I001
 
 PRIMITIVES.update(_demonic_covenant62.PRIMITIVES)
+
+from app.rules import deferred_payment82 as _deferred82  # noqa: E402
+
+PRIMITIVES.update(_deferred82.PRIMITIVES)
+RESUME.update(_deferred82.RESUME)
+
+from app.rules import fortune83 as _fortune83  # noqa: E402, I001
+
+PRIMITIVES.update(_fortune83.PRIMITIVES)
+
+from app.rules import grave_adventure74 as _grave_adventure74  # noqa: E402, I001
+
+PRIMITIVES.update(_grave_adventure74.PRIMITIVES)
+RESUME.update(_grave_adventure74.RESUME)
+
+from app.rules import target_duration_costs69 as _target_duration69  # noqa: E402
+
+PRIMITIVES.update(_target_duration69.PRIMITIVES)

@@ -11,6 +11,11 @@ from app.rules import costs as C
 from app.rules.plan import Plan
 
 TEXT = "Remove a counter from a creature you control"
+AMONG73 = "Remove three counters from among creatures you control"
+
+
+def selected(extra: str | None) -> bool:
+    return extra in (TEXT, AMONG73)
 
 
 def index(cost: C.AbilityCost) -> int | None:
@@ -19,7 +24,10 @@ def index(cost: C.AbilityCost) -> int | None:
         (i, part)
         for i, part in counters
         if (
-            (part.text == TEXT and part.amount == 1 and not part.among)
+            (
+                (part.text == TEXT and part.amount == 1 and not part.among)
+                or (part.text == AMONG73 and part.amount == 3 and part.among)
+            )
             and part.selector is not None
             and part.counter == C.ANY_COUNTER
             and not part.x

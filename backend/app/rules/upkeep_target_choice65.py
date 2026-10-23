@@ -12,7 +12,7 @@ TEXT = (
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
-    if "World" in ch.supertypes or ability.text != TEXT:
+    if ability.text != TEXT:
         return None
     from app.rules import scripts, selectors
 

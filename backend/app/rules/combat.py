@@ -24,6 +24,7 @@ from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.plan import Plan, decide, live_players
 from app.rules.sba import power, toughness
 from app.rules.statics import rule_arg, rule_selectors
+from app.rules.world_durations80 import native as world_native80
 
 Round = Literal["only", "first", "second"]
 
@@ -1372,6 +1373,7 @@ def after_damage(plan: Plan, dealt: list[tuple[str, str, int]]) -> None:
     triggers.collect(plan)
 
 
+@world_native80
 def end_combat(plan: Plan) -> None:
     from app.rules import permissions
 
