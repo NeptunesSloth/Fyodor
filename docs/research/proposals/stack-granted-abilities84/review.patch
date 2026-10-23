@@ -1,0 +1,173 @@
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -912,10 +912,12 @@
+
+     abilities = source_quality_grants.abilities(plan, ctx, player_protection_grants.abilities(plan, ctx, list(e.get("abilities") or [])))
+     if abilities:
+-        permanents = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]
+-        if len(permanents) < len(cards):
+-            plan.note(f"{ctx.get('name') or 'The effect'}: only a permanent on the battlefield gains an ability", actor=ctx["controller"])
+-        cards = permanents
++        receivers = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield") or (
++            plan.state.cards[c].zone == "stack" and plan.state.cards[c].ability is None
++            and ((entry := plan.rules.stack.get(c)) is None or entry.kind == "spell"))]
++        if len(receivers) < len(cards):
++            plan.note(f"{ctx.get('name') or 'The effect'}: only a permanent or a spell gains an ability", actor=ctx["controller"])
++        cards = receivers
+     if cards and (keywords or removed or abilities):
+         words = [*keywords, *(f"loses {k}" for k in removed), *(f'"{a}"' for a in abilities)]
+         duration = e.get("duration", "end_of_turn")
+--- a/backend/app/rules/layers.py
++++ b/backend/app/rules/layers.py
+@@ -1689,4 +1689,7 @@
+     if r is None or not r.effects:
+         return
+     live = {r.object_id(cid) for cid, c in state.cards.items() if c.zone.endswith(":battlefield")}
+-    r.effects = [e for e in r.effects if e.who is not None or set(e.affected) & live]
++    stack6 = {r.object_id(cid) for cid, card in state.cards.items() if card.zone == "stack" and card.ability is None
++              and ((entry := r.stack.get(cid)) is None or entry.kind == "spell")}
++    r.effects = [e for e in r.effects if e.who is not None or set(e.affected) & live
++                 or (e.layer == "6" and bool(set(e.affected) & stack6))]
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5725,6 +5725,10 @@
+             return ab
+         if ab.keywords == ('sunburst',) and ab.text.rstrip('.').lower() == 'sunburst':
+             return ab  # Native prospective entry counters use the spell's actual payment.
++        if ab.keywords == ('bloodthirst',):
++            from app.rules.coverage import _keyword_supported
++
++            return ab if _keyword_supported('bloodthirst', ab.text) else None
+         if ab.keywords == ('vanishing',) and ab.text.rstrip('.').lower() == 'vanishing':
+             return ab  # CR702.63b: bare vanishing is its two native triggered abilities, with no entry counter number.
+         # -- attached events (wave 4L) -- "Protection from red", "Ward {2}", "Toxic 1"
+@@ -5805,6 +5809,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import stack_granted_abilities84
++
++    if (grant84 := stack_granted_abilities84.definition(ability, ch)) is not None:
++        return grant84
+     from app.rules import exchange_choices92
+
+     if (exchange92 := exchange_choices92.definition(ability, ch)) is not None:
+--- a/backend/app/rules/permission_use_triggers43.py
++++ b/backend/app/rules/permission_use_triggers43.py
+@@ -1,6 +1,7 @@
+ """Triggers carried by the exact authority a player actually used."""
+ from __future__ import annotations
+
++import copy
+ from typing import TYPE_CHECKING, Any
+
+ from app.game.rules_state import ObjectRef, PermissionUseTrigger, TriggerEvent
+@@ -13,10 +14,16 @@
+ def static_receipt(state: GameState, source: CardInstance, index: int, kind: Any) -> PermissionUseTrigger | None:
+     if kind is None:
+         return None
+-    if kind not in ("replenish_top", "owner_loses_mv", "create_food69") or state.rules is None:
++    definition = None
++    if isinstance(kind, dict) and kind.get("kind") == "native":
++        definition = kind.get("definition")
++        if not isinstance(definition, dict) or not isinstance(definition.get("effects"), list):
++            raise ValueError("A native permission trigger requires an effect definition")
++        kind = "native"
++    if kind not in ("replenish_top", "owner_loses_mv", "create_food69", "native") or state.rules is None:
+         raise ValueError("Unknown permission-use trigger")
+     return PermissionUseTrigger(kind=kind, source=ObjectRef(card=source.id, object_id=state.rules.object_id(source.id), zone=source.zone),
+-                                controller=source.controller, name=source.name, index=index)
++                                controller=source.controller, name=source.name, index=index, definition=definition)
+
+
+ def stored_receipt(plan: Plan, ctx: dict[str, Any], descriptor: Any) -> PermissionUseTrigger | None:
+@@ -24,7 +31,7 @@
+         return None
+     return PermissionUseTrigger(kind=descriptor['kind'],
+         source=ObjectRef(card=ctx['source_card'], object_id=ctx['source_object']),
+-        controller=ctx['controller'], name=ctx['name'], index=descriptor['index'])
++        controller=ctx['controller'], name=ctx['name'], index=descriptor['index'], definition=descriptor.get('definition'))
+
+
+ def committed(plan: Plan, receipt: PermissionUseTrigger, card_id: str, verb: str) -> None:
+@@ -33,7 +40,17 @@
+     if receipt.controller not in plan.live() or (receipt.kind == 'owner_loses_mv' and verb != 'cast'):
+         return
+     card=plan.state.cards[card_id]
+-    if receipt.kind == 'create_food69':
++    native_definition = None
++    if receipt.kind == 'native':
++        from app.rules import selectors
++
++        native_definition = copy.deepcopy(receipt.definition or {})
++        only = native_definition.pop('object_filter', None)
++        if only is not None and not selectors.matches(plan, selectors.from_key(only), card, plan.ch(card), receipt.controller, receipt.source.card):
++            return
++        player, amount = plan.actor, 0
++        effects = native_definition.get('effects') or []
++    elif receipt.kind == 'create_food69':
+         from app.rules import scripts
+
+         player, amount = receipt.controller, 0
+@@ -52,6 +69,6 @@
+         effects=[{'do':'lose_life','who':'player:'+player,'n':amount}]
+     triggers._add(plan,controller=receipt.controller,source_card=receipt.source.card,
+         source_object=receipt.source.object_id,name=receipt.name,index=receipt.index,
+-        definition={'kind':'triggered','trigger':'reflexive','effects':effects},
++        definition={**(native_definition or {}),'kind':'triggered','trigger':'reflexive','effects':effects},
+         event=TriggerEvent(kind='reflexive',players=[player],actor=plan.actor,amount=amount,
+                            objects=[ObjectRef(card=card.id,object_id=plan.oid(card),zone=card.zone)]))
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -1159,7 +1159,8 @@
+ class PermissionUseTrigger(BaseModel):
+     """Original source of a trigger attached to one selected casting/play authority."""
+
+-    kind: Literal["replenish_top", "owner_loses_mv", "create_food69"]
++    kind: Literal["replenish_top", "owner_loses_mv", "create_food69", "native"]
++    definition: dict[str, Any] | None = None
+     source: ObjectRef
+     controller: str
+     name: str
+--- /dev/null
++++ b/backend/app/rules/stack_granted_abilities84.py
+@@ -0,0 +1,39 @@
++"""Actual stack spells gain native abilities with ordinary object and duration lifetimes."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import TYPE_CHECKING, Any
++
++if TYPE_CHECKING:
++    from app.rules.characteristics import AbilityText, Characteristics
++
++GALEA_QUOTE = 'When this Equipment enters, attach it to target creature you control.'
++GALEA = ('You may cast Aura and Equipment spells from the top of your library. '
++         'When you cast an Equipment spell this way, it gains "' + GALEA_QUOTE.replace('this Equipment', '~') + '"')
++ELF = 'Whenever you cast an Elf spell, it gains haste until end of turn and you draw two cards.'
++
++
++def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | None:
++    from app.rules import permissions, scripts, selectors
++
++    text = scripts.self_text(ability.text, ch.name)
++    choices = {
++        'Whenever you cast an artifact creature spell, it gains sunburst.': ('Whenever you cast an artifact creature spell, you gain 1 life.', 'Sunburst'),
++        'Whenever you cast a Vampire creature spell, it gains bloodthirst 3.': ('Whenever you cast a Vampire creature spell, you gain 1 life.', 'Bloodthirst 3'),
++        ELF: ('Whenever you cast an Elf spell, you gain 1 life.', 'haste'),
++    }
++    if text in choices:
++        proxy, keyword = choices[text]
++        native = scripts.define(replace(ability, text=proxy), ch)
++        if native is None:
++            return None
++        grant: dict[str, Any] = {'do': 'grant', 'who': 'event_spell', 'duration': 'end_of_turn' if keyword == 'haste' else 'permanent'}
++        grant['keywords' if keyword == 'haste' else 'abilities'] = [keyword]
++        return {**native, 'effects': [grant, *([{'do': 'draw', 'who': 'you', 'n': 2}] if keyword == 'haste' else [])]}
++    if text == GALEA:
++        native = permissions.define_static('You may cast Aura and Equipment spells from the top of your library.', 'static',
++                                           tuple(a.text for a in ch.abilities))
++        trigger = {'kind': 'native', 'definition': {'object_filter': selectors.Selector(zones=('stack',), subtypes=('Equipment',)).key(),
++                                                   'effects': [{'do': 'grant', 'who': 'event_spell', 'abilities': [GALEA_QUOTE], 'duration': 'permanent'}]}}
++        return {**native, 'use_trigger': trigger} if native is not None else None
++    return None

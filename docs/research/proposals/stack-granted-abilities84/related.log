@@ -1,0 +1,23 @@
+........................................................................ [ 56%]
+..F.....................................................                 [100%]
+=================================== FAILURES ===================================
+______ test_unlicensed_hearse_is_as_big_as_the_number_of_cards_it_exiled _______
+
+cards = <app.cards.repository.CardRepository object at 0x7fe890843140>
+
+    def test_unlicensed_hearse_is_as_big_as_the_number_of_cards_it_exiled(cards):
+        from tests.wave9c_kit import pt
+
+        s = build(cards, p1=("Unlicensed Hearse",), p2=("Probe Rock", "Ambush Viper"))
+        hearse = put(s, "Unlicensed Hearse", "battlefield")
+        rock, viper = put(s, "Probe Rock", "graveyard", pid="p2"), put(s, "Ambush Viper", "graveyard", pid="p2")
+>       assert pt(s, "Unlicensed Hearse") == (0, 0)  # nothing exiled with it yet
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert (None, None) == (0, 0)
+E
+E         At index 0 diff: None != 0
+E         Use -v to get more diff
+
+../../Fyodor/backend/tests/test_rules_wave22d_linked_permissions.py:74: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_wave22d_linked_permissions.py::test_unlicensed_hearse_is_as_big_as_the_number_of_cards_it_exiled

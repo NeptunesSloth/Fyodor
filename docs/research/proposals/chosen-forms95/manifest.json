@@ -1,0 +1,43 @@
+{
+  "candidate_names": [
+    "Corrupted Shapeshifter",
+    "Primal Clay",
+    "Primal Plasma",
+    "Aquamorph Entity",
+    "Shapeshifter"
+  ],
+  "expected_promotions": 5,
+  "source_files": [
+    "backend/app/rules/chosen_forms95.py",
+    "backend/app/rules/scripts.py",
+    "backend/app/rules/replacements.py",
+    "backend/app/rules/characteristics.py",
+    "backend/app/rules/values.py",
+    "backend/app/rules/casting.py",
+    "backend/app/rules/morph_costs78.py",
+    "backend/app/rules/special_payment_tails.py",
+    "backend/app/rules/facedown.py",
+    "backend/app/rules/engine.py"
+  ],
+  "patch": "UNINSTALLED.patch",
+  "test_destination": "backend/tests/test_rules_chosen_forms95.py",
+  "fixture_destination": "backend/tests/fixtures/chosen_forms95_cards.json",
+  "native_pass": 34,
+  "native_gates": {
+    "chosen-forms95-final34.log": 34
+  },
+  "cold_roundtrips": 5,
+  "related_native_pass": 16,
+  "related_gate": "related16-final.log",
+  "historical_related_native_pass": 55,
+  "historical_related_note": "chosen-forms95-related.log passed coin/entry-characteristics/morph before prospective-face fixes; final affected morph16 rerun on frozen final source",
+  "mypy_files": 10,
+  "mypy_cache": "/workspace/scratch/world81/chosen-forms95/mypy-cache",
+  "ruff_files": 10,
+  "authority_rulings": {
+    "reserved_five": 19,
+    "support_Molten_Sentry": 2
+  },
+  "persistent_stage": "/workspace/scratch/world81/chosen-forms95/final-stage/backend",
+  "admission": "root audit required; no live source edits"
+}

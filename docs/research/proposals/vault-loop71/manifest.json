@@ -1,0 +1,27 @@
+{
+  "candidates": [
+    "Lim-D\u00fbl's Vault"
+  ],
+  "promotion_count": 1,
+  "owned_sources": [
+    "vault_loop71.py",
+    "scripts.py",
+    "effects.py"
+  ],
+  "native_result": "3+3+4+1 =11 unique PASS; three genuine cold subprocesses",
+  "native_file": "tests/test_rules_vault_loop71.py",
+  "native_proof_matrix": {
+    "native-initial3.log": "whole, decline-first exact retained5+all other hidden IDs retired, paid round and native private bottom/newlook PASS3",
+    "cold3.log": "actual cold payment/bottomorder/finalorder PASS3",
+    "native-boundaries5.log": "empty/2card/5card double-repeat and Emperion resolution life prohibition PASS4; Angel test assumption wrong, corrected nextshard",
+    "native-resolution-life1.log": "Angel of Jubilation permits life paid duringresolution PASS1 (118.12)"
+  },
+  "mypy_result": "3 source files PASS",
+  "ruff_result": "3 sources + test PASS",
+  "related_result": "41 PASS",
+  "related_command": "PYTHONPATH=. .venv/bin/python -m pytest -q tests/test_rules_library_look.py tests/test_rules_library_placements.py -k 'not coverage_full and not every_card'",
+  "mypy_command": "PYTHONPATH=. .venv/bin/python -m mypy --cache-dir /workspace/scratch/vault71/mypy-cache app/rules/vault_loop71.py app/rules/scripts.py app/rules/effects.py",
+  "patch_lines": 65,
+  "patch_sha256": "8442c747476538c17528a5b71f38b1b34970dadfb629e0ef102574ea3b3ea71b",
+  "no_live_source_edits": true
+}

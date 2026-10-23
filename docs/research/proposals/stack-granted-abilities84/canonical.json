@@ -1,0 +1,170 @@
+[
+  {
+    "id": "ca968493-8348-4b15-ab36-bcca9dbcc28a",
+    "oracle_id": "cbd76b22-d04e-48e7-bcab-c7f5466d67d8",
+    "name": "Lux Artillery",
+    "layout": "normal",
+    "set_code": "eoc",
+    "set_name": "Edge of Eternities Commander",
+    "collector_number": "140",
+    "rarity": "rare",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact",
+    "oracle_text": "Whenever you cast an artifact creature spell, it gains sunburst. (It enters with a +1/+1 counter on it for each color of mana spent to cast it.)\nAt the beginning of your end step, if there are thirty or more counters among artifacts and creatures you control, this artifact deals 10 damage to each opponent.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-08-01",
+    "artist": "Jason Kang",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "510c65ea-7c9f-461f-b038-ef119db1ca30",
+    "oracle_id": "d8560ee9-8cbb-440b-a132-e102a1eb3e89",
+    "name": "Bloodlord of Vaasgoth",
+    "layout": "normal",
+    "set_code": "voc",
+    "set_name": "Crimson Vow Commander",
+    "collector_number": "121",
+    "rarity": "mythic",
+    "mana_cost": "{3}{B}{B}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Vampire Warrior",
+    "oracle_text": "Bloodthirst 3 (If an opponent was dealt damage this turn, this creature enters with three +1/+1 counters on it.)\nFlying\nWhenever you cast a Vampire creature spell, it gains bloodthirst 3.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying",
+      "Bloodthirst"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-11-19",
+    "artist": "Greg Staples",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "3c772bcf-2468-42d0-a671-f57814ba8cbb",
+    "oracle_id": "14c8a590-88ec-4982-ad7b-36a219ff6de7",
+    "name": "Tyvar Kell",
+    "layout": "normal",
+    "set_code": "j25",
+    "set_name": "Foundations Jumpstart",
+    "collector_number": "734",
+    "rarity": "mythic",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "Legendary Planeswalker \u2014 Tyvar",
+    "oracle_text": "Elves you control have \"{T}: Add {B}.\"\n+1: Put a +1/+1 counter on up to one target Elf. Untap it. It gains deathtouch until end of turn.\n0: Create a 1/1 green Elf Warrior creature token.\n\u22126: You get an emblem with \"Whenever you cast an Elf spell, it gains haste until end of turn and you draw two cards.\"",
+    "power": null,
+    "toughness": null,
+    "loyalty": "3",
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "B",
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-11-15",
+    "artist": "Chris Rallis",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "315c45f4-7bc9-45d5-bbf5-2533cf80af60",
+        "name": "Elf Warrior",
+        "type_line": "Token Creature \u2014 Elf Warrior"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "d949e22a-4e03-4883-89ce-75e07c9da40c",
+        "name": "Harald, King of Skemfar",
+        "component": "combo_piece"
+      },
+      {
+        "id": "53162f62-5327-4f2d-8f34-e90de2a1c818",
+        "name": "Tyvar Kell Emblem",
+        "component": "combo_piece"
+      },
+      {
+        "id": "838f4cde-c428-44ed-b7e8-e330e228a304",
+        "name": "Harald Unites the Elves",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "1efbea01-c6a1-4380-a14f-6206c7895e48",
+    "oracle_id": "30c0df75-9822-4016-a52b-d2e69dd58124",
+    "name": "Galea, Kindler of Hope",
+    "layout": "normal",
+    "set_code": "afc",
+    "set_name": "Forgotten Realms Commander",
+    "collector_number": "1",
+    "rarity": "mythic",
+    "mana_cost": "{1}{G}{W}{U}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Elf Knight",
+    "oracle_text": "Vigilance\nYou may look at the top card of your library any time.\nYou may cast Aura and Equipment spells from the top of your library. When you cast an Equipment spell this way, it gains \"When this Equipment enters, attach it to target creature you control.\"",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Vigilance"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-07-23",
+    "artist": "Johannes Voss",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

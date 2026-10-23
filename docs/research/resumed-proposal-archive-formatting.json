@@ -753,5 +753,45 @@
     "original_sha256": "44769020701a761044492edbbdbb37947b10aa39f9f2cd2bddb1aac6f5c80a4b",
     "archived_sha256": "94a21f55cb3de50feb579c6c2c57fe55ad0e74924c659c3b9552466e402c828a",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/chosen-forms95/UNINSTALLED.patch": {
+    "original_sha256": "eaa4bcdded5241cb70276df6c1bf2dc1c0ff711780933f8bc1d08e25440f13bd",
+    "archived_sha256": "ee0bdc556c0e99d5cf27566e5d77b1a98cede852d8ae81bce3a556ea2b3e1c9f",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/chosen-forms95/chosen-forms95-native26.log": {
+    "original_sha256": "7b53ad5ed718f670bc43c80523fb7d6327092d98902273b7bba0b7c7f6d4d686",
+    "archived_sha256": "543c66381ecc5545d0ce27bb419b110e53cc3ce7ca0859ce9cde4b503e7364ce",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/chosen-forms95/historical-before-prospective.patch": {
+    "original_sha256": "9f60acaa995256008a823d6090e11676489240e980f92460624422a5259dbb29",
+    "archived_sha256": "f450caa6d1bb8c28362ded2fc483cb7e647d30e69e2356b8277126219f83d4ad",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/stack-granted-abilities84/pre84-hearse1.log": {
+    "original_sha256": "847ea1069773a75c3e4e758964b7f91e486e4a0cbf047b0cbda19241355f01b8",
+    "archived_sha256": "f61e334dd5cd0ea60a1dbdbe4f08270c6221f4daebeac8f2edf78d5099c15630",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/stack-granted-abilities84/related.log": {
+    "original_sha256": "eeb97c9b3ca1837a42f315a854e38c85b13c79055d4e8014fc875d7c41a67924",
+    "archived_sha256": "24bd43b261778e21ccd5d26e2a7abc55c9f1aa1589161b19be323fb788654cfa",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/stack-granted-abilities84/review.patch": {
+    "original_sha256": "e85c046b191f2c588c3d1ef990d202c0daffc1c9d963cee426f8507496ad70d9",
+    "archived_sha256": "bdbaafcd29bda6b880dfa37ad760d9c091ad75d84f6f3fc9061cd5f85c5ca468",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/vault-loop71/native-boundaries5.log": {
+    "original_sha256": "f3ab27e31f8c4c6d709d8f74868cc98e9bef482ae378c4a95e7e3feec98d313c",
+    "archived_sha256": "443706c78d5d2b7301ef4d13e3fbf706dbcfb10026e2868d4f5311472015bd7e",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/vault-loop71/review.patch": {
+    "original_sha256": "8442c747476538c17528a5b71f38b1b34970dadfb629e0ef102574ea3b3ea71b",
+    "archived_sha256": "c5c902d41966ac8483028654c4804956d3edc53578b3f2f45f91c5845d5fe4a2",
+    "numstat_preserved": true
   }
 }

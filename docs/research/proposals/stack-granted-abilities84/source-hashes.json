@@ -1,0 +1,8 @@
+{
+  "app/rules/effects.py": "669ffb6b05d1001cdfeeb2ff88a8f7e3e0bb3ba370ddd1e7edef1443f9cde8f0",
+  "app/rules/layers.py": "0c31b3bdc5b6b19895f0bf68ed1182f905e02be5b8d700080cb446fdaba1ccd8",
+  "app/rules/scripts.py": "8fda37ecfae0142f726f3e5cf53bd95e2e12fc24534c720070ffb6042f9e87ea",
+  "app/rules/permission_use_triggers43.py": "f4773c06ceb5685c4606fcc082ff60c864c05e5f06b3cf73144350901cf20746",
+  "app/game/rules_state.py": "9a158994d6801f8660582ccdacb60880b7c65e13bc3cfffa27e3de650b144d24",
+  "app/rules/stack_granted_abilities84.py": "66af9e660848385603c679c6a08f2b5498d436e2c40ac4cbef4472de0ff7f0d5"
+}
