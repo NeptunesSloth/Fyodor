@@ -1,0 +1,23 @@
+{
+  "candidate_names": [
+    "Teferi's Realm"
+  ],
+  "expected_promotions": 1,
+  "source_files": [
+    "backend/app/rules/teferi_realm84.py",
+    "backend/app/rules/scripts.py",
+    "backend/app/rules/effects.py"
+  ],
+  "patch": "review.patch",
+  "test_destination": "backend/tests/test_rules_teferi_realm84.py",
+  "fixture_destination": "backend/tests/fixtures/teferi_realm84_cards.json",
+  "native_pass": 10,
+  "cold_roundtrips": 2,
+  "related_pass": 18,
+  "mypy_files": 3,
+  "ruff_files": 4,
+  "dependencies": [
+    "World duration foundation80"
+  ],
+  "admission": "root audit required; no live source edits"
+}

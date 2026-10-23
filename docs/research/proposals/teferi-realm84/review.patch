@@ -1,0 +1,64 @@
+--- /dev/null
++++ b/backend/app/rules/teferi_realm84.py
+@@ -0,0 +1,37 @@
++"""Teferi's Realm chooses a public permanent category before native group phasing."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++TEXT = "At the beginning of each player's upkeep, that player chooses artifact, creature, land, or non-Aura enchantment. All nontoken permanents of that type phase out."
++WHAT = 'permanent type: artifact, creature, land, or non-Aura enchantment'
++BIND = 'realm84_type'
++CHOICES = {'Artifact': 'nontoken artifacts', 'Creature': 'nontoken creatures', 'Land': 'nontoken lands', 'Non-Aura enchantment': 'nontoken non-Aura enchantments'}
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts
++
++    if ability.kind != 'triggered' or ability.text != TEXT:
++        return None
++    native = scripts.define(replace(ability, text="At the beginning of each player's upkeep, that player draws a card."), ch)
++    return {**native, 'effects': [{'do': 'choose_value', 'who': 'event_player', 'what': WHAT, 'as': BIND},
++                                  {'do': 'realm_phase84'}]} if native is not None else None
++
++
++def phase(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.game.errors import ActionError
++    from app.rules import context, effects, phasing, selectors
++
++    chosen = context.refs(ctx).get(BIND, {}).get('value')
++    if chosen not in CHOICES:
++        if not effects._players(plan, ctx, 'event_player'):
++            return True
++        raise ActionError('The saved permanent category is missing; resolve this ability manually')
++    sel = selectors.parse(CHOICES[chosen])
++    assert sel is not None
++    return phasing.phase_out(plan, ctx, {'who': sel.key()})
++
++
++PRIMITIVES = {'realm_phase84': phase}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -6133,6 +6133,10 @@
+
+     if (counter_comparison := counter_event_comparisons50.definition(ability, ch)) is not None:
+         return counter_comparison
++    from app.rules import teferi_realm84
++
++    if (realm84 := teferi_realm84.definition(ability, ch)) is not None:
++        return realm84
+     from app.rules import world_upkeep83
+
+     if (world_upkeep := world_upkeep83.definition(ability, ch)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6747,3 +6747,8 @@
+ from app.rules import target_duration_costs69 as _target_duration69  # noqa: E402
+
+ PRIMITIVES.update(_target_duration69.PRIMITIVES)
++
++from app.rules import teferi_realm84 as _realm84  # noqa: E402, I001
++
++PRIMITIVES.update(_realm84.PRIMITIVES)
++CHOICE_OPTIONS[_realm84.WHAT] = list(_realm84.CHOICES)

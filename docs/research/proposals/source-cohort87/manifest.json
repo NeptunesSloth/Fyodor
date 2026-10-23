@@ -1,0 +1,33 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW_ONLY",
+  "cards": [
+    "Razorgrass Invoker",
+    "Alluring Suitor // Deadly Dancer"
+  ],
+  "native": {
+    "passed": 13,
+    "genuine_cold": 2,
+    "log": "native13.log"
+  },
+  "related": {
+    "passed": 49,
+    "files": [
+      "test_rules_multitarget.py",
+      "test_rules_wave11a_transform.py"
+    ],
+    "log": "related49.log"
+  },
+  "mypy": {
+    "files": 1,
+    "result": "PASS"
+  },
+  "ruff": {
+    "files": 2,
+    "result": "PASS"
+  },
+  "patch": "reviewed.patch",
+  "patch_sha256": "79bfd8e851bd284a222d8fbd7a31f0dd648a714231287ec146cd7578bc1d6261",
+  "stage": "/tmp/cohort87",
+  "shared_diff": "Owned insertions only against saved original stable857 sources; zero shared deletions. Root must preserve newer sibling hooks.",
+  "historical_failures": "Prototype mandatory single target used target:0; fixed to native target alias before final13 consolidated green."
+}

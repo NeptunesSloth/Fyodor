@@ -1,0 +1,180 @@
+{
+  "Canal Courier": {
+    "canonical": {
+      "id": "a3af3351-9457-443c-b31f-a57a2fc9be46",
+      "oracle_id": "efaa1262-b7ac-49ab-831a-d10b59680691",
+      "name": "Canal Courier",
+      "layout": "normal",
+      "set_code": "cn2",
+      "set_name": "Conspiracy: Take the Crown",
+      "collector_number": "28",
+      "rarity": "common",
+      "mana_cost": "{5}{U}",
+      "cmc": 6.0,
+      "type_line": "Creature \u2014 Human Rogue",
+      "oracle_text": "When this creature enters, you become the monarch.\nWhenever this creature and another creature attack different players, this creature can't be blocked this combat.",
+      "power": "3",
+      "toughness": "5",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2016-08-26",
+      "artist": "Raymond Swanland",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": [
+        {
+          "id": "40b79918-22a7-4fff-82a6-8ebfe6e87185",
+          "name": "The Monarch",
+          "component": "combo_piece"
+        }
+      ]
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "efaa1262-b7ac-49ab-831a-d10b59680691",
+          "source": "wotc",
+          "published_at": "2016-08-23",
+          "comment": "Attacking a planeswalker isn\u2019t the same thing as attacking a player. Both Canal Courier and the other creature must attack different players for the last ability to trigger."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "efaa1262-b7ac-49ab-831a-d10b59680691",
+          "source": "wotc",
+          "published_at": "2016-08-23",
+          "comment": "The game starts with no monarch. Once an effect makes one player the monarch, the game will have exactly one monarch from that point forward."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "efaa1262-b7ac-49ab-831a-d10b59680691",
+          "source": "wotc",
+          "published_at": "2016-08-23",
+          "comment": "Being the monarch carries two inherent triggered abilities. \u201cAt the beginning of the monarch\u2019s end step, that player draws a card\u201d and \u201cWhenever a creature deals combat damage to the monarch, its controller becomes the monarch.\u201d"
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "efaa1262-b7ac-49ab-831a-d10b59680691",
+          "source": "wotc",
+          "published_at": "2016-08-23",
+          "comment": "Abilities that trigger whenever you \u201cbecome the monarch\u201d trigger only if you aren\u2019t already the monarch. For example, if you are already the monarch as Custodi Lich enters the battlefield, its last ability won\u2019t trigger."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "efaa1262-b7ac-49ab-831a-d10b59680691",
+          "source": "wotc",
+          "published_at": "2016-08-23",
+          "comment": "If the triggered ability that causes the monarch to draw a card goes on the stack, and a different player becomes the monarch before that ability resolves, the first player will still draw the card."
+        }
+      ]
+    }
+  },
+  "Creepy Puppeteer": {
+    "canonical": {
+      "id": "0bd17b9f-fd93-47d4-9cc4-cd333d0004f5",
+      "oracle_id": "7bb3c3b8-25b7-4c48-aa41-dcdcebbc3d5e",
+      "name": "Creepy Puppeteer",
+      "layout": "normal",
+      "set_code": "vow",
+      "set_name": "Innistrad: Crimson Vow",
+      "collector_number": "151",
+      "rarity": "rare",
+      "mana_cost": "{3}{R}",
+      "cmc": 4.0,
+      "type_line": "Creature \u2014 Human Rogue",
+      "oracle_text": "Haste\nWhenever this creature attacks, if you attacked with exactly one other creature this combat, you may have that creature's base power and toughness become 4/3 until end of turn.",
+      "power": "4",
+      "toughness": "3",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "R"
+      ],
+      "color_identity": [
+        "R"
+      ],
+      "keywords": [
+        "Haste"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2021-11-19",
+      "artist": "Marie Magny",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  "Ballroom Brawlers": {
+    "canonical": {
+      "id": "bf5615a2-03a2-41f4-ab3b-de5e60d1504e",
+      "oracle_id": "c87dff29-fa4c-44f4-9de6-d85a347c1720",
+      "name": "Ballroom Brawlers",
+      "layout": "normal",
+      "set_code": "snc",
+      "set_name": "Streets of New Capenna",
+      "collector_number": "3",
+      "rarity": "uncommon",
+      "mana_cost": "{3}{W}{W}",
+      "cmc": 5.0,
+      "type_line": "Creature \u2014 Human Warrior",
+      "oracle_text": "Whenever this creature attacks, this creature and up to one other target creature you control both gain your choice of first strike or lifelink until end of turn.",
+      "power": "3",
+      "toughness": "5",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2022-04-29",
+      "artist": "John Stanko",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "c87dff29-fa4c-44f4-9de6-d85a347c1720",
+          "source": "wotc",
+          "published_at": "2022-04-29",
+          "comment": "You make the choice of first strike or lifelink only once, as Ballroom Brawlers's triggered ability resolves. Both creatures gain the chosen ability."
+        }
+      ]
+    }
+  }
+}

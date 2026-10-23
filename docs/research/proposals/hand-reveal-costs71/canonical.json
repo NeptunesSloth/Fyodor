@@ -1,0 +1,35 @@
+{
+  "id": "d6862005-32d1-473e-a28b-5dfc4b7782cd",
+  "oracle_id": "e36f4649-934d-4e8a-bd5f-39f164ea6937",
+  "name": "Land Grant",
+  "layout": "normal",
+  "set_code": "mmq",
+  "set_name": "Mercadian Masques",
+  "collector_number": "255",
+  "rarity": "common",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "If you have no land cards in hand, you may reveal your hand rather than pay this spell's mana cost.\nSearch your library for a Forest card, reveal that card, put it into your hand, then shuffle.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "defense": null,
+  "colors": [
+    "G"
+  ],
+  "color_identity": [
+    "G"
+  ],
+  "keywords": [],
+  "is_token": false,
+  "faces": [],
+  "double_faced": false,
+  "image_faces": 1,
+  "has_image": false,
+  "released_at": "1999-10-04",
+  "artist": "D. Alexander Gregory",
+  "commander_legal": "legal",
+  "related_tokens": [],
+  "related_cards": []
+}

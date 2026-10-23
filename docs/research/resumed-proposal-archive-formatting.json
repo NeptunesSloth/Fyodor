@@ -288,5 +288,45 @@
     "original_sha256": "a453b6baa5170acc9061c1a0069fd11b0aab9f0b73454e93725b85d56b293810",
     "archived_sha256": "d2131f0e916959eeee03fb9a90ef34d8f5d47700309265b6f4d10438533506be",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/all-player-gain-costs70/production-candidate.patch": {
+    "original_sha256": "fb2c292b50dace18c18a89b79921099fd6ad04fcf75357a8cd587442f326081b",
+    "archived_sha256": "c4cbfd2ecb6ded7a9a784c4f5b97dca4af7eaca74396373cb04354d449b5041d",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/attack-subjects86/reviewed.patch": {
+    "original_sha256": "8889953ba415b56065d455d4cc39315331e46b394ab4479c5b4e18757b660f73",
+    "archived_sha256": "e146817ec4f943591ee824233b018b83bb124d76162e39a1321ca7b27b5f9a4f",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/teferi-realm84/review.patch": {
+    "original_sha256": "7e9ac2614ced592cba31bb7f48e51e397b9256f7548573eeebb198ab30fb88c8",
+    "archived_sha256": "7465b45afcc6c9f070a29afeac74b2b9f8b653f47fa862389f76dc715b721859",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/source-cohort87/reviewed.patch": {
+    "original_sha256": "79bfd8e851bd284a222d8fbd7a31f0dd648a714231287ec146cd7578bc1d6261",
+    "archived_sha256": "ab73dc37c0909230e83a5bd66d684e15c44b7ac372087811e6e1da92a682052b",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/prepared-face-down-entry64/review.patch": {
+    "original_sha256": "8b61933ef1e2bf9b91416a298f32dd829197cf7db34d7ba29313c9345f45906d",
+    "archived_sha256": "6c332894c1d53bed17c895c91af98fb52b57c368cdae5724db0eca1e6d370ecc",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/hand-reveal-costs71/production-candidate.patch": {
+    "original_sha256": "f5a783af899d9c322fef0e768d44ee0bf9d2d522c4cc70b4e57a912c0c8ba8c9",
+    "archived_sha256": "758b1f2f65d40c5ef33eb743241f7e1ecf7ccb058da0f9d76a64cb8f8a85f2de",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/permanent-life-payments83/UNINSTALLED.patch": {
+    "original_sha256": "bce0efa93b445e759fe64355c5981e5d2bd504af321a4f204a6b3269f97051ca",
+    "archived_sha256": "c4e37249bf7103abbabb30a1cd1b7e4f797a69dedc74e859cf01d797ce22f43c",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/permanent-life-payments83/native-departure-before.patch": {
+    "original_sha256": "c68e663f10015f10cd51bb2024446850bb22f1f618717c1f526695f35ef9c165",
+    "archived_sha256": "f24110ef68d231e439c26d50a92360fe950d1e0bd58da7c42e9a6e9a73b438f7",
+    "numstat_preserved": true
   }
 }

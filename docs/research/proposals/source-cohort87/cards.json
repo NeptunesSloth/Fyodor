@@ -1,0 +1,71 @@
+[
+  {
+    "name": "Razorgrass Invoker",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Elf Scout",
+    "oracle_text": "Vigilance (Attacking doesn't cause this creature to tap.)\n{8}: This creature and up to one other target creature each get +3/+3 until end of turn.",
+    "power": "4",
+    "toughness": "3",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Vigilance"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Alluring Suitor // Deadly Dancer",
+    "mana_cost": "{2}{R} // ",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Vampire // Creature \u2014 Vampire",
+    "oracle_text": "When you attack with exactly two creatures, transform this creature.\n//\nTrample\nWhen this creature transforms into Deadly Dancer, add {R}{R}. Until end of turn, you don't lose this mana as steps and phases end.\n{R}{R}: This creature and another target creature each get +1/+0 until end of turn.",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Transform",
+      "Trample"
+    ],
+    "layout": "transform",
+    "card_faces": [
+      {
+        "name": "Alluring Suitor",
+        "mana_cost": "{2}{R}",
+        "type_line": "Creature \u2014 Vampire",
+        "oracle_text": "When you attack with exactly two creatures, transform this creature.",
+        "power": "2",
+        "toughness": "3",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "R"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "Deadly Dancer",
+        "mana_cost": "",
+        "type_line": "Creature \u2014 Vampire",
+        "oracle_text": "Trample\nWhen this creature transforms into Deadly Dancer, add {R}{R}. Until end of turn, you don't lose this mana as steps and phases end.\n{R}{R}: This creature and another target creature each get +1/+0 until end of turn.",
+        "power": "3",
+        "toughness": "3",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "R"
+        ],
+        "image_face": 1
+      }
+    ]
+  }
+]

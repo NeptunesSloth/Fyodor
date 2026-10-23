@@ -1,0 +1,41 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____ test_native_owner_conceding_during_entry_choice_skips_only_their_card _____
+
+cards = <app.cards.repository.CardRepository object at 0x7f5092e76000>
+
+    def test_native_owner_conceding_during_entry_choice_skips_only_their_card(cards):
+        s=setup(cards)
+        put(s,'Grumgully, the Generous','battlefield')
+        put(s,'Hardened Scales','battlefield')
+        put(s,'Doubling Season','battlefield')
+        original=top_for(s,['Grizzly Bears'],'p2')[0]
+        top_for(s,['Hill Giant'],'p3')
+        source=put(s,'The Cyber-Controller','hand')
+        act(s,'p1',type='cast_spell',card_id=source.id,sources=[],x_value=1)
+        for _ in range(80):
+            d=s.state.rules.decision
+            if d is not None:
+                if source.zone=='p1:battlefield' and d.resume.get('step')=='enter_choice':
+                    break
+                act(s,d.player,type='choose',decision_id=d.id,option_ids=[next(o.id for o in d.options if 'Hardened Scales' in o.label)])
+            else:
+                act(s,s.state.rules.priority,type='pass_priority')
+        act(s,'p2',type='concede')
+        for _ in range(60):
+            d=s.state.rules.decision
+            if d is not None:
+                act(s,d.player,type='choose',decision_id=d.id,option_ids=[next(o.id for o in d.options if 'Hardened Scales' in o.label)])
+            elif s.state.zones.get('stack'):
+                act(s,s.state.rules.priority,type='pass_priority')
+            else:
+                break
+        bodies=[c for c in s.state.cards.values() if c.face_down and c.zone=='p1:battlefield']
+>       assert len(bodies)==1 and bodies[0].owner=='p3'
+E       AssertionError: assert (2 == 1)
+E        +  where 2 = len([CardInstance(borrow_identity='dd10bfd93a3e', id='5b47e52236c0', card_id='966917fc-bf95-5f32-9205-0a0b9515cdac', name=...s=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)])
+
+tests/test_rules_cyber_controller63.py:396: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_cyber_controller63.py::test_native_owner_conceding_during_entry_choice_skips_only_their_card
+1 failed, 22 deselected in 2.83s
