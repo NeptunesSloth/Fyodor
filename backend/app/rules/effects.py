@@ -935,7 +935,8 @@ def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 # (the table marker's value is at most 20 characters: app/game/actions.py AddEffect.value)
-RESTRICTION_LABELS = {"cant_block": "Can't block", "cant_attack": "Can't attack", "cant_attack_or_block": "Can't attack/block",
+RESTRICTION_LABELS = {"assign_toughness_if_tougher": "Assigns combat damage using toughness when toughness exceeds power",
+                      "cant_block": "Can't block", "cant_attack": "Can't attack", "cant_attack_or_block": "Can't attack/block",
                       "cant_be_blocked": "Can't be blocked", "must_attack": "Attacks if able",
                       "assign_none": "Assigns no combat damage"}
 
@@ -2876,14 +2877,13 @@ def _attached_entries(plan: Plan, ctx: Context, host_ref: str, entries: list[dic
 
 
 def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """"Sacrifice ~ unless you pay {cost}" (and echo, 702.30): its controller chooses; paying is
-    offered only when they can."""
+    """"Sacrifice ~ unless you pay {cost}" (and echo, 702.30): the original ability controller chooses."""
     from app.rules import mana  # casting imports this module
 
     pid = ctx["controller"]
-    src = [c for c in _cards(plan, ctx, "self") if plan.state.cards[c].controller == pid or e.get('echo_paid76')]
+    src = _cards(plan, ctx, "self")
     if not src and not e.get('echo_paid76'):
-        # Existing non-echo paths require a controlled source; echo's optional original payment is independent.
+        # Non-echo source-presence checks still apply; a control change does not change the original payer.
         return True
     if e["cost"] == "mana_cost":  # -- cost alt (wave 16F) -- "unless you pay its mana cost": what is printed on it (X is 0 off the stack,
         # 202.3e); an object with no mana cost has nothing to pay: it is sacrificed
@@ -2901,7 +2901,8 @@ def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     e = {**e, "cost": cost.text() if not cost.is_free else "{0}"}
     options = [DecisionOption(id="pay", label=f"Pay {cost.text()}"),  # (tap your mana first, then Pay)
                DecisionOption(id="sacrifice", label=f"Sacrifice {plan.state.cards[src[0]].name}" if src and plan.state.cards[src[0]].controller == pid else "Don't pay")]
-    decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name', '')}: pay {cost.text()} or sacrifice it?",
+    question = " or sacrifice it" if src and plan.state.cards[src[0]].controller == pid else ""
+    decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name', '')}: pay {cost.text()}{question}?",
            options=options, resume={"step": "pay_or_sacrifice", "ctx": ctx, "cost": e["cost"],
                    **({'echo_paid76': True} if e.get('echo_paid76') else {}),
                    **({"purpose_special": "cumulative_upkeep"} if e.get("per") == "age" else {})}, source=plan.state.cards[src[0]] if src else None)
@@ -2923,8 +2924,8 @@ def resume_pay_or_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
             counter_object(plan, sid, d.player, by=ctx["controller"])
         continue_effects(plan, ctx)
         return
-    src = [c for c in _cards(plan, ctx, "self") if plan.state.cards[c].controller == d.player or d.resume.get('echo_paid76')]  # (701.21a)
-    if chosen[0] == "pay" and (src or d.resume.get('echo_paid76')):
+    src = _cards(plan, ctx, "self")
+    if chosen[0] == "pay":  # The original offer survives a mana ability sacrificing its source.
         if d.resume.get('echo_paid76'):
             from app.rules import echo_alternatives76
 
@@ -6869,3 +6870,15 @@ PRIMITIVES.update(_exchange92.PRIMITIVES)
 from app.rules import exchange_spells93 as _exchange93  # noqa: E402
 
 PRIMITIVES.update(_exchange93.PRIMITIVES)
+
+from app.rules import vault_loop71 as _vault71  # noqa: E402, I001
+
+PRIMITIVES.update(_vault71.PRIMITIVES)
+
+from app.rules import conditional_upkeep_grants91 as _upkeep91  # noqa: E402, I001
+
+PRIMITIVES.update(_upkeep91.PRIMITIVES)
+
+from app.rules import zone_exchanges94 as _zone_exchanges94  # noqa: E402
+
+PRIMITIVES.update(_zone_exchanges94.PRIMITIVES)

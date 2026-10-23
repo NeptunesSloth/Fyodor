@@ -434,6 +434,7 @@ class Event(BaseModel):
     """Something that happened. Events of one table step share a ``batch``: they happened
     simultaneously (destroy all creatures is one batch of zone changes, not N)."""
 
+    non_discard: bool = False  # This native zone change was explicitly not a discard.
     fighters90: list[ObjectSnapshot] = Field(default_factory=list)  # Exact native fight cohort before damage.
     crew_count80: int | None = None  # Native crew activation payment cardinality; unknown in old saves.
     loss_watchers: list[ObjectSnapshot] = Field(default_factory=list)
@@ -521,6 +522,7 @@ class Entry(BaseModel):
     controller: str = Field(max_length=64)  # who controlled it as it entered
     types: list[str] | None = None
     subtypes: list[str] | None = None
+    keywords83: list[str] | None = None  # As entered; absent old-save history is unknown, never current flying.
     colors: list[str] | None = None  # as entered; None is unknown in an older save, not its later color
     # -- entry forms (wave 5F) -- whether it entered tapped ("When this land enters untapped", "Whenever a permanent
     # you control enters tapped": part of the event, 603.2); None: not known (an older save)
@@ -1187,6 +1189,7 @@ class Permission(BaseModel):
     look_top: bool = False  # Source-independent private top look for this stored library-top authority.
     stop_on_linked_exile: str | None = None  # Source-object/link scope: expires when this permission holder next exiles a card with it.
     filter: str | None = None  # a selector key the spell must match ("creature spells")
+    card_filter: str | None = None  # Current card eligibility, applied to both land plays and spell casts.
     free: bool = False  # "without paying its mana cost": an alternative cost of {0} (118.9)
     life_mv: bool = False  # Required alternative cost: pay life equal to the chosen spell's mana value.
     use_trigger: PermissionUseTrigger | None = None
@@ -2030,7 +2033,7 @@ def wither_put_by(action: Any) -> dict[tuple[str, str], dict[str, int]] | None:
 
 
 def track(state: GameState, before: Capture | None = None, *, manual: bool = False, actor: str | None = None,
-          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None, declared: bool = False) -> None:
+          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None, declared: bool = False, non_discard: bool = False) -> None:
     """Deterministic bookkeeping after every applied step (sandbox or rules): whose turn started
     when, when each permanent came under its controller's control, which physical card is which
     rules object, last known information, and the step's events as one simultaneous batch.
@@ -2059,7 +2062,7 @@ def track(state: GameState, before: Capture | None = None, *, manual: bool = Fal
     for card_id in [c for c in rules.controlled_since if c not in on_battlefield]:
         del rules.controlled_since[card_id]
     if before is not None:
-        _diff(state, rules, before, manual, actor, group, put_by, declared)  # (actor: wave 5H, group: wave 7C)
+        _diff(state, rules, before, manual, actor, group, put_by, declared, non_discard)  # (actor: wave 5H, group: wave 7C)
     pending = [e for e in rules.events if e.batch > rules.batch]
     if pending:
         rules.batch += 1
@@ -2128,7 +2131,7 @@ def _combat_now(state: GameState, rules: RulesState) -> int:
 
 
 def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, actor: str | None = None,
-          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None, declared: bool = False) -> None:
+          group: int = 0, put_by: dict[tuple[str, str], dict[str, int]] | None = None, declared: bool = False, non_discard: bool = False) -> None:
     departures = state.departures()
     if state.renames():  # -- review (face-down ids) -- a card renumbered in this step is the same card: follow it
         names = state.renames()
@@ -2227,7 +2230,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
             _attach_event(state, "unattached", card_id, old_oid, snap.attached_to, snap.attached_player, before.snaps)  # -- attachment events (wave 30S) -- 701.3d
         emit(state, "zone_change", object_id=old_oid, new_object_id=new_oid, card=card_id,
              player=(card.controller if card is not None else snap.controller if snap else None),
-             from_zone=old_zone, to_zone=new_zone, actor=actor)  # (wave 23D: who moved it: a discard an opponent's effect caused, 701.9)
+             from_zone=old_zone, to_zone=new_zone, actor=actor, non_discard=non_discard)  # (wave 23D: who moved it: a discard an opponent's effect caused, 701.9)
     # -- review (wave 18D) -- 730.3 / 712.21: the cards of a merged permanent that left (other than the one its instance became) were
     # never objects of their own: each is put into the zone from the battlefield, a new object there (not one more permanent leaving)
     pile = {p["id"]: snap for snap in before.snaps.values() for p in snap.merged}

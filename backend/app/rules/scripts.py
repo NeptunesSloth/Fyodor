@@ -2653,6 +2653,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import vault_loop71
+
+    if (vault71 := vault_loop71.parse(body)) is not None:
+        return vault71
     from app.rules import shuffle_mill67
 
     if (shuffle67 := shuffle_mill67.parse(body)) is not None:
@@ -2673,6 +2677,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (answer90 := bounded_unless_pay90.parse(body)) is not None:
         return answer90
+    from app.rules import conditional_upkeep_grants91
+
+    if (answer91 := conditional_upkeep_grants91.parse(body)) is not None:
+        return answer91
     from app.rules import nonbattlefield_life_offers86
 
     if (answer86 := nonbattlefield_life_offers86.parse(body)) is not None:
@@ -5809,6 +5817,14 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import zone_exchanges94
+
+    if (zone94 := zone_exchanges94.definition(ability, ch)) is not None:
+        return zone94
+    from app.rules import exile_counter_access85
+
+    if (counter85 := exile_counter_access85.definition(ability, ch)) is not None:
+        return counter85
     from app.rules import chosen_forms95
 
     if (chosen95 := chosen_forms95.definition(ability, ch)) is not None:
@@ -6324,6 +6340,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (types93 := temporary_creature_types93.definition(ability, ch)) is not None:
         return types93
+    from app.rules import conditional_toughness96
+
+    if (toughness96 := conditional_toughness96.definition(ability, ch)) is not None:
+        return toughness96
     from app.rules import world_upkeep83
 
     if (world_upkeep := world_upkeep83.definition(ability, ch)) is not None:
@@ -7016,6 +7036,10 @@ def _blight(text: str) -> str:
 
 def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import exile_counter_access85
+
+    if (counter85 := exile_counter_access85.definition(ability, ch)) is not None:
+        return counter85
     from app.rules import (
         ability_mana_history,
         merged,  # -- merged permanents (wave 18D) -- meld wordings carry card names with commas

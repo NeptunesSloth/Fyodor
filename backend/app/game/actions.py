@@ -80,6 +80,7 @@ class Draw(Base):
 
 class Move(Base):
     type: Literal["move"] = "move"
+    non_discard: bool = False  # Explicit non-discard hand moves (zone exchanges), retained by replay.
     card_ids: IdList
     to: ZoneRef
     position: Literal["top", "bottom"] | None = None  # for ordered zones; default: top (library: top)

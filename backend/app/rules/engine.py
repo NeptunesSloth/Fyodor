@@ -1848,3 +1848,9 @@ RESUME['echo_draw_count76'] = _echo76.resume_draw
 from app.rules import chosen_forms95 as _chosen_forms95  # noqa: E402
 
 RESUME.update(_chosen_forms95.RESUME)
+
+from app.rules import zone_exchanges94 as _zone_exchanges94  # noqa: E402
+
+RESUME.update(_zone_exchanges94.RESUME)
+
+RESUME['graveyard_order_page94'] = graveyard_order.resume_page

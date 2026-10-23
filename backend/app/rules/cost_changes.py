@@ -187,6 +187,10 @@ def ability_change(text: str) -> Change | None:
 
     if (target_change := target_cost_conditions62.own_change(sentence)) is not None:
         return target_change
+    from app.rules import colored_activation_costs83
+
+    if sentence.strip() in (colored_activation_costs83.KAMI, colored_activation_costs83.DRONE):
+        return {"dir": -1, "n": 0}  # Native permissions.ability_mana applies both generic and colored reductions.
     m = ABILITY_SENTENCE.fullmatch(sentence.strip())
     if m is None or m["n"] in "WUBRG":
         return None  # (a colored change to an activation cost isn't printed on any card the grammar was checked with)

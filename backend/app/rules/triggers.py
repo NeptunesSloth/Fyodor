@@ -626,6 +626,8 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
 
 
 def _discard_facts(plan: Plan, e: Event) -> list[Fact]:
+    if e.non_discard:
+        return []
     # 701.9a: "To discard a card, move it from its owner's hand to that player's graveyard" — the rules engine moves a card that
     # way only by discarding it (an effect, a cost, cycling); -- review (wave 23D) -- or a replacement put the discard elsewhere
     if _zone(e.from_zone) != "hand" or not e.card or not (_zone(e.to_zone) == "graveyard" or _discarded_instead(plan, e)):

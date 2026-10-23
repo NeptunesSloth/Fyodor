@@ -108,7 +108,8 @@ def attached_selector(desc: str) -> str | None:
     words = phrase.split()
     if not words:
         return None
-    if all(w in _ADJECTIVES for w in words):
+    color_union = " or " in phrase and all(color in _COLORS for color in phrase.split(" or "))
+    if all(w in _ADJECTIVES for w in words) or color_union:
         phrase += " permanent"
     sel = selectors.parse(phrase)
     if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.other \

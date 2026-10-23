@@ -379,6 +379,8 @@ def test_sacrifice_unless_you_pay_its_mana_cost(cards, pay):
 
     s = build(cards, ["Grizzly Bears"], [], forests=30, islands=30)
     bears = put(s, "Grizzly Bears")
+    lands = [c.id for c in s.state.cards.values() if c.owner == "p1" and c.name == "Forest"][:2]
+    act(s, "p1", type="move", card_ids=lands, to={"zone": "battlefield"})
     aura = _token(s, "p1", "Flux", "Token Enchantment — Aura", (None, None), text=(
         "Enchant creature\nEnchanted creature has \"At the beginning of your upkeep, sacrifice this creature unless you pay its "
         "mana cost.\""))

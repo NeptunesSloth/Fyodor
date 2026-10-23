@@ -164,7 +164,8 @@ class Plan:
                     was, self.began[cid] = self.began.get(cid, False), down_public(c)
                     self.moved[cid] = self.moved.get(cid, False) or seen_move(zone, c.zone, was)
         track(self.state, before, actor=resolved.actor or None, group=getattr(resolved, "group", 0),
-              put_by=wither_put_by(resolved), declared=getattr(resolved, "declared", False))  # (5H, 7C, 17D; 45C: the attack declaration's tap)
+              put_by=wither_put_by(resolved), declared=getattr(resolved, "declared", False),
+              non_discard=bool(getattr(resolved, "non_discard", False)))  # (5H, 7C, 17D; 45C: the attack declaration's tap)
         if departure_before is not None:
             for cid in payload.get('card_ids') or []:
                 frozen = departure_before.snapshots[cid]
@@ -188,6 +189,7 @@ class Plan:
                     now = self.ch(card)
                     entry.types, entry.subtypes = sorted(now.types), sorted(now.subtypes)
                     entry.colors = sorted(now.colors)
+                    entry.keywords83 = sorted(now.keywords)
         for oid, (pt, abilities, keywords, traits, base, goaded) in leaving.items():  # last known information (608.2h)
             snap = self.rules.lki.get(oid)
             if snap is not None:

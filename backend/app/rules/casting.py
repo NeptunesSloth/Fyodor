@@ -5953,10 +5953,12 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
                       exclude_targets: tuple[str, ...] = (), keep_revealed: bool = False) -> None:
     from app.rules import (
         activation_alternatives,
+        colored_activation_costs83,
         defined_activation_x,
         modal_abilities,  # (a leaf module over this one)
     )
 
+    colored_activation_costs83.require_known(plan, card, ability.text)
     input_x = a.x_value
     announced = activation_alternatives.announce(plan, a, card, ch, ability)
     if announced is None:

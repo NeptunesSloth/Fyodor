@@ -1400,8 +1400,13 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             if p.object_id != oid:
                 continue  # a new object since (400.7): the permission was for the one it was
         elif p.zone != "any" and p.zone != where and not (
-                p.zone == "graveyard" and p.zone_owner == "any" and card.zone.endswith(":graveyard")):
+                p.zone in ("graveyard", "exile") and p.zone_owner == "any" and card.zone.endswith(":" + p.zone)):
             continue
+        if p.card_filter:
+            from app.rules import selectors
+
+            if not selectors.matches(_view(state, player, info), selectors.from_key(p.card_filter), card, ch, player):
+                continue
         if p.filter and verb == "cast" and not spell_matches(state, player, card, ch, p.filter, info):
             continue
         if p.nth is not None and cost_changes.casts_so_far(state, info, player, p.filter) != p.nth:
@@ -1822,15 +1827,18 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
     from app.rules import selected_keyword_costs65
 
     mods += selected_keyword_costs65.ability_modifiers(state, player, cost_statics)
+    from app.rules import colored_activation_costs83
+
+    own_cut83, own_colors83 = colored_activation_costs83.reduction(state, player, card, ability_text, info)
     if capture is not None:
         capture.append(0)
-    if not mods and not own:  # (own: the ability's "This ability costs {1} less …", wave 4I)
+    if not mods and not own and not own_cut83 and not own_colors83:  # (own: the ability's "This ability costs {1} less …", wave 4I)
         return mana
     cost = M.parse_cost(mana)
     if cost.x or cost.unsupported:
         return mana
     view = None
-    increase, reduction = max(0, own), max(0, -own)
+    increase, reduction = max(0, own), max(0, -own) + own_cut83
     floored_reduction = 0
     from app.rules import attachments
 
@@ -1901,7 +1909,7 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
                 floored_reduction -= delta
             else:
                 reduction -= delta
-    if not increase and not reduction and not floored_reduction:
+    if not increase and not reduction and not floored_reduction and not own_colors83:
         return mana
     cost = cost.plus_generic(increase)
     # 601.2f: floored reductions may be applied before unrestricted ones.
@@ -1911,6 +1919,8 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
     if capture is not None:
         capture[-1] = cut
     out = cost.plus_generic(-cut)
+    if own_colors83:
+        out = cost_changes.reduce_colored(out, own_colors83)
     return mana if not mana and out.is_free else out.text()  # (wave 4I: "{T}: …" taxed {2} becomes "{2}, {T}: …")
 
 
@@ -1978,9 +1988,9 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                                             label=f"{ctx.get('name') or 'An effect'}: {verb} it {when}" + (" paying life equal to its mana value" if e.get("life_mv") else " without paying its mana cost" if e.get("free") else "")))
             plan.note(f"{plan.name(holder)} may {verb} {card.name} {when}", [cid])
         return True
-    zone_label = "any graveyard" if e.get("zone_owner") == "any" and e["zone"] == "graveyard" else f"your {e['zone']}"
+    zone_label = "exile" if e.get("zone_owner") == "any" and e["zone"] == "exile" else "any graveyard" if e.get("zone_owner") == "any" and e["zone"] == "graveyard" else f"your {e['zone']}"
     r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=e["play"], cast=e["cast"], zone=e["zone"],
-                                    zone_owner=e.get("zone_owner", "you"), look_top=bool(e.get("look_top")),
+                                    zone_owner=e.get("zone_owner", "you"), card_filter=e.get("card_filter"), look_top=bool(e.get("look_top")),
                                     free=bool(e.get("free")), life_mv=bool(e.get("life_mv")),
                                     extra=e.get("extra", ""), enters=e.get("enters"),
                                     filter=e.get("filter"), once=bool(e.get("once")),  # (-- cast permissions (wave 30Q) -- "a creature spell": one spell, of that kind)

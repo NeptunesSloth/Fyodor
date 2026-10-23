@@ -377,7 +377,7 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     shown = re.sub(r"^pay ", "", _label(cost).replace("~", ctx.get("name") or "it"), flags=re.IGNORECASE)  # ("Have ~ deal 7 damage to you": the source by name; "Pay 3 life" once)
     ask = shown if shown.startswith("Have ") else f"Pay {shown}"
     decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: {ask[0].lower()}{ask[1:]}?{hint}",
-           options=[DecisionOption(id=PAY, label=ask), DecisionOption(id=DECLINE, label="Don't pay")],
+           options=[DecisionOption(id=PAY, label=ask), DecisionOption(id=str(e.get("decline_id") or DECLINE), label="Don't pay")],
            resume=_resume(ctx, opt, cost), source=source,
            display={"kind": "optional_cost", "cost": _label(cost), "pool": mana_units.visible_pool(plan.state, payer)} if cost.mana else None)
     return False
