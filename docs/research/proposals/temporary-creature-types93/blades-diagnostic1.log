@@ -1,0 +1,75 @@
+F
+=================================== FAILURES ===================================
+_______ test_native_whole_card_cast_and_changeling[Blades of Velis Vel] ________
+
+cards = <app.cards.repository.CardRepository object at 0x7ff885c43bf0>
+name = 'Blades of Velis Vel'
+
+
+
+    @pytest.mark.parametrize('name',NAMES)
+    def test_native_whole_card_cast_and_changeling(cards,name):
+        from app.rules.creature_types import CREATURE_TYPES
+
+        assert coverage.of_card_data(cards.resolve(name)).level=='FULL'
+        s=game(cards)
+        source=put(s,name,'hand')
+        if name!='Volatile Claws':
+            assert ch(s,source).subtypes >= CREATURE_TYPES
+>       spider=put(s,'Giant Spider','battlefield','p2')
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_temporary_creature_types93.py:69:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_temporary_creature_types93.py:49: in cast
+    if name=='Blades of Velis Vel':
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:163: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3662: in cast_spell
+    picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:814: in choose_targets
+    found = choose_groups(plan, specs, plan.actor, _target_source(plan, a), a.card_id, list(a.targets),  # (review 41: 115.2)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7ff8872c0bc0>
+specs = [{'min': 0, 'max': 2, 'what': 'sel:{"types":["Creature"]}'}]
+chooser = 'p1'
+source = Characteristics(name='Blades of Velis Vel', supertypes=frozenset(), types=frozenset({'Instant', 'Kindred'}), subtypes=...ne, granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=None)
+source_card = '4a581e1e2d5d', targets = ['d4cfdc739adf'], counts = []
+division = [], x = None, what = 'Blades of Velis Vel', exclude = ()
+attacker = None, source_object = None, event = None
+
+    def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source: Characteristics | None,
+                      source_card: str | None, targets: list[str], counts: list[int], division: list[int],
+                      x: int | None, what: str, exclude: tuple[str, ...] = (), attacker: str | None = None,
+                      source_object: str | None = None, event: dict[str, Any] | None = None) -> GroupChoice:
+        """Check the choices made so far for each target group, in printed order (601.2c): the
+        number of targets (``counts``: how many of ``targets`` are each group's), no object twice
+        for one word "target" (115.3; the same object may be chosen for another group unless it says
+        "another target"), each a legal target now; then each divided group's division (601.2d:
+        at least one each, adding up to the total; one target gets it all). Raises ActionError for a
+        wrong choice or when a group can't get enough legal targets; ``ask`` names the next missing
+        choice."""
+        from app.game.errors import ActionError
+
+        random_only = len(specs) == 1 and bool(specs[0].get("random"))  # -- random choices (wave 47B) -- "target … chosen at random": the table picks (601.2c; each
+        if random_only:  # legal target equally likely: Scab-Clan Giant ruling 2013-04-15); nobody is asked, and a choice sent along is not read
+            targets, counts = [], []
+        if len(counts) > len(specs) or sum(counts) != len(targets):
+>           raise ActionError(f"Those aren't the right number of targets for {what}")
+E           app.game.errors.ActionError: Those aren't the right number of targets for Blades of Velis Vel
+
+app/rules/targets.py:370: ActionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_temporary_creature_types93.py::test_native_whole_card_cast_and_changeling[Blades of Velis Vel]
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

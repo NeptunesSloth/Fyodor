@@ -558,5 +558,65 @@
     "original_sha256": "e724deacdb1da500be68f06c4e8ee8828340cfd41b217abb3dd2887089d5527f",
     "archived_sha256": "4381a79f43ba43de5a68a7d7278c2d18235d4dae368f16d14bad460b91cca144",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/attached-destruction82/native-gameplay9.log": {
+    "original_sha256": "8247b2c41e3db5a1b614fed85039838c77b1e4e923fac46daeb390d23b9c2a41",
+    "archived_sha256": "5c77ad03cae60c102417a644713d26f9bfdaca513fb2a1d25e1153048befc45d",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/attached-destruction82/native-host-debug1.log": {
+    "original_sha256": "b209c558ae6a33602915d0fe66781d8b3ebf0db8ea344ba5a2daddf92068b472",
+    "archived_sha256": "232b3b5786ef949f22c4112e1402d20f2213e7abce490de98727bb162d12f035",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/attached-destruction82/review.patch": {
+    "original_sha256": "c7752bf2febb1bbd811a7436bd5fba7125246dc8152db5b48a288d5823764f90",
+    "archived_sha256": "fd1a5f1c47791a0591676e9913a392ba0f5662a9079a67dcebc30b03d9171071",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/attacked-player-costs80/native10.log": {
+    "original_sha256": "792b9a160b809d0ce91e8c64dd2939ce6db34dd8861bcf7b5a1d454d2715456d",
+    "archived_sha256": "c8e03df09290e6613ea61779f4e09657f7a38748fd9d838dfcce034249b5864e",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/post-mill-graveyard68/review.patch": {
+    "original_sha256": "9796f67c0618b21ad1901d4683f5501cd76c2ba585b6634a1bbbea971b6d6a4c",
+    "archived_sha256": "373c0c2a21ed153012aada4c65a6205db962fcbb9f3508123f18b84ebfe37d22",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/shuffle-mill67/review.patch": {
+    "original_sha256": "0ed9ea57b31a96b2c0498a95acd53c9f7d150ddcc3936a55993f27fc60887a2a",
+    "archived_sha256": "b84e06d519cc4990b25db5fb633c315c0c3be3dae6c6dc2763f293ccd4cfce95",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/temporary-creature-types93/UNINSTALLED.patch": {
+    "original_sha256": "99f0518356004712ff06dc98291d44c318ccdb7eb24809bb0ba461eab7388a6b",
+    "archived_sha256": "3c77f052c1ec717825dfc65bb37c0ab795aaef0850700cb76f055986c9813f3c",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/temporary-creature-types93/blades-diagnostic1.log": {
+    "original_sha256": "4d6b87023f4b1eb249b21671f5e85c27cef8c76ecf12d4c206b377ebc9b1fc2a",
+    "archived_sha256": "ffac6b2da79c16786723a087597620bf84b380399e4b71ae5e09eabcdf54c361",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/temporary-creature-types93/final18-frozen.log": {
+    "original_sha256": "58481ef5a5c108f1ee9d0f149c98f69db632b1a0e24e86c6f808e6cf8548f96d",
+    "archived_sha256": "7e16a0a0e349d6c645a67f0657b7e1c2e46969052485c2a436a3da81564e8886",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/temporary-creature-types93/final18.log": {
+    "original_sha256": "ea6c7c2f8b81cea4bf5b9a98f3efcfcee07e2fb3c0bad5e633ea0455d7c774d1",
+    "archived_sha256": "fa8452260803d02830d5ca6174ced66b90ecdea4eea2dfd4b8e276354186f040",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/temporary-creature-types93/first11.log": {
+    "original_sha256": "7b77cf4ec6fb4bbedb90f07312f2c6b01e4545397fd78f8710ddafda9f1cb1b9",
+    "archived_sha256": "13f10edf91f5c35ca19a1422dce6f502a1200cbce7720df7fac6016e79a68f8e",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/temporary-creature-types93/second15.log": {
+    "original_sha256": "e6f357caf23e08a075ed8d71bc8a9fdb4d8526e773bcda76a446858c9418c774",
+    "archived_sha256": "89797369f4335087a3d683fdf38a94cd86b220d209aa3654dd29925b91aef804",
+    "numstat_preserved": null
   }
 }

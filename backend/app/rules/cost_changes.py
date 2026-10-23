@@ -258,7 +258,10 @@ def self_change(t: str) -> Change | None:
     """"This spell costs {X} less to cast, where X is the total power of creatures you control." (Ghalta) → change.
     "If an opponent controls seven or more lands, this spell costs {6} less to cast." (Avatar of Fury) reads as the
     same sentence with its condition last."""
-    from app.rules import conditional_own_discounts, life_start_discounts44
+    from app.rules import conditional_own_discounts, life_start_discounts44, native_count_discounts79
+
+    if (count79 := native_count_discounts79.self_change(t)) is not None:
+        return count79
 
     if (life_start := life_start_discounts44.self_change(t)) is not None:
         return life_start

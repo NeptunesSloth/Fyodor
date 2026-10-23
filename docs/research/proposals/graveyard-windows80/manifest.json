@@ -18,27 +18,20 @@
     "passed": 28,
     "scope": "full graveyard_cost_grants57 + required_mutate75",
     "log": "quality-related-recovered.log",
-    "broad_original149": "running, not counted"
+    "broad_original149": {
+      "passed": 149,
+      "scope": "full case_solve_watchers, wave16a_class, wave30m_durations, random_choice_receipts41",
+      "log": "quality-related149.log"
+    },
+    "total_final_distinct_passed": 177
   },
   "mypy": "PASS4 quality-types4.log",
   "ruff": "PASS5 quality-ruff5.log",
   "authority": "Complete official rulings2. Advanced retains native mill/random/exile/ObjectRef play grant. Case grants actual quoted ability to finite current graveyard creature objects through native layer6/end_of_turn, read as derived graveyard self-permissions; supports current MDFC back cast. Jailer remains unrelated PARTIAL, no automation claim.",
-  "source_hashes": "source-hashes.json",
+  "source_hashes": "quality-source-hashes.json",
   "quality": {
     "before": "gravewindows80-native-ability-before1.log",
-    "finding": "Case old external Permission route does not expose actual granted quoted ability. Native outside-zone layer6 grant replacement under test. Jailer remains unrelated PARTIAL; no automation claim."
-  },
-  "recovered_quality": {
-    "status": "FINAL_CONSOLIDATED_AND_BROAD_RELATED_RUNNING",
-    "patch": "quality-review.patch",
-    "patch_sha256": "3d4e1a36c8ccde033252a6866a325cd940119ed2d858e3e96a8ab402c4232123",
-    "stage": "/workspace/scratch/casting80-recovery",
-    "native": "recovered14 + quote/expiry1 PASS separately, final15 running",
-    "related": "graveyard57/Brokkos75 28 PASS, original149 running",
-    "mypy": "PASS4",
-    "ruff": "PASS5",
-    "representation": "literal current-object native layer6 add_abilities, ability_zone graveyard, end-of-turn; derive GY self permissions if layers affect object",
-    "exclusion": "Yixlid Jailer remains unrelated PARTIAL; no automation claim"
+    "finding": "Old external Permission adapter lacked the literal quoted ability. Native outside-zone layer6 replacement is now verified; Jailer remains unrelated PARTIAL."
   },
   "source_files": 4,
   "rejected_adapter": "rejected-permission-adapter.patch retained separately, never install"

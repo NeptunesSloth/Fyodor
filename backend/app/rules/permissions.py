@@ -1414,7 +1414,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
     if verb == "cast" and where in ("graveyard", "exile") and card.owner == player and not card.face_down:
         from app.rules import layers
 
-        self_ch = layers.derive(state, card, ch, info) if where == 'exile' and layers.affecting(state, card) else ch
+        self_ch = layers.derive(state, card, ch, info) if layers.affecting(state, card) else ch
         for index, d in _definitions(self_ch).items():  # the card's own ability, functioning in the graveyard (113.6) / exile (wave 20D)
             if d.get("static") == "permission" and d.get("self") and where in d.get("zones", [d["zone"]]):
                 if d.get('required_mutate75') or d.get('required_keyword79'):
@@ -1493,7 +1493,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                 key = f"{r.object_id(src.id)}:permission:{index}"
             if d["once"] and r.once_per_turn.get(key) == turn:
                 continue
-            out.append(Grant("permission", src.name, zone_ok=True, free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
+            out.append(Grant("permission", src.name, zone_ok=True, flash=bool(d.get("flash")), free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
                              once_key=key if d["once"] else None, choice_key=key, enters=d.get("enters"), spend=d.get("spend", ""), extra=d.get("extra", ""),
                              use_trigger=permission_use_triggers43.static_receipt(state, src, index, d.get("use_trigger"))))
             continue

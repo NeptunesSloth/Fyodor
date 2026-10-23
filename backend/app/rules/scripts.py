@@ -2653,6 +2653,14 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import repeated_graveyard_offer89
+
+    if (next64 := repeated_graveyard_offer89.parse(body)) is not None:
+        return next64
+    from app.rules import nightshade_reveal88
+
+    if (next64 := nightshade_reveal88.parse(body)) is not None:
+        return next64
     from app.rules import public_mill_costs64
 
     if (admitted63 := public_mill_costs64.parse(body)) is not None:
@@ -5789,6 +5797,38 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import post_mill_graveyard68
+
+    if (grave68 := post_mill_graveyard68.definition(ability, ch)) is not None:
+        return grave68
+    from app.rules import linked_spell_windows81
+
+    if (linked81 := linked_spell_windows81.definition(ability, ch)) is not None:
+        return linked81
+    from app.rules import graveyard_windows80
+
+    if (window80 := graveyard_windows80.definition(ability, ch)) is not None:
+        return window80
+    from app.rules import exchange_conditions91
+
+    if (exchange91 := exchange_conditions91.definition(ability, ch)) is not None:
+        return exchange91
+    from app.rules import conditional_animations92
+
+    if (next64 := conditional_animations92.definition(ability, ch)) is not None:
+        return next64
+    from app.rules import morph_costs78
+
+    if (next64 := morph_costs78.definition(ability, ch)) is not None:
+        return next64
+    from app.rules import conditional_static_aliases91
+
+    if (next64 := conditional_static_aliases91.definition(ability, ch)) is not None:
+        return next64
+    from app.rules import first_kicked_costs77
+
+    if (next64 := first_kicked_costs77.definition(ability, ch)) is not None:
+        return next64
     from app.rules import fight_receipts90
 
     if (admitted63 := fight_receipts90.definition(ability, ch)) is not None:

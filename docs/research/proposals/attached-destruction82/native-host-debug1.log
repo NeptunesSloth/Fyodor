@@ -1,0 +1,12 @@
+HOST82 ['65da1125e92c'] {'attached82_host': {'kind': 'objects', 'objects': [{'card': '65da1125e92c', 'object_id': '65da1125e92c.6', 'zone': 'p1:battlefield', 'snapshot': None}]}} [{'do': 'attached_host82'}, {'do': 'destroy', 'who': 'target'}, {'do': 'damage', 'who': 'ref:l0_attached82_host', 'n': 2}]
+F
+=================================== FAILURES ===================================
+_______________ test_unforge_uses_current_host_at_destruction82 ________________
+tests/test_rules_attached_destruction82.py:100: in test_unforge_uses_current_host_at_destruction82
+    assert s.state.cards[current.id].zone == 'p1:graveyard'
+E   AssertionError: assert 'p1:battlefield' == 'p1:graveyard'
+E
+E     - p1:graveyard
+E     + p1:battlefield
+=========================== short test summary info ============================
+FAILED tests/test_rules_attached_destruction82.py::test_unforge_uses_current_host_at_destruction82

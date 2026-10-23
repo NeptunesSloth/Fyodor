@@ -540,6 +540,7 @@ class CastNote(BaseModel):
     reads the spell as it was then — whether it resolved, was countered or is still on the stack doesn't matter).
     Spells on the stack are public: a face-down spell is recorded with its face-down characteristics (708.2)."""
 
+    kicked77: bool | None = None  # Actual paid kicker; excludes synthetic awaken/gift/bargain own-effect aliases.
     names: list[str] | None = None  # Public as-cast names; None means an older receipt lacks this fact.
     player: str = Field(max_length=64)
     object_id: str = Field(max_length=80)

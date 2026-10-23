@@ -3928,7 +3928,9 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
             groups.append([t.model_dump() if together and still_legal(plan, what, entry.controller, t, src, entry.source_card, attacker, source_object=entry.source_object)
                            else None for t in refs])
         chosen = sum(len(refs) for refs in entry.groups)
-        if chosen and not any(t for g in groups for t in g):
+        from app.rules import exchange_conditions91
+
+        if chosen and not any(t for g in groups for t in g) and not exchange_conditions91.resolves_illegal(entry):
             # 608.2b: every target, for every word "target", is illegal: it doesn't resolve.
             # (With zero targets chosen — "up to …" — it resolves normally: 115.6.)
             plan.note(f"{entry.name or 'It'} does nothing: its targets are no longer legal")
@@ -6828,3 +6830,27 @@ PRIMITIVES['echo_payment76'] = _echo76.payment
 PRIMITIVES['note_echo_paid76'] = _echo76.note_paid
 
 PRIMITIVES['echo_draws76'] = _echo76.draws
+
+
+from app.rules import nightshade_reveal88 as _nightshade88  # noqa: E402, I001
+
+PRIMITIVES.update(_nightshade88.PRIMITIVES)
+RESUME.update(_nightshade88.RESUME)
+
+from app.rules import repeated_graveyard_offer89 as _lore89  # noqa: E402, I001
+
+PRIMITIVES.update(_lore89.PRIMITIVES)
+RESUME.update(_lore89.RESUME)
+
+
+from app.rules import exchange_conditions91 as _exchange91  # noqa: E402
+
+PRIMITIVES.update({"exchange_drake91": _exchange91.drake, "exchange_neither91": _exchange91.neither, "exchange_auras91": _exchange91.auras})
+
+from app.rules import graveyard_windows80 as _graveyard_windows80  # noqa: E402
+
+PRIMITIVES.update(_graveyard_windows80.PRIMITIVES)
+
+from app.rules import post_mill_graveyard68  # noqa: E402
+
+PRIMITIVES.update(post_mill_graveyard68.PRIMITIVES)

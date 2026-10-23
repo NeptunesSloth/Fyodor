@@ -2585,7 +2585,12 @@ def face_up_ways(card: CardInstance, printed: Characteristics, *, state: GameSta
     ways: dict[str, tuple[str, str]] = {}
     found = morph_cost(printed)
     if found is not None:
-        ways["morph"] = (found[1], found[0])
+        cost78 = found[1]
+        if state is not None and info is not None and cost78.startswith('{'):
+            from app.rules import morph_costs78
+
+            cost78 = M.parse_cost(cost78).plus_generic(morph_costs78.tax(state, info)).text()
+        ways["morph"] = (cost78, found[0])
     disguise = disguise_cost(printed)
     if disguise is not None:
         from app.rules import disguise_costs
@@ -2663,6 +2668,12 @@ def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
     if method is None or method not in ways:
         raise ActionError("It can't be turned face up that way: turn it face up with the table tools")
     cost_text, kind = ways[method]
+    from app.rules import morph_costs78
+
+    tax78 = morph_costs78.tax(plan.state, plan.info) if method == 'morph' else 0
+    if tax78 and not cost_text.startswith('{'):
+        morph_costs78.pay_nonmana(plan, a, card, printed, cost_text, kind, tax78)
+        return
     if not cost_text.startswith("{"):  # -- hidden exile (wave 18A) -- a morph cost that isn't mana (702.37e: "pay that cost")
         if not pay_nonmana_cost(plan, a, card, printed, cost_text):
             return  # (waiting for the choice of what pays it)
@@ -2953,7 +2964,7 @@ def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int
                free: bool = False, kicker: int = 0, additional: tuple[M.ManaCost, ...] = (),
                face_down: bool = False, targets: tuple[str, ...] = (), reduce: int = 0,
                flashback_choice: int | None = None, mana_symbols: list[str] | None = None,
-               capture: list[Any] | None = None) -> M.ManaCost:
+               capture: list[Any] | None = None, announced_kicker77: bool = False) -> M.ManaCost:
     """The total cost to cast (601.2f), in the rules' order: the mana cost (with X) or the
     alternative cost — flashback from the graveyard, evoke, dash, a face-down {3}, or {0} for
     "without paying its mana cost" (118.9) — plus additional costs (kicker 702.33a, buyback: 118.8)
@@ -2991,6 +3002,12 @@ def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int
         from app.rules import conditional_own_discounts
 
         affinity += discount + conditional_own_discounts.printed_flashback_discount(state, player, card, ch, info, flashback_choice)
+    from app.rules import first_kicked_costs77
+
+    if info is not None and kicker and (actual_kicker77 := kicker_cost(ch.abilities)) is not None and not actual_kicker77.entwine:
+        if announced_kicker77:
+            first_kicked_costs77.guard(state, player, info)
+        affinity += first_kicked_costs77.discount(state, player, info)
     # -- cost changers (wave 44D) -- 107.3f, 202.3e: the spell being cast has the X announced for it, so a cost changer reading its mana value ("spells with mana value 4 or
     # greater cost {X} less") counts it (Thryx ruling 2020-01-24)
     captured: list[Any] = capture if capture is not None else []
@@ -3744,7 +3761,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info, player=plan.actor, alternative=(alternative if alternative is not None else M.parse_cost(ch.mana_cost) if grant is not None and grant.how == "resolving" else None),
                       free=free, kicker=a.kicker, additional=tuple(additional), face_down=a.face_down, targets=tuple(t.id for t in chosen),
                       reduce=emerge_reduction + (cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0),
-                      flashback_choice=a.flashback_choice, mana_symbols=a.mana_symbols, capture=prepared)  # (wave 47C: "you may sacrifice any number of …")
+                      flashback_choice=a.flashback_choice, mana_symbols=a.mana_symbols, capture=prepared, announced_kicker77=True)  # (wave 47C: "you may sacrifice any number of …")
     if alt_offer is not None and alt_offer.template_mana_has_x is not None:
         prepared[-1] = replace(prepared[-1], selected_cost_has_x=bool(alt_offer.template_mana_has_x or prepared[-1].selected_cost_has_x))
     if spell_mana_floor.minimum(plan.state, plan.info) or a.mana_symbols is not None:
@@ -5081,7 +5098,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
                       targets=tuple(t.id for t in chosen),  # (wave 4I: "spells that target …")
                       additional=(*((M.parse_cost(either.mana),) if either is not None and either.mana else ()), *mode_costs),  # (wave 6E)
                       reduce=cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0,
-                      mana_symbols=a.mana_symbols, capture=prepared)  # (wave 47C: 118.9d, 601.2f)
+                      mana_symbols=a.mana_symbols, capture=prepared, announced_kicker77=True)  # (wave 47C: 118.9d, 601.2f)
     if spell_mana_floor.minimum(plan.state, plan.info) or a.mana_symbols is not None:
         if spell_symbol_choices.announce(plan, a, card, ch, prepared[0]):
             return

@@ -86,6 +86,7 @@ from app.rules import (
     triggers,
     untap_choice,  # -- untap choice (wave 7F) --
 )
+from app.rules import morph_costs78 as _morph_costs78  # noqa: F401
 
 # Saved payment decisions must resume in a fresh process before another special action runs.
 from app.rules import special_payment_tails as _special_payment_tails  # noqa: F401
@@ -1551,6 +1552,10 @@ def _settle_decision(plan: Plan, d: Decision, leaver: str) -> None:
         return
     r.decision = None  # (leave_game dropped it already)
     if resolving:
+        from app.rules import repeated_graveyard_offer89
+
+        if repeated_graveyard_offer89.replaced_choice(plan, d):
+            return
         # 800.4f-g: the choice isn't made; the resolution goes on — with the other players still to
         # choose in APNAP order ("each opponent discards a card"), then its next instruction
         plan.note(f"{plan.name(leaver)} left the game: their choice isn't made")

@@ -167,7 +167,11 @@ def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, 
                 printed_face = chars.of(card.model_copy(update={"face_down": False}), info)
                 ways = face_up_ways(card, printed_face, state=state, info=info)
                 if ways:
-                    out[cid] = {"turn_up": [{"method": method, "cost": cost} for method, (cost, _) in ways.items()]}
+                    from app.rules import morph_costs78
+
+                    tax78 = morph_costs78.tax(state, info)
+                    out[cid] = {"turn_up": [{"method": method, "cost": ('{' + str(tax78) + '}, ' + cost
+                        if method == 'morph' and tax78 and not cost.startswith('{') else cost)} for method, (cost, _) in ways.items()]}
             continue
         printed = chars.of(card, info)
         now = derive(state, card, printed, info)

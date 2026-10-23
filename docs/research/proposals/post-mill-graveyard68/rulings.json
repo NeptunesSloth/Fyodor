@@ -1,0 +1,35 @@
+[
+  {
+    "name": "Stillness in Motion",
+    "url": "https://api.scryfall.com/cards/a6289251-17e4-4987-96b9-2fb1a8f90e2a/rulings",
+    "response": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "name": "Roots of Wisdom",
+    "url": "https://api.scryfall.com/cards/eacd6f7b-3bb7-4957-afb6-f59881b55bb1/rulings",
+    "response": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "8f6af612-a4a1-4165-ae4d-ff6353cbaf8d",
+          "source": "wotc",
+          "published_at": "2021-02-05",
+          "comment": "Roots of Wisdom doesn\u2019t target any cards in graveyards. You may return a land card or an Elf card that was just milled or one that was already there."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "8f6af612-a4a1-4165-ae4d-ff6353cbaf8d",
+          "source": "wotc",
+          "published_at": "2021-02-05",
+          "comment": "If there\u2019s a land card or Elf card in your graveyard, you must return one. You can\u2019t choose not to in order to draw a card."
+        }
+      ]
+    }
+  }
+]

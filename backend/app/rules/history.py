@@ -242,7 +242,8 @@ def note_cast(plan: Plan, card: Any) -> None:
         key = normalize_name(name)
         totals[key] = totals.get(key, 0) + 1
     record = plan.rules.payments.get(plan.oid(card))
-    log.casts.append(CastNote(player=card.controller, object_id=plan.oid(card), names=card_names.names_of(ch), types=sorted(ch.types),
+    log.casts.append(CastNote(kicked77=("kicker" in record.additional and record.kicked > 0) if record is not None else None,
+                              player=card.controller, object_id=plan.oid(card), names=card_names.names_of(ch), types=sorted(ch.types),
                               subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes), colors=sorted(ch.colors),
                               mv=float(_stack_mv(card, ch)), cast_from=record.cast_from if record is not None else None,
                               mana_tags=[list(tags) for tags in record.mana_tags] if record is not None and record.mana_known else [],

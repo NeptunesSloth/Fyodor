@@ -1,0 +1,49 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_native_two_creatures_shuffled_together_trigger_one_tomb_batch[Psychic Spiral] _
+
+cards = <app.cards.repository.CardRepository object at 0x7fc4f59b52b0>
+spell = 'Psychic Spiral'
+
+    @pytest.mark.parametrize('spell',['Psychic Spiral','Stream of Thought'])
+    def test_native_two_creatures_shuffled_together_trigger_one_tomb_batch(cards,spell):
+        s=setup(cards)
+        put(s,'Desecrated Tomb','battlefield')
+        creatures=[put(s,n,'graveyard') for n in ['Grizzly Bears','Hill Giant']]
+        top_for(s,['Forest','Sol Ring','Rest in Peace','Hope of Ghirapur'],'p2')
+        source=put(s,spell,'hand')
+        act(s,'p1',type='cast_spell',card_id=source.id,sources=[],targets=['p2'])
+        settle(s)
+        if spell=='Stream of Thought':
+            answer(s,[c.id for c in creatures])
+        settle(s)
+>       assert len([c for c in s.state.cards.values() if c.zone=='p1:battlefield' and c.is_token and c.name=='Bat'])==1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests/test_rules_shuffle_mill67.py:258: AssertionError
+_ test_native_two_creatures_shuffled_together_trigger_one_tomb_batch[Stream of Thought] _
+
+cards = <app.cards.repository.CardRepository object at 0x7fc4f65bc6b0>
+spell = 'Stream of Thought'
+
+    @pytest.mark.parametrize('spell',['Psychic Spiral','Stream of Thought'])
+    def test_native_two_creatures_shuffled_together_trigger_one_tomb_batch(cards,spell):
+        s=setup(cards)
+        put(s,'Desecrated Tomb','battlefield')
+        creatures=[put(s,n,'graveyard') for n in ['Grizzly Bears','Hill Giant']]
+        top_for(s,['Forest','Sol Ring','Rest in Peace','Hope of Ghirapur'],'p2')
+        source=put(s,spell,'hand')
+        act(s,'p1',type='cast_spell',card_id=source.id,sources=[],targets=['p2'])
+        settle(s)
+        if spell=='Stream of Thought':
+            answer(s,[c.id for c in creatures])
+        settle(s)
+>       assert len([c for c in s.state.cards.values() if c.zone=='p1:battlefield' and c.is_token and c.name=='Bat'])==1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests/test_rules_shuffle_mill67.py:258: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_shuffle_mill67.py::test_native_two_creatures_shuffled_together_trigger_one_tomb_batch[Psychic Spiral]
+FAILED tests/test_rules_shuffle_mill67.py::test_native_two_creatures_shuffled_together_trigger_one_tomb_batch[Stream of Thought]

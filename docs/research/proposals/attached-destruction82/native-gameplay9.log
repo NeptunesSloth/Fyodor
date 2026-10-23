@@ -1,0 +1,26 @@
+F.F.....F                                                                [100%]
+=================================== FAILURES ===================================
+_____ test_eaten_destroys_host_and_all_current_equipment_simultaneously82 ______
+tests/test_rules_attached_destruction82.py:77: in test_eaten_destroys_host_and_all_current_equipment_simultaneously82
+    assert s.state.cards[spare.id].zone == 'p1:battlefield'
+E   AssertionError: assert 'p1:graveyard' == 'p1:battlefield'
+E
+E     - p1:battlefield
+E     + p1:graveyard
+_______________ test_unforge_uses_current_host_at_destruction82 ________________
+tests/test_rules_attached_destruction82.py:99: in test_unforge_uses_current_host_at_destruction82
+    assert s.state.cards[current.id].zone == 'p1:graveyard'
+E   AssertionError: assert 'p1:battlefield' == 'p1:graveyard'
+E
+E     - p1:graveyard
+E     + p1:battlefield
+___ test_unforge_indestructible_equipment_still_uses_bound_host_for_damage82 ___
+tests/test_rules_attached_destruction82.py:159: in test_unforge_indestructible_equipment_still_uses_bound_host_for_damage82
+    assert s.state.cards[gear].zone == s.state.cards[host].zone == 'p1:battlefield'
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: assert 0 == 2
+E    +  where 0 = CardInstance(borrow_identity=None, id='bab9e756f9ae', card_id='6677ece0-4080-51ee-8e3d-ffe4647bf29d', name='Wind Drake...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False).damage
+=========================== short test summary info ============================
+FAILED tests/test_rules_attached_destruction82.py::test_eaten_destroys_host_and_all_current_equipment_simultaneously82
+FAILED tests/test_rules_attached_destruction82.py::test_unforge_uses_current_host_at_destruction82
+FAILED tests/test_rules_attached_destruction82.py::test_unforge_indestructible_equipment_still_uses_bound_host_for_damage82

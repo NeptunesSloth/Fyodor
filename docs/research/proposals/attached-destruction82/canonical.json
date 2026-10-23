@@ -1,0 +1,142 @@
+[
+  {
+    "id": "f862682d-cbf3-4c35-83d0-76883b0ac105",
+    "oracle_id": "30dc2a1a-c17e-4e95-9dd8-d0e9be1dcd77",
+    "name": "Soul Nova",
+    "layout": "normal",
+    "set_code": "mrd",
+    "set_name": "Mirrodin",
+    "collector_number": "25",
+    "rarity": "uncommon",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "Exile target attacking creature and all Equipment attached to it.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2003-10-02",
+    "artist": "Keith Garletts",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0efea1b1-f212-4b97-98dd-922f85ab191f",
+    "oracle_id": "d4c04cec-3a0d-4e86-95ed-8d367fe7220d",
+    "name": "Eaten by Spiders",
+    "layout": "normal",
+    "set_code": "avr",
+    "set_name": "Avacyn Restored",
+    "collector_number": "177",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature with flying and all Equipment attached to that creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2012-05-04",
+    "artist": "Slawomir Maniak",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "98bb716d-ca66-445f-9cb3-0fc656c8ebff",
+    "oracle_id": "932177b8-70f8-4908-a48f-fe03204daddc",
+    "name": "Light of Judgment",
+    "layout": "normal",
+    "set_code": "fin",
+    "set_name": "Final Fantasy",
+    "collector_number": "144",
+    "rarity": "common",
+    "mana_cost": "{4}{R}",
+    "cmc": 5.0,
+    "type_line": "Instant",
+    "oracle_text": "Light of Judgment deals 6 damage to target creature. Destroy up to one Equipment attached to that creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-06-13",
+    "artist": "Daniel Landerman",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "d369a3da-3424-4984-a50a-59fd9c3d689e",
+    "oracle_id": "fa360a9d-3cff-4833-9ce2-b2f53d26127f",
+    "name": "Unforge",
+    "layout": "normal",
+    "set_code": "dst",
+    "set_name": "Darksteel",
+    "collector_number": "71",
+    "rarity": "common",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target Equipment. If that Equipment was attached to a creature, Unforge deals 2 damage to that creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2004-02-06",
+    "artist": "Kev Walker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]
