@@ -5725,6 +5725,10 @@ def granted_ability(text: str) -> AbilityText | None:
             return ab
         if ab.keywords == ('sunburst',) and ab.text.rstrip('.').lower() == 'sunburst':
             return ab  # Native prospective entry counters use the spell's actual payment.
+        if ab.keywords == ('bloodthirst',):
+            from app.rules.coverage import _keyword_supported
+
+            return ab if _keyword_supported('bloodthirst', ab.text) else None
         if ab.keywords == ('vanishing',) and ab.text.rstrip('.').lower() == 'vanishing':
             return ab  # CR702.63b: bare vanishing is its two native triggered abilities, with no entry counter number.
         # -- attached events (wave 4L) -- "Protection from red", "Ward {2}", "Toxic 1"
@@ -5805,6 +5809,32 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import chosen_forms95
+
+    if (chosen95 := chosen_forms95.definition(ability, ch)) is not None:
+        return chosen95
+
+    from app.rules import stack_granted_abilities84
+
+    if (grant84 := stack_granted_abilities84.definition(ability, ch)) is not None:
+        return grant84
+    from app.rules import gwenom_top70
+
+    if (gwenom70 := gwenom_top70.definition(ability, ch)) is not None:
+        return gwenom70
+    from app.rules import exchange_spells93
+
+    if (exchange93 := exchange_spells93.definition(ability, ch)) is not None:
+        return exchange93
+    from app.rules import target_conditional_costs81
+
+    if (target81 := target_conditional_costs81.definition(ability, ch)) is not None:
+        return target81
+
+    from app.rules import flitting_reflexive69
+
+    if (flitting69 := flitting_reflexive69.definition(ability, ch)) is not None:
+        return flitting69
     from app.rules import exchange_choices92
 
     if (exchange92 := exchange_choices92.definition(ability, ch)) is not None:
@@ -8469,7 +8499,11 @@ def graveyard_only_ability(d: Definition | None) -> bool:
 
 
 def own_graveyard_activation(d: Definition | None) -> bool:
-    """113.6m: an independently parsed self-return activation is not a resolving spell instruction."""
+    """113.6m: a parsed graveyard-only activation is not a resolving spell instruction."""
+    if d is not None and d.get('kind') == 'activated':
+        cost = parse_ability_cost(d.get('cost') or '')
+        if not cost.unsupported and cost.from_graveyard:
+            return True
     effects = (d or {}).get("effects") or []
     return bool(d is not None and d.get("kind") == "activated" and effects and all(
         e.get("do") == "return_card" and e.get("who") in ("self_gy", "self_gy_exile") for e in effects

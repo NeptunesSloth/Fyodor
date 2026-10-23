@@ -29,6 +29,10 @@ def leave_game(plan: Plan, player: str) -> None:
     # The leaver's permanents (wherever they are) leave the game with them: their "until ~ leaves
     # the battlefield" links end (610.3). Captured before anything moves.
     leaving = {plan.oid(c) for c in state.cards.values() if c.owner == player and c.zone.endswith(":battlefield")}
+    # End departed-player layer-2 effects before deciding which foreign spells remain controlled.
+    from app.rules import layers
+
+    layers.control_sync(plan)
     for card in list(state.cards.values()):
         if card.id not in state.cards:
             continue

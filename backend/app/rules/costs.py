@@ -128,6 +128,7 @@ class CostComponent:
     all_objects: bool = False  # Every matching controlled permanent, including an empty set.
     amount_rule: Literal["opponents"] | None = None  # Bound when the actual activation total is determined.
     gain_scope: Literal["each_other_player"] | None = None  # Nominal life-gain cost paid to every other live player.
+    source_with_choices: bool = False  # One graveyard-exile instruction includes its required source and selected others.
 
     @property
     def chosen(self) -> bool:
@@ -155,7 +156,7 @@ class CostComponent:
         spell's additional cost."""
         return self.amount_rule is not None or self.kind in WAVE_4H_KINDS or self.names is not None or self.selector_x or (self.x and self.kind != PAY_ENERGY) or self.counter == ANY_COUNTER or self.among \
             or self.life_rule is not None or (self.kind == EXILE and self.selector is not None) \
-            or self.alt is not None or self.named_self
+            or self.alt is not None or self.named_self or self.source_with_choices
 
 
 @dataclass(frozen=True)
@@ -220,7 +221,7 @@ class AbilityCost:
     @property
     def from_graveyard(self) -> bool:
         """113.6m: "Exile this card from your graveyard" — the ability works only from there."""
-        return self.graveyard_only or any(c.kind == EXILE_FROM_GRAVEYARD and c.selector is None for c in self.components)
+        return self.graveyard_only or any(c.kind == EXILE_FROM_GRAVEYARD and (c.selector is None or c.source_with_choices) for c in self.components)
 
     @property
     def energy_x(self) -> bool:
@@ -397,6 +398,10 @@ def _component(part: str, card_name: str) -> CostComponent | None:
 
 
 def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False, anyn: bool = True) -> AbilityCost:
+    from app.rules import source_named_cost69
+
+    if not loyalty and (source69 := source_named_cost69.parse(cost)) is not None:
+        return source69
     if not loyalty and cost.strip() == '{6}, Roll a d8':
         return replace(parse_ability_cost('{6}', card_name=card_name, anyn=anyn), numeric_roll_sides=8)
     cost = re.sub(r'Remove twelve ([\w+/\-]+) counters from ([^,{}:]+?) and exile it', r'Remove 12 \1 counters from \2, Exile \2', cost)

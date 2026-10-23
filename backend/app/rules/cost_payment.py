@@ -48,7 +48,7 @@ def _reserved(cost: AbilityCost, comp: CostComponent, source: CardInstance) -> s
     """Objects a part can't use because another part of the same cost already does: the source
     when it's tapped ({T}) or leaves (sacrificed / exiled / returned) as part of the cost.
     CR 601.2h: counters may be removed from that source before paying its leave cost."""
-    leaves = cost.sacrifice_self or any(c.selector is None and c.kind in (C.EXILE, C.RETURN_PERMANENT, C.EXILE_FROM_GRAVEYARD)
+    leaves = cost.sacrifice_self or any((c.selector is None or c.source_with_choices) and c.kind in (C.EXILE, C.RETURN_PERMANENT, C.EXILE_FROM_GRAVEYARD)
                                         for c in cost.components)
     if (leaves and comp.kind != C.REMOVE_COUNTER) or (comp.kind in (C.TAP_OTHER, C.UNTAP_OTHER, C.WATERBEND) and (cost.tap or cost.untap)):
         return {source.id}
@@ -275,6 +275,8 @@ def _attached_host(plan: Plan, card: CardInstance) -> bool:
 def _new_part_problem(plan: Plan, comp: CostComponent, card: CardInstance, player: str, x: int | None) -> str | None:
     """118.3 for the parts this wave reads that name no chosen objects (None: payable, or not one of them)."""
     name = card.name or "It"
+    if comp.source_with_choices and (comp.kind != C.EXILE_FROM_GRAVEYARD or card.zone != f'{player}:graveyard'):
+        return 'The required source is not in your graveyard'
     if comp.kind == C.UNATTACH and comp.selector is None and not _attached_host(plan, card):
         return f"{name} isn't attached to a legal host"
     if comp.kind == C.REMOVE_COUNTER and comp.selector is None and (comp.x or comp.counter == C.ANY_COUNTER):
@@ -542,6 +544,8 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.Dec
         elif len(usable) == need and not comp.up_to and not withheld(plan, comp, plan.actor, card):  # (review 28D: something left out: asked, with the note)
             chosen = usable  # (no choice to make)
         else:
+            from app.rules import source_named_cost69
+
             verb = _VERBS.get(comp.kind, "use")
             decide(plan, player=plan.actor, kind="choose_cards",
                    prompt=f"{what}: choose {'up to ' if comp.up_to else ''}{need} to {verb} (“{comp.text}”), or "
@@ -549,7 +553,8 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.Dec
                    options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in usable],
                    min_choices=0, max_choices=need,
                    resume={"step": "ability_cost", "component": i, "amount": None if comp.up_to else need, "empty_ok": comp.up_to,
-                           "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},
+                           "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}),
+                           **(source_named_cost69.retain(plan, card, usable) if comp.source_with_choices else {})},
                    source=card)
             if counter_index is not None:
                 counter_cost_order70.retain_choice72(plan, cost, out)
@@ -744,6 +749,10 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
             current = plan.state.cards.get(cid)
             if ref is None or current is None or plan.oid(current) != ref.object_id or current.zone != ref.zone:
                 raise ActionError('The selected counter holder is no longer the original object')
+    from app.rules import source_named_cost69
+
+    if source_named_cost69.requires_receipt(plan, d.resume):
+        source_named_cost69.guard(plan, d.resume, chosen)
     saved_counter72 = d.resume.get("counter_choice72")
     if saved_counter72 is not None:
         from app.rules import counter_cost_order70
@@ -884,6 +893,10 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
                     plan.do({'type': 'reveal', 'card_ids': shown}, actor=player)
                     record.revealed += shown
             ids = ids if comp.selector is not None or comp.kind == C.CRAFT else [card.id]
+            if comp.source_with_choices:
+                from app.rules import source_named_cost69
+
+                ids = source_named_cost69.payment(plan, comp, card, ids)
             from app.rules import payment_card_facts
 
             stack_exile = comp.kind == C.EXILE and comp.selector is not None and "stack" in selectors.from_key(comp.selector).zones

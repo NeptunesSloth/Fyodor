@@ -75,6 +75,10 @@ def _paid(plan: Plan, frame: SpecialPayment, payment: M.Payment | None) -> None:
                          x=frame.number if frame.cost_has_x else None)
         return
     if kind == 'face_up':
+        from app.rules import chosen_forms95
+
+        if chosen_forms95.prepare_up(plan, card, actor=plan.actor, kind=frame.faceup_kind):
+            return
         plan.do({'type': 'face_down', 'card_ids': [card.id], 'face_down': False})
         casting.turned_up(plan, card)
         plan.rules.passed = []

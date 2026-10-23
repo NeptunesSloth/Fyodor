@@ -196,6 +196,10 @@ def turn_face_up(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                min_choices=0 if e.get("optional") else 1, max_choices=1, resume={"step": "turn_face_up", "ctx": ctx, "e": e})
         return False
     cards = effects._cards(plan, ctx, e["who"])
+    from app.rules import chosen_forms95
+
+    if any(card.face_down and any(chosen_forms95.form(a.text.replace('this creature', '~')) for a in plan.ch(card.model_copy(update={'face_down': False})).abilities) for cid in cards if (card := plan.state.cards.get(cid)) is not None):
+        return chosen_forms95.run_batch(plan, ctx, e, list(cards), [])
     done = [c for c in cards if _turn_up(plan, c, pid)]
     for c in done:
         plan.note(f"{plan.name(pid)} turns {plan.state.cards[c].name} face up")
@@ -205,6 +209,11 @@ def turn_face_up(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def resume_turn_face_up(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx = d.resume["ctx"]
+    from app.rules import chosen_forms95
+
+    if chosen:
+        chosen_forms95.run_batch(plan, ctx, d.resume['e'], list(chosen), [])
+        return
     for c in chosen:
         if _turn_up(plan, c, d.player):
             plan.note(f"{plan.name(d.player)} turns {plan.state.cards[c].name} face up")

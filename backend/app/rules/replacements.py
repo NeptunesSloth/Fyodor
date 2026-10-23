@@ -100,6 +100,9 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, **kw: Any) -> di
 
     if (answer := (kw.get("answers") or {}).get(copiable_coin_entry.WHAT)) is not None:
         copiable_coin_entry.ensure_form(plan, card, controller, answer)
+    from app.rules import chosen_forms95
+
+    chosen_forms95.ensure(plan, card, controller, kw.get("answers") or {})
     card = entry_characteristics.probe(card, kw.pop("entry_characteristics", None))
     out = _entry_plan(plan, card, controller, **kw)
     from app.rules import numeric_entry_roll42
@@ -535,6 +538,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
     from app.rules.effects import _choice_options
 
     what = choice["what"]
+    from app.rules import chosen_forms95
+
+    if what.startswith(chosen_forms95.PREFIX):
+        return f"{card.name}: choose its form", [DecisionOption(id=o, label=o) for o in choice["options"]]
     if (named := card_names.prompt(plan, card, controller, choice)) is not None:  # -- card names (wave 22B) -- look at a hand, then name
         return named
     from app.rules import battles, reveal_lands
@@ -960,6 +967,11 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules.effects import CHOICE_LABELS
 
         for what, value in choices.items():
+            from app.rules import chosen_forms95
+
+            if value and what.startswith(chosen_forms95.PREFIX):
+                plan.do({"type": "set_choice", "card_id": card_id, "key": "Chosen form", "value": value}, actor=controller)
+                continue
             if value and value in (_chosen.words(what) or ()):  # -- linked words (wave 33B) -- 607.2f: the word, public, kept for this object (400.7)
                 plan.do({"type": "set_choice", "card_id": card_id, "key": _chosen.WORD_LABEL, "value": value}, actor=controller)
                 _chosen.record_word(plan, card_id, value)
@@ -1068,7 +1080,9 @@ def token_entering(plan: Plan, controller: str, spec: dict[str, Any]) -> tuple[C
         ch = copying.characteristics(CopyRecipe.model_validate(spec["_copy"]), plan.info)
         t = {"name": ch.name, "power": ch.power, "toughness": ch.toughness, "colors": sorted(ch.colors), "type_line": copying.type_line(ch),
              "text": ch.oracle_text}
-    if "choose" not in (t.get("text") or "").lower():
+    from app.rules import chosen_forms95
+
+    if "choose" not in (t.get("text") or "").lower() and not any(chosen_forms95.form(line.replace("this creature", "~")) for line in (t.get("text") or "").splitlines()):
         from app.rules import copiable_coin_entry, token_copy_entry
 
         if not any(copiable_coin_entry.definition(line.replace("this creature", "~"))
@@ -1122,6 +1136,13 @@ def token_choices(plan: Plan, evs: list[dict[str, Any]], answers: dict[str, str]
                         continue
                     return rows, {"key": key, "player": pid, "prompt": prompt, "options": options, "source": ev.get("source")}
                 row[k] = {**row[k], **(out.get("choices") or {})}
+                from app.rules import chosen_forms95
+
+                for what95, answer95 in row[k].copy().items():
+                    if what95.startswith(chosen_forms95.PREFIX):
+                        spec95 = token_copy_entry.effective(ev, row[k])
+                        recipe95 = CopyRecipe.model_validate(spec95["_copy"])
+                        row[k][token_copy_entry.COPY] = chosen_forms95.recipe(plan, recipe95, what95, answer95).model_dump_json()
                 from app.rules import copiable_coin_entry
 
                 if (answer := row[k].get(copiable_coin_entry.WHAT)) in ("heads", "tails"):

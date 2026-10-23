@@ -2582,6 +2582,11 @@ def face_up_ways(card: CardInstance, printed: Characteristics, *, state: GameSta
     "mana_cost" for a manifested or cloaked permanent (701.40b / 701.58b: a creature card's mana cost
     — not an instant or sorcery card, nor one without a mana cost; 701.40c-d / 701.58c-d: a manifested
     or cloaked card with morph or disguise may use those too). A cost with X isn't automated."""
+    if state is not None and info is not None:
+        from app.rules import layers
+
+        prospective95 = card.model_copy(update={'face_down': False})
+        printed = layers.derive(state, prospective95, chars.of(prospective95, info), info)
     ways: dict[str, tuple[str, str]] = {}
     found = morph_cost(printed)
     if found is not None:
@@ -2690,6 +2695,10 @@ def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
             raise ActionError(f"Not enough mana to pay {cost.text()}")
         special_payment_tails.pay(plan, "face_up", card, printed, cost, f"paid {cost.text()} to turn {printed.name} face up",
                                   sources=[] if own_pool else a.sources, purpose=purpose, faceup_kind=kind)
+        return
+    from app.rules import chosen_forms95
+
+    if chosen_forms95.prepare_up(plan, card, actor=plan.actor, kind=kind):
         return
     plan.do({"type": "face_down", "card_ids": [card.id], "face_down": False})
     turned_up(plan, card)

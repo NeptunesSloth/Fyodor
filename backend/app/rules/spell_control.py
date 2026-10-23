@@ -23,10 +23,12 @@ def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
 
 
 def gain_control(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    from app.rules.effects import _stack_targets
+    from app.rules import layers
+    from app.rules.effects import _control_effect, _stack_targets
 
     for sid in _stack_targets(plan, ctx, e):
         spell = plan.state.cards[sid]
         if spell.ability is None:
-            plan.do({'type': 'set_controller', 'card_ids': [sid], 'player': ctx['controller']}, actor=ctx['controller'])
+            _control_effect(plan, ctx, [sid], ctx['controller'], 'permanent')
+    layers.control_sync(plan)
     return True

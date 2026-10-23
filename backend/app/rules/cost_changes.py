@@ -328,6 +328,13 @@ def own_changes(state: GameState, player: str, card: CardInstance, ch: Character
         if change.get("targets") and ((targets == ANY_TARGET and change["dir"] > 0) or (
                 targets != ANY_TARGET and not targets_fit(view, card, player, change["targets"], targets))):
             continue  # "… if it targets …": the chosen targets (601.2c comes before 601.2f)
+        # Actual native chosen targets were validated before cost locking; the prepared
+        # numeric total then survives all subsequent mana-ability state changes.
+        if change.get('target_controller_graveyard_min81') is not None and targets != ANY_TARGET and not any(
+                (target81 := view.state.cards.get(tid)) is not None and view.ch(target81).is_creature
+                and len(view.state.zones.get(f'{target81.controller}:graveyard', [])) >= change['target_controller_graveyard_min81']
+                for tid in targets):
+            continue
         n = amount(view, context(state, player, card), change)
         n = min(n, change["cap"]) if "cap" in change else n
         if n:

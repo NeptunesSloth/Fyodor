@@ -1636,10 +1636,10 @@ def _control_pass(plan: Plan) -> bool:
     from app.rules import scripts
 
     state, r = plan.state, plan.rules
-    battle = {cid: c for cid, c in state.cards.items() if c.zone.endswith(":battlefield")}
+    battle = {cid: c for cid, c in state.cards.items() if c.zone.endswith(":battlefield") or (c.zone == "stack" and c.ability is None)}
     live = set(plan.live())
     # A zone change makes a fresh object even when its card id is reused. Phasing does not.
-    existing = {plan.oid(c) for c in state.cards.values() if c.zone.endswith((":battlefield", ":phased"))}
+    existing = {plan.oid(c) for c in state.cards.values() if c.zone.endswith((":battlefield", ":phased")) or (c.zone == "stack" and c.ability is None)}
     for oid in list(r.control_baselines):
         if oid not in existing:
             del r.control_baselines[oid]
@@ -1670,6 +1670,11 @@ def _control_pass(plan: Plan) -> bool:
             if cid not in r.control_changed and want != card.controller:
                 r.control_baselines[plan.oid(card)] = card.controller
                 r.control_changed.append(cid)
+            elif r.control_baselines.get(plan.oid(card)) == want:
+                # A remaining control effect can agree with the underlying controller.
+                # Once that baseline is restored there is no change left to remember.
+                r.control_baselines.pop(plan.oid(card), None)
+                r.control_changed = [x for x in r.control_changed if x != cid]
         elif cid in r.control_changed:
             # Older saves lack the baseline; retain their historical owner fallback.
             baseline = r.control_baselines.pop(plan.oid(card), card.owner)
@@ -1689,4 +1694,9 @@ def prune(state: GameState) -> None:
     if r is None or not r.effects:
         return
     live = {r.object_id(cid) for cid, c in state.cards.items() if c.zone.endswith(":battlefield")}
-    r.effects = [e for e in r.effects if e.who is not None or set(e.affected) & live]
+    stack = {r.object_id(cid) for cid, c in state.cards.items() if c.zone == "stack" and c.ability is None}
+    stack6 = {r.object_id(cid) for cid, card in state.cards.items() if card.zone == "stack" and card.ability is None
+              and ((entry := r.stack.get(cid)) is None or entry.kind == "spell")}
+    r.effects = [e for e in r.effects if e.who is not None or set(e.affected) & live
+                 or (e.layer == "2" and set(e.affected) & stack)
+                 or (e.layer == "6" and bool(set(e.affected) & stack6))]

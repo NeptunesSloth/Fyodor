@@ -1526,7 +1526,8 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         kind, key, group = ref(m["o"] or m["o2"])
         if kind not in ("target", "self", "it"):
             raise _Fail
-        return [{"do": "to_library", "who": _who(kind, key), "place": "choice"}], _one(group)
+        return [{"do": "to_library", "who": _who(kind, key), "place": "choice",
+                 **({'owner_root_choice81': True} if text == "the owner of target creature puts it on their choice of the top or bottom of their library" else {})}], _one(group)
     m = _YOUR_CHOICE.fullmatch(text)
     if m:
         kind, key, group = ref(m["o"])

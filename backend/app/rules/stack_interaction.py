@@ -326,11 +326,11 @@ def choose_new_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules.effects import _stack_targets
 
     for sid in _stack_targets(plan, ctx, e):
-        return _ask_new_targets(plan, ctx, sid, [])
+        return _ask_new_targets(plan, ctx, sid, [], plan.state.cards[sid].controller if e.get("by") == "spell_controller" else None)
     return True
 
 
-def _ask_new_targets(plan: Plan, ctx: Context, sid: str, picks: list[str]) -> bool:
+def _ask_new_targets(plan: Plan, ctx: Context, sid: str, picks: list[str], chooser: str | None = None) -> bool:
     """True once every target has been kept or changed (the changed entry applied); False while a question is open."""
     from app.rules import copying, targets
     from app.rules.plan import decide
@@ -338,7 +338,7 @@ def _ask_new_targets(plan: Plan, ctx: Context, sid: str, picks: list[str]) -> bo
     entry = target_entry(plan, sid)
     if entry is None:
         return True
-    me = ctx["controller"]
+    me = chooser or ctx["controller"]
     positions = copying.positions(entry)
     name = _label(plan, sid) or "that spell"
     while len(picks) < len(positions):
@@ -356,7 +356,7 @@ def _ask_new_targets(plan: Plan, ctx: Context, sid: str, picks: list[str]) -> bo
                    *(DecisionOption(id=x, label=_label(plan, x)[:200], card_id=x if x in plan.state.cards else None) for x in legal)]
         count = f" ({k + 1} of {len(positions)})" if len(positions) > 1 else ""
         decide(plan, player=me, kind="choose_one", prompt=f"{ctx.get('name', '')}: keep the target of {name}{count} or choose a new one (115.7d)",
-               options=options, resume={"step": "choose_new_targets", "ctx": ctx, "sid": sid, "oid": plan.oid(sid), "picks": picks})
+               options=options, resume={"step": "choose_new_targets", "ctx": ctx, "sid": sid, "oid": plan.oid(sid), "picks": picks, "chooser": me})
         return False
     if all(p == "keep" for p in picks):
         return True
@@ -365,7 +365,7 @@ def _ask_new_targets(plan: Plan, ctx: Context, sid: str, picks: list[str]) -> bo
     problem = copying._problem(plan, new)
     if problem is not None:  # 115.7e: only the final set is judged: choose again
         plan.note(f"Those targets aren't legal together: {problem}. Choose again", actor=me)
-        return _ask_new_targets(plan, ctx, sid, [])
+        return _ask_new_targets(plan, ctx, sid, [], chooser)
     _apply(plan, sid, new)
     return True
 
@@ -377,7 +377,7 @@ def resume_choose_new_targets(plan: Plan, d: Any, chosen: list[str]) -> None:
     if target_entry(plan, r["sid"]) is None or plan.oid(r["sid"]) != r["oid"]:  # (gone, or a new object: 400.7)
         continue_effects(plan, r["ctx"])
         return
-    if _ask_new_targets(plan, r["ctx"], r["sid"], [*r["picks"], chosen[0]]):
+    if _ask_new_targets(plan, r["ctx"], r["sid"], [*r["picks"], chosen[0]], r.get("chooser")):
         continue_effects(plan, r["ctx"])
 
 

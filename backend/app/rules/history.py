@@ -885,6 +885,12 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         return entered(plan, ctx, {"sel": v["sel"]}, log)
     if kind == "attackers":  # -- cost self reduction (wave 16F) -- each creature declared as an attacker this turn, once (508.1)
         return len({a for p, ids in log.attackers.items() if v.get("who") != "you" or p == me for a in ids})
+    if kind == 'sacrificed_card_types82':
+        # Korvold's cast reduction counts card types; Kindred counts here, whereas
+        # its separate combat trigger counts only permanent types (700.7).
+        card_types82 = {'Artifact', 'Battle', 'Creature', 'Enchantment', 'Instant', 'Kindred', 'Land', 'Planeswalker', 'Sorcery'}
+        return len({('Kindred' if t == 'Tribal' else t) for f in log.facts
+                    if f.kind == 'sacrifice' and f.player == me for t in f.types} & card_types82)
     if kind in ("tokens", "sacrificed", "discarded"):  # -- X sized by a count (wave 19F) -- one fact per token / permanent (111.2, 701.21a)
         return sum(1 for f in log.facts if f.kind == {"tokens": "token", "sacrificed": "sacrifice", "discarded": "discard"}[kind]
                    and (f.player == me or v.get("who") == "any")  # (wave 21F: "who": "any" — each permanent sacrificed, whoever did it)

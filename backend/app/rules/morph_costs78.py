@@ -88,6 +88,10 @@ def _paid(plan: Plan, frame: NonmanaMorph, payment: M.Payment | None) -> None:
             plan.do({'type': 'reveal', 'card_ids': frame.objects[i]}, actor=plan.actor)
             plan.do({'type': 'hide', 'card_ids': frame.objects[i]}, actor=plan.actor)
     plan.reserved_life = 0
+    from app.rules import chosen_forms95
+
+    if chosen_forms95.prepare_up(plan, card, actor=plan.actor, kind=frame.kind):
+        return
     plan.do({'type': 'face_down', 'card_ids': [card.id], 'face_down': False})
     casting.turned_up(plan, card)
     plan.rules.passed = []

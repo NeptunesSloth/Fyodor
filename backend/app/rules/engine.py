@@ -1844,3 +1844,7 @@ from app.rules import echo_alternatives76 as _echo76  # noqa: E402
 RESUME['echo_alternative76'] = _echo76.resume
 
 RESUME['echo_draw_count76'] = _echo76.resume_draw
+
+from app.rules import chosen_forms95 as _chosen_forms95  # noqa: E402
+
+RESUME.update(_chosen_forms95.RESUME)

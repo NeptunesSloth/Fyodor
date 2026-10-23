@@ -912,10 +912,12 @@ def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     abilities = source_quality_grants.abilities(plan, ctx, player_protection_grants.abilities(plan, ctx, list(e.get("abilities") or [])))
     if abilities:
-        permanents = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]
-        if len(permanents) < len(cards):
-            plan.note(f"{ctx.get('name') or 'The effect'}: only a permanent on the battlefield gains an ability", actor=ctx["controller"])
-        cards = permanents
+        receivers = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield") or (
+            plan.state.cards[c].zone == "stack" and plan.state.cards[c].ability is None
+            and ((entry := plan.rules.stack.get(c)) is None or entry.kind == "spell"))]
+        if len(receivers) < len(cards):
+            plan.note(f"{ctx.get('name') or 'The effect'}: only a permanent or a spell gains an ability", actor=ctx["controller"])
+        cards = receivers
     if cards and (keywords or removed or abilities):
         words = [*keywords, *(f"loses {k}" for k in removed), *(f'"{a}"' for a in abilities)]
         duration = e.get("duration", "end_of_turn")
@@ -3421,7 +3423,8 @@ def to_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     (401.4)."""
     cards = ([t["id"] for group in ctx.get("groups", []) for t in group if t] if e["who"] == "all_targets" else _cards(plan, ctx, e["who"]))
     before = _remember(plan, ctx, e, cards)
-    if len(cards) > 1 and (e["place"] == "choice" or (e["place"] in ("top", "bottom") and not e.get("chooser"))):
+    compound81 = e.get('owner_root_choice81') and any(plan.state.cards[cid].merged for cid in cards)
+    if (len(cards) > 1 or compound81) and (e["place"] == "choice" or (e["place"] in ("top", "bottom") and not e.get("chooser"))):
         from app.rules import library_placements
 
         return library_placements.start(plan, ctx, e, cards, before)
@@ -6862,3 +6865,7 @@ PRIMITIVES.update(_attached_destruction82.PRIMITIVES)
 from app.rules import exchange_choices92 as _exchange92  # noqa: E402
 
 PRIMITIVES.update(_exchange92.PRIMITIVES)
+
+from app.rules import exchange_spells93 as _exchange93  # noqa: E402
+
+PRIMITIVES.update(_exchange93.PRIMITIVES)

@@ -1981,6 +1981,7 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     zone_label = "any graveyard" if e.get("zone_owner") == "any" and e["zone"] == "graveyard" else f"your {e['zone']}"
     r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=e["play"], cast=e["cast"], zone=e["zone"],
                                     zone_owner=e.get("zone_owner", "you"), look_top=bool(e.get("look_top")),
+                                    free=bool(e.get("free")), life_mv=bool(e.get("life_mv")),
                                     extra=e.get("extra", ""), enters=e.get("enters"),
                                     filter=e.get("filter"), once=bool(e.get("once")),  # (-- cast permissions (wave 30Q) -- "a creature spell": one spell, of that kind)
                                     exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")), graveyard_destination=e.get("graveyard_destination", ""),  # (wave 25C)

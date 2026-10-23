@@ -600,6 +600,8 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "tokens"}
     if m := re.fullmatch(r"permanents? (you(?:'ve)? )?sacrificed this turn", what):  # (wave 21F: The Balrog, "each permanent sacrificed": anyone's)
         return {"turn_history": "sacrificed", **({} if m[1] else {"who": "any"})}
+    if re.fullmatch(r"card types? among permanents you(?:'ve)? sacrificed this turn", what):
+        return {"turn_history": "sacrificed_card_types82"}
     if re.fullmatch(r"other artifacts? or creatures? you(?:'ve)? sacrificed this turn", what):  # -- cost reductions paid with objects (wave 47C) -- Dargo, the Shipwrecker: the ones
         return {"turn_history": "sacrificed", "sel": selectors.Selector(types=("Artifact", "Creature")).key()}  # sacrificed before; this cast's own are sacrificed later (601.2h)
     if re.fullmatch(r"cards? you(?:'ve)? cycled or discarded this turn", what):  # (wave 21F: Hollow One; a cycled card is discarded, 702.29a)
@@ -705,6 +707,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sized_damage.evaluate(plan, ctx, v)
     if "x" in v:
         return max(0, int(ctx.get("x") or 0))
+    if "last_chosen_number95" in v:
+        from app.rules import chosen_forms95
+
+        return chosen_forms95.number(plan, ctx)
     if "chosen_n" in v:  # (wave 53B: never left unbound by a definition chosen.chosen_value_ok accepts)
         return 0
     if "coin_flips" in v:  # -- chosen filters (wave 53B) -- the flips this resolution made, won or lost (app/rules/coin_flips.py)

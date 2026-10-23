@@ -1159,7 +1159,8 @@ class PaymentRecord(BaseModel):
 class PermissionUseTrigger(BaseModel):
     """Original source of a trigger attached to one selected casting/play authority."""
 
-    kind: Literal["replenish_top", "owner_loses_mv", "create_food69"]
+    kind: Literal["replenish_top", "owner_loses_mv", "create_food69", "native"]
+    definition: dict[str, Any] | None = None
     source: ObjectRef
     controller: str
     name: str
