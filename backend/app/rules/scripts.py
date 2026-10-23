@@ -2653,6 +2653,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import object_mana_offers78
+
+    if (offered78 := object_mana_offers78.parse(body)) is not None:
+        return offered78
     from app.rules import public_mill_attachment59
 
     if (continued59 := public_mill_attachment59.parse(body, it, event_player)) is not None:
@@ -5742,6 +5746,18 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import conditional_tax80
+
+    if (tax80 := conditional_tax80.definition(ability, ch)) is not None:
+        return tax80
+    from app.rules import upkeep_tax79
+
+    if (tax79 := upkeep_tax79.definition(ability, ch)) is not None:
+        return tax79
+    from app.rules import first_crew_saddle80
+
+    if (first80 := first_crew_saddle80.definition(ability, ch)) is not None:
+        return first80
     from app.rules import unblocked_choices79
 
     if (unblocked79 := unblocked_choices79.definition(ability, ch)) is not None:
@@ -6079,6 +6095,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (caster_cost := caster_turn_costs63.definition(ability, ch)) is not None:
         return caster_cost
+
+    from app.rules import source_spell_discounts64
+
+    if (source_discount := source_spell_discounts64.definition(ability, ch)) is not None:
+        return source_discount
 
     from app.rules import first_target_activation_cost58
 

@@ -1,0 +1,9 @@
+# Source/spell discounts64 — uninstalled review candidate
+
+Three exact native cost effects: Mistform Warchief composes native current source-type selectors; Seal of the Guildpact reuses typed original entry/acquisition color receipts; Battlefield Thaumaturge counts distinct current battlefield creature targets. Native cost order and colored costs remain untouched.
+
+For affordability previews Thaumaturge reads native typed target groups and legal creature candidates, preserving multi-target cardinality such as Choking Tethers' four creatures rather than counting one printed target word. Preview is optimistic; actual cost always recomputes the announced distinct creature tuple. Players, graveyard creature cards and non-instant/sorcery spells do not receive discounts. No global Hinata parser or target rules changed.
+
+Seal uses existing chosen_color_pairs45 receipt/acquisition policy, not freeform displayed colors. Unknown linked legacy history returns an explicit cast-problem reason only for that source controller's colored spells, across the existing ordinary/resolving cast-limit path. Hints/view remain safe; cast rejection is atomic. Colorless spells have known zero overlap and continue normally. Native per-card manual automation provides an explicit route to handle that unknown source by hand. No color or acquisition is invented.
+
+Proof: final21 native PASS including3 genuinely fresh-process saved choices/actions; related31 PASS (3 previous cold63 deselected), scoped mypy4 PASS and full configured Ruff4+native test PASS. Actual responses/copies, color choices, type expiry, duplicated target slots with taxes, positive Heroic, negative target/type/player scope and legacy safety are closed. Earlier fixture mistakes and canonical Fireball manual support mismatch are preserved honestly in logs; Fireball is not changed or admitted. Root must integrate the narrow four-file patch and audit exact card promotions before counting.

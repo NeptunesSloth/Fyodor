@@ -1,0 +1,84 @@
+..FF.F.....F                                                             [100%]
+=================================== FAILURES ===================================
+_ test_wizard_actual_cast_and_activation_native_black_or_three_tax[pay:0-resource0] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f1dc622fad0>
+pick = 'pay:0', resource = {'B': 1}
+
+    @pytest.mark.parametrize('pick,resource', [('pay:0', {'B': 1}), ('pay:1', {'C': 3}), ('decline', {'B': 1, 'C': 3})])
+    def test_wizard_actual_cast_and_activation_native_black_or_three_tax(cards, pick, resource):
+        s, wizard, target = wizard_spell(cards, resource)
+        assert s.state.rules.decision and s.state.rules.decision.player == 'p2'
+        choose(s, [pick])
+        assert s.state.cards[target.id].zone == 'p2:graveyard'
+>       assert s.state.players['p2'].mana == (resource if pick == 'decline' else {'B': 3})
+E       AssertionError: assert {} == {'B': 3}
+E
+E         Right contains 1 more item:
+E         {'B': 3}
+E         Use -v to get more diff
+
+/tmp/counter79-tests/test_counter79.py:185: AssertionError
+_ test_wizard_actual_cast_and_activation_native_black_or_three_tax[pay:1-resource1] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f1dc61be1b0>
+pick = 'pay:1', resource = {'C': 3}
+
+    @pytest.mark.parametrize('pick,resource', [('pay:0', {'B': 1}), ('pay:1', {'C': 3}), ('decline', {'B': 1, 'C': 3})])
+    def test_wizard_actual_cast_and_activation_native_black_or_three_tax(cards, pick, resource):
+        s, wizard, target = wizard_spell(cards, resource)
+        assert s.state.rules.decision and s.state.rules.decision.player == 'p2'
+        choose(s, [pick])
+        assert s.state.cards[target.id].zone == 'p2:graveyard'
+>       assert s.state.players['p2'].mana == (resource if pick == 'decline' else {'B': 3})
+E       AssertionError: assert {} == {'B': 3}
+E
+E         Right contains 1 more item:
+E         {'B': 3}
+E         Use -v to get more diff
+
+/tmp/counter79-tests/test_counter79.py:185: AssertionError
+_ test_wizard_repeated_native_activations_require_independent_black_and_generic_payments _
+
+cards = <app.cards.repository.CardRepository object at 0x7f1dc61578f0>
+
+    def test_wizard_repeated_native_activations_require_independent_black_and_generic_payments(cards):
+        s, wizard, target = wizard_spell(cards, {'B': 1, 'C': 3})
+        choose(s, ['pay:0'], resolve=False)
+        assert s.state.cards[target.id].zone == 'stack'
+        wait_priority(s, 'p1')
+        act(s, 'p1', type='activate_ability', card_id=wizard.id, ability=0, targets=[target.id], sources=[])
+        settle(s)
+        assert {o.id for o in s.state.rules.decision.options} == {'pay:1', 'decline'}
+        choose(s, ['pay:1'])
+>       assert s.state.players['p2'].mana == {'B': 3} and s.state.cards[target.id].zone == 'p2:graveyard'
+E       AssertionError: assert ({} == {'B': 3}
+E
+E         Right contains 1 more item:
+E         {'B': 3}
+E         Use -v to get more diff)
+
+/tmp/counter79-tests/test_counter79.py:199: AssertionError
+_ test_chaos_world_rule_replaces_old_world_and_noninstant_does_not_trigger_tax _
+
+cards = <app.cards.repository.CardRepository object at 0x7f1dc6cdfa40>
+
+    def test_chaos_world_rule_replaces_old_world_and_noninstant_does_not_trigger_tax(cards):
+        s = game(cards)
+        old = cast(s, NAMES[5])
+        creature = cast(s, 'Grizzly Bears')
+        assert s.state.cards[creature.id].zone == 'p1:battlefield' and s.state.rules.decision is None
+        world = cast(s, 'Concordant Crossroads')
+>       assert s.state.cards[old.id].zone == 'p1:graveyard' and s.state.cards[world.id].zone == 'p1:battlefield'
+E       AssertionError: assert ('p1:battlefield' == 'p1:graveyard'
+E
+E         - p1:graveyard
+E         + p1:battlefield)
+
+/tmp/counter79-tests/test_counter79.py:266: AssertionError
+=========================== short test summary info ============================
+FAILED backend::test_wizard_actual_cast_and_activation_native_black_or_three_tax[pay:0-resource0]
+FAILED backend::test_wizard_actual_cast_and_activation_native_black_or_three_tax[pay:1-resource1]
+FAILED backend::test_wizard_repeated_native_activations_require_independent_black_and_generic_payments
+FAILED backend::test_chaos_world_rule_replaces_old_world_and_noninstant_does_not_trigger_tax
+4 failed, 8 passed, 19 deselected in 9.73s

@@ -1,0 +1,40 @@
+[
+  {
+    "name": "Village Rites",
+    "layout": "normal",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Anhelo, the Painter",
+    "layout": "normal",
+    "mana_cost": "{U}{B}{R}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 Vampire Assassin",
+    "oracle_text": "Deathtouch\nThe first instant or sorcery spell you cast each turn has casualty 2. (As you cast that spell, you may sacrifice a creature with power 2 or greater. When you do, copy the spell and you may choose new targets for the copy.)",
+    "colors": [
+      "B",
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "R",
+      "U"
+    ],
+    "keywords": [
+      "Deathtouch"
+    ],
+    "power": "1",
+    "toughness": "3"
+  }
+]

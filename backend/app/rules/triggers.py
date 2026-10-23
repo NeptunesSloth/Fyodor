@@ -568,7 +568,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
                  {"oid": e.object_id, "actor": e.player, "other": e.by_card, "other_oid": e.source})]
     if e.kind in ("crewed", "saddled", "evolved"):  # 702.122e: its crew ability resolved; 702.171b: it became saddled
         got = _object_then(plan, e.card, e.object_id)
-        return [(e.kind, got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player})] if got is not None else []
+        return [(e.kind, got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "crew_count80": e.crew_count80})] if got is not None else []
     if e.kind in ("attached", "unattached"):  # -- attachment events (wave 30S) -- 603.2e, 701.3d, 603.10c: the Aura / Equipment (as it last existed
         got = _object_then(plan, e.card, e.object_id)  # if it left), and the permanent on the other side (``other``) while it still is that object
         host = plan.state.cards.get(e.by_card or "")
@@ -737,6 +737,10 @@ _PAIRED = {"block": "block_pair", "blocked": "blocked_pair"}
 
 
 def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: Fact, *, source_oid: str | None = None) -> bool:
+    if cond.get('first_source80'):
+        from app.rules import first_crew_saddle80
+
+        return first_crew_saddle80.matches(plan, cond, watcher, fact, source_oid)
     if cond.get('first_event78'):
         from app.rules import first_event_receipts78
 
@@ -1648,6 +1652,9 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
             continue
         facts = _facts(plan, e, window)
         first_event_receipts78.annotate(plan, facts, e.batch, first_batches78)
+        from app.rules import first_crew_saddle80
+
+        first_crew_saddle80.annotate(plan, facts)
         for fact in facts:
             if fact[0] == 'dealt_damage' and fact[4].get('oid'):
                 fact[4]['simultaneous_amount'] = simultaneous_damage.get((e.batch, fact[4]['oid']), 0)

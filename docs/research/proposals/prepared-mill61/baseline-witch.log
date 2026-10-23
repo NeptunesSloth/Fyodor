@@ -1,0 +1,24 @@
+F
+=================================== FAILURES ===================================
+_______ test_witch_engine_adds_the_mana_then_the_opponent_gains_control ________
+
+cards = <app.cards.repository.CardRepository object at 0x7f26e323ff80>
+
+    def test_witch_engine_adds_the_mana_then_the_opponent_gains_control(cards):
+        s = build(cards, ["Witch Engine"])
+        engine = put(s, "Witch Engine")
+        next_turn(s)
+        activate(s, "p1", engine, targets=["p2"])  # it has a target: not a mana ability, it uses the stack (605.1a)
+        settle(s)
+>       assert s.state.players["p1"].mana == {"B": 4} and s.state.cards[engine.id].controller == "p2"
+E       AssertionError: assert ({} == {'B': 4}
+E
+E         Right contains 1 more item:
+E         {'B': 4}
+E         Use -v to get more diff)
+
+backend/tests/test_rules_wave52d_activated.py:347: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/test_rules_wave52d_activated.py::test_witch_engine_adds_the_mana_then_the_opponent_gains_control
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 1.17s

@@ -1,0 +1,125 @@
+{
+  "Mighty Servant of Leuk-o": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "0b59099f-2172-4eab-9c0d-7048e6771018",
+        "source": "wotc",
+        "published_at": "2022-06-10",
+        "comment": "An ability that triggers whenever a Vehicle \"becomes crewed\" triggers when its crew ability resolves. In this case, it will trigger only if exactly two creatures were tapped to pay the crew cost of the ability that caused it to become crewed for the first time that turn."
+      }
+    ]
+  },
+  "Mindlink Mech": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "009a4073-5946-4131-928c-c5c373745344",
+        "source": "wotc",
+        "published_at": "2022-02-18",
+        "comment": "Mindlink Mech's second ability triggers as its crew ability resolves for the first time each turn."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "009a4073-5946-4131-928c-c5c373745344",
+        "source": "wotc",
+        "published_at": "2022-02-18",
+        "comment": "Mindlink Mech's triggered ability can target only a creature that was tapped to pay its crew cost this turn."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "009a4073-5946-4131-928c-c5c373745344",
+        "source": "wotc",
+        "published_at": "2022-02-18",
+        "comment": "If a continuous effect that isn't a copy effect is modifying Mindlink Mech's power, toughness, or types, that effect will continue to apply to it after it becomes a copy."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "009a4073-5946-4131-928c-c5c373745344",
+        "source": "wotc",
+        "published_at": "2022-02-18",
+        "comment": "Mindlink Mech copies exactly what was printed on the original creature (unless that creature is copying something else or is a token; see below), except that it also has Mindlink Mech's types and is 4/3. It doesn't copy whether that creature is tapped or untapped, whether it has any counters on it or any Auras and Equipment attached to it, or any non-copy effects that have changed its power, toughness, types, color, or so on."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "009a4073-5946-4131-928c-c5c373745344",
+        "source": "wotc",
+        "published_at": "2022-02-18",
+        "comment": "If Mindlink Mech becomes a copy of a creature that is copying something else, it becomes a copy of whatever that creature is a copy of."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "009a4073-5946-4131-928c-c5c373745344",
+        "source": "wotc",
+        "published_at": "2022-02-18",
+        "comment": "If the creature is a token, Mindlink Mech copies the original characteristics of that token as stated by the effect that put the token onto the battlefield. It doesn't become a token."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "009a4073-5946-4131-928c-c5c373745344",
+        "source": "wotc",
+        "published_at": "2022-02-18",
+        "comment": "If a player crews Mindlink Mech with a nonlegendary permanent that is not normally a creature or Vehicle, the resulting permanent Mindlink Mech becomes is a 0/0 artifact creature and will usually be put into its owner's graveyard. This is because a copy effect can't set the power and toughness of a permanent if being a creature isn't part of that permanent's copiable characteristics. The crew effect is then applied after the copy effect, and it becomes a creature with no defined power or toughness, so both are set to 0."
+      }
+    ]
+  },
+  "Stubborn Burrowfiend": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "24bc7bd5-f262-45a2-8e94-377fef2ba5d5",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "The value of X is determined as Stubborn Burrowfiend\u2019s triggered ability resolves."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "24bc7bd5-f262-45a2-8e94-377fef2ba5d5",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "\u201cSaddle N\u201d means \u201cTap any number of other untapped creatures you control with total power N or greater: This permanent becomes saddled until end of turn. Activate only as a sorcery.\u201d"
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "24bc7bd5-f262-45a2-8e94-377fef2ba5d5",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "\u201cSaddled\u201d isn\u2019t an ability that a creature has. It\u2019s just something true about that creature. It won\u2019t stop being saddled until the turn ends or it leaves the battlefield."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "24bc7bd5-f262-45a2-8e94-377fef2ba5d5",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "Creatures with saddle can attack or block as normal even if they aren\u2019t saddled."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "24bc7bd5-f262-45a2-8e94-377fef2ba5d5",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "If a permanent becomes a copy of a saddled Mount, the copy won\u2019t be saddled."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "24bc7bd5-f262-45a2-8e94-377fef2ba5d5",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "You may activate a permanent\u2019s saddle ability even if that permanent is already saddled."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "24bc7bd5-f262-45a2-8e94-377fef2ba5d5",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "An ability that triggers when a creature \u201cattacks while saddled\u201d will trigger only if that creature was saddled when it was declared as an attacker."
+      }
+    ]
+  }
+}

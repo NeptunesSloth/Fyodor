@@ -1,0 +1,42 @@
+{
+  "status": "UNINSTALLED / root review pending",
+  "names": [
+    "Cut the Tethers",
+    "Heroism",
+    "Whirlwind Denial"
+  ],
+  "whole": {
+    "passed": 20,
+    "cold": 3,
+    "log": "docs/research/proposals/object-mana-offers78/whole20.log"
+  },
+  "types": {
+    "files": 3,
+    "result": "PASS",
+    "log": "docs/research/proposals/object-mana-offers78/types3.log"
+  },
+  "ruff": {
+    "files": 4,
+    "result": "PASS",
+    "log": "docs/research/proposals/object-mana-offers78/ruff4.log"
+  },
+  "related": {
+    "passed": 15,
+    "result": "PASS",
+    "log": "docs/research/proposals/object-mana-offers78/related15.log",
+    "scope": "Native unless payments, stack countering and combat prevention; 101 unrelated cases deselected"
+  },
+  "patch": "docs/research/proposals/object-mana-offers78/UNINSTALLED.patch",
+  "patch_sha256": "c20e80f8eab5f701783394ac9e802faef713a7ec9286f21151879f701ee816d0",
+  "leaf_sha256": "671a5c6455056e9dc8e68fe6b836d97a4ba0a35b5b97633f4dbe310952a1307f",
+  "stage": "/tmp/counter78-on58",
+  "source_base": "frozen checkpoint58",
+  "test_source": "/tmp/counter78-tests/test_counter78.py",
+  "fixture": "/tmp/counter78-tests/fixtures/object_mana_offers78_cards.json",
+  "held": [
+    "Killing Wave",
+    "Fade Away",
+    "Cleansing",
+    "Sirocco"
+  ]
+}

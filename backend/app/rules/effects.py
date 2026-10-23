@@ -1409,7 +1409,7 @@ def animate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             from app.game.rules_state import emit
 
             for c in cards:
-                emit(plan.state, "crewed", object_id=plan.oid(c), card=c, player=plan.state.cards[c].controller)
+                emit(plan.state, "crewed", object_id=plan.oid(c), card=c, player=plan.state.cards[c].controller, crew_count80=e.get("crew_count80"))
     return True
 
 
@@ -2041,52 +2041,9 @@ def prevent(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    # -- activated other (wave 52D) -- "Each opponent mills cards equal to the number of cards in their hand.": each one's own amount, worked out before any mills (608.2h)
-    each = {p: _amount(plan, {**ctx, "recipient": p}, e["n"]) for p in _players(plan, ctx, e["who"])} if sized_damage.has_per_player(e["n"]) else None
-    want = 0 if each is not None else _amount(plan, ctx, e["n"])
-    before: list[ObjectRef] = []
-    wants: list[tuple[str, int]] = []
-    for pid in _players(plan, ctx, e["who"]):
-        if each is not None:
-            want = each[pid]
-        if e.get("half"):  # -- if you do (wave 15C) -- 107.1a: half the library as it is now, rounded as the text says
-            size = len(plan.state.zones.get(zone_key(pid, "library"), []))
-            want = (size + 1) // 2 if e["half"] == "up" else size // 2
-        wants.append((pid, want))
-    # -- mill counts (wave 28B) -- "would mill" replacements change the number the instruction says (the library may hold fewer)
-    counts = replace.mill_counts(plan, wants, then=replace.rerun_then(ctx, e), ctx=ctx)  # (run again with the answers, not continued)
-    if counts is None:
-        return False
-    complete = bool(counts) and all(count > 0 and len(plan.state.zones.get(zone_key(pid, "library"), [])) >= count for pid, count in counts)
-    start = plan.rules.batch
-    for pid, count in counts:
-        library = plan.state.zones.get(zone_key(pid, "library"), [])
-        n = min(count, len(library))
-        from app.game.rules_state import snapshot
+    from app.rules import prepared_mill61
 
-        # A self-shuffle replacement can erase hidden IDs without a zone change.
-        # Preserve the selected cards' information for subsequent instructions.
-        before += [r.model_copy(update={"snapshot": snapshot(plan.state, r.card)})
-                   for r in (context.ref_of(plan, c) for c in library[:n]) if r is not None]
-        if n:
-            plan.do({"type": "mill", "player": pid, "count": n}, actor=pid)
-    # -- review 28D -- "each player mills …" is one event: a "whenever one or more cards are milled" ability triggers once for all
-    # of them (603.2c; The Wise Mothman ruling 2024-03-08)
-    from app.rules.replace import _one_batch
-
-    _one_batch(plan, start)
-    _moved(plan, ctx, e, before)  # "cards milled this way": the new objects in the graveyards (400.7j)
-    if e.get("did"):
-        context.bind_payment(ctx, e["did"], complete)
-    if e.get("look"):  # -- if you do (wave 10C) -- "Mill three cards. You may put a land card from among them into your hand."
-        # (701.17a: the cards are put into the graveyard; "them" are the ones this mill put there — a card a replacement sent
-        # elsewhere isn't "milled" — and they are public, so the pick that follows works on them like a look's)
-        pid = _players(plan, ctx, e["who"])[0]
-        gone = {r.card for r in before}
-        grave = plan.state.zones.get(zone_key(pid, "graveyard"), [])
-        ctx["looked"] = [c for c in grave if c in gone]
-        ctx["looked_zone"], ctx["looked_owner"], ctx["found"] = "graveyard", pid, None
-    return True
+    return prepared_mill61.run(plan, ctx, e)
 
 
 def return_with_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -6723,7 +6680,25 @@ from app.rules import unblocked_choices79 as _unblocked79  # noqa: E402
 
 PRIMITIVES.update({'bone_entry79': _unblocked79.bone_entry, 'bone_finish79': _unblocked79.bone_finish, 'spy_reveal79': _unblocked79.spy_reveal})
 
+from app.rules import first_crew_saddle80 as _first_crew80  # noqa: E402
+
+PRIMITIVES['mindlink_copy80'] = _first_crew80.mindlink_copy
+
 from app.rules import public_mill_attachment59 as _public_mill_attachment59  # noqa: E402
 
 PRIMITIVES.update(_public_mill_attachment59.PRIMITIVES)
 RESUME.update(_public_mill_attachment59.RESUME)
+
+from app.rules import object_mana_offers78  # noqa: E402
+
+PRIMITIVES.update(object_mana_offers78.PRIMITIVES)
+RESUME.update(object_mana_offers78.RESUME)
+
+from app.rules import upkeep_tax79  # noqa: E402
+
+PRIMITIVES.update(upkeep_tax79.PRIMITIVES)
+RESUME.update(upkeep_tax79.RESUME)
+
+from app.rules import prepared_mill61 as _prepared_mill61  # noqa: E402, I001
+
+RESUME.update(_prepared_mill61.RESUME)

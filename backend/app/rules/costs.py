@@ -957,7 +957,8 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
             # off-battlefield source. Keep variable/optional counter costs refused.
             counter_part = _one_4h(part[:1].upper() + part[1:], "")
             if (counter_part is not None and counter_part.kind == REMOVE_COUNTER
-                    and counter_part.selector is not None and counter_part.among
+                    and counter_part.selector is not None
+                    and (counter_part.among or part.lower() == "remove a counter from a creature you control")
                     and not counter_part.x and not counter_part.more and counter_part.amount > 0):
                 components.append(counter_part)
                 continue

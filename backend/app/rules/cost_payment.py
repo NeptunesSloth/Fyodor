@@ -444,7 +444,7 @@ def required_all(plan: Plan, comp: CostComponent, player: str, source: CardInsta
             and plan.in_game(plan.state.cards[cid])]
 
 
-def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, cost: AbilityCost, card: CardInstance, what: str, *, compatible_tap: bool = False, component_excluded: dict[int, set[str]] | None = None) -> dict[int, list[str]] | None:
+def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.DeclareAttackers | A.DeclareBlockers, cost: AbilityCost, card: CardInstance, what: str, *, compatible_tap: bool = False, counter_first: bool = False, component_excluded: dict[int, set[str]] | None = None) -> dict[int, list[str]] | None:
     """The validated objects for every part of ``cost`` that needs a choice, by component index;
     None while waiting for the payer's (private) choice. Each object pays for one part only."""
     given: dict[int, list[str]] = {}
@@ -454,13 +454,17 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.Dec
         if c.component in given:
             raise ActionError("Choose the objects for each part of the cost once")
         given[c.component] = list(c.cards)
+    from app.rules import counter_cost_order70
+
+    counter_index = counter_cost_order70.index(cost) if counter_first else None
     parts = dict(cost.choices)
     if set(given) - set(parts):
         raise ActionError("That ability's cost has no such part to choose for")
     out: dict[int, list[str]] = {}
     used: set[str] = set()
     x = getattr(a, "x_value", None)  # (wave 4H: "Sacrifice X Treasures" — X announced as it's activated, 107.3a)
-    for i, comp in cost.choices:
+    ordered = sorted(cost.choices, key=lambda item: item[0] != counter_index) if counter_index is not None else cost.choices
+    for i, comp in ordered:
         if comp.kind == C.OPPONENT_GAIN_LIFE:
             from app.rules import opponent_gain_costs44
 
@@ -497,10 +501,18 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.Dec
             blocked = {cid for j, ids in out.items() for cid in ids
                        if not ({comp.kind, parts[j].kind} & {C.TAP_OTHER} and
                                {comp.kind, parts[j].kind} & {C.SACRIFICE, C.RETURN_PERMANENT})}
-        usable = [c for c in candidates(plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card)
+        candidate_plan = plan
+        if counter_index is not None and counter_cost_order70.fixed_sacrifice(comp):
+            # Counter tokens and a sacrifice consume different resources. Other objects
+            # remain reserved; a holder cannot satisfy two sacrifice components.
+            candidate_plan = counter_cost_order70.preview(plan, cost, out)
+            removed_holder = out[counter_index][0].rsplit(':', 2)[0]
+            other_claims = {cid for j, ids in out.items() if j != counter_index for cid in ids}
+            blocked = (used - {removed_holder}) | other_claims
+        usable = [c for c in candidates(candidate_plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card)
                   and c not in blocked and c not in (component_excluded or {}).get(i, set())]
         if comp.all_objects:
-            required = required_all(plan, comp, plan.actor, card)
+            required = required_all(candidate_plan, comp, plan.actor, card)
             if set(required) - set(usable):
                 raise ActionError(f"You can't pay “{comp.text}”")
             need = len(required)
@@ -527,7 +539,7 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.Dec
                            "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},
                    source=card)
             return None
-        if not _names_fit(plan, comp, list(chosen)):
+        if not _names_fit(candidate_plan, comp, list(chosen)):
             raise ActionError(f"Choose objects satisfying “{comp.text}”")  # 601.2h: no partial payments
         out[i] = list(chosen)
         used |= set(chosen)

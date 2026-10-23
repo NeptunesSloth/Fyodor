@@ -48,5 +48,90 @@
     "original_sha256": "e3bea6a512e30a595612a3899253b16fea08ab2197500e446d9a56cd92fe8cbf",
     "archived_sha256": "39c4978f1ec30aa6eee8b0c71a487bc3fe91cbf75b02c4ccb64d41c2f84e26f1",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-tax80/UNINSTALLED.patch": {
+    "original_sha256": "e03251883e679bd4838470485a620887377cedb9623d8a782e7bbf1d0ddd7923",
+    "archive_sha256": "08bb732b448f8cadb86658633b40c516d9e8af57b4c3da716bdfd6fe889c58f5",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/falco-counter-order70/falco70-final-review.patch": {
+    "original_sha256": "e1d932a544144be5f21a37798309353cfa8b1baa394a0b8a46477e0f58114d70",
+    "archive_sha256": "e24570ce02b8aadf8a0eae238f643b81318eb73630389da401e055ef9c116d12",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/falco-counter-order70/top69-falco-casualty-before.log": {
+    "original_sha256": "a4c741185559c59fa2b6397f41a99ff5336a5247171f8f9e4613a22c689579b5",
+    "archive_sha256": "d00ccd24ed017988feb2b61b133c5c2985b661b7d1629e73678592a7a86de110",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/first-crew-saddle80/copy-boundaries-before.log": {
+    "original_sha256": "4243865b17020f735506b496b6febbd4057a4f66639bb4cb90e58b1d66a25f5b",
+    "archive_sha256": "55f49b7a304146f7adf36f4ca73143bd717e498e0b2c52d4e914609f9bd4f1eb",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/first-crew-saddle80/held-burrow/restore-only-after-prepared-mill.patch": {
+    "original_sha256": "81db07b2456da8622ac2a88ce900a9ff38f5ac3a4b937cb27291e6a3a0763855",
+    "archive_sha256": "1842ae46e01b9fb9532a0ff776bfaafe1c2e944cd615a867045c60bf0cd47e31",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/first-crew-saddle80/ready-two/reviewed.patch": {
+    "original_sha256": "d3e8fb00aca44cc4f8fa1da9b430dcccec34312fec039b0561261784236f062f",
+    "archive_sha256": "7481c5bc7aa223152c97e7a9a6e8061215f4391ec813bd67dabeac5699b14a73",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/first-crew-saddle80/reviewed-candidate.patch": {
+    "original_sha256": "8ca176c6156ba8d673dfdd2a85de787829450a16a69906f903cf8478423c1ede",
+    "archive_sha256": "2b536151e0d8d960326cbac36aff9930351327c6324d98f1a88e1407a05e4bc7",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/object-mana-offers78/UNINSTALLED.patch": {
+    "original_sha256": "c20e80f8eab5f701783394ac9e802faef713a7ec9286f21151879f701ee816d0",
+    "archive_sha256": "10413d2f5df618ca664a6affeae10b861e3bd9cf4505634b851c7196481281a8",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/prepared-mill61/airlift-restore.patch": {
+    "original_sha256": "0c5c215c4cdddad8c63b5319363e7f5aae8385839ea8ac44521b87cbfcbc514d",
+    "archive_sha256": "35063147169bcbe8edf375b79cb16776dcbf12d76edb254a965ccc33a3401bd8",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/prepared-mill61/baseline-witch.log": {
+    "original_sha256": "1e7da1f7f5426e181a7b1d61995de23af393a201aadc3727b737dab0dc32bee4",
+    "archive_sha256": "d9ff5ec2156b27ff5cdbcae2a20dcb5e6d276bbbd0f06ad5f9c8337f7d75f9c0",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/prepared-mill61/competing-before-failure.log": {
+    "original_sha256": "13a4013627f42e8fcff4f3429d8b26833fd52377d6a8357874c8bb9ceca63426",
+    "archive_sha256": "56a4b7ad3d3f65ccc0b4f488dd28798ec18d51ca18bca3439a50917ac1747ed4",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/prepared-mill61/shared-review.patch": {
+    "original_sha256": "223c4c2fa93888dcd173c2e6a85cbf1d1eb17946e81af7000f3eec5481b43a61",
+    "archive_sha256": "85e84fc3048bb48279f160183ba87b9697cf2d22cc04eb1af5452fbfc2aaa591",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/source-spell-discounts64/cost64-boundaries.log": {
+    "original_sha256": "acefbd75f9a8aeb9424622153da7663787eb2846a3f10113e870a050ca685242",
+    "archive_sha256": "d76fb84e59fb5dcd82f279c0ea3abab444fc91f92ad6cdbd48d857842e60e093",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/source-spell-discounts64/cost64-initial.log": {
+    "original_sha256": "5adf7509be30163c8fa3339422b68995a2465443b83ba25db7f08da4a0c9f5a3",
+    "archive_sha256": "8c38b8b7a7175d78302948cd125d49f7bfdca6717b83c8d2c7c191b0d27eb713",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/source-spell-discounts64/production-candidate.patch": {
+    "original_sha256": "4274e4dfd253d4cf94fa61bf4df028973beaa24cf21acaeb01298a372889cfc5",
+    "archive_sha256": "bb00cd03f22c9c89d2f0a9017b24b7897abbb17e61ea889f4512f3ce49810a65",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/upkeep-tax79/UNINSTALLED.patch": {
+    "original_sha256": "f67691f1bca5147de5a58a9a67eec2d6e78e1b42a992e107b678711b79f51ad7",
+    "archive_sha256": "df251255bcea1257dd15c8abb49d2a054daaf7ae3d37e09558bfbec737205063",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/upkeep-tax79/held-chaos/counter79-wizard-chaos10.log": {
+    "original_sha256": "c0e5877c0520f1ad778a8fc0c288ea2b89af7d703dbec76be57317d551569731",
+    "archive_sha256": "23e955f6529760317599908acc0c7e50b3689577a9ea30e5461ae514e2b42915",
+    "numstat_unchanged": true
   }
 }

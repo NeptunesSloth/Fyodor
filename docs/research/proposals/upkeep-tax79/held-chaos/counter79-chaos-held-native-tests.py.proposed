@@ -1,0 +1,269 @@
+"""Native alternative and upkeep taxes retain actual payers and affected objects."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from app.cards.images import ImageStore
+from app.cards.importer import build_database
+from app.cards.repository import CardRepository
+from app.rules import coverage
+from app.rules.plan import Plan
+from tests.fixtures.cards import card, fixture_cards
+from tests.game_helpers import act
+from tests.test_rules_bandmate_references import wait_priority
+from tests.test_rules_designations import put, roundtrip
+from tests.test_rules_library_look import settle
+from tests.test_rules_shared_damage_choices import table
+from tests.test_rules_wave30m_durations import to_phase
+
+NAMES = ["Lim-Dûl's Hex", 'Thrull Wizard', 'Erosion', 'Slow Motion', 'Soul Tithe', 'In the Eye of Chaos', 'Draco']
+DATA = json.loads((Path(__file__).parent / 'fixtures/upkeep_tax79_cards.json').read_text())
+ALL = [c['name'] for c in DATA] + ['Grizzly Bears', 'Llanowar Elves', 'Lightning Bolt', 'Counterspell', 'Forest', 'Island', 'Mountain']
+
+
+@pytest.fixture()
+def cards(settings):
+    base = {c['name']: c for c in fixture_cards()}
+    for i, c in enumerate(DATA):
+        base[c['name']] = card(c['name'], number=str(i), **{k: v for k, v in c.items() if k != 'name'})
+    settings.ensure_dirs()
+    build_database(base.values(), settings.cards_db_path)
+    repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
+    yield repo
+    repo.close()
+
+
+def game(cards):
+    s = table(cards, ALL, ALL, ALL)
+    to_phase(s, 'main1', 1)
+    return s
+
+
+def choose(s, ids, resolve=True):
+    d = s.state.rules.decision
+    assert d
+    result = act(s, d.player, type='choose', decision_id=d.id, option_ids=ids)
+    if resolve:
+        settle(s)
+    return result
+
+
+def cast(s, name, targets=(), pid='p1', resolve=True, **extra):
+    c = put(s, name, 'hand', pid)
+    wait_priority(s, pid)
+    act(s, pid, type='add_mana', player=pid, mana={'C': 30, 'W': 4, 'U': 5, 'R': 2, 'B': 3, 'G': 3})
+    act(s, pid, type='cast_spell', card_id=c.id, targets=list(targets), sources=[], **extra)
+    if resolve:
+        settle(s)
+    return c
+
+
+@pytest.mark.parametrize('name', NAMES)
+def test_whole_canonical(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == 'FULL'
+
+
+def aura_game(cards, name):
+    s = game(cards)
+    host = put(s, 'Forest' if name == NAMES[2] else 'Grizzly Bears', 'battlefield', 'p2')
+    aura = cast(s, name, [host.id])
+    assert s.state.cards[aura.id].attached_to == host.id
+    to_phase(s, 'upkeep', 2)
+    act(s, 'p2', type='add_mana', player='p2', mana={'C': 5})
+    settle(s)
+    assert s.state.rules.decision and s.state.rules.decision.player == 'p2'
+    return s, aura, host
+
+
+@pytest.mark.parametrize('name,pick', [(NAMES[2], 'pay:0'), (NAMES[2], 'pay:1'), (NAMES[2], 'decline'),
+                                      (NAMES[3], 'pay'), (NAMES[3], 'decline'), (NAMES[4], 'pay'), (NAMES[4], 'decline')])
+def test_aura_actual_cast_and_affected_players_upkeep_alternative_or_sacrifice(cards, name, pick):
+    s, aura, host = aura_game(cards, name)
+    choose(s, [pick])
+    if pick == 'decline':
+        assert s.state.cards[host.id].zone == 'p2:graveyard'
+        assert s.state.cards[aura.id].zone == ('p1:hand' if name == NAMES[3] else 'p1:graveyard')
+    else:
+        assert s.state.cards[host.id].zone == 'p2:battlefield'
+    assert s.state.players['p2'].life == (39 if pick == 'pay:1' else 40)
+    assert s.state.players['p1'].life == 40
+    roundtrip(s)
+
+
+@pytest.mark.parametrize('name', [NAMES[3], NAMES[4]])
+def test_original_upkeep_player_cannot_sacrifice_creature_after_controller_changes(cards, name):
+    s, aura, host = aura_game(cards, name)
+    act(s, 'p2', type='set_controller', card_ids=[host.id], player='p3')
+    assert s.state.rules.decision.player == 'p2'
+    choose(s, ['decline'])
+    assert s.state.cards[host.id].zone == 'p3:battlefield' and s.state.cards[aura.id].attached_to == host.id
+    roundtrip(s)
+
+
+def test_tithe_reads_current_mana_value_of_native_artifact_host(cards):
+    s = game(cards)
+    host = put(s, 'Sol Ring', 'battlefield', 'p2')
+    cast(s, NAMES[4], [host.id])
+    to_phase(s, 'upkeep', 2)
+    act(s, 'p2', type='add_mana', player='p2', mana={'C': 1})
+    settle(s)
+    assert s.state.rules.decision.resume['opt']['cost'] == '{1}'
+    choose(s, ['pay'])
+    assert s.state.cards[host.id].zone == 'p2:battlefield' and not s.state.players['p2'].mana
+    roundtrip(s)
+
+
+@pytest.mark.parametrize('pay', [False, True])
+def test_draco_whole_actual_domain_cast_then_current_domain_upkeep_payment(cards, pay):
+    s = game(cards)
+    lands = [put(s, n, 'battlefield') for n in ['Tropical Island', 'Savannah', 'Badlands']]
+    source = cast(s, NAMES[6])
+    record = s.state.rules.payments[Plan(s.state, 'p1', cards, None).oid(source.id)]
+    assert record.mana_spent == {'C': 6}
+    assert 'flying' in Plan(s.state, 'p1', cards, None).ch(s.state.cards[source.id]).keywords
+    # Remove all actual land types before the next upkeep: ten is recomputed at resolution.
+    act(s, 'p1', type='move', card_ids=[c.id for c in lands], to={'player': 'p1', 'zone': 'graveyard'})
+    to_phase(s, 'upkeep', 4)
+    act(s, 'p1', type='add_mana', player='p1', mana={'C': 10})
+    settle(s)
+    assert s.state.rules.decision and s.state.rules.decision.resume['opt']['cost'] == '{10}'
+    choose(s, ['pay' if pay else 'decline'])
+    assert s.state.cards[source.id].zone == ('p1:battlefield' if pay else 'p1:graveyard')
+    roundtrip(s)
+
+
+def test_hex_native_each_player_selects_own_alternative_before_any_damage(cards):
+    s = game(cards)
+    cast(s, NAMES[0])
+    to_phase(s, 'upkeep', 4)
+    act(s, 'p1', type='add_mana', player='p1', mana={'B': 1})
+    act(s, 'p2', type='add_mana', player='p2', mana={'C': 3})
+    settle(s)
+    assert s.state.rules.decision.player == 'p1'
+    choose(s, ['pay:0'])
+    assert s.state.rules.decision.player == 'p2' and s.state.players['p3'].life == 40
+    assert {o.id for o in s.state.rules.decision.options} == {'pay:1', 'decline'}
+    choose(s, ['pay:1'])
+    assert [s.state.players[p].life for p in ('p1', 'p2', 'p3')] == [40, 40, 39]
+    roundtrip(s)
+
+
+def test_hex_unpaid_damage_is_one_native_batch_and_replacement_doubles_each(cards):
+    s = game(cards)
+    cast(s, NAMES[0])
+    put(s, 'Furnace of Rath', 'battlefield')
+    to_phase(s, 'upkeep', 4)
+    settle(s)
+    assert [s.state.players[p].life for p in ('p1', 'p2', 'p3')] == [38, 38, 38]
+    facts = [e for e in s.state.rules.events if e.kind == 'damage' and e.player in {'p1', 'p2', 'p3'}]
+    assert len(facts) == 3 and len({e.batch for e in facts}) == 1
+    roundtrip(s)
+
+
+def wizard_spell(cards, resource):
+    s = game(cards)
+    wizard = cast(s, NAMES[1])
+    act(s, 'p2', type='set_prefs', hold_priority=True)
+    target = cast(s, 'Dark Ritual', pid='p2', resolve=False)
+    act(s, 'p2', type='clear_mana', player='p2')
+    act(s, 'p2', type='add_mana', player='p2', mana=resource)
+    wait_priority(s, 'p1')
+    act(s, 'p1', type='activate_ability', card_id=wizard.id, ability=0, targets=[target.id], sources=[])
+    settle(s)
+    return s, wizard, target
+
+
+@pytest.mark.parametrize('pick,resource', [('pay:0', {'B': 1}), ('pay:1', {'C': 3}), ('decline', {'B': 1, 'C': 3})])
+def test_wizard_actual_cast_and_activation_native_black_or_three_tax(cards, pick, resource):
+    s, wizard, target = wizard_spell(cards, resource)
+    assert s.state.rules.decision and s.state.rules.decision.player == 'p2'
+    choose(s, [pick])
+    assert s.state.cards[target.id].zone == 'p2:graveyard'
+    assert s.state.players['p2'].mana == (resource if pick == 'decline' else {'B': 3})
+    assert s.state.cards[wizard.id].zone == 'p1:battlefield'
+    roundtrip(s)
+
+
+def test_wizard_repeated_native_activations_require_independent_black_and_generic_payments(cards):
+    s, wizard, target = wizard_spell(cards, {'B': 1, 'C': 3})
+    choose(s, ['pay:0'], resolve=False)
+    assert s.state.cards[target.id].zone == 'stack'
+    wait_priority(s, 'p1')
+    act(s, 'p1', type='activate_ability', card_id=wizard.id, ability=0, targets=[target.id], sources=[])
+    settle(s)
+    assert {o.id for o in s.state.rules.decision.options} == {'pay:1', 'decline'}
+    choose(s, ['pay:1'])
+    assert s.state.players['p2'].mana == {'B': 3} and s.state.cards[target.id].zone == 'p2:graveyard'
+    roundtrip(s)
+
+
+def test_wizard_target_black_spell_rejects_red_spell_without_paying_activation_cost(cards):
+    from app.game.errors import ActionError
+    s = game(cards)
+    wizard = cast(s, NAMES[1])
+    target = cast(s, 'Lightning Bolt', ['p1'], pid='p2', resolve=False)
+    wait_priority(s, 'p1')
+    before = s.state.model_dump_json()
+    with pytest.raises(ActionError):
+        act(s, 'p1', type='activate_ability', card_id=wizard.id, ability=0, targets=[target.id], sources=[])
+    assert s.state.model_dump_json() == before
+    settle(s)
+    assert s.state.players['p1'].life == 37
+    roundtrip(s)
+
+
+@pytest.mark.parametrize('pay', [False, True])
+def test_chaos_actual_world_cast_then_native_instant_cast_mana_value_tax(cards, pay):
+    s = game(cards)
+    cast(s, NAMES[5])
+    target = cast(s, 'Lightning Bolt', ['p1'], pid='p2', resolve=False)
+    settle(s)
+    assert s.state.rules.decision.player == 'p2' and s.state.rules.decision.resume['opt']['cost'] == '{1}'
+    choose(s, ['pay' if pay else 'decline'])
+    assert s.state.cards[target.id].zone == 'p2:graveyard' and s.state.players['p1'].life == (37 if pay else 40)
+    roundtrip(s)
+
+
+def test_chaos_actual_x_instant_counts_x_then_original_event_spell_gone_does_not_ask_again(cards):
+    s = game(cards)
+    cast(s, NAMES[5])
+    for pid in ('p2', 'p3'):
+        act(s, pid, type='set_prefs', hold_priority=True)
+    bolt = cast(s, 'Lightning Bolt', ['p1'], pid='p3', resolve=False)
+    counter = cast(s, 'Syncopate', [bolt.id], pid='p2', resolve=False, x_value=3)
+    settle(s)
+    assert s.state.rules.decision.player == 'p2' and s.state.rules.decision.resume['opt']['cost'] == '{4}'
+    choose(s, ['pay'])
+    assert s.state.rules.decision.player == 'p3'
+    choose(s, ['decline'])
+    assert s.state.rules.decision is None and s.state.cards[bolt.id].zone == 'p3:exile'
+    assert s.state.cards[counter.id].zone == 'p2:graveyard' and s.state.players['p1'].life == 40
+    roundtrip(s)
+
+
+def test_chaos_cannot_counter_uncounterable_instant_but_it_can_still_decline_payment(cards):
+    s = game(cards)
+    cast(s, NAMES[5])
+    act(s, 'p1', type='set_prefs', hold_priority=True)
+    target = cast(s, 'Sol Ring', resolve=False)
+    uncounterable = cast(s, 'Last Word', [target.id], pid='p2', resolve=False)
+    settle(s)
+    assert s.state.rules.decision.resume['opt']['cost'] == '{4}'
+    choose(s, ['decline'])
+    assert s.state.cards[target.id].zone == 'p1:graveyard' and s.state.cards[uncounterable.id].zone == 'p2:graveyard'
+    roundtrip(s)
+
+
+def test_chaos_world_rule_replaces_old_world_and_noninstant_does_not_trigger_tax(cards):
+    s = game(cards)
+    old = cast(s, NAMES[5])
+    creature = cast(s, 'Grizzly Bears')
+    assert s.state.cards[creature.id].zone == 'p1:battlefield' and s.state.rules.decision is None
+    world = cast(s, 'Concordant Crossroads')
+    assert s.state.cards[old.id].zone == 'p1:graveyard' and s.state.cards[world.id].zone == 'p1:battlefield'
+    cast(s, 'Lightning Bolt', ['p1'], pid='p2')
+    assert s.state.players['p1'].life == 37 and s.state.rules.decision is None
+    roundtrip(s)

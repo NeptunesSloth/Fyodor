@@ -1,0 +1,209 @@
+.......FFFF                                                              [100%]
+=================================== FAILURES ===================================
+_ test_seal_actual_two_entry_choices_intersect_only_current_spell_colors[Hill Giant-mana2] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f64da8aaf90>
+name = 'Hill Giant', mana = {'C': 3, 'R': 1}
+
+    @pytest.mark.parametrize('name,mana',[('Assault Zeppelid',{'G':1,'U':1}),('Air Elemental',{'C':2,'U':2}),('Hill Giant',{'C':3,'R':1})])
+    def test_seal_actual_two_entry_choices_intersect_only_current_spell_colors(cards,name,mana):
+>       s,_ = seal_scene(cards,[name])
+              ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_source_spell_discounts64.py:102:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_source_spell_discounts64.py:82: in seal_scene
+    s = table(cards,['Seal of the Guildpact',*names])
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7f64da8aaf90>
+commander = 'Krenko, Mob Boss'
+spells = [(1, 'Seal of the Guildpact'), (1, 'Hill Giant'), (20, 'Forest')]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+____________ test_thaumaturge_four_creature_native_targets_and_hint ____________
+
+cards = <app.cards.repository.CardRepository object at 0x7f64da859b50>
+
+    def test_thaumaturge_four_creature_native_targets_and_hint(cards):
+>       s = table(cards,['Battlefield Thaumaturge','Choking Tethers','Grizzly Bears','Llanowar Elves'],['Hill Giant'])
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_source_spell_discounts64.py:112:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_wave30m_durations.py:55: in three
+    deck(cards, "Atraxa, Praetors' Voice", [*((1, n) for n in b), (20, "Island")]),
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7f64da859b50>
+commander = "Atraxa, Praetors' Voice"
+spells = [(1, 'Hill Giant'), (20, 'Island')]
+
+    def deck(cards: CardRepository, commander: str, spells: list[tuple[int, str]]) -> list[DeckCard]:
+        cmd = cards.resolve(commander)
+        out = [DeckCard("commander", 1, cmd["name"], cmd["id"])]
+        for qty, name in spells:
+            card = cards.resolve(name)
+>           out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                             ^^^^^^^^^^^^
+E           TypeError: 'NoneType' object is not subscriptable
+
+tests/game_helpers.py:16: TypeError
+__ test_thaumaturge_counts_distinct_creatures_not_target_slot_mentions[False] __
+
+cards = <app.cards.repository.CardRepository object at 0x7f64da85a210>
+distinct = False
+
+    @pytest.mark.parametrize('distinct',[False,True])
+    def test_thaumaturge_counts_distinct_creatures_not_target_slot_mentions(cards,distinct):
+        s = table(cards,['Battlefield Thaumaturge','Common Bond','Sphere of Resistance','Grizzly Bears','Llanowar Elves'])
+        put(s,'Battlefield Thaumaturge','battlefield')
+        put(s,'Sphere of Resistance','battlefield')
+        bear = put(s,'Grizzly Bears','battlefield')
+        elf = put(s,'Llanowar Elves','battlefield')
+        spell = put(s,'Common Bond','hand')
+        ready(s)
+        act(s,'p1',type='add_mana',player='p1',mana={'G':1,'W':1,**({} if distinct else {'C':1})})
+>       act(s,'p1',type='cast_spell',card_id=spell.id,targets=[bear.id,elf.id if distinct else bear.id],sources=[])
+
+tests/test_rules_source_spell_discounts64.py:137:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:154: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3610: in cast_spell
+    picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:814: in choose_targets
+    found = choose_groups(plan, specs, plan.actor, _target_source(plan, a), a.card_id, list(a.targets),  # (review 41: 115.2)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f64da8c2cf0>
+specs = [{'min': 1, 'max': 1, 'what': 'creature'}, {'min': 1, 'max': 1, 'what': 'creature'}]
+chooser = 'p1'
+source = Characteristics(name='Common Bond', supertypes=frozenset(), types=frozenset({'Instant'}), subtypes=frozenset(), mana_c...ne, granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=None)
+source_card = 'b8dd44a57903', targets = ['0f9af57f5cfd', '0f9af57f5cfd']
+counts = [], division = [], x = None, what = 'Common Bond', exclude = ()
+attacker = None, source_object = None, event = None
+
+    def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source: Characteristics | None,
+                      source_card: str | None, targets: list[str], counts: list[int], division: list[int],
+                      x: int | None, what: str, exclude: tuple[str, ...] = (), attacker: str | None = None,
+                      source_object: str | None = None, event: dict[str, Any] | None = None) -> GroupChoice:
+        """Check the choices made so far for each target group, in printed order (601.2c): the
+        number of targets (``counts``: how many of ``targets`` are each group's), no object twice
+        for one word "target" (115.3; the same object may be chosen for another group unless it says
+        "another target"), each a legal target now; then each divided group's division (601.2d:
+        at least one each, adding up to the total; one target gets it all). Raises ActionError for a
+        wrong choice or when a group can't get enough legal targets; ``ask`` names the next missing
+        choice."""
+        from app.game.errors import ActionError
+
+        random_only = len(specs) == 1 and bool(specs[0].get("random"))  # -- random choices (wave 47B) -- "target … chosen at random": the table picks (601.2c; each
+        if random_only:  # legal target equally likely: Scab-Clan Giant ruling 2013-04-15); nobody is asked, and a choice sent along is not read
+            targets, counts = [], []
+        if len(counts) > len(specs) or sum(counts) != len(targets):
+>           raise ActionError(f"Those aren't the right number of targets for {what}")
+E           app.game.errors.ActionError: Those aren't the right number of targets for Common Bond
+
+app/rules/targets.py:368: ActionError
+__ test_thaumaturge_counts_distinct_creatures_not_target_slot_mentions[True] ___
+
+cards = <app.cards.repository.CardRepository object at 0x7f64da858d40>
+distinct = True
+
+    @pytest.mark.parametrize('distinct',[False,True])
+    def test_thaumaturge_counts_distinct_creatures_not_target_slot_mentions(cards,distinct):
+        s = table(cards,['Battlefield Thaumaturge','Common Bond','Sphere of Resistance','Grizzly Bears','Llanowar Elves'])
+        put(s,'Battlefield Thaumaturge','battlefield')
+        put(s,'Sphere of Resistance','battlefield')
+        bear = put(s,'Grizzly Bears','battlefield')
+        elf = put(s,'Llanowar Elves','battlefield')
+        spell = put(s,'Common Bond','hand')
+        ready(s)
+        act(s,'p1',type='add_mana',player='p1',mana={'G':1,'W':1,**({} if distinct else {'C':1})})
+>       act(s,'p1',type='cast_spell',card_id=spell.id,targets=[bear.id,elf.id if distinct else bear.id],sources=[])
+
+tests/test_rules_source_spell_discounts64.py:137:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:154: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3610: in cast_spell
+    picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:814: in choose_targets
+    found = choose_groups(plan, specs, plan.actor, _target_source(plan, a), a.card_id, list(a.targets),  # (review 41: 115.2)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f64da05b0e0>
+specs = [{'min': 1, 'max': 1, 'what': 'creature'}, {'min': 1, 'max': 1, 'what': 'creature'}]
+chooser = 'p1'
+source = Characteristics(name='Common Bond', supertypes=frozenset(), types=frozenset({'Instant'}), subtypes=frozenset(), mana_c...ne, granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=None)
+source_card = '92cefb382a28', targets = ['f982f6ea5d3d', 'a7c68adbc72b']
+counts = [], division = [], x = None, what = 'Common Bond', exclude = ()
+attacker = None, source_object = None, event = None
+
+    def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source: Characteristics | None,
+                      source_card: str | None, targets: list[str], counts: list[int], division: list[int],
+                      x: int | None, what: str, exclude: tuple[str, ...] = (), attacker: str | None = None,
+                      source_object: str | None = None, event: dict[str, Any] | None = None) -> GroupChoice:
+        """Check the choices made so far for each target group, in printed order (601.2c): the
+        number of targets (``counts``: how many of ``targets`` are each group's), no object twice
+        for one word "target" (115.3; the same object may be chosen for another group unless it says
+        "another target"), each a legal target now; then each divided group's division (601.2d:
+        at least one each, adding up to the total; one target gets it all). Raises ActionError for a
+        wrong choice or when a group can't get enough legal targets; ``ask`` names the next missing
+        choice."""
+        from app.game.errors import ActionError
+
+        random_only = len(specs) == 1 and bool(specs[0].get("random"))  # -- random choices (wave 47B) -- "target … chosen at random": the table picks (601.2c; each
+        if random_only:  # legal target equally likely: Scab-Clan Giant ruling 2013-04-15); nobody is asked, and a choice sent along is not read
+            targets, counts = [], []
+        if len(counts) > len(specs) or sum(counts) != len(targets):
+>           raise ActionError(f"Those aren't the right number of targets for {what}")
+E           app.game.errors.ActionError: Those aren't the right number of targets for Common Bond
+
+app/rules/targets.py:368: ActionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_source_spell_discounts64.py::test_seal_actual_two_entry_choices_intersect_only_current_spell_colors[Hill Giant-mana2]
+FAILED tests/test_rules_source_spell_discounts64.py::test_thaumaturge_four_creature_native_targets_and_hint
+FAILED tests/test_rules_source_spell_discounts64.py::test_thaumaturge_counts_distinct_creatures_not_target_slot_mentions[False]
+FAILED tests/test_rules_source_spell_discounts64.py::test_thaumaturge_counts_distinct_creatures_not_target_slot_mentions[True]
+4 failed, 7 passed in 24.46s

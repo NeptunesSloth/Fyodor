@@ -24,6 +24,18 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return (
             {**native, "effects": [*native["effects"], {"do": "grant_top69"}]} if native is not None else None
         )
+    if (
+        text
+        == "You may cast spells from the top of your library by removing a counter from a creature you control in addition to paying their other costs."
+    ):
+        native = permissions.define_static(
+            "You may cast spells from the top of your library.", "static", lines
+        )
+        return (
+            {**native, "extra": "Remove a counter from a creature you control"}
+            if native is not None
+            else None
+        )
     if text in (
         "You may cast spells from the top of your library by sacrificing a nonland permanent in addition to paying their other costs.",
     ):

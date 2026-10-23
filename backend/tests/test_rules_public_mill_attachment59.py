@@ -21,7 +21,7 @@ AIR, REQUEST = 'Airlift Chaplain', 'Unexpected Request'
 @pytest.fixture
 def cards(settings):
     base = {c['name']: c for c in fixture_cards()}
-    for i, c in enumerate(json.loads((Path(__file__).parent/'fixtures/optional_continuations59_cards.json').read_text())):
+    for i, c in enumerate(json.loads((Path(__file__).parent/'fixtures/public_mill_attachment59_cards.json').read_text())):
         base[c['name']] = card(c['name'], set_code='oc59', number=str(i), **{k:v for k,v in c.items() if k not in ('name','set_code','number')})
     settings.ensure_dirs()
     build_database(base.values(), settings.cards_db_path)
@@ -30,7 +30,7 @@ def cards(settings):
     repo.close()
 
 def setup(cards):
-    names = [AIR, REQUEST, 'Grizzly Bears', 'Hill Giant', 'Plains', 'Forest', 'Bonesplitter', 'Sol Ring', 'Rest in Peace', 'Lightning Bolt', 'Disperse', 'Darksteel Colossus']
+    names = [AIR, REQUEST, 'Grizzly Bears', 'Hill Giant', 'Plains', 'Forest', 'Bonesplitter', 'Sol Ring', 'Rest in Peace', 'Lightning Bolt', 'Disperse', 'Darksteel Colossus', 'Progenitus']
     s = table(cards, names, names, names)
     to_phase(s, 'main1', 1)
     act(s, 'p1', type='add_mana', player='p1', mana={c:30 for c in ['C','W','U','B','R','G']})
@@ -262,3 +262,81 @@ roundtrip(s)
 def test_whole_printed_optional59_cards_are_full(cards,name):
     from app.rules import coverage
     assert coverage.of_card_data(cards.resolve(name)).level=='FULL'
+
+
+@pytest.mark.parametrize('outcome',['exile','library:shuffle'])
+def test_airlift_competing_zone_replacement_finishes_before_public_pick(cards,outcome):
+    s=setup(cards)
+    cast(s,'Rest in Peace')
+    milled=top(s,['Darksteel Colossus','Plains','Grizzly Bears'])
+    source=cast(s,AIR)
+    d=s.state.rules.decision
+    assert d and d.resume.get('step')=='prepared_mill61'
+    assert all(c.zone=='p1:library' for c in milled)
+    option=next(o.id for o in d.options if o.label.endswith(': '+outcome))
+    answer(s,[option])
+    d=s.state.rules.decision
+    assert d and d.resume.get('step')=='pick_looked'
+    assert {o.id for o in d.options}=={c.id for c in milled[1:]}
+    answer(s,[milled[1].id])
+    assert milled[1].zone=='p1:hand' and not source.counters
+    roundtrip(s)
+
+
+def test_airlift_prepares_two_competing_routes_before_any_shuffle(cards):
+    s=setup(cards)
+    cast(s,'Rest in Peace')
+    milled=top(s,['Darksteel Colossus','Progenitus','Plains'])
+    source=cast(s,AIR)
+    d=s.state.rules.decision
+    assert d and d.resume['step']=='prepared_mill61'
+    answer(s,[next(o.id for o in d.options if o.label.endswith(': exile'))])
+    d=s.state.rules.decision
+    assert d and d.resume['step']=='prepared_mill61'
+    assert all(c.zone=='p1:library' for c in milled)
+    answer(s,[next(o.id for o in d.options if o.label.endswith(': library:shuffle'))])
+    d=s.state.rules.decision
+    assert d and [o.id for o in d.options]==[milled[2].id]
+    assert milled[0].zone=='p1:exile'
+    answer(s,[milled[2].id])
+    assert milled[2].zone=='p1:hand' and not source.counters
+    roundtrip(s)
+
+
+def test_genuine_cold_pending_prepared_mill_choice59(cards,tmp_path):
+    import os
+    import subprocess
+    import sys
+    s=setup(cards)
+    cast(s,'Rest in Peace')
+    milled=top(s,['Darksteel Colossus','Progenitus','Plains'])
+    source=cast(s,AIR)
+    d=s.state.rules.decision
+    assert d and d.resume['step']=='prepared_mill61'
+    answer(s,[next(o.id for o in d.options if o.label.endswith(': exile'))])
+    assert s.state.rules.decision.resume['step']=='prepared_mill61'
+    saved=tmp_path/'prepared59.json'
+    saved.write_text(s.state.model_dump_json())
+    code=r"""
+import sys
+from pathlib import Path
+from app.cards.images import ImageStore
+from app.cards.repository import CardRepository
+from app.game.session import GameSession
+from app.game.state import GameState
+from tests.game_helpers import act
+from tests.test_rules_library_placements import settle
+from tests.test_rules_designations import roundtrip
+p=Path(sys.argv[1]);repo=CardRepository(Path(sys.argv[2]),ImageStore(p.parent/'images'))
+s=GameSession(GameState.model_validate_json(p.read_text()),cards=repo)
+d=s.state.rules.decision;assert d and d.resume['step']=='prepared_mill61'
+option=next(o.id for o in d.options if o.label.endswith(': library:shuffle'))
+act(s,d.player,type='choose',decision_id=d.id,option_ids=[option]);settle(s)
+d=s.state.rules.decision;assert d and d.resume['step']=='pick_looked'
+assert [o.id for o in d.options]==[sys.argv[3]]
+act(s,d.player,type='choose',decision_id=d.id,option_ids=[sys.argv[3]]);settle(s)
+assert s.state.cards[sys.argv[3]].zone=='p1:hand' and not s.state.cards[sys.argv[4]].counters
+roundtrip(s)
+"""
+    result=subprocess.run([sys.executable,'-c',code,str(saved),str(cards.db_path),milled[2].id,source.id],capture_output=True,text=True,timeout=60,env=os.environ.copy())
+    assert result.returncode==0,result.stdout+result.stderr

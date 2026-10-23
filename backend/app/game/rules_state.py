@@ -433,6 +433,7 @@ class Event(BaseModel):
     """Something that happened. Events of one table step share a ``batch``: they happened
     simultaneously (destroy all creatures is one batch of zone changes, not N)."""
 
+    crew_count80: int | None = None  # Native crew activation payment cardinality; unknown in old saves.
     loss_watchers: list[ObjectSnapshot] = Field(default_factory=list)
     attacking_player: str | None = None  # Combat damage-time attacking player; unknown in old saves.
     turn_start_life: int | None = None  # Losing player's actual life at this turn's native start.
@@ -1401,6 +1402,7 @@ class RulesState(BaseModel):
     graveyard_history_from_turn: int | None = None  # Complete physical-card arrival history; None is legacy unknown.
     turn_seen: int = 0  # last turn number the bookkeeping saw
     target_activation_history_turn: int | None = None  # Unknown on legacy midturn saves; complete after a native turn boundary.
+    crew_saddle_history_turn80: int | None = None  # Independent versioned history for resolved crew/saddle events.
     first_event_history_turn78: int | None = None
     first_event_notices78: list[FirstEventHistoryNotice78] = Field(default_factory=list)
     turn_started: dict[str, int] = Field(default_factory=dict)  # player -> number of their latest turn
@@ -1743,6 +1745,7 @@ def start_rules(state: GameState) -> RulesState:
         step=f"{state.turn.number}:{state.turn.phase}",
         priority=state.turn.active_player,
         turn_seen=state.turn.number,
+        crew_saddle_history_turn80=(state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None),
         first_event_history_turn78=(state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None),
         cast_history_complete=True if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
         target_activation_history_turn=state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
@@ -1989,6 +1992,7 @@ def track(state: GameState, before: Capture | None = None, *, manual: bool = Fal
     if rules.turn_seen != state.turn.number:
         rules.turn_seen = state.turn.number
         rules.target_activation_history_turn = state.turn.number
+        rules.crew_saddle_history_turn80 = state.turn.number
         rules.first_event_history_turn78 = state.turn.number
         rules.turn_started[state.turn.active_player] = state.turn.number
     turn_log_now(state)  # Initialize even empty turns; completed-own-turn summaries must not skip them.

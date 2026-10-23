@@ -859,6 +859,10 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
     r = state.rules
     if r is None:
         return None
+    from app.rules import source_spell_discounts64
+
+    if (unknown_source := source_spell_discounts64.cast_problem(state, player, ch, info)) is not None:
+        return unknown_source
     from app.rules import split_second  # -- split second (wave 8A) -- 702.61a
 
     if (why := split_second.problem(state, info, "cast other spells", card.id)) is not None:

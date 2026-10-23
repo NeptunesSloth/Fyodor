@@ -1,0 +1,32 @@
+--- a/backend/app/rules/public_mill_attachment59.py
++++ b/backend/app/rules/public_mill_attachment59.py
+@@ -7,15 +7,27 @@
+     from app.rules.plan import Plan
+
+ Context = dict[str, Any]
++_AIR = "Mill three cards. You may put a Plains card or a creature card with mana value 3 or less from among the cards milled this way into your hand. If you don't, put a +1/+1 counter on ~."
+ _REQUEST = 'Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn. You may attach an Equipment you control to that creature. If you do, unattach it at the beginning of the next end step.'
+
+
+ def parse(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
+-    from app.rules import scripts
++    from app.rules import scripts, selectors
+
+     text = body.strip()
+     text = text[:1].upper() + text[1:]
+-    # Airlift remains manual until competing mill replacements finish before selection.
++    if text == _AIR:
++        public = ('graveyard', 'exile', 'battlefield', 'command', 'stack')
++        plains = selectors.Selector(card=True, zones=public, subtypes=('Plains',))
++        creature = selectors.Selector(card=True, zones=public, types=('Creature',), compare=(('mv', '<=', 3),))
++        sel = selectors.Selector(card=True, zones=public, either=(plains.key(), creature.key()))
++        return [
++            {'do': 'mill', 'who': 'you', 'n': 3, 'as': 'milled59'},
++            {'do': 'pick_looked', 'who': 'ref:milled59', 'public_mill59': True, 'choice_payment59': True,
++             'n': 1, 'sel': sel.key(), 'to': 'hand', 'optional': True, 'did': 'picked59'},
++            {'do': 'only_if', 'cond': {'not': {'succeeded': 'picked59'}}, 'skip': 1},
++            {'do': 'add_counters', 'who': 'self', 'kind': '+1/+1', 'n': 1},
++        ], None, False
+     if text == _REQUEST:
+         first = scripts.parse_effects('Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn.', it, event_player=event_player)
+         if first is not None and not first[2]:

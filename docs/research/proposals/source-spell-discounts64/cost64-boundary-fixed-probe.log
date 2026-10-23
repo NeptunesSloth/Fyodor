@@ -1,0 +1,26 @@
+.FIREBALLSTATE p1:graveyard None {} []
+F
+=================================== FAILURES ===================================
+_ test_thaumaturge_does_not_discount_player_target_or_graveyard_creature_cards _
+
+cards = <app.cards.repository.CardRepository object at 0x7f36c96a2ae0>
+
+    def test_thaumaturge_does_not_discount_player_target_or_graveyard_creature_cards(cards):
+        s = table(cards,['Battlefield Thaumaturge','Fireball','Soul Salvage','Grizzly Bears'])
+        put(s,'Battlefield Thaumaturge','battlefield')
+        dead = put(s,'Grizzly Bears','graveyard')
+        fire = put(s,'Fireball','hand')
+        salvage = put(s,'Soul Salvage','hand')
+        ready(s)
+        act(s,'p1',type='add_mana',player='p1',mana={'C':3,'R':1})
+        act(s,'p1',type='cast_spell',card_id=fire.id,x_value=3,targets=['p2'],sources=[])
+        answer(s)
+        print('FIREBALLSTATE', fire.zone, s.state.rules.decision, s.state.rules.stack, s.state.players['p1'].mana_units)
+>       assert s.state.players['p2'].life == 37 and not s.state.players['p1'].mana_units
+E       AssertionError: assert (40 == 37)
+E        +  where 40 = PlayerState(id='p2', name='Bob', color='#5fa8d3', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'expe...id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None).life
+
+tests/test_rules_source_spell_discounts64.py:232: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_source_spell_discounts64.py::test_thaumaturge_does_not_discount_player_target_or_graveyard_creature_cards
+1 failed, 1 passed, 15 deselected in 5.94s

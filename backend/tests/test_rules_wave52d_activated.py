@@ -287,12 +287,14 @@ def test_satchel_gains_two_life_for_a_noncreature_nonland_card(cards):
 
 # ---- Doubling Cube ------------------------------------------------------------------------------------------------------------------------------
 def test_doubling_cube_doubles_each_type_of_unspent_mana_left_after_paying(cards):
+    from app.rules.mana_units import visible_pool
+
     s = build(cards, ["Doubling Cube"])
     cube = put(s, "Doubling Cube")
     mana(s, "p1", R=4, G=2)  # {3} of it pays for the ability: R=3 and G=0 are left... the payer takes what it likes, so only the total is checked
     activate(s, "p1", cube)
     settle(s)
-    pool = s.state.players["p1"].mana
+    pool = visible_pool(s.state, "p1")  # Includes the Cube's attributed native mana units.
     assert sum(pool.values()) == 6  # 6 - 3 paid = 3 left, doubled
     check(s)
 

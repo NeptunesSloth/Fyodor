@@ -1,0 +1,41 @@
+{
+  "status": "Isolated review candidate, all proof gates closed. UNINSTALLED/unadmitted until root review and frozen catalog audit.",
+  "names": [
+    "Mistform Warchief",
+    "Seal of the Guildpact",
+    "Battlefield Thaumaturge"
+  ],
+  "patch": "docs/research/proposals/source-spell-discounts64/production-candidate.patch",
+  "stage": "/tmp/cost64-stage/backend",
+  "whole": {
+    "passed": 21,
+    "cold": 3,
+    "log": "docs/research/proposals/source-spell-discounts64/cost64-whole21.log"
+  },
+  "related": {
+    "passed": 31,
+    "deselected": 3,
+    "failed": 0,
+    "log": "docs/research/proposals/source-spell-discounts64/cost64-related.log"
+  },
+  "mypy": "PASS four source files",
+  "ruff": "PASS full configured four source files and native test",
+  "test_path": "backend/tests/test_rules_source_spell_discounts64.py",
+  "fixture_path": "backend/tests/fixtures/source_spell_discounts64_cards.json",
+  "source_hashes": {
+    "source_spell_discounts64.py": "209aae9038f40106e99289a22bb53459c43f64686a10c123465e979e51dc1266",
+    "cost_changes.py": "c43f8bb293a3725a37581e6c68d07ca537479007380c1fd6f950319448bab0f0",
+    "cast_limits.py": "b92b5898cc4a9ac44927048e48b42c606160dd5f90c4ad0bd3c964e5e8948f5a",
+    "scripts.py": "eb5cf56295e4501a0232d77bc137aa8430b34c76f66c3e7174b7d72809db3c1f"
+  },
+  "boundaries": [
+    "Actual type-changing activation and expiry; opponent creature spells do not receive source discount",
+    "Seal actual two distinct choices, zero/one/two color intersections, generic-only pricing",
+    "Actual Sculpting Steel copy chooses own colors; Mirage Mirror later acquisition does not borrow original entry pair",
+    "Exact existing chosen_color_pairs45 original source/acquisition receipt; unknown legacy colored casts return explicit reason, safe hints/view, atomic rejection and manual-source route; colorless known-zero overlap allowed",
+    "Thaumaturge actual four-creature target cast/hint, distinct target identities versus repeated target slots including Sphere increase, Heroic hexproof",
+    "Actual Blaze player target and Soul Salvage graveyard creature targets give no discount; Aura targeting creature gives no discount",
+    "True cold mid-choosing second Seal color, mid-Mistform creature-type choice, four-target creature pricing"
+  ],
+  "initial_failures": "Missing canonical Hill Giant support and omitted Common Bond [1,1] target_counts were fixture/setup mistakes corrected before final21. Canonical Fireball is existing PARTIAL/manual (native definition None); replaced unused support action with native canonical Blaze, not a regression or claimed Fireball fix."
+}

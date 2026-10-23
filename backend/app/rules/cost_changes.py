@@ -660,6 +660,18 @@ ANY_TARGET: tuple[str, ...] = ("*any target*",)
 def static_delta(state: GameState, info: CardInfo, src: CardInstance, d: dict[str, Any], player: str,
                  card: CardInstance, ch: Characteristics, targets: tuple[str, ...] = ()) -> int | None:
     """The signed change a table cost changer makes to this spell now, or None when it doesn't apply to it."""
+    if d.get('source_color_pair64'):
+        if player != src.controller:
+            return None
+        from app.rules import source_spell_discounts64
+
+        return -source_spell_discounts64.chosen_overlap(state, info, src, ch, bool(d.get('color_pair_own64')))
+    if d.get('creature_targets64'):
+        if player != src.controller or not ({'Instant', 'Sorcery'} & ch.types):
+            return None
+        from app.rules import source_spell_discounts64
+
+        return -source_spell_discounts64.creature_targets(state, info, player, card, ch, targets, preview=targets == ANY_TARGET)
     if d.get('caster_artifacts63'):
         from app.rules import caster_turn_costs63
 

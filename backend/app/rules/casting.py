@@ -1941,12 +1941,15 @@ def record_payment(plan: Plan, card_id: str, record: PaymentRecord) -> None:
 
 def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility | A.EndEffect, cost: M.ManaCost, what: str, *,  # (-- licids (wave 50A) -- EndEffect)
                  exclude: tuple[str, ...] = (), purpose: Purpose | None = None, then: dict[str, Any] | None = None,
-                 cast_greatest_power: int | None = None) -> bool:
+                 cast_greatest_power: int | None = None, counter_cost_origins70: list[ObjectRef] | None = None) -> bool:
     """Before a spell or ability is put on the stack: does the player want to see or choose the
     payment first? Returns True if a decision was opened (the intent then waits for it; nothing
     has moved yet, so CANCEL simply leaves everything where it was)."""
     purpose = _purpose_for_cost(cost, purpose)
     def saved(resume: dict[str, Any]) -> dict[str, Any]:
+        if counter_cost_origins70 is not None:
+            resume['counter_first70'] = True
+            resume['counter_cost_origins70'] = [ref.model_dump(mode='json') for ref in counter_cost_origins70]
         if cast_greatest_power is not None:
             resume['cast_greatest_power'] = cast_greatest_power
         if then is not None:
@@ -2370,6 +2373,11 @@ def _locked(plan: Plan, cost: M.ManaCost) -> M.ManaCost:
 def _rerun(plan: Plan, d: Any, intent: Any, sources: list[str]) -> None:
     from app.rules.engine import INTENTS  # the engine imports this module
 
+    if isinstance(d.resume, dict) and d.resume.get('counter_first70'):
+        from app.rules import counter_cost_order70
+
+        raw = d.resume.get('counter_cost_origins70')
+        counter_cost_order70.guard_original(plan, [ObjectRef.model_validate(ref) for ref in raw] if raw is not None else None)
     intent.sources = sources
     plan.rules.priority = d.player
     plan.rules.passed = []
@@ -3651,11 +3659,16 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         add_cost = alt_costs.merged(add_cost, optional_more)
     add_objects: dict[int, list[str]] = {}
     if add_cost is not None:
-        problem = additional_problem(plan, add_cost, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
+        from app.rules import counter_cost_order70
+
+        counter_first70 = bool(grant is not None and grant.extra == counter_cost_order70.TEXT
+                               and counter_cost_order70.index(add_cost) is not None)
+        problem_cost70 = counter_cost_order70.preflight(add_cost) if counter_first70 else add_cost
+        problem = additional_problem(plan, problem_cost70, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
         if problem:
             raise ActionError(problem)
         plan.reserved_life = add_cost.life + ((a.x_value or 0) if add_cost.life_x else 0)  # (wave 29C: 119.4, with Phyrexian mana's life)
-        found_objects = cost_payment.choose(plan, a, add_cost, card, ch.name or "it")
+        found_objects = cost_payment.choose(plan, a, add_cost, card, ch.name or "it", counter_first=counter_first70)
         if found_objects is None:
             return  # waiting for the payer's choice; nothing has been paid
         add_objects = found_objects
@@ -3736,8 +3749,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     from app.rules import as_cast_values42
 
     cast_greatest_power = as_cast_values42.capture(plan, definition)
+    origins70 = counter_cost_order70.capture(plan, add_cost, add_objects) if add_cost is not None and grant is not None and grant.extra == counter_cost_order70.TEXT else None
     if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=purpose,
-                    cast_greatest_power=cast_greatest_power):
+                    cast_greatest_power=cast_greatest_power, counter_cost_origins70=origins70):
         return
     commander_cast = from_command_zone(card, plan.actor)
     harmonized = alt_offer is not None and alt_offer.tag == "harmonize"  # -- casting extras (wave 18E) -- 702.180a: exiled as it leaves the stack
@@ -3767,6 +3781,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if commander_cast and not plan.state.settings.auto_commander_tax and card.commander_key:
         plan.do({"type": "commander_tax", "commander": card.commander_key, "delta": 2})
     data = _PostCast(a, add_cost, add_objects, alt_offer, aura, bargained, bestowed_cast, card, card_was_in_hand, cast_zone, ch, chosen, commander_cast, definition, entwined, escaping, flashback, foretold, free, from_oid, from_where, gift_to, grant, harmonized, jumped, kicked, mutating_cast, optional, picked, picked_targets, sac_at_cleanup, slot_specs, slots)
+    if add_cost is not None and grant is not None and grant.extra == counter_cost_order70.TEXT:
+        data.counter_cost_origins70 = origins70
     data.cast_greatest_power = cast_greatest_power
     from app.rules import card_names
 
@@ -3826,6 +3842,7 @@ class _PostCast:
     spliced_names: list[str] | None = None  # Announcement snapshot; None only in legacy saved continuations.
     splice_text71: SpliceText71 | None = None
     cast_greatest_power: int | None = None
+    counter_cost_origins70: list[ObjectRef] | None = None
 
 
 @dataclass
@@ -3912,6 +3929,10 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
             from app.rules import replace as _replace_life  # (wave 28B: 119.4)
             _replace_life.lose_life(plan, [(plan.actor, a.x_value)])
             record.life += a.x_value
+        from app.rules import counter_cost_order70
+
+        if grant is not None and grant.extra == counter_cost_order70.TEXT:
+            counter_cost_order70.guard(plan, add_cost, card, add_objects, data.counter_cost_origins70)
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile, return, tap …
         plan.reserved_life = 0  # (wave 29C: paid now; later payments of this intent are their own)
     if a.splice:  # -- casting extras (wave 18E) -- 702.47a: the spliced cards are revealed (they stay in the hand)
@@ -4504,7 +4525,7 @@ def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
     if restrictions.limited(limits):
         restrictions.record_use(plan.rules, oid, a.ability, plan.state.turn.number)
     _stacked(plan, card, oid, ch, ability_id, [{"do": "saddled"}] if saddle else
-             [{"do": "animate", "who": "self", "types": ["Artifact", "Creature"], "crewed": True}], cost_has_tap=False)
+             [{"do": "animate", "who": "self", "types": ["Artifact", "Creature"], "crewed": True, "crew_count80": len(chosen)}], cost_has_tap=False)
 
 
 # -- static statics (wave 10B) -- cascade a permanent gives the spell as it's cast (cast_limits.granted_cascade)

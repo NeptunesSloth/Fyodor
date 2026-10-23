@@ -1,3 +1,5 @@
+CURRENT HOLD: Airlift parser recipe withdrawn from production before catalog admission after a native competing616 replacement counterexample. Earlier17 tests do not close this new boundary. Unexpected Request remains installed with7 production checks passing. Ten Airlift checks are preserved in held-native-tests-before-replacement-fix.py. Shared prepared mill producer under review.
+
 # Public mill and optional delayed attachment59 — pending root review
 
 Exact candidates Airlift Chaplain and Unexpected Request. All17 isolated native cases pass, including two genuine subprocess cold continuations. Scoped mypy3 and configured Ruff3 pass. Related look/mill/attachment/delayed103 PASS; no live installation or catalog admission is claimed by this worker.

@@ -1,0 +1,75 @@
+{
+  "status": "REVIEW READY ISOLATED; production installation and catalog audit pending",
+  "names": [
+    "Falco Spara, Pactweaver"
+  ],
+  "patch": "/tmp/falco70-final-review.patch",
+  "patch_sha256": "e1d932a544144be5f21a37798309353cfa8b1baa394a0b8a46477e0f58114d70",
+  "stage": "/tmp/falco70-stage",
+  "base_snapshot": "/tmp/falco70-base",
+  "native_whole": {
+    "passed": 19,
+    "cold_processes": 3,
+    "canonical_checks": 1,
+    "log": "/tmp/falco70-final19.log"
+  },
+  "related": {
+    "passed": 83,
+    "log": "/tmp/falco70-related.log"
+  },
+  "types": {
+    "files": 5,
+    "result": "PASS",
+    "log": "/tmp/falco70-types5-final.log"
+  },
+  "ruff": {
+    "files": 6,
+    "result": "PASS",
+    "log": "/tmp/falco70-ruff6-final.log"
+  },
+  "source_hashes": {
+    "app/rules/top_library_authorities69.py": {
+      "base_sha256": "2aed419db5c8a183dbad0ce3182db2fac0b92f65d6d710a8ceae3def9de1d731",
+      "proposed_sha256": "74a41537e6c84f8b622de62ccc5bc8a7344cf5cf3cc16f2c6dc39b569ff7761a"
+    },
+    "app/rules/counter_cost_order70.py": {
+      "base_sha256": null,
+      "proposed_sha256": "41e7d57ba79d983581675391f09370ad6fce477e8182cb6f616c7d2dafb97f9a"
+    },
+    "app/rules/costs.py": {
+      "base_sha256": "6d48586e6e34c5fa031bcadf7b5cc1d358c5b23f794d104be11d94514c83d451",
+      "proposed_sha256": "6b3ad165ff30c727ac1ed79d587f396fd766114648e6e49798d686fc49753068"
+    },
+    "app/rules/cost_payment.py": {
+      "base_sha256": "ae51640d052ff0ce39d29fca369ec963da9ec5e4e5588fda512de688c2f0be35",
+      "proposed_sha256": "4f49c876ab1f0909ad0fb7c41d31d52a8555bee8b83f4fc91591e307e49ddc8b"
+    },
+    "app/rules/casting.py": {
+      "base_sha256": "ddb79f5963222a4411b3080ff6e5363c8b49dccde383057c1ad3103be8cdba0b",
+      "proposed_sha256": "2dfac2bfe0f0e65d3d1814d3f746cd3e5fce1dc90b2e7915cb51f2a513cf1519"
+    },
+    "tests/test_rules_falco_counter_cost_order70.py": {
+      "base_sha256": null,
+      "proposed_sha256": "fef3a68aa76ba6e619512ed8e3b7cc736d83e8b8f66e5d4cc873ea25ba609805"
+    },
+    "tests/fixtures/falco_counter_cost_order70_cards.json": {
+      "base_sha256": null,
+      "proposed_sha256": "2c9dc5039a32fd16897c839a06d90e802a54f057e0851875860ee18a2bcc6e8c"
+    }
+  },
+  "authority": [
+    "Pinned CR2026-09-25 118.3,118.10,400.7,601.2g-h,702.153a",
+    "Official Falco ruling2022-04-29: remove counter then sacrifice same creature for casualty, check its power after removal"
+  ],
+  "provenance": [
+    "Mode derived only from selected server-native Grant.extra exactly matching fixed creature-counter cost.",
+    "Chooser fixed-resource preview runs native counter action on a cloned Plan; actual engine payment records original sacrificial OID and LKI power2.",
+    "Server captures typed original ObjectRefs, carries them before ASK payment rerun and in nullable typed post-cast data, and validates before actual payment.",
+    "Missing marker on ordinary legacy mana resumes stays automatic; missing original refs on native counter-first resumes fails explicitly, without guessed holders."
+  ],
+  "scope": [
+    "No generic reuse mode for other grants; only one fixed chosen-creature counter followed by regular fixed sacrifices uses this route.",
+    "Existing reservations still forbid one object paying two sacrifices; no variable/multiple counter resource allocation is introduced.",
+    "Sibling caster-turn cost63 changes are absent."
+  ]
+}

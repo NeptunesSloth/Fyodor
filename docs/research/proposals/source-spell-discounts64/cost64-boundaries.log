@@ -1,0 +1,57 @@
+...FF.                                                                   [100%]
+=================================== FAILURES ===================================
+_ test_seal_unknown_legacy_blocks_only_automatic_colored_cast_until_source_manual _
+
+cards = <app.cards.repository.CardRepository object at 0x7fdc3484a780>
+
+    def test_seal_unknown_legacy_blocks_only_automatic_colored_cast_until_source_manual(cards):
+        from app.game.session import GameSession
+        from app.game.state import GameState
+
+        s,source = seal_scene(cards,['Hill Giant','Sol Ring'])
+        spell = put(s,'Hill Giant','hand')
+        colorless = put(s,'Sol Ring','hand')
+        raw = s.state.model_dump(mode='json')
+        raw['rules'].pop('chosen_color_pairs')
+        s = GameSession(GameState.model_validate(raw),cards=cards)
+        spell = s.state.cards[spell.id]
+        act(s,'p1',type='add_mana',player='p1',mana={'C':4,'R':1})
+        assert not casting.castable(s.state,'p1',spell,cards)
+        s.view('p1')
+        before = s.state.model_dump_json()
+        with pytest.raises(ActionError,match='manual'):
+            act(s,'p1',type='cast_spell',card_id=spell.id,sources=[])
+        assert s.state.model_dump_json() == before
+        # A colorless spell has known zero overlap regardless of the missing pair.
+        act(s,'p1',type='cast_spell',card_id=colorless.id,sources=[])
+        answer(s)
+>       assert colorless.zone == 'p1:battlefield'
+E       AssertionError: assert 'p1:hand' == 'p1:battlefield'
+E
+E         - p1:battlefield
+E         + p1:hand
+
+tests/test_rules_source_spell_discounts64.py:212: AssertionError
+_ test_thaumaturge_does_not_discount_player_target_or_graveyard_creature_cards _
+
+cards = <app.cards.repository.CardRepository object at 0x7fdc3484acf0>
+
+    def test_thaumaturge_does_not_discount_player_target_or_graveyard_creature_cards(cards):
+        s = table(cards,['Battlefield Thaumaturge','Fireball','Soul Salvage','Grizzly Bears'])
+        put(s,'Battlefield Thaumaturge','battlefield')
+        dead = put(s,'Grizzly Bears','graveyard')
+        fire = put(s,'Fireball','hand')
+        salvage = put(s,'Soul Salvage','hand')
+        ready(s)
+        act(s,'p1',type='add_mana',player='p1',mana={'C':3,'R':1})
+        act(s,'p1',type='cast_spell',card_id=fire.id,x_value=3,targets=['p2'],sources=[])
+        answer(s)
+>       assert s.state.players['p2'].life == 37 and not s.state.players['p1'].mana_units
+E       AssertionError: assert (40 == 37)
+E        +  where 40 = PlayerState(id='p2', name='Bob', color='#5fa8d3', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'expe...id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None).life
+
+tests/test_rules_source_spell_discounts64.py:230: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_source_spell_discounts64.py::test_seal_unknown_legacy_blocks_only_automatic_colored_cast_until_source_manual
+FAILED tests/test_rules_source_spell_discounts64.py::test_thaumaturge_does_not_discount_player_target_or_graveyard_creature_cards
+2 failed, 4 passed, 11 deselected in 15.64s
