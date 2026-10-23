@@ -1,0 +1,231 @@
+--- /dev/null
++++ b/backend/app/rules/exchange_spells93.py
+@@ -0,0 +1,88 @@
++"""Exact cross-zone control exchanges; source and spell retain their original identities."""
++
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++CHIMERA = "Whenever an opponent casts a spell, you may exchange control of ~ and that spell. If you do, you may choose new targets for the spell."
++SUDDEN = "Exchange control of target noncreature spell and target creature. Then the spell's controller may choose new targets for it."
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts, selectors
++
++    text = scripts.self_text(ability.text, ch.name)
++    if text == CHIMERA:
++        native = scripts.define(replace(ability, text="Whenever an opponent casts a spell, draw a card."), ch)
++        if native:
++            return {**native, "effects": [{"do": "exchange_chimera_offer93"}]}
++    if text == SUDDEN:
++        spell = selectors.parse("noncreature spell")
++        creature = selectors.parse("creature")
++        assert spell is not None and creature is not None
++        return {
++            "kind": "spell",
++            "target": None,
++            "targets": [
++                {"what": spell.key(), "min": 1, "max": 1},
++                {"what": creature.key(), "min": 1, "max": 1},
++            ],
++            "effects": [
++                {"do": "exchange_spell_permanent93", "permanent": "target:1", "spell": "target:0"},
++                {"do": "choose_new_targets", "who": "target:0", "by": "spell_controller"},
++            ],
++        }
++    return None
++
++
++def pair(plan: Any, ctx: Any, effect: Any) -> Any:
++    from app.rules import effects
++
++    permanents = effects._cards(plan, ctx, effect["permanent"])
++    spells = effects._stack_targets(plan, ctx, {"who": effect["spell"]})
++    if len(permanents) != 1 or len(spells) != 1:
++        return None
++    permanent, spell = plan.state.cards[permanents[0]], plan.state.cards[spells[0]]
++    if (
++        not permanent.zone.endswith(":battlefield")
++        or not plan.in_game(permanent)
++        or spell.zone != "stack"
++        or spell.ability is not None
++        or not plan.in_game(spell)
++        or permanent.controller == spell.controller
++    ):
++        return None
++    return permanent, spell
++
++
++def offer(plan: Any, ctx: Any, effect: Any) -> bool:
++    exchange = {"do": "exchange_spell_permanent93", "permanent": "self", "spell": "event_spell"}
++    if pair(plan, ctx, exchange) is None:
++        return True
++    ctx["effects"][ctx["next"] : ctx["next"]] = [
++        {"do": "may_rest", "label": "Exchange control of this permanent and that spell"},
++        exchange,
++        {"do": "only_if", "cond": {"succeeded": "exchange_spell93"}, "skip": 1},
++        {"do": "choose_new_targets", "who": "event_spell"},
++    ]
++    return True
++
++
++def exchange(plan: Any, ctx: Any, effect: Any) -> bool:
++    from app.rules import context, effects, layers
++
++    context.bind_payment(ctx, "exchange_spell93", False)
++    actors = pair(plan, ctx, effect)
++    if actors is None:
++        return True
++    permanent, spell = actors
++    permanent_controller, spell_controller = permanent.controller, spell.controller
++    effects._control_effect(plan, ctx, [permanent.id], spell_controller, "permanent")
++    effects._control_effect(plan, ctx, [spell.id], permanent_controller, "permanent")
++    layers.control_sync(plan)
++    context.bind_payment(ctx, "exchange_spell93", True)
++    return True
++
++
++PRIMITIVES = {"exchange_chimera_offer93": offer, "exchange_spell_permanent93": exchange}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5789,6 +5789,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import exchange_spells93
++
++    if (exchange93 := exchange_spells93.definition(ability, ch)) is not None:
++        return exchange93
+     from app.rules import fight_receipts90
+
+     if (admitted63 := fight_receipts90.definition(ability, ch)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6828,3 +6828,7 @@
+ PRIMITIVES['note_echo_paid76'] = _echo76.note_paid
+
+ PRIMITIVES['echo_draws76'] = _echo76.draws
++
++from app.rules import exchange_spells93 as _exchange93  # noqa: E402
++
++PRIMITIVES.update(_exchange93.PRIMITIVES)
+--- a/backend/app/rules/stack_interaction.py
++++ b/backend/app/rules/stack_interaction.py
+@@ -326,11 +326,11 @@
+     from app.rules.effects import _stack_targets
+
+     for sid in _stack_targets(plan, ctx, e):
+-        return _ask_new_targets(plan, ctx, sid, [])
++        return _ask_new_targets(plan, ctx, sid, [], plan.state.cards[sid].controller if e.get("by") == "spell_controller" else None)
+     return True
+
+
+-def _ask_new_targets(plan: Plan, ctx: Context, sid: str, picks: list[str]) -> bool:
++def _ask_new_targets(plan: Plan, ctx: Context, sid: str, picks: list[str], chooser: str | None = None) -> bool:
+     """True once every target has been kept or changed (the changed entry applied); False while a question is open."""
+     from app.rules import copying, targets
+     from app.rules.plan import decide
+@@ -338,7 +338,7 @@
+     entry = target_entry(plan, sid)
+     if entry is None:
+         return True
+-    me = ctx["controller"]
++    me = chooser or ctx["controller"]
+     positions = copying.positions(entry)
+     name = _label(plan, sid) or "that spell"
+     while len(picks) < len(positions):
+@@ -356,7 +356,7 @@
+                    *(DecisionOption(id=x, label=_label(plan, x)[:200], card_id=x if x in plan.state.cards else None) for x in legal)]
+         count = f" ({k + 1} of {len(positions)})" if len(positions) > 1 else ""
+         decide(plan, player=me, kind="choose_one", prompt=f"{ctx.get('name', '')}: keep the target of {name}{count} or choose a new one (115.7d)",
+-               options=options, resume={"step": "choose_new_targets", "ctx": ctx, "sid": sid, "oid": plan.oid(sid), "picks": picks})
++               options=options, resume={"step": "choose_new_targets", "ctx": ctx, "sid": sid, "oid": plan.oid(sid), "picks": picks, "chooser": me})
+         return False
+     if all(p == "keep" for p in picks):
+         return True
+@@ -365,7 +365,7 @@
+     problem = copying._problem(plan, new)
+     if problem is not None:  # 115.7e: only the final set is judged: choose again
+         plan.note(f"Those targets aren't legal together: {problem}. Choose again", actor=me)
+-        return _ask_new_targets(plan, ctx, sid, [])
++        return _ask_new_targets(plan, ctx, sid, [], chooser)
+     _apply(plan, sid, new)
+     return True
+
+@@ -377,7 +377,7 @@
+     if target_entry(plan, r["sid"]) is None or plan.oid(r["sid"]) != r["oid"]:  # (gone, or a new object: 400.7)
+         continue_effects(plan, r["ctx"])
+         return
+-    if _ask_new_targets(plan, r["ctx"], r["sid"], [*r["picks"], chosen[0]]):
++    if _ask_new_targets(plan, r["ctx"], r["sid"], [*r["picks"], chosen[0]], r.get("chooser")):
+         continue_effects(plan, r["ctx"])
+
+
+--- a/backend/app/rules/spell_control.py
++++ b/backend/app/rules/spell_control.py
+@@ -23,10 +23,12 @@
+
+
+ def gain_control(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+-    from app.rules.effects import _stack_targets
++    from app.rules import layers
++    from app.rules.effects import _control_effect, _stack_targets
+
+     for sid in _stack_targets(plan, ctx, e):
+         spell = plan.state.cards[sid]
+         if spell.ability is None:
+-            plan.do({'type': 'set_controller', 'card_ids': [sid], 'player': ctx['controller']}, actor=ctx['controller'])
++            _control_effect(plan, ctx, [sid], ctx['controller'], 'permanent')
++    layers.control_sync(plan)
+     return True
+--- a/backend/app/rules/layers.py
++++ b/backend/app/rules/layers.py
+@@ -1636,10 +1636,10 @@
+     from app.rules import scripts
+
+     state, r = plan.state, plan.rules
+-    battle = {cid: c for cid, c in state.cards.items() if c.zone.endswith(":battlefield")}
++    battle = {cid: c for cid, c in state.cards.items() if c.zone.endswith(":battlefield") or (c.zone == "stack" and c.ability is None)}
+     live = set(plan.live())
+     # A zone change makes a fresh object even when its card id is reused. Phasing does not.
+-    existing = {plan.oid(c) for c in state.cards.values() if c.zone.endswith((":battlefield", ":phased"))}
++    existing = {plan.oid(c) for c in state.cards.values() if c.zone.endswith((":battlefield", ":phased")) or (c.zone == "stack" and c.ability is None)}
+     for oid in list(r.control_baselines):
+         if oid not in existing:
+             del r.control_baselines[oid]
+@@ -1670,6 +1670,11 @@
+             if cid not in r.control_changed and want != card.controller:
+                 r.control_baselines[plan.oid(card)] = card.controller
+                 r.control_changed.append(cid)
++            elif r.control_baselines.get(plan.oid(card)) == want:
++                # A remaining control effect can agree with the underlying controller.
++                # Once that baseline is restored there is no change left to remember.
++                r.control_baselines.pop(plan.oid(card), None)
++                r.control_changed = [x for x in r.control_changed if x != cid]
+         elif cid in r.control_changed:
+             # Older saves lack the baseline; retain their historical owner fallback.
+             baseline = r.control_baselines.pop(plan.oid(card), card.owner)
+@@ -1689,4 +1694,6 @@
+     if r is None or not r.effects:
+         return
+     live = {r.object_id(cid) for cid, c in state.cards.items() if c.zone.endswith(":battlefield")}
+-    r.effects = [e for e in r.effects if e.who is not None or set(e.affected) & live]
++    stack = {r.object_id(cid) for cid, c in state.cards.items() if c.zone == "stack" and c.ability is None}
++    r.effects = [e for e in r.effects if e.who is not None or set(e.affected) & live
++                 or (e.layer == "2" and set(e.affected) & stack)]
+--- a/backend/app/rules/leave.py
++++ b/backend/app/rules/leave.py
+@@ -29,6 +29,10 @@
+     # The leaver's permanents (wherever they are) leave the game with them: their "until ~ leaves
+     # the battlefield" links end (610.3). Captured before anything moves.
+     leaving = {plan.oid(c) for c in state.cards.values() if c.owner == player and c.zone.endswith(":battlefield")}
++    # End departed-player layer-2 effects before deciding which foreign spells remain controlled.
++    from app.rules import layers
++
++    layers.control_sync(plan)
+     for card in list(state.cards.values()):
+         if card.id not in state.cards:
+             continue

@@ -1,0 +1,380 @@
+[
+  {
+    "name": "Light from Within",
+    "mana_cost": "{2}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Chroma \u2014 Each creature you control gets +1/+1 for each white mana symbol in its mana cost.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Chroma"
+    ]
+  },
+  {
+    "name": "Umbra Stalker",
+    "mana_cost": "{4}{B}{B}{B}",
+    "cmc": 7.0,
+    "type_line": "Creature \u2014 Elemental",
+    "oracle_text": "Chroma \u2014 Umbra Stalker's power and toughness are each equal to the number of black mana symbols in the mana costs of cards in your graveyard.",
+    "power": "*",
+    "toughness": "*",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Chroma"
+    ]
+  },
+  {
+    "name": "Diligent Zookeeper",
+    "mana_cost": "{3}{G}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Citizen Ally",
+    "oracle_text": "Each non-Human creature you control gets +1/+1 for each of its creature types, to a maximum of 10.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Dark Matter Manipulator",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Human Warlock",
+    "oracle_text": "When this creature enters, mill three cards.\nThis creature gets +2/+0 for every seven cards in your graveyard.",
+    "power": "1",
+    "toughness": "2",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Enemy of Enlightenment",
+    "mana_cost": "{5}{B}",
+    "cmc": 6.0,
+    "type_line": "Enchantment Creature \u2014 Demon",
+    "oracle_text": "Flying\nThis creature gets -1/-1 for each card in your opponents' hands.\nAt the beginning of your upkeep, each player discards a card.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying"
+    ]
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Llanowar Elves",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Dark Ritual",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Add {B}{B}{B}.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Divinity of Pride",
+    "mana_cost": "{W/B}{W/B}{W/B}{W/B}{W/B}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Spirit Avatar",
+    "oracle_text": "Flying, lifelink\nThis creature gets +4/+4 as long as you have 25 or more life.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "B",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Lifelink"
+    ]
+  },
+  {
+    "name": "Serra Angel",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Angel",
+    "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Vigilance"
+    ]
+  },
+  {
+    "name": "Eight-and-a-Half-Tails",
+    "mana_cost": "{W}{W}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Fox Cleric",
+    "oracle_text": "{1}{W}: Target permanent you control gains protection from white until end of turn.\n{1}: Target spell or permanent becomes white until end of turn.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Reaper King",
+    "mana_cost": "{2/W}{2/U}{2/B}{2/R}{2/G}",
+    "cmc": 10.0,
+    "type_line": "Legendary Artifact Creature \u2014 Scarecrow",
+    "oracle_text": "({2/W} can be paid with any two mana or with {W}. This card's mana value is 10.)\nOther Scarecrow creatures you control get +1/+1.\nWhenever another Scarecrow you control enters, destroy target permanent.",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Dismember",
+    "mana_cost": "{1}{B/P}{B/P}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "({B/P} can be paid with either {B} or 2 life.)\nTarget creature gets -5/-5 until end of turn.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Transguild Courier",
+    "mana_cost": "{4}",
+    "cmc": 4.0,
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "Transguild Courier is all colors.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Arcane Adaptation",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "As this enchantment enters, choose a creature type.\nCreatures you control are the chosen type in addition to their other types. The same is true for creature spells you control and creature cards you own that aren't on the battlefield.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Disenchant",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Mirrorweave",
+    "mana_cost": "{2}{W/U}{W/U}",
+    "cmc": 4.0,
+    "type_line": "Instant",
+    "oracle_text": "Each other creature becomes a copy of target nonlegendary creature until end of turn.",
+    "colors": [
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "U",
+      "W"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Raise Dead",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Return target creature card from your graveyard to your hand.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Tormod's Crypt",
+    "mana_cost": "{0}",
+    "cmc": 0.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}, Sacrifice this artifact: Exile target player's graveyard.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": []
+  },
+  {
+    "name": "Faithless Looting",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Draw two cards, then discard two cards.\nFlashback {2}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flashback"
+    ]
+  },
+  {
+    "name": "Tome Scour",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Target player mills five cards.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Reach Through Mists",
+    "mana_cost": "{U}",
+    "cmc": 1.0,
+    "type_line": "Instant \u2014 Arcane",
+    "oracle_text": "Draw a card.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Giant Growth",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets +3/+3 until end of turn.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": []
+  }
+]

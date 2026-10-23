@@ -1,0 +1,35 @@
+{
+  "id": "c9944393-348f-4f0e-a0c7-9adcc5a30749",
+  "oracle_id": "fdac480b-03b5-4ece-b42a-e6928b609419",
+  "name": "Lullmage's Domination",
+  "layout": "normal",
+  "set_code": "znr",
+  "set_name": "Zendikar Rising",
+  "collector_number": "66",
+  "rarity": "uncommon",
+  "mana_cost": "{X}{U}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "This spell costs {3} less to cast if it targets a creature whose controller has eight or more cards in their graveyard.\nGain control of target creature with mana value X.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "defense": null,
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "keywords": [],
+  "is_token": false,
+  "faces": [],
+  "double_faced": false,
+  "image_faces": 1,
+  "has_image": false,
+  "released_at": "2020-09-25",
+  "artist": "Zezhou Chen",
+  "commander_legal": "legal",
+  "related_tokens": [],
+  "related_cards": []
+}

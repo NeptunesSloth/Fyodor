@@ -1,0 +1,21 @@
+I001 [*] Import block is un-sorted or un-formatted
+   --> scratch/cost81/stage/backend/tests/test_rules_target_conditional_costs81.py:293:5
+    |
+292 |   def test_true_cold_dire_owner_destination_choice_keeps_original_target(cards, tmp_path):
+293 | /     import os
+294 | |     import subprocess
+295 | |     import sys
+296 | |     from tests.test_rules_designations import settle
+    | |____________________________________________________^
+297 |
+298 |       s, c, target = setup(cards)
+    |
+help: Organize imports
+    |
+295 |     import sys
+296 +
+297 |     from tests.test_rules_designations import settle
+    |
+
+Found 1 error.
+[*] 1 fixable with `--fix`.

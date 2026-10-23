@@ -1,0 +1,2102 @@
+[
+  {
+    "name": "Amarant Coral",
+    "word": "No Mercy",
+    "text": "No Mercy \u2014 Whenever Amarant Coral deals combat damage to an opponent, it deals that much damage to each other opponent."
+  },
+  {
+    "name": "Aboleth Spawn",
+    "word": "Probing Telepathy",
+    "text": "Probing Telepathy \u2014 Whenever a creature entering under an opponent's control causes a triggered ability of that creature to trigger, you may copy that ability. You may choose new targets for the copy."
+  },
+  {
+    "name": "Carnival Elephant Meteor",
+    "word": "{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK} \u2014 Whenever this creature attacks, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)"
+  },
+  {
+    "name": "Assault Intercessor",
+    "word": "Chainsword",
+    "text": "Chainsword \u2014 Whenever a creature an opponent controls dies, that player loses 2 life."
+  },
+  {
+    "name": "Shriek, Treblemaker",
+    "word": "Sonic Blast",
+    "text": "Sonic Blast \u2014 Whenever a creature an opponent controls dies, Shriek deals 1 damage to that player."
+  },
+  {
+    "name": "Sergeant John Benton",
+    "word": "Share Intelligence",
+    "text": "Share Intelligence \u2014 Whenever Sergeant John Benton deals combat damage to a player, you and that player each draw that many cards."
+  },
+  {
+    "name": "Illithid Harvester // Plant Tadpoles",
+    "word": "Ceremorphosis",
+    "text": "Ceremorphosis \u2014 When this creature enters, turn any number of target tapped nontoken creatures face down. They're 2/2 Horror creatures."
+  },
+  {
+    "name": "Taskmaster, Mercenary Mimic",
+    "word": "Photographic Reflexes",
+    "text": "Photographic Reflexes \u2014 At the beginning of your first main phase, until your next turn, Taskmaster becomes a copy of up to one target creature on the battlefield or creature card in a graveyard, except his name is Taskmaster, Mercenary Mimic and he's a legendary Human Mercenary Villain creature."
+  },
+  {
+    "name": "Cecil, Dark Knight // Cecil, Redeemed Paladin",
+    "word": "Darkness",
+    "text": "Darkness \u2014 Whenever Cecil deals damage, you lose that much life. Then if your life total is less than or equal to half your starting life total, untap Cecil and transform it."
+  },
+  {
+    "name": "Cecil, Dark Knight // Cecil, Redeemed Paladin",
+    "word": "Protect",
+    "text": "Protect \u2014 Whenever Cecil attacks, other attacking creatures gain indestructible until end of turn."
+  },
+  {
+    "name": "Shessra, Death's Whisper",
+    "word": "Bewitching Whispers",
+    "text": "Bewitching Whispers \u2014 When Shessra enters, target creature blocks this turn if able."
+  },
+  {
+    "name": "Shessra, Death's Whisper",
+    "word": "Whispers of the Grave",
+    "text": "Whispers of the Grave \u2014 At the beginning of your end step, if a creature died this turn, you may pay 2 life. If you do, draw a card."
+  },
+  {
+    "name": "Canoptek Wraith",
+    "word": "Transdimensional Scout",
+    "text": "Transdimensional Scout \u2014 When this creature deals combat damage to a player, you may pay {3} and sacrifice it. If you do, choose a land you control. Then search your library for up to two basic land cards which have the same name as the chosen land, put them onto the battlefield tapped, then shuffle."
+  },
+  {
+    "name": "Canoptek Tomb Sentinel",
+    "word": "Exile Cannon",
+    "text": "Exile Cannon \u2014 When this creature enters from a graveyard, exile up to one target nonland permanent."
+  },
+  {
+    "name": "Prosper, Tome-Bound",
+    "word": "Mystic Arcanum",
+    "text": "Mystic Arcanum \u2014 At the beginning of your end step, exile the top card of your library. Until the end of your next turn, you may play that card."
+  },
+  {
+    "name": "Prosper, Tome-Bound",
+    "word": "Pact Boon",
+    "text": "Pact Boon \u2014 Whenever you play a card from exile, create a Treasure token."
+  },
+  {
+    "name": "Rory Williams",
+    "word": "The Last Centurion",
+    "text": "The Last Centurion \u2014 When you cast this spell from anywhere other than exile, exile it with three time counters on it. It gains suspend. Then investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")"
+  },
+  {
+    "name": "The Fifth Doctor",
+    "word": "Peaceful Coexistence",
+    "text": "Peaceful Coexistence \u2014 At the beginning of your end step, put a +1/+1 counter on each creature you control that didn't attack or enter this turn. Untap those creatures."
+  },
+  {
+    "name": "Shard of the Void Dragon",
+    "word": "Spear of the Void Dragon",
+    "text": "Spear of the Void Dragon \u2014 Whenever this creature attacks, each opponent sacrifices a nonland permanent of their choice."
+  },
+  {
+    "name": "Shard of the Void Dragon",
+    "word": "Matter Absorption",
+    "text": "Matter Absorption \u2014 Whenever an artifact is put into a graveyard from the battlefield or is put into exile from the battlefield, put two +1/+1 counters on this creature."
+  },
+  {
+    "name": "Struggle for Project Purity",
+    "word": "\u2022 Brotherhood",
+    "text": "\u2022 Brotherhood \u2014 At the beginning of your upkeep, each opponent draws a card. You draw a card for each card drawn this way."
+  },
+  {
+    "name": "Struggle for Project Purity",
+    "word": "\u2022 Enclave",
+    "text": "\u2022 Enclave \u2014 Whenever a player attacks you with one or more creatures, that player gets twice that many rad counters."
+  },
+  {
+    "name": "Unhinged Beast Hunt",
+    "word": "{TK}{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK}{TK} \u2014 Whenever this creature attacks, tap each creature an opponent controls with the same power and/or same toughness as this creature."
+  },
+  {
+    "name": "Sister of Silence",
+    "word": "Psychic Abomination",
+    "text": "Psychic Abomination \u2014 When this creature enters, counter target instant spell, sorcery spell, activated ability, or triggered ability."
+  },
+  {
+    "name": "Moon-Blessed Cleric",
+    "word": "Divine Intervention",
+    "text": "Divine Intervention \u2014 When this creature enters, you may search your library for an enchantment card, reveal it, then shuffle and put that card on top."
+  },
+  {
+    "name": "Outpost Siege",
+    "word": "\u2022 Khans",
+    "text": "\u2022 Khans \u2014 At the beginning of your upkeep, exile the top card of your library. Until end of turn, you may play that card."
+  },
+  {
+    "name": "Outpost Siege",
+    "word": "\u2022 Dragons",
+    "text": "\u2022 Dragons \u2014 Whenever a creature you control leaves the battlefield, this enchantment deals 1 damage to any target."
+  },
+  {
+    "name": "Ghost Ark",
+    "word": "Repair Barge",
+    "text": "Repair Barge \u2014 Whenever this Vehicle becomes crewed, each artifact creature card in your graveyard gains unearth {3} until end of turn."
+  },
+  {
+    "name": "Tzaangor Shaman",
+    "word": "Sorcerous Elixir",
+    "text": "Sorcerous Elixir \u2014 Whenever this creature deals combat damage to a player, copy the next instant or sorcery spell you cast this turn when you cast it. You may choose new targets for the copy."
+  },
+  {
+    "name": "Hormagaunt Horde",
+    "word": "Endless Swarm",
+    "text": "Endless Swarm \u2014 Whenever a land you control enters, you may pay {2}{G}. If you do, return this card from your graveyard to your hand."
+  },
+  {
+    "name": "Loot Dispute",
+    "word": "Loud Ruckus",
+    "text": "Loud Ruckus \u2014 Whenever you complete a dungeon, create a 5/5 red Dragon creature token with flying."
+  },
+  {
+    "name": "Captain America, First Avenger",
+    "word": "... Catch",
+    "text": "... Catch \u2014 At the beginning of combat on your turn, attach up to one target Equipment you control to Captain America."
+  },
+  {
+    "name": "Sonic the Hedgehog",
+    "word": "Gotta Go Fast",
+    "text": "Gotta Go Fast \u2014 Whenever Sonic the Hedgehog attacks, put a +1/+1 counter on each creature you control with flash or haste."
+  },
+  {
+    "name": "G'raha Tia",
+    "word": "The Allagan Eye",
+    "text": "The Allagan Eye \u2014 Whenever one or more other creatures and/or artifacts you control die, draw a card. This ability triggers only once each turn."
+  },
+  {
+    "name": "Maddened Oread",
+    "word": "Hero's Reward",
+    "text": "Hero's Reward \u2014 When Maddened Oread leaves the battlefield, each player gains 3 life."
+  },
+  {
+    "name": "Squall, SeeD Mercenary",
+    "word": "Rough Divide",
+    "text": "Rough Divide \u2014 Whenever a creature you control attacks alone, it gains double strike until end of turn."
+  },
+  {
+    "name": "Screamer-Killer",
+    "word": "Bio-Plasmic Scream",
+    "text": "Bio-Plasmic Scream \u2014 Whenever you cast a creature spell with mana value 5 or greater, this creature deals 5 damage to any target."
+  },
+  {
+    "name": "The Flood of Mars",
+    "word": "Water Always Wins",
+    "text": "Water Always Wins \u2014 Whenever this creature attacks, put a flood counter on another target creature or land. If it's a creature, it becomes a copy of this creature. If it's a land, it becomes an Island in addition to its other types."
+  },
+  {
+    "name": "Dalek Drone",
+    "word": "Exterminate!",
+    "text": "Exterminate! \u2014 When this creature enters, destroy target creature an opponent controls. That player loses 3 life."
+  },
+  {
+    "name": "Noise Marine",
+    "word": "Sonic Blaster",
+    "text": "Sonic Blaster \u2014 When this creature enters, it deals damage equal to the number of spells you've cast this turn to any target."
+  },
+  {
+    "name": "Rose Tyler",
+    "word": "Bad Wolf",
+    "text": "Bad Wolf \u2014 Whenever Rose Tyler attacks, put a time counter on it for each suspended card you own and each other permanent you control with a time counter on it."
+  },
+  {
+    "name": "Storm, Force of Nature",
+    "word": "Ceaseless Tempest",
+    "text": "Ceaseless Tempest \u2014 Whenever Storm deals combat damage to a player, the next instant or sorcery spell you cast this turn has storm. (When you cast it, copy it for each spell cast before it this turn. You may choose new targets for the copies.)"
+  },
+  {
+    "name": "Edgar, Master Machinist",
+    "word": "Tools",
+    "text": "Tools \u2014 Whenever Edgar attacks, it gets +X/+0 until end of turn, where X is the greatest mana value among artifacts you control."
+  },
+  {
+    "name": "River Song",
+    "word": "Spoilers",
+    "text": "Spoilers \u2014 Whenever an opponent scries, surveils, or searches their library, put a +1/+1 counter on River Song. Then River Song deals damage to that player equal to its power."
+  },
+  {
+    "name": "Seifer Almasy",
+    "word": "Fire Cross",
+    "text": "Fire Cross \u2014 Whenever Seifer Almasy deals combat damage to a player, you may cast target instant or sorcery card with mana value 3 or less from your graveyard without paying its mana cost. If that spell would be put into your graveyard, exile it instead."
+  },
+  {
+    "name": "Midnight Crusader Shuttle",
+    "word": "Midnight Entity",
+    "text": "Midnight Entity \u2014 Whenever this Vehicle attacks, defending player faces a villainous choice \u2014 That player sacrifices a creature of their choice, or you gain control of a creature of your choice that player controls until end of turn. If you gain control of a creature this way, tap it, and it's attacking that player."
+  },
+  {
+    "name": "Royal Warden",
+    "word": "Phalanx Commander",
+    "text": "Phalanx Commander \u2014 When this creature enters, create two tapped 2/2 black Necron Warrior artifact creature tokens."
+  },
+  {
+    "name": "Gargoyle Flock",
+    "word": "Skyswarm",
+    "text": "Skyswarm \u2014 At the beginning of your end step, if a creature entered the battlefield under your control this turn, create a 1/1 blue Tyranid Gargoyle creature token with flying."
+  },
+  {
+    "name": "Sycorax Commander",
+    "word": "Sanctified Rules of Combat",
+    "text": "Sanctified Rules of Combat \u2014 When this creature enters, each opponent faces a villainous choice \u2014 That opponent discards all the cards in their hand, then draws that many cards minus one, or this creature deals damage to that player equal to the number of cards in their hand."
+  },
+  {
+    "name": "Phenomenon Investigators",
+    "word": "\u2022 Believe",
+    "text": "\u2022 Believe \u2014 Whenever a nontoken creature you control dies, create a 2/2 black Horror enchantment creature token."
+  },
+  {
+    "name": "Phenomenon Investigators",
+    "word": "\u2022 Doubt",
+    "text": "\u2022 Doubt \u2014 At the beginning of your end step, you may return a nonland permanent you own to your hand. If you do, draw a card."
+  },
+  {
+    "name": "Lightning, Army of One",
+    "word": "Stagger",
+    "text": "Stagger \u2014 Whenever Lightning deals combat damage to a player, until your next turn, if a source would deal damage to that player or a permanent that player controls, it deals double that damage instead."
+  },
+  {
+    "name": "Insufferable Balladeer",
+    "word": "Vicious Mockery",
+    "text": "Vicious Mockery \u2014 When this creature enters, target creature an opponent controls can't block this turn. Goad it. (Until your next turn, that creature attacks each combat if able and attacks a player other than you if able.)"
+  },
+  {
+    "name": "The Thirteenth Doctor",
+    "word": "Team TARDIS",
+    "text": "Team TARDIS \u2014 At the beginning of your end step, untap each creature you control with a counter on it."
+  },
+  {
+    "name": "Black Bolt, Inhuman King",
+    "word": "Lethal Voice",
+    "text": "Lethal Voice \u2014 Whenever Black Bolt becomes the target of a spell or ability an opponent controls, destroy target nonland permanent that player controls."
+  },
+  {
+    "name": "The Mind Stone",
+    "word": "\u221e",
+    "text": "\u221e \u2014 At the beginning of your end step, exile up to one other target nonland permanent you control, then return that card to the battlefield under its owner's control."
+  },
+  {
+    "name": "Another Night in Vegas",
+    "word": "\u2022 Life of the Party",
+    "text": "\u2022 Life of the Party \u2014 Whenever a spell is cast this turn, you gain 2 life."
+  },
+  {
+    "name": "Glacierwood Siege",
+    "word": "\u2022 Temur",
+    "text": "\u2022 Temur \u2014 Whenever you cast an instant or sorcery spell, target player mills four cards."
+  },
+  {
+    "name": "Red XIII, Proud Warrior",
+    "word": "Cosmo Memory",
+    "text": "Cosmo Memory \u2014 When Red XIII enters, return target Aura or Equipment card from your graveyard to your hand."
+  },
+  {
+    "name": "Wilfred Mott",
+    "word": "Look to the Stars",
+    "text": "Look to the Stars \u2014 At the beginning of your upkeep, put a time counter on Wilfred Mott. Then look at the top X cards of your library, where X is the number of time counters on Wilfred Mott. You may put a nonland permanent card with mana value 3 or less from among them onto the battlefield. Put the rest on the bottom of your library in a random order."
+  },
+  {
+    "name": "The Tenth Doctor",
+    "word": "Allons-y!",
+    "text": "Allons-y! \u2014 Whenever you attack, exile cards from the top of your library until you exile a nonland card. Put three time counters on it. If it doesn't have suspend, it gains suspend."
+  },
+  {
+    "name": "Flameskull",
+    "word": "Rejuvenation",
+    "text": "Rejuvenation \u2014 When this creature dies, exile it. If you do, exile the top card of your library. Until the end of your next turn, you may play one of those cards. (If you cast Flameskull this way, you can't play the other card, and vice versa.)"
+  },
+  {
+    "name": "Snapping Fang Head",
+    "word": "Hero's Reward",
+    "text": "Hero's Reward \u2014 When Snapping Fang Head leaves the battlefield, each player gains 4 life and draws a card."
+  },
+  {
+    "name": "Hraesvelgr of the First Brood",
+    "word": "Shiva's Aid",
+    "text": "Shiva's Aid \u2014 When Hraesvelgr enters and whenever you cast a noncreature spell, target creature gets +1/+0 until end of turn and can't be blocked this turn."
+  },
+  {
+    "name": "Krile Baldesion",
+    "word": "Trace Aether",
+    "text": "Trace Aether \u2014 Whenever you cast a noncreature spell, you may return target creature card with mana value equal to that spell's mana value from your graveyard to your hand. Do this only once each turn."
+  },
+  {
+    "name": "Auron, Venerated Guardian",
+    "word": "Shooting Star",
+    "text": "Shooting Star \u2014 Whenever Auron attacks, put a +1/+1 counter on it. When you do, exile target creature defending player controls with power less than Auron's power until Auron leaves the battlefield."
+  },
+  {
+    "name": "Imotekh the Stormlord",
+    "word": "Phaeron",
+    "text": "Phaeron \u2014 Whenever one or more artifact cards leave your graveyard, create two 2/2 black Necron Warrior artifact creature tokens."
+  },
+  {
+    "name": "Imotekh the Stormlord",
+    "word": "Grand Strategist",
+    "text": "Grand Strategist \u2014 At the beginning of combat on your turn, another target artifact creature you control gets +2/+2 and gains menace until end of turn."
+  },
+  {
+    "name": "The Sixth Doctor",
+    "word": "Time Lord's Prerogative",
+    "text": "Time Lord's Prerogative \u2014 Whenever you cast a historic spell, copy it, except the copy isn't legendary. This ability triggers only once each turn. (Artifacts, legendaries, and Sagas are historic. A copy of a permanent spell becomes a token.)"
+  },
+  {
+    "name": "Szarekh, the Silent King",
+    "word": "My Will Be Done",
+    "text": "My Will Be Done \u2014 Whenever Szarekh attacks, mill three cards. You may put an artifact creature card or Vehicle card from among the cards milled this way into your hand."
+  },
+  {
+    "name": "Owlbear",
+    "word": "Keen Senses",
+    "text": "Keen Senses \u2014 When this creature enters, draw a card."
+  },
+  {
+    "name": "The Gunky Runner",
+    "word": "Ew-minance",
+    "text": "Ew-minance \u2014 When The Gunky Runner enters and at the beginning of the first upkeep in a game where it's your commander, shuffle three Gunk cards into each opponent's library. (Gunk is a colorless sorcery card with no mana cost and cycling {4}.)"
+  },
+  {
+    "name": "Sibylline Soothsayer",
+    "word": "Temporal Foresight",
+    "text": "Temporal Foresight \u2014 When this creature enters, reveal cards from the top of your library until you reveal a nonland card with mana value 3 or greater. Exile that card with three time counters on it. If it doesn't have suspend, it gains suspend. Put the rest of the revealed cards on the bottom of your library in a random order."
+  },
+  {
+    "name": "Rescuer Chwinga",
+    "word": "Natural Shelter",
+    "text": "Natural Shelter \u2014 When this creature enters, you may return another permanent you control to its owner's hand."
+  },
+  {
+    "name": "Case of the Ransacked Lab",
+    "word": "Solved",
+    "text": "Solved \u2014 Whenever you cast an instant or sorcery spell, draw a card."
+  },
+  {
+    "name": "Duchess, Wayward Tavernkeep",
+    "word": "Hunters for Hire",
+    "text": "Hunters for Hire \u2014 Whenever a creature you control deals combat damage to a player, put a quest counter on it."
+  },
+  {
+    "name": "Huge Truck",
+    "word": "Beeeeeeep, Beeeeeeep, Beeeeeeep",
+    "text": "Beeeeeeep, Beeeeeeep, Beeeeeeep \u2014 Whenever another creature you control becomes the target of a backup ability, Huge Truck permanently gains all of the backup abilities shared this way."
+  },
+  {
+    "name": "The Soul Stone",
+    "word": "\u221e",
+    "text": "\u221e \u2014 At the beginning of your upkeep, return target creature card from your graveyard to the battlefield."
+  },
+  {
+    "name": "Mister Negative",
+    "word": "Darkforce Inversion",
+    "text": "Darkforce Inversion \u2014 When Mister Negative enters, you may exchange life totals with target opponent. If you lost life this way, draw that many cards."
+  },
+  {
+    "name": "Tegan Jovanka",
+    "word": "Brave Heart",
+    "text": "Brave Heart \u2014 Whenever you attack, target attacking historic creature gets +1/+1 and gains indestructible until end of turn. (Artifacts, legendaries, and Sagas are historic.)"
+  },
+  {
+    "name": "Gelatinous Cube",
+    "word": "Engulf",
+    "text": "Engulf \u2014 When this creature enters, exile target non-Ooze creature an opponent controls until this creature leaves the battlefield."
+  },
+  {
+    "name": "The Swarmlord",
+    "word": "Xenos Cunning",
+    "text": "Xenos Cunning \u2014 Whenever a creature you control with a counter on it dies, draw a card."
+  },
+  {
+    "name": "Lokhust Heavy Destroyer",
+    "word": "Enmitic Exterminator",
+    "text": "Enmitic Exterminator \u2014 When this creature enters, each player sacrifices a creature of their choice."
+  },
+  {
+    "name": "Nyssa of Traken",
+    "word": "Sonic Booster",
+    "text": "Sonic Booster \u2014 Whenever Nyssa of Traken attacks, sacrifice any number of artifacts. When you sacrifice one or more artifacts this way, tap up to that many target creatures and draw that many cards."
+  },
+  {
+    "name": "Farideh, Devil's Chosen",
+    "word": "Dark One's Own Luck",
+    "text": "Dark One's Own Luck \u2014 Whenever you roll one or more dice, Farideh gains flying and menace until end of turn. If any of those results was 10 or higher, draw a card."
+  },
+  {
+    "name": "The Ninth Doctor",
+    "word": "Into the TARDIS",
+    "text": "Into the TARDIS \u2014 Whenever The Ninth Doctor becomes untapped during your untap step, you get an additional upkeep step after this step."
+  },
+  {
+    "name": "The Emperor of Palamecia // The Lord Master of Hell",
+    "word": "Starfall",
+    "text": "Starfall \u2014 Whenever The Lord Master of Hell attacks, it deals X damage to each opponent, where X is the number of noncreature, nonland cards in your graveyard."
+  },
+  {
+    "name": "Narrow-Minded Baloney Fireworks",
+    "word": "{TK}{TK}",
+    "text": "{TK}{TK} \u2014 Whenever this creature attacks, you gain 2 life."
+  },
+  {
+    "name": "Tallyman of Nurgle",
+    "word": "The Seven-fold Chant",
+    "text": "The Seven-fold Chant \u2014 At the beginning of your end step, if a creature died this turn, you draw a card and you lose 1 life. If seven or more creatures died this turn, instead you draw seven cards and you lose 7 life."
+  },
+  {
+    "name": "Craig Boone, Novac Guard",
+    "word": "One for My Baby",
+    "text": "One for My Baby \u2014 Whenever you attack with two or more creatures, put two quest counters on Craig Boone. When you do, Craig Boone deals damage equal to the number of quest counters on it to up to one target creature unless that creature's controller has Craig Boone deal that much damage to them."
+  },
+  {
+    "name": "Chaos Defiler",
+    "word": "Battle Cannon",
+    "text": "Battle Cannon \u2014 When this creature enters or dies, for each opponent, choose a nonland permanent that player controls. Destroy one of them chosen at random."
+  },
+  {
+    "name": "Werewolf Lightning Mage",
+    "word": "{TK}{TK} \u2014 Landfall",
+    "text": "{TK}{TK} \u2014 Landfall \u2014 Whenever a land enters under your control, put a +1/+1 counter on this permanent."
+  },
+  {
+    "name": "Werewolf Lightning Mage",
+    "word": "{TK}{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK}{TK} \u2014 Whenever a creature blocks this creature, that creature gets -4/-4 until end of turn."
+  },
+  {
+    "name": "The Red Terror",
+    "word": "Advanced Species",
+    "text": "Advanced Species \u2014 Whenever a red source you control deals damage to one or more permanents and/or players, put a +1/+1 counter on The Red Terror."
+  },
+  {
+    "name": "Space Marine Scout",
+    "word": "Concealed Position",
+    "text": "Concealed Position \u2014 When this creature enters, if an opponent controls more lands than you, you may search your library for a Plains card, put it onto the battlefield tapped, then shuffle."
+  },
+  {
+    "name": "Kh\u00e2rn the Betrayer",
+    "word": "Sigil of Corruption",
+    "text": "Sigil of Corruption \u2014 When you lose control of Kh\u00e2rn the Betrayer, draw two cards."
+  },
+  {
+    "name": "Sanguinary Priest",
+    "word": "Blood Chalice",
+    "text": "Blood Chalice \u2014 Whenever another creature you control dies, this creature deals 1 damage to any target."
+  },
+  {
+    "name": "Circle of the Land Druid",
+    "word": "Natural Recovery",
+    "text": "Natural Recovery \u2014 When this creature dies, return target land card from your graveyard to your hand."
+  },
+  {
+    "name": "Iron Man, Titan of Innovation",
+    "word": "Genius Industrialist",
+    "text": "Genius Industrialist \u2014 Whenever Iron Man attacks, create a Treasure token, then you may sacrifice a noncreature artifact. If you do, search your library for an artifact card with mana value equal to 1 plus the sacrificed artifact's mana value, put it onto the battlefield tapped, then shuffle."
+  },
+  {
+    "name": "Kenku Artificer",
+    "word": "Homunculus Servant",
+    "text": "Homunculus Servant \u2014 When this creature enters, put three +1/+1 counters on up to one target noncreature artifact. That artifact becomes a 0/0 Homunculus artifact creature with flying."
+  },
+  {
+    "name": "Vicious Battlerager",
+    "word": "Spiked Retribution",
+    "text": "Spiked Retribution \u2014 Whenever this creature becomes blocked by a creature, that creature's controller loses 5 life."
+  },
+  {
+    "name": "Neyam Shai Murad",
+    "word": "Rogue Trader",
+    "text": "Rogue Trader \u2014 Whenever Neyam Shai Murad deals combat damage to a player, you may have that player return target permanent card from their graveyard to their hand. If you do, that player chooses a permanent card in your graveyard, then you put it onto the battlefield under your control."
+  },
+  {
+    "name": "G'raha Tia, Scion Reborn",
+    "word": "Throw Wide the Gates",
+    "text": "Throw Wide the Gates \u2014 Whenever you cast a noncreature spell, you may pay X life, where X is that spell's mana value. If you do, create a 1/1 colorless Hero creature token and put X +1/+1 counters on it. Do this only once each turn."
+  },
+  {
+    "name": "Old One Eye",
+    "word": "Fast Healing",
+    "text": "Fast Healing \u2014 At the beginning of your first main phase, you may discard two cards. If you do, return this card from your graveyard to your hand."
+  },
+  {
+    "name": "The Eleventh Doctor",
+    "word": "I. AM. TALKING!",
+    "text": "I. AM. TALKING! \u2014 Whenever The Eleventh Doctor deals combat damage to a player, you may exile a card from your hand with a number of time counters on it equal to its mana value. If it doesn't have suspend, it gains suspend."
+  },
+  {
+    "name": "White Dragon",
+    "word": "Cold Breath",
+    "text": "Cold Breath \u2014 When this creature enters, tap target creature an opponent controls. That creature doesn't untap during its controller's next untap step."
+  },
+  {
+    "name": "Shard of the Nightbringer",
+    "word": "Drain Life",
+    "text": "Drain Life \u2014 When this creature enters, if you cast it, target opponent loses half their life, rounded up. You gain life equal to the life lost this way."
+  },
+  {
+    "name": "The Master, Formed Anew",
+    "word": "Body Thief",
+    "text": "Body Thief \u2014 When you cast this spell, you may exile a creature you control and put a takeover counter on it."
+  },
+  {
+    "name": "Windcrag Siege",
+    "word": "\u2022 Jeskai",
+    "text": "\u2022 Jeskai \u2014 At the beginning of your upkeep, create a 1/1 red Goblin creature token. It gains lifelink and haste until end of turn."
+  },
+  {
+    "name": "Citadel Siege",
+    "word": "\u2022 Khans",
+    "text": "\u2022 Khans \u2014 At the beginning of combat on your turn, put two +1/+1 counters on target creature you control."
+  },
+  {
+    "name": "Citadel Siege",
+    "word": "\u2022 Dragons",
+    "text": "\u2022 Dragons \u2014 At the beginning of combat on each opponent's turn, tap target creature that player controls."
+  },
+  {
+    "name": "Chaos Channeler",
+    "word": "Wild Magic Surge",
+    "text": "Wild Magic Surge \u2014 Whenever this creature attacks, roll a d20."
+  },
+  {
+    "name": "Hoshi Sato, Exolinguist",
+    "word": "Federation",
+    "text": "Federation \u2014 When Hoshi Sato enters, look at the top X cards of your library, where X is the number of creature types among non-Borg creatures you control. Put one of them into your hand and the rest on the bottom of your library in a random order."
+  },
+  {
+    "name": "The Second Doctor",
+    "word": "How Civil of You",
+    "text": "How Civil of You \u2014 At the beginning of your end step, each player may draw a card. Each opponent who does can't attack you or permanents you control during their next turn."
+  },
+  {
+    "name": "Earth-Cult Elemental",
+    "word": "Siege Monster",
+    "text": "Siege Monster \u2014 When this creature enters, roll a d20."
+  },
+  {
+    "name": "Barrensteppe Siege",
+    "word": "\u2022 Abzan",
+    "text": "\u2022 Abzan \u2014 At the beginning of your end step, put a +1/+1 counter on each creature you control."
+  },
+  {
+    "name": "Barrensteppe Siege",
+    "word": "\u2022 Mardu",
+    "text": "\u2022 Mardu \u2014 At the beginning of your end step, if a creature died under your control this turn, each opponent sacrifices a creature of their choice."
+  },
+  {
+    "name": "Frontier Siege",
+    "word": "\u2022 Khans",
+    "text": "\u2022 Khans \u2014 At the beginning of each of your main phases, add {G}{G}."
+  },
+  {
+    "name": "Frontier Siege",
+    "word": "\u2022 Dragons",
+    "text": "\u2022 Dragons \u2014 Whenever a creature you control with flying enters, you may have it fight target creature you don't control."
+  },
+  {
+    "name": "Displacer Kitten",
+    "word": "Avoidance",
+    "text": "Avoidance \u2014 Whenever you cast a noncreature spell, exile up to one target nonland permanent you control, then return that card to the battlefield under its owner's control."
+  },
+  {
+    "name": "Venat, Heart of Hydaelyn // Hydaelyn, the Mothercrystal",
+    "word": "Blessing of Light",
+    "text": "Blessing of Light \u2014 At the beginning of combat on your turn, put a +1/+1 counter on another target creature you control. Until your next turn, it gains indestructible. If that creature is legendary, draw a card."
+  },
+  {
+    "name": "Cait Sith, Fortune Teller",
+    "word": "Lucky Slots",
+    "text": "Lucky Slots \u2014 At the beginning of combat on your turn, scry 1, then exile the top card of your library. You may play that card this turn. When you exile a card this way, target creature you control gets +X/+0 until end of turn, where X is that card's mana value."
+  },
+  {
+    "name": "Netherese Puzzle-Ward",
+    "word": "Focus Beam",
+    "text": "Focus Beam \u2014 At the beginning of your upkeep, roll a d4. Scry X, where X is the result."
+  },
+  {
+    "name": "Netherese Puzzle-Ward",
+    "word": "Perfect Illumination",
+    "text": "Perfect Illumination \u2014 Whenever you roll a die's highest natural result, draw a card."
+  },
+  {
+    "name": "Undercity Dire Rat",
+    "word": "Rat Tail",
+    "text": "Rat Tail \u2014 When this creature dies, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")"
+  },
+  {
+    "name": "Case of the Market Melee",
+    "word": "Solved",
+    "text": "Solved \u2014 Whenever you attack with one or more creatures, this Case deals that much damage divided as you choose among any number of targets."
+  },
+  {
+    "name": "Grey Knight Paragon",
+    "word": "Rites of Banishment",
+    "text": "Rites of Banishment \u2014 When this creature enters, destroy target attacking creature. If that creature is a Demon, exile it instead."
+  },
+  {
+    "name": "Hydra Head",
+    "word": "Hero's Reward",
+    "text": "Hero's Reward \u2014 When Hydra Head leaves the battlefield, each player gains 2 life."
+  },
+  {
+    "name": "Ghyrson Starn, Kelermorph",
+    "word": "Three Autostubs",
+    "text": "Three Autostubs \u2014 Whenever another source you control deals exactly 1 damage to a permanent or player, Ghyrson Starn deals 2 damage to that permanent or player."
+  },
+  {
+    "name": "Malanthrope",
+    "word": "Scavenge the Dead",
+    "text": "Scavenge the Dead \u2014 When this creature enters, exile target player's graveyard. Put a +1/+1 counter on this creature for each creature card exiled this way."
+  },
+  {
+    "name": "Knight Rampager",
+    "word": "Frenzied Rampage",
+    "text": "Frenzied Rampage \u2014 At the beginning of combat on your turn, choose an opponent at random. This creature attacks that player this combat if able."
+  },
+  {
+    "name": "Lucy MacLean, Positively Armed",
+    "word": "Golden Rule",
+    "text": "Golden Rule \u2014 Whenever a token enters, you may have target player other than its controller create a token that's a copy of it, then you draw a card if an opponent created a token this way. Do this only once each turn."
+  },
+  {
+    "name": "Case of the Shattered Pact",
+    "word": "Solved",
+    "text": "Solved \u2014 At the beginning of combat on your turn, target creature you control gains flying, double strike, and vigilance until end of turn."
+  },
+  {
+    "name": "Martha Jones",
+    "word": "Woman Who Walked the Earth",
+    "text": "Woman Who Walked the Earth \u2014 When Martha Jones enters, investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")"
+  },
+  {
+    "name": "Tidus, Yuna's Guardian",
+    "word": "Cheer",
+    "text": "Cheer \u2014 Whenever one or more creatures you control with counters on them deal combat damage to a player, you may draw a card and proliferate. Do this only once each turn."
+  },
+  {
+    "name": "Ultimecia, Time Sorceress // Ultimecia, Omnipotent",
+    "word": "Time Compression",
+    "text": "Time Compression \u2014 When this creature transforms into Ultimecia, Omnipotent, take an extra turn after this one."
+  },
+  {
+    "name": "Barret, Avalanche Leader",
+    "word": "Avalanche!",
+    "text": "Avalanche! \u2014 Whenever an Equipment you control enters, create a 2/2 red Rebel creature token."
+  },
+  {
+    "name": "Zombie Cheese Magician",
+    "word": "{TK}{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK}{TK} \u2014 Whenever this creature deals combat damage to a player, draw that many cards."
+  },
+  {
+    "name": "Monastery Siege",
+    "word": "\u2022 Khans",
+    "text": "\u2022 Khans \u2014 At the beginning of your draw step, draw an additional card, then discard a card."
+  },
+  {
+    "name": "Termagant Swarm",
+    "word": "Death Frenzy",
+    "text": "Death Frenzy \u2014 When this creature dies, create a number of 1/1 green Tyranid creature tokens equal to this creature's power."
+  },
+  {
+    "name": "Zahur, Glory's Past",
+    "word": "Max speed",
+    "text": "Max speed \u2014 Whenever a nontoken creature you control dies, create a tapped 2/2 black Zombie creature token."
+  },
+  {
+    "name": "Monk of the Open Hand",
+    "word": "Flurry of Blows",
+    "text": "Flurry of Blows \u2014 Whenever you cast your second spell each turn, put a +1/+1 counter on this creature."
+  },
+  {
+    "name": "The Master, Gallifrey's End",
+    "word": "Make Them Pay",
+    "text": "Make Them Pay \u2014 Whenever a nontoken artifact creature you control dies, you may exile it. If you do, choose an opponent with the most life among your opponents. That player faces a villainous choice \u2014 They lose 4 life, or you create a token that's a copy of that card."
+  },
+  {
+    "name": "Willbound Quill",
+    "word": "Actualize",
+    "text": "Actualize \u2014 Whenever you cast a spell that isn't from your starting deck, copy that spell. You may choose new targets for the copy."
+  },
+  {
+    "name": "Captain Rex Nebula",
+    "word": "At the beginning of combat on your turn, choose target nonland permanent you control. Until end of turn, it becomes a Vehicle artifact with base power and toughness each equal to its mana value, and it gains crew 2 and \"Crash Land",
+    "text": "At the beginning of combat on your turn, choose target nonland permanent you control. Until end of turn, it becomes a Vehicle artifact with base power and toughness each equal to its mana value, and it gains crew 2 and \"Crash Land \u2014 Whenever this Vehicle deals damage, roll a six-sided die. If the result is equal to this Vehicle's mana value, sacrifice this Vehicle, then it deals that much damage to any target.\""
+  },
+  {
+    "name": "Mutalith Vortex Beast",
+    "word": "Warp Vortex",
+    "text": "Warp Vortex \u2014 When this creature enters, flip a coin for each opponent you have. For each flip you win, draw a card. For each flip you lose, this creature deals 3 damage to that player."
+  },
+  {
+    "name": "Psychomancer",
+    "word": "Harbinger of Despair",
+    "text": "Harbinger of Despair \u2014 Whenever this creature or another nontoken artifact you control is put into a graveyard from the battlefield or is put into exile from the battlefield, target opponent loses 1 life and you gain 1 life."
+  },
+  {
+    "name": "Vanguard Suppressor",
+    "word": "Suppressing Fire",
+    "text": "Suppressing Fire \u2014 Whenever this creature deals combat damage to a player, draw a card."
+  },
+  {
+    "name": "Goliath Truck",
+    "word": "Stowage",
+    "text": "Stowage \u2014 Whenever this Vehicle attacks, put two +1/+1 counters on another target attacking creature."
+  },
+  {
+    "name": "Ardyn, the Usurper",
+    "word": "Starscourge",
+    "text": "Starscourge \u2014 At the beginning of combat on your turn, exile up to one target creature card from a graveyard. If you exiled a card this way, create a token that's a copy of that card, except it's a 5/5 black Demon."
+  },
+  {
+    "name": "Chain Devil",
+    "word": "Animate Chains",
+    "text": "Animate Chains \u2014 When this creature enters, each player sacrifices a nontoken creature of their choice."
+  },
+  {
+    "name": "Zoanthrope",
+    "word": "Warp Blast",
+    "text": "Warp Blast \u2014 When this creature enters, it deals X damage to any target."
+  },
+  {
+    "name": "Overseer of Vault 76",
+    "word": "First Contact",
+    "text": "First Contact \u2014 Whenever Overseer of Vault 76 or another creature you control with power 3 or less enters, put a quest counter on Overseer of Vault 76."
+  },
+  {
+    "name": "Devoted Paladin",
+    "word": "Beacon of Hope",
+    "text": "Beacon of Hope \u2014 When this creature enters, creatures you control get +1/+1 and gain vigilance until end of turn."
+  },
+  {
+    "name": "Palace Siege",
+    "word": "\u2022 Khans",
+    "text": "\u2022 Khans \u2014 At the beginning of your upkeep, return target creature card from your graveyard to your hand."
+  },
+  {
+    "name": "Palace Siege",
+    "word": "\u2022 Dragons",
+    "text": "\u2022 Dragons \u2014 At the beginning of your upkeep, each opponent loses 2 life and you gain 2 life."
+  },
+  {
+    "name": "Magnus the Red",
+    "word": "Blade of Magnus",
+    "text": "Blade of Magnus \u2014 Whenever Magnus the Red deals combat damage to a player, create a 3/3 red Spawn creature token."
+  },
+  {
+    "name": "Saavik, Stoic Student",
+    "word": "Federation",
+    "text": "Federation \u2014 When Saavik enters, she deals X damage to target attacking or blocking creature an opponent controls, where X is the number of creature types among non-Borg creatures you control."
+  },
+  {
+    "name": "Alphinaud Leveilleur",
+    "word": "Eukrasia",
+    "text": "Eukrasia \u2014 Whenever you cast your second spell each turn, draw a card."
+  },
+  {
+    "name": "Aspiring Champion",
+    "word": "Ruinous Ascension",
+    "text": "Ruinous Ascension \u2014 When this creature deals combat damage to a player, sacrifice it. If you do, reveal cards from the top of your library until you reveal a creature card. Put that card onto the battlefield, then shuffle the rest into your library. If that creature is a Demon, it deals damage equal to its power to each opponent."
+  },
+  {
+    "name": "Wight",
+    "word": "Life Drain",
+    "text": "Life Drain \u2014 Whenever a creature dealt damage by this creature this turn dies, create a tapped 2/2 black Zombie creature token and exile that card."
+  },
+  {
+    "name": "Chaos Terminator Lord",
+    "word": "Lord of Chaos",
+    "text": "Lord of Chaos \u2014 At the beginning of combat on your turn, another target creature you control gains double strike until end of turn."
+  },
+  {
+    "name": "Black Panther, Wakandan King",
+    "word": "Survey the Realm",
+    "text": "Survey the Realm \u2014 Whenever Black Panther or another creature you control enters, put a +1/+1 counter on target land you control."
+  },
+  {
+    "name": "Clay Golem",
+    "word": "Berserk",
+    "text": "Berserk \u2014 When this creature becomes monstrous, destroy target permanent."
+  },
+  {
+    "name": "Crux of the Theory",
+    "word": "Actualize",
+    "text": "Actualize \u2014 Whenever you cast a spell that isn't from your starting deck, empower Jace 2."
+  },
+  {
+    "name": "Yawgmoth Merfolk Soul",
+    "word": "{TK}{TK}",
+    "text": "{TK}{TK} \u2014 When this permanent leaves the battlefield, target player discards a card."
+  },
+  {
+    "name": "Yawgmoth Merfolk Soul",
+    "word": "{TK}{TK}{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK}{TK}{TK} \u2014 When this permanent leaves the battlefield, create five 1/1 white Clown Robot artifact creature tokens."
+  },
+  {
+    "name": "Manticore",
+    "word": "Tail Spikes",
+    "text": "Tail Spikes \u2014 When this creature enters, destroy target creature an opponent controls that was dealt damage this turn."
+  },
+  {
+    "name": "Mortarion, Daemon Primarch",
+    "word": "Primarch of the Death Guard",
+    "text": "Primarch of the Death Guard \u2014 At the beginning of your end step, you may pay {X}. If you do, create X 2/2 black Astartes Warrior creature tokens with menace. X can't be greater than the amount of life you lost this turn."
+  },
+  {
+    "name": "Luke Cage, Power Man",
+    "word": "Unbreakable Skin",
+    "text": "Unbreakable Skin \u2014 Whenever Luke Cage attacks alone, he gets +2/+0 and gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy him.)"
+  },
+  {
+    "name": "Anrakyr the Traveller",
+    "word": "Lord of the Pyrrhian Legions",
+    "text": "Lord of the Pyrrhian Legions \u2014 Whenever Anrakyr the Traveller attacks, you may cast an artifact spell from your hand or graveyard by paying life equal to its mana value rather than paying its mana cost."
+  },
+  {
+    "name": "Unsanctioned Ancient Juggler",
+    "word": "{TK}{TK}",
+    "text": "{TK}{TK} \u2014 Whenever this creature attacks, bolster 1. (Choose a creature with the least toughness among creatures you control and put a +1/+1 counter on it.)"
+  },
+  {
+    "name": "Lictor",
+    "word": "Pheromone Trail",
+    "text": "Pheromone Trail \u2014 When this creature enters, if a creature entered the battlefield under an opponent's control this turn, create a 3/3 green Tyranid Warrior creature token with trample."
+  },
+  {
+    "name": "Quistis Trepe",
+    "word": "Blue Magic",
+    "text": "Blue Magic \u2014 When Quistis Trepe enters, you may cast target instant or sorcery card from a graveyard, and mana of any type can be spent to cast that spell. If that spell would be put into a graveyard, exile it instead."
+  },
+  {
+    "name": "Canoptek Scarab Swarm",
+    "word": "Feeder Mandibles",
+    "text": "Feeder Mandibles \u2014 When this creature enters, exile target player's graveyard. For each artifact or land card exiled this way, create a 1/1 colorless Insect artifact creature token with flying."
+  },
+  {
+    "name": "Ace, Fearless Rebel",
+    "word": "Nitro-9",
+    "text": "Nitro-9 \u2014 Whenever Ace attacks, you may sacrifice an artifact. When you do, put a +1/+1 counter on Ace, then it fights up to one target creature defending player controls."
+  },
+  {
+    "name": "Alicia Masters, Skilled Sculptor",
+    "word": "Sense the Good",
+    "text": "Sense the Good \u2014 At the beginning of your end step, each player gains control of all creatures they own."
+  },
+  {
+    "name": "Mind Flayer",
+    "word": "Dominate Monster",
+    "text": "Dominate Monster \u2014 When this creature enters, gain control of target creature for as long as you control this creature."
+  },
+  {
+    "name": "Thunderwolf Cavalry",
+    "word": "Crushing Teeth",
+    "text": "Crushing Teeth \u2014 Whenever this creature deals combat damage to a player, put a +1/+1 counter on each other creature you control."
+  },
+  {
+    "name": "Rinoa Heartilly",
+    "word": "Angelo Cannon",
+    "text": "Angelo Cannon \u2014 Whenever Rinoa Heartilly attacks, another target creature you control gets +1/+1 until end of turn for each creature you control."
+  },
+  {
+    "name": "Atalan Jackal",
+    "word": "Skilled Outrider",
+    "text": "Skilled Outrider \u2014 Whenever this creature deals combat damage to a player, you may search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+  },
+  {
+    "name": "Kimahri, Valiant Guardian",
+    "word": "Ronso Rage",
+    "text": "Ronso Rage \u2014 At the beginning of combat on your turn, put a +1/+1 counter on Kimahri and tap target creature an opponent controls. Then you may have Kimahri become a copy of that creature, except its name is Kimahri, Valiant Guardian and it has vigilance and this ability."
+  },
+  {
+    "name": "Zenos yae Galvus // Shinryu, Transcendent Rival",
+    "word": "My First Friend",
+    "text": "My First Friend \u2014 When Zenos yae Galvus enters, choose a creature an opponent controls. Until end of turn, creatures other than Zenos yae Galvus and the chosen creature get -2/-2."
+  },
+  {
+    "name": "Zenos yae Galvus // Shinryu, Transcendent Rival",
+    "word": "Burning Chains",
+    "text": "Burning Chains \u2014 When the chosen player loses the game, you win the game."
+  },
+  {
+    "name": "Ochre Jelly",
+    "word": "Split",
+    "text": "Split \u2014 When this creature dies, if it had two or more +1/+1 counters on it, create a token that's a copy of it at the beginning of the next end step. The token enters with half that many +1/+1 counters on it, rounded down."
+  },
+  {
+    "name": "Summon: Fenrir",
+    "word": "II \u2014 Heavenward Howl",
+    "text": "II \u2014 Heavenward Howl \u2014 When you next cast a creature spell this turn, that creature enters with an additional +1/+1 counter on it."
+  },
+  {
+    "name": "Necron Deathmark",
+    "word": "Synaptic Disintegrator",
+    "text": "Synaptic Disintegrator \u2014 When this creature enters, destroy up to one target creature and target player mills three cards."
+  },
+  {
+    "name": "Pride of the Road",
+    "word": "Max speed",
+    "text": "Max speed \u2014 At the beginning of combat on your turn, target creature or Vehicle you control gains double strike until end of turn."
+  },
+  {
+    "name": "Magus Lucea Kane",
+    "word": "Spiritual Leader",
+    "text": "Spiritual Leader \u2014 At the beginning of combat on your turn, put a +1/+1 counter on target creature."
+  },
+  {
+    "name": "Battle of Hoover Dam",
+    "word": "\u2022 NCR",
+    "text": "\u2022 NCR \u2014 At the beginning of your end step, return target creature card with mana value 3 or less from your graveyard to the battlefield with a finality counter on it."
+  },
+  {
+    "name": "Battle of Hoover Dam",
+    "word": "\u2022 Legion",
+    "text": "\u2022 Legion \u2014 Whenever a creature you control dies, put two +1/+1 counters on target creature you control."
+  },
+  {
+    "name": "Drach'Nyen",
+    "word": "Echo of the First Murder",
+    "text": "Echo of the First Murder \u2014 When Drach'Nyen enters, exile up to one target creature."
+  },
+  {
+    "name": "Locke, Treasure Hunter",
+    "word": "Mug",
+    "text": "Mug \u2014 Whenever Locke attacks, each player mills a card. If a land card was milled this way, create a Treasure token. Until end of turn, you may cast a spell from among those cards."
+  },
+  {
+    "name": "Sephiroth, Fallen Hero",
+    "word": "Jenova Cells",
+    "text": "Jenova Cells \u2014 Whenever Sephiroth attacks, you may put a cell counter on target creature. Until end of turn, each modified creature you control has base power and toughness 7/5. (Equipment, Auras you control, and counters are modifications.)"
+  },
+  {
+    "name": "Githzerai Monk",
+    "word": "Psychic Defense",
+    "text": "Psychic Defense \u2014 When this creature enters, tap all creatures you don't control."
+  },
+  {
+    "name": "Owlbear Cub",
+    "word": "Mama's Coming",
+    "text": "Mama's Coming \u2014 Whenever this creature attacks a player who controls eight or more lands, look at the top eight cards of your library. You may put a creature card from among them onto the battlefield tapped and attacking that player. Put the rest on the bottom of your library in a random order."
+  },
+  {
+    "name": "Shrieking Titan Head",
+    "word": "Hero's Reward",
+    "text": "Hero's Reward \u2014 When Shrieking Titan Head leaves the battlefield, each player gains 4 life and draws a card."
+  },
+  {
+    "name": "Trygon Prime",
+    "word": "Subterranean Assault",
+    "text": "Subterranean Assault \u2014 Whenever this creature attacks, put a +1/+1 counter on it and a +1/+1 counter on up to one other target attacking creature. That creature can't be blocked this turn."
+  },
+  {
+    "name": "Green Dragon",
+    "word": "Poison Breath",
+    "text": "Poison Breath \u2014 When this creature enters, until end of turn, whenever a creature an opponent controls is dealt damage, destroy it."
+  },
+  {
+    "name": "Exalted Flamer of Tzeentch",
+    "word": "Sorcerous Inspiration",
+    "text": "Sorcerous Inspiration \u2014 At the beginning of your upkeep, return an instant or sorcery card at random from your graveyard to your hand."
+  },
+  {
+    "name": "Exalted Flamer of Tzeentch",
+    "word": "Fire of Tzeentch",
+    "text": "Fire of Tzeentch \u2014 Whenever you cast an instant or sorcery spell, this creature deals 1 damage to each opponent."
+  },
+  {
+    "name": "The Wondrous Wasp",
+    "word": "Wasp's Sting",
+    "text": "Wasp's Sting \u2014 When The Wondrous Wasp enters, tap up to one target creature. It loses all abilities for as long as The Wondrous Wasp remains on the battlefield."
+  },
+  {
+    "name": "Reaver Titan",
+    "word": "Gatling Blaster",
+    "text": "Gatling Blaster \u2014 Whenever this Vehicle attacks, it deals 5 damage to each opponent."
+  },
+  {
+    "name": "Aberrant",
+    "word": "Heavy Power Hammer",
+    "text": "Heavy Power Hammer \u2014 Whenever this creature deals combat damage to a player, destroy target artifact or enchantment that player controls."
+  },
+  {
+    "name": "Skorpekh Destroyer",
+    "word": "Hyperphase Threshers",
+    "text": "Hyperphase Threshers \u2014 Whenever an artifact you control enters, this creature gains first strike until end of turn."
+  },
+  {
+    "name": "Space Marine Devastator",
+    "word": "Grav-cannon",
+    "text": "Grav-cannon \u2014 When this creature enters, destroy up to one target artifact or enchantment."
+  },
+  {
+    "name": "Savage Vigor Head",
+    "word": "Hero's Reward",
+    "text": "Hero's Reward \u2014 When Savage Vigor Head leaves the battlefield, each player gains 4 life and draws a card."
+  },
+  {
+    "name": "ED-E, Lonesome Eyebot",
+    "word": "ED-E My Love",
+    "text": "ED-E My Love \u2014 Whenever you attack, if the number of attacking creatures is greater than the number of quest counters on ED-E, put a quest counter on it."
+  },
+  {
+    "name": "Prompto Argentum",
+    "word": "Selfie Shot",
+    "text": "Selfie Shot \u2014 Whenever you cast a noncreature spell, if at least four mana was spent to cast it, create a Treasure token."
+  },
+  {
+    "name": "Michelangelo, the Heart",
+    "word": "Raid (the Fridge)",
+    "text": "Raid (the Fridge) \u2014 At the beginning of your second main phase, if you attacked this turn, put a +1/+1 counter on target creature and create a Food token."
+  },
+  {
+    "name": "Astrid Peth",
+    "word": "Brand-new Sky",
+    "text": "Brand-new Sky \u2014 Whenever you sacrifice a Clue or Food, Astrid Peth explores. (Reveal the top card of your library. Put that card into your hand if it's a land. Otherwise, put a +1/+1 counter on this creature, then put the card back or put it into your graveyard.)"
+  },
+  {
+    "name": "Genestealer Locus",
+    "word": "Neurotraumal Rod",
+    "text": "Neurotraumal Rod \u2014 Whenever a creature attacks you, it gets -1/-0 until end of turn."
+  },
+  {
+    "name": "Endrider Spikespitter",
+    "word": "Max speed",
+    "text": "Max speed \u2014 At the beginning of your upkeep, exile the top card of your library. You may play that card this turn."
+  },
+  {
+    "name": "Purestrain Genestealer",
+    "word": "Vanguard Species",
+    "text": "Vanguard Species \u2014 Whenever this creature attacks, you may remove a +1/+1 counter from it. If you do, search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
+  },
+  {
+    "name": "Terra, Herald of Hope",
+    "word": "Trance",
+    "text": "Trance \u2014 At the beginning of combat on your turn, mill two cards. Terra gains flying until end of turn."
+  },
+  {
+    "name": "Giant Mana Cake",
+    "word": "{TK}{TK}",
+    "text": "{TK}{TK} \u2014 When this permanent leaves the battlefield, create two Food tokens. (They're artifacts with \"{2}, {T}, Sacrifice this artifact: You gain 3 life.\")"
+  },
+  {
+    "name": "Giant Mana Cake",
+    "word": "{TK}{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK}{TK} \u2014 When this permanent dies, destroy target nonland permanent."
+  },
+  {
+    "name": "Keeper of Secrets",
+    "word": "Symphony of Pain",
+    "text": "Symphony of Pain \u2014 Whenever you cast a spell from anywhere other than your hand, this creature deals damage equal to that spell's mana value to target opponent."
+  },
+  {
+    "name": "Havi, the All-Father",
+    "word": "Sage Project",
+    "text": "Sage Project \u2014 Whenever Havi or another legendary creature you control dies, return target legendary creature card with lesser mana value from your graveyard to the battlefield tapped."
+  },
+  {
+    "name": "Tervigon",
+    "word": "Spawn Termagants",
+    "text": "Spawn Termagants \u2014 Whenever this creature deals combat damage to a player, create that many 1/1 green Tyranid creature tokens."
+  },
+  {
+    "name": "Vrock",
+    "word": "Toxic Spores",
+    "text": "Toxic Spores \u2014 At the beginning of your end step, if a permanent you controlled left the battlefield this turn, each opponent loses 3 life."
+  },
+  {
+    "name": "Cleopatra, Exiled Pharaoh",
+    "word": "Allies",
+    "text": "Allies \u2014 At the beginning of your end step, put a +1/+1 counter on each of up to two other target legendary creatures."
+  },
+  {
+    "name": "Cleopatra, Exiled Pharaoh",
+    "word": "Betrayal",
+    "text": "Betrayal \u2014 Whenever a legendary creature with counters on it dies, draw a card for each counter on it. You lose 2 life."
+  },
+  {
+    "name": "Triarch Stalker",
+    "word": "Targeting Relay",
+    "text": "Targeting Relay \u2014 At the beginning of combat on your turn, choose an opponent."
+  },
+  {
+    "name": "Red Dragon",
+    "word": "Fire Breath",
+    "text": "Fire Breath \u2014 When this creature enters, it deals 4 damage to each opponent."
+  },
+  {
+    "name": "Tataru Taru",
+    "word": "Scions' Secretary",
+    "text": "Scions' Secretary \u2014 Whenever an opponent draws a card, if it isn't that player's turn, create a tapped Treasure token. This ability triggers only once each turn."
+  },
+  {
+    "name": "Sefris of the Hidden Ways",
+    "word": "Create Undead",
+    "text": "Create Undead \u2014 Whenever you complete a dungeon, return target creature card from your graveyard to the battlefield."
+  },
+  {
+    "name": "Knuckles the Echidna",
+    "word": "Treasure Hunter",
+    "text": "Treasure Hunter \u2014 At the beginning of your upkeep, if you control thirty or more artifacts, you win the game."
+  },
+  {
+    "name": "Company Commander",
+    "word": "Command Section",
+    "text": "Command Section \u2014 When this creature enters, create a number of 1/1 white Soldier creature tokens equal to the number of opponents you have."
+  },
+  {
+    "name": "Company Commander",
+    "word": "Bring it Down!",
+    "text": "Bring it Down! \u2014 Whenever this creature attacks, creatures you control gain deathtouch until end of turn."
+  },
+  {
+    "name": "Canoptek Spyder",
+    "word": "Fabricator Claw Array",
+    "text": "Fabricator Claw Array \u2014 Whenever another nontoken artifact creature or Vehicle you control enters, draw a card."
+  },
+  {
+    "name": "Scouting Hawk",
+    "word": "Keen Sight",
+    "text": "Keen Sight \u2014 When this creature enters, if an opponent controls more lands than you, search your library for a basic Plains card, put it onto the battlefield tapped, then shuffle."
+  },
+  {
+    "name": "Air-Cult Elemental",
+    "word": "Whirlwind",
+    "text": "Whirlwind \u2014 When this creature enters, return up to one other target creature to its owner's hand."
+  },
+  {
+    "name": "Mog, Moogle Warrior",
+    "word": "Dance",
+    "text": "Dance \u2014 At the beginning of your end step, each player may discard a card. Each player who discarded a card this way draws a card. If a creature card was discarded this way, you create a 1/2 white Moogle creature token with lifelink. Then if a noncreature card was discarded this way, put a +1/+1 counter on each Moogle you control."
+  },
+  {
+    "name": "Summon: Brynhildr",
+    "word": "II, III \u2014 Gestalt Mode",
+    "text": "II, III \u2014 Gestalt Mode \u2014 When you next cast a creature spell this turn, it gains haste until end of turn."
+  },
+  {
+    "name": "Risen Necroregent",
+    "word": "Max speed",
+    "text": "Max speed \u2014 At the beginning of your end step, create a 2/2 black Zombie creature token."
+  },
+  {
+    "name": "Hollowmurk Siege",
+    "word": "\u2022 Sultai",
+    "text": "\u2022 Sultai \u2014 Whenever a counter is put on a creature you control, draw a card. This ability triggers only once each turn."
+  },
+  {
+    "name": "Hollowmurk Siege",
+    "word": "\u2022 Abzan",
+    "text": "\u2022 Abzan \u2014 Whenever you attack, put a +1/+1 counter on target attacking creature. It gains menace until end of turn."
+  },
+  {
+    "name": "Triarch Praetorian",
+    "word": "Dynastic Codes",
+    "text": "Dynastic Codes \u2014 When this creature enters from a graveyard, you draw two cards and you lose 2 life."
+  },
+  {
+    "name": "Summitfest Closing Ceremony",
+    "word": "Covercast",
+    "text": "Covercast \u2014 Whenever you cast another instant or sorcery spell, if five or more mana was spent to cast it, this card intensifies."
+  },
+  {
+    "name": "Primaris Chaplain",
+    "word": "Rosarius",
+    "text": "Rosarius \u2014 Whenever this creature attacks, it gains indestructible until end of turn."
+  },
+  {
+    "name": "Exocrine",
+    "word": "Bio-plasmic Barrage",
+    "text": "Bio-plasmic Barrage \u2014 When this creature enters, it deals X damage to each player and each other creature."
+  },
+  {
+    "name": "Summon: G.F. Cerberus",
+    "word": "II \u2014 Double",
+    "text": "II \u2014 Double \u2014 When you next cast an instant or sorcery spell this turn, copy it. You may choose new targets for the copy."
+  },
+  {
+    "name": "Summon: G.F. Cerberus",
+    "word": "III \u2014 Triple",
+    "text": "III \u2014 Triple \u2014 When you next cast an instant or sorcery spell this turn, copy it twice. You may choose new targets for the copies."
+  },
+  {
+    "name": "Black Dragon",
+    "word": "Acid Breath",
+    "text": "Acid Breath \u2014 When this creature enters, target creature an opponent controls gets -3/-3 until end of turn."
+  },
+  {
+    "name": "Embalmed Ascendant",
+    "word": "Max speed",
+    "text": "Max speed \u2014 Whenever a creature you control dies, each opponent loses 1 life and you gain 1 life."
+  },
+  {
+    "name": "Firbolg Flutist",
+    "word": "Enthralling Performance",
+    "text": "Enthralling Performance \u2014 When this creature enters, gain control of target creature you don't control until end of turn. Untap it. It gains haste and myriad until end of turn. (Whenever it attacks, for each opponent other than defending player, you may create a token copy that's tapped and attacking that player or a planeswalker they control. Exile the tokens at end of combat.)"
+  },
+  {
+    "name": "Dragon Turtle",
+    "word": "Drag Below",
+    "text": "Drag Below \u2014 When this creature enters, tap it and up to one target creature an opponent controls. They don't untap during their controllers' next untap steps."
+  },
+  {
+    "name": "Phyrexian Midway Bamboozle",
+    "word": "{TK}{TK}",
+    "text": "{TK}{TK} \u2014 Whenever this creature attacks, you get {TK}."
+  },
+  {
+    "name": "Triumph of Saint Katherine",
+    "word": "Praesidium Protectiva",
+    "text": "Praesidium Protectiva \u2014 When this creature is put into your graveyard from the battlefield, exile it and the top six cards of your library in a face-down pile. If you do, shuffle that pile and put it back on top of your library."
+  },
+  {
+    "name": "Omega, Heartless Evolution",
+    "word": "Wave Cannon",
+    "text": "Wave Cannon \u2014 When Omega enters, for each opponent, tap up to one target nonland permanent that opponent controls. Put X stun counters on each of those permanents and you gain X life, where X is the number of nonbasic lands you control. (If a permanent with a stun counter would become untapped, remove one from it instead.)"
+  },
+  {
+    "name": "Weird Angel Flame",
+    "word": "{TK}{TK} \u2014 Heroic",
+    "text": "{TK}{TK} \u2014 Heroic \u2014 Whenever you cast a spell that targets this permanent, put two +1/+1 counters on it."
+  },
+  {
+    "name": "Flayed One",
+    "word": "Flesh Flayer",
+    "text": "Flesh Flayer \u2014 When this creature enters, mill three cards."
+  },
+  {
+    "name": "Be'lakor, the Dark Master",
+    "word": "Prince of Chaos",
+    "text": "Prince of Chaos \u2014 When Be'lakor enters, you draw X cards and you lose X life, where X is the number of Demons you control."
+  },
+  {
+    "name": "Be'lakor, the Dark Master",
+    "word": "Lord of Torment",
+    "text": "Lord of Torment \u2014 Whenever another Demon you control enters, it deals damage equal to its power to any target."
+  },
+  {
+    "name": "Commander Sofia Daguerre",
+    "word": "Crash Landing",
+    "text": "Crash Landing \u2014 When Commander Sofia Daguerre enters, destroy up to one target legendary permanent. That permanent's controller creates a Junk token. (It's an artifact with \"{T}, Sacrifice this token: Exile the top card of your library. You may play that card this turn. Activate only as a sorcery.\")"
+  },
+  {
+    "name": "Lizard, Connors's Curse",
+    "word": "Lizard Formula",
+    "text": "Lizard Formula \u2014 When Lizard, Connors's Curse enters, up to one other target creature loses all abilities and becomes a green Lizard creature with base power and toughness 4/4."
+  },
+  {
+    "name": "Sierra, Nuka's Biggest Fan",
+    "word": "The Nuka-Cola Challenge",
+    "text": "The Nuka-Cola Challenge \u2014 Whenever one or more creatures you control deal combat damage to a player, put a quest counter on Sierra and create a Food token."
+  },
+  {
+    "name": "Ood Sphere",
+    "word": "Red-Eye",
+    "text": "Red-Eye \u2014 Whenever chaos ensues, for each opponent, goad up to one target creature that opponent controls. Until your next turn, those creatures can't become tapped unless they're being declared as attackers."
+  },
+  {
+    "name": "Case of the Shifting Visage",
+    "word": "Solved",
+    "text": "Solved \u2014 Whenever you cast a nonlegendary creature spell, copy that spell. (The copy becomes a token.)"
+  },
+  {
+    "name": "Christine Chapel, Combat Medic",
+    "word": "Strange new worlds",
+    "text": "Strange new worlds \u2014 When Christine Chapel enters, you gain life equal to the number of differently named lands you control."
+  },
+  {
+    "name": "Spider-Man India",
+    "word": "Pavitr's Sev\u0101",
+    "text": "Pavitr's Sev\u0101 \u2014 Whenever you cast a creature spell, put a +1/+1 counter on target creature you control. It gains flying until end of turn."
+  },
+  {
+    "name": "Vislor Turlough",
+    "word": "Deal with the Black Guardian",
+    "text": "Deal with the Black Guardian \u2014 When Vislor Turlough enters, you may have an opponent gain control of it. If you do, it's goaded for as long as they control it."
+  },
+  {
+    "name": "Astral Dragon",
+    "word": "Project Image",
+    "text": "Project Image \u2014 When this creature enters, create two tokens that are copies of target noncreature permanent, except they're 3/3 Dragon creatures in addition to their other types, and they have flying."
+  },
+  {
+    "name": "Pink Horror",
+    "word": "Coruscating Flames",
+    "text": "Coruscating Flames \u2014 Whenever you cast an instant or sorcery spell, this creature deals 2 damage to any target."
+  },
+  {
+    "name": "Pink Horror",
+    "word": "Split",
+    "text": "Split \u2014 When this creature dies, create two 2/2 blue and red Demon Horror creature tokens named Blue Horror with \"Whenever you cast an instant or sorcery spell, this token deals 1 damage to any target.\""
+  },
+  {
+    "name": "Sorin's Remastered Manor",
+    "word": "A Murder at Markov Manor",
+    "text": "A Murder at Markov Manor \u2014 Whenever chaos ensues, target spooky creature you control bites target opponent or creature an opponent controls. (The creature deals damage equal to its power to the creature your opponent controls. You gain that much life.)"
+  },
+  {
+    "name": "Ineffable Blessing",
+    "word": "\u2022 Flavorful",
+    "text": "\u2022 Flavorful \u2014 Whenever a creature you control with flavor text enters, draw a card."
+  },
+  {
+    "name": "Ineffable Blessing",
+    "word": "\u2022 Bland",
+    "text": "\u2022 Bland \u2014 Whenever a creature you control without flavor text enters, draw a card."
+  },
+  {
+    "name": "Time Reaper",
+    "word": "Consume Anomaly",
+    "text": "Consume Anomaly \u2014 Whenever this creature deals combat damage to a player, put target face-up card they own in exile on the bottom of their library. If you do, you gain 3 life."
+  },
+  {
+    "name": "Sister Hospitaller",
+    "word": "Medicus Ministorum",
+    "text": "Medicus Ministorum \u2014 When this creature enters, return target creature card from your graveyard to the battlefield. You gain life equal to its mana value."
+  },
+  {
+    "name": "The Marvelous Scientist",
+    "word": "\u2022 Cosplay",
+    "text": "\u2022 Cosplay \u2014 Whenever you cast a creature or planeswalker spell, this creature's base power and toughness each become equal to that spell's mana value until end of turn."
+  },
+  {
+    "name": "The Marvelous Scientist",
+    "word": "\u2022 Science",
+    "text": "\u2022 Science \u2014 Whenever you cast an instant or sorcery spell, this creature deals 2 damage to each opponent."
+  },
+  {
+    "name": "Celestine, the Living Saint",
+    "word": "Healing Tears",
+    "text": "Healing Tears \u2014 At the beginning of your end step, return target creature card with mana value X or less from your graveyard to the battlefield, where X is the amount of life you gained this turn."
+  },
+  {
+    "name": "Lucius the Eternal",
+    "word": "Armour of Shrieking Souls",
+    "text": "Armour of Shrieking Souls \u2014 When Lucius the Eternal dies, exile it and choose target creature an opponent controls. When that creature leaves the battlefield, return this card from exile to the battlefield under its owner's control."
+  },
+  {
+    "name": "Vitality Salve",
+    "word": "Hero's Reward",
+    "text": "Hero's Reward \u2014 When Vitality Salve is put into a graveyard from anywhere, each player returns a creature card from their graveyard to the battlefield."
+  },
+  {
+    "name": "Mendicant Core, Guidelight",
+    "word": "Max speed",
+    "text": "Max speed \u2014 Whenever you cast an artifact spell, you may pay {1}. If you do, copy it. (The copy becomes a token.)"
+  },
+  {
+    "name": "Yes Man, Personal Securitron",
+    "word": "Wild Card",
+    "text": "Wild Card \u2014 When Yes Man leaves the battlefield, its owner creates a tapped 1/1 white Soldier creature token for each quest counter on it."
+  },
+  {
+    "name": "Myconid Spore Tender",
+    "word": "Infesting Spores",
+    "text": "Infesting Spores \u2014 When this creature enters, destroy up to one target artifact or enchantment."
+  },
+  {
+    "name": "Sol, Advocate Eternal",
+    "word": "Teamwork",
+    "text": "Teamwork \u2014 Whenever you attack or block with both Sol, Advocate Eternal and its partner, support 4 and investigate four times."
+  },
+  {
+    "name": "Haruspex",
+    "word": "Rapacious Hunger",
+    "text": "Rapacious Hunger \u2014 Whenever another creature dies, put a +1/+1 counter on this creature."
+  },
+  {
+    "name": "Sporocyst",
+    "word": "Spore Chimney",
+    "text": "Spore Chimney \u2014 When this creature enters, search your library for up to X basic land cards, put them onto the battlefield tapped, then shuffle."
+  },
+  {
+    "name": "Intellect Devourer",
+    "word": "Devour Intellect",
+    "text": "Devour Intellect \u2014 When this creature enters, each opponent exiles a card from their hand until this creature leaves the battlefield."
+  },
+  {
+    "name": "Redemptor Dreadnought",
+    "word": "Plasma Incinerator",
+    "text": "Plasma Incinerator \u2014 Whenever this creature attacks, if a card is exiled with it, it gets +X/+X until end of turn, where X is the power of the exiled card."
+  },
+  {
+    "name": "The Good Gamers",
+    "word": "Establishing Shot",
+    "text": "Establishing Shot \u2014 At the beginning of your first upkeep, if The Good Gamers is in the command zone, it deals 2 damage to each opponent."
+  },
+  {
+    "name": "Sister Repentia",
+    "word": "Martyrdom",
+    "text": "Martyrdom \u2014 When this creature dies, you gain 2 life and draw two cards."
+  },
+  {
+    "name": "Frostcliff Siege",
+    "word": "\u2022 Jeskai",
+    "text": "\u2022 Jeskai \u2014 Whenever one or more creatures you control deal combat damage to a player, draw a card."
+  },
+  {
+    "name": "Great Unclean One",
+    "word": "Reverberating Summons",
+    "text": "Reverberating Summons \u2014 At the beginning of your end step, each opponent loses 2 life. Then for each opponent who has less life than you, create a 1/3 black Demon creature token named Plaguebearer of Nurgle."
+  },
+  {
+    "name": "The Wandering Minstrel",
+    "word": "The Minstrel's Ballad",
+    "text": "The Minstrel's Ballad \u2014 At the beginning of combat on your turn, if you control five or more Towns, create a 2/2 Elemental creature token that's all colors."
+  },
+  {
+    "name": "Eternal Acrobat Toast",
+    "word": "{TK}{TK}",
+    "text": "{TK}{TK} \u2014 Whenever this creature deals combat damage to a player, exile target creature you control, then return it to the battlefield under its owner's control."
+  },
+  {
+    "name": "Jumbo Cactuar",
+    "word": "10,000 Needles",
+    "text": "10,000 Needles \u2014 Whenever this creature attacks, it gets +9999/+0 until end of turn."
+  },
+  {
+    "name": "Unassuming Gelatinous Serpent",
+    "word": "{TK}{TK}",
+    "text": "{TK}{TK} \u2014 When this permanent dies, return target noncreature, nonland card from your graveyard to your hand."
+  },
+  {
+    "name": "Unassuming Gelatinous Serpent",
+    "word": "{TK}{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK}{TK} \u2014 Whenever this creature deals combat damage to a player, that player mills twice that many cards."
+  },
+  {
+    "name": "Icewind Stalwart",
+    "word": "Protection Fighting Style",
+    "text": "Protection Fighting Style \u2014 When this creature enters, exile up to one target non-Warrior creature you control, then return it to the battlefield under its owner's control."
+  },
+  {
+    "name": "Venomcrawler",
+    "word": "Devourer of Souls",
+    "text": "Devourer of Souls \u2014 Whenever another creature dies, put a +1/+1 counter on this creature."
+  },
+  {
+    "name": "Wild Maenads",
+    "word": "Hero's Reward",
+    "text": "Hero's Reward \u2014 When Wild Maenads leaves the battlefield, each player gains 3 life."
+  },
+  {
+    "name": "Primal Elder Kitty",
+    "word": "{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK} \u2014 When this creature dies, you may put X +1/+1 counters on target creature, where X is this creature's power."
+  },
+  {
+    "name": "Demonic Tourist Laser",
+    "word": "{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK} \u2014 When this permanent dies, you get seven {TK}."
+  },
+  {
+    "name": "Rising Chicane",
+    "word": "Max speed",
+    "text": "Max speed \u2014 At the beginning of combat on your turn, this land becomes a 2/2 Construct creature in addition to its other types until end of turn."
+  },
+  {
+    "name": "The Clever Magician",
+    "word": "Rule Zero",
+    "text": "Rule Zero \u2014 Whenever this creature enters the battlefield, and before the game begins if this creature is your commander, you may propose a new rule that is contained to this game of Magic. If all players in the game agree to it, that rule becomes true for this game. If one or more players decline, instead you scry 2. (If this is your commander, scry after keeping your hand.)"
+  },
+  {
+    "name": "Nothic",
+    "word": "Weird Insight",
+    "text": "Weird Insight \u2014 When this creature dies, roll a d20."
+  },
+  {
+    "name": "Time Beetle",
+    "word": "Parallel Universe",
+    "text": "Parallel Universe \u2014 Whenever this creature deals combat damage to a player, time travel. (For each suspended card you own and each permanent you control with a time counter on it, you may add or remove a time counter.)"
+  },
+  {
+    "name": "Aerith, Last Ancient",
+    "word": "Raise",
+    "text": "Raise \u2014 At the beginning of your end step, if you gained life this turn, return target creature card from your graveyard to your hand. If you gained 7 or more life this turn, return that card to the battlefield instead."
+  },
+  {
+    "name": "Shadow of the Goblin",
+    "word": "Unreliable Visions",
+    "text": "Unreliable Visions \u2014 At the beginning of your first main phase, discard a card. If you do, draw a card."
+  },
+  {
+    "name": "Shadow of the Goblin",
+    "word": "Undying Vengeance",
+    "text": "Undying Vengeance \u2014 Whenever you play a land or cast a spell from anywhere other than your hand, this enchantment deals 1 damage to each opponent."
+  },
+  {
+    "name": "Aplan Mortarium",
+    "word": "Byzantium Radiation",
+    "text": "Byzantium Radiation \u2014 At the beginning of your upkeep, put an exposure counter on Aplan Mortarium. Then you lose life equal to the number of exposure counters on it."
+  },
+  {
+    "name": "Viv Vision, Teen Synthezoid",
+    "word": "Cybernetic Senses",
+    "text": "Cybernetic Senses \u2014 Whenever Viv Vision attacks, draw a card if her power is 4 or greater."
+  },
+  {
+    "name": "Spider-Man, To the Rescue",
+    "word": "No One Dies!",
+    "text": "No One Dies! \u2014 When Spider-Man enters, you may tap him. When you do, another target nonattacking creature you control gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)"
+  },
+  {
+    "name": "Gau, Feral Youth",
+    "word": "Rage",
+    "text": "Rage \u2014 Whenever Gau attacks, put a +1/+1 counter on it."
+  },
+  {
+    "name": "The Wise Sable",
+    "word": "Judge Call!",
+    "text": "Judge Call! \u2014 When The Wise Sable enters the battlefield, choose one of the following six cards at random: Blood Moon; Enraging Licid; Humility; Life and Limb; Opalescence; Yavimaya, Cradle of Growth. Create a token that's a copy of the chosen card. (One easy way to determine is to roll a D6.)"
+  },
+  {
+    "name": "Case of the Crimson Pulse",
+    "word": "Solved",
+    "text": "Solved \u2014 At the beginning of your upkeep, discard your hand, then draw two cards."
+  },
+  {
+    "name": "The Underworld Fantasy Queen",
+    "word": "Spring",
+    "text": "Spring \u2014 Whenever Her Majesty enters or attacks, you may sacrifice another creature. If you do, draw a card."
+  },
+  {
+    "name": "The Underworld Fantasy Queen",
+    "word": "Summer",
+    "text": "Summer \u2014 Whenever a creature an opponent controls dies, put a +1/+1 counter on Her Majesty."
+  },
+  {
+    "name": "The Underworld Fantasy Queen",
+    "word": "Fall",
+    "text": "Fall \u2014 Whenever another creature dies, target opponent loses 1 life and you gain 1 life."
+  },
+  {
+    "name": "Valor Singer",
+    "word": "Combat Inspiration",
+    "text": "Combat Inspiration \u2014 At the beginning of combat on your turn, target creature you control gets +1/+0 until end of turn."
+  },
+  {
+    "name": "Hotel of Fears",
+    "word": "Praise Him",
+    "text": "Praise Him \u2014 Whenever chaos ensues, choose a color. Put X +1/+1 counters on target creature you control, where X is your devotion to that color. Then sacrifice another creature. (Your devotion to a color is the number of mana symbols of that color in the mana costs of permanents you control.)"
+  },
+  {
+    "name": "Shocker, Unshakable",
+    "word": "Vibro-Shock Gauntlets",
+    "text": "Vibro-Shock Gauntlets \u2014 When Shocker enters, he deals 2 damage to target creature and 2 damage to that creature's controller."
+  },
+  {
+    "name": "Magitek Scythe",
+    "word": "A Test of Your Reflexes!",
+    "text": "A Test of Your Reflexes! \u2014 When this Equipment enters, you may attach it to target creature you control. If you do, that creature gains first strike until end of turn and must be blocked this turn if able."
+  },
+  {
+    "name": "Alberix, the Trade Planet",
+    "word": "Trade Routes",
+    "text": "Trade Routes \u2014 At the beginning of your precombat main phase, choose one \u2014"
+  },
+  {
+    "name": "Dragonborn Immolator",
+    "word": "Gift of Tiamat",
+    "text": "Gift of Tiamat \u2014 When this creature dies, if its power is greater than 0, note its power. You get a one-time boon with \"When you cast a creature spell, it perpetually gets +X/+0, where X is the noted number.\""
+  },
+  {
+    "name": "Falcon, Winged Wonder",
+    "word": "Avian Telepathy",
+    "text": "Avian Telepathy \u2014 When Falcon enters, create Redwing, a legendary 1/1 blue Bird Scout creature token with flying and \"Whenever Redwing attacks, surveil 1.\" (Look at the top card of your library. You may put it into your graveyard.)"
+  },
+  {
+    "name": "Plasmancer",
+    "word": "Dynastic Advisor",
+    "text": "Dynastic Advisor \u2014 When this creature enters, search your library for a basic Swamp card, reveal it, put it into your hand, then shuffle."
+  },
+  {
+    "name": "Wakka, Devoted Guardian",
+    "word": "Blitzball Captain",
+    "text": "Blitzball Captain \u2014 At the beginning of your end step, if a counter was put on Wakka this turn, put a +1/+1 counter on each other creature you control."
+  },
+  {
+    "name": "Snazzy Aether Homunculus",
+    "word": "{TK}{TK}{TK} \u2014 Magecraft",
+    "text": "{TK}{TK}{TK} \u2014 Magecraft \u2014 Whenever you cast or copy an instant or sorcery spell, draw a card."
+  },
+  {
+    "name": "Sicarian Infiltrator",
+    "word": "Benediction of the Omnissiah",
+    "text": "Benediction of the Omnissiah \u2014 When this creature enters, draw a card."
+  },
+  {
+    "name": "Butch DeLoria, Tunnel Snake",
+    "word": "Tunnel Snakes Rule!",
+    "text": "Tunnel Snakes Rule! \u2014 Whenever Butch DeLoria attacks, it gets +1/+1 until end of turn for each other Rogue and/or Snake you control."
+  },
+  {
+    "name": "Plundered Statue",
+    "word": "Hero's Reward",
+    "text": "Hero's Reward \u2014 When Plundered Statue is put into a graveyard from anywhere, each player draws a card."
+  },
+  {
+    "name": "Scion of Stygia",
+    "word": "Cone of Cold",
+    "text": "Cone of Cold \u2014 When this creature enters, choose target creature an opponent controls, then roll a d20."
+  },
+  {
+    "name": "Smog Smasher",
+    "word": "Max speed",
+    "text": "Max speed \u2014 At the beginning of combat on your turn, put all cards exiled with this creature onto the battlefield. They gain haste. Sacrifice them at the beginning of the next end step."
+  },
+  {
+    "name": "Ecstatic Piper",
+    "word": "Hero's Reward",
+    "text": "Hero's Reward \u2014 When Ecstatic Piper leaves the battlefield, each player gains 2 life."
+  },
+  {
+    "name": "Deep-Fried Plague Myr",
+    "word": "{TK}{TK}",
+    "text": "{TK}{TK} \u2014 Whenever this creature attacks, scry 1."
+  },
+  {
+    "name": "Deep-Fried Plague Myr",
+    "word": "{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK} \u2014 Whenever this permanent leaves the battlefield, you may destroy target artifact or enchantment."
+  },
+  {
+    "name": "Blue Dragon",
+    "word": "Lightning Breath",
+    "text": "Lightning Breath \u2014 When this creature enters, until your next turn, target creature an opponent controls gets -3/-0, up to one other target creature gets -2/-0, and up to one other target creature gets -1/-0."
+  },
+  {
+    "name": "Aloy, Savior of Meridian",
+    "word": "In You, All Things Are Possible",
+    "text": "In You, All Things Are Possible \u2014 Whenever one or more artifact creatures you control attack, discover X, where X is the greatest power among them. (Exile cards from the top of your library until you exile a nonland card with that mana value or less. Cast it without paying its mana cost or put it into your hand. Put the rest on the bottom in a random order.)"
+  },
+  {
+    "name": "Quake, Agent of S.H.I.E.L.D.",
+    "word": "Seismic Takedown",
+    "text": "Seismic Takedown \u2014 Whenever you cast a noncreature spell, tap target creature or land."
+  },
+  {
+    "name": "Champions from Beyond",
+    "word": "Light Party",
+    "text": "Light Party \u2014 Whenever you attack with four or more creatures, scry 2, then draw a card."
+  },
+  {
+    "name": "Champions from Beyond",
+    "word": "Full Party",
+    "text": "Full Party \u2014 Whenever you attack with eight or more creatures, those creatures get +4/+4 until end of turn."
+  },
+  {
+    "name": "Commissar Severina Raine",
+    "word": "Leading from the Front",
+    "text": "Leading from the Front \u2014 Whenever Commissar Severina Raine attacks, each opponent loses X life, where X is the number of other attacking creatures."
+  },
+  {
+    "name": "Knight Paladin",
+    "word": "Rapid-fire Battle Cannon",
+    "text": "Rapid-fire Battle Cannon \u2014 When this Vehicle enters, it deals 4 damage to each opponent."
+  },
+  {
+    "name": "Unglued Pea-Brained Dinosaur",
+    "word": "{TK}{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK}{TK} \u2014 At the beginning of combat on your turn, target noncreature artifact you control becomes a 4/4 artifact creature with flying until end of turn."
+  },
+  {
+    "name": "Grell Philosopher",
+    "word": "Aberrant Tinkering",
+    "text": "Aberrant Tinkering \u2014 When this creature enters and at the beginning of your upkeep, each Horror you control gains all activated abilities of target artifact an opponent controls until end of turn. You may spend blue mana as though it were mana of any color to activate those abilities."
+  },
+  {
+    "name": "Vincent, Vengeful Atoner",
+    "word": "Chaos",
+    "text": "Chaos \u2014 Whenever Vincent deals combat damage to an opponent, it deals that much damage to each other opponent if Vincent's power is 7 or greater."
+  },
+  {
+    "name": "Trendy Circus Pirate",
+    "word": "{TK}{TK}{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK}{TK}{TK} \u2014 Whenever this creature deals combat damage to a player, create that many 1/1 green Squirrel creature tokens."
+  },
+  {
+    "name": "Hawkeye, Master Marksman",
+    "word": "Trick Arrows",
+    "text": "Trick Arrows \u2014 Whenever Hawkeye becomes tapped, you may pay {1} up to three times. When you do, choose up to that many \u2014"
+  },
+  {
+    "name": "Geek Lotus Warrior",
+    "word": "{TK}{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK}{TK} \u2014 Whenever a creature enters under your control, this permanent deals 2 damage to target player."
+  },
+  {
+    "name": "Broodlord",
+    "word": "Brood Telepathy",
+    "text": "Brood Telepathy \u2014 When this creature enters, distribute X +1/+1 counters among any number of other target creatures you control."
+  },
+  {
+    "name": "Night Scythe",
+    "word": "Invasion Beams",
+    "text": "Invasion Beams \u2014 When this Vehicle enters, create a 2/2 black Necron Warrior artifact creature token."
+  },
+  {
+    "name": "Necron Monolith",
+    "word": "Eternity Gate",
+    "text": "Eternity Gate \u2014 Whenever this Vehicle attacks, mill three cards. For each creature card milled this way, create a 2/2 black Necron Warrior artifact creature token."
+  },
+  {
+    "name": "Strax, Sontaran Nurse",
+    "word": "Glory of Battle",
+    "text": "Glory of Battle \u2014 Whenever Strax deals damage to a creature, put a +1/+1 counter on Strax."
+  },
+  {
+    "name": "Wrinkly Monkey Shenanigans",
+    "word": "{TK}{TK}{TK}{TK} \u2014 Morbid",
+    "text": "{TK}{TK}{TK}{TK} \u2014 Morbid \u2014 At the beginning of each end step, if a creature died this turn and this permanent is a creature, put a -1/-1 counter on this permanent and draw a card."
+  },
+  {
+    "name": "Ms. Marvel, Kamala Khan",
+    "word": "Embiggen Fist",
+    "text": "Embiggen Fist \u2014 Whenever you cast a spell that targets a creature you control, draw a card. Until end of turn, Ms. Marvel gains \"Ms. Marvel's base power is equal to the number of cards in your hand.\""
+  },
+  {
+    "name": "Case of the Trampled Garden",
+    "word": "Solved",
+    "text": "Solved \u2014 Whenever you attack, put a +1/+1 counter on target attacking creature. It gains trample until end of turn."
+  },
+  {
+    "name": "Lightfoot Rogue",
+    "word": "Sneak Attack",
+    "text": "Sneak Attack \u2014 Whenever this creature attacks, roll a d20."
+  },
+  {
+    "name": "Genestealer Patriarch",
+    "word": "Genestealer's Kiss",
+    "text": "Genestealer's Kiss \u2014 Whenever this creature attacks, put an infection counter on target creature defending player controls."
+  },
+  {
+    "name": "Genestealer Patriarch",
+    "word": "Children of the Cult",
+    "text": "Children of the Cult \u2014 Whenever a creature with an infection counter on it dies, you create a token that's a copy of that creature, except it's a Tyranid in addition to its other types."
+  },
+  {
+    "name": "Cloud of Darkness",
+    "word": "Particle Beam",
+    "text": "Particle Beam \u2014 When Cloud of Darkness enters, target creature an opponent controls gets -X/-X until end of turn, where X is the number of permanent cards in your graveyard."
+  },
+  {
+    "name": "Lander Rizzi",
+    "word": "Landerfall",
+    "text": "Landerfall \u2014 Whenever a lander you control enters, put a +1/+1 counter on Lander."
+  },
+  {
+    "name": "Zellix, Sanity Flayer",
+    "word": "Hive Mind",
+    "text": "Hive Mind \u2014 Whenever a player mills one or more creature cards, you create a 1/1 black Horror creature token."
+  },
+  {
+    "name": "Unstable Robot Dragon",
+    "word": "{TK}{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK}{TK} \u2014 Whenever this creature attacks, it gets +5/+5 until end of turn."
+  },
+  {
+    "name": "Massacre Totem",
+    "word": "Hero's Reward",
+    "text": "Hero's Reward \u2014 When Massacre Totem is put into a graveyard from anywhere, put the top seven cards of the Horde's library into its graveyard."
+  },
+  {
+    "name": "Ravenous Brute Head",
+    "word": "Hero's Reward",
+    "text": "Hero's Reward \u2014 When Ravenous Brute Head leaves the battlefield, each player gains 2 life and draws a card."
+  },
+  {
+    "name": "Applejack",
+    "word": "Family Gathering",
+    "text": "Family Gathering \u2014 At the beginning of your end step, put a toy you own onto the battlefield as a 2/2 creature token with that toy's name, colors, and creature types. If the toy has wings, the token has flying. If the toy has a horn, scry 2. If it has neither, create a Food token."
+  },
+  {
+    "name": "Deep Gnome Terramancer",
+    "word": "Mold Earth",
+    "text": "Mold Earth \u2014 Whenever one or more lands enter under an opponent's control without being played, you may search your library for a Plains card, put it onto the battlefield tapped, then shuffle. Do this only once each turn."
+  },
+  {
+    "name": "Pheres-Band Revelers",
+    "word": "Hero's Reward",
+    "text": "Hero's Reward \u2014 When Pheres-Band Revelers leaves the battlefield, each player draws a card."
+  },
+  {
+    "name": "Cool Fluffy Loxodon",
+    "word": "{TK}{TK}",
+    "text": "{TK}{TK} \u2014 When this permanent leaves the battlefield, draw a card."
+  },
+  {
+    "name": "Cool Fluffy Loxodon",
+    "word": "{TK}{TK}{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK}{TK}{TK} \u2014 Whenever a creature enters under your control, this permanent becomes a 13/13 Eldrazi creature in addition to its other types until end of turn."
+  },
+  {
+    "name": "Refreshing Elixir",
+    "word": "Hero's Reward",
+    "text": "Hero's Reward \u2014 When Refreshing Elixir is put into a graveyard from anywhere, each player gains 5 life."
+  },
+  {
+    "name": "Acolyte Hybrid",
+    "word": "Heavy Rock Cutter",
+    "text": "Heavy Rock Cutter \u2014 Whenever this creature attacks, destroy up to one target artifact. If an artifact is destroyed this way, its controller draws a card."
+  },
+  {
+    "name": "Legate Lanius, Caesar's Ace",
+    "word": "Decimate",
+    "text": "Decimate \u2014 When Legate Lanius enters, each opponent sacrifices a tenth of the creatures they control of their choice, rounded up."
+  },
+  {
+    "name": "Search Elemental",
+    "word": "Scryfall",
+    "text": "Scryfall \u2014 Whenever you scry, put a +1/+1 counter on Search Elemental. It can't be blocked this turn."
+  },
+  {
+    "name": "Cloakwood Swarmkeeper",
+    "word": "Gathered Swarm",
+    "text": "Gathered Swarm \u2014 Whenever one or more tokens you control enter, put a +1/+1 counter on this creature."
+  },
+  {
+    "name": "Death Tyrant",
+    "word": "Negative Energy Cone",
+    "text": "Negative Energy Cone \u2014 Whenever an attacking creature you control or a blocking creature an opponent controls dies, create a 2/2 black Zombie creature token."
+  },
+  {
+    "name": "Familiar Beeble Mascot",
+    "word": "{TK}{TK}",
+    "text": "{TK}{TK} \u2014 Whenever this creature attacks, untap target permanent."
+  },
+  {
+    "name": "Familiar Beeble Mascot",
+    "word": "{TK}{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK}{TK} \u2014 Whenever a creature enters under your control, creatures you control get +1/+1 until end of turn."
+  },
+  {
+    "name": "Mawloc",
+    "word": "Terror from the Deep",
+    "text": "Terror from the Deep \u2014 When this creature enters, it fights up to one target creature an opponent controls. If that creature would die this turn, exile it instead."
+  },
+  {
+    "name": "Thancred Waters",
+    "word": "Royal Guard",
+    "text": "Royal Guard \u2014 When Thancred Waters enters, another target legendary permanent you control gains indestructible for as long as you control Thancred Waters."
+  },
+  {
+    "name": "The Dining Car",
+    "word": "Sixty-Six Seconds",
+    "text": "Sixty-Six Seconds \u2014 At the beginning of your upkeep, sacrifice a creature with the least toughness among creatures you control. Then investigate."
+  },
+  {
+    "name": "Epistolary Librarian",
+    "word": "Veil of Time",
+    "text": "Veil of Time \u2014 Whenever this creature attacks, you may cast a spell with mana value X or less from your hand without paying its mana cost, where X is the number of attacking creatures."
+  },
+  {
+    "name": "Playable Delusionary Hydra",
+    "word": "{TK}{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK}{TK} \u2014 Whenever this creature attacks, you gain 3 life and draw a card."
+  },
+  {
+    "name": "Unique Charmed Pants",
+    "word": "{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK} \u2014 Whenever this creature attacks, if it's not a Brushwagg, it gets +X/+0 until end of turn, where X is the number of supertypes, card types, and subtypes it has."
+  },
+  {
+    "name": "Klaw, Sonic Subjugator",
+    "word": "Sonic Attack",
+    "text": "Sonic Attack \u2014 When Klaw enters, target player reveals a number of cards from their hand equal to one plus the number of creature cards in your graveyard. You choose one of them. That player discards that card."
+  },
+  {
+    "name": "Uchuulon",
+    "word": "Horrific Symbiosis",
+    "text": "Horrific Symbiosis \u2014 At the beginning of your end step, exile up to one target creature card from an opponent's graveyard. If you do, create a token that's a copy of this creature."
+  },
+  {
+    "name": "Down in the Valley",
+    "word": "II \u2014 This Saga gains \"Landfall",
+    "text": "II \u2014 This Saga gains \"Landfall \u2014 Whenever a land you control enters, create a 1/1 green Elf creature token.\""
+  },
+  {
+    "name": "Sticky Kavu Daredevil",
+    "word": "{TK}{TK}",
+    "text": "{TK}{TK} \u2014 Whenever this permanent dies, you may return target creature to its owner's hand."
+  },
+  {
+    "name": "Sticky Kavu Daredevil",
+    "word": "{TK}{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK}{TK} \u2014 Whenever this creature attacks, creatures you control get +1/+1 until end of turn."
+  },
+  {
+    "name": "Poxwalkers",
+    "word": "Curse of the Walking Pox",
+    "text": "Curse of the Walking Pox \u2014 Whenever you cast a spell from anywhere other than your hand, return this card from your graveyard to the battlefield tapped."
+  },
+  {
+    "name": "Goblin Coward Parade",
+    "word": "{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK} \u2014 When this permanent leaves the battlefield, you may destroy target creature with power 4 or greater."
+  },
+  {
+    "name": "Ka-Zar of the Savage Land",
+    "word": "When Ka-Zar enters, create Zabu, a legendary 2/2 green Cat creature token with \"Landfall",
+    "text": "When Ka-Zar enters, create Zabu, a legendary 2/2 green Cat creature token with \"Landfall \u2014 Whenever a land you control enters, put a +1/+1 counter on Zabu.\""
+  },
+  {
+    "name": "Shadow, Mysterious Assassin",
+    "word": "Throw",
+    "text": "Throw \u2014 Whenever Shadow deals combat damage to a player, you may sacrifice another nonland permanent. If you do, draw two cards and each opponent loses life equal to the mana value of the sacrificed permanent."
+  },
+  {
+    "name": "Inquisitorial Rosette",
+    "word": "Inquisition Agents",
+    "text": "Inquisition Agents \u2014 Whenever equipped creature attacks, create a 2/2 white Astartes Warrior creature token with vigilance that's attacking. Then attacking creatures gain menace until end of turn."
+  },
+  {
+    "name": "Aether Syphon",
+    "word": "Max speed",
+    "text": "Max speed \u2014 Whenever you draw a card, each opponent mills two cards. (Each opponent puts the top two cards of their library into their graveyard.)"
+  },
+  {
+    "name": "Mirrodin Besieged",
+    "word": "\u2022 Mirran",
+    "text": "\u2022 Mirran \u2014 Whenever you cast an artifact spell, create a 1/1 colorless Myr artifact creature token."
+  },
+  {
+    "name": "Mirrodin Besieged",
+    "word": "\u2022 Phyrexian",
+    "text": "\u2022 Phyrexian \u2014 At the beginning of your end step, draw a card, then discard a card. Then if there are fifteen or more artifact cards in your graveyard, target opponent loses the game."
+  },
+  {
+    "name": "The Unbeatable Squirrel Girl",
+    "word": "Do You Like Squirrels?",
+    "text": "Do You Like Squirrels? \u2014 Whenever The Unbeatable Squirrel Girl enters or attacks, create a 1/1 green Squirrel creature token."
+  },
+  {
+    "name": "Aberrant Mind Sorcerer",
+    "word": "Psionic Spells",
+    "text": "Psionic Spells \u2014 When this creature enters, choose target instant or sorcery card in your graveyard, then roll a d20."
+  },
+  {
+    "name": "Thijarian Witness",
+    "word": "Bear Witness",
+    "text": "Bear Witness \u2014 Whenever another creature dies, if it was attacking or blocking alone, exile it and investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")"
+  },
+  {
+    "name": "Beckoning Will-o'-Wisp",
+    "word": "Lure the Unwary",
+    "text": "Lure the Unwary \u2014 At the beginning of combat on your turn, choose an opponent."
+  },
+  {
+    "name": "Juvenile Mist Dragon",
+    "word": "Confounding Clouds",
+    "text": "Confounding Clouds \u2014 When this creature enters, for each opponent, tap up to one target creature that player controls. Each of those creatures doesn't untap during its controller's next untap step."
+  },
+  {
+    "name": "Starlight Spectacular",
+    "word": "Parade!",
+    "text": "Parade! \u2014 At the beginning of combat on your turn, choose creatures you control one at a time until each creature you control has been chosen. Each of those creatures gets +1/+1 until end of turn for each creature chosen before it. (Places everyone! The first creature in line gets +0/+0.)"
+  },
+  {
+    "name": "Tyranid Harridan",
+    "word": "Shrieking Gargoyles",
+    "text": "Shrieking Gargoyles \u2014 Whenever this creature or another Tyranid you control deals combat damage to a player, create a 1/1 blue Tyranid Gargoyle creature token with flying."
+  },
+  {
+    "name": "Malboro",
+    "word": "Bad Breath",
+    "text": "Bad Breath \u2014 When this creature enters, each opponent discards a card, loses 2 life, and exiles the top three cards of their library."
+  },
+  {
+    "name": "Plane-Merge Elf",
+    "word": "Landship",
+    "text": "Landship \u2014 At the beginning of your upkeep, you may look at the top card of your library. If it's a land, you may reveal it. If you do, create a 1/1 green Elf Warrior creature token."
+  },
+  {
+    "name": "Plane-Merge Elf",
+    "word": "Kinfall",
+    "text": "Kinfall \u2014 Whenever a creature enters the battlefield under your control, if it shares a creature type with Plane-Merge Elf, creatures you control get +1/+1 until end of turn."
+  },
+  {
+    "name": "Misunderstood Trapeze Elf",
+    "word": "{TK}{TK}",
+    "text": "{TK}{TK} \u2014 Whenever you cast a spell, this creature gets +X/+X until end of turn, where X is the amount of generic mana in that spell's mana cost."
+  },
+  {
+    "name": "Marneus Calgar",
+    "word": "Master Tactician",
+    "text": "Master Tactician \u2014 Whenever one or more tokens you control enter, draw a card."
+  },
+  {
+    "name": "Hangarback Assembler",
+    "word": "Max speed",
+    "text": "Max speed \u2014 At the beginning of your end step, put a +1/+1 counter on each artifact creature and/or Vehicle you control."
+  },
+  {
+    "name": "Ellie, Brick Master",
+    "word": "Distract the Horde",
+    "text": "Distract the Horde \u2014 Whenever a player attacks one of your opponents, that attacking player creates a tapped 1/1 black Fungus Zombie creature token named Cordyceps Infected that's attacking that opponent."
+  },
+  {
+    "name": "Sassy Gremlin Blood",
+    "word": "{TK}{TK}",
+    "text": "{TK}{TK} \u2014 Whenever this creature attacks, create a Treasure token."
+  },
+  {
+    "name": "Winter Eladrin",
+    "word": "Gust of Wind",
+    "text": "Gust of Wind \u2014 When this creature enters, return up to one other target creature to its owner's hand."
+  },
+  {
+    "name": "The Mysterious Sphere",
+    "word": "Show",
+    "text": "Show \u2014 At the beginning of combat on your turn, if there are three or more cards exiled with The Mysterious Sphere, you may put them into your graveyard. If you do, create copies of each nonland card among them. You may cast the copies without paying their mana costs. If you cast a creature spell this way, it gains haste and \"Sacrifice this creature at the beginning of your end step.\""
+  },
+  {
+    "name": "Elemental Time Flamingo",
+    "word": "{TK}{TK}{TK}{TK}",
+    "text": "{TK}{TK}{TK}{TK} \u2014 Whenever a creature you control dies, each opponent loses 1 life and you gain 1 life."
+  },
+  {
+    "name": "Gardens of Tranquil Repose",
+    "word": "Suspended Animation",
+    "text": "Suspended Animation \u2014 Whenever a creature dies, exile it. Its controller scries 1."
+  },
+  {
+    "name": "Hook Horror",
+    "word": "Molting Exoskeleton",
+    "text": "Molting Exoskeleton \u2014 When Hook Horror dies, it perpetually gets -1/-1. Then if that card's toughness is 1 or greater, return it to the battlefield under its owner's control."
+  },
+  {
+    "name": "Wizened Githzerai",
+    "word": "Psionic Adept",
+    "text": "Psionic Adept \u2014 Whenever Wizened Githzerai becomes blocked by a creature, that creature perpetually gets -2/-0."
+  },
+  {
+    "name": "Beckett Mariner, Impetuous Ensign",
+    "word": "Reckless Behavior",
+    "text": "Reckless Behavior \u2014 Whenever Beckett Mariner becomes tapped, put a promotion counter on her. Then if there are three or more promotion counters on her, remove those counters and she deals 2 damage to each opponent."
+  },
+  {
+    "name": "Serpent Dancers",
+    "word": "Hero's Reward",
+    "text": "Hero's Reward \u2014 When Serpent Dancers leaves the battlefield, each player draws a card."
+  },
+  {
+    "name": "Altar of Mogis",
+    "word": "Hero's Reward",
+    "text": "Hero's Reward \u2014 When Altar of Mogis is put into a graveyard from anywhere, the Horde sacrifices two Minotaurs."
+  },
+  {
+    "name": "Lord of Change",
+    "word": "Architect of Deception",
+    "text": "Architect of Deception \u2014 When this creature enters, draw three cards."
+  },
+  {
+    "name": "The Egotistical Velociraptor",
+    "word": "Grumpy Co-play",
+    "text": "Grumpy Co-play \u2014 When The Egotistical Velociraptor enters the battlefield, if you cast it, you may choose another Magic player not currently in a game of Magic and ask them to take over your game until the end of your next turn. If they agree, shuffle your hand into your library, draw four cards and gain 4 life. (You can't give them advice, but witty banter is encouraged.)"
+  },
+  {
+    "name": "Wild Ogre Bupkis",
+    "word": "{TK}{TK}",
+    "text": "{TK}{TK} \u2014 Whenever this creature attacks, put a +1/+1 counter on it."
+  }
+]

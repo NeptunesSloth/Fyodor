@@ -1,0 +1,57 @@
+--- /dev/null
++++ b/backend/app/rules/target_conditional_costs81.py
+@@ -0,0 +1,16 @@
++"""Exact discounts evaluated against the actual native chosen spell targets at cost lock."""
++from __future__ import annotations
++
++from typing import Any
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    if ability.text == 'This spell costs {1} less to cast if it targets an attacking or tapped creature.':
++        from app.rules.selectors import Selector
++
++        choices = (Selector(types=('Creature',), attacking=True), Selector(types=('Creature',), tapped=True))
++        return {'kind': 'static', 'static': 'self_cost', 'change': {'dir': -1, 'n': 1,
++                'targets': Selector(either=tuple(s.key() for s in choices)).key()}, 'effects': []}
++    if ability.text == 'This spell costs {3} less to cast if it targets a creature whose controller has eight or more cards in their graveyard.':
++        return {'kind': 'static', 'static': 'self_cost', 'change': {'dir': -1, 'n': 3, 'target_controller_graveyard_min81': 8}, 'effects': []}
++    return None
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5859,2 +5859,7 @@
+         return attacks85
++    from app.rules import target_conditional_costs81
++
++    if (target81 := target_conditional_costs81.definition(ability, ch)) is not None:
++        return target81
++
+     from app.rules import target_duration_costs69
+--- a/backend/app/rules/cost_changes.py
++++ b/backend/app/rules/cost_changes.py
+@@ -327,2 +327,9 @@
+             continue  # "… if it targets …": the chosen targets (601.2c comes before 601.2f)
++        # Actual native chosen targets were validated before cost locking; the prepared
++        # numeric total then survives all subsequent mana-ability state changes.
++        if change.get('target_controller_graveyard_min81') is not None and targets != ANY_TARGET and not any(
++                (target81 := view.state.cards.get(tid)) is not None and view.ch(target81).is_creature
++                and len(view.state.zones.get(f'{target81.controller}:graveyard', [])) >= change['target_controller_graveyard_min81']
++                for tid in targets):
++            continue
+         n = amount(view, context(state, player, card), change)
+--- a/backend/app/rules/language.py
++++ b/backend/app/rules/language.py
+@@ -1528,3 +1528,4 @@
+             raise _Fail
+-        return [{"do": "to_library", "who": _who(kind, key), "place": "choice"}], _one(group)
++        return [{"do": "to_library", "who": _who(kind, key), "place": "choice",
++                 **({'owner_root_choice81': True} if text == "the owner of target creature puts it on their choice of the top or bottom of their library" else {})}], _one(group)
+     m = _YOUR_CHOICE.fullmatch(text)
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -3423,3 +3423,4 @@
+     before = _remember(plan, ctx, e, cards)
+-    if len(cards) > 1 and (e["place"] == "choice" or (e["place"] in ("top", "bottom") and not e.get("chooser"))):
++    compound81 = e.get('owner_root_choice81') and any(plan.state.cards[cid].merged for cid in cards)
++    if (len(cards) > 1 or compound81) and (e["place"] == "choice" or (e["place"] in ("top", "bottom") and not e.get("chooser"))):
+         from app.rules import library_placements

@@ -1,0 +1,224 @@
+--- /dev/null
++++ b/backend/app/rules/damage_retention83.py
+@@ -0,0 +1,71 @@
++"""Current printed or granted static rules control native cleanup damage removal."""
++from __future__ import annotations
++
++import re
++from typing import TYPE_CHECKING, Any
++
++if TYPE_CHECKING:
++    from app.rules.characteristics import AbilityText, Characteristics
++    from app.rules.plan import Plan
++
++RULE = 'damage_retained_cleanup'
++_PATTERN = re.compile(r"^Damage isn't removed from (?P<what>~|this creature|it|creatures|creatures your opponents control) during cleanup steps\.$")
++
++
++def static(text: str) -> dict[str, Any] | None:
++    from app.rules import statics
++
++    if text in ("As long as this creature is on the battlefield, damage isn't removed from it during cleanup steps.",
++                "As long as ~ is on the battlefield, damage isn't removed from it during cleanup steps."):
++        text = "Damage isn't removed from ~ during cleanup steps."
++    m = _PATTERN.fullmatch(text)
++    if m is None:
++        return None
++    subject = '~' if m['what'] in ('~', 'this creature', 'it') else m['what'].capitalize()
++    native = statics.parse(subject + " can't block.")
++    return {**native, 'rules': [RULE]} if native is not None else None
++
++
++def cleanup(plan: Plan) -> None:
++    # 514.2: read the rules immediately before simultaneous removal/expiry. Literal
++    # ability grants lasting until end of turn still apply to this cleanup action.
++    damaged = [c for c in plan.state.cards.values() if c.damage]
++    if not damaged:
++        return
++    clear = [c.id for c in damaged if not c.zone.endswith(':battlefield') or RULE not in plan.ch(c).imposed]
++    if len(clear) == len(damaged):
++        plan.do({'type': 'cleanup', 'what': ['damage']}, actor=plan.active)
++        return
++    for start in range(0, len(clear), 250):
++        plan.do({'type': 'cleanup', 'what': ['damage'], 'card_ids': clear[start:start + 250]}, actor=plan.active)
++
++
++def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | None:
++    from dataclasses import replace
++
++    from app.rules import scripts
++
++    text = scripts.self_text(ability.text, ch.name)
++    if text == 'When ~ enters the battlefield, it deals 4 damage to any target.':
++        return scripts.define(replace(ability, text='When this enchantment enters, ~ deals 4 damage to any target.'), ch)
++    saga = ('I — ~ deals 4 damage to each creature and each planeswalker. '
++            '~ gains "Damage isn\'t removed from creatures during cleanup steps."')
++    if text == saga:
++        native = scripts.define(replace(ability, text='I — ~ deals 4 damage to each creature and each planeswalker.'), ch)
++        quote = "Damage isn't removed from creatures during cleanup steps."
++        return {**native, 'effects': [*native['effects'], {'do': 'grant', 'who': 'self', 'keywords': [],
++                                                         'abilities': [quote], 'duration': 'permanent'}]} if native is not None else None
++    return None
++
++
++def condition(text: str) -> dict[str, Any] | None:
++    return {'damaged_creatures83': 3} if text.strip().rstrip('.').casefold() == 'three or more creatures are damaged' else None
++
++
++def holds(plan: Plan, cond: dict[str, Any]) -> bool:
++    return sum(1 for card in plan.state.cards.values() if card.zone.endswith(':battlefield')
++               and card.damage > 0 and 'Creature' in plan.ch(card).types) >= cond['damaged_creatures83']
++
++
++def resolved_static(definition: dict[str, Any]) -> bool:
++    return definition.get("rules") == [RULE]
+--- a/backend/app/rules/statics.py
++++ b/backend/app/rules/statics.py
+@@ -126,6 +126,10 @@
+ def parse(text: str) -> Definition | None:
+     """One static ability sentence (the card's own name already written as ~) → definition, or None."""
+     t = text.strip().replace("’", "'").replace("“", '"').replace("”", '"')
++    from app.rules import damage_retention83
++
++    if (retention83 := damage_retention83.static(t)) is not None:
++        return retention83
+     # 609.4: a rule exception, rather than removing any landwalk ability.
+     if t == "Creatures with landwalk abilities can be blocked as though they didn't have those abilities.":
+         t = "Creatures can be blocked as though they didn't have landwalk."
+--- a/backend/app/rules/engine.py
++++ b/backend/app/rules/engine.py
+@@ -86,7 +86,6 @@
+     triggers,
+     untap_choice,  # -- untap choice (wave 7F) --
+ )
+-from app.rules import morph_costs78 as _morph_costs78  # noqa: F401
+
+ # Saved payment decisions must resume in a fresh process before another special action runs.
+ from app.rules import special_payment_tails as _special_payment_tails  # noqa: F401
+@@ -912,8 +911,9 @@
+
+ def turn_cleanup(plan: Plan) -> None:
+     """514.2: damage is removed and "until end of turn" effects end, simultaneously."""
+-    if any(c.damage for c in plan.state.cards.values()):
+-        plan.do({"type": "cleanup", "what": ["damage"]}, actor=plan.active)
++    from app.rules import damage_retention83
++
++    damage_retention83.cleanup(plan)
+     if plan.rules.effects:
+         layers.end_of_turn(plan)
+     plan.rules.regen_shields = {}  # regeneration shields last "this turn"
+@@ -1552,10 +1552,6 @@
+         return
+     r.decision = None  # (leave_game dropped it already)
+     if resolving:
+-        from app.rules import repeated_graveyard_offer89
+-
+-        if repeated_graveyard_offer89.replaced_choice(plan, d):
+-            return
+         # 800.4f-g: the choice isn't made; the resolution goes on — with the other players still to
+         # choose in APNAP order ("each opponent discards a card"), then its next instruction
+         plan.note(f"{plan.name(leaver)} left the game: their choice isn't made")
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -2653,14 +2653,6 @@
+
+
+ def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+-    from app.rules import repeated_graveyard_offer89
+-
+-    if (next64 := repeated_graveyard_offer89.parse(body)) is not None:
+-        return next64
+-    from app.rules import nightshade_reveal88
+-
+-    if (next64 := nightshade_reveal88.parse(body)) is not None:
+-        return next64
+     from app.rules import public_mill_costs64
+
+     if (admitted63 := public_mill_costs64.parse(body)) is not None:
+@@ -5797,38 +5789,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
+-    from app.rules import post_mill_graveyard68
+-
+-    if (grave68 := post_mill_graveyard68.definition(ability, ch)) is not None:
+-        return grave68
+-    from app.rules import linked_spell_windows81
+-
+-    if (linked81 := linked_spell_windows81.definition(ability, ch)) is not None:
+-        return linked81
+-    from app.rules import graveyard_windows80
+-
+-    if (window80 := graveyard_windows80.definition(ability, ch)) is not None:
+-        return window80
+-    from app.rules import exchange_conditions91
+-
+-    if (exchange91 := exchange_conditions91.definition(ability, ch)) is not None:
+-        return exchange91
+-    from app.rules import conditional_animations92
+-
+-    if (next64 := conditional_animations92.definition(ability, ch)) is not None:
+-        return next64
+-    from app.rules import morph_costs78
+-
+-    if (next64 := morph_costs78.definition(ability, ch)) is not None:
+-        return next64
+-    from app.rules import conditional_static_aliases91
+-
+-    if (next64 := conditional_static_aliases91.definition(ability, ch)) is not None:
+-        return next64
+-    from app.rules import first_kicked_costs77
+-
+-    if (next64 := first_kicked_costs77.definition(ability, ch)) is not None:
+-        return next64
++    from app.rules import damage_retention83
++
++    if (retention83 := damage_retention83.definition(ability, ch)) is not None:
++        return retention83
+     from app.rules import fight_receipts90
+
+     if (admitted63 := fight_receipts90.definition(ability, ch)) is not None:
+--- a/backend/app/rules/conditions.py
++++ b/backend/app/rules/conditions.py
+@@ -64,6 +64,10 @@
+     refers to ("it's a land card", "~ is tapped") — only for wording inside an ability's effects or
+     trigger, which has those objects (statics and restrictions don't)."""
+     t = text.strip().rstrip(",").replace("’", "'")
++    from app.rules import damage_retention83
++
++    if (retention83 := damage_retention83.condition(t)) is not None:
++        return retention83
+     if t.lower() == 'you control a creature that fought this turn':
+         return {'fought_creature90': True}
+     from app.rules import graveyard_return57
+@@ -1526,6 +1530,10 @@
+
+
+ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
++    if "damaged_creatures83" in cond:
++        from app.rules import damage_retention83
++
++        return damage_retention83.holds(plan, cond)
+     if cond.get('fought_creature90'):
+         from app.rules import fight_receipts90
+
+--- a/backend/app/rules/layers.py
++++ b/backend/app/rules/layers.py
+@@ -322,7 +322,7 @@
+ def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: dict[str, tuple[int, int, int]],
+                     field: list[tuple[str, str]]) -> list[Static]:
+     """Existing granted-static discovery, shared with the prospective field."""
+-    from app.rules import scripts
++    from app.rules import damage_retention83, scripts
+     from app.rules import statics as grammar
+
+     # An ability a static grants may itself be a static ("Commander creatures you own have
+@@ -355,7 +355,7 @@
+                     continue
+                 for text in effect.add_abilities:
+                     inner = grammar.parse(scripts.self_text(text, ""))
+-                    if inner is None or inner.get("who") != "self" or inner.get("layer4") or inner.get("base") or inner.get("p") or inner.get("t") or inner.get("grants"):
++                    if inner is None or (inner.get("who") != "self" and not damage_retention83.resolved_static(inner)) or inner.get("layer4") or inner.get("base") or inner.get("p") or inner.get("t") or inner.get("grants"):
+                         continue
+                     if inner.get("keywords") or inner.get("rules"):
+                         out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))

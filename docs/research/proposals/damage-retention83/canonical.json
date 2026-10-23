@@ -1,0 +1,264 @@
+[
+  {
+    "id": "4c139f30-5ecd-48fd-ae7c-ec2cc98889ff",
+    "oracle_id": "e6873252-653a-47a8-99b7-b2ef70aa1f7f",
+    "name": "Ancient Adamantoise",
+    "layout": "normal",
+    "set_code": "fin",
+    "set_name": "Final Fantasy",
+    "collector_number": "172",
+    "rarity": "mythic",
+    "mana_cost": "{5}{G}{G}{G}",
+    "cmc": 8.0,
+    "type_line": "Creature \u2014 Turtle",
+    "oracle_text": "Vigilance, ward {3}\nDamage isn't removed from this creature during cleanup steps.\nAll damage that would be dealt to you and other permanents you control is dealt to this creature instead.\nWhen this creature dies, exile it and create ten tapped Treasure tokens.",
+    "power": "8",
+    "toughness": "20",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Vigilance",
+      "Treasure",
+      "Ward"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-06-13",
+    "artist": "Kevin Glint",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "e5f4f810-f95a-41ac-9c3b-47254c03e766",
+        "name": "Treasure",
+        "type_line": "Token Artifact \u2014 Treasure"
+      }
+    ],
+    "related_cards": []
+  },
+  {
+    "id": "7335e06b-6f38-4e24-9b4b-b7c7ea3c6323",
+    "oracle_id": "d53ce3fd-5929-448b-90b4-ed90b3a9ca75",
+    "name": "Patient Zero",
+    "layout": "normal",
+    "set_code": "ymid",
+    "set_name": "Alchemy: Innistrad",
+    "collector_number": "29",
+    "rarity": "rare",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Zombie",
+    "oracle_text": "Lifelink\nDamage isn't removed from creatures your opponents control during cleanup steps.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Lifelink"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2021-12-09",
+    "artist": "Peter Polach",
+    "commander_legal": "not_legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "f27c0b84-6446-43eb-8705-def24ea5996b",
+    "oracle_id": "b859b50c-8a72-4cb9-be56-cc5153e3c1a1",
+    "name": "Uthgardt Fury",
+    "layout": "normal",
+    "set_code": "hbg",
+    "set_name": "Alchemy Horizons: Baldur's Gate",
+    "collector_number": "63",
+    "rarity": "rare",
+    "mana_cost": "{1}{R}{R}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "When Uthgardt Fury enters the battlefield, it deals 4 damage to any target.\nDamage isn't removed from creatures your opponents control during cleanup steps.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-07-07",
+    "artist": "Yeong-Hao Han",
+    "commander_legal": "not_legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "fe413a31-9555-40aa-9220-6812fe159c86",
+    "oracle_id": "72a32d3b-0a7f-469b-9dbb-5bae25917d5a",
+    "name": "Victory of the Pyrohammer",
+    "layout": "saga",
+    "set_code": "ywoe",
+    "set_name": "Alchemy: Wilds of Eldraine",
+    "collector_number": "12",
+    "rarity": "rare",
+    "mana_cost": "{3}{R}{R}",
+    "cmc": 5.0,
+    "type_line": "Enchantment \u2014 Saga",
+    "oracle_text": "(As this Saga enters and after your draw step add a lore counter. Sacrifice after III.)\nI \u2014 Victory of the Pyrohammer deals 4 damage to each creature and each planeswalker. Victory of the Pyrohammer gains \"Damage isn't removed from creatures during cleanup steps.\"\nII, III \u2014 Victory of the Pyrohammer deals 1 damage to each creature and each planeswalker.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-10-10",
+    "artist": "Xabi Gaztelua",
+    "commander_legal": "not_legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "277801e8-f464-4712-bf71-586330af1a62",
+    "oracle_id": "d9233055-44d3-49ee-8926-ced8e042f043",
+    "name": "Case of the Market Melee",
+    "layout": "case",
+    "set_code": "ymkm",
+    "set_name": "Alchemy: Murders at Karlov Manor",
+    "collector_number": "13",
+    "rarity": "uncommon",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Enchantment \u2014 Case",
+    "oracle_text": "When this Case enters, it deals 1 damage to any target.\nDamage isn't removed from creatures during cleanup steps.\nTo solve \u2014 Three or more creatures are damaged.\nSolved \u2014 Whenever you attack with one or more creatures, this Case deals that much damage divided as you choose among any number of targets.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Solved"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-03-05",
+    "artist": "Carlos Palma Cruchaga",
+    "commander_legal": "not_legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "55f1d408-d08a-44be-8a75-d9ded9ef4684",
+    "oracle_id": "10f2ecec-1b81-4e8d-a2f9-2ef69934b786",
+    "name": "Melt Through",
+    "layout": "normal",
+    "set_code": "ybro",
+    "set_name": "Alchemy: The Brothers' War",
+    "collector_number": "10",
+    "rarity": "uncommon",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Melt Through deals 2 damage to any target. If it's a creature, it perpetually gains \"As long as this creature is on the battlefield, damage isn't removed from it during cleanup steps.\"",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-12-13",
+    "artist": "Piotr Foksowicz",
+    "commander_legal": "not_legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "7442a366-f8b4-494e-93c7-993c4f13d409",
+    "oracle_id": "c18cbb31-5976-4f9b-818b-deb052593f75",
+    "name": "Switchgrass Grazer",
+    "layout": "normal",
+    "set_code": "yotj",
+    "set_name": "Alchemy: Outlaws of Thunder Junction",
+    "collector_number": "14",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{R}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Horse Mount",
+    "oracle_text": "Haste\nWhenever Switchgrass Grazer attacks, it deals 1 damage to any target. If Switchgrass Grazer is saddled and a creature was dealt damage this way, that creature perpetually gains \"This creature can't block\" and \"Damage isn't removed from this creature during cleanup steps.\"\nSaddle 1",
+    "power": "4",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Saddle",
+      "Haste"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-05-07",
+    "artist": "Leanna Crossan",
+    "commander_legal": "not_legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

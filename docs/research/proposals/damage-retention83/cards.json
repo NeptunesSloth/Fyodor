@@ -1,0 +1,178 @@
+[
+  {
+    "name": "Ancient Adamantoise",
+    "mana_cost": "{5}{G}{G}{G}",
+    "type_line": "Creature \u2014 Turtle",
+    "oracle_text": "Vigilance, ward {3}\nDamage isn't removed from this creature during cleanup steps.\nAll damage that would be dealt to you and other permanents you control is dealt to this creature instead.\nWhen this creature dies, exile it and create ten tapped Treasure tokens.",
+    "power": "8",
+    "toughness": "20",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Patient Zero",
+    "mana_cost": "{1}{B}",
+    "type_line": "Creature \u2014 Zombie",
+    "oracle_text": "Lifelink\nDamage isn't removed from creatures your opponents control during cleanup steps.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Uthgardt Fury",
+    "mana_cost": "{1}{R}{R}",
+    "type_line": "Enchantment",
+    "oracle_text": "When Uthgardt Fury enters the battlefield, it deals 4 damage to any target.\nDamage isn't removed from creatures your opponents control during cleanup steps.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Victory of the Pyrohammer",
+    "mana_cost": "{3}{R}{R}",
+    "type_line": "Enchantment \u2014 Saga",
+    "oracle_text": "(As this Saga enters and after your draw step add a lore counter. Sacrifice after III.)\nI \u2014 Victory of the Pyrohammer deals 4 damage to each creature and each planeswalker. Victory of the Pyrohammer gains \"Damage isn't removed from creatures during cleanup steps.\"\nII, III \u2014 Victory of the Pyrohammer deals 1 damage to each creature and each planeswalker.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "layout": "saga"
+  },
+  {
+    "name": "Case of the Market Melee",
+    "mana_cost": "{1}{R}",
+    "type_line": "Enchantment \u2014 Case",
+    "oracle_text": "When this Case enters, it deals 1 damage to any target.\nDamage isn't removed from creatures during cleanup steps.\nTo solve \u2014 Three or more creatures are damaged.\nSolved \u2014 Whenever you attack with one or more creatures, this Case deals that much damage divided as you choose among any number of targets.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "layout": "case"
+  },
+  {
+    "name": "Serra Angel",
+    "mana_cost": "{3}{W}{W}",
+    "type_line": "Creature \u2014 Angel",
+    "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Colossal Dreadmaw",
+    "mana_cost": "{4}{G}{G}",
+    "type_line": "Creature \u2014 Dinosaur",
+    "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+    "power": "6",
+    "toughness": "6",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Darksteel Myr",
+    "mana_cost": "{3}",
+    "type_line": "Artifact Creature \u2014 Myr",
+    "oracle_text": "Indestructible (Damage and effects that say \"destroy\" don't destroy this creature. If its toughness is 0 or less, it still dies.)",
+    "power": "0",
+    "toughness": "1",
+    "colors": [],
+    "color_identity": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Murder",
+    "mana_cost": "{1}{B}{B}",
+    "type_line": "Instant",
+    "oracle_text": "Destroy target creature.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Dress Down",
+    "mana_cost": "{1}{U}",
+    "type_line": "Enchantment",
+    "oracle_text": "Flash\nWhen this enchantment enters, draw a card.\nCreatures lose all abilities.\nAt the beginning of the end step, sacrifice this enchantment.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Reality Ripple",
+    "mana_cost": "{1}{U}",
+    "type_line": "Instant",
+    "oracle_text": "Target artifact, creature, or land phases out. (While it's phased out, it's treated as though it doesn't exist. It phases in before its controller untaps during their next untap step.)",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Regenerate",
+    "mana_cost": "{1}{G}",
+    "type_line": "Instant",
+    "oracle_text": "Regenerate target creature. (The next time that creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "layout": "normal"
+  }
+]

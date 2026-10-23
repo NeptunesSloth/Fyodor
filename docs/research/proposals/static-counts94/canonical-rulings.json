@@ -1,0 +1,799 @@
+[
+  {
+    "card": {
+      "object": "card",
+      "id": "6afda091-ed14-4bc5-8896-bdb7c95a499e",
+      "oracle_id": "4d6ad734-b8b5-4d91-9b7b-1fa0c55bfa4f",
+      "multiverse_ids": [
+        151139
+      ],
+      "mtgo_id": 30004,
+      "mtgo_foil_id": 30005,
+      "tcgplayer_id": 27149,
+      "cardmarket_id": 19472,
+      "name": "Light from Within",
+      "lang": "en",
+      "released_at": "2008-07-25",
+      "uri": "https://api.scryfall.com/cards/6afda091-ed14-4bc5-8896-bdb7c95a499e",
+      "scryfall_uri": "https://scryfall.com/card/eve/10/light-from-within?utm_source=api",
+      "layout": "normal",
+      "highres_image": true,
+      "image_status": "highres_scan",
+      "image_updated_at": "2026-07-13T11:38:14Z",
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/6/a/6afda091-ed14-4bc5-8896-bdb7c95a499e.jpg?1783942694",
+        "normal": "https://cards.scryfall.io/normal/front/6/a/6afda091-ed14-4bc5-8896-bdb7c95a499e.jpg?1783942694",
+        "large": "https://cards.scryfall.io/large/front/6/a/6afda091-ed14-4bc5-8896-bdb7c95a499e.jpg?1783942694",
+        "png": "https://cards.scryfall.io/png/front/6/a/6afda091-ed14-4bc5-8896-bdb7c95a499e.png?1783942694",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/6/a/6afda091-ed14-4bc5-8896-bdb7c95a499e.jpg?1783942694",
+        "border_crop": "https://cards.scryfall.io/border_crop/front/6/a/6afda091-ed14-4bc5-8896-bdb7c95a499e.jpg?1783942694",
+        "thumb": "https://cards.scryfall.io/thumb/front/6/a/6afda091-ed14-4bc5-8896-bdb7c95a499e.webp?1783942694",
+        "grid": "https://cards.scryfall.io/grid/front/6/a/6afda091-ed14-4bc5-8896-bdb7c95a499e.webp?1783942694",
+        "display": "https://cards.scryfall.io/display/front/6/a/6afda091-ed14-4bc5-8896-bdb7c95a499e.webp?1783942694",
+        "art": "https://cards.scryfall.io/art/front/6/a/6afda091-ed14-4bc5-8896-bdb7c95a499e.webp?1783942694",
+        "crop": "https://cards.scryfall.io/crop/front/6/a/6afda091-ed14-4bc5-8896-bdb7c95a499e.webp?1783942694",
+        "jpeg": "https://cards.scryfall.io/normal/front/6/a/6afda091-ed14-4bc5-8896-bdb7c95a499e.jpg?1783942694"
+      },
+      "mana_cost": "{2}{W}{W}",
+      "cmc": 4.0,
+      "type_line": "Enchantment",
+      "oracle_text": "Chroma \u2014 Each creature you control gets +1/+1 for each white mana symbol in its mana cost.",
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "keywords": [
+        "Chroma"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "legal",
+        "tlr": "not_legal"
+      },
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "reserved": false,
+      "game_changer": false,
+      "foil": true,
+      "nonfoil": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "oversized": false,
+      "promo": false,
+      "reprint": false,
+      "variation": false,
+      "set_id": "86b4dfef-f2d1-49d6-825d-7df6bda44357",
+      "set": "eve",
+      "set_name": "Eventide",
+      "set_type": "expansion",
+      "set_uri": "https://api.scryfall.com/sets/86b4dfef-f2d1-49d6-825d-7df6bda44357",
+      "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Aeve&unique=prints",
+      "scryfall_set_uri": "https://scryfall.com/sets/eve?utm_source=api",
+      "rulings_uri": "https://api.scryfall.com/cards/6afda091-ed14-4bc5-8896-bdb7c95a499e/rulings",
+      "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3A4d6ad734-b8b5-4d91-9b7b-1fa0c55bfa4f&unique=prints",
+      "collector_number": "10",
+      "digital": false,
+      "rarity": "rare",
+      "flavor_text": "\"Muscle does not make one strong. It only masks the soul's light. True strength lies in purity of purpose.\"\n\u2014Donal Alloway, cenn of Kinscaer",
+      "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "artist": "Aleksi Briclot",
+      "artist_ids": [
+        "5e470014-31cb-41b0-b054-e23374484449"
+      ],
+      "illustration_id": "c64165da-0384-4c09-9990-0f975e42dc03",
+      "border_color": "black",
+      "frame": "2003",
+      "full_art": false,
+      "textless": false,
+      "booster": true,
+      "story_spotlight": false,
+      "edhrec_rank": 23612,
+      "penny_rank": 7058,
+      "prices": {
+        "usd": "8.16",
+        "usd_foil": "17.74",
+        "usd_etched": null,
+        "eur": "1.07",
+        "eur_foil": "5.94",
+        "tix": "0.02"
+      },
+      "related_uris": {
+        "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=151139&printed=false",
+        "tcgplayer_infinite_articles": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Farticles&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Farticles%3FproductLineName%3Dmagic%26q%3DLight%2Bfrom%2BWithin",
+        "tcgplayer_infinite_decks": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Fdecks&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Fdecks%3FproductLineName%3Dmagic%26q%3DLight%2Bfrom%2BWithin",
+        "edhrec": "https://edhrec.com/route/?cc=Light+from+Within"
+      },
+      "purchase_uris": {
+        "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F27149%3Fpage%3D1",
+        "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=19472&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
+        "cardhoarder": "https://www.cardhoarder.com/cards/30004?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+      }
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "4d6ad734-b8b5-4d91-9b7b-1fa0c55bfa4f",
+          "source": "wotc",
+          "published_at": "2008-08-01",
+          "comment": "Chroma abilities check only mana costs, which are found in a card\u2019s upper right corner. They don\u2019t count mana symbols that appear in a card\u2019s text box."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "4d6ad734-b8b5-4d91-9b7b-1fa0c55bfa4f",
+          "source": "wotc",
+          "published_at": "2008-08-01",
+          "comment": "Chroma abilities count hybrid mana symbols of the appropriate color. For example, a card with mana cost {3}{U/R}{U/R} has two red mana symbols in its mana cost."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "4d6ad734-b8b5-4d91-9b7b-1fa0c55bfa4f",
+          "source": "wotc",
+          "published_at": "2008-08-01",
+          "comment": "Light from Within affects each creature individually. For example, if you control a creature with mana cost {1}{W}{W} and a creature with mana cost {W/B}{W/B}{W/B}{W/B}{W/B}, the first creature gets +2/+2 and the second creature gets +5/+5."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "object": "card",
+      "id": "1efdd70a-5a84-48a5-82bf-ba29fda097c0",
+      "oracle_id": "51afd09d-7eee-41c9-bc42-f3f61a176479",
+      "multiverse_ids": [
+        157399
+      ],
+      "mtgo_id": 30188,
+      "mtgo_foil_id": 30189,
+      "tcgplayer_id": 27229,
+      "cardmarket_id": 19510,
+      "name": "Umbra Stalker",
+      "lang": "en",
+      "released_at": "2008-07-25",
+      "uri": "https://api.scryfall.com/cards/1efdd70a-5a84-48a5-82bf-ba29fda097c0",
+      "scryfall_uri": "https://scryfall.com/card/eve/48/umbra-stalker?utm_source=api",
+      "layout": "normal",
+      "highres_image": true,
+      "image_status": "highres_scan",
+      "image_updated_at": "2026-07-13T11:38:05Z",
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/1/e/1efdd70a-5a84-48a5-82bf-ba29fda097c0.jpg?1783942685",
+        "normal": "https://cards.scryfall.io/normal/front/1/e/1efdd70a-5a84-48a5-82bf-ba29fda097c0.jpg?1783942685",
+        "large": "https://cards.scryfall.io/large/front/1/e/1efdd70a-5a84-48a5-82bf-ba29fda097c0.jpg?1783942685",
+        "png": "https://cards.scryfall.io/png/front/1/e/1efdd70a-5a84-48a5-82bf-ba29fda097c0.png?1783942685",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/1/e/1efdd70a-5a84-48a5-82bf-ba29fda097c0.jpg?1783942685",
+        "border_crop": "https://cards.scryfall.io/border_crop/front/1/e/1efdd70a-5a84-48a5-82bf-ba29fda097c0.jpg?1783942685",
+        "thumb": "https://cards.scryfall.io/thumb/front/1/e/1efdd70a-5a84-48a5-82bf-ba29fda097c0.webp?1783942685",
+        "grid": "https://cards.scryfall.io/grid/front/1/e/1efdd70a-5a84-48a5-82bf-ba29fda097c0.webp?1783942685",
+        "display": "https://cards.scryfall.io/display/front/1/e/1efdd70a-5a84-48a5-82bf-ba29fda097c0.webp?1783942685",
+        "art": "https://cards.scryfall.io/art/front/1/e/1efdd70a-5a84-48a5-82bf-ba29fda097c0.webp?1783942685",
+        "crop": "https://cards.scryfall.io/crop/front/1/e/1efdd70a-5a84-48a5-82bf-ba29fda097c0.webp?1783942685",
+        "jpeg": "https://cards.scryfall.io/normal/front/1/e/1efdd70a-5a84-48a5-82bf-ba29fda097c0.jpg?1783942685"
+      },
+      "mana_cost": "{4}{B}{B}{B}",
+      "cmc": 7.0,
+      "type_line": "Creature \u2014 Elemental",
+      "oracle_text": "Chroma \u2014 Umbra Stalker's power and toughness are each equal to the number of black mana symbols in the mana costs of cards in your graveyard.",
+      "power": "*",
+      "toughness": "*",
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "keywords": [
+        "Chroma"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "legal",
+        "tlr": "not_legal"
+      },
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "reserved": false,
+      "game_changer": false,
+      "foil": true,
+      "nonfoil": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "oversized": false,
+      "promo": false,
+      "reprint": false,
+      "variation": false,
+      "set_id": "86b4dfef-f2d1-49d6-825d-7df6bda44357",
+      "set": "eve",
+      "set_name": "Eventide",
+      "set_type": "expansion",
+      "set_uri": "https://api.scryfall.com/sets/86b4dfef-f2d1-49d6-825d-7df6bda44357",
+      "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Aeve&unique=prints",
+      "scryfall_set_uri": "https://scryfall.com/sets/eve?utm_source=api",
+      "rulings_uri": "https://api.scryfall.com/cards/1efdd70a-5a84-48a5-82bf-ba29fda097c0/rulings",
+      "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3A51afd09d-7eee-41c9-bc42-f3f61a176479&unique=prints",
+      "collector_number": "48",
+      "digital": false,
+      "rarity": "rare",
+      "flavor_text": "Don't venture into the darkness, lest it decide not to let you leave.",
+      "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "artist": "Daarken",
+      "artist_ids": [
+        "e607a0d4-fc12-4c01-9e3f-501f5269b9cb"
+      ],
+      "illustration_id": "8b341a1a-e91e-4ce6-a7f7-7f83f07955df",
+      "border_color": "black",
+      "frame": "2003",
+      "full_art": false,
+      "textless": false,
+      "booster": true,
+      "story_spotlight": false,
+      "edhrec_rank": 26660,
+      "prices": {
+        "usd": "0.45",
+        "usd_foil": "2.77",
+        "usd_etched": null,
+        "eur": "0.43",
+        "eur_foil": "4.83",
+        "tix": "0.02"
+      },
+      "related_uris": {
+        "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=157399&printed=false",
+        "tcgplayer_infinite_articles": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Farticles&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Farticles%3FproductLineName%3Dmagic%26q%3DUmbra%2BStalker",
+        "tcgplayer_infinite_decks": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Fdecks&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Fdecks%3FproductLineName%3Dmagic%26q%3DUmbra%2BStalker",
+        "edhrec": "https://edhrec.com/route/?cc=Umbra+Stalker"
+      },
+      "purchase_uris": {
+        "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F27229%3Fpage%3D1",
+        "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=19510&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
+        "cardhoarder": "https://www.cardhoarder.com/cards/30188?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+      }
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "51afd09d-7eee-41c9-bc42-f3f61a176479",
+          "source": "wotc",
+          "published_at": "2008-08-01",
+          "comment": "This is a characteristic-defining ability, which means it functions in all zones. You include the symbols in the Stalker\u2019s own mana cost if you need to determine its power and/or toughness while it\u2019s in the graveyard."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "51afd09d-7eee-41c9-bc42-f3f61a176479",
+          "source": "wotc",
+          "published_at": "2008-08-01",
+          "comment": "Chroma abilities check only mana costs, which are found in a card\u2019s upper right corner. They don\u2019t count mana symbols that appear in a card\u2019s text box."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "51afd09d-7eee-41c9-bc42-f3f61a176479",
+          "source": "wotc",
+          "published_at": "2008-08-01",
+          "comment": "Chroma abilities count hybrid mana symbols of the appropriate color. For example, a card with mana cost {3}{U/R}{U/R} has two red mana symbols in its mana cost."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "object": "card",
+      "id": "21f52564-9820-42dc-a08d-459d51afc397",
+      "oracle_id": "6a84a8a4-c8b0-45ce-af6f-605fcffc395b",
+      "multiverse_ids": [],
+      "resource_id": "9D9B534588246ABC5B2B1542E9C4581BA8CA01AB07FB7F1236F3A9996EC4DE53",
+      "mtgo_id": 144826,
+      "arena_id": 97448,
+      "tcgplayer_id": 660618,
+      "cardmarket_id": 857467,
+      "name": "Diligent Zookeeper",
+      "lang": "en",
+      "released_at": "2025-11-21",
+      "uri": "https://api.scryfall.com/cards/21f52564-9820-42dc-a08d-459d51afc397",
+      "scryfall_uri": "https://scryfall.com/card/tla/171/diligent-zookeeper?utm_source=api",
+      "layout": "normal",
+      "highres_image": true,
+      "image_status": "highres_scan",
+      "image_updated_at": "2026-07-13T01:09:06Z",
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/2/1/21f52564-9820-42dc-a08d-459d51afc397.jpg?1783904946",
+        "normal": "https://cards.scryfall.io/normal/front/2/1/21f52564-9820-42dc-a08d-459d51afc397.jpg?1783904946",
+        "large": "https://cards.scryfall.io/large/front/2/1/21f52564-9820-42dc-a08d-459d51afc397.jpg?1783904946",
+        "png": "https://cards.scryfall.io/png/front/2/1/21f52564-9820-42dc-a08d-459d51afc397.png?1783904946",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/2/1/21f52564-9820-42dc-a08d-459d51afc397.jpg?1783904946",
+        "border_crop": "https://cards.scryfall.io/border_crop/front/2/1/21f52564-9820-42dc-a08d-459d51afc397.jpg?1783904946",
+        "thumb": "https://cards.scryfall.io/thumb/front/2/1/21f52564-9820-42dc-a08d-459d51afc397.webp?1783904946",
+        "grid": "https://cards.scryfall.io/grid/front/2/1/21f52564-9820-42dc-a08d-459d51afc397.webp?1783904946",
+        "display": "https://cards.scryfall.io/display/front/2/1/21f52564-9820-42dc-a08d-459d51afc397.webp?1783904946",
+        "art": "https://cards.scryfall.io/art/front/2/1/21f52564-9820-42dc-a08d-459d51afc397.webp?1783904946",
+        "crop": "https://cards.scryfall.io/crop/front/2/1/21f52564-9820-42dc-a08d-459d51afc397.webp?1783904946",
+        "jpeg": "https://cards.scryfall.io/normal/front/2/1/21f52564-9820-42dc-a08d-459d51afc397.jpg?1783904946"
+      },
+      "mana_cost": "{3}{G}",
+      "cmc": 4.0,
+      "type_line": "Creature \u2014 Human Citizen Ally",
+      "oracle_text": "Each non-Human creature you control gets +1/+1 for each of its creature types, to a maximum of 10.",
+      "power": "4",
+      "toughness": "4",
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "keywords": [],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "reserved": false,
+      "game_changer": false,
+      "foil": true,
+      "nonfoil": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "oversized": false,
+      "promo": false,
+      "reprint": false,
+      "variation": false,
+      "set_id": "118f7e64-5caa-4cb7-99a8-184f4d3a7422",
+      "set": "tla",
+      "set_name": "Avatar: The Last Airbender",
+      "set_type": "expansion",
+      "set_uri": "https://api.scryfall.com/sets/118f7e64-5caa-4cb7-99a8-184f4d3a7422",
+      "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Atla&unique=prints",
+      "scryfall_set_uri": "https://scryfall.com/sets/tla?utm_source=api",
+      "rulings_uri": "https://api.scryfall.com/cards/21f52564-9820-42dc-a08d-459d51afc397/rulings",
+      "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3A6a84a8a4-c8b0-45ce-af6f-605fcffc395b&unique=prints",
+      "collector_number": "171",
+      "digital": false,
+      "rarity": "rare",
+      "flavor_text": "\"I wish I could get her a big, open prairie like she likes. I'd let her hop her way to happiness.\"",
+      "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "artist": "Maojin Lee",
+      "artist_ids": [
+        "aa40e688-7c3b-4242-b2d3-4bc7b722fbb5"
+      ],
+      "illustration_id": "71a6ed98-aa2d-457e-9027-8cfb3a0a43dc",
+      "border_color": "black",
+      "frame": "2015",
+      "security_stamp": "oval",
+      "full_art": false,
+      "textless": false,
+      "booster": true,
+      "story_spotlight": false,
+      "promo_types": [
+        "universesbeyond"
+      ],
+      "edhrec_rank": 16534,
+      "preview": {
+        "source": "LoadingReadyRun",
+        "source_uri": "https://www.youtube.com/watch?v=r_KeYC2D4LM",
+        "previewed_at": "2025-10-29"
+      },
+      "prices": {
+        "usd": "0.31",
+        "usd_foil": "0.32",
+        "usd_etched": null,
+        "eur": "0.15",
+        "eur_foil": "0.30",
+        "tix": "0.02"
+      },
+      "related_uris": {
+        "tcgplayer_infinite_articles": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Farticles&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Farticles%3FproductLineName%3Dmagic%26q%3DDiligent%2BZookeeper",
+        "tcgplayer_infinite_decks": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Fdecks&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Fdecks%3FproductLineName%3Dmagic%26q%3DDiligent%2BZookeeper",
+        "edhrec": "https://edhrec.com/route/?cc=Diligent+Zookeeper"
+      },
+      "purchase_uris": {
+        "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F660618%3Fpage%3D1",
+        "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=857467&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
+        "cardhoarder": "https://www.cardhoarder.com/cards/144826?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+      }
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "card": {
+      "object": "card",
+      "id": "4ec912d5-cbe7-4d07-9ece-b03ac02d3055",
+      "oracle_id": "6a3862f0-8dfc-4ac9-8eb9-faefcad685d4",
+      "multiverse_ids": [],
+      "resource_id": "78904F7A34A322EA875171281F82BBFF9B4D70BAB3C29C48B9885A531B9C9828",
+      "mtgo_id": 155810,
+      "tcgplayer_id": 716962,
+      "cardmarket_id": 909238,
+      "name": "Dark Matter Manipulator",
+      "lang": "en",
+      "released_at": "2026-10-02",
+      "uri": "https://api.scryfall.com/cards/4ec912d5-cbe7-4d07-9ece-b03ac02d3055",
+      "scryfall_uri": "https://scryfall.com/card/fra/52/dark-matter-manipulator?utm_source=api",
+      "layout": "normal",
+      "highres_image": true,
+      "image_status": "highres_scan",
+      "image_updated_at": "2026-09-14T11:39:19Z",
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/4/e/4ec912d5-cbe7-4d07-9ece-b03ac02d3055.jpg?1789385959",
+        "normal": "https://cards.scryfall.io/normal/front/4/e/4ec912d5-cbe7-4d07-9ece-b03ac02d3055.jpg?1789385959",
+        "large": "https://cards.scryfall.io/large/front/4/e/4ec912d5-cbe7-4d07-9ece-b03ac02d3055.jpg?1789385959",
+        "png": "https://cards.scryfall.io/png/front/4/e/4ec912d5-cbe7-4d07-9ece-b03ac02d3055.png?1789385959",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/4/e/4ec912d5-cbe7-4d07-9ece-b03ac02d3055.jpg?1789385959",
+        "border_crop": "https://cards.scryfall.io/border_crop/front/4/e/4ec912d5-cbe7-4d07-9ece-b03ac02d3055.jpg?1789385959",
+        "thumb": "https://cards.scryfall.io/thumb/front/4/e/4ec912d5-cbe7-4d07-9ece-b03ac02d3055.webp?1789385959",
+        "grid": "https://cards.scryfall.io/grid/front/4/e/4ec912d5-cbe7-4d07-9ece-b03ac02d3055.webp?1789385959",
+        "display": "https://cards.scryfall.io/display/front/4/e/4ec912d5-cbe7-4d07-9ece-b03ac02d3055.webp?1789385959",
+        "art": "https://cards.scryfall.io/art/front/4/e/4ec912d5-cbe7-4d07-9ece-b03ac02d3055.webp?1789385959",
+        "crop": "https://cards.scryfall.io/crop/front/4/e/4ec912d5-cbe7-4d07-9ece-b03ac02d3055.webp?1789385959",
+        "jpeg": "https://cards.scryfall.io/normal/front/4/e/4ec912d5-cbe7-4d07-9ece-b03ac02d3055.jpg?1789385959"
+      },
+      "mana_cost": "{B}",
+      "cmc": 1.0,
+      "type_line": "Creature \u2014 Human Warlock",
+      "oracle_text": "When this creature enters, mill three cards.\nThis creature gets +2/+0 for every seven cards in your graveyard.",
+      "power": "1",
+      "toughness": "2",
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "keywords": [
+        "Mill"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "reserved": false,
+      "game_changer": false,
+      "foil": true,
+      "nonfoil": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "oversized": false,
+      "promo": false,
+      "reprint": false,
+      "variation": false,
+      "set_id": "6595985e-39cf-4ca3-b43d-dd3e64749fdc",
+      "set": "fra",
+      "set_name": "Reality Fracture",
+      "set_type": "expansion",
+      "set_uri": "https://api.scryfall.com/sets/6595985e-39cf-4ca3-b43d-dd3e64749fdc",
+      "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Afra&unique=prints",
+      "scryfall_set_uri": "https://scryfall.com/sets/fra?utm_source=api",
+      "rulings_uri": "https://api.scryfall.com/cards/4ec912d5-cbe7-4d07-9ece-b03ac02d3055/rulings",
+      "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3A6a3862f0-8dfc-4ac9-8eb9-faefcad685d4&unique=prints",
+      "collector_number": "52",
+      "digital": false,
+      "rarity": "rare",
+      "flavor_text": "Theorix has the most instances, by far, of posthumously awarded extra credit.",
+      "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "artist": "Steven Belledin",
+      "artist_ids": [
+        "f07d73b9-52a0-4fe5-858b-61f7b42174a5"
+      ],
+      "illustration_id": "eb9638f2-03fe-48f1-9254-d32815858caf",
+      "border_color": "black",
+      "frame": "2015",
+      "security_stamp": "oval",
+      "full_art": false,
+      "textless": false,
+      "booster": false,
+      "story_spotlight": false,
+      "edhrec_rank": 18871,
+      "prices": {
+        "usd": "5.54",
+        "usd_foil": "3.74",
+        "usd_etched": null,
+        "eur": "1.24",
+        "eur_foil": "1.71",
+        "tix": "17.06"
+      },
+      "related_uris": {
+        "tcgplayer_infinite_articles": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Farticles&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Farticles%3FproductLineName%3Dmagic%26q%3DDark%2BMatter%2BManipulator",
+        "tcgplayer_infinite_decks": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Fdecks&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Fdecks%3FproductLineName%3Dmagic%26q%3DDark%2BMatter%2BManipulator",
+        "edhrec": "https://edhrec.com/route/?cc=Dark+Matter+Manipulator"
+      },
+      "purchase_uris": {
+        "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F716962%3Fpage%3D1",
+        "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=909238&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
+        "cardhoarder": "https://www.cardhoarder.com/cards/155810?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+      }
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "card": {
+      "object": "card",
+      "id": "28bf15e0-f61b-43b9-9113-39bd341a0163",
+      "oracle_id": "783f059f-90d0-4148-898b-9e694b22ac0a",
+      "multiverse_ids": [
+        476343
+      ],
+      "mtgo_id": 79308,
+      "arena_id": 70603,
+      "tcgplayer_id": 207132,
+      "cardmarket_id": 432194,
+      "name": "Enemy of Enlightenment",
+      "lang": "en",
+      "released_at": "2020-01-24",
+      "uri": "https://api.scryfall.com/cards/28bf15e0-f61b-43b9-9113-39bd341a0163",
+      "scryfall_uri": "https://scryfall.com/card/thb/92/enemy-of-enlightenment?utm_source=api",
+      "layout": "normal",
+      "highres_image": true,
+      "image_status": "highres_scan",
+      "image_updated_at": "2026-07-13T08:32:49Z",
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/2/8/28bf15e0-f61b-43b9-9113-39bd341a0163.jpg?1783931569",
+        "normal": "https://cards.scryfall.io/normal/front/2/8/28bf15e0-f61b-43b9-9113-39bd341a0163.jpg?1783931569",
+        "large": "https://cards.scryfall.io/large/front/2/8/28bf15e0-f61b-43b9-9113-39bd341a0163.jpg?1783931569",
+        "png": "https://cards.scryfall.io/png/front/2/8/28bf15e0-f61b-43b9-9113-39bd341a0163.png?1783931569",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/2/8/28bf15e0-f61b-43b9-9113-39bd341a0163.jpg?1783931569",
+        "border_crop": "https://cards.scryfall.io/border_crop/front/2/8/28bf15e0-f61b-43b9-9113-39bd341a0163.jpg?1783931569",
+        "thumb": "https://cards.scryfall.io/thumb/front/2/8/28bf15e0-f61b-43b9-9113-39bd341a0163.webp?1783931569",
+        "grid": "https://cards.scryfall.io/grid/front/2/8/28bf15e0-f61b-43b9-9113-39bd341a0163.webp?1783931569",
+        "display": "https://cards.scryfall.io/display/front/2/8/28bf15e0-f61b-43b9-9113-39bd341a0163.webp?1783931569",
+        "art": "https://cards.scryfall.io/art/front/2/8/28bf15e0-f61b-43b9-9113-39bd341a0163.webp?1783931569",
+        "crop": "https://cards.scryfall.io/crop/front/2/8/28bf15e0-f61b-43b9-9113-39bd341a0163.webp?1783931569",
+        "jpeg": "https://cards.scryfall.io/normal/front/2/8/28bf15e0-f61b-43b9-9113-39bd341a0163.jpg?1783931569"
+      },
+      "mana_cost": "{5}{B}",
+      "cmc": 6.0,
+      "type_line": "Enchantment Creature \u2014 Demon",
+      "oracle_text": "Flying\nThis creature gets -1/-1 for each card in your opponents' hands.\nAt the beginning of your upkeep, each player discards a card.",
+      "power": "5",
+      "toughness": "5",
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "keywords": [
+        "Flying"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "games": [
+        "arena",
+        "paper",
+        "mtgo"
+      ],
+      "reserved": false,
+      "game_changer": false,
+      "foil": true,
+      "nonfoil": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "oversized": false,
+      "promo": false,
+      "reprint": false,
+      "variation": false,
+      "set_id": "5f23a78d-cda1-462a-8be3-a62b40c34913",
+      "set": "thb",
+      "set_name": "Theros Beyond Death",
+      "set_type": "expansion",
+      "set_uri": "https://api.scryfall.com/sets/5f23a78d-cda1-462a-8be3-a62b40c34913",
+      "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Athb&unique=prints",
+      "scryfall_set_uri": "https://scryfall.com/sets/thb?utm_source=api",
+      "rulings_uri": "https://api.scryfall.com/cards/28bf15e0-f61b-43b9-9113-39bd341a0163/rulings",
+      "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3A783f059f-90d0-4148-898b-9e694b22ac0a&unique=prints",
+      "collector_number": "92",
+      "digital": false,
+      "rarity": "uncommon",
+      "flavor_text": "\"Evil flourishes where ignorance thrives.\"\n\u2014Perisophia the philosopher",
+      "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "artist": "James Ryman",
+      "artist_ids": [
+        "3852bbc9-11c0-4fe3-8722-a06ad7e2bcc5"
+      ],
+      "illustration_id": "ee516772-1377-4640-b90c-4106216437c6",
+      "border_color": "black",
+      "frame": "2015",
+      "frame_effects": [
+        "enchantment"
+      ],
+      "full_art": false,
+      "textless": false,
+      "booster": true,
+      "story_spotlight": false,
+      "edhrec_rank": 26205,
+      "penny_rank": 15781,
+      "prices": {
+        "usd": "0.06",
+        "usd_foil": "0.28",
+        "usd_etched": null,
+        "eur": "0.05",
+        "eur_foil": "0.13",
+        "tix": "0.04"
+      },
+      "related_uris": {
+        "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=476343&printed=false",
+        "tcgplayer_infinite_articles": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Farticles&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Farticles%3FproductLineName%3Dmagic%26q%3DEnemy%2Bof%2BEnlightenment",
+        "tcgplayer_infinite_decks": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Fdecks&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Fdecks%3FproductLineName%3Dmagic%26q%3DEnemy%2Bof%2BEnlightenment",
+        "edhrec": "https://edhrec.com/route/?cc=Enemy+of+Enlightenment"
+      },
+      "purchase_uris": {
+        "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F207132%3Fpage%3D1",
+        "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=432194&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
+        "cardhoarder": "https://www.cardhoarder.com/cards/79308?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+      }
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "783f059f-90d0-4148-898b-9e694b22ac0a",
+          "source": "wotc",
+          "published_at": "2020-01-24",
+          "comment": "The ability that modifies the power and toughness of Enemy of Enlightenment applies only while it's on the battlefield."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "783f059f-90d0-4148-898b-9e694b22ac0a",
+          "source": "wotc",
+          "published_at": "2020-01-24",
+          "comment": "If a spell or ability causes an opponent to draw one or more cards, wait until that spell or ability has finished resolving to determine whether Enemy of Enlightenment dies for having 0 toughness. If that spell or ability also causes cards to leave that player's hand, Enemy of Enlightenment may briefly be a 0/0 creature without dying."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "783f059f-90d0-4148-898b-9e694b22ac0a",
+          "source": "wotc",
+          "published_at": "2020-01-24",
+          "comment": "As the last ability resolves, first you choose a card in hand without revealing it, then each other player in turn order does the same. Then all the chosen cards are discarded at the same time."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "783f059f-90d0-4148-898b-9e694b22ac0a",
+          "source": "wotc",
+          "published_at": "2020-01-24",
+          "comment": "If any player can't discard a card, skip that player and each other player discards a card."
+        }
+      ]
+    }
+  }
+]

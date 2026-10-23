@@ -1,0 +1,55 @@
+{
+  "candidates": [
+    "Flitting Guerrilla",
+    "Say Its Name"
+  ],
+  "promotion_count": 2,
+  "quality_scenarios_not_promotions": [
+    "Tormod, the Desecrator",
+    "Altanak, the Thrice-Called",
+    "Altar of Dementia",
+    "Pull from Eternity"
+  ],
+  "owned_sources": [
+    "source_named_cost69.py",
+    "flitting_reflexive69.py",
+    "costs.py",
+    "cost_payment.py",
+    "scripts.py"
+  ],
+  "native_result": "5+8+9+3+1 =26 unique PASS; ten genuine cold subprocesses",
+  "native_files": [
+    "native5.log",
+    "native-boundaries8.log",
+    "cold9.log",
+    "flitting-original3.log",
+    "cold-wrong-source1.log"
+  ],
+  "mypy_result": "5 source files PASS",
+  "mypy_cache": "/workspace/scratch/source-named-reflexive69/mypy-cache",
+  "ruff_result": "5 source plus test PASS",
+  "related_result": "26+2+2=30 PASS",
+  "related_commands": [
+    ".venv/bin/pytest -q tests/test_rules_wave4h_activation_costs.py -k 'not coverage_full'",
+    ".venv/bin/pytest -q tests/test_rules_wave15c_ifyoudo.py -k dark_supplicant",
+    ".venv/bin/pytest -q tests/test_rules_wave20c_reanimation.py -k undead_butler"
+  ],
+  "cold_cases": {
+    "say_pay_cancel": 2,
+    "say_missing_originals_and_missing_entire_packet": 2,
+    "say_stale_source_or_other_after_trusted_native_table_zone_moves": 2,
+    "flitting_optional_reflexive_decline": 3
+  },
+  "stage": "/workspace/scratch/source-named-reflexive69/backend",
+  "shared_changes": "Default-false source_with_choices component descriptor; original public cost receipt save/guard and one native move; supported independent GY-only activation excluded from resolving spell assembly. No effects.py registry or new primitive.",
+  "rules": [
+    "118.3 complete original cost resources",
+    "601.2c-h initial targets before true cost payment",
+    "602.2 activated ability announcement and payment",
+    "113.6m graveyard-only activation is distinct from resolving spell",
+    "603.12 reflexive trigger created after action; target announced per603.3d",
+    "400.7 original object and death-card successor reference"
+  ],
+  "patch_lines": 233,
+  "patch_sha256": "aeb0208924200c0be8fea8a33b09072d80140bf79877ebdd3cb9f198bf6c2f79"
+}

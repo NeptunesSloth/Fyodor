@@ -1,0 +1,23 @@
+{
+  "status": "closed; root admission pending",
+  "cards": [
+    "Korvold, Gleeful Glutton"
+  ],
+  "research_only_excluded": [
+    "Gingerbehemoth: commander not_legal"
+  ],
+  "files": [
+    "app/rules/values.py",
+    "app/rules/history.py"
+  ],
+  "source_sha256": {
+    "app/rules/values.py": "6a52696274c25829200706acbe271f3f2571f01d6bb2a69ebe7d4f2b2457105e",
+    "app/rules/history.py": "36ca029aee0c6e70f81f8e4e16c3ac3a4977a77c85222a030db6696cfe1c1756"
+  },
+  "native": 14,
+  "cold": 1,
+  "related": 5,
+  "mypy": 2,
+  "ruff": 4,
+  "patch_lines": 18
+}

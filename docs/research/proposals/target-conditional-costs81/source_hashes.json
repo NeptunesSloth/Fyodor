@@ -1,0 +1,16 @@
+{
+  "before": {
+    "app/rules/target_conditional_costs81.py": null,
+    "app/rules/scripts.py": "be0e0eb42b138a284f4ab3c78fbc9b8dddd7e669d2c2539c084ea9c57ff95523",
+    "app/rules/cost_changes.py": "8711a88414592c87d3f2edc8aab17225061faa060db8585d4161b75ee7218e7d",
+    "app/rules/language.py": "ade6c2a1611ad8aaf74118e7b9a66a6b87e92e7f0248005dfe8cebf30cc35f69",
+    "app/rules/effects.py": "db307b8690b568a8cbb3bfbc2d26b49d4400306ac1a87c737d390040e0ae7647"
+  },
+  "after": {
+    "app/rules/target_conditional_costs81.py": "9fecec84950ca103f520443eb7643fcb652bc66e2a195cf460a5a071bd8e2d7e",
+    "app/rules/scripts.py": "c7191c17a484f77f7673d098936d85bf132a59ed2d319db61189baa14ca26230",
+    "app/rules/cost_changes.py": "b8e60a291c77abe3b0deebfa28bb59b212c7bc6bd66a04fdf1fbcd70d9f67580",
+    "app/rules/language.py": "0eaf988e8537629ae8cf35e821b9b89c157ea1a891b21a96a55005ce1dcb070a",
+    "app/rules/effects.py": "e98d3d066504b023770e25977a3fd448bd72231d28736d7ec458aecca591a379"
+  }
+}

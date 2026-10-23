@@ -1,0 +1,32 @@
+....................F                                                    [100%]
+=================================== FAILURES ===================================
+____ test_original_stack_control_history_pruned_after_permanent_resolves93 _____
+
+cards = <app.cards.repository.CardRepository object at 0x7fea3b027c80>
+
+    def test_original_stack_control_history_pruned_after_permanent_resolves93(cards):
+        from tests.test_rules_library_look import settle
+
+        s = table(cards, ["Aethersnatch"], ["Grizzly Bears"], ["Sol Ring"])
+        bear = put(s, "Grizzly Bears", "hand", pid="p2")
+        steal = put(s, "Aethersnatch", "hand")
+        start(s, turn=5)
+        act(s, "p2", type="set_prefs", hold_priority=True)
+        cast_pending(s, "p2", bear, C=1, G=1)
+        original = s.state.rules.object_id(bear.id)
+        cast_pending(s, "p1", steal, [bear.id], C=4, U=2)
+        resolve_only(s, steal)
+        assert s.state.rules.control_baselines[original] == "p2"
+        assert any(original in e.affected and e.layer == "2" for e in s.state.rules.effects)
+        settle(s)
+        assert bear.zone == "p1:battlefield" and bear.controller == "p1"
+        assert s.state.rules.object_id(bear.id) != original
+        assert original not in s.state.rules.control_baselines
+>       assert not any(original in e.affected for e in s.state.rules.effects)
+E       assert not True
+E        +  where True = any(<generator object test_original_stack_control_history_pruned_after_permanent_resolves93.<locals>.<genexpr> at 0x7fea3b095f20>)
+
+../../scratch/exchange_spells93/tests/test_exchange_spells93.py:496: AssertionError
+=========================== short test summary info ============================
+FAILED ::test_original_stack_control_history_pruned_after_permanent_resolves93
+1 failed, 20 passed in 92.76s (0:01:32)

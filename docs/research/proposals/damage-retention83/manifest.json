@@ -1,0 +1,37 @@
+{
+  "status": "CLOSED_EXACT5",
+  "names": [
+    "Ancient Adamantoise",
+    "Patient Zero",
+    "Uthgardt Fury",
+    "Victory of the Pyrohammer",
+    "Case of the Market Melee"
+  ],
+  "held": [
+    "Melt Through",
+    "Switchgrass Grazer"
+  ],
+  "stage": "/workspace/scratch/casting83-stage",
+  "source_files": 6,
+  "patch": "review.patch",
+  "patch_sha256": "d9a40cef884c99973056eb43667a99746c1e5f38e6b28201a6bb657ddf35c05a",
+  "native": {
+    "consolidated_passed": 17,
+    "genuine_cold": 2,
+    "log": "native-final17.log"
+  },
+  "mypy": "PASS6 unique cache",
+  "ruff": "PASS7",
+  "related": {
+    "passed": 25,
+    "scope": "review34 cleanup + full wave45c_sagas/case_solve_watchers + layer_dependency_graph42 resolved/static nodes",
+    "filter": "cleanup or saga or case or resolved or static",
+    "log": "quality-related.log"
+  },
+  "source_hashes": "source-hashes.json",
+  "test": "native_tests.py -> backend/tests/test_rules_damage_retention83.py",
+  "fixture": "cards.json -> backend/tests/fixtures/damage_retention83_cards.json",
+  "authority": "Complete canonical7 and official rulings7 sets, exact5 whole-native proofs. Ancient phased-out cleanup and actual regeneration remove damage; two-source redirection retains old native resolver. Saga gains literal global quote forever, active only current source object; global rule-only resolved static discovery retains native timestamps/wipes, no layer4 introduction. Case solve counts actual current battlefield Creature damage>0 across players with native intervening-if.",
+  "review_stage": "/workspace/scratch/casting83-review",
+  "packaging": "Rebased exact semantic/hook hunks on current root, retaining all newer registrations/engine hooks. Tested isolated stage source hashes kept separately; root composed gates still required."
+}

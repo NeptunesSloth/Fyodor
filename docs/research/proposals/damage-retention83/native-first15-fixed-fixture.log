@@ -1,0 +1,16 @@
+..........F.F..                                                          [100%]
+=================================== FAILURES ===================================
+_ test_native_ability_removal_before_simultaneous_cleanup_turns_off_retention83 _
+tests/test_rules_damage_retention83.py:153: in test_native_ability_removal_before_simultaneous_cleanup_turns_off_retention83
+    assert s.state.cards[own].damage == s.state.cards[foe].damage == 0
+E   AssertionError: assert 0 == 3
+E    +  where 0 = CardInstance(borrow_identity=None, id='7c84eea7a65a', card_id='8095419c-1dde-5698-ad64-35ad2f8019d1', name='Serra Ange...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False).damage
+E    +  and   3 = CardInstance(borrow_identity=None, id='b95dfcdfc6cc', card_id='8095419c-1dde-5698-ad64-35ad2f8019d1', name='Serra Ange...ts=[], damage=3, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False).damage
+_ test_victory_real_chapter_grants_literal_global_ability_and_damage_accumulates_until_it_leaves83 _
+tests/test_rules_damage_retention83.py:186: in test_victory_real_chapter_grants_literal_global_ability_and_damage_accumulates_until_it_leaves83
+    assert all(s.state.cards[c].damage == 5 for c in [own, foe, undying])
+E   assert False
+E    +  where False = all(<generator object test_victory_real_chapter_grants_literal_global_ability_and_damage_accumulates_until_it_leaves83.<locals>.<genexpr> at 0x7f9819fbbed0>)
+=========================== short test summary info ============================
+FAILED tests/test_rules_damage_retention83.py::test_native_ability_removal_before_simultaneous_cleanup_turns_off_retention83
+FAILED tests/test_rules_damage_retention83.py::test_victory_real_chapter_grants_literal_global_ability_and_damage_accumulates_until_it_leaves83

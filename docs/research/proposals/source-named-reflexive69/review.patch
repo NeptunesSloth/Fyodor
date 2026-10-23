@@ -1,0 +1,233 @@
+--- /dev/null
++++ b/backend/app/rules/source_named_cost69.py
+@@ -0,0 +1,75 @@
++"""One original graveyard source plus exactly two named others, exiled together."""
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, Any
++
++if TYPE_CHECKING:
++    from app.rules.plan import Plan
++
++_TEXT = 'Exile this card and two other cards named Say Its Name from your graveyard'
++
++
++def parse(text: str) -> Any:
++    from app.rules import costs as C
++    from app.rules import selectors
++
++    if text.strip().casefold() not in (_TEXT.casefold(), _TEXT.replace('this card', '~').casefold()):
++        return None
++    sel = selectors.Selector(card=True, zone_owner='you', zones=('graveyard',), extras=('name:Say Its Name',)).key()
++    return C.AbilityCost(components=(C.CostComponent(C.EXILE_FROM_GRAVEYARD, amount=2, selector=sel,
++                                                   source_with_choices=True, text=text),))
++
++
++def retain(plan: Plan, source: Any, options: list[str]) -> dict[str, Any]:
++    from app.rules import context
++
++    refs = [context.ref_of(plan, cid) for cid in [source.id, *options]]
++    if any(ref is None for ref in refs):
++        raise ValueError('A named source cost lost its original public object')
++    return {'source_packet_required69': True, 'source_packet69': {
++        'source': source.id, 'originals': {ref.card: ref.model_dump(mode='json') for ref in refs if ref is not None}}}
++
++
++def requires_receipt(plan: Plan, resume: dict[str, Any]) -> bool:
++    from app.rules import costs as C
++
++    if resume.get('source_packet_required69') or 'source_packet69' in resume:
++        return True
++    intent = resume.get('intent') or {}
++    source = plan.state.cards.get(intent.get('card_id') or '')
++    if intent.get('type') != 'activate_ability' or source is None:
++        return False
++    ch = plan.ch(source)
++    ability = next((ab for ab in ch.abilities if ab.index == intent.get('ability')), None)
++    if ability is None:
++        return False
++    cost = C.parse_ability_cost(ability.cost or '', card_name=ch.name)
++    component = resume.get('component')
++    return any(i == component and comp.source_with_choices for i, comp in enumerate(cost.components))
++
++
++def guard(plan: Plan, resume: dict[str, Any], chosen: list[str]) -> None:
++    from app.game.errors import ActionError
++    from app.game.rules_state import ObjectRef
++
++    packet = resume.get('source_packet69')
++    if not isinstance(packet, dict) or not isinstance(packet.get('originals'), dict) or not isinstance(packet.get('source'), str) or not packet['source']:
++        raise ActionError('The original source-cost packet is unavailable')
++    if packet['source'] != (resume.get('intent') or {}).get('card_id'):
++        raise ActionError('The original source-cost packet does not match this activation')
++    for cid in [packet['source'], *chosen]:
++        raw = packet['originals'].get(cid)
++        ref = ObjectRef.model_validate(raw) if raw is not None else None
++        card = plan.state.cards.get(cid)
++        if ref is None or card is None or plan.oid(card) != ref.object_id or card.zone != ref.zone:
++            raise ActionError('The named source cost no longer has its original graveyard objects')
++
++
++def payment(plan: Plan, comp: Any, source: Any, chosen: list[str]) -> list[str]:
++    from app.game.errors import ActionError
++    from app.rules import costs as C
++
++    if (comp.kind != C.EXILE_FROM_GRAVEYARD or source.zone != f'{plan.actor}:graveyard'
++            or source.id in chosen or len(chosen) != 2 or len(set(chosen)) != 2):
++        raise ActionError('Exile the original graveyard source and two other named cards')
++    return [source.id, *chosen]
+--- /dev/null
++++ b/backend/app/rules/flitting_reflexive69.py
+@@ -0,0 +1,26 @@
++"""Mill first, then optional original-card exile before native reflexive target choice."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++_TEXT = 'When this creature dies, each player mills two cards. Then you may exile this card. When you do, put target creature or battle card from your graveyard on top of your library.'
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import context, scripts
++
++    if ability.text.strip().casefold() not in (_TEXT.casefold(), _TEXT.replace('this creature', '~').replace('this card', '~').casefold()):
++        return None
++    native = scripts.define(replace(ability, text='When this creature dies, each player mills two cards.'), ch)
++    tail = scripts.parse_effects('Put target creature or battle card from your graveyard on top of your library.')
++    if native is None or tail is None:
++        raise ValueError('Native Flitting death/reflexive shells unavailable')
++    effects = [*native['effects'],
++               {'do': 'only_if', 'cond': {'value': {'live_ref_count': context.EVENT_NEW, 'zone': 'graveyard'}, 'op': '>=', 'n': 1}, 'skip': 4},
++               {'do': 'optional_payment', 'who': 'you', 'cost': '', 'ask': 'Exile this card', 'bind': 'flitting_accept69'},
++               {'do': 'only_if', 'cond': {'succeeded': 'flitting_accept69'}, 'skip': 2},
++               {'do': 'exile', 'who': context.EVENT_NEW, 'from_zone': 'graveyard', 'did': 'flitting_exiled69'},
++               {'do': 'reflexive', 'cond': {'succeeded': 'flitting_exiled69'},
++                'ability': {'kind': 'triggered', 'trigger': 'reflexive', 'effects': tail[0], 'optional': tail[2], **scripts.target_fields(tail[1])}}]
++    return {**native, 'effects': effects, 'optional': False}
+--- a/backend/app/rules/costs.py
++++ b/backend/app/rules/costs.py
+@@ -128,6 +128,7 @@
+     all_objects: bool = False  # Every matching controlled permanent, including an empty set.
+     amount_rule: Literal["opponents"] | None = None  # Bound when the actual activation total is determined.
+     gain_scope: Literal["each_other_player"] | None = None  # Nominal life-gain cost paid to every other live player.
++    source_with_choices: bool = False  # One graveyard-exile instruction includes its required source and selected others.
+
+     @property
+     def chosen(self) -> bool:
+@@ -155,7 +156,7 @@
+         spell's additional cost."""
+         return self.amount_rule is not None or self.kind in WAVE_4H_KINDS or self.names is not None or self.selector_x or (self.x and self.kind != PAY_ENERGY) or self.counter == ANY_COUNTER or self.among \
+             or self.life_rule is not None or (self.kind == EXILE and self.selector is not None) \
+-            or self.alt is not None or self.named_self
++            or self.alt is not None or self.named_self or self.source_with_choices
+
+
+ @dataclass(frozen=True)
+@@ -220,7 +221,7 @@
+     @property
+     def from_graveyard(self) -> bool:
+         """113.6m: "Exile this card from your graveyard" — the ability works only from there."""
+-        return self.graveyard_only or any(c.kind == EXILE_FROM_GRAVEYARD and c.selector is None for c in self.components)
++        return self.graveyard_only or any(c.kind == EXILE_FROM_GRAVEYARD and (c.selector is None or c.source_with_choices) for c in self.components)
+
+     @property
+     def energy_x(self) -> bool:
+@@ -397,6 +398,10 @@
+
+
+ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False, anyn: bool = True) -> AbilityCost:
++    from app.rules import source_named_cost69
++
++    if not loyalty and (source69 := source_named_cost69.parse(cost)) is not None:
++        return source69
+     if not loyalty and cost.strip() == '{6}, Roll a d8':
+         return replace(parse_ability_cost('{6}', card_name=card_name, anyn=anyn), numeric_roll_sides=8)
+     cost = re.sub(r'Remove twelve ([\w+/\-]+) counters from ([^,{}:]+?) and exile it', r'Remove 12 \1 counters from \2, Exile \2', cost)
+--- a/backend/app/rules/cost_payment.py
++++ b/backend/app/rules/cost_payment.py
+@@ -48,7 +48,7 @@
+     """Objects a part can't use because another part of the same cost already does: the source
+     when it's tapped ({T}) or leaves (sacrificed / exiled / returned) as part of the cost.
+     CR 601.2h: counters may be removed from that source before paying its leave cost."""
+-    leaves = cost.sacrifice_self or any(c.selector is None and c.kind in (C.EXILE, C.RETURN_PERMANENT, C.EXILE_FROM_GRAVEYARD)
++    leaves = cost.sacrifice_self or any((c.selector is None or c.source_with_choices) and c.kind in (C.EXILE, C.RETURN_PERMANENT, C.EXILE_FROM_GRAVEYARD)
+                                         for c in cost.components)
+     if (leaves and comp.kind != C.REMOVE_COUNTER) or (comp.kind in (C.TAP_OTHER, C.UNTAP_OTHER, C.WATERBEND) and (cost.tap or cost.untap)):
+         return {source.id}
+@@ -275,6 +275,8 @@
+ def _new_part_problem(plan: Plan, comp: CostComponent, card: CardInstance, player: str, x: int | None) -> str | None:
+     """118.3 for the parts this wave reads that name no chosen objects (None: payable, or not one of them)."""
+     name = card.name or "It"
++    if comp.source_with_choices and (comp.kind != C.EXILE_FROM_GRAVEYARD or card.zone != f'{player}:graveyard'):
++        return 'The required source is not in your graveyard'
+     if comp.kind == C.UNATTACH and comp.selector is None and not _attached_host(plan, card):
+         return f"{name} isn't attached to a legal host"
+     if comp.kind == C.REMOVE_COUNTER and comp.selector is None and (comp.x or comp.counter == C.ANY_COUNTER):
+@@ -542,6 +544,8 @@
+         elif len(usable) == need and not comp.up_to and not withheld(plan, comp, plan.actor, card):  # (review 28D: something left out: asked, with the note)
+             chosen = usable  # (no choice to make)
+         else:
++            from app.rules import source_named_cost69
++
+             verb = _VERBS.get(comp.kind, "use")
+             decide(plan, player=plan.actor, kind="choose_cards",
+                    prompt=f"{what}: choose {'up to ' if comp.up_to else ''}{need} to {verb} (“{comp.text}”), or "
+@@ -549,7 +553,8 @@
+                    options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in usable],
+                    min_choices=0, max_choices=need,
+                    resume={"step": "ability_cost", "component": i, "amount": None if comp.up_to else need, "empty_ok": comp.up_to,
+-                           "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},
++                           "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}),
++                           **(source_named_cost69.retain(plan, card, usable) if comp.source_with_choices else {})},
+                    source=card)
+             if counter_index is not None:
+                 counter_cost_order70.retain_choice72(plan, cost, out)
+@@ -744,6 +749,10 @@
+             current = plan.state.cards.get(cid)
+             if ref is None or current is None or plan.oid(current) != ref.object_id or current.zone != ref.zone:
+                 raise ActionError('The selected counter holder is no longer the original object')
++    from app.rules import source_named_cost69
++
++    if source_named_cost69.requires_receipt(plan, d.resume):
++        source_named_cost69.guard(plan, d.resume, chosen)
+     saved_counter72 = d.resume.get("counter_choice72")
+     if saved_counter72 is not None:
+         from app.rules import counter_cost_order70
+@@ -884,6 +893,10 @@
+                     plan.do({'type': 'reveal', 'card_ids': shown}, actor=player)
+                     record.revealed += shown
+             ids = ids if comp.selector is not None or comp.kind == C.CRAFT else [card.id]
++            if comp.source_with_choices:
++                from app.rules import source_named_cost69
++
++                ids = source_named_cost69.payment(plan, comp, card, ids)
+             from app.rules import payment_card_facts
+
+             stack_exile = comp.kind == C.EXILE and comp.selector is not None and "stack" in selectors.from_key(comp.selector).zones
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5797,6 +5797,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import flitting_reflexive69
++
++    if (flitting69 := flitting_reflexive69.definition(ability, ch)) is not None:
++        return flitting69
+     from app.rules import post_mill_graveyard68
+
+     if (grave68 := post_mill_graveyard68.definition(ability, ch)) is not None:
+@@ -8436,7 +8440,11 @@
+
+
+ def own_graveyard_activation(d: Definition | None) -> bool:
+-    """113.6m: an independently parsed self-return activation is not a resolving spell instruction."""
++    """113.6m: a parsed graveyard-only activation is not a resolving spell instruction."""
++    if d is not None and d.get('kind') == 'activated':
++        cost = parse_ability_cost(d.get('cost') or '')
++        if not cost.unsupported and cost.from_graveyard:
++            return True
+     effects = (d or {}).get("effects") or []
+     return bool(d is not None and d.get("kind") == "activated" and effects and all(
+         e.get("do") == "return_card" and e.get("who") in ("self_gy", "self_gy_exile") for e in effects

@@ -1,0 +1,18 @@
+--- a/backend/app/rules/values.py
++++ b/backend/app/rules/values.py
+@@ -602,2 +602,4 @@
+         return {"turn_history": "sacrificed", **({} if m[1] else {"who": "any"})}
++    if re.fullmatch(r"card types? among permanents you(?:'ve)? sacrificed this turn", what):
++        return {"turn_history": "sacrificed_card_types82"}
+     if re.fullmatch(r"other artifacts? or creatures? you(?:'ve)? sacrificed this turn", what):  # -- cost reductions paid with objects (wave 47C) -- Dargo, the Shipwrecker: the ones
+--- a/backend/app/rules/history.py
++++ b/backend/app/rules/history.py
+@@ -887,2 +887,8 @@
+         return len({a for p, ids in log.attackers.items() if v.get("who") != "you" or p == me for a in ids})
++    if kind == 'sacrificed_card_types82':
++        # Korvold's cast reduction counts card types; Kindred counts here, whereas
++        # its separate combat trigger counts only permanent types (700.7).
++        card_types82 = {'Artifact', 'Battle', 'Creature', 'Enchantment', 'Instant', 'Kindred', 'Land', 'Planeswalker', 'Sorcery'}
++        return len({('Kindred' if t == 'Tribal' else t) for f in log.facts
++                    if f.kind == 'sacrifice' and f.player == me for t in f.types} & card_types82)
+     if kind in ("tokens", "sacrificed", "discarded"):  # -- X sized by a count (wave 19F) -- one fact per token / permanent (111.2, 701.21a)

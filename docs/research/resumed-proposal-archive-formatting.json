@@ -633,5 +633,95 @@
     "original_sha256": "c53572a91172f934ace170a16c25c1ddcebe9bec3950639369ae154e1ab80c41",
     "archived_sha256": "29b90274da0cfb9b0f3cb1102925b77108b5d8ae3d32e2332ccd472b0f21cab3",
     "numstat_preserved": null
+  },
+  "docs/research/proposals/damage-retention83/rejected-stale-stage-review.patch": {
+    "original_sha256": "a2cbf056033f8b8ba82c3d9b95d490b79b4dee0190489a5b67485e121876f701",
+    "archived_sha256": "27bc1105d007cc098c2880c25d50b401dd872596f336ed001477ad337ab91977",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/damage-retention83/review.patch": {
+    "original_sha256": "d9a40cef884c99973056eb43667a99746c1e5f38e6b28201a6bb657ddf35c05a",
+    "archived_sha256": "761a78b4e2a1f9a9ea6064cbee33f12fbb93fe1b2452408f1a9318dacc12c1e7",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/exchange-choices92/reviewed.patch": {
+    "original_sha256": "65ad12d47f4449bdfc3c08f472798db7e6c910754981df99ae4ff851323a9218",
+    "archived_sha256": "1b12e8b98b77617f27f82391b7a95166029fc7229bddfc30b243d234ad563a9f",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/exchange-spells93/baseline-native-failure.log": {
+    "original_sha256": "fb7d3941ca36f1926e84a97e6506a512abe09c8fe3ce5379cc72fe347fef3d90",
+    "archived_sha256": "1e2ceef1c4605167301da47835ee608372b8cd409b7c3c02d0773bbdc3b2c43a",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/exchange-spells93/native21-final.log": {
+    "original_sha256": "f6838dfa35b12080bcdac8d607a76557293c7658262246cb3a4035e1e8c2353f",
+    "archived_sha256": "7ae31bd5f6d6b9509fe6a30920c7223694d2e78c9cba05b49a4d1e3916b11a14",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/exchange-spells93/prototype-held.patch": {
+    "original_sha256": "0a716cbbbd58898b2b89e6bb59389d702b10607fc16456fbb33558366dc36fe5",
+    "archived_sha256": "fbfa8e6bc9a11afe3d4e02e94f0b3488f3d3eb6008a0c2d7575c36b05051a10c",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/exchange-spells93/prune-split2-final.log": {
+    "original_sha256": "e4f4c2fc0a92853d04867610eacfbcd3600a9a9ce7068240e18e5e50d8d886ac",
+    "archived_sha256": "6c35c957ae48dd83c27b033b4b631c241a40fca0db2c02a099af581573e06a6f",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/exchange-spells93/reviewed.patch": {
+    "original_sha256": "c513ce5e3b27c1672826e9219adbcac6b70a7b4b3479a0ae53acd0a49ceb6647",
+    "archived_sha256": "de92a2901ec835455e59a23650e854483bb393c1c01f8c86d65fea524552d68a",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/sacrifice-type-costs82/final12.log": {
+    "original_sha256": "de95ddb9c3034b1b030895ec796410c2d3e1406c021d10a70162882dc39093fe",
+    "archived_sha256": "18bf2c056cfd93a6c356bdcefb59ad53f040afd742d9744c2b0c8ec0350c4be4",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/sacrifice-type-costs82/native8.log": {
+    "original_sha256": "397760ea11c58366d2fc825da1c09d0675719244ae974e12c66dcb105015886e",
+    "archived_sha256": "e08d10567bc09669b55155952168d2a28570b23fa5b59c92cfd428b28d48513e",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/source-named-reflexive69/review.patch": {
+    "original_sha256": "aeb0208924200c0be8fea8a33b09072d80140bf79877ebdd3cb9f198bf6c2f79",
+    "archived_sha256": "94c674f9b87def1592014b5b56521744f73e882a576e8d43bb89cb5d2ad27f97",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/static-counts94/UNINSTALLED.patch": {
+    "original_sha256": "39561feaabb0506e7b643839e53a045e2a77199faf28f3520a0510f501e1a767",
+    "archived_sha256": "7db563b7aaa2dec8179f82ffd140737f204a4a23cca6ff41d5abb2baa5adeda3",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/target-conditional-costs81/altar-boundaries2-self-mode.log": {
+    "original_sha256": "ac79dd6b10ddb4b559e2ff87bf2413d247b5db94d3375ffb93878d608b0d47d0",
+    "archived_sha256": "a1ef76df3746f26022ba7edbd3c23bc5adf379e7661a48eb3ac5529b0e63c530",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/target-conditional-costs81/altar-boundaries2.log": {
+    "original_sha256": "4914a13efff43f77b55693765c6ff22afeb6968d5ae71503ccbff4521ba93a04",
+    "archived_sha256": "50e4f7e29ae77c730c4595991b1841f844696e1e531857c0578d41cb85e84676",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/target-conditional-costs81/extra7-cold2.log": {
+    "original_sha256": "d92639bead5b87540c1f96f26235ab5156f1c273eca5c16d0a57f3d8cf5ad2ef",
+    "archived_sha256": "f425b21b2ab5c9ac422d4a7dcd00ab03fe9df7f514eb9c1658274377be2ef57b",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/target-conditional-costs81/meld-casefold1.log": {
+    "original_sha256": "32b11d0270d7546d504c9977677e80dc181183a370b3c4966c4711eba3ab39ea",
+    "archived_sha256": "f0bf7f86b2c76064190835c01bb7c8a98a9bb03f7b824ac07678e9572199e6ca",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/target-conditional-costs81/meld-final1.log": {
+    "original_sha256": "ecdf465bfed7fc9001116f9620f881b93c5bb642b0a2198cd7062f3534f3bb30",
+    "archived_sha256": "63819cb689979fbc2d143a2185ea4a0d9d3d4a0bfee080c1324452316c59e492",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/target-conditional-costs81/meld-fixed1.log": {
+    "original_sha256": "4817bd20a67811adf69122f7cca4dcd071780f26ae7f061f174f7110b0e8a0e8",
+    "archived_sha256": "e30d1fa84f527972e472ab31588213c15c29bbe14ac12af4083fe308350ec14b",
+    "numstat_preserved": null
   }
 }

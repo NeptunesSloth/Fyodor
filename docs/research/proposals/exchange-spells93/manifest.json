@@ -1,0 +1,14 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW_ONLY",
+  "cards": [
+    "Perplexing Chimera",
+    "Sudden Substitution"
+  ],
+  "stage": "/workspace/scratch/exchange_spells93",
+  "patch_sha256": "c513ce5e3b27c1672826e9219adbcac6b70a7b4b3479a0ae53acd0a49ceb6647",
+  "native": "Final consolidated22 pass97.22s including3 genuine cold. Supersedes earlier21/incorrect prune expectation.",
+  "types": "Final repaired7 source files pass",
+  "ruff": "Final8 files pass",
+  "note": "Stack Layer2 only, originalOID baseline and live-controller validation. Redundant baseline clears when remaining effect agrees with underlying controller. Existing CR400.7a transfer preserved, new Spell/permanent controller retarget chooser explicit only for Sudden; Chimera original ability controller chooses. No model/Layer6 edits. Parent review/admission required; no live source writes.",
+  "related": "Final four-file129 pass64.65s. Initial128/1 bookkeeping failure preserved; redundant baseline cleanup repaired and targeted3 passes."
+}
