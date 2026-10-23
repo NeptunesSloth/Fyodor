@@ -1,0 +1,33 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW; no live source writes or admission",
+  "names": [
+    "Pollywog Symbiote"
+  ],
+  "native": {
+    "passed": 10,
+    "genuine_cold": 1,
+    "log": "native10.log"
+  },
+  "related": {
+    "passed": 21,
+    "module": "tests/test_rules_wave18d_merged.py",
+    "log": "related21.log"
+  },
+  "mypy": {
+    "passed": 2,
+    "log": "types2.log"
+  },
+  "ruff": {
+    "passed": 3,
+    "log": "ruff3.log"
+  },
+  "official_rulings_read": 5,
+  "patch": "production-candidate.patch",
+  "stage": "/tmp/cost73-stage/backend",
+  "test_module": "tests/test_rules_mutate_keyword_costs73.py",
+  "fixture": "tests/fixtures/mutate_keyword_costs73_cards.json",
+  "source_hashes": {
+    "mutate_keyword_costs73.py": "7afa80cb65755ab1e8f997da5ae32742a2d8caa59f0ecc70d5dee9214fe7bd05",
+    "scripts.py": "515b5e5573400e0eac8f5bf43417d6e0714d16503cef11a529da8d14c1f4093b"
+  }
+}

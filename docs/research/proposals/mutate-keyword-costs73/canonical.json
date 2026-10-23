@@ -1,0 +1,35 @@
+{
+  "id": "77adf375-e7d7-4ebd-8c86-ad7e822a5483",
+  "oracle_id": "0a766368-c982-4cba-9638-c7a56978c240",
+  "name": "Pollywog Symbiote",
+  "layout": "normal",
+  "set_code": "iko",
+  "set_name": "Ikoria: Lair of Behemoths",
+  "collector_number": "63",
+  "rarity": "uncommon",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Creature \u2014 Frog",
+  "oracle_text": "Each creature spell you cast costs {1} less to cast if it has mutate.\nWhenever you cast a creature spell, if it has mutate, draw a card, then discard a card.",
+  "power": "1",
+  "toughness": "3",
+  "loyalty": null,
+  "defense": null,
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "keywords": [],
+  "is_token": false,
+  "faces": [],
+  "double_faced": false,
+  "image_faces": 1,
+  "has_image": false,
+  "released_at": "2020-04-24",
+  "artist": "Simon Dominic",
+  "commander_legal": "legal",
+  "related_tokens": [],
+  "related_cards": []
+}

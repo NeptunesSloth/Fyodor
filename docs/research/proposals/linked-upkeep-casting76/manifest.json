@@ -1,0 +1,32 @@
+{
+  "status": "CLOSED_FOR_ROOT_PRODUCTION_REVIEW; uninstalled/unadmitted",
+  "names": [
+    "Ian Malcolm, Chaotician",
+    "Kaya the Inexorable"
+  ],
+  "patch": "review.patch",
+  "patch_sha256": "f18a53eb79cc909ef0f0bb931886982edd42658b262193b1548d428d4f6c5ab2",
+  "stage": "/tmp/casting76-stage",
+  "test": "native_tests.py -> backend/tests/test_rules_linked_upkeep_casting76.py",
+  "fixture": "cards.json -> backend/tests/fixtures/linked_upkeep_casting76_cards.json",
+  "mypy": "PASS3",
+  "ruff": "PASS4",
+  "authority": "Complete official rulings for both exact cards; canonical oracle/support attached.",
+  "privacy_before": "casting76-hidden-hand-before.log",
+  "source_hashes": "source-hashes.json",
+  "native": {
+    "consolidated_passed": 17,
+    "genuine_cold": 2,
+    "log": "casting76-final17.log"
+  },
+  "related": {
+    "passed": 79,
+    "log": "casting76-related.log",
+    "scope": "full immediate_cast_pools67, total_mv_casts, privacy_decisions and protocol_privacy"
+  },
+  "offline_related": {
+    "passed": 67,
+    "log": "casting76-offline-privacy-related.log",
+    "scope": "full player_collections, outside_game50, coax_outside65, conditional_free_casts68"
+  }
+}

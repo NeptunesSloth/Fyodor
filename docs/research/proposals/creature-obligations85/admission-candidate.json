@@ -1,0 +1,33 @@
+{
+  "status": "READY \u2014 root native foundation/dependency review",
+  "names": [
+    "Fade Away"
+  ],
+  "dependencies": [
+    "permanent-life-payments83",
+    "manual-choice-mana85"
+  ],
+  "native": {
+    "distinct": 6,
+    "genuine_cold": 1,
+    "consolidated5": "PASS11.40s",
+    "cold": "PASS18.88s individually and included in fresh final82",
+    "consolidated6": "PASS as part of final82"
+  },
+  "install_test": "backend/tests/test_rules_creature_obligations85.py",
+  "install_fixture": "backend/tests/fixtures/fade85_cards.json",
+  "patch_sha256": "89f236692ac705183a33be619bd6d9aa7d8a03fe3a7c55a5a90eb7950209958a",
+  "final_current_source_gate": {
+    "passed": 82,
+    "seconds": 247.05,
+    "components": {
+      "Fade Away": 6,
+      "Tariff": 12,
+      "optional_payment": 38,
+      "deferred_payment82": 26
+    },
+    "stage": "/tmp/payment83-world-stage"
+  },
+  "mypy": 3,
+  "ruff": 5
+}

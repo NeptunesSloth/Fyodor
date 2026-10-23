@@ -1,0 +1,35 @@
+{
+  "id": "286be1fb-8ed2-4228-9df8-0ea413714778",
+  "oracle_id": "e1b8a89a-b308-4fc5-ada7-61de6e21b7f9",
+  "name": "New Perspectives",
+  "layout": "normal",
+  "set_code": "c20",
+  "set_name": "Commander 2020",
+  "collector_number": "119",
+  "rarity": "rare",
+  "mana_cost": "{5}{U}",
+  "cmc": 6.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, draw three cards.\nAs long as you have seven or more cards in hand, you may pay {0} rather than pay cycling costs.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "defense": null,
+  "colors": [
+    "U"
+  ],
+  "color_identity": [
+    "U"
+  ],
+  "keywords": [],
+  "is_token": false,
+  "faces": [],
+  "double_faced": false,
+  "image_faces": 1,
+  "has_image": false,
+  "released_at": "2020-04-17",
+  "artist": "Darek Zabrocki",
+  "commander_legal": "legal",
+  "related_tokens": [],
+  "related_cards": []
+}

@@ -1,0 +1,31 @@
+.FFF                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[hand] _
+tests/test_rules_linked_upkeep_casting76.py:130: in test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone
+    assert d and d.resume['step'] == 'free_cast'
+E   assert (Decision(id='c491ce4a3aac', player='p1', kind='choose_cards', prompt='Choose a spell to cast without paying its mana c... 'pool_selector': 'sel:{"card":true,"owner":"you","zones":["hand","graveyard","exile"]}'}}, display=None, decider=None) and 'free_cast_pick' == 'free_cast'
+E
+E     - free_cast
+E     + free_cast_pick
+E     ?          +++++)
+_ test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[graveyard] _
+tests/test_rules_linked_upkeep_casting76.py:130: in test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone
+    assert d and d.resume['step'] == 'free_cast'
+E   assert (Decision(id='0b8271ba11a0', player='p1', kind='choose_cards', prompt='Choose a spell to cast without paying its mana c... 'pool_selector': 'sel:{"card":true,"owner":"you","zones":["hand","graveyard","exile"]}'}}, display=None, decider=None) and 'free_cast_pick' == 'free_cast'
+E
+E     - free_cast
+E     + free_cast_pick
+E     ?          +++++)
+_ test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[exile] _
+tests/test_rules_linked_upkeep_casting76.py:130: in test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone
+    assert d and d.resume['step'] == 'free_cast'
+E   assert (Decision(id='f41990d0fa70', player='p1', kind='choose_cards', prompt='Choose a spell to cast without paying its mana c... 'pool_selector': 'sel:{"card":true,"owner":"you","zones":["hand","graveyard","exile"]}'}}, display=None, decider=None) and 'free_cast_pick' == 'free_cast'
+E
+E     - free_cast
+E     + free_cast_pick
+E     ?          +++++)
+=========================== short test summary info ============================
+FAILED tests/test_rules_linked_upkeep_casting76.py::test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[hand]
+FAILED tests/test_rules_linked_upkeep_casting76.py::test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[graveyard]
+FAILED tests/test_rules_linked_upkeep_casting76.py::test_actual_kaya_minus_seven_creates_native_upkeep_emblem_pool_in_each_zone[exile]
+3 failed, 1 passed, 3 deselected in 25.50s

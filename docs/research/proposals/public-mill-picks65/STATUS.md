@@ -1,0 +1,9 @@
+# Public mill picks65 — closed isolated root review candidate
+
+Pending exact promotions: Nashi, Searcher in the Dark and Greenhouse // Rickety Gazebo. No live edit or production admission by this worker. Barrowgoyf and both Tetzin faces remain reserved, unimplemented here; their canonical/rulings are retained as research only.
+
+The bounded picker reads actual still-public milled original objects. Room selects up to two permanent cards; Nashi selects any number of legendary or enchantment cards. All selected commander hand replacement choices complete before one native Move commits the hand group. Nashi checks actual successor objects in hand, so command-zone replacement produces its counter and actual hand return does not. The existing native self-counter action retains original source identity.
+
+Final18 PASS, including two genuine cold subprocesses at pending commander choices, actual Nashi combat0/1/2, public RIP/Room unlock0/1/2, native casts of both Room doors, front-door Forest producing blue, repeated-unlock rejection, and actual canonical FULL Desecrated Tomb single Bat trigger for two returned creatures. Related41 PASS with8 pre-existing skipped review cases: ordinary Room mechanics, Room reviews, post-mill continuations. Source3 mypy PASS; four-file Ruff PASS. Full canonical texts and all16 published Room rulings read; Nashi has no published Scryfall rulings. Initial test harness used plain mana rather than provenance-aware mana_pool; corrected final18 all pass without production source changes.
+
+Current-root-preserving121-line owned patch contains one leaf plus exact parse/primitive/resume hooks only. No native look/mill or replacement/selector engine edits. Root applies review.patch and copies matching test/fixture, then owns production frozen gates and catalog admission. Gate stage /tmp/public-mill-picks65/backend. Registry/parser artifact copies preserve current-live sibling hooks; production integrated gate remains root-owned.

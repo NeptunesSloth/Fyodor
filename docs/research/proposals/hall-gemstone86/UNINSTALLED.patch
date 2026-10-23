@@ -1,0 +1,104 @@
+--- /dev/null
++++ b/backend/app/rules/hall_gemstone86.py
+@@ -0,0 +1,38 @@
++"""One upkeep color choice creates a source-independent temporary land mana rule."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++TEXT = ("At the beginning of each player's upkeep, that player chooses a color. Until end of turn, "
++        "lands tapped for mana produce mana of the chosen color instead of any other color.")
++BIND = 'hall86_color'
++COLORS = {'White': 'W', 'Blue': 'U', 'Black': 'B', 'Red': 'R', 'Green': 'G'}
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts
++
++    if ability.kind != 'triggered' or ability.text != TEXT:
++        return None
++    base = scripts.define(replace(ability, text="At the beginning of each player's upkeep, that player draws a card."), ch)
++    return {**base, 'effects': [{'do': 'choose_value', 'who': 'event_player', 'what': 'color', 'as': BIND},
++                              {'do': 'hall86_rule'}]} if base is not None else None
++
++
++def record(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.game.errors import ActionError
++    from app.rules import context, effects, selectors, tap_mana
++
++    choice = context.refs(ctx).get(BIND, {}).get('value')
++    if choice not in COLORS:
++        if not effects._players(plan, ctx, 'event_player'):
++            return True
++        raise ActionError('The saved Hall of Gemstone color is missing; resolve this ability manually')
++    rule = {'kind': 'static', 'static': 'mana_replace', 'who': 'any',
++            'sel': selectors.Selector(types=('Land',)).key(),
++            'op': {'do': 'colored_recolor86', 'to': COLORS[choice]}, 'effects': []}
++    return tap_mana.until_eot(plan, ctx, {'def': rule})
++
++
++PRIMITIVES = {'hall86_rule': record}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -6153,6 +6153,10 @@
+
+     if (counter_comparison := counter_event_comparisons50.definition(ability, ch)) is not None:
+         return counter_comparison
++    from app.rules import hall_gemstone86
++
++    if (hall86 := hall_gemstone86.definition(ability, ch)) is not None:
++        return hall86
+     from app.rules import world_upkeep83
+
+     if (world_upkeep := world_upkeep83.definition(ability, ch)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6769,3 +6769,7 @@
+
+ PRIMITIVES.update(_permanent83.PRIMITIVES)
+ RESUME.update(_permanent83.RESUME)
++
++from app.rules import hall_gemstone86 as _hall86  # noqa: E402, I001
++
++PRIMITIVES.update(_hall86.PRIMITIVES)
+--- a/backend/app/rules/mana_replace.py
++++ b/backend/app/rules/mana_replace.py
+@@ -161,6 +161,8 @@
+
+ def _apply(op: dict[str, Any], option: tuple[str, ...], subtypes: Any = ()) -> list[tuple[str, ...]]:
+     mana = tuple(option)
++    if op['do'] == 'colored_recolor86':
++        return [tuple(op['to'] if sym in COLORS else sym for sym in option)]
+     if op['do'] == 'white_to_colorless':
+         return [tuple('C' if sym == 'W' else sym for sym in option)]
+     if op["do"] == "mul":
+--- a/backend/app/rules/contextual_mana_triggers.py
++++ b/backend/app/rules/contextual_mana_triggers.py
+@@ -55,18 +55,23 @@
+ def prepare(state: GameState, card: CardInstance, info: CardInfo,
+             found: list[tuple[int, ManaAbility]]) -> list[tuple[int, ManaAbility]]:
+     """Unpredictable native bodies never promise aggregate mana to AUTO."""
+-    from app.rules import attached_mana, tap_mana
++    from app.rules import attached_mana, mana_replace, tap_mana
+
+     triggers = [d for owner, d, source in tap_mana._triggers(state, info)
+                 if tap_mana._applies(state, info, card, owner, d, source)]
+     attached = bool(attached_mana._extras(state, card, info))
+-    if not triggers and not attached:
++    hall86 = state.rules is not None and any(
++        x.get('turn') == state.turn.number and x['def'].get('op', {}).get('do') == 'colored_recolor86'
++        for x in state.rules.tap_mana) and any(
++            d['op']['do'] == 'colored_recolor86' and mana_replace._applies(state, info, card, owner, d)
++            for owner, d in mana_replace._statics(state, info))
++    if not triggers and not attached and not hall86:
+         return found
+     return [(i, replace(ab, native_body=True, chooses=True,
+                         immediate_effects=({'do': 'staged_base_mana', 'options': [list(o) for o in ab.options]},
+                                            *ab.immediate_effects)))
+             if ab.tap and not ab.native_body and ab.reveal_hand is None and
+-               (not ab.generic_allowed or any(d.get('staged') for d in triggers)
++               (hall86 or not ab.generic_allowed or any(d.get('staged') for d in triggers)
+                 or bool(ab.extra_cost) or ab.sacrifice_self or ab.self_counter is not None
+                 or bool(ab.immediate_effects)) else (i, ab) for i, ab in found]
+

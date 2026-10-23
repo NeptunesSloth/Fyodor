@@ -1,0 +1,39 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW_ONLY",
+  "cards": [
+    "Empty City Ruse",
+    "False Peace",
+    "Moment of Silence",
+    "Fatespinner"
+  ],
+  "native": {
+    "distinct_passed": 19,
+    "genuine_cold": 3,
+    "logs": [
+      "native18.log",
+      "native-overlap1.log"
+    ],
+    "note": "Consolidated18 passed before final repeat-first precedence refinement. Final added native overlap1 proves that refinement; final9 related skip gate and mypy4/Ruff3 passed after refinement."
+  },
+  "related": {
+    "full_passed": 63,
+    "final_skip_passed": 9,
+    "logs": [
+      "related63.log",
+      "related-final-skips9.log"
+    ]
+  },
+  "mypy": {
+    "files": 4,
+    "result": "PASS"
+  },
+  "ruff": {
+    "files": 3,
+    "result": "PASS"
+  },
+  "patch": "reviewed.patch",
+  "patch_sha256": "85fc76935c32ad4916210476d17138430b2b647a247ddaa6f33509f196c3ab2f",
+  "stage": "/tmp/skips88",
+  "shared_changes": "Only owned insertions in scripts/effects; skips diff against saved live original baseline, no engine edits. Existing static/untap readers preserved.",
+  "historical_failures": "Initial11 fixture duplicate set_code keys corrected before all native semantic gates."
+}

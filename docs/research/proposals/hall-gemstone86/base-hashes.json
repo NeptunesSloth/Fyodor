@@ -1,0 +1,7 @@
+{
+  "backend/app/rules/hall_gemstone86.py": null,
+  "backend/app/rules/scripts.py": "7eb6bc4b60c3f14c012229ddf8beede7685a97f3c0c7da407abbfe034bc56b81",
+  "backend/app/rules/effects.py": "9521f988ccb13b3a0894c213ba3c72bce853ebe669a6a3069777c45a819f680d",
+  "backend/app/rules/mana_replace.py": "d1de50aff596af74d2319caf6c60de461f09301f84ff67cd308cc59be0e2ffa2",
+  "backend/app/rules/contextual_mana_triggers.py": "0d9623fedfd929ff3f2ba943132c445240f92ca109217aea0f4e0cf1149e31f2"
+}

@@ -1,0 +1,249 @@
+[
+  {
+    "id": "b7395d55-9457-42b2-ae9b-858708f98db8",
+    "oracle_id": "69d6b906-5461-4eba-8667-dbb8c0ce3fcb",
+    "name": "Killing Wave",
+    "layout": "normal",
+    "set_code": "inr",
+    "set_name": "Innistrad Remastered",
+    "collector_number": "386",
+    "rarity": "uncommon",
+    "mana_cost": "{X}{B}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "oracle_text": "For each creature, its controller sacrifices it unless they pay X life.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-01-24",
+    "artist": "John Stanko",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "69d6b906-5461-4eba-8667-dbb8c0ce3fcb",
+          "source": "wotc",
+          "published_at": "2012-05-01",
+          "comment": "First, the active player chooses whether to pay X life for each creature they control. Then each other player in turn order chooses for their creatures. Then each player pays life and sacrifices creatures at the same time. Players will know the decisions of players who chose before them."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "69d6b906-5461-4eba-8667-dbb8c0ce3fcb",
+          "source": "wotc",
+          "published_at": "2012-05-01",
+          "comment": "A player may choose to pay life for some creatures and sacrifice the rest. It\u2019s not an all-or-nothing decision."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "69d6b906-5461-4eba-8667-dbb8c0ce3fcb",
+          "source": "wotc",
+          "published_at": "2012-05-01",
+          "comment": "You can\u2019t pay more life than you have."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "69d6b906-5461-4eba-8667-dbb8c0ce3fcb",
+          "source": "wotc",
+          "published_at": "2012-05-01",
+          "comment": "If you can\u2019t sacrifice a creature (perhaps because of Sigarda, Host of Herons), you can choose not to pay life and nothing will happen."
+        }
+      ]
+    }
+  },
+  {
+    "id": "a6f9103e-dcc2-4f7a-a8ca-eaa831f5f83b",
+    "oracle_id": "f92c2d47-f2f7-43d9-acf3-0145bad1977d",
+    "name": "Fade Away",
+    "layout": "normal",
+    "set_code": "exo",
+    "set_name": "Exodus",
+    "collector_number": "34",
+    "rarity": "common",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "For each creature, its controller sacrifices a permanent of their choice unless they pay {1}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1998-06-15",
+    "artist": "Jeff Miracola",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "f92c2d47-f2f7-43d9-acf3-0145bad1977d",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "At the beginning of the resolution, each player counts up the number of creatures they control, then they make the required number of payments and/or sacrifices. The active player announces their choices first followed by the other players, but all the sacrifices are done at the same time. Because of this, you can\u2019t sacrifice one creature in order to pay for another and thereby avoid payment for the first."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "f92c2d47-f2f7-43d9-acf3-0145bad1977d",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "You can choose to pay some mana and sacrifice some permanents if you have more than one creature."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "f92c2d47-f2f7-43d9-acf3-0145bad1977d",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "You can activate mana abilities during the resolution if you decide to pay mana."
+        }
+      ]
+    }
+  },
+  {
+    "id": "fc1973a3-1410-4c6d-9b09-bd9d18646a1e",
+    "oracle_id": "46b83657-1699-4162-a4bb-b792da396fe6",
+    "name": "Cleansing",
+    "layout": "normal",
+    "set_code": "drk",
+    "set_name": "The Dark",
+    "collector_number": "4",
+    "rarity": "rare",
+    "mana_cost": "{W}{W}{W}",
+    "cmc": 3.0,
+    "type_line": "Sorcery",
+    "oracle_text": "For each land, destroy that land unless any player pays 1 life.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1994-08-01",
+    "artist": "Pete Venters",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "id": "61094858-b8a8-425f-9c96-fac4fc6ecae8",
+    "oracle_id": "e96b0560-1d91-48df-b42f-3b7d9c6d94bd",
+    "name": "Tariff",
+    "layout": "normal",
+    "set_code": "6ed",
+    "set_name": "Classic Sixth Edition",
+    "collector_number": "47",
+    "rarity": "rare",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Sorcery",
+    "oracle_text": "Each player sacrifices the creature they control with the greatest mana value unless they pay that creature's mana cost. If two or more creatures a player controls are tied for greatest, that player chooses one.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1999-04-21",
+    "artist": "Kev Walker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [],
+    "official_rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "e96b0560-1d91-48df-b42f-3b7d9c6d94bd",
+          "source": "wotc",
+          "published_at": "2008-04-01",
+          "comment": "First the active player identifies the creature they control with the highest mana cost (and chooses one if there's a tie) and chooses whether to sacrifice it or pay mana. Then each other player in turn order does the same. All creatures sacrificed this way are sacrificed at the same time."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e96b0560-1d91-48df-b42f-3b7d9c6d94bd",
+          "source": "wotc",
+          "published_at": "2008-04-01",
+          "comment": "Although Tariff checks the mana value of the creatures on the battlefield, you need to pay the creature's actual mana cost (including color) to keep it on the battlefield."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e96b0560-1d91-48df-b42f-3b7d9c6d94bd",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "The choice of creatures is made on resolution and not on announcement."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e96b0560-1d91-48df-b42f-3b7d9c6d94bd",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "You can use mana abilities during the resolution of this spell if the player decides to pay the mana cost."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "e96b0560-1d91-48df-b42f-3b7d9c6d94bd",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "You choose whether to pay or not on resolution. If not, then you sacrifice the creature. You can choose to not pay if you control no creatures on resolution."
+        }
+      ]
+    }
+  }
+]

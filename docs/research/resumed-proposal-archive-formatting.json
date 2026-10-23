@@ -328,5 +328,55 @@
     "original_sha256": "c68e663f10015f10cd51bb2024446850bb22f1f618717c1f526695f35ef9c165",
     "archived_sha256": "f24110ef68d231e439c26d50a92360fe950d1e0bd58da7c42e9a6e9a73b438f7",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/manual-choice-mana85/UNINSTALLED.patch": {
+    "original_sha256": "6b32e6c530b8eee89a3a4561dfab6096741195b17e7cfc9e0609832902926d0b",
+    "archived_sha256": "1010b4dea99c28eee77e29aa6164552398636c8e7c16f6e597f8002ea93f5b34",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/greatest-creature-payments84/UNINSTALLED.patch": {
+    "original_sha256": "da20e41f149717f60e56444c7b1f43ee1c8f99f1977175d691a323f00f8d6266",
+    "archived_sha256": "b3ec93224bbd27370fefd8c171a2800fd70b085d4fff0e7340d44feda6dbdf2c",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/creature-obligations85/UNINSTALLED.patch": {
+    "original_sha256": "89f236692ac705183a33be619bd6d9aa7d8a03fe3a7c55a5a90eb7950209958a",
+    "archived_sha256": "f03ba702c2b2a6ce0902654ec8bffb4ea9ab25e844f7fc8e1d18599ea8f0a60f",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/public-mill-picks65/review.patch": {
+    "original_sha256": "1d1b007618ddf6e9a2135a2913fdca008f6bdd54d57a393f29b067f1b7b9ba94",
+    "archived_sha256": "16cb9b4f9ee6890abb07fa22f6cfb933ce231e9ef574ac00afd424793f69f5b0",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/hall-gemstone86/UNINSTALLED.patch": {
+    "original_sha256": "f54fc07fcfd11430c51db8748caae12521a033a3390e6ad0d597aedbfd6e66e7",
+    "archived_sha256": "84eef7dbbae47a2e2259c45ac299570b64bdd4a1638017be1ad8f52a6fcac840",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-cycling-costs72/production-candidate.patch": {
+    "original_sha256": "1dbd86616978f6f3335f4247486f56d9913fc1a218ce0cfafd86c44ab0408108",
+    "archived_sha256": "0e11035d7830ac722c509c75e302c81b400616881184d4aa9b3d2b211db477d1",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/mutate-keyword-costs73/production-candidate.patch": {
+    "original_sha256": "21796eff5d909b2b749884dd18ba0aeb3c1ee458c98018ae0a15cda3723010cb",
+    "archived_sha256": "454f9ab35f7005dc4ef8580878c3b907e4f046e6c404b49e61ae2931178b0640",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/phase-skips88/reviewed.patch": {
+    "original_sha256": "85fc76935c32ad4916210476d17138430b2b647a247ddaa6f33509f196c3ab2f",
+    "archived_sha256": "756326021f8882300c89acaba87eec34b55a4c222584b0c7f545b48aca496808",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/extra-turn-untap89/reviewed.patch": {
+    "original_sha256": "29b94d5c6dc8267be98e1f8667673b9e5035c4a6b30080a8add21e970bcc6ca8",
+    "archived_sha256": "8db67e398cdd1184b678378c16f253842c74662526cf0ab1bf6fcc5266043644",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/linked-upkeep-casting76/review.patch": {
+    "original_sha256": "f18a53eb79cc909ef0f0bb931886982edd42658b262193b1548d428d4f6c5ab2",
+    "archived_sha256": "40e761993e2c4da389aa05fc2d79497445e5e4bbcca37825636b22c4a749bdef",
+    "numstat_preserved": true
   }
 }

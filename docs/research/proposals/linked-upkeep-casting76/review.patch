@@ -1,0 +1,63 @@
+--- /dev/null
++++ b/backend/app/rules/linked_upkeep_casting76.py
+@@ -0,0 +1,35 @@
++"""Exact linked-player and upkeep-emblem permissions reuse native cast authorities."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import TYPE_CHECKING, Any
++
++if TYPE_CHECKING:
++    from app.rules.characteristics import AbilityText, Characteristics
++
++IAN_DRAW = 'Whenever a player draws their second card each turn, that player exiles the top card of their library.'
++IAN_CAST = "During each player's turn, that player may cast a spell from among the cards they don't own exiled with ~, and mana of any type can be spent to cast it."
++KAYA = 'At the beginning of your upkeep, you may cast a legendary spell from your hand, from your graveyard, or from among cards you own in exile without paying its mana cost.'
++
++
++def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | None:
++    from app.rules import permissions, scripts, selectors
++
++    text = scripts.self_text(ability.text, ch.name)
++    if text == IAN_DRAW:
++        native = scripts.define(replace(ability, text=IAN_DRAW.replace('the top card', 'the top three cards')), ch)
++        return {**native, 'effects': [{**e, 'n': 1, 'link': True} if e.get('do') == 'exile_top' else e
++                                    for e in native['effects']]} if native is not None else None
++    if text == IAN_CAST:
++        native = permissions.define_static('You may cast spells from among cards exiled with ~.', 'static',
++                                           tuple(a.text for a in ch.abilities))
++        return {**native, 'any_player': True, 'during': 'your_turn', 'once': True,
++                'once_per_player': True, 'spend': 'type',
++                'filter': selectors.Selector(zones=('stack',), owner='opponent').key()} if native is not None else None
++    if text == KAYA:
++        native = scripts.define(replace(ability, text=KAYA.replace(
++            'from your hand, from your graveyard, or from among cards you own in exile', 'from your hand')), ch)
++        pool = selectors.Selector(zones=('hand', 'graveyard', 'exile'), zone_owner='you', owner='you', card=True).key()
++        return {**native, 'effects': [{**e, 'zone': 'selector', 'pool_selector': pool} if e.get('do') == 'free_cast' else e
++                                    for e in native['effects']]} if native is not None else None
++    return None
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5769,6 +5769,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import linked_upkeep_casting76
++
++    if (casting76 := linked_upkeep_casting76.definition(ability, ch)) is not None:
++        return casting76
+     from app.rules import source_cohort87
+
+     if (admitted61 := source_cohort87.definition(ability, ch)) is not None:
+--- a/backend/app/rules/permissions.py
++++ b/backend/app/rules/permissions.py
+@@ -2224,7 +2224,8 @@
+     # players whether one was eligible, so the looker is asked whenever there were cards to look at)
+     # (-- hideaway (wave 29D) -- 406.3: a face-down exiled card is as hidden as one in a hand: "has nothing to cast" would tell the table it is a land
+     # with no land play left, or a spell that can't be cast)
+-    hidden = (e["zone"] in ("hand", "looked", "revealed") or any(plan.state.cards[c].face_down for c in pool)) and bool(pool)
++    hidden = (e["zone"] in ("hand", "looked", "revealed") or any(
++        plan.state.cards[c].face_down or plan.state.cards[c].zone.endswith(':hand') for c in pool)) and bool(pool)
+     if not options and not hidden:
+         plan.note(f"{plan.name(pid)} has nothing to cast" + ("" if e.get("paid") else " without paying its mana cost"))
+         return _free_cast_over(ctx, e)

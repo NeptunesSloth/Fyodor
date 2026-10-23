@@ -1,0 +1,35 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW_ONLY",
+  "cards": [
+    "Savor the Moment"
+  ],
+  "held": [
+    "Time Bends to My Will (no native scheme-in-motion driver)"
+  ],
+  "native": {
+    "distinct_passed": 8,
+    "genuine_cold": 2,
+    "logs": [
+      "native7-plus-known-fixture-failure.log",
+      "native-static-final1.log",
+      "native-strong4-and-related2.log"
+    ],
+    "note": "No single consolidated green8. Initial8 final gate had7pass plus Stasis fixture failed to pay upkeep; corrected same case final1 passes. Final stronger4 native verifies both extra-turn queue orders with each new turn starting from tapped land, including2 genuine cold."
+  },
+  "related": {
+    "distinct_passed": 33,
+    "note": "Initial related32 passed plus stale expected-manual wording failed; updated exact native parser assertion passed in final2 related wording tests."
+  },
+  "mypy": {
+    "files": 1,
+    "result": "PASS"
+  },
+  "ruff": {
+    "files": 3,
+    "result": "PASS"
+  },
+  "patch": "reviewed.patch",
+  "patch_sha256": "29b94d5c6dc8267be98e1f8667673b9e5035c4a6b30080a8add21e970bcc6ca8",
+  "stage": "/tmp/extra89",
+  "changes": "Owned extra_turns.py parser/queue metadata only plus historical wave8a manual expectation update. No engine/shared registration changes. Final stronger4/static1 run with phase88 skips.py in isolated stage to prove combined compatibility."
+}

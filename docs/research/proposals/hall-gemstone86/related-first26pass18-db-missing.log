@@ -1,0 +1,764 @@
+.......................F...FFFFFFFFFFFFFFFFF                             [100%]
+=================================== FAILURES ===================================
+______ test_native_real_targeted_effect_changes_white_and_keeps_producer _______
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4c43e1e0>
+
+    def test_native_real_targeted_effect_changes_white_and_keeps_producer(cards):
+>       s,gnome,land=setup(cards);apply(s,gnome,land)
+                     ^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:37:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_mana_persistent_replacements48.py:22: in setup
+    s=table(cards,['Quarum Trench Gnomes','Plains',*names],['Plains'],[])
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:12: in deck
+    cmd = cards.resolve(commander)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4c43e1e0>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+_ test_native_effect_lifetime_uses_exact_target_not_source_presence[source_departure] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4cdcaba0>
+change = 'source_departure'
+
+    @pytest.mark.parametrize('change',['source_departure','source_control','land_control','land_blink','phase_cycle'])
+    def test_native_effect_lifetime_uses_exact_target_not_source_presence(cards,change):
+>       s,gnome,land=setup(cards);apply(s,gnome,land)
+                     ^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:53:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_mana_persistent_replacements48.py:22: in setup
+    s=table(cards,['Quarum Trench Gnomes','Plains',*names],['Plains'],[])
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:12: in deck
+    cmd = cards.resolve(commander)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4cdcaba0>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+_ test_native_effect_lifetime_uses_exact_target_not_source_presence[source_control] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4cdcb3e0>
+change = 'source_control'
+
+    @pytest.mark.parametrize('change',['source_departure','source_control','land_control','land_blink','phase_cycle'])
+    def test_native_effect_lifetime_uses_exact_target_not_source_presence(cards,change):
+>       s,gnome,land=setup(cards);apply(s,gnome,land)
+                     ^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:53:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_mana_persistent_replacements48.py:22: in setup
+    s=table(cards,['Quarum Trench Gnomes','Plains',*names],['Plains'],[])
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:12: in deck
+    cmd = cards.resolve(commander)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4cdcb3e0>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+_ test_native_effect_lifetime_uses_exact_target_not_source_presence[land_control] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4cdfb860>
+change = 'land_control'
+
+    @pytest.mark.parametrize('change',['source_departure','source_control','land_control','land_blink','phase_cycle'])
+    def test_native_effect_lifetime_uses_exact_target_not_source_presence(cards,change):
+>       s,gnome,land=setup(cards);apply(s,gnome,land)
+                     ^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:53:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_mana_persistent_replacements48.py:22: in setup
+    s=table(cards,['Quarum Trench Gnomes','Plains',*names],['Plains'],[])
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:12: in deck
+    cmd = cards.resolve(commander)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4cdfb860>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+_ test_native_effect_lifetime_uses_exact_target_not_source_presence[land_blink] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4cdfb7a0>
+change = 'land_blink'
+
+    @pytest.mark.parametrize('change',['source_departure','source_control','land_control','land_blink','phase_cycle'])
+    def test_native_effect_lifetime_uses_exact_target_not_source_presence(cards,change):
+>       s,gnome,land=setup(cards);apply(s,gnome,land)
+                     ^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:53:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_mana_persistent_replacements48.py:22: in setup
+    s=table(cards,['Quarum Trench Gnomes','Plains',*names],['Plains'],[])
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:12: in deck
+    cmd = cards.resolve(commander)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4cdfb7a0>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+_ test_native_effect_lifetime_uses_exact_target_not_source_presence[phase_cycle] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4cea2870>
+change = 'phase_cycle'
+
+    @pytest.mark.parametrize('change',['source_departure','source_control','land_control','land_blink','phase_cycle'])
+    def test_native_effect_lifetime_uses_exact_target_not_source_presence(cards,change):
+>       s,gnome,land=setup(cards);apply(s,gnome,land)
+                     ^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:53:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_mana_persistent_replacements48.py:22: in setup
+    s=table(cards,['Quarum Trench Gnomes','Plains',*names],['Plains'],[])
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:12: in deck
+    cmd = cards.resolve(commander)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4cea2870>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+_________ test_unrelated_plains_and_nongenuine_target_are_not_affected _________
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4cea38c0>
+
+    def test_unrelated_plains_and_nongenuine_target_are_not_affected(cards):
+>       s,g,l=setup(cards);other=put(s,'Plains','battlefield','p2');apply(s,g,l)
+              ^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:74:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_mana_persistent_replacements48.py:22: in setup
+    s=table(cards,['Quarum Trench Gnomes','Plains',*names],['Plains'],[])
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:12: in deck
+    cmd = cards.resolve(commander)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4cea38c0>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+____ test_mana_of_other_colors_from_target_and_two_white_preserve_quantity _____
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4cea1dc0>
+
+    def test_mana_of_other_colors_from_target_and_two_white_preserve_quantity(cards):
+>       s,g,l=setup(cards,['Gift of Paradise']);aura=put(s,'Gift of Paradise','battlefield')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:79:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_mana_persistent_replacements48.py:22: in setup
+    s=table(cards,['Quarum Trench Gnomes','Plains',*names],['Plains'],[])
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:12: in deck
+    cmd = cards.resolve(commander)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4cea1dc0>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+___ test_losing_plains_after_resolution_does_not_remove_exact_object_effect ____
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4cea3860>
+
+    def test_losing_plains_after_resolution_does_not_remove_exact_object_effect(cards):
+>       s,g,l=setup(cards,['Gift of Paradise','Spreading Seas'])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:89:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_mana_persistent_replacements48.py:22: in setup
+    s=table(cards,['Quarum Trench Gnomes','Plains',*names],['Plains'],[])
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:12: in deck
+    cmd = cards.resolve(commander)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4cea3860>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+________ test_independent_aura_bonus_is_not_recolored_by_target_effect _________
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4cea1d00>
+
+    def test_independent_aura_bonus_is_not_recolored_by_target_effect(cards):
+>       s,g,l=setup(cards,['Wild Growth']);aura=put(s,'Wild Growth','battlefield')
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:98:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_mana_persistent_replacements48.py:22: in setup
+    s=table(cards,['Quarum Trench Gnomes','Plains',*names],['Plains'],[])
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:12: in deck
+    cmd = cards.resolve(commander)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4cea1d00>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+_____________ test_target_losing_plains_before_resolution_fizzles ______________
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4cea31d0>
+
+    def test_target_losing_plains_before_resolution_fizzles(cards):
+>       s,g,l=setup(cards,['Spreading Seas'])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:107:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_mana_persistent_replacements48.py:22: in setup
+    s=table(cards,['Quarum Trench Gnomes','Plains',*names],['Plains'],[])
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:12: in deck
+    cmd = cards.resolve(commander)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4cea31d0>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+_ test_distinct_resolutions_retain_unique_effect_identity_and_native_overlap_guard _
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4cea1040>
+
+    def test_distinct_resolutions_retain_unique_effect_identity_and_native_overlap_guard(cards):
+>       s,g,l=setup(cards);apply(s,g,l)
+              ^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:115:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_mana_persistent_replacements48.py:22: in setup
+    s=table(cards,['Quarum Trench Gnomes','Plains',*names],['Plains'],[])
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:12: in deck
+    cmd = cards.resolve(commander)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4cea1040>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+________________________ test_canonical_full_definition ________________________
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4c4e4ce0>
+
+    def test_canonical_full_definition(cards):
+        from app.rules import coverage
+>       assert coverage.of_card_data(cards.resolve('Quarum Trench Gnomes')).level=='FULL'
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:125:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4c4e4ce0>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+_______ test_nonbasic_plains_is_legal_and_other_intrinsic_color_survives _______
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4c4e55b0>
+
+    def test_nonbasic_plains_is_legal_and_other_intrinsic_color_survives(cards):
+>       s=table(cards,['Quarum Trench Gnomes','Savannah'],[],[])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:128:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+/tmp/teferi-realm84-stage/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:12: in deck
+    cmd = cards.resolve(commander)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4c4e55b0>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+______ test_true_cold_exact_persistent_receipt_source_already_left[stack] ______
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4c4e5be0>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-6689/test_true_cold_exact_persisten0')
+when = 'stack'
+
+    @pytest.mark.parametrize('when',['stack','resolved'])
+    def test_true_cold_exact_persistent_receipt_source_already_left(cards,tmp_path,when):
+        import subprocess,sys
+>       s,g,l=setup(cards)
+              ^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:142:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_mana_persistent_replacements48.py:22: in setup
+    s=table(cards,['Quarum Trench Gnomes','Plains',*names],['Plains'],[])
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:12: in deck
+    cmd = cards.resolve(commander)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4c4e5be0>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+____ test_true_cold_exact_persistent_receipt_source_already_left[resolved] _____
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4c4e6720>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-6689/test_true_cold_exact_persisten1')
+when = 'resolved'
+
+    @pytest.mark.parametrize('when',['stack','resolved'])
+    def test_true_cold_exact_persistent_receipt_source_already_left(cards,tmp_path,when):
+        import subprocess,sys
+>       s,g,l=setup(cards)
+              ^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:142:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_mana_persistent_replacements48.py:22: in setup
+    s=table(cards,['Quarum Trench Gnomes','Plains',*names],['Plains'],[])
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:12: in deck
+    cmd = cards.resolve(commander)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4c4e6720>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+______ test_target_blink_while_ability_on_stack_never_retargets_successor ______
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4c61f0e0>
+
+    def test_target_blink_while_ability_on_stack_never_retargets_successor(cards):
+>       s,g,l=setup(cards)
+              ^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:177:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_mana_persistent_replacements48.py:22: in setup
+    s=table(cards,['Quarum Trench Gnomes','Plains',*names],['Plains'],[])
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:12: in deck
+    cmd = cards.resolve(commander)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4c61f0e0>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+______________ test_mana_ability_without_tap_cost_is_not_replaced ______________
+
+cards = <app.cards.repository.CardRepository object at 0x7f3a4c4e6f30>
+
+    def test_mana_ability_without_tap_cost_is_not_replaced(cards):
+        from app.rules import mana as M
+>       s,g,l=setup(cards);apply(s,g,l)
+              ^^^^^^^^^^^^
+
+tests/test_rules_mana_persistent_replacements48.py:192:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_mana_persistent_replacements48.py:22: in setup
+    s=table(cards,['Quarum Trench Gnomes','Plains',*names],['Plains'],[])
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/tmp/teferi-realm84-stage/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:12: in deck
+    cmd = cards.resolve(commander)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+app/cards/repository.py:185: in resolve
+    oracle_rows = self._query(
+app/cards/repository.py:74: in _query
+    return self._connection().execute(sql, params).fetchall()
+           ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.cards.repository.CardRepository object at 0x7f3a4c4e6f30>
+
+    def _connection(self) -> sqlite3.Connection:
+        """Open (or re-open after the importer swapped the file) a read-only connection."""
+        try:
+            stat = os.stat(self.db_path)
+        except FileNotFoundError:
+            self._close()
+>           raise CardDatabaseUnavailable("Card database not found. Run `python -m tools.update_cards`.") from None
+E           app.cards.repository.CardDatabaseUnavailable: Card database not found. Run `python -m tools.update_cards`.
+
+app/cards/repository.py:53: CardDatabaseUnavailable
+=========================== short test summary info ============================
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_native_real_targeted_effect_changes_white_and_keeps_producer
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_native_effect_lifetime_uses_exact_target_not_source_presence[source_departure]
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_native_effect_lifetime_uses_exact_target_not_source_presence[source_control]
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_native_effect_lifetime_uses_exact_target_not_source_presence[land_control]
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_native_effect_lifetime_uses_exact_target_not_source_presence[land_blink]
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_native_effect_lifetime_uses_exact_target_not_source_presence[phase_cycle]
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_unrelated_plains_and_nongenuine_target_are_not_affected
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_mana_of_other_colors_from_target_and_two_white_preserve_quantity
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_losing_plains_after_resolution_does_not_remove_exact_object_effect
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_independent_aura_bonus_is_not_recolored_by_target_effect
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_target_losing_plains_before_resolution_fizzles
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_distinct_resolutions_retain_unique_effect_identity_and_native_overlap_guard
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_canonical_full_definition
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_nonbasic_plains_is_legal_and_other_intrinsic_color_survives
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_true_cold_exact_persistent_receipt_source_already_left[stack]
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_true_cold_exact_persistent_receipt_source_already_left[resolved]
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_target_blink_while_ability_on_stack_never_retargets_successor
+FAILED tests/test_rules_mana_persistent_replacements48.py::test_mana_ability_without_tap_cost_is_not_replaced
