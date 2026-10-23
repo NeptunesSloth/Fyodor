@@ -55,18 +55,23 @@ def definition(text: str) -> dict[str, Any] | None:
 def prepare(state: GameState, card: CardInstance, info: CardInfo,
             found: list[tuple[int, ManaAbility]]) -> list[tuple[int, ManaAbility]]:
     """Unpredictable native bodies never promise aggregate mana to AUTO."""
-    from app.rules import attached_mana, tap_mana
+    from app.rules import attached_mana, mana_replace, tap_mana
 
     triggers = [d for owner, d, source in tap_mana._triggers(state, info)
                 if tap_mana._applies(state, info, card, owner, d, source)]
     attached = bool(attached_mana._extras(state, card, info))
-    if not triggers and not attached:
+    hall86 = state.rules is not None and any(
+        x.get('turn') == state.turn.number and x['def'].get('op', {}).get('do') == 'colored_recolor86'
+        for x in state.rules.tap_mana) and any(
+            d['op']['do'] == 'colored_recolor86' and mana_replace._applies(state, info, card, owner, d)
+            for owner, d in mana_replace._statics(state, info))
+    if not triggers and not attached and not hall86:
         return found
     return [(i, replace(ab, native_body=True, chooses=True,
                         immediate_effects=({'do': 'staged_base_mana', 'options': [list(o) for o in ab.options]},
                                            *ab.immediate_effects)))
             if ab.tap and not ab.native_body and ab.reveal_hand is None and
-               (not ab.generic_allowed or any(d.get('staged') for d in triggers)
+               (hall86 or not ab.generic_allowed or any(d.get('staged') for d in triggers)
                 or bool(ab.extra_cost) or ab.sacrifice_self or ab.self_counter is not None
                 or bool(ab.immediate_effects)) else (i, ab) for i, ab in found]
 

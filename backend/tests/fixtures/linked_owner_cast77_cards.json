@@ -1,0 +1,79 @@
+[
+  {
+    "name": "Spell Queller",
+    "oracle_text": "Flash\nFlying\nWhen this creature enters, exile target spell with mana value 4 or less.\nWhen this creature leaves the battlefield, the exiled card's owner may cast that card without paying its mana cost.",
+    "mana_cost": "{1}{W}{U}",
+    "type_line": "Creature \u2014 Spirit",
+    "colors": [
+      "U",
+      "W"
+    ],
+    "power": "2",
+    "toughness": "3"
+  },
+  {
+    "name": "Hydroid Krasis",
+    "oracle_text": "When you cast this spell, you gain half X life and draw half X cards. Round down each time.\nFlying, trample\nThis creature enters with X +1/+1 counters on it.",
+    "mana_cost": "{X}{G}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Jellyfish Hydra Beast",
+    "colors": [
+      "G",
+      "U"
+    ],
+    "power": "0",
+    "toughness": "0",
+    "keywords": [
+      "Flying",
+      "Trample"
+    ],
+    "layout": "normal",
+    "oracle_id": "6bd872b2-5c40-4e11-9a7f-0136a51b0642"
+  },
+  {
+    "name": "Abrupt Decay",
+    "oracle_text": "This spell can't be countered.\nDestroy target nonland permanent with mana value 3 or less.",
+    "mana_cost": "{B}{G}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "colors": [
+      "B",
+      "G"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "layout": "normal",
+    "oracle_id": "1c747fe2-289e-492a-a846-aa77707e2dc3"
+  },
+  {
+    "name": "Bone Splinters",
+    "oracle_text": "As an additional cost to cast this spell, sacrifice a creature.\nDestroy target creature.",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Sorcery",
+    "colors": [
+      "B"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "layout": "normal",
+    "oracle_id": "0c936582-d4c0-4da8-bc7e-49da5a433939"
+  },
+  {
+    "name": "Silence",
+    "oracle_text": "Your opponents can't cast spells this turn.",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "colors": [
+      "W"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "layout": "normal",
+    "oracle_id": "8aed54cb-d1bb-45ad-adbe-38e55d84ff31"
+  }
+]

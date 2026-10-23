@@ -373,6 +373,8 @@ def static_definition(text: str) -> Definition | None:
     if t in ("you may activate equip abilities any time you could cast an instant", "during your turn, you may activate equip abilities any time you could cast an instant"):
         # -- most-played cards III (wave 46C) -- 702.6a: the sorcery timing of equip lifted (Leonin Shikari); (wave 48D: Forge Anew, only during your turn)
         return {"kind": "static", "static": "loyalty_rule", "who": "you", "equip_instant": True, "effects": [], **({"own_turn": True} if t.startswith("during") else {})}
+    if t == "you may pay {0} rather than pay cycling costs":
+        return {"kind": "static", "static": "first_alt", "act": "cycling", "own_turn": False, "repeat": True, "effects": []}
     if (m := FIRST_ALT.fullmatch(t)) is not None:  # -- first activation (wave 48D) -- 118.9: an alternative cost for the first activation (casting.py _first_alt)
         return {"kind": "static", "static": "first_alt", "act": "equip" if m["eq"] else "cycling", "own_turn": bool(m["own"]), "effects": []}
     # -- unspent mana (wave 35C) -- 500.4, 614.1a: "If you would lose unspent mana, that mana becomes colorless instead." (Kruphix, Omnath, Horizon Stone:
@@ -963,10 +965,11 @@ def loyalty_rule(state: GameState, card: CardInstance, info: CardInfo | None, ke
     return False
 
 
-def first_alt(state: GameState, player: str, act: str, info: CardInfo | None) -> bool:
+def first_alt(state: GameState, player: str, act: str, info: CardInfo | None, *, first: bool = True) -> bool:
     """-- first activation (wave 48D) -- does a static let ``player`` pay {0} rather than the ``act`` ("equip" / "cycling") cost of their first such activation (the
     caller checks that none was activated this turn)?"""
-    return any(d["act"] == act and src.controller == player and (not d["own_turn"] or state.turn.active_player == player)
+    return any(d["act"] == act and src.controller == player and (first or d.get("repeat"))
+               and (not d["own_turn"] or state.turn.active_player == player)
                for src, d in _statics(state, info, "first_alt"))
 
 

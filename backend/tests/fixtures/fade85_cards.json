@@ -1,0 +1,482 @@
+[
+  {
+    "name": "Killing Wave",
+    "mana_cost": "{X}{B}",
+    "type_line": "Sorcery",
+    "oracle_text": "For each creature, its controller sacrifices it unless they pay X life.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "cmc": 1.0
+  },
+  {
+    "name": "Fade Away",
+    "mana_cost": "{2}{U}",
+    "type_line": "Sorcery",
+    "oracle_text": "For each creature, its controller sacrifices a permanent of their choice unless they pay {1}.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "cmc": 3.0
+  },
+  {
+    "name": "Tariff",
+    "mana_cost": "{1}{W}",
+    "type_line": "Sorcery",
+    "oracle_text": "Each player sacrifices the creature they control with the greatest mana value unless they pay that creature's mana cost. If two or more creatures a player controls are tied for greatest, that player chooses one.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "cmc": 2.0
+  },
+  {
+    "name": "Cleansing",
+    "mana_cost": "{W}{W}{W}",
+    "type_line": "Sorcery",
+    "oracle_text": "For each land, destroy that land unless any player pays 1 life.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "cmc": 3.0
+  },
+  {
+    "name": "Platinum Emperion",
+    "mana_cost": "{8}",
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "Your life total can't change. (You can't gain or lose life. You can't pay any amount of life except 0.)",
+    "power": "8",
+    "toughness": "8",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "cmc": 8.0
+  },
+  {
+    "name": "Sigarda, Host of Herons",
+    "mana_cost": "{2}{G}{W}{W}",
+    "type_line": "Legendary Creature \u2014 Angel",
+    "oracle_text": "Flying, hexproof\nSpells and abilities your opponents control can't cause you to sacrifice permanents.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+      "G",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "keywords": [
+      "Flying",
+      "Hexproof"
+    ],
+    "cmc": 5.0
+  },
+  {
+    "name": "Bloodletter of Aclazotz",
+    "mana_cost": "{1}{B}{B}{B}",
+    "type_line": "Creature \u2014 Vampire Demon",
+    "oracle_text": "Flying\nIf an opponent would lose life during your turn, they lose twice that much life instead. (Damage causes loss of life.)",
+    "power": "2",
+    "toughness": "4",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "cmc": 4.0
+  },
+  {
+    "name": "Rest in Peace",
+    "mana_cost": "{1}{W}",
+    "type_line": "Enchantment",
+    "oracle_text": "When this enchantment enters, exile all graveyards.\nIf a card or token would be put into a graveyard from anywhere, exile it instead.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "cmc": 2.0
+  },
+  {
+    "name": "Darksteel Colossus",
+    "mana_cost": "{11}",
+    "type_line": "Artifact Creature \u2014 Golem",
+    "oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nIndestructible (Damage and effects that say \"destroy\" don't destroy this creature.)\nIf Darksteel Colossus would be put into a graveyard from anywhere, reveal Darksteel Colossus and shuffle it into its owner's library instead.",
+    "power": "11",
+    "toughness": "11",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Indestructible",
+      "Trample"
+    ],
+    "cmc": 11.0
+  },
+  {
+    "name": "Runed Servitor",
+    "mana_cost": "{2}",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "When this creature dies, each player draws a card.",
+    "power": "2",
+    "toughness": "2",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "cmc": 2.0
+  },
+  {
+    "name": "Vindictive Vampire",
+    "mana_cost": "{3}{B}",
+    "type_line": "Creature \u2014 Vampire",
+    "oracle_text": "Whenever another creature you control dies, this creature deals 1 damage to each opponent and you gain 1 life.",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "cmc": 4.0
+  },
+  {
+    "name": "Vilis, Broker of Blood",
+    "mana_cost": "{5}{B}{B}{B}",
+    "type_line": "Legendary Creature \u2014 Demon",
+    "oracle_text": "Flying\n{B}, Pay 2 life: Target creature gets -1/-1 until end of turn.\nWhenever you lose life, draw that many cards. (Damage causes loss of life.)",
+    "power": "8",
+    "toughness": "8",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "cmc": 8.0
+  },
+  {
+    "name": "Ornithopter",
+    "mana_cost": "{0}",
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "oracle_text": "Flying",
+    "power": "0",
+    "toughness": "2",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ],
+    "cmc": 0.0
+  },
+  {
+    "name": "Runeclaw Bear",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "cmc": 2.0
+  },
+  {
+    "name": "Raise the Alarm",
+    "mana_cost": "{1}{W}",
+    "type_line": "Instant",
+    "oracle_text": "Create two 1/1 white Soldier creature tokens.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "cmc": 2.0
+  },
+  {
+    "name": "Ashnod's Altar",
+    "mana_cost": "{3}",
+    "type_line": "Artifact",
+    "oracle_text": "Sacrifice a creature: Add {C}{C}.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "cmc": 3.0
+  },
+  {
+    "name": "Kresh the Bloodbraided",
+    "mana_cost": "{2}{B}{R}{G}",
+    "type_line": "Legendary Creature \u2014 Human Warrior",
+    "oracle_text": "Whenever another creature dies, you may put X +1/+1 counters on Kresh, where X is that creature's power.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "B",
+      "G",
+      "R"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R"
+    ],
+    "keywords": [],
+    "cmc": 5.0
+  },
+  {
+    "name": "Death's Shadow",
+    "mana_cost": "{B}",
+    "type_line": "Creature \u2014 Avatar",
+    "oracle_text": "This creature gets -X/-X, where X is your life total.",
+    "power": "13",
+    "toughness": "13",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "cmc": 1.0
+  },
+  {
+    "id": "9bc01feb-9e14-40f1-ba4b-87e109c672e7",
+    "oracle_id": "d07d3be3-f69d-4484-8467-cffd43871788",
+    "name": "Myr Retriever",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "274",
+    "rarity": "uncommon",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact Creature \u2014 Myr",
+    "oracle_text": "When this creature dies, return another target artifact card from your graveyard to your hand.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Trevor Hairsine",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "16c5dfed-4dee-4e48-a445-89f03d7794e6",
+    "oracle_id": "36c2fc4c-7d8b-47c2-91c3-e356df60b219",
+    "name": "Angel of Jubilation",
+    "layout": "normal",
+    "set_code": "avr",
+    "set_name": "Avacyn Restored",
+    "collector_number": "2",
+    "rarity": "rare",
+    "mana_cost": "{1}{W}{W}{W}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Angel",
+    "oracle_text": "Flying\nOther nonblack creatures you control get +1/+1.\nPlayers can't pay life or sacrifice creatures to cast spells or activate abilities.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2012-05-04",
+    "artist": "Terese Nielsen",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "eb912458-e016-4ea2-a2ea-40ac1a57f8fb",
+    "oracle_id": "5c8e5092-962e-49ef-ab82-8434e475e4e7",
+    "name": "Food Chain",
+    "layout": "normal",
+    "set_code": "2x2",
+    "set_name": "Double Masters 2022",
+    "collector_number": "147",
+    "rarity": "mythic",
+    "mana_cost": "{2}{G}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Exile a creature you control: Add X mana of any one color, where X is 1 plus the exiled creature's mana value. Spend this mana only to cast creature spells.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-07-08",
+    "artist": "Daarken",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "c9a26f51-5bff-4f06-abaa-6fbb56a8b5b6",
+    "oracle_id": "ff01b408-6d17-40a3-9efd-a1b341ec1307",
+    "name": "Concordant Crossroads",
+    "layout": "normal",
+    "set_code": "2x2",
+    "set_name": "Double Masters 2022",
+    "collector_number": "141",
+    "rarity": "mythic",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "World Enchantment",
+    "oracle_text": "All creatures have haste.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-07-08",
+    "artist": "Alayna Danner",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "733933dd-c871-4f75-8b08-d7c010dddbe6",
+    "oracle_id": "6a0da9f3-cb06-42b1-ae73-b142c0eedaff",
+    "name": "In the Eye of Chaos",
+    "layout": "normal",
+    "set_code": "leg",
+    "set_name": "Legends",
+    "collector_number": "61",
+    "rarity": "rare",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "World Enchantment",
+    "oracle_text": "Whenever a player casts an instant spell, counter it unless that player pays {X}, where X is its mana value.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1994-06-01",
+    "artist": "Brian Sn\u00f5ddy",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0341da27-3d77-4959-b7fa-5929b2cc7141",
+    "oracle_id": "30e99293-3212-4e3f-b543-b1c7c416575d",
+    "name": "Living Plane",
+    "layout": "normal",
+    "set_code": "leg",
+    "set_name": "Legends",
+    "collector_number": "193",
+    "rarity": "rare",
+    "mana_cost": "{2}{G}{G}",
+    "cmc": 4.0,
+    "type_line": "World Enchantment",
+    "oracle_text": "All lands are 1/1 creatures that are still lands.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1994-06-01",
+    "artist": "Bryon Wackwitz",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

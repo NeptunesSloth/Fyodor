@@ -134,7 +134,7 @@ def static_definition(text: str) -> dict[str, Any] | None:
 
 def other_untap_step(plan: Plan) -> None:
     """502.3: in the active player's untap step, each other player's permanents these statics name untap too."""
-    from app.rules import keyword_actions, scripts, selectors
+    from app.rules import keyword_actions, scripts, selectors, statics
 
     active = plan.active
     live = plan.live()
@@ -149,6 +149,8 @@ def other_untap_step(plan: Plan) -> None:
             ch = plan.ch(src)
             for d in scripts.definitions(ch).values():
                 if d.get("static") != STATIC:
+                    continue
+                if not statics.conditions_hold(plan, d, source=src, controller=src.controller):
                     continue
                 if d["sel"] == "self":
                     found.append(src.id)

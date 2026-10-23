@@ -1068,6 +1068,7 @@ class Purpose:
     allocation: M.RequirementPlan | None = None
     selected_cost_has_x: bool | None = None
     producer_requirement: M.ProducerRequirement | None = None
+    cycling_menu72: bool = False  # Announced cycling ability/cost menu, retained through mana preparation.
 
 
 _PURPOSE = TypeAdapter(Purpose)
@@ -1076,6 +1077,7 @@ def _purpose_context(purpose: Purpose | None) -> dict[str, Any]:
     return ({'producer_requirement': _producer_requirement(purpose),
              'alternative':purpose.alternative, 'payment_method':purpose.payment_method,
              'selected_cost_has_x':purpose.selected_cost_has_x,
+             'cycling_menu72': purpose.cycling_menu72,
              'cost_colorless':purpose.cost_colorless,
              'allocation': TypeAdapter(M.RequirementPlan).dump_python(
                  TypeAdapter(M.RequirementPlan).validate_python(purpose.allocation), mode='json')
@@ -4189,18 +4191,30 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
     if prohibited := cast_limits.cycling_problem(plan.state, plan.info):
         raise ActionError(prohibited)
     kind, mana_text = pieces[0]
-    if len(pieces) > 1:  # -- keywords (wave 50H) -- 702.29e: "Mountaincycling {2}, forestcycling {2}": the ability activated is announced first (601.2b)
-        if _first_alt(plan, "cycling"):
-            raise ActionError("Cycle it by hand while an effect lets you pay {0} for the first cycling each turn: Fyodor can't ask both choices yet")
-        if _equip_side(plan, card, ch, a, [c for _, c in pieces], cycling=True, labels=[f"{k}cycling {c}".capitalize() for k, c in pieces]) is None:
-            return  # waiting for the choice
-        kind, mana_text = pieces[int(next(c.cards[0] for c in a.cost_choices if c.component == costs.EITHER_SLOT and c.cards)[7:])]
+    # The native locked payment context captures which menu was announced before mana abilities.
+    free_alt = bool((plan.locked_payment_context or {}).get('cycling_menu72')) if plan.locked_cost is not None else _first_alt(plan, "cycling")
     original_mana_text = mana_text
-    if _first_alt(plan, "cycling") and mana_text != "{0}":  # -- first activation (wave 48D) -- 118.9: "You may pay {0} rather than pay the cycling cost of the first card you cycle each turn" (typecycling too, 702.29f)
-        side = _equip_side(plan, card, ch, a, [mana_text, "{0}"], cycling=True)  # (601.2b: announced before the cost is determined)
-        if side is None:
-            return  # waiting for the choice
-        mana_text = side
+    if len(pieces) > 1 and free_alt:
+        # One native announced choice binds both which cycling ability and its alternative cost.
+        sides = [side for _, cost in pieces for side in (cost, "{0}")]
+        labels = [f"{k}cycling {side}".capitalize() for k, cost in pieces for side in (cost, "{0}")]
+        selected = _equip_side(plan, card, ch, a, sides, cycling=True, labels=labels)
+        if selected is None:
+            return
+        index = int(next(c.cards[0] for c in a.cost_choices if c.component == costs.EITHER_SLOT and c.cards)[7:])
+        kind, original_mana_text = pieces[index // 2]
+        mana_text = selected
+    else:
+        if len(pieces) > 1:
+            if _equip_side(plan, card, ch, a, [c for _, c in pieces], cycling=True, labels=[f"{k}cycling {c}".capitalize() for k, c in pieces]) is None:
+                return
+            kind, mana_text = pieces[int(next(c.cards[0] for c in a.cost_choices if c.component == costs.EITHER_SLOT and c.cards)[7:])]
+        original_mana_text = mana_text
+        if free_alt and mana_text != "{0}":
+            side = _equip_side(plan, card, ch, a, [mana_text, "{0}"], cycling=True)
+            if side is None:
+                return
+            mana_text = side
     from app.rules import cycling_costs
 
     if not cycling_costs.mana_only(mana_text):
@@ -4216,7 +4230,7 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
         raise ActionError("Choose a value for X")
     cycling_x = a.x_value or 0 if mana.x else None
     mana = _locked(plan, mana).with_x(cycling_x or 0)  # -- review (wave 4R) -- 602.2b → 601.2f: locked in, as for other activations
-    if payment_step(plan, a, mana, f"cycling {ch.name}", purpose=Purpose(ability_of=ch, selected_cost_has_x=cycling_x is not None)):
+    if payment_step(plan, a, mana, f"cycling {ch.name}", purpose=Purpose(ability_of=ch, selected_cost_has_x=cycling_x is not None, cycling_menu72=free_alt)):
         return
     if kind:
         effects = cycling_costs.effects(kind)
@@ -4228,7 +4242,7 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
     from app.rules import special_payment_tails
 
     special_payment_tails.pay(plan, "cycling", card, ch, mana, f"paid {mana.text()} to cycle {ch.name}", sources=a.sources,
-                              purpose=Purpose(ability_of=ch, selected_cost_has_x=cycling_x is not None), ability_id=ability_id,
+                              purpose=Purpose(ability_of=ch, selected_cost_has_x=cycling_x is not None, cycling_menu72=free_alt), ability_id=ability_id,
                               effects=effects, number=cycling_x or 0, original_cost=original_mana_text)
 
 
@@ -5854,7 +5868,8 @@ def _first_alt(plan: Plan, act: str) -> bool:
     and they haven't activated one this turn (``_activated`` keeps the log, whoever's static is there: Gavi's ruling, the whole turn counts)."""
     from app.rules import cast_limits
 
-    return plan.rules.once_per_turn.get(f"activated:{plan.actor}:{act}") != plan.state.turn.number and cast_limits.first_alt(plan.state, plan.actor, act, plan.info)
+    return cast_limits.first_alt(plan.state, plan.actor, act, plan.info,
+                                 first=plan.rules.once_per_turn.get(f"activated:{plan.actor}:{act}") != plan.state.turn.number)
 
 
 def _activated(plan: Plan, act: str) -> None:

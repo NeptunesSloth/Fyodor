@@ -2653,6 +2653,22 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import nonbattlefield_life_offers86
+
+    if (answer86 := nonbattlefield_life_offers86.parse(body)) is not None:
+        return answer86
+    from app.rules import public_mill_picks65
+
+    if (admitted62 := public_mill_picks65.parse(body)) is not None:
+        return admitted62
+    from app.rules import creature_obligations85
+
+    if (admitted62 := creature_obligations85.parse(body)) is not None:
+        return admitted62
+    from app.rules import greatest_creature_cost84
+
+    if (admitted62 := greatest_creature_cost84.parse(body)) is not None:
+        return admitted62
     from app.rules import permanent_payments83
 
     if (permanent83 := permanent_payments83.parse(body)) is not None:
@@ -5769,6 +5785,30 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import linked_owner_cast77
+
+    if (admitted62 := linked_owner_cast77.definition(ability, ch)) is not None:
+        return admitted62
+    from app.rules import conditional_untap87
+
+    if (admitted62 := conditional_untap87.definition(ability, ch)) is not None:
+        return admitted62
+    from app.rules import linked_upkeep_casting76
+
+    if (casting76 := linked_upkeep_casting76.definition(ability, ch)) is not None:
+        return casting76
+    from app.rules import phase_skips88
+
+    if (admitted62 := phase_skips88.definition(ability, ch)) is not None:
+        return admitted62
+    from app.rules import mutate_keyword_costs73
+
+    if (admitted62 := mutate_keyword_costs73.definition(ability, ch)) is not None:
+        return admitted62
+    from app.rules import hall_gemstone86
+
+    if (admitted62 := hall_gemstone86.definition(ability, ch)) is not None:
+        return admitted62
     from app.rules import source_cohort87
 
     if (admitted61 := source_cohort87.definition(ability, ch)) is not None:

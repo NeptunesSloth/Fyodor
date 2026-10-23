@@ -350,6 +350,12 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         context.bind_payment(ctx, name, False)
         return True
     why = problem(plan, ctx, cost, payer, cost_has_x=e.get('cost_has_x'))
+    from app.rules import manual_choice_mana85
+
+    manual_mana = bool(cost.mana and all(c.kind == C.MANA for c in cost.components) and not cost.life
+                       and manual_choice_mana85.available(plan, payer))
+    if manual_mana:
+        why = None  # Keep the native activation window open; never select sacrifice objects automatically.
     # -- copied abilities (wave 18F) -- imprint, "you may exile an instant card from your hand": a hand is hidden (101.4a), so whether the
     # choice is offered mustn't tell the other players whether there was a card to exile: the payer is asked either way, and a pay
     # that then finds no card is a decline that says nothing about the hand
@@ -367,7 +373,7 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         opt["needs"] = e["needs"]  # (wave 49D)
     if e.get("defer"):  # -- review (wave 6R) -- paid with the other players' choices (pay_deferred)
         opt["defer"] = True
-    hint = " (tap your mana first)" if cost.mana and _self_pays(plan, payer) else ""
+    hint = " (activate your mana abilities first)" if manual_mana else " (tap your mana first)" if cost.mana and _self_pays(plan, payer) else ""
     shown = re.sub(r"^pay ", "", _label(cost).replace("~", ctx.get("name") or "it"), flags=re.IGNORECASE)  # ("Have ~ deal 7 damage to you": the source by name; "Pay 3 life" once)
     ask = shown if shown.startswith("Have ") else f"Pay {shown}"
     decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: {ask[0].lower()}{ask[1:]}?{hint}",
@@ -673,6 +679,11 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost, *, af
     from app.rules import effects
 
     why = problem(plan, ctx, cost, payer, chosen, cost_has_x=opt.get('cost_has_x'))
+    if why is not None and cost.mana and all(c.kind == C.MANA for c in cost.components) and not cost.life:
+        from app.rules import manual_choice_mana85
+
+        if manual_choice_mana85.available(plan, payer):
+            raise ActionError(f'Activate your mana abilities first: {cost.mana} is not payable yet')
     if why is None and opt.get("needs") and not effects._cards(plan, ctx, opt["needs"]):  # (wave 49D: it may have moved while the payer tapped mana)
         why = "the card is no longer where it went"
     if why is not None:

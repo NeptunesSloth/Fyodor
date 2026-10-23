@@ -161,6 +161,8 @@ def _map_colors(op: dict[str, Any], subtypes: Any) -> list[str]:
 
 def _apply(op: dict[str, Any], option: tuple[str, ...], subtypes: Any = ()) -> list[tuple[str, ...]]:
     mana = tuple(option)
+    if op['do'] == 'colored_recolor86':
+        return [tuple(op['to'] if sym in COLORS else sym for sym in option)]
     if op['do'] == 'white_to_colorless':
         return [tuple('C' if sym == 'W' else sym for sym in option)]
     if op["do"] == "mul":

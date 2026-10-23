@@ -37,7 +37,7 @@ EXTRA = [
 ]
 FULL = ["Time Warp", "Time Stretch", "Temporal Manipulation", "Capture of Jingzhou", "Beacon of Tomorrows", "Temporal Trespass",
         "Mu Yanling", "Karn's Temporal Sundering", "Time Sieve", "Seedtime", "Stitch in Time"]
-MANUAL = ["Savor the Moment"]  # (Final Fortune: wave 19A, tests/test_rules_wave19a_sweep.py)
+UNTAP_SCOPED = ["Savor the Moment"]  # The skip belongs to that exact added turn.
 
 
 @pytest.fixture()
@@ -61,17 +61,18 @@ def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
-@pytest.mark.parametrize("name", MANUAL)
-def test_the_lose_the_game_and_skip_wordings_stay_manual(cards, name):
-    assert coverage.of_card_data(cards.resolve(name)).level != "FULL"
+@pytest.mark.parametrize("name", UNTAP_SCOPED)
+def test_extra_turn_untap_skip_is_automated(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
 def test_the_wordings():
     assert scripts.parse_effects("Take an extra turn after this one.") == ([{"do": "extra_turn", "who": "you", "n": 1}], None, False)
     assert scripts.parse_effects("Target player takes two extra turns after this one.") == (
         [{"do": "extra_turn", "who": "target", "n": 2}], "player", False)
-    for text in ("Take an extra turn after this one. Skip the untap step of that turn.",
-                 "Target opponent takes an extra turn after this one.",
+    assert scripts.parse_effects("Take an extra turn after this one. Skip the untap step of that turn.") == (
+        [{"do": "extra_turn", "who": "you", "n": 1, "skip_untap89": True}], None, False)
+    for text in ("Target opponent takes an extra turn after this one.",
                  "Take four extra turns after this one."):
         assert scripts.parse_effects(text) is None, text
 

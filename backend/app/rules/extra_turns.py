@@ -9,7 +9,7 @@ this one." (Time Stretch), "You take an extra turn after this one." (Mu Yanling)
 * 614.10: a skipped turn never begins; an extra turn can be skipped like any other (skips.take), and a player who has left
   the game takes none (800.4a).
 * "At the beginning of that turn's end step, you lose the game" (Final Fortune, Last Chance: wave 19A) is a delayed trigger made
-  when the extra turn begins. Refused (manual): Warrior's Oath's extra clause, "Skip the untap step of that turn" (Savor the Moment), an extra turn per coin flip, and anything but a single
+  when the extra turn begins. Refused (manual): Warrior's Oath's extra clause, an extra turn per coin flip, and anything but a single
   player taking one, two or three extra turns directly "after this one".
 """
 
@@ -47,9 +47,12 @@ LOSS = re.compile(r"(^|\. )Take an extra turn after this one\. At the beginning 
 NO_POWER_UP = re.compile(r"(^|\. )Take an extra turn after this one\. During that turn, power-up abilities can't be activated\.")
 
 
+SKIP_UNTAP89 = re.compile(r"(^|\. )Take an extra turn after this one\. Skip the untap step of that turn\.")
+
+
 def one_sentence(body: str) -> str:
     """The two sentences read as one clause (the sentence split would part them)."""
-    return NO_POWER_UP.sub(r"\1Take an extra turn after this one with no power-up abilities.", LOSS.sub(r"\1Take an extra turn after this one with a loss at its end step.", body))
+    return SKIP_UNTAP89.sub(r"\1Take an extra turn after this one without an untap step.", NO_POWER_UP.sub(r"\1Take an extra turn after this one with no power-up abilities.", LOSS.sub(r"\1Take an extra turn after this one with a loss at its end step.", body)))
 
 
 def _you_no_power_up(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
@@ -60,9 +63,14 @@ def _you_then_lose(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "extra_turn", "who": "you", "n": 1, "then_lose": True}], None
 
 
+def _you_no_untap89(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "extra_turn", "who": "you", "n": 1, "skip_untap89": True}], None
+
+
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
-    (re.compile(r"^take an extra turn after this one with a loss at its end step$", re.I), _you_then_lose),
-    (re.compile(r"^take an extra turn after this one with no power-up abilities$", re.I), _you_no_power_up),
+    (re.compile(r"^take an extra turn after this one without an untap step$", re.IGNORECASE), _you_no_untap89),
+    (re.compile(r"^take an extra turn after this one with a loss at its end step$", re.IGNORECASE), _you_then_lose),
+    (re.compile(r"^take an extra turn after this one with no power-up abilities$", re.IGNORECASE), _you_no_power_up),
     (re.compile(rf"^(?:take|you take) {_COUNT} after this one$"), _you),
     (re.compile(rf"^target player takes {_COUNT} after this one$"), _target),
 ]
@@ -77,7 +85,8 @@ def extra_turn(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         n = int(e.get("n") or 1)
         for _ in range(n):
             plan.rules.extra_turns.append({"player": pid, "label": name, **({"lose": True} if e.get("then_lose") else {}),
-                                           **({"no_power_up": True} if e.get("no_power_up") else {})})
+                                           **({"no_power_up": True} if e.get("no_power_up") else {}),
+                                           **({"skip_untap89": True} if e.get("skip_untap89") else {})})
         plan.note(f"{plan.name(pid)} will take {'an' if n == 1 else n} extra turn{'s' if n > 1 else ''} after this one "
                   f"({name}, 500.7)", actor=ctx["controller"])
     return True
@@ -99,6 +108,13 @@ def take(plan: Plan) -> str | None:
             plan.note(f"{plan.name(pid)} skips their extra turn ({label}, 614.10)", actor=plan.active)
             continue
         plan.note(f"{plan.name(pid)} takes an extra turn ({rec.get('label') or 'an effect'}, 500.7)", actor=plan.active)
+        if rec.get("skip_untap89"):
+            # The engine asks about this upcoming untap before advancing the
+            # turn number. This record is scoped to that boundary only: if a
+            # static effect skips untap first, the unused record expires when
+            # the turn number advances. Skipped extra turns never reach here.
+            r.skips.append({"id": secrets.token_hex(4), "player": pid, "what": "untap",
+                            "label": str(rec.get("label") or "an effect"), "turn": plan.state.turn.number})
         if rec.get("no_power_up"):  # (wave 50J: that turn is the next one)
             r.no_power_up_turns.append(plan.state.turn.number + 1)
         if rec.get("lose"):  # (created between the turns: "a later turn" is that one, delayed._step_due)

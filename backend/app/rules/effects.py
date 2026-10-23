@@ -6770,3 +6770,36 @@ from app.rules import permanent_payments83 as _permanent83  # noqa: E402, I001
 
 PRIMITIVES.update(_permanent83.PRIMITIVES)
 RESUME.update(_permanent83.RESUME)
+
+from app.rules import greatest_creature_cost84 as _greatest_creature_cost84  # noqa: E402, I001
+
+PRIMITIVES.update(_greatest_creature_cost84.PRIMITIVES)
+RESUME.update(_greatest_creature_cost84.RESUME)
+
+from app.rules import creature_obligations85 as _creature_obligations85  # noqa: E402, I001
+
+PRIMITIVES.update(_creature_obligations85.PRIMITIVES)
+RESUME.update(_creature_obligations85.RESUME)
+
+from app.rules import public_mill_picks65 as _public_mill_picks65  # noqa: E402, I001
+
+PRIMITIVES.update(_public_mill_picks65.PRIMITIVES)
+RESUME.update(_public_mill_picks65.RESUME)
+
+from app.rules import hall_gemstone86 as _hall_gemstone86  # noqa: E402, I001
+
+PRIMITIVES.update(_hall_gemstone86.PRIMITIVES)
+
+from app.rules import phase_skips88 as _phase_skips88  # noqa: E402, I001
+
+PRIMITIVES.update(_phase_skips88.PRIMITIVES)
+RESUME.update(_phase_skips88.RESUME)
+
+from app.rules import linked_owner_cast77 as _linked_owner_cast77  # noqa: E402, I001
+
+PRIMITIVES.update(_linked_owner_cast77.PRIMITIVES)
+
+from app.rules import nonbattlefield_life_offers86 as _life86  # noqa: E402, I001
+
+PRIMITIVES.update(_life86.PRIMITIVES)
+RESUME.update(_life86.RESUME)

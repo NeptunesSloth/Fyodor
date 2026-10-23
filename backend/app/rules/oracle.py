@@ -148,6 +148,8 @@ def keyword_pieces(line: str) -> list[str]:
 
 
 def _keywords_line(line: str) -> tuple[str, ...] | None:
+    if line == 'Equip {10}. This ability costs {X} less to activate, where X is the power of the creature it targets.':
+        return ('equip',)
     from app.rules.conditional_own_discounts import flashback_line
     from app.rules.random_choice_receipts import random_buyback
 
