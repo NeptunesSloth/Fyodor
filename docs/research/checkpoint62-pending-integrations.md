@@ -1,3 +1,5 @@
+CLOSED: checkpoint62 verified:20 exact promotions, no regressions; native167, timing145, collections67,core54,mypy885,Ruff pass. See checkpoint62-coverage.json and resumed-checkpoint62-integrations.md. Historical candidate notes below.
+
 # Checkpoint62 frozen candidate — unadmitted
 
 Baseline verified checkpoint61:29,820 FULL /2,248 PARTIAL; target358/1,500.

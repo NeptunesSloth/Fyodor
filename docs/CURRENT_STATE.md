@@ -1,8 +1,14 @@
-Work resumed at the user’s request after wrap-up. Latest verified implementation is checkpoint61, saved to PR20 with twelve exact additions and no prior FULL regressions. Six agents continue next groups automatically.
+Work resumed at the user’s request after wrap-up. Latest verified implementation is checkpoint62, saved to PR20 with twenty exact additions and no prior FULL regressions. Six agents continue next groups automatically.
 
 Verified implementation was merged in [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). [Active PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20) preserves subsequent verified implementation, the current candidate and remaining research on `codex/card-automation-wrap-up`. PR #18 and PR #19 references below describe historical implementation reviews.
 
-Checkpoint61 verifies12 further cards. See [integration evidence](research/resumed-checkpoint61-integrations.md). Later research remains uninstalled or uncounted until its next frozen audit.
+Checkpoint62 verifies20 further cards. See [integration evidence](research/resumed-checkpoint62-integrations.md). Later research remains uninstalled or uncounted until its next frozen audit.
+
+## CHECKPOINT62 VERIFIED — CONTINUING
+
+Latest catalog: **29,840 FULL /2,228 PARTIAL**. **20 exact expected additions** from checkpoint61; zero prior FULL regressions, missing/unexpected promotions. Metadata and card names match. **378 of1,500 additional completions verified;1,122 remain.** FULL is engine coverage classification.
+
+[Coverage](research/checkpoint62-coverage.json), [885-module hashes](research/checkpoint62-source-hashes.json), [integration evidence](research/resumed-checkpoint62-integrations.md), [logs](research/checkpoint62-validation). Frozen source passes167 native,145 timing,67 collection/outside-game and54 core checks, full mypy885 and Ruff. No fresh full-suite claim. Workers continue subsequent groups automatically.
 
 ## CHECKPOINT61 VERIFIED — CONTINUING
 
