@@ -912,8 +912,9 @@ def finish_cleanup(plan: Plan) -> None:
 
 def turn_cleanup(plan: Plan) -> None:
     """514.2: damage is removed and "until end of turn" effects end, simultaneously."""
-    if any(c.damage for c in plan.state.cards.values()):
-        plan.do({"type": "cleanup", "what": ["damage"]}, actor=plan.active)
+    from app.rules import damage_retention83
+
+    damage_retention83.cleanup(plan)
     if plan.rules.effects:
         layers.end_of_turn(plan)
     plan.rules.regen_shields = {}  # regeneration shields last "this turn"

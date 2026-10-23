@@ -405,8 +405,10 @@ def _event_watchers(plan: Plan) -> list[tuple[CardInstance, Characteristics, int
 
 
 def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Characteristics]:
-    """The object as it last existed on the battlefield (603.10a: leaves-the-battlefield triggers
-    look back in time)."""
+    """The public original object from its recorded departure or fight snapshot.
+
+    CR 603.10a includes battlefield and graveyard departure look-back events.
+    """
     ch = _lki_characteristics(plan, snap)
     # (-- counters (wave 41A) -- 603.10a, 608.2h: "an attacking creature you control dies" (Death Tyrant, Kardur): it was attacking (and whom) / blocking / tapped as it
     # last existed — a selector that asks reads these of the dead object too)
@@ -643,7 +645,14 @@ def _zone_facts(plan: Plan, e: Event) -> list[Fact]:
     if frm == "graveyard" and to != "graveyard" and e.card:
         # 603.10a: leaving the graveyard also happens when a card enters the
         # battlefield; collect it before the battlefield-entry branch returns.
-        got = _card_in(plan, e.card, e.from_zone)
+        # A subsequent hidden shuffle may already have retired e.card. Use
+        # the public graveyard departure snapshot, never its shuffled successor.
+        snap = r.lki.get(e.object_id or "")
+        got = _snapshot_card(plan, snap) if snap is not None else _card_in(plan, e.card, e.from_zone)
+        if got is not None and snap is not None:
+            from app.rules import outside_battlefield_self
+
+            got = got[0], outside_battlefield_self.apply(got[1])
         if got is not None:
             out.append(("leave_graveyard", got[0], got[1], got[0].owner,
                         {"oid": e.object_id, "new_oid": e.new_object_id, "to": e.to_zone, "amount": 1}))
@@ -2655,6 +2664,9 @@ def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
     from app.rules.selectors import EVENT_STAT, _stat
 
     fight_receipts90.bind(plan, t)
+    from app.rules import exchange_choices92
+
+    exchange_choices92.bind(plan, t)
     raw = json.dumps(t.ability)
     other_is_type = bool(t.ability.get('target_other_is_type'))
     if (f'\\"{EVENT_STAT}' not in raw and not other_is_type) or t.event is None or len(t.event.objects) != 1:

@@ -322,7 +322,7 @@ def _finish(state: GameState, info: CardInfo, out: list[Static], wiped: dict[str
 def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: dict[str, tuple[int, int, int]],
                     field: list[tuple[str, str]]) -> list[Static]:
     """Existing granted-static discovery, shared with the prospective field."""
-    from app.rules import scripts
+    from app.rules import damage_retention83, scripts
     from app.rules import statics as grammar
 
     # An ability a static grants may itself be a static ("Commander creatures you own have
@@ -355,7 +355,7 @@ def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: 
                     continue
                 for text in effect.add_abilities:
                     inner = grammar.parse(scripts.self_text(text, ""))
-                    if inner is None or inner.get("who") != "self" or inner.get("layer4") or inner.get("base") or inner.get("p") or inner.get("t") or inner.get("grants"):
+                    if inner is None or (inner.get("who") != "self" and not damage_retention83.resolved_static(inner)) or inner.get("layer4") or inner.get("base") or inner.get("p") or inner.get("t") or inner.get("grants"):
                         continue
                     if inner.get("keywords") or inner.get("rules"):
                         out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))

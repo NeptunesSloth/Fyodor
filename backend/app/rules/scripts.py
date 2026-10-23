@@ -2653,6 +2653,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import shuffle_mill67
+
+    if (shuffle67 := shuffle_mill67.parse(body)) is not None:
+        return shuffle67
     from app.rules import repeated_graveyard_offer89
 
     if (next64 := repeated_graveyard_offer89.parse(body)) is not None:
@@ -2665,6 +2669,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (admitted63 := public_mill_costs64.parse(body)) is not None:
         return admitted63
+    from app.rules import bounded_unless_pay90
+
+    if (answer90 := bounded_unless_pay90.parse(body)) is not None:
+        return answer90
     from app.rules import nonbattlefield_life_offers86
 
     if (answer86 := nonbattlefield_life_offers86.parse(body)) is not None:
@@ -5797,6 +5805,22 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import exchange_choices92
+
+    if (exchange92 := exchange_choices92.definition(ability, ch)) is not None:
+        return exchange92
+    from app.rules import static_count_values94
+
+    if (counts94 := static_count_values94.definition(ability, ch)) is not None:
+        return counts94
+    from app.rules import attached_destruction82
+
+    if (attached82 := attached_destruction82.definition(ability, ch)) is not None:
+        return attached82
+    from app.rules import damage_retention83
+
+    if (retention83 := damage_retention83.definition(ability, ch)) is not None:
+        return retention83
     from app.rules import post_mill_graveyard68
 
     if (grave68 := post_mill_graveyard68.definition(ability, ch)) is not None:
@@ -5897,6 +5921,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (attacks85 := conditional_attacks85.definition(ability, ch)) is not None:
         return attacks85
+    from app.rules import attacked_player_costs80
+
+    if (attacked80 := attacked_player_costs80.definition(ability, ch)) is not None:
+        return attacked80
+
     from app.rules import target_duration_costs69
     if (duration69 := target_duration_costs69.definition(ability, ch)) is not None:
         return duration69
@@ -6261,6 +6290,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (counter_comparison := counter_event_comparisons50.definition(ability, ch)) is not None:
         return counter_comparison
+    from app.rules import temporary_creature_types93
+
+    if (types93 := temporary_creature_types93.definition(ability, ch)) is not None:
+        return types93
     from app.rules import world_upkeep83
 
     if (world_upkeep := world_upkeep83.definition(ability, ch)) is not None:

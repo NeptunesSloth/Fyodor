@@ -657,6 +657,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     """The number a value stands for right now (never negative: 107.1b)."""
     if isinstance(v, int):
         return max(0, v)
+    if 'quotient' in v or 'mana_symbols' in v:
+        from app.rules import static_count_values94
+
+        return static_count_values94.amount(plan, ctx, v)
     if isinstance(v, dict) and 'event_x' in v:
         return max(0, int((ctx.get('event') or {}).get('x') or 0))
     if isinstance(v, dict) and 'activation_life' in v:
@@ -934,7 +938,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return len(plan.state.seat_order) - len(plan.live())
     if "players_attacked" in v:  # -- if you do (wave 40A) -- 506.2, 506.6: a player is "being attacked" when a creature attacks that player (the ruling of Commander Liara Portyr, 2022-06-10: a planeswalker attacked alone does not count its controller)
         return len({c.attacking.id for c in plan.state.cards.values()
-                    if c.attacking is not None and c.attacking.kind == "player" and c.zone.endswith(":battlefield") and c.attacking.id in plan.live()})
+                    if c.attacking is not None and c.attacking.kind == "player" and c.zone.endswith(":battlefield") and c.attacking.id in plan.live()
+                    and (v.get('by') != 'you' or (c.controller == you and c.attacking.id != you))})
     if "attacked_opponents" in v:  # -- casting extras (wave 18E) -- the players its controller attacked in the latest declaration
         return sum(1 for p in plan.rules.attacked_players.get(you, []) if p in plan.live() and p != you)
     if "life" in v:
@@ -1192,6 +1197,10 @@ def _relative(plan: Plan, ctx: dict[str, Any], v: Any) -> int:
         from app.rules import history
 
         return history.log_for(plan).attack_counts.get(plan.oid(card), 0)
+    if v["relative"] in ("mana_symbols", "creature_types_count"):
+        from app.rules import static_count_values94
+
+        return static_count_values94.recipient(plan, card, v)
     mine = plan.ch(card)
     if v["relative"] == "bushido":  # -- counters (wave 44C) -- 702.45a: "for each point of bushido it has": the sum of its bushido abilities' numbers (each instance counts)
         return sum(int(n) for a in mine.abilities if "bushido" in a.keywords for n in re.findall(r"(?i)bushido (\d+)", a.text))

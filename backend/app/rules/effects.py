@@ -6854,3 +6854,11 @@ PRIMITIVES.update(_graveyard_windows80.PRIMITIVES)
 from app.rules import post_mill_graveyard68  # noqa: E402
 
 PRIMITIVES.update(post_mill_graveyard68.PRIMITIVES)
+
+from app.rules import attached_destruction82 as _attached_destruction82  # noqa: E402
+
+PRIMITIVES.update(_attached_destruction82.PRIMITIVES)
+
+from app.rules import exchange_choices92 as _exchange92  # noqa: E402
+
+PRIMITIVES.update(_exchange92.PRIMITIVES)

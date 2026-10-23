@@ -2271,6 +2271,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if value is None or not isinstance(n, (int, float)) or not {"<=": value <= n, ">=": value >= n, "==": value == n, "<": value < n, ">": value > n}[op]:
             return False
     for extra in sel.extras:
+        if extra.startswith('exchange_choices92:'):
+            from app.rules import exchange_choices92
+
+            if not exchange_choices92.matches(plan, card, ch, extra):
+                return False
         if extra.startswith('controller_controls_land:') and not any(
                 c.controller == card.controller and c.zone.endswith(':battlefield')
                 and extra[len('controller_controls_land:'):] in plan.ch(c).subtypes

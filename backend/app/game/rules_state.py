@@ -1883,9 +1883,11 @@ class Capture:
         self.zones = {cid: c.zone for cid, c in state.cards.items()}
         # CR 608.2h: a copy instruction may need a card exiled as a cost after
         # it leaves exile. Capture those public objects while they are there.
+        # CR 603.10a: graveyard-leave events retain their public old object even
+        # when a later library shuffle deliberately destroys its physical id.
         paid_exile = {oid for payment in state.rules.payments.values() for oid in payment.exiled_objects} if state.rules else set()
         self.snaps = {
-            cid: snapshot(state, cid) for cid, c in state.cards.items() if _zone_name(c.zone) in TRACKED_ZONES
+            cid: snapshot(state, cid) for cid, c in state.cards.items() if _zone_name(c.zone) in TRACKED_ZONES or _zone_name(c.zone) == "graveyard"
             or (_zone_name(c.zone) == "exile" and not c.face_down and state.rules is not None
                 and (state.rules.object_id(cid) in paid_exile or bool(c.counters) or cid in state.rules.suspended))
         }

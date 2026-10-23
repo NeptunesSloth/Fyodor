@@ -126,6 +126,10 @@ def _num(word: str) -> int | None:
 def parse(text: str) -> Definition | None:
     """One static ability sentence (the card's own name already written as ~) → definition, or None."""
     t = text.strip().replace("’", "'").replace("“", '"').replace("”", '"')
+    from app.rules import damage_retention83
+
+    if (retention83 := damage_retention83.static(t)) is not None:
+        return retention83
     # 609.4: a rule exception, rather than removing any landwalk ability.
     if t == "Creatures with landwalk abilities can be blocked as though they didn't have those abilities.":
         t = "Creatures can be blocked as though they didn't have landwalk."

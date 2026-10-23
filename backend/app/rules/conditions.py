@@ -64,6 +64,10 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
     refers to ("it's a land card", "~ is tapped") — only for wording inside an ability's effects or
     trigger, which has those objects (statics and restrictions don't)."""
     t = text.strip().rstrip(",").replace("’", "'")
+    from app.rules import damage_retention83
+
+    if (retention83 := damage_retention83.condition(t)) is not None:
+        return retention83
     if t.lower() == 'you control a creature that fought this turn':
         return {'fought_creature90': True}
     from app.rules import graveyard_return57
@@ -1526,6 +1530,10 @@ def bind_objects(cond: Condition, who: str) -> Condition:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if "damaged_creatures83" in cond:
+        from app.rules import damage_retention83
+
+        return damage_retention83.holds(plan, cond)
     if cond.get('fought_creature90'):
         from app.rules import fight_receipts90
 
