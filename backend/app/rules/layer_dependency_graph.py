@@ -168,7 +168,7 @@ class Solver:
             if (real is None or not real.zone.endswith(':battlefield')) and not layers.spell_entry(self.original, incoming, info):
                 self.effects[incoming.id] = [e for e in self.effects[incoming.id] if e.id.startswith('entry:')]
         self.base = {cid: layers.name_changes(layers.subtype_cdas(c, layers.prepared(self.original, c, chars.of(c, info), info)),
-                                            self.effects[cid], layers._attached45(state, c, info, self.raw), info)
+                                            self.effects[cid], layers._attached45(state, c, info, self.raw), info, state, c)
                      for cid, c in self.cards.items()}
         self.base = {cid: replace(chars.provenance(self.cards[cid], ch), on_battlefield=True,
                                   object_counters=frozenset(k for k, n in self.cards[cid].counters.items() if n > 0),

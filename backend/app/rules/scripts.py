@@ -5746,6 +5746,10 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import text_global_word71
+
+    if (global71 := text_global_word71.definition(ability, ch)) is not None:
+        return global71
     from app.rules import conditional_tax80
 
     if (tax80 := conditional_tax80.definition(ability, ch)) is not None:

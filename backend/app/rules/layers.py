@@ -218,6 +218,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
                     (e.text_change71.category, e.text_change71.old, e.text_change71.new) if e.text_change71 is not None else None)
                    for e in r.effects if e.layer == '3') if r else ()
     key_all: tuple = (key, graveyards, gy_modes, hosts, emblems, tuple(sorted(live)), impending, text71,
+                      tuple((oid, tuple((v.card, v.acquisition, v.word) for v in entries)) for oid, entries in sorted(r.color_words71.items())) if r else (),
                       # -- attached events (wave 4L) -- "loses all abilities" effects: their objects' statics are gone
                       tuple(e.id for e in r.effects if e.remove_abilities or e.set_land_types is not None) if r else (),
                       # -- layers (wave 22A) -- the resolved effects the group layers (4-6) are solved against (613.6, 613.8)
@@ -920,23 +921,26 @@ def source_text71(state: GameState, card: CardInstance, ch: Characteristics, inf
         return ch
     oid = state.rules.object_id(card.id)
     found = [e for e in state.rules.effects if e.layer == '3' and oid in e.affected]
-    if not any(e.text_change71 is not None for e in found):
+    if not any(e.text_change71 is not None for e in found) and not state.rules.color_words71:
         return ch
-    return name_changes(ch, found, [], info)
+    return name_changes(ch, found, [], info, state, card)
 
 
 def name_changes(ch: Characteristics, effects: list[ContinuousEffect],
-                 attached45: list[tuple[float, dict[str, Any]]], info: CardInfo | None = None) -> Characteristics:
+                 attached45: list[tuple[float, dict[str, Any]]], info: CardInfo | None = None,
+                 state: GameState | None = None, card: CardInstance | None = None) -> Characteristics:
     """Shared layer3 stage for final derivation and dependency positions (201.5)."""
     names: list[tuple[tuple[float, int, int], str]] = [
         ((stamp, 0, 0), definition["set_name"]) for stamp, definition in attached45
         if definition.get("set_name") is not None]
     names.extend(((effect.object_seq, 1, effect.timestamp), effect.set_name)
                  for effect in effects if effect.layer == "3" and effect.set_name is not None)
-    from app.rules import text_word_changes71
+    from app.rules import text_global_word71, text_word_changes71
 
-    changes = [((e.object_seq, 1, e.timestamp), e.text_change71) for e in effects
+    changes = [((float(e.object_seq), 1, e.timestamp), e.text_change71) for e in effects
                if e.layer == '3' and e.text_change71 is not None]
+    if state is not None and card is not None:
+        changes += text_global_word71.global_changes(state, card, info)
     ordered = [(stamp, name, None) for stamp, name in names] + [(stamp, None, change) for stamp, change in changes]
     for _, name, change in sorted(ordered, key=lambda item: item[0]):
         if change is not None:
@@ -995,7 +999,7 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     effects = affecting(state, card, info)
     each_amounts: dict[int, int] = {}
     attached45 = _attached45(state, card, info)  # -- attached events (wave 4L) -- "Enchanted creature is a … creature"
-    ch = name_changes(ch, effects, attached45, info)
+    ch = name_changes(ch, effects, attached45, info, state, card)
     start = ch  # Abilities after layers 1-3, before layers 4-6 take any away.
     # -- layers (wave 22A) -- group statics of layers 4 and 5 ("Each land is a Swamp in addition …", "Nonbasic lands are Mountains.",
     # "All permanents are colorless.": 613.1d-e, 305.7), the objects each began applying to found as the table was solved (613.6, 613.8)

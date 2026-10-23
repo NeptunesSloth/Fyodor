@@ -364,6 +364,9 @@ def add_copy_effect(plan: Plan, affected: list[str], recipe: CopyRecipe, control
 
     made = layers.add_effect(plan, affected=affected, layer="1", source=source, controller=controller, duration=duration,
                              label=f"Copy of {recipe.source}" if recipe.source else "Copy", copy_recipe=recipe, copy_entry_source=entry_source)
+    from app.rules import text_global_word71
+
+    text_global_word71.record_acquisition(plan, affected, made.id)
     if duration == "next_turn":  # -- becomes a copy (wave 31C) -- 500.4: "until your next turn" ends as the controller's next turn begins (delayed.turn_began)
         made.until_player, made.turn = controller, plan.state.turn.number
 

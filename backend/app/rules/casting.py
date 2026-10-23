@@ -3075,6 +3075,9 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
     faces = dynamic_zone_keyword_costs56.foretell_faces(state, player, card, info) or ((0, 1) if chars.is_two_spell_card(card, info) else (None,))
     for face in faces:
         ch = chars.as_cast(card, info, face)
+        from app.rules import text_global_word71
+
+        ch = text_global_word71.prospective(state, card, ch, info)
         if cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is not None:
             continue
         manual = state.rules is not None and state.rules.card_mode(card.id) == "manual"
@@ -3163,6 +3166,9 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
     if chars.is_two_spell_card(card, info) or state.rules is None or state.rules.card_mode(card.id) == "manual":
         return out  # (a split card / adventure: which half isn't part of the hint)
     ch = chars.as_cast(card, info, face)
+    from app.rules import text_global_word71
+
+    ch = text_global_word71.prospective(state, card, ch, info)
     blocked = cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is not None
     if blocked and cast_problem(state, player, card, ch, check_priority=check_priority, info=info, sneak=True) is not None:
         return out
@@ -3203,6 +3209,9 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
     if chars.is_two_spell_card(card, info) or state.rules is None or state.rules.card_mode(card.id) == "manual":
         return out
     ch = chars.as_cast(card, info, None)
+    from app.rules import text_global_word71
+
+    ch = text_global_word71.prospective(state, card, ch, info)
     if ch.is_land or cast_problem(state, player, card, ch, info=info) is not None:
         return out
     grant = cast_grant(state, player, card, ch, info)
@@ -3264,6 +3273,9 @@ def free_castable(state: GameState, player: str, card: CardInstance, info: CardI
     faces = (0, 1) if chars.is_two_spell_card(card, info) else (None,)
     for face in faces:
         ch = chars.as_cast(card, info, face)
+        from app.rules import text_global_word71
+
+        ch = text_global_word71.prospective(state, card, ch, info)
         if cast_problem(state, player, card, ch, info=info, free=True, check_priority=check_priority) is not None:
             continue
         manual = state.rules is not None and state.rules.card_mode(card.id) == "manual"
@@ -3293,6 +3305,9 @@ def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Character
     mandatory additional cost, "sacrifice a creature", can't be paid). The same checks as ``cast_free``, in the same order; cast_limits'
     prohibitions (601.3) are the caller's. Mana is not checked here: ``can_pay`` doesn't count the mana abilities activated by hand (a Spirit
     Guide, Ashnod's Altar), so a cost increase that can't be paid is met in the payment, where the cast can be cancelled (``_announcing``)."""
+    from app.rules import text_global_word71
+
+    ch = text_global_word71.prospective(plan.state, card, ch, plan.info)
     from app.rules import cast_timing
 
     if (timed := cast_timing.problem(plan.state, player, card, ch, plan.info)) is not None:
@@ -3362,6 +3377,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if any(o.key == a.alt_cost and o.tag == _converted.CONVERTED_TAG for o in _converted.converted_offers(plan.state, plan.actor, card, plan.info)):
             a.face = 1
     ch = chars.as_cast(card, plan.info, a.face, a.fuse)  # split cards / adventures: the half being cast
+    from app.rules import text_global_word71
+
+    global_text_prepared71 = bool(text_global_word71.global_changes(plan.state, card.model_copy(update={'zone': 'stack'}), plan.info))
+    ch = text_global_word71.prospective(plan.state, card, ch, plan.info)
     from app.rules import paid_effect_costs
 
     if paid_effect_costs.announce(plan, a, card, ch):
@@ -3573,6 +3592,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if plan.manual(card) or a.face_down:
             raise ActionError("That card is played by hand: splice by hand with the table tools")
         spliced_ch, spliced_costs = splice.prepare(plan, a.splice, card, ch)
+        original_splice71 = spliced_ch
+        spliced_ch = text_global_word71.prospective(plan.state, card, spliced_ch, plan.info)
         if (definition := per_opponent.for_cast(plan, card.id, scripts.spell_definition(spliced_ch))) is None:  # (review 23A: its groups too)
             raise ActionError("That splice can't be carried out by the engine")
         for sc in spliced_costs:
@@ -3789,7 +3810,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     data.spliced_names = sorted({name for cid in a.splice for name in card_names.names_of(plan.ch(plan.state.cards[cid]))})
     from app.rules import text_spell_refresh71
 
-    data.splice_text71 = text_spell_refresh71.extras(ch.name, ch, spliced_ch) if a.splice else SpliceText71(name=ch.name)
+    data.splice_text71 = text_spell_refresh71.extras(ch.name, ch, original_splice71) if a.splice else SpliceText71(name=ch.name)
+    data.splice_text71.global_change = global_text_prepared71
     payment_data = _CastPayment(data, cost, not_mana, origin, x_payment, _purpose_context(purpose))
     from app.rules import payment_continuations as pc
 
@@ -4882,6 +4904,10 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     from your hand without paying its mana cost". Only cards the engine listed in ``free_casts``.
     X is 0 (107.3b); kicker and other additional costs may still be paid (118.9d); modes, an
     Aura's target and "when you cast" triggers (storm, cascade) work as for any cast."""
+    from app.rules import text_global_word71
+
+    global_text_prepared71 = bool(text_global_word71.global_changes(plan.state, card.model_copy(update={'zone': 'stack'}), plan.info))
+    ch = text_global_word71.prospective(plan.state, card, ch, plan.info)
     r = plan.rules
     if card.id not in r.free_casts or card.zone == STACK or ch.is_land:
         raise ActionError("You can't cast that without paying its mana cost now")
@@ -5036,6 +5062,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     from app.rules import as_cast_values42
 
     data = _PostFreeCast(a, add_cost, add_objects, alt, aura, bargained, card, ch, chosen, definition, gift_to, optional, paid, picked, picked_targets, slot_specs, slots)
+    data.global_text_prepared71 = global_text_prepared71
     data.cast_greatest_power = as_cast_values42.capture(plan, definition)
     if alt is not None or not cost.is_free:
         from app.rules import x_mana_restrictions
@@ -5089,12 +5116,14 @@ class _PostFreeCast:
     kind: str = ""
     record: PaymentRecord | None = None
     cast_greatest_power: int | None = None
+    global_text_prepared71: bool = False
 
 
 def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) -> None:
     record = data.record
     assert record is not None
     record.cast_greatest_power = data.cast_greatest_power
+    record.splice_text71 = SpliceText71(name=data.ch.name, global_change=data.global_text_prepared71)
     r = plan.rules
     a = data.a
     add_cost = data.add_cost

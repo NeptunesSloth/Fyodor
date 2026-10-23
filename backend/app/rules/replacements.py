@@ -972,6 +972,9 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
         from app.rules import chosen_color_pairs45
 
         chosen_color_pairs45.record_entry(plan, card_id, choices)
+        from app.rules import text_global_word71
+
+        text_global_word71.record_entry(plan, card_id, controller, choices)
     # -- replacement effects stage 2 (wave 2E): the counters it enters with, through the counter
     # choke point (122.6, 614.16), in the order its controller chose before it entered (614.12a) --
     from app.rules import (

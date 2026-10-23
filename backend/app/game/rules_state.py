@@ -659,8 +659,18 @@ class HandLimitModifier(BaseModel):
     value: int = 0
 
 
+class ColorWordEntry71(BaseModel):
+    card: str
+    acquisition: str | None = None
+    word: Literal['white', 'blue', 'black', 'red', 'green'] | None
+    provenance: Literal['native_entry', 'native_no_choice', 'manual_restore']
+    chosen_by: str | None = None
+    restored_by: str | None = None
+
+
 class SpliceText71(BaseModel):
     name: str
+    global_change: bool = False
     abilities: list[dict[str, Any]] = Field(default_factory=list)
 
 
@@ -1641,6 +1651,7 @@ class RulesState(BaseModel):
     # -- chosen player (wave 4J) -- "As ~ enters, choose an opponent / a player": object id -> the chosen player's id
     # (the permanent's "Chosen opponent: <name>" entry is only the display; app/rules/chosen.py). Older saves have
     # only the display name: chosen.player_of resolves it when exactly one player has that name.
+    color_words71: dict[str, list[ColorWordEntry71]] = Field(default_factory=dict)
     chosen_color_pairs: dict[str, ChosenColorPairReceipt] = Field(default_factory=dict)
     chosen_players: dict[str, str] = Field(default_factory=dict)
     # -- linked words (wave 33B) -- 607.2f: "As this enchantment enters, choose Khans or Dragons.": object id -> the word it chose (app/rules/chosen.py)

@@ -1,0 +1,15 @@
+{
+  "app/game/rules_state.py": "726bce0d9e420efe94975c490db545ce03754f92381d5dbc94227e056434131d",
+  "app/rules/scripts.py": "e217390ea1b93549378d31005ace55b3a224e3b58fb746e22204de61dcc836db",
+  "app/rules/replacements.py": "28d1df0852bca6ccbbb54a7215896f428a9e700590a8381d2ccaf1e4600b02fa",
+  "app/rules/layers.py": "57669b7ce364d0f2d803d3a23a677d31e19ce3bc0f2f30680e6318a8fa904a1b",
+  "app/rules/layer_dependency_graph.py": "5051dd04f21d03ebbc091fce2831c192db0d946ada813293003ab1b3b4a44ed3",
+  "app/rules/casting.py": "3a4962e23fc45683a49b1782a1915b62d38971e37eca9353cff76cd52abf0e11",
+  "app/rules/effects.py": "660278879022bc0fc1d3e08b002656603ed733f301023297fe1892c0c0feefbd",
+  "app/rules/engine.py": "ad8fcc89f784c815a94445e6d11e76e9e2e2f1eba103852de57d68df407d04b7",
+  "app/rules/copying.py": "4b9cea1bf3108cbcc3e33102c9f951441f4b3d53dc835ee1969d705963a0e97f",
+  "app/rules/permissions.py": "9994e9a6a10cf3d1068a557bae05ec0668f98cacf9e9760a197d6854886d6f5a",
+  "app/rules/cast_limits.py": "547205dfae738fc2eb473adf2fde77552ce9b6972ac015b0c5b45be40c1ebb24",
+  "app/rules/text_spell_refresh71.py": "819821579866d7b572b115a00703b881d0a85ea30658714deac8a2c7b7b29fb1",
+  "app/rules/text_global_word71.py": null
+}

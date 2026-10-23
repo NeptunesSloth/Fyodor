@@ -139,8 +139,16 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
         except ValueError as exc:
             raise ActionError(str(exc)) from None
     plan = Plan(state, actor, info, rng)
-    begin(plan)
-    sync_step(plan)
+    from app.rules import text_global_word71
+
+    if intent.type != 'concede' and text_global_word71.recover(plan, intent):
+        plan.do({'type': 'rules_sync', 'rules': plan.rules.model_dump(mode='json')})
+        return plan.steps
+    # Restore unknown layer-3 source choices before any derived control sync.
+    restoring_word71 = plan.rules.decision is not None and (plan.rules.decision.resume or {}).get('step') == 'restore_global_word71'
+    if not restoring_word71:
+        begin(plan)
+        sync_step(plan)
     handler = INTENTS.get(intent.type)
     if handler is None:
         what = NOT_YET.get(intent.type, intent.type)
@@ -152,6 +160,12 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
         plan.rules.actions += 1  # for "pass until next action"
         plan.rules.last_actor = actor
     handler(plan, intent)
+    if plan.rules.decision is not None and (plan.rules.decision.resume or {}).get('step') == 'restore_global_word71':
+        # Another unknown layer-3 source is still awaiting manual restoration.
+        # Do not derive controls, run SBAs, or refresh reveals against guessed text.
+        remember_intent(plan, intent)
+        plan.do({'type': 'rules_sync', 'rules': plan.rules.model_dump(mode='json')})
+        return plan.steps
     settle(plan)
     if intent.type != "repeat_sequence":
         remember_intent(plan, intent)
@@ -1453,7 +1467,7 @@ def choose(plan: Plan, a: A.Choose) -> None:
         casting.resume_outer(plan)
     permissions.free_cast_abandoned(plan)  # -- free-cast cleanup (wave 30A) -- a cancelled free cast ends before play goes on: advance would resolve the
     # ability it belongs to (still on the stack, ripple) again from its start (-- review 30 -- after the payment a nested choice set aside is back)
-    if step != "reconcile":  # after reconciling, play picks up where the table is (like without questions)
+    if step not in ("reconcile", "restore_global_word71"):  # Unknown layer-3 source restoration must complete before deriving reveals/SBAs.
         advance(plan)
 
 

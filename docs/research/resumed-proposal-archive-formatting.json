@@ -133,5 +133,15 @@
     "original_sha256": "c0e5877c0520f1ad778a8fc0c288ea2b89af7d703dbec76be57317d551569731",
     "archive_sha256": "23e955f6529760317599908acc0c7e50b3689577a9ea30e5461ae514e2b42915",
     "numstat_unchanged": true
+  },
+  "docs/research/proposals/text71-swirl/proposal.patch": {
+    "original_sha256": "0c8c890863995e1c4fbdfd8d2ae7ffc73ab20f9adfd9863eed665114f6a0987c",
+    "archive_sha256": "e610335b18dd1ca56b70a9e2f5d04587e860cdcd60731ed3ffe6f9f3e3369eaf",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/text71-swirl/rebased-current-live.patch": {
+    "original_sha256": "c7188253914abd963e9fc7097b4795a8f782df672912a36deaea85c9140ba3d2",
+    "archive_sha256": "87bdc9d14a35fe3d3c8b249d3c346df177e3762d221428fbb579d57bbb2eb2e9",
+    "numstat_unchanged": true
   }
 }

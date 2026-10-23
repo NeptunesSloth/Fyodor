@@ -1,0 +1,43 @@
+{
+  "status": "UNINSTALLED; root review/production verification required",
+  "names": [
+    "Swirl the Mists"
+  ],
+  "native": {
+    "passed": 49,
+    "new_card_cases": 15,
+    "related_non_swirl_cases": 34,
+    "cold_process_cases": 7,
+    "log": "final49.log"
+  },
+  "types": {
+    "files": 13,
+    "result": "PASS",
+    "log": "types13.log"
+  },
+  "ruff": {
+    "files": 13,
+    "result": "PASS",
+    "log": "ruff13.log"
+  },
+  "core": {
+    "tests": 54,
+    "result": "PASS",
+    "log": "core54.log"
+  },
+  "stage": "/tmp/text71-swirl-final-stage",
+  "source_hashes": "source-hashes.json",
+  "patch": "proposal.patch",
+  "patch_sha256": "0c8c890863995e1c4fbdfd8d2ae7ffc73ab20f9adfd9863eed665114f6a0987c",
+  "patch_base": "/tmp/text71-current-backend (previously reviewed non-Swirl10 stage), not current live; preserve newer unrelated integrations",
+  "review_boundaries": [
+    "Native entry controller is recorded; manual restored historical chooser stays unknown.",
+    "Manual word restoration persists before original actor separately continues/cancels; original server priority is preserved.",
+    "Existing unrelated legacy decision with unknown source word rejects explicitly for manual handling.",
+    "Pending old-source restoration never assigns its old word to a new incarnation.",
+    "No controls, SBA, or reveal derivation between unresolved source restorations.",
+    "Announcement receipt requires current-text recompilation after last global source leaves.",
+    "Paid splice keeps original added text; prospective native/free offers use changed spell selectors."
+  ],
+  "classification": "Staged native canonical Swirl features all supported FULL; no production promotion claimed."
+}

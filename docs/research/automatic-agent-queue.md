@@ -8,12 +8,14 @@ Use the newest verified catalog inventory to choose coherent shared rule gaps. B
 
 Current resumed ownership:
 
-- `kicker61`: kicker X and original-object damage.
-- `combat79`: unblocked combat, then combat groups.
-- `library58`: optional payments and library/graveyard continuations.
-- `toplibrary69`: top-library casting permissions and costs.
-- `entry76`: actual entry putters, or next counter/payment family while authority remains held.
-- `text71`: typed text-changing foundation and card rules.
+- `kicker61`: source-dependent costs, then first-activation and alternative-cost groups.
+- `combat79`: crew/saddle readers, then combat groups.
+- `library58`: prepared mill and public library/graveyard continuations.
+- `toplibrary69`: pooled linked-exile and graveyard casting permissions.
+- `entry76`: conditional taxes and true-destruction/upkeep consequences, then payment windows.
+- `text71`: World duration/SBA foundation after closing Swirl.
+
+Checkpoint59 is frozen with 849 app/tools modules and 25 exact expected additions. Catalog, full types and latest native checks are running; configured Ruff and 54 core checks pass. Later proposals are excluded from that snapshot. No new verified totals are claimed yet.
 
 Historical ownership:
 
@@ -24,8 +26,8 @@ Historical ownership:
 - `resume_library`: ordered graveyard readers, then remaining library/hand/graveyard choice families.
 - `integration_review`: combat direction and requirements, then remaining static/combat families.
 
-After each batch, send the exact completed-card manifest, native whole-card/negative/cold evidence, and shared patch to root. Move directly to the next largest disjoint coherent group while root reviews and integrates. Coordinate shared kernel edits with the current owner; do not wait idly for integration when independent work is available. Root reviews concrete shared patches, preserves work in PR19, and runs a frozen full-catalog diff before updating verified totals. Classifier-only changes never count as implementation.
+After each batch, send the exact completed-card manifest, native whole-card/negative/cold evidence, and shared patch to root. Move directly to the next largest disjoint coherent group while root reviews and integrates. Coordinate shared kernel edits with the current owner; do not wait idly for integration when independent work is available. Root reviews concrete shared patches, preserves work in PR20, and runs a frozen full-catalog diff before updating verified totals. Classifier-only changes never count as implementation.
 
 Each production admission requires the exact reviewed source, native whole-card and negative proofs, genuine cold continuation where applicable, and related checks. Production closures after checkpoint50 remain uncounted until the next frozen catalog diff.
 
-Current live worker names after restart: resume_triggers, resume_counters, resume_mana, resume_exile, resume_library, integration_review (now static/combat implementation). Checkpoint58 verifies32 additional promotions; target progress285/1,500. Later batches stay uncounted until their snapshot diff. Root remains active across checkpoints and status questions.
+Current live worker names are the six resumed owners listed above. Checkpoint58 verifies32 additional promotions; target progress285/1,500. Later batches stay uncounted until their snapshot diff. Root remains active across checkpoints and status questions.

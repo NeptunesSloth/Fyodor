@@ -2167,19 +2167,23 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
             if cast_limits.free_cast_blocked(plan, pid, cid, face) is not None:  # (wave 29B: the half / face being offered)
                 continue
-            from app.rules import casting  # (review 29B: no choice may be a dead end, 601.2c / 601.5)
+            from app.rules import (
+                casting,  # (review 29B: no choice may be a dead end, 601.2c / 601.5)
+                text_global_word71,
+            )
 
-            if casting.free_cast_problem(plan, pid, card, chars.as_cast(card, plan.info, face), paid=bool(e.get("paid")), x=0 if e.get("effect_mana_cost") is not None else None) is not None:  # (the half cast_spell casts)
+            prospective71 = text_global_word71.prospective(plan.state, card, chars.as_cast(card, plan.info, face), plan.info)
+            if casting.free_cast_problem(plan, pid, card, prospective71, paid=bool(e.get("paid")), x=0 if e.get("effect_mana_cost") is not None else None) is not None:  # (the half cast_spell casts)
                 continue
             if e.get('effect_alternative'):
                 from app.rules import effect_cast_costs
 
-                if effect_cast_costs.problem(plan, pid, card, chars.as_cast(card, plan.info, face), e) is not None:
+                if effect_cast_costs.problem(plan, pid, card, prospective71, e) is not None:
                     continue
             if e.get('required'):
                 from app.rules import costs
 
-                extra = costs.spell_additional_cost(ch.abilities)
+                extra = costs.spell_additional_cost(prospective71.abilities)
                 if extra is not None and casting.additional_problem(plan, extra, card, pid) is not None:
                     continue
                 # 118.8c: a mandatory cast may be declined rather than exposing

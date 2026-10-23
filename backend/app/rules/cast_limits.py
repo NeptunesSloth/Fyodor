@@ -1143,7 +1143,9 @@ def free_cast_blocked(plan: Plan, player: str, card_id: str, face: int | None = 
     if card is None:
         return None
     faces = (face,) if face is not None else (0, 1) if chars.is_two_spell_card(card, plan.info) else (None,)
-    found = [cast_problem(plan.state, player, card, chars.as_cast(card, plan.info, f), plan.info, resolving=True) for f in faces]
+    from app.rules import text_global_word71
+
+    found = [cast_problem(plan.state, player, card, text_global_word71.prospective(plan.state, card, chars.as_cast(card, plan.info, f), plan.info), plan.info, resolving=True) for f in faces]
     return found[0] if all(found) else None
 
 

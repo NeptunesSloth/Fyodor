@@ -6702,3 +6702,13 @@ RESUME.update(upkeep_tax79.RESUME)
 from app.rules import prepared_mill61 as _prepared_mill61  # noqa: E402, I001
 
 RESUME.update(_prepared_mill61.RESUME)
+
+
+CHOICE_OPTIONS['color word'] = list(_text_change_instructions71.COLORS)
+CHOICE_LABELS['color word'] = 'Chosen color word'
+
+from app.rules import text_global_word71 as _global_word71  # noqa: E402
+
+RESUME['restore_global_word71'] = _global_word71.resume_restore
+
+RESUME['restore_global_continue71'] = _global_word71.resume_continue
