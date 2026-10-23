@@ -1,0 +1,57 @@
+..FF.                                                                    [100%]
+=================================== FAILURES ===================================
+_ test_case_is_solved_by_actual_life_gain_and_sacrifice_grants_only_current_creature_objects80 _
+tests/test_rules_graveyard_windows80.py:85: in test_case_is_solved_by_actual_life_gain_and_sacrifice_grants_only_current_creature_objects80
+    assert casting.castable(s.state, 'p1', bear, cards) and casting.castable(s.state, 'p1', rivaz, cards)
+E   AssertionError: assert (False)
+E    +  where False = <function castable at 0x7f396caa72e0>(GameState(format_version=1, id='6c8c58f83a1b16c0', name='Game', format='commander', created_at=1792722985.3670588, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})), 'p1', CardInstance(borrow_identity=None, id='bd18dc3f40f3', card_id='966917fc-bf95-5f32-9205-0a0b9515cdac', name='Grizzly Be...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False), <app.cards.repository.CardRepository object at 0x7f396ce97530>)
+E    +    where <function castable at 0x7f396caa72e0> = casting.castable
+E    +    and   GameState(format_version=1, id='6c8c58f83a1b16c0', name='Game', format='commander', created_at=1792722985.3670588, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7f396cffcd70>.state
+__ test_case_current_front_creature_can_cast_its_noncreature_reverse_spell80 ___
+app/rules/casting.py:1319: in _find_payment
+    return _solve_with_filters(cost, pool, marked + units, filters, life, input_spending=lambda due: _spending_cost(state, player, info, due))  # SAVE sources only when nothing else works
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:1202: in _solve_with_filters
+    raise error
+app/rules/casting.py:1131: in _solve_with_filters
+    return M.solve(cost, pool, plain, life=life)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/mana.py:839: in solve
+    raise ManaError(f"Not enough mana to pay {cost.text()}")
+E   app.rules.mana.ManaError: Not enough mana to pay {6}{R}{R}
+
+The above exception was the direct cause of the following exception:
+tests/test_rules_graveyard_windows80.py:106: in test_case_current_front_creature_can_cast_its_noncreature_reverse_spell80
+    act(s, 'p1', type='cast_spell', card_id=target.id, face=1)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:163: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3849: in cast_spell
+    _cast_payment(plan, payment_data, None)
+app/rules/casting.py:3910: in _cast_payment
+    pay_spell_then(plan, data.data.a, card, data.data.ch, data.cost,
+app/rules/casting.py:1901: in pay_spell_then
+    _pay_spell(plan, a, card, ch, cost, label, not_mana=not_mana, origin=origin, then=then, x_payment=x_payment, payment_context=payment_context)
+app/rules/casting.py:1761: in _pay_spell
+    pay_then(plan, player, rest, label, sources=a.sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1574: in pay_then
+    result = _pay(plan, player, cost, label, sources=sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1586: in _pay
+    payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude, purpose=purpose,
+app/rules/casting.py:1215: in find_payment
+    payment = _find_payment(state, player, _constrained(_spending_cost(state, player, info, life_for_mana(state, player, info, cost)), purpose), info, sources=sources, exclude=exclude,
+app/rules/casting.py:1321: in _find_payment
+    raise ActionError(f"{exc}. Tap mana yourself first, or use the table tools.") from exc
+E   app.game.errors.ActionError: Not enough mana to pay {6}{R}{R}. Tap mana yourself first, or use the table tools.
+=========================== short test summary info ============================
+FAILED tests/test_rules_graveyard_windows80.py::test_case_is_solved_by_actual_life_gain_and_sacrifice_grants_only_current_creature_objects80
+FAILED tests/test_rules_graveyard_windows80.py::test_case_current_front_creature_can_cast_its_noncreature_reverse_spell80
+2 failed, 3 passed in 22.98s

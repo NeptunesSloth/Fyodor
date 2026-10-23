@@ -1,0 +1,9 @@
+# Historical opponent search after leaving
+
+Pinned CR 800.4i, full text: "If an effect requires information about a specific player, the effect uses the current information about that player if they are still in the game; otherwise, the effect uses the last known information about that player before they left the game. If an effect requires information from the game about actions players have taken, the effect can find actions that were taken by a player who has left the game. If an effect requires information from the game about actions players have taken during their 'last turn,' it can find the actions that were taken by a player who has left the game only until that player's next turn after leaving the game would have begun."
+
+Archive Trap asks whether an opponent searched their library this turn: a historical game action. Leaving the game does not erase that actual prior search. Its printed condition does not require choosing or affecting the searching opponent now; the remaining target opponent can be different (official ruling 2009-10-01). Therefore the original receipt remains sufficient. A search by the caster remains insufficient; searching another player's library remains insufficient.
+
+Official analogues saved with full printing/rulings JSONs at ../../native-count-discounts79/authority/: Chandra's Incinerator has the historical cost-reduction wording "noncombat damage dealt to your opponents this turn"; its 2020-06-23 ruling explicitly counts opponents who lost the game. Thought Sponge's 2019-08-23 ruling explicitly counts prior draws by opponents who left the game. These establish that current live-player membership is not a general filter on historical actions.
+
+Two narrow fixes remove the live-player test from history.holds and the selected-alternative legacy-unknown positive-receipt exemption. Native search receipts, unknown-history defaults, next-turn reset and all search eligibility checks are unchanged.

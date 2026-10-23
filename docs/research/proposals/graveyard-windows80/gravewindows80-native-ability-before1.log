@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_case_grants_an_actual_current_object_ability_not_an_orphan_cast_permission80 _
+tests/test_rules_graveyard_windows80.py:354: in test_case_grants_an_actual_current_object_ability_not_an_orphan_cast_permission80
+    assert any(a.text == quote for a in Plan(s.state, 'p1', cards, None).ch(target).abilities)
+E   assert False
+E    +  where False = any(<generator object test_case_grants_an_actual_current_object_ability_not_an_orphan_cast_permission80.<locals>.<genexpr> at 0x7f96c7911490>)
+=========================== short test summary info ============================
+FAILED tests/test_rules_graveyard_windows80.py::test_case_grants_an_actual_current_object_ability_not_an_orphan_cast_permission80
+1 failed, 14 deselected in 48.64s

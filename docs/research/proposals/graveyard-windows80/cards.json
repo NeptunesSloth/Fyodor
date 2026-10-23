@@ -1,0 +1,143 @@
+[
+  {
+    "name": "Advanced Reconstruction",
+    "oracle_text": "(Gain the next level as a sorcery to add its ability.)\nAt the beginning of your first main phase, mill a card, then exile a card from your graveyard at random. You may play the exiled card this turn.\n{1}{R}: Level 2\nWhenever one or more cards leave your graveyard, this Class deals 2 damage to each opponent.\n{1}{R}: Level 3\nSpells you cast from anywhere other than your hand cost {2} less to cast.",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Enchantment \u2014 Class",
+    "colors": [
+      "R"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [
+      "Mill"
+    ],
+    "layout": "class",
+    "oracle_id": "f00bc101-8082-4459-b987-f0c4b7a12344"
+  },
+  {
+    "name": "Case of the Uneaten Feast",
+    "oracle_text": "Whenever a creature you control enters, you gain 1 life.\nTo solve \u2014 You've gained 5 or more life this turn. (If unsolved, solve at the beginning of your end step.)\nSolved \u2014 Sacrifice this Case: Creature cards in your graveyard gain \"You may cast this card from your graveyard\" until end of turn.",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Enchantment \u2014 Case",
+    "colors": [
+      "W"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [
+      "Solved"
+    ],
+    "layout": "case",
+    "oracle_id": "0d8730b5-f7ba-48b0-928d-d8b7685347d3"
+  },
+  {
+    "name": "Healing Salve",
+    "oracle_text": "Choose one \u2014\n\u2022 Target player gains 3 life.\n\u2022 Prevent the next 3 damage that would be dealt to any target this turn.",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "colors": [
+      "W"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "layout": "normal",
+    "oracle_id": "8da8644c-75a1-4fe9-8e94-900d948d631c"
+  },
+  {
+    "name": "Llanowar Elves",
+    "oracle_text": "{T}: Add {G}.",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "colors": [
+      "G"
+    ],
+    "power": "1",
+    "toughness": "1",
+    "keywords": [],
+    "layout": "normal",
+    "oracle_id": "68954295-54e3-4303-a6bc-fc4547a4e3a3"
+  },
+  {
+    "name": "Elvish Mystic",
+    "oracle_text": "{T}: Add {G}.",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "colors": [
+      "G"
+    ],
+    "power": "1",
+    "toughness": "1",
+    "keywords": [],
+    "layout": "normal",
+    "oracle_id": "3f3b2c10-21f8-4e13-be83-4ef3fa36e123"
+  },
+  {
+    "name": "Birgi, God of Storytelling // Harnfel, Horn of Bounty",
+    "oracle_text": "Whenever you cast a spell, add {R}. Until end of turn, you don't lose this mana as steps and phases end.\nCreatures you control can boast twice during each of your turns rather than once.\n//\nDiscard a card: Exile the top two cards of your library. You may play those cards this turn.",
+    "mana_cost": "{2}{R} // {4}{R}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 God // Legendary Artifact",
+    "colors": [
+      "R"
+    ],
+    "power": "3",
+    "toughness": "3",
+    "keywords": [],
+    "layout": "modal_dfc",
+    "oracle_id": "fb81e4d3-1d8c-4779-be62-87cf49277e51",
+    "card_faces": [
+      {
+        "name": "Birgi, God of Storytelling",
+        "mana_cost": "{2}{R}",
+        "type_line": "Legendary Creature \u2014 God",
+        "oracle_text": "Whenever you cast a spell, add {R}. Until end of turn, you don't lose this mana as steps and phases end.\nCreatures you control can boast twice during each of your turns rather than once.",
+        "power": "3",
+        "toughness": "3",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "R"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "Harnfel, Horn of Bounty",
+        "mana_cost": "{4}{R}",
+        "type_line": "Legendary Artifact",
+        "oracle_text": "Discard a card: Exile the top two cards of your library. You may play those cards this turn.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "R"
+        ],
+        "image_face": 1
+      }
+    ]
+  },
+  {
+    "name": "Forensic Researcher",
+    "oracle_text": "{T}: Untap another target permanent you control.\n{T}, Collect evidence 3: Tap target creature you don't control. (To collect evidence 3, exile cards with total mana value 3 or greater from your graveyard.)",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Merfolk Detective",
+    "colors": [
+      "U"
+    ],
+    "power": "1",
+    "toughness": "3",
+    "keywords": [
+      "Collect evidence"
+    ],
+    "layout": "normal",
+    "oracle_id": "75e7f7c7-fa98-497b-bf5e-8f74571e190c"
+  }
+]

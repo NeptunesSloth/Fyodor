@@ -1,0 +1,98 @@
+{
+  "Advanced Reconstruction": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "f00bc101-8082-4459-b987-f0c4b7a12344",
+        "source": "wotc",
+        "published_at": "2026-03-20",
+        "comment": "You pay all costs and follow all timing rules for cards played this way. For example, if the exiled card is a land card, you may play it only during your main phase while the stack is empty and only if you have an available land play remaining."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "f00bc101-8082-4459-b987-f0c4b7a12344",
+        "source": "wotc",
+        "published_at": "2026-03-20",
+        "comment": "If multiple cards leave your graveyard at the same time, Advanced Reconstruction's level 2 ability will trigger only once."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "f00bc101-8082-4459-b987-f0c4b7a12344",
+        "source": "wotc",
+        "published_at": "2026-03-20",
+        "comment": "To determine the total cost of a spell, start with the mana cost or alternative cost you're paying, add any cost increases, then apply any cost reductions (such as that of Advanced Reconstruction's level 3 ability). The mana value of the spell is determined by only its mana cost, no matter what the total cost to cast that spell was."
+      }
+    ]
+  },
+  "Case of the Uneaten Feast": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "0d8730b5-f7ba-48b0-928d-d8b7685347d3",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "Each Case has two special keyword abilities: to solve and solved."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "0d8730b5-f7ba-48b0-928d-d8b7685347d3",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "\"To Solve \u2014 [condition]\" means \"At the beginning of your end step, if [condition] and this Case is not solved, it becomes solved.\""
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "0d8730b5-f7ba-48b0-928d-d8b7685347d3",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "The meaning of \"solved\" differs based on what type of ability follows it. \"Solved \u2014 [activated ability]\" means \"[Activated ability]. Activate only if this Case is solved.\" Activated abilities contain a colon. They're generally written \"[Cost]: [Effect].\" "
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "0d8730b5-f7ba-48b0-928d-d8b7685347d3",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "\"Solved \u2014 [Triggered ability]\" means \"[Triggered ability]. This ability triggers only if this Case is solved.\" Triggered abilities use the word \"when,\" \"whenever,\" or \"at.\" They're often written as \"[Trigger condition], [effect].\""
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "0d8730b5-f7ba-48b0-928d-d8b7685347d3",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "\"Solved \u2014 [static ability]\" means \"As long as this Case is solved, [static ability].\" Static abilities are written as statements, such as \"Creatures you control get +1/+1\" or \"Instant and sorcery spells you cast cost {1} less to cast.\""
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "0d8730b5-f7ba-48b0-928d-d8b7685347d3",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "\"To solve\" abilities will check for their condition twice: once when the ability would trigger, and once when it resolves. If the condition isn't true at the beginning of your end step, the ability won't trigger at all. If the condition isn't true when the ability resolves, the Case won't become solved."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "0d8730b5-f7ba-48b0-928d-d8b7685347d3",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "Once a Case becomes solved, it stays solved until it leaves the battlefield."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "0d8730b5-f7ba-48b0-928d-d8b7685347d3",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "Cases don't lose their other abilities when they become solved."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "0d8730b5-f7ba-48b0-928d-d8b7685347d3",
+        "source": "wotc",
+        "published_at": "2024-02-02",
+        "comment": "Being solved is not part of a permanent's copiable values. A permanent that becomes a copy of a solved Case is not solved. A solved Case that somehow becomes a copy of a different Case stays solved."
+      }
+    ]
+  }
+}

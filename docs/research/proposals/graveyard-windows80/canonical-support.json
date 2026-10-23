@@ -1,0 +1,214 @@
+[
+  {
+    "id": "0ff82aba-9022-4eff-a6dc-67365360d646",
+    "oracle_id": "8da8644c-75a1-4fe9-8e94-900d948d631c",
+    "name": "Healing Salve",
+    "layout": "normal",
+    "set_code": "dvd",
+    "set_name": "Duel Decks Anthology: Divine vs. Demonic",
+    "collector_number": "14",
+    "rarity": "common",
+    "mana_cost": "{W}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Choose one \u2014\n\u2022 Target player gains 3 life.\n\u2022 Prevent the next 3 damage that would be dealt to any target this turn.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2014-12-05",
+    "artist": "Greg Hildebrandt & Tim Hildebrandt",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "5368ce20-0970-4630-8c46-439db2231a39",
+    "oracle_id": "68954295-54e3-4303-a6bc-fc4547a4e3a3",
+    "name": "Llanowar Elves",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "213",
+    "rarity": "common",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Eric Wilkerson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "8ef95e7a-9f07-41f8-908b-2df93e03d391",
+        "name": "Marwyn's Kindred",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "4b8a8685-6f30-4fa1-959a-75ffb8cd7fb0",
+    "oracle_id": "3f3b2c10-21f8-4e13-be83-4ef3fa36e123",
+    "name": "Elvish Mystic",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "202",
+    "rarity": "common",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {G}.",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Wesley Burt",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "44657ab1-0a6a-4a5f-9688-86f239083821",
+    "oracle_id": "fb81e4d3-1d8c-4779-be62-87cf49277e51",
+    "name": "Birgi, God of Storytelling // Harnfel, Horn of Bounty",
+    "layout": "modal_dfc",
+    "set_code": "khm",
+    "set_name": "Kaldheim",
+    "collector_number": "123",
+    "rarity": "rare",
+    "mana_cost": "{2}{R} // {4}{R}",
+    "cmc": 3.0,
+    "type_line": "Legendary Creature \u2014 God // Legendary Artifact",
+    "oracle_text": "Whenever you cast a spell, add {R}. Until end of turn, you don't lose this mana as steps and phases end.\nCreatures you control can boast twice during each of your turns rather than once.\n//\nDiscard a card: Exile the top two cards of your library. You may play those cards this turn.",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [
+      {
+        "name": "Birgi, God of Storytelling",
+        "mana_cost": "{2}{R}",
+        "type_line": "Legendary Creature \u2014 God",
+        "oracle_text": "Whenever you cast a spell, add {R}. Until end of turn, you don't lose this mana as steps and phases end.\nCreatures you control can boast twice during each of your turns rather than once.",
+        "power": "3",
+        "toughness": "3",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "R"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "Harnfel, Horn of Bounty",
+        "mana_cost": "{4}{R}",
+        "type_line": "Legendary Artifact",
+        "oracle_text": "Discard a card: Exile the top two cards of your library. You may play those cards this turn.",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "R"
+        ],
+        "image_face": 1
+      }
+    ],
+    "double_faced": true,
+    "image_faces": 2,
+    "has_image": false,
+    "released_at": "2021-02-05",
+    "artist": "Eric Deschamps",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "1384df5d-d705-49cb-a982-1588cbf303d8",
+    "oracle_id": "75e7f7c7-fa98-497b-bf5e-8f74571e190c",
+    "name": "Forensic Researcher",
+    "layout": "normal",
+    "set_code": "mkm",
+    "set_name": "Murders at Karlov Manor",
+    "collector_number": "58",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Merfolk Detective",
+    "oracle_text": "{T}: Untap another target permanent you control.\n{T}, Collect evidence 3: Tap target creature you don't control. (To collect evidence 3, exile cards with total mana value 3 or greater from your graveyard.)",
+    "power": "1",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Collect evidence"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-02-09",
+    "artist": "Aldo Dom\u00ednguez",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

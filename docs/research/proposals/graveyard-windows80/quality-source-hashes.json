@@ -1,0 +1,18 @@
+{
+  "graveyard_windows80.py": {
+    "root": null,
+    "candidate": "095ddcdb306e21e87fbd9921ffd7f21fe07c4e7fb3c4dc9877760f90e6f26e9f"
+  },
+  "scripts.py": {
+    "root": "be0e0eb42b138a284f4ab3c78fbc9b8dddd7e669d2c2539c084ea9c57ff95523",
+    "candidate": "f0e09ae6bef7a2158dd89d77cd0fc1ea9cd56db91877a55fd4703d348b254171"
+  },
+  "effects.py": {
+    "root": "db307b8690b568a8cbb3bfbc2d26b49d4400306ac1a87c737d390040e0ae7647",
+    "candidate": "20ab424e1e79e44299bfa55114d1f71a6ea09b9eea56d818a79453db547743c1"
+  },
+  "permissions.py": {
+    "root": "fb2a8443184fc0c6250ecba2534df1d20df32aa4a5229b183484d1cf78c1b844",
+    "candidate": "00fe2a08479922aeede91cf5aa0b4ee9f1db7f4ffbea79db1fdea4328ad74934"
+  }
+}

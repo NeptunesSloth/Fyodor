@@ -1,8 +1,14 @@
-Work resumed at the user’s request after wrap-up. Latest verified implementation is checkpoint62, saved to PR20 with twenty exact additions and no prior FULL regressions. Six agents continue next groups automatically.
+Work resumed at the user’s request after wrap-up. Latest verified implementation is checkpoint63, saved to PR20 with twenty-seven exact additions and no prior FULL regressions. Six agents continue next groups automatically.
 
 Verified implementation was merged in [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). [Active PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20) preserves subsequent verified implementation, the current candidate and remaining research on `codex/card-automation-wrap-up`. PR #18 and PR #19 references below describe historical implementation reviews.
 
-Checkpoint62 verifies20 further cards. See [integration evidence](research/resumed-checkpoint62-integrations.md). Later research remains uninstalled or uncounted until its next frozen audit.
+Checkpoint63 verifies27 further cards. See [integration evidence](research/resumed-checkpoint63-integrations.md). Later research remains uninstalled or uncounted until its next frozen audit.
+
+## CHECKPOINT63 VERIFIED — CONTINUING
+
+Latest catalog: **29,867 FULL /2,201 PARTIAL**. **27 exact additions**, zero prior FULL regressions or unexpected/missing promotions. **405 of1,500 additional completions verified;1,095 remain.** FULL is coverage classification.
+
+[Evidence](research/resumed-checkpoint63-integrations.md), [coverage](research/checkpoint63-coverage.json), [final893-module hashes](research/checkpoint63-source-hashes.json), [logs](research/checkpoint63-validation). Native219 across196 integration passes plus23 Martyrs after a corrected fixture filename; final Archive24/core54/mypy893/Ruff pass. Earlier329+106 regressions predate the narrow final runtime history repair; source provenance is explicit. Next21-card checkpoint64 is frozen separately and unadmitted.
 
 ## CHECKPOINT62 VERIFIED — CONTINUING
 

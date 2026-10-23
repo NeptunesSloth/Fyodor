@@ -1,0 +1,14 @@
+{
+  "linked_spell_windows81.py": {
+    "root": null,
+    "candidate": "57b76cea7029eb85db2eafc6e1280a163964f210fb3247d87c362f384ccb9d0b"
+  },
+  "scripts.py": {
+    "root": "be0e0eb42b138a284f4ab3c78fbc9b8dddd7e669d2c2539c084ea9c57ff95523",
+    "candidate": "fdd873e2e919b48b257ac9b2ecabb5c85b28745abc91c1c661172b544cec2d03"
+  },
+  "permissions.py": {
+    "root": "fb2a8443184fc0c6250ecba2534df1d20df32aa4a5229b183484d1cf78c1b844",
+    "candidate": "49dcffa40c0b7525c8777601656b7d770bc9b9aee85df9201ef499564ffb9582"
+  }
+}

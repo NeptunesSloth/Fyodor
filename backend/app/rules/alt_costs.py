@@ -475,7 +475,7 @@ def chosen(plan: Plan, key: str, card: CardInstance, ch: Characteristics, *, x: 
         definition75 = scripts.definitions(ch).get(int(key[len(prefix75):]), {})
         if definition75.get('cond') == {'history': 'searched_own_library75'}:
             log75 = history.log_for(plan)
-            positive75 = any(p != plan.actor and p in plan.live() for p in log75.searched_own_library75)
+            positive75 = any(p != plan.actor for p in log75.searched_own_library75)
             if log75.search_history75_known is not True and not positive75:
                 raise ActionError('Earlier searches this turn are unknown in this older save. Resolve this alternative cost manually.')
     for offer in offers(plan.state, plan.actor, card, ch, plan.info):

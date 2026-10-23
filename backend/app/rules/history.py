@@ -99,7 +99,7 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     n = int(cond.get("n", 1))
     log = log_for(plan, bool(cond.get("last")))
     if kind == "searched_own_library75":
-        return any(p != me and p in plan.live() for p in log.searched_own_library75)
+        return any(p != me for p in log.searched_own_library75)
     if kind == "played_from_exile":
         return (any(c.player == me and c.cast_from == "exile" for c in log.casts)
                 or any(f.kind == "land_play" and f.player == me and (f.from_zone or '').endswith(':exile')

@@ -1,0 +1,88 @@
+[
+  {
+    "name": "Boiling Rock Rioter",
+    "mana_cost": "{2}{B}",
+    "type_line": "Creature \u2014 Human Rogue Ally",
+    "oracle_text": "Firebending 1 (Whenever this creature attacks, add {R}. This mana lasts until end of combat.)\nTap an untapped Ally you control: Exile target card from a graveyard.\nWhenever this creature attacks, you may cast an Ally spell from among cards you own exiled with this creature.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Azula, Cunning Usurper",
+    "mana_cost": "{2}{U}{B}{B}",
+    "type_line": "Legendary Creature \u2014 Human Noble Rogue",
+    "oracle_text": "Firebending 2 (Whenever this creature attacks, add {R}{R}. This mana lasts until end of combat.)\nWhen Azula enters, target opponent exiles a nontoken creature they control, then they exile a nonland card from their graveyard.\nDuring your turn, you may cast cards exiled with Azula and you may cast them as though they had flash. Mana of any type can be spent to cast those spells.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Akoum Battlesinger",
+    "mana_cost": "{1}{R}",
+    "type_line": "Creature \u2014 Human Berserker Ally",
+    "oracle_text": "Haste\nWhenever this creature or another Ally you control enters, you may have Ally creatures you control get +1/+0 until end of turn.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Expedition Envoy",
+    "mana_cost": "{W}",
+    "type_line": "Creature \u2014 Human Scout Ally",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Icehide Golem",
+    "mana_cost": "{S}",
+    "type_line": "Snow Artifact Creature \u2014 Golem",
+    "oracle_text": "({S} can be paid with one mana from a snow source.)",
+    "power": "2",
+    "toughness": "2",
+    "colors": [],
+    "color_identity": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Snow-Covered Island",
+    "mana_cost": "",
+    "type_line": "Basic Snow Land \u2014 Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "power": null,
+    "toughness": null,
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "layout": "normal"
+  }
+]

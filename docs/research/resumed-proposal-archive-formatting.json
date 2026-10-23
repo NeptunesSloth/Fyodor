@@ -528,5 +528,35 @@
     "original_sha256": "0cbbe82fa90e3ea869af0d065d57e276af7df49c4222a406393106ecef0954ae",
     "archived_sha256": "efe1686cfa2c0376b7e0934007a68d0a81779e4e9667f434c06a1d6a887eb3e3",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/graveyard-windows80/quality-review.patch": {
+    "original_sha256": "3d4e1a36c8ccde033252a6866a325cd940119ed2d858e3e96a8ab402c4232123",
+    "archived_sha256": "f2862bb0798ec36a2ed542849fc2e0789fb6bd25736389ef7b26e19a5584af7e",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/graveyard-windows80/rejected-permission-adapter.patch": {
+    "original_sha256": "2d0680815debaead1350902a7659eb1d21db919740e192859752f72400720ac6",
+    "archived_sha256": "16224611c07da9286c8647ec0319fae344078558eb2b4ae6576b2654abcbb7d0",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/graveyard-windows80/review.patch": {
+    "original_sha256": "3d4e1a36c8ccde033252a6866a325cd940119ed2d858e3e96a8ab402c4232123",
+    "archived_sha256": "f2862bb0798ec36a2ed542849fc2e0789fb6bd25736389ef7b26e19a5584af7e",
+    "numstat_preserved": true
+  },
+  "docs/research/checkpoint63-validation/martyrs23.log": {
+    "original_sha256": "e7267f502d29fa8d23c22503ee3dd16ca311e5369645afe3eb5371e7828e3ee8",
+    "archived_sha256": "668f99ebe86183aa1259b3d289a82185bf77d2a30c03d54dbc4b3004431d1d14",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/bounded-unless-pay90/UNINSTALLED.patch": {
+    "original_sha256": "6e6a372c5efe534a876fa247f0b7f3a2a024f35265a9d418cc106913cb4c4034",
+    "archived_sha256": "a2c6d1655f66bd8bb99b7336865b7179aa160244ac6fd0d806dccdb561c26a6a",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/linked-spell-windows81/review.patch": {
+    "original_sha256": "e724deacdb1da500be68f06c4e8ee8828340cfd41b217abb3dd2887089d5527f",
+    "archived_sha256": "4381a79f43ba43de5a68a7d7278c2d18235d4dae368f16d14bad460b91cca144",
+    "numstat_preserved": true
   }
 }

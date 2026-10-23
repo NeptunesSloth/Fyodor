@@ -1,0 +1,29 @@
+{
+  "status": "CLOSED_EXACT2",
+  "names": [
+    "Boiling Rock Rioter",
+    "Azula, Cunning Usurper"
+  ],
+  "stage": "/workspace/scratch/casting81-recovery",
+  "patch": "review.patch",
+  "patch_sha256": "e724deacdb1da500be68f06c4e8ee8828340cfd41b217abb3dd2887089d5527f",
+  "native": {
+    "passed": 11,
+    "genuine_cold": 2,
+    "log": "native-final11.log"
+  },
+  "mypy": "PASS3",
+  "ruff": "PASS4",
+  "test": "native_tests.py -> backend/tests/test_rules_linked_spell_windows81.py",
+  "fixture": "cards.json -> backend/tests/fixtures/linked_spell_windows81_cards.json",
+  "source_files": 3,
+  "shared_change": "linked Grant carries its actual definition flash authority",
+  "rulings": "Complete14 official rulings; source-based timing, mana type, actual paid casts retained",
+  "recovery": "Prior /tmp logs were lost; current consolidated11 gate uses recovered persistent stage.",
+  "related_live_log": "/workspace/scratch/casting81-recovery/quality-related.log",
+  "related": {
+    "passed": 92,
+    "log": "quality-related.log",
+    "scope": "full wave30h_linked_permissions, immediate_cast_pools67, pooled_casting_authorities71, keywords3f"
+  }
+}

@@ -1,0 +1,58 @@
+--- /dev/null
++++ b/backend/app/rules/bounded_unless_pay90.py
+@@ -0,0 +1,42 @@
++"""Four exact payment wrappers retain native targeting, payment and outcomes."""
++from __future__ import annotations
++
++from typing import Any
++
++LIGHTNING = "~ deals 4 damage to any target unless that permanent's controller or that player pays {2}. If they do, ~ deals 2 damage to the permanent or player."
++SYPHON = 'Unless target player pays {3}, that player loses 5 life and you gain 5 life.'
++BANDITS = 'Unless an opponent pays {2}, gain control of target artifact for as long as ~ remains on the battlefield.'
++DIVERT = "Change the target of target spell with a single target unless that spell's controller pays {2}."
++
++
++def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import scripts
++
++    text = scripts.self_text(body.strip(), 'Rhystic Lightning').lower()
++    if text == LIGHTNING.lower():
++        base = scripts.parse_effects('~ deals 4 damage to any target.')
++        if base is None:
++            return None
++        damage = base[0][0]
++        return ([{'do': 'optional_payment', 'who': 'target', 'cost': '{2}', 'bind': 'rhystic90'},
++                 {'do': 'only_if', 'cond': {'succeeded': 'rhystic90'}, 'skip': 1}, {**damage, 'n': 2},
++                 {'do': 'only_if', 'cond': {'succeeded': 'rhystic90', 'negate': True}, 'skip': 1}, damage], base[1], False)
++    if text == SYPHON.lower():
++        base = scripts.parse_effects('Target player loses 5 life and you gain 5 life.')
++        if base is None:
++            return None
++        return ([{'do': 'optional_payment', 'who': 'target', 'cost': '{3}', 'bind': 'rhystic90'},
++                 {'do': 'only_if', 'cond': {'succeeded': 'rhystic90', 'negate': True}, 'skip': len(base[0])}, *base[0]], base[1], False)
++    if text == BANDITS.lower():
++        base = scripts.parse_effects('Gain control of target artifact for as long as ~ remains on the battlefield.')
++        if base is None:
++            return None
++        return ([{'do': 'each_may', 'who': 'each_opponent', 'cost': '{2}', 'verdict': 'rhystic90'},
++                 {'do': 'only_if', 'cond': {'flag': 'rhystic90', 'negate': True}, 'skip': len(base[0])}, *base[0]], base[1], False)
++    if text == DIVERT.lower():
++        base = scripts.parse_effects('Change the target of target spell with a single target.')
++        if base is None:
++            return None
++        return ([{'do': 'optional_payment', 'who': 'target', 'cost': '{2}', 'bind': 'rhystic90'},
++                 {'do': 'only_if', 'cond': {'succeeded': 'rhystic90', 'negate': True}, 'skip': len(base[0])}, *base[0]], base[1], False)
++    return None
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -2657,6 +2657,10 @@
+
+     if (admitted63 := public_mill_costs64.parse(body)) is not None:
+         return admitted63
++    from app.rules import bounded_unless_pay90
++
++    if (answer90 := bounded_unless_pay90.parse(body)) is not None:
++        return answer90
+     from app.rules import nonbattlefield_life_offers86
+
+     if (answer86 := nonbattlefield_life_offers86.parse(body)) is not None:

@@ -1,0 +1,14 @@
+--- a/backend/app/rules/history.py
++++ b/backend/app/rules/history.py
+@@ -101,3 +101,3 @@
+     if kind == "searched_own_library75":
+-        return any(p != me and p in plan.live() for p in log.searched_own_library75)
++        return any(p != me for p in log.searched_own_library75)
+     if kind == "played_from_exile":
+--- a/backend/app/rules/alt_costs.py
++++ b/backend/app/rules/alt_costs.py
+@@ -477,3 +477,3 @@
+             log75 = history.log_for(plan)
+-            positive75 = any(p != plan.actor and p in plan.live() for p in log75.searched_own_library75)
++            positive75 = any(p != plan.actor for p in log75.searched_own_library75)
+             if log75.search_history75_known is not True and not positive75:

@@ -1,3 +1,5 @@
+CLOSED: checkpoint63 verified27 exact promotions;219 native integration cases across196+23, final Archive24, final core54/mypy893/Ruff, earlier329+106 regression checks. Detailed source provenance and the corrected fixture collection are in resumed-checkpoint63-integrations.md.
+
 # Checkpoint63 candidate — validation pending
 
 Finite27-card candidate installed against verified checkpoint62 (29,840 FULL /2,228 PARTIAL). No new verified totals yet. Frozen893-module source: /workspace/scratch/root/checkpoint63/backend; exact hashes and expected names are adjacent.

@@ -1,0 +1,25 @@
+{
+  "status": "READY exact4",
+  "names": [
+    "Rhystic Lightning",
+    "Rhystic Syphon",
+    "Scarwood Bandits",
+    "Divert"
+  ],
+  "native": 24,
+  "genuine_cold": 3,
+  "install_test": "backend/tests/test_rules_bounded_unless_pay90.py",
+  "install_fixture": "backend/tests/fixtures/rhystic90_cards.json",
+  "stage": "/workspace/scratch/payment83/rhystic90/backend",
+  "hashes": {
+    "UNINSTALLED.patch": "6e6a372c5efe534a876fa247f0b7f3a2a024f35265a9d418cc106913cb4c4034",
+    "native_tests.py": "66ed6817a11ab0cc107094ca5fe7836e3476c232a8574ae75346f94bfd5094f3",
+    "cards.json": "2cc23a2ad90ec0173252dbee25ab1c182b5475edf73650aa060d03aec0a8c1c8",
+    "bounded_unless_pay90.py": "ce661bc480106067a640d3a4c5b82db6ebca30235aa8442a039e1ea12db0770f"
+  },
+  "related": 98,
+  "total_gate": 122,
+  "gate_elapsed_seconds": 305.41,
+  "mypy": 2,
+  "ruff": 3
+}

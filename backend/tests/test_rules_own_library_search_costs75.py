@@ -1,4 +1,4 @@
-"""Every other player pays one shared nominal life-gain event as a real alternative cost."""
+"""Actual own-library search receipts enable Archive Trap alternative costs, including historical departed opponents."""
 
 import json
 from pathlib import Path
@@ -347,3 +347,66 @@ GameState.model_validate_json(s.state.model_dump_json())
 '''
     run=subprocess.run([sys.executable,'-c',code,str(saved),str(cards.db_path),source.id],capture_output=True,text=True,env=os.environ.copy())
     assert run.returncode==0,run.stdout+run.stderr
+
+
+@pytest.mark.parametrize('legacy_unknown',[False,True])
+def test_actual_opponent_own_search_then_concede_retains_zero_alternative(cards,legacy_unknown):
+    s,source=setup(cards)
+    search(s)
+    assert s.state.rules.turn_log.searched_own_library75==['p2']
+    if legacy_unknown:
+        s.state.rules.turn_log.search_history75_known=None
+    act(s,'p2',type='concede')
+    before=len(s.state.zones['p3:library'])
+    alt(s,source)
+    answer(s)
+    assert before-len(s.state.zones['p3:library'])==13
+    assert s.state.cards[source.id].zone=='p1:graveyard'
+
+
+def test_true_cold_departed_actual_search_receipt_exempts_unknown_history_guard(cards,tmp_path):
+    import os
+    import subprocess
+    import sys
+    s,source=setup(cards)
+    search(s)
+    act(s,'p2',type='concede')
+    s.state.rules.turn_log.search_history75_known=None
+    wait_priority(s,'p1')
+    saved=tmp_path/'departed-search.json'
+    saved.write_text(s.state.model_dump_json())
+    code='''
+import sys
+from pathlib import Path
+from app.cards.images import ImageStore
+from app.cards.repository import CardRepository
+from app.game.session import GameSession
+from app.game.state import GameState
+from tests.game_helpers import act
+from tests.test_rules_activated_copy_family import answer
+saved,database,cid=sys.argv[1:]
+repo=CardRepository(Path(database),ImageStore(Path(database).parent/'images'))
+s=GameSession(GameState.model_validate_json(Path(saved).read_text()),cards=repo)
+s.view('p1');s.view('p3')
+assert s.state.rules.turn_log.search_history75_known is None
+assert 'p2' in s.state.rules.turn_log.searched_own_library75
+before=len(s.state.zones['p3:library'])
+act(s,'p1',type='cast_spell',card_id=cid,alt_cost=cid+':0',targets=['p3'],sources=[])
+answer(s)
+assert before-len(s.state.zones['p3:library'])==13
+assert s.state.cards[cid].zone=='p1:graveyard'
+GameState.model_validate_json(s.state.model_dump_json())
+'''
+    run=subprocess.run([sys.executable,'-c',code,str(saved),str(cards.db_path),source.id],capture_output=True,text=True,env=os.environ.copy())
+    assert run.returncode==0,run.stdout+run.stderr
+
+
+def test_actual_failfind_own_search_then_opponent_concedes_keeps_alternative(cards):
+    s,source=setup(cards)
+    search(s,none=True)
+    act(s,'p2',type='concede')
+    before=len(s.state.zones['p3:library'])
+    alt(s,source)
+    answer(s)
+    assert before-len(s.state.zones['p3:library'])==13
+    assert s.state.cards[source.id].zone=='p1:graveyard'

@@ -1,0 +1,42 @@
+{
+  "status": "HELD_FOR_NATIVE_QUOTED_ABILITY_QUALITY; old candidate patch must not be installed",
+  "names": [
+    "Advanced Reconstruction",
+    "Case of the Uneaten Feast"
+  ],
+  "patch": "review.patch",
+  "patch_sha256": "2d0680815debaead1350902a7659eb1d21db919740e192859752f72400720ac6",
+  "stage": "/tmp/gravewindows80-stage",
+  "test": "native_tests.py -> backend/tests/test_rules_graveyard_windows80.py",
+  "fixture": "cards.json -> backend/tests/fixtures/graveyard_windows80_cards.json",
+  "native": {
+    "consolidated_passed": 14,
+    "genuine_cold": 2,
+    "log": "gravewindows80-final14.log"
+  },
+  "related": {
+    "passed": 149,
+    "scope": "full case_solve_watchers, wave16a_class, wave30m_durations, random_choice_receipts41",
+    "log": "gravewindows80-related-final.log"
+  },
+  "mypy": "PASS3 final",
+  "ruff": "PASS4 final",
+  "authority": "Complete official rulings for both exact cards. Advanced delegates all steps to native mill/random/exile/grant with final exile ObjectRefs; Case freezes current front-creature GY objects then native object-grants cast any spell face, not future GY objects. Native solve/class/payment/land/timing engines retained.",
+  "source_hashes": "source-hashes.json",
+  "quality": {
+    "before": "gravewindows80-native-ability-before1.log",
+    "finding": "Case old external Permission route does not expose actual granted quoted ability. Native outside-zone layer6 grant replacement under test. Jailer remains unrelated PARTIAL; no automation claim."
+  },
+  "recovered_quality": {
+    "status": "FINAL_CONSOLIDATED_AND_BROAD_RELATED_RUNNING",
+    "patch": "quality-review.patch",
+    "patch_sha256": "3d4e1a36c8ccde033252a6866a325cd940119ed2d858e3e96a8ab402c4232123",
+    "stage": "/workspace/scratch/casting80-recovery",
+    "native": "recovered14 + quote/expiry1 PASS separately, final15 running",
+    "related": "graveyard57/Brokkos75 28 PASS, original149 running",
+    "mypy": "PASS4",
+    "ruff": "PASS5",
+    "representation": "literal current-object native layer6 add_abilities, ability_zone graveyard, end-of-turn; derive GY self permissions if layers affect object",
+    "exclusion": "Yixlid Jailer remains unrelated PARTIAL; no automation claim"
+  }
+}
