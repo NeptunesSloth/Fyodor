@@ -1,5 +1,11 @@
 Work continues on [PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20). Six agents automatically continue next groups.
 
+## CHECKPOINT66 VERIFIED — CONTINUING
+
+Latest catalog: **29,934 FULL /2,134 PARTIAL**. **20 exact Commander additions** (17 primary +3 reviewed shared assembly corrections), zero prior FULL regressions or missing/unexpected promotions. **472 of1,500 additional completions verified;1,028 remain.** FULL is engine coverage classification.
+
+[Evidence](research/resumed-checkpoint66-integrations.md), [coverage](research/checkpoint66-coverage.json), [919-module hashes](research/checkpoint66-source-hashes.json), [logs](research/checkpoint66-validation). Native148 plus8 unique collateral checks on identical source, related152, core54, full mypy919 and Ruff pass. Later work remains uncounted.
+
 ## CHECKPOINT65 VERIFIED — CONTINUING
 
 Latest catalog: **29,914 FULL / 2,154 PARTIAL**. **26 exact Commander additions**, zero prior FULL regressions or unexpected/missing promotions. Four further tested digital implementations are outside the Commander catalog. **452 of1,500 additional completions verified;1,048 remain.** FULL is engine coverage classification.

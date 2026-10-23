@@ -1,0 +1,74 @@
+......F
+=================================== FAILURES ===================================
+______ test_essence_pure_printed_x_is_payable_zero_not_missing_mana_cost _______
+
+cards = <app.cards.repository.CardRepository object at 0x7f7b1a4fd940>
+
+    def test_essence_pure_printed_x_is_payable_zero_not_missing_mana_cost(cards):
+        s = game(cards)
+        target = cast(s, 'Endless One', mana={'C': 2}, x_value=2)
+        cast(s, "Painter's Servant", mana={'C': 2})
+>       choose(s, ['G'])
+
+../tests/test_upkeep91.py:340:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+../tests/test_upkeep91.py:46: in choose
+    act(s, d.player, type='choose', decision_id=d.id, option_ids=ids)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f7b194c2810>
+a = Choose(actor='p1', ts=1792727825.8657396, r=None, type='choose', decision_id='27d5c5b54309', option_ids=['G'], amounts=[], name=None, remember=None)
+
+    def choose(plan: Plan, a: A.Choose) -> None:
+        d = plan.rules.decision
+        if d is None or d.id != a.decision_id:
+            raise ActionError("That decision is no longer pending")
+        if d.kind in ("declare_attackers", "declare_blockers"):
+            raise ActionError(f"Answer this with {d.kind}")
+        if d.player != plan.actor:
+            raise ActionError(f"It's {plan.name(d.player)}'s decision")
+        chosen = list(a.option_ids)
+        valid = {o.id for o in d.options if o.group != "seen"}  # (wave 53B: the cards a player looked at, shown beside the options, are not answers)
+        if cancelable(d):
+            valid.add("cancel")  # (-- cancelling a cast (wave 24D) --)
+        from app.rules import card_names  # -- card names (wave 22B) -- 201.4: a typed name answers it
+
+        if card_names.is_free_text(d) and not (chosen == ["cancel"] and cancelable(d)):
+            if chosen or a.amounts:
+                raise ActionError("Type a card name")
+            chosen, valid = [card_names.answer(plan, d, a.name)], set()
+        elif a.name is not None:
+            raise ActionError("A name only answers a card-name choice")
+        if d.kind == "divide":  # 601.2d: an amount per option (target), at least 1 each, adding up to the total
+            total = int((d.resume or {}).get("total", 0))
+            least = int((d.resume or {}).get("least", 1))  # (-- multiple blocks (wave 13B) -- 510.1d: a share may be 0)
+            if chosen or len(a.amounts) != len(d.options) or any(n < least for n in a.amounts) or sum(a.amounts) != total:
+                raise ActionError(f"Divide {total} among the {len(d.options)} targets: at least {least} each, {total} in all")
+            need, free = (d.resume or {}).get("lethal") or [], (d.resume or {}).get("free")
+            if free is not None and a.amounts[free] > 0 and any(a.amounts[i] < k for i, k in enumerate(need)):
+                raise ActionError("Assign lethal damage to every blocker before assigning any to what it attacks (702.19b)")
+            chosen = [str(n) for n in a.amounts]
+        elif a.amounts:
+            raise ActionError("Amounts only answer a division")
+        elif card_names.is_free_text(d):
+            pass
+        elif len(set(chosen)) != len(chosen) or not set(chosen) <= valid:
+>           raise ActionError("Choose from the options offered")
+E           app.game.errors.ActionError: Choose from the options offered
+
+app/rules/engine.py:1447: ActionError
+=========================== short test summary info ============================
+FAILED ../../../../Fyodor/backend::test_essence_pure_printed_x_is_payable_zero_not_missing_mana_cost
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 6 passed, 15 deselected in 43.11s

@@ -1,0 +1,43 @@
+....F..                                                                  [100%]
+=================================== FAILURES ===================================
+_ test_actual_graveyard_activation_sorcery_timing_and_cost69[Gollum's Bite-3] __
+
+cards = <app.cards.repository.CardRepository object at 0x7f2049721100>
+name = "Gollum's Bite", cost = 3
+
+    @pytest.mark.parametrize('name,cost',[("Gollum's Bite",3),('Wither and Bloom',1)])
+    def test_actual_graveyard_activation_sorcery_timing_and_cost69(cards,name,cost):
+        from app.game.errors import ActionError
+        s=setup(cards)
+        source=put(s,name,'graveyard')
+        friendly=put(s,'Grizzly Bears','battlefield')
+        kwargs={} if name=="Gollum's Bite" else {'targets':[friendly.id]}
+        to_phase(s,'declare_attackers',turn=1)
+        before=s.state.model_dump_json()
+        with pytest.raises(ActionError):
+            act(s,'p1',type='activate_ability',card_id=source.id,ability=1,sources=[],**kwargs)
+        assert s.state.model_dump_json()==before
+        to_phase(s,'main2',turn=1)
+        act(s,'p1',type='add_mana',player='p1',mana={'C':10,'B':10,'R':2})
+        act(s,'p1',type='set_prefs',hold_priority=True)
+        bolt=put(s,'Lightning Bolt','hand')
+        act(s,'p1',type='cast_spell',card_id=bolt.id,sources=[],targets=['p2'])
+        before=s.state.model_dump_json()
+        with pytest.raises(ActionError):
+            act(s,'p1',type='activate_ability',card_id=source.id,ability=1,sources=[],**kwargs)
+        assert s.state.model_dump_json()==before
+        settle(s)
+        mana=s.state.players['p1'].mana.copy()
+        act(s,'p1',type='activate_ability',card_id=source.id,ability=1,sources=[],**kwargs)
+        assert s.state.cards[source.id].zone=='p1:exile'
+        assert s.state.players['p1'].mana['B']==mana['B']-1
+        assert s.state.players['p1'].mana['C']==mana['C']-cost
+        settle(s)
+        if name=="Gollum's Bite":
+            d=s.state.rules.decision
+>           assert d and d.player=='p1'
+E           assert (None)
+
+tests/test_rules_collateral69.py:130: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_collateral69.py::test_actual_graveyard_activation_sorcery_timing_and_cost69[Gollum's Bite-3]

@@ -1,0 +1,127 @@
+[
+  {
+    "card": {
+      "id": "9f8d2247-a10e-413a-b497-2add3918f991",
+      "oracle_id": "0d6e9468-adb2-4feb-87cf-9113db8717b1",
+      "name": "Musician",
+      "layout": "normal",
+      "set_code": "ice",
+      "set_name": "Ice Age",
+      "collector_number": "85",
+      "rarity": "rare",
+      "mana_cost": "{2}{U}",
+      "cmc": 3.0,
+      "type_line": "Creature \u2014 Human Wizard",
+      "oracle_text": "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\n{T}: Put a music counter on target creature. If it doesn't have \"At the beginning of your upkeep, destroy this creature unless you pay {1} for each music counter on it,\" it gains that ability.",
+      "power": "1",
+      "toughness": "3",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [
+        "Cumulative upkeep"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "1995-06-03",
+      "artist": "Drew Tucker",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "0d6e9468-adb2-4feb-87cf-9113db8717b1",
+          "source": "wotc",
+          "published_at": "2008-10-01",
+          "comment": "Paying cumulative upkeep is always optional. If it\u2019s not paid, the permanent with cumulative upkeep is sacrificed. Partial payments of the total cumulative upkeep cost can\u2019t be made. For example, if a permanent with \u201ccumulative upkeep {1}\u201d has three age counters on it when its cumulative upkeep ability triggers, it gets another age counter and then its controller chooses to either pay {4} or sacrifice the permanent."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "0d6e9468-adb2-4feb-87cf-9113db8717b1",
+          "source": "wotc",
+          "published_at": "2008-10-01",
+          "comment": "This ability has no duration. An affected creature will retain the triggered ability until the game ends, it leaves the battlefield, or some other effect causes it to lose its abilities. It doesn\u2019t matter if Musician is still on the battlefield or not."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "0d6e9468-adb2-4feb-87cf-9113db8717b1",
+          "source": "wotc",
+          "published_at": "2008-10-01",
+          "comment": "Although a creature can gain the triggered ability only once, it can be targeted by multiple Musicians to increase its number of music counters."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "0d6e9468-adb2-4feb-87cf-9113db8717b1",
+          "source": "wotc",
+          "published_at": "2008-10-01",
+          "comment": "If a music counter is put on a creature by some other means (Fate Transfer, for example), but that creature has never been affected by Musician\u2019s ability, that creature won\u2019t have the triggered ability and its controller won\u2019t have to pay mana. The music counters will stay on that creature but won\u2019t do anything."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "id": "9099b2e6-9ed8-4a9c-97ca-77cc47678228",
+      "oracle_id": "cb02daf6-9013-4ccc-bf1f-773b757ac468",
+      "name": "Essence Leak",
+      "layout": "normal",
+      "set_code": "inv",
+      "set_name": "Invasion",
+      "collector_number": "55",
+      "rarity": "uncommon",
+      "mana_cost": "{U}",
+      "cmc": 1.0,
+      "type_line": "Enchantment \u2014 Aura",
+      "oracle_text": "Enchant permanent\nAs long as enchanted permanent is red or green, it has \"At the beginning of your upkeep, sacrifice this permanent unless you pay its mana cost.\"",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [
+        "Enchant"
+      ],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2000-10-02",
+      "artist": "Adam Rex",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "cb02daf6-9013-4ccc-bf1f-773b757ac468",
+          "source": "wotc",
+          "published_at": "2004-10-04",
+          "comment": "It can enchant a permanent that is not red or green, but it doesn\u2019t do anything in that case."
+        }
+      ]
+    }
+  }
+]

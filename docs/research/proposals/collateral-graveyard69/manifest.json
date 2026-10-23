@@ -1,0 +1,26 @@
+{
+  "candidates": [
+    "Geistblast",
+    "Gollum's Bite",
+    "Wither and Bloom"
+  ],
+  "collateral_promotion_count": 3,
+  "runtime_source_changes": 0,
+  "baseline": "immutable root checkpoint66 source919",
+  "baseline_path": "/workspace/scratch/root/checkpoint66/backend",
+  "persistent_stage": "/workspace/scratch/collateral69/backend",
+  "source_hashes": 904,
+  "native_result": "8 unique PASS; one genuine cold subprocess",
+  "native_proof_matrix": {
+    "native7.log": "6 PASS: whole3 labels in one test, normalbody3 actualcasts, Wither paid GY activation+combat/stack sorcery refusals, Geistblast actual normalcast\u2192GY then paid exile copying real Bolt/retarget; initial Gollum test only expected unnecessary sole-bearer question",
+    "native-gollum-cold3.log": "Gollum actual cast regression repeat + actual GY activation corrected sole-bearer assertion + genuine cold copy-target checkpoint PASS3 (two new unique)"
+  },
+  "native_commands": [
+    "PYTHONPATH=. .venv/bin/python -m pytest -q tests/test_rules_collateral69.py",
+    "PYTHONPATH=. .venv/bin/python -m pytest -q tests/test_rules_collateral69.py -k 'Gollum or true_cold'"
+  ],
+  "ruff_result": "one new test file PASS",
+  "production_types": "No runtime mutation; parent immutable66 source/type gate unchanged.",
+  "fixture_sha256": "cc526f8a722b8ef964c6c81bf7658a467d82ff295fd6339868159362edd558d0",
+  "test_sha256": "e712fb3e391191409cd67bc2b8a3617cd825477745570eee2067f0c053b7120a"
+}

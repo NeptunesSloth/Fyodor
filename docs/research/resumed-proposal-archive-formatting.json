@@ -828,5 +828,30 @@
     "original_sha256": "e61046f8a9ae56c1e24f490a344df7ba3ed094de31d09505b37d962e2aa4ce1b",
     "archived_sha256": "bb6e635e16c3320bbb73357e1982400a90dd1e6aa7d5c40ff7aab10e8ff9e8d3",
     "numstat_preserved": true
+  },
+  "docs/research/checkpoint66-validation/native.log": {
+    "original_sha256": "84db42e82414ce4a1b602eb4300ff52158a77b671e8f2ecca0a82db5e1f27f9a",
+    "archived_sha256": "028b31f22b624c03090d491ed95093ed74e285b13b66db79d6ca9df9e2e550de",
+    "numstat_preserved": null
+  },
+  "docs/research/checkpoint66-validation/related.log": {
+    "original_sha256": "a999d2445e234e074d949bd794cd33e088fbc22bd96915b90f7cf77ddef967a9",
+    "archived_sha256": "4e3277b1f165fe49e7d42f9e45c2e772f64201906cdba06e16554b303813a207",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/conditional-upkeep-grants91/UNINSTALLED.patch": {
+    "original_sha256": "dbac6a62682a490fc94b641b155dd0975bc8e6f2acf84868d0ac08b21c3c9a2a",
+    "archived_sha256": "400d93943a658e3bc2ef60b2dbf4d6033ca59032141596f0ddae8cc4eb34f004",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-upkeep-grants91/conditional-zero-restriction9.log": {
+    "original_sha256": "f1bce4dd47f50cf374f9f2c72df49eb6f2896a35ca4a552a89596cebb1248feb",
+    "archived_sha256": "fb2d1ed8da54d359b1f47978e3b769a742d6babe80b20fe668acc897a1851471",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/conditional-upkeep-grants91/legacy-flux2-original.log": {
+    "original_sha256": "435bc7d3fb1328f053889b0f07a467a7f913f2a9beadfa6876a1510625ff2b9a",
+    "archived_sha256": "7d82a2606359e10bc12e97d001edb07e1016f23704168eb2f9e5fd22f3d94111",
+    "numstat_preserved": null
   }
 }

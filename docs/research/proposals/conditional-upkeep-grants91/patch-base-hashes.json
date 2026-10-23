@@ -1,0 +1,8 @@
+{
+  "backend/app/rules/conditional_upkeep_grants91.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "backend/app/rules/scripts.py": "5cb623ba16d0b733d8289b6a986d38e65c8937a4c02cf03e51c32b5692b60d66",
+  "backend/app/rules/effects.py": "e8bc6e4bfe8b293cb0737c8b881cec7d56735992d00cbdd6063ce629130c2084",
+  "backend/app/rules/static_conditions.py": "d1b5eed26411d156b1d5292c0ed522dc30d9f231f0d82477396175b450e80dac",
+  "backend/app/rules/optional_payment.py": "7a7bdbd5112c691a2fdf1dc9e508f7ed4843799262f6f4dcf0ff28f10a0b1d35",
+  "backend/tests/test_rules_wave16f_smaller.py": "7db20eeca5bc418ca1e4144ded2eeba767998989a3e782a04ed42c5151b53372"
+}

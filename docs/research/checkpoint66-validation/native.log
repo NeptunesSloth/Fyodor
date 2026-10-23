@@ -1,0 +1,309 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /workspace/Fyodor/backend/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace/scratch/root/checkpoint66/backend
+configfile: pyproject.toml
+plugins: anyio-4.15.1, xdist-3.8.0
+created: 4/4 workers
+4 workers [148 items]
+
+scheduling tests via LoadScheduling
+
+tests/test_rules_source_named_reflexive69.py::test_say_negative_payment_requires_source_and_exactly_two_named_original_own_gy_cards[wrong_name]
+tests/test_rules_source_named_reflexive69.py::test_whole_pair
+tests/test_rules_source_named_reflexive69.py::test_true_cold_say_original_cost_packet[stale_other]
+tests/test_rules_target_conditional_costs81.py::test_dire_target_current_tapped_state_and_native_owner_choice[False-3-top]
+[gw1] [  0%] PASSED tests/test_rules_source_named_reflexive69.py::test_whole_pair
+tests/test_rules_source_named_reflexive69.py::test_say_native_original_source_and_two_named_others_paid_as_one_group
+[gw0] [  1%] PASSED tests/test_rules_source_named_reflexive69.py::test_say_negative_payment_requires_source_and_exactly_two_named_original_own_gy_cards[wrong_name]
+tests/test_rules_source_named_reflexive69.py::test_say_actual_search_origin_and_conditional_library_shuffle[library]
+[gw1] [  2%] PASSED tests/test_rules_source_named_reflexive69.py::test_say_native_original_source_and_two_named_others_paid_as_one_group
+tests/test_rules_source_named_reflexive69.py::test_flitting_native_each_player_mills_before_optional_original_exile
+[gw0] [  2%] PASSED tests/test_rules_source_named_reflexive69.py::test_say_actual_search_origin_and_conditional_library_shuffle[library]
+tests/test_rules_source_named_reflexive69.py::test_say_actual_search_origin_and_conditional_library_shuffle[graveyard]
+[gw1] [  3%] PASSED tests/test_rules_source_named_reflexive69.py::test_flitting_native_each_player_mills_before_optional_original_exile
+tests/test_rules_source_named_reflexive69.py::test_say_actual_cast_mills_then_optional_current_graveyard_return
+[gw1] [  4%] PASSED tests/test_rules_source_named_reflexive69.py::test_say_actual_cast_mills_then_optional_current_graveyard_return
+tests/test_rules_source_named_reflexive69.py::test_flitting_native_reflexive_targets_announced_only_after_all_mill_and_exile
+[gw0] [  4%] PASSED tests/test_rules_source_named_reflexive69.py::test_say_actual_search_origin_and_conditional_library_shuffle[graveyard]
+tests/test_rules_source_named_reflexive69.py::test_flitting_sacrifice_true_cost_keeps_initial_target_before_reflexive_target_choice
+[gw1] [  5%] PASSED tests/test_rules_source_named_reflexive69.py::test_flitting_native_reflexive_targets_announced_only_after_all_mill_and_exile
+tests/test_rules_source_named_reflexive69.py::test_say_negative_payment_requires_source_and_exactly_two_named_original_own_gy_cards[source_hand]
+[gw1] [  6%] PASSED tests/test_rules_source_named_reflexive69.py::test_say_negative_payment_requires_source_and_exactly_two_named_original_own_gy_cards[source_hand]
+tests/test_rules_source_named_reflexive69.py::test_say_negative_payment_requires_source_and_exactly_two_named_original_own_gy_cards[one_other]
+[gw1] [  6%] PASSED tests/test_rules_source_named_reflexive69.py::test_say_negative_payment_requires_source_and_exactly_two_named_original_own_gy_cards[one_other]
+tests/test_rules_source_named_reflexive69.py::test_say_negative_payment_requires_source_and_exactly_two_named_original_own_gy_cards[source_selected]
+[gw1] [  7%] PASSED tests/test_rules_source_named_reflexive69.py::test_say_negative_payment_requires_source_and_exactly_two_named_original_own_gy_cards[source_selected]
+tests/test_rules_source_named_reflexive69.py::test_say_negative_payment_requires_source_and_exactly_two_named_original_own_gy_cards[other_hand]
+[gw1] [  8%] PASSED tests/test_rules_source_named_reflexive69.py::test_say_negative_payment_requires_source_and_exactly_two_named_original_own_gy_cards[other_hand]
+tests/test_rules_target_conditional_costs81.py::test_pending_native_target_cannot_be_sacrificed_for_mana_or_rebound
+[gw3] [  8%] PASSED tests/test_rules_source_named_reflexive69.py::test_true_cold_say_original_cost_packet[stale_other]
+tests/test_rules_source_named_reflexive69.py::test_true_cold_say_original_cost_packet[wrong_source]
+[gw0] [  9%] PASSED tests/test_rules_source_named_reflexive69.py::test_flitting_sacrifice_true_cost_keeps_initial_target_before_reflexive_target_choice
+tests/test_rules_source_named_reflexive69.py::test_true_cold_say_original_cost_packet[pay]
+[gw2] [ 10%] PASSED tests/test_rules_target_conditional_costs81.py::test_dire_target_current_tapped_state_and_native_owner_choice[False-3-top]
+tests/test_rules_target_conditional_costs81.py::test_dire_target_current_tapped_state_and_native_owner_choice[True-2-bottom]
+[gw1] [ 10%] PASSED tests/test_rules_target_conditional_costs81.py::test_pending_native_target_cannot_be_sacrificed_for_mana_or_rebound
+tests/test_rules_target_conditional_costs81.py::test_real_altar_mana_raises_graveyard_threshold_without_repricing_locked_spell
+[gw3] [ 11%] PASSED tests/test_rules_source_named_reflexive69.py::test_true_cold_say_original_cost_packet[wrong_source]
+tests/test_rules_source_named_reflexive69.py::test_true_cold_flitting_native_optional_and_reflexive_stages[optional]
+[gw0] [ 12%] PASSED tests/test_rules_source_named_reflexive69.py::test_true_cold_say_original_cost_packet[pay]
+tests/test_rules_source_named_reflexive69.py::test_true_cold_say_original_cost_packet[cancel]
+[gw3] [ 12%] PASSED tests/test_rules_source_named_reflexive69.py::test_true_cold_flitting_native_optional_and_reflexive_stages[optional]
+tests/test_rules_source_named_reflexive69.py::test_true_cold_flitting_native_optional_and_reflexive_stages[reflexive]
+[gw0] [ 13%] PASSED tests/test_rules_source_named_reflexive69.py::test_true_cold_say_original_cost_packet[cancel]
+tests/test_rules_source_named_reflexive69.py::test_true_cold_say_original_cost_packet[missing_originals]
+[gw1] [ 14%] PASSED tests/test_rules_target_conditional_costs81.py::test_real_altar_mana_raises_graveyard_threshold_without_repricing_locked_spell
+tests/test_rules_target_conditional_costs81.py::test_dire_actual_vigilant_attacker_is_untapped_but_discounted
+[gw2] [ 14%] PASSED tests/test_rules_target_conditional_costs81.py::test_dire_target_current_tapped_state_and_native_owner_choice[True-2-bottom]
+tests/test_rules_target_conditional_costs81.py::test_dire_owner_chooses_even_when_another_player_controls_target
+[gw0] [ 15%] PASSED tests/test_rules_source_named_reflexive69.py::test_true_cold_say_original_cost_packet[missing_originals]
+tests/test_rules_source_named_reflexive69.py::test_true_cold_say_original_cost_packet[missing_packet]
+[gw3] [ 16%] PASSED tests/test_rules_source_named_reflexive69.py::test_true_cold_flitting_native_optional_and_reflexive_stages[reflexive]
+tests/test_rules_source_named_reflexive69.py::test_true_cold_flitting_native_optional_and_reflexive_stages[decline]
+[gw0] [ 16%] PASSED tests/test_rules_source_named_reflexive69.py::test_true_cold_say_original_cost_packet[missing_packet]
+tests/test_rules_source_named_reflexive69.py::test_true_cold_say_original_cost_packet[stale_source]
+[gw1] [ 17%] PASSED tests/test_rules_target_conditional_costs81.py::test_dire_actual_vigilant_attacker_is_untapped_but_discounted
+tests/test_rules_target_conditional_costs81.py::test_dire_actual_target_taps_for_mana_after_undiscounted_cost_is_locked
+[gw2] [ 18%] PASSED tests/test_rules_target_conditional_costs81.py::test_dire_owner_chooses_even_when_another_player_controls_target
+tests/test_rules_target_conditional_costs81.py::test_lullmage_target_controller_exact_threshold_and_native_permanent_control[7-2]
+[gw0] [ 18%] PASSED tests/test_rules_source_named_reflexive69.py::test_true_cold_say_original_cost_packet[stale_source]
+tests/test_rules_sacrifice_type_costs82.py::test_actual_sacrifice_native_frozen_card_types[Forest-1]
+[gw3] [ 19%] PASSED tests/test_rules_source_named_reflexive69.py::test_true_cold_flitting_native_optional_and_reflexive_stages[decline]
+tests/test_rules_source_named_reflexive69.py::test_flitting_may_exile_before_reflexive_has_no_legal_target
+[gw3] [ 20%] PASSED tests/test_rules_source_named_reflexive69.py::test_flitting_may_exile_before_reflexive_has_no_legal_target
+tests/test_rules_source_named_reflexive69.py::test_flitting_original_death_card_removed_in_response_is_not_exiled_again[False]
+[gw1] [ 20%] PASSED tests/test_rules_target_conditional_costs81.py::test_dire_actual_target_taps_for_mana_after_undiscounted_cost_is_locked
+tests/test_rules_target_conditional_costs81.py::test_dire_actual_pili_untap_mana_preserves_original_discounted_price
+[gw3] [ 21%] PASSED tests/test_rules_source_named_reflexive69.py::test_flitting_original_death_card_removed_in_response_is_not_exiled_again[False]
+tests/test_rules_source_named_reflexive69.py::test_flitting_original_death_card_removed_in_response_is_not_exiled_again[True]
+[gw2] [ 22%] PASSED tests/test_rules_target_conditional_costs81.py::test_lullmage_target_controller_exact_threshold_and_native_permanent_control[7-2]
+tests/test_rules_target_conditional_costs81.py::test_lullmage_target_controller_exact_threshold_and_native_permanent_control[8-0]
+[gw0] [ 22%] PASSED tests/test_rules_sacrifice_type_costs82.py::test_actual_sacrifice_native_frozen_card_types[Forest-1]
+tests/test_rules_sacrifice_type_costs82.py::test_repeated_types_do_not_stack
+[gw3] [ 23%] PASSED tests/test_rules_source_named_reflexive69.py::test_flitting_original_death_card_removed_in_response_is_not_exiled_again[True]
+tests/test_rules_target_conditional_costs81.py::test_canonical_two
+[gw3] [ 24%] PASSED tests/test_rules_target_conditional_costs81.py::test_canonical_two
+tests/test_rules_exchange_spells93.py::test_chimera_decline_does_not_offer_new_targets93
+[gw1] [ 25%] PASSED tests/test_rules_target_conditional_costs81.py::test_dire_actual_pili_untap_mana_preserves_original_discounted_price
+tests/test_rules_target_conditional_costs81.py::test_lullmage_x5_tax_before_single_threshold_discount
+[gw0] [ 25%] PASSED tests/test_rules_sacrifice_type_costs82.py::test_repeated_types_do_not_stack
+tests/test_rules_sacrifice_type_costs82.py::test_opponent_sacrifices_do_not_count
+[gw3] [ 26%] PASSED tests/test_rules_exchange_spells93.py::test_chimera_decline_does_not_offer_new_targets93
+tests/test_rules_exchange_spells93.py::test_sudden_third_player_new_spell_controller_retargets93
+[gw2] [ 27%] PASSED tests/test_rules_target_conditional_costs81.py::test_lullmage_target_controller_exact_threshold_and_native_permanent_control[8-0]
+tests/test_rules_target_conditional_costs81.py::test_lullmage_other_opponents_graveyard_is_not_chosen_controller
+[gw1] [ 27%] PASSED tests/test_rules_target_conditional_costs81.py::test_lullmage_x5_tax_before_single_threshold_discount
+tests/test_rules_target_conditional_costs81.py::test_dire_actual_gisela_meld_root_has_one_destination_and_private_component_order
+[gw2] [ 28%] PASSED tests/test_rules_target_conditional_costs81.py::test_lullmage_other_opponents_graveyard_is_not_chosen_controller
+tests/test_rules_target_conditional_costs81.py::test_lullmage_current_controller_not_owner_controls_discount
+[gw0] [ 29%] PASSED tests/test_rules_sacrifice_type_costs82.py::test_opponent_sacrifices_do_not_count
+tests/test_rules_sacrifice_type_costs82.py::test_controller_at_actual_sacrifice_not_owner_counts
+[gw3] [ 29%] PASSED tests/test_rules_exchange_spells93.py::test_sudden_third_player_new_spell_controller_retargets93
+tests/test_rules_exchange_spells93.py::test_chimera_source_destroyed_before_trigger_cannot_exchange93
+[gw2] [ 30%] PASSED tests/test_rules_target_conditional_costs81.py::test_lullmage_current_controller_not_owner_controls_discount
+tests/test_rules_target_conditional_costs81.py::test_lullmage_zero_mana_value_colored_components_not_reduced
+[gw0] [ 31%] PASSED tests/test_rules_sacrifice_type_costs82.py::test_controller_at_actual_sacrifice_not_owner_counts
+tests/test_rules_exchange_spells93.py::test_native_nonowner_controller_concedes_restores_original_caster93
+[gw2] [ 31%] PASSED tests/test_rules_target_conditional_costs81.py::test_lullmage_zero_mana_value_colored_components_not_reduced
+tests/test_rules_target_conditional_costs81.py::test_lullmage_x_must_match_chosen_target_before_any_payment
+[gw3] [ 32%] PASSED tests/test_rules_exchange_spells93.py::test_chimera_source_destroyed_before_trigger_cannot_exchange93
+tests/test_rules_exchange_spells93.py::test_chimera_spell_countered_before_trigger_cannot_exchange93
+[gw1] [ 33%] PASSED tests/test_rules_target_conditional_costs81.py::test_dire_actual_gisela_meld_root_has_one_destination_and_private_component_order
+tests/test_rules_target_conditional_costs81.py::test_true_cold_dire_owner_destination_choice_keeps_original_target
+[gw2] [ 33%] PASSED tests/test_rules_target_conditional_costs81.py::test_lullmage_x_must_match_chosen_target_before_any_payment
+tests/test_rules_exchange_spells93.py::test_spell_control_persists_when_exchanged_chimera_leaves93
+[gw0] [ 34%] PASSED tests/test_rules_exchange_spells93.py::test_native_nonowner_controller_concedes_restores_original_caster93
+tests/test_rules_exchange_spells93.py::test_owner_departure_removes_owned_spell_despite_foreign_controller93
+[gw2] [ 35%] PASSED tests/test_rules_exchange_spells93.py::test_spell_control_persists_when_exchanged_chimera_leaves93
+tests/test_rules_exchange_spells93.py::test_genuine_cold_sudden_spell_controller_retargets93
+[gw3] [ 35%] PASSED tests/test_rules_exchange_spells93.py::test_chimera_spell_countered_before_trigger_cannot_exchange93
+tests/test_rules_exchange_spells93.py::test_chimera_new_source_controller_does_not_choose_new_targets93
+[gw1] [ 36%] PASSED tests/test_rules_target_conditional_costs81.py::test_true_cold_dire_owner_destination_choice_keeps_original_target
+tests/test_rules_target_conditional_costs81.py::test_true_cold_actual_tapped_elf_keeps_original_higher_payment
+[gw0] [ 37%] PASSED tests/test_rules_exchange_spells93.py::test_owner_departure_removes_owned_spell_despite_foreign_controller93
+tests/test_rules_exchange_spells93.py::test_ordered_native_spell_control_effects_restore_underlying_layer93
+[gw0] [ 37%] PASSED tests/test_rules_exchange_spells93.py::test_ordered_native_spell_control_effects_restore_underlying_layer93
+tests/test_rules_exchange_spells93.py::test_foreign_original_caster_restored_instead_of_owner93
+[gw2] [ 38%] PASSED tests/test_rules_exchange_spells93.py::test_genuine_cold_sudden_spell_controller_retargets93
+tests/test_rules_exchange_spells93.py::test_new_spell_controller_leaves_during_retarget_no_new_target_offer93
+[gw3] [ 39%] PASSED tests/test_rules_exchange_spells93.py::test_chimera_new_source_controller_does_not_choose_new_targets93
+tests/test_rules_exchange_spells93.py::test_sudden_legal_spell_still_retargets_after_mana_sacrifice_target93
+[gw0] [ 39%] PASSED tests/test_rules_exchange_spells93.py::test_foreign_original_caster_restored_instead_of_owner93
+tests/test_rules_exchange_spells93.py::test_whole_exact_exchange93[Perplexing Chimera]
+[gw0] [ 40%] PASSED tests/test_rules_exchange_spells93.py::test_whole_exact_exchange93[Perplexing Chimera]
+tests/test_rules_exchange_spells93.py::test_whole_exact_exchange93[Sudden Substitution]
+[gw0] [ 41%] PASSED tests/test_rules_exchange_spells93.py::test_whole_exact_exchange93[Sudden Substitution]
+tests/test_rules_exchange_spells93.py::test_chimera_exchange_and_original_ability_controller_retargets93
+[gw1] [ 41%] PASSED tests/test_rules_target_conditional_costs81.py::test_true_cold_actual_tapped_elf_keeps_original_higher_payment
+tests/test_rules_sacrifice_type_costs82.py::test_canonical_full
+[gw1] [ 42%] PASSED tests/test_rules_sacrifice_type_costs82.py::test_canonical_full
+tests/test_rules_sacrifice_type_costs82.py::test_no_sacrifices_full_price
+[gw3] [ 43%] PASSED tests/test_rules_exchange_spells93.py::test_sudden_legal_spell_still_retargets_after_mana_sacrifice_target93
+tests/test_rules_exchange_spells93.py::test_sudden_spell_owner_concedes_no_exchange_or_retarget93
+[gw2] [ 43%] PASSED tests/test_rules_exchange_spells93.py::test_new_spell_controller_leaves_during_retarget_no_new_target_offer93
+tests/test_rules_exchange_spells93.py::test_original_stack_control_history_pruned_after_permanent_resolves93
+[gw1] [ 44%] PASSED tests/test_rules_sacrifice_type_costs82.py::test_no_sacrifices_full_price
+tests/test_rules_sacrifice_type_costs82.py::test_actual_sacrifice_native_frozen_card_types[Gingerbrute-2]
+[gw0] [ 45%] PASSED tests/test_rules_exchange_spells93.py::test_chimera_exchange_and_original_ability_controller_retargets93
+tests/test_rules_gwenom_top70.py::test_life_payment_restrictions70[Platinum Emperion]
+[gw3] [ 45%] PASSED tests/test_rules_exchange_spells93.py::test_sudden_spell_owner_concedes_no_exchange_or_retarget93
+tests/test_rules_exchange_spells93.py::test_genuine_cold_layered_stack_control_restores_after_concession93
+[gw2] [ 46%] PASSED tests/test_rules_exchange_spells93.py::test_original_stack_control_history_pruned_after_permanent_resolves93
+tests/test_rules_exchange_spells93.py::test_sudden_split_second_blocks_ordinary_response_atomically93
+[gw1] [ 47%] PASSED tests/test_rules_sacrifice_type_costs82.py::test_actual_sacrifice_native_frozen_card_types[Gingerbrute-2]
+tests/test_rules_sacrifice_type_costs82.py::test_actual_sacrifice_native_frozen_card_types[Bitterblossom-2]
+[gw3] [ 47%] PASSED tests/test_rules_exchange_spells93.py::test_genuine_cold_layered_stack_control_restores_after_concession93
+tests/test_rules_exchange_spells93.py::test_genuine_cold_chimera_optional_native_continuation93
+[gw0] [ 48%] PASSED tests/test_rules_gwenom_top70.py::test_life_payment_restrictions70[Platinum Emperion]
+tests/test_rules_gwenom_top70.py::test_life_payment_restrictions70[Angel of Jubilation]
+[gw2] [ 49%] PASSED tests/test_rules_exchange_spells93.py::test_sudden_split_second_blocks_ordinary_response_atomically93
+tests/test_rules_gwenom_top70.py::test_whole70
+[gw2] [ 50%] PASSED tests/test_rules_gwenom_top70.py::test_whole70
+tests/test_rules_gwenom_top70.py::test_actual_attack_life_cast_and_private_top70
+[gw1] [ 50%] PASSED tests/test_rules_sacrifice_type_costs82.py::test_actual_sacrifice_native_frozen_card_types[Bitterblossom-2]
+tests/test_rules_gwenom_top70.py::test_trigger_original_controller_survives_actual_response_theft70
+[gw3] [ 51%] PASSED tests/test_rules_exchange_spells93.py::test_genuine_cold_chimera_optional_native_continuation93
+tests/test_rules_exchange_spells93.py::test_chimera_original_source_blinked_before_trigger_cannot_exchange93
+[gw1] [ 52%] PASSED tests/test_rules_gwenom_top70.py::test_trigger_original_controller_survives_actual_response_theft70
+tests/test_rules_gwenom_top70.py::test_zonal_legacy_free_boolean70
+[gw1] [ 52%] PASSED tests/test_rules_gwenom_top70.py::test_zonal_legacy_free_boolean70
+tests/test_rules_gwenom_top70.py::test_mandatory_additional_discard_paid_separately70
+[gw0] [ 53%] PASSED tests/test_rules_gwenom_top70.py::test_life_payment_restrictions70[Angel of Jubilation]
+tests/test_rules_gwenom_top70.py::test_life_payment_restrictions70[insufficient]
+[gw2] [ 54%] PASSED tests/test_rules_gwenom_top70.py::test_actual_attack_life_cast_and_private_top70
+tests/test_rules_gwenom_top70.py::test_land_limit_current_top_and_source_departure70
+[gw3] [ 54%] PASSED tests/test_rules_exchange_spells93.py::test_chimera_original_source_blinked_before_trigger_cannot_exchange93
+tests/test_rules_stack_granted_abilities84.py::test_bloodlord_grants_actual_bloodthirst_and_reads_real_opponent_damage84[True]
+[gw1] [ 55%] PASSED tests/test_rules_gwenom_top70.py::test_mandatory_additional_discard_paid_separately70
+tests/test_rules_gwenom_top70.py::test_no_authority_before_attack_and_normal_timing70
+[gw3] [ 56%] PASSED tests/test_rules_stack_granted_abilities84.py::test_bloodlord_grants_actual_bloodthirst_and_reads_real_opponent_damage84[True]
+tests/test_rules_stack_granted_abilities84.py::test_real_tyvar_loyalty_creates_native_emblem_grants_stack_haste_draws_two_and_expires84
+[gw1] [ 56%] PASSED tests/test_rules_gwenom_top70.py::test_no_authority_before_attack_and_normal_timing70
+tests/test_rules_stack_granted_abilities84.py::test_whole_canonical84[Lux Artillery]
+[gw1] [ 57%] PASSED tests/test_rules_stack_granted_abilities84.py::test_whole_canonical84[Lux Artillery]
+tests/test_rules_stack_granted_abilities84.py::test_lux_requires_both_artifact_and_creature84[Grizzly Bears]
+[gw0] [ 58%] PASSED tests/test_rules_gwenom_top70.py::test_life_payment_restrictions70[insufficient]
+tests/test_rules_gwenom_top70.py::test_x_life_alternative_zero70
+[gw1] [ 58%] PASSED tests/test_rules_stack_granted_abilities84.py::test_lux_requires_both_artifact_and_creature84[Grizzly Bears]
+tests/test_rules_stack_granted_abilities84.py::test_galea_competing_selected_forge_authority_does_not_grant_attachment84
+[gw1] [ 59%] PASSED tests/test_rules_stack_granted_abilities84.py::test_galea_competing_selected_forge_authority_does_not_grant_attachment84
+tests/test_rules_stack_granted_abilities84.py::test_galea_ordinary_hand_equipment_gets_no_extra_ability84
+[gw1] [ 60%] PASSED tests/test_rules_stack_granted_abilities84.py::test_galea_ordinary_hand_equipment_gets_no_extra_ability84
+tests/test_rules_stack_granted_abilities84.py::test_galea_top_aura_retains_ordinary_target_without_equipment_callback84
+[gw1] [ 60%] PASSED tests/test_rules_stack_granted_abilities84.py::test_galea_top_aura_retains_ordinary_target_without_equipment_callback84
+tests/test_rules_stack_granted_abilities84.py::test_genuine_cold_stack_grant_and_selected_permission84[lux_stack]
+[gw3] [ 61%] PASSED tests/test_rules_stack_granted_abilities84.py::test_real_tyvar_loyalty_creates_native_emblem_grants_stack_haste_draws_two_and_expires84
+tests/test_rules_stack_granted_abilities84.py::test_galea_actual_selected_top_permission_gives_spell_real_etb_ability_then_attaches84
+[gw2] [ 62%] PASSED tests/test_rules_gwenom_top70.py::test_land_limit_current_top_and_source_departure70
+tests/test_rules_stack_granted_abilities84.py::test_whole_canonical84[Bloodlord of Vaasgoth]
+[gw2] [ 62%] PASSED tests/test_rules_stack_granted_abilities84.py::test_whole_canonical84[Bloodlord of Vaasgoth]
+tests/test_rules_stack_granted_abilities84.py::test_whole_canonical84[Tyvar Kell]
+[gw2] [ 63%] PASSED tests/test_rules_stack_granted_abilities84.py::test_whole_canonical84[Tyvar Kell]
+tests/test_rules_stack_granted_abilities84.py::test_whole_canonical84[Galea, Kindler of Hope]
+[gw2] [ 64%] PASSED tests/test_rules_stack_granted_abilities84.py::test_whole_canonical84[Galea, Kindler of Hope]
+tests/test_rules_stack_granted_abilities84.py::test_actual_lux_grants_sunburst_from_real_spent_colors_to_original_stack_spell84
+[gw3] [ 64%] PASSED tests/test_rules_stack_granted_abilities84.py::test_galea_actual_selected_top_permission_gives_spell_real_etb_ability_then_attaches84
+tests/test_rules_stack_granted_abilities84.py::test_lux_printed_and_granted_sunburst_each_count_actual_five_colors84
+[gw3] [ 65%] PASSED tests/test_rules_stack_granted_abilities84.py::test_lux_printed_and_granted_sunburst_each_count_actual_five_colors84
+tests/test_rules_stack_granted_abilities84.py::test_lux_requires_both_artifact_and_creature84[Sol Ring]
+[gw1] [ 66%] PASSED tests/test_rules_stack_granted_abilities84.py::test_genuine_cold_stack_grant_and_selected_permission84[lux_stack]
+tests/test_rules_stack_granted_abilities84.py::test_genuine_cold_stack_grant_and_selected_permission84[galea_authority]
+[gw3] [ 66%] PASSED tests/test_rules_stack_granted_abilities84.py::test_lux_requires_both_artifact_and_creature84[Sol Ring]
+tests/test_rules_chosen_forms95.py::test_canonical_cast_and_choice[Corrupted Shapeshifter]
+[gw2] [ 67%] PASSED tests/test_rules_stack_granted_abilities84.py::test_actual_lux_grants_sunburst_from_real_spent_colors_to_original_stack_spell84
+tests/test_rules_stack_granted_abilities84.py::test_bloodlord_grants_actual_bloodthirst_and_reads_real_opponent_damage84[False]
+[gw3] [ 68%] PASSED tests/test_rules_chosen_forms95.py::test_canonical_cast_and_choice[Corrupted Shapeshifter]
+tests/test_rules_chosen_forms95.py::test_canonical_cast_and_choice[Primal Clay]
+[gw3] [ 68%] PASSED tests/test_rules_chosen_forms95.py::test_canonical_cast_and_choice[Primal Clay]
+tests/test_rules_chosen_forms95.py::test_canonical_cast_and_choice[Primal Plasma]
+[gw2] [ 69%] PASSED tests/test_rules_stack_granted_abilities84.py::test_bloodlord_grants_actual_bloodthirst_and_reads_real_opponent_damage84[False]
+tests/test_rules_chosen_forms95.py::test_canonical_cast_and_choice[Shapeshifter]
+[gw3] [ 70%] PASSED tests/test_rules_chosen_forms95.py::test_canonical_cast_and_choice[Primal Plasma]
+tests/test_rules_chosen_forms95.py::test_canonical_cast_and_choice[Aquamorph Entity]
+[gw2] [ 70%] PASSED tests/test_rules_chosen_forms95.py::test_canonical_cast_and_choice[Shapeshifter]
+tests/test_rules_chosen_forms95.py::test_every_alternative_form[Corrupted Shapeshifter-2/5 vigilance-pt0-vigilance]
+[gw2] [ 71%] PASSED tests/test_rules_chosen_forms95.py::test_every_alternative_form[Corrupted Shapeshifter-2/5 vigilance-pt0-vigilance]
+tests/test_rules_chosen_forms95.py::test_every_alternative_form[Corrupted Shapeshifter-0/12 defender-pt1-defender]
+[gw0] [ 72%] PASSED tests/test_rules_gwenom_top70.py::test_x_life_alternative_zero70
+tests/test_rules_gwenom_top70.py::test_modal_back_is_land_front_uses_spell_mv70
+[gw2] [ 72%] PASSED tests/test_rules_chosen_forms95.py::test_every_alternative_form[Corrupted Shapeshifter-0/12 defender-pt1-defender]
+tests/test_rules_chosen_forms95.py::test_every_alternative_form[Primal Plasma-1/6 defender-pt5-defender]
+[gw3] [ 73%] PASSED tests/test_rules_chosen_forms95.py::test_canonical_cast_and_choice[Aquamorph Entity]
+tests/test_rules_chosen_forms95.py::test_every_alternative_form[Primal Clay-2/2 flying-pt2-flying]
+[gw2] [ 74%] PASSED tests/test_rules_chosen_forms95.py::test_every_alternative_form[Primal Plasma-1/6 defender-pt5-defender]
+tests/test_rules_chosen_forms95.py::test_every_alternative_form[Aquamorph Entity-1/5-pt6-None]
+[gw2] [ 75%] PASSED tests/test_rules_chosen_forms95.py::test_every_alternative_form[Aquamorph Entity-1/5-pt6-None]
+tests/test_rules_chosen_forms95.py::test_actual_entering_clone_accumulates_keywords_and_wall
+[gw3] [ 75%] PASSED tests/test_rules_chosen_forms95.py::test_every_alternative_form[Primal Clay-2/2 flying-pt2-flying]
+tests/test_rules_chosen_forms95.py::test_every_alternative_form[Primal Clay-1/6 Wall defender-pt3-defender]
+[gw3] [ 76%] PASSED tests/test_rules_chosen_forms95.py::test_every_alternative_form[Primal Clay-1/6 Wall defender-pt3-defender]
+tests/test_rules_chosen_forms95.py::test_every_alternative_form[Primal Plasma-2/2 flying-pt4-flying]
+[gw2] [ 77%] PASSED tests/test_rules_chosen_forms95.py::test_actual_entering_clone_accumulates_keywords_and_wall
+tests/test_rules_chosen_forms95.py::test_actual_mirrorweave_copies_current_form_without_new_choice
+[gw3] [ 77%] PASSED tests/test_rules_chosen_forms95.py::test_every_alternative_form[Primal Plasma-2/2 flying-pt4-flying]
+tests/test_rules_chosen_forms95.py::test_native_morph_paid_before_preflip_choice
+[gw1] [ 78%] PASSED tests/test_rules_stack_granted_abilities84.py::test_genuine_cold_stack_grant_and_selected_permission84[galea_authority]
+tests/test_rules_stack_granted_abilities84.py::test_lux_pending_trigger_survives_source_departure84
+[gw3] [ 79%] PASSED tests/test_rules_chosen_forms95.py::test_native_morph_paid_before_preflip_choice
+tests/test_rules_chosen_forms95.py::test_effect_driven_break_open_preflip_choice
+[gw3] [ 79%] PASSED tests/test_rules_chosen_forms95.py::test_effect_driven_break_open_preflip_choice
+tests/test_rules_chosen_forms95.py::test_actual_token_copy_chooses_own_form_and_inherits_keywords
+[gw3] [ 80%] PASSED tests/test_rules_chosen_forms95.py::test_actual_token_copy_chooses_own_form_and_inherits_keywords
+tests/test_rules_chosen_forms95.py::test_preentry_form_visible_to_actual_power_trigger
+[gw2] [ 81%] PASSED tests/test_rules_chosen_forms95.py::test_actual_mirrorweave_copies_current_form_without_new_choice
+tests/test_rules_chosen_forms95.py::test_native_blink_rechooses_original_copiable_form
+[gw1] [ 81%] PASSED tests/test_rules_stack_granted_abilities84.py::test_lux_pending_trigger_survives_source_departure84
+tests/test_rules_stack_granted_abilities84.py::test_galea_resolved_spell_grant_survives_source_departure84
+[gw2] [ 82%] PASSED tests/test_rules_chosen_forms95.py::test_native_blink_rechooses_original_copiable_form
+tests/test_rules_chosen_forms95.py::test_shapeshifter_number_cda_not_copied
+[gw3] [ 83%] PASSED tests/test_rules_chosen_forms95.py::test_preentry_form_visible_to_actual_power_trigger
+tests/test_rules_chosen_forms95.py::test_shapeshifter_upkeep_last_choice_and_optional_decline
+[gw2] [ 83%] PASSED tests/test_rules_chosen_forms95.py::test_shapeshifter_number_cda_not_copied
+tests/test_rules_chosen_forms95.py::test_true_cold_form_continuations[morph]
+[gw1] [ 84%] PASSED tests/test_rules_stack_granted_abilities84.py::test_galea_resolved_spell_grant_survives_source_departure84
+tests/test_rules_stack_granted_abilities84.py::test_lux_grant_does_not_follow_bounced_card_into_new_spell_incarnation84
+[gw2] [ 85%] PASSED tests/test_rules_chosen_forms95.py::test_true_cold_form_continuations[morph]
+tests/test_rules_chosen_forms95.py::test_true_cold_form_continuations[copy]
+[gw0] [ 85%] PASSED tests/test_rules_gwenom_top70.py::test_modal_back_is_land_front_uses_spell_mv70
+tests/test_rules_gwenom_top70.py::test_true_cold_attack_grant_survives_source_and_casts_dynamic_top70
+[gw2] [ 86%] PASSED tests/test_rules_chosen_forms95.py::test_true_cold_form_continuations[copy]
+tests/test_rules_chosen_forms95.py::test_true_cold_form_continuations[effect]
+[gw1] [ 87%] PASSED tests/test_rules_stack_granted_abilities84.py::test_lux_grant_does_not_follow_bounced_card_into_new_spell_incarnation84
+tests/test_rules_chosen_forms95.py::test_true_cold_form_continuations[number]
+[gw2] [ 87%] PASSED tests/test_rules_chosen_forms95.py::test_true_cold_form_continuations[effect]
+tests/test_rules_chosen_forms95.py::test_actual_entering_clone_other_forms_and_original[Aquamorph Entity-1/5-5/1-expected1-keywords1]
+[gw2] [ 88%] PASSED tests/test_rules_chosen_forms95.py::test_actual_entering_clone_other_forms_and_original[Aquamorph Entity-1/5-5/1-expected1-keywords1]
+tests/test_rules_chosen_forms95.py::test_actual_ixidron_then_break_open_copied_entity_rechooses
+[gw2] [ 89%] PASSED tests/test_rules_chosen_forms95.py::test_actual_ixidron_then_break_open_copied_entity_rechooses
+tests/test_rules_chosen_forms95.py::test_copied_away_entity_has_no_turnup_form_replacement
+[gw3] [ 89%] PASSED tests/test_rules_chosen_forms95.py::test_shapeshifter_upkeep_last_choice_and_optional_decline
+tests/test_rules_chosen_forms95.py::test_true_cold_form_continuations[entry]
+[gw2] [ 90%] PASSED tests/test_rules_chosen_forms95.py::test_copied_away_entity_has_no_turnup_form_replacement
+tests/test_rules_chosen_forms95.py::test_native_humility_removes_preflip_replacement_then_zero_original_dies
+[gw1] [ 91%] PASSED tests/test_rules_chosen_forms95.py::test_true_cold_form_continuations[number]
+tests/test_rules_chosen_forms95.py::test_shapeshifter_bounded_seven_has_zero_toughness_and_dies
+[gw3] [ 91%] PASSED tests/test_rules_chosen_forms95.py::test_true_cold_form_continuations[entry]
+tests/test_rules_chosen_forms95.py::test_copied_entity_can_pay_prospective_morph_cost
+[gw2] [ 92%] PASSED tests/test_rules_chosen_forms95.py::test_native_humility_removes_preflip_replacement_then_zero_original_dies
+tests/test_rules_chosen_forms95.py::test_copied_away_entity_cannot_pay_original_morph_cost
+[gw0] [ 93%] PASSED tests/test_rules_gwenom_top70.py::test_true_cold_attack_grant_survives_source_and_casts_dynamic_top70
+tests/test_rules_chosen_forms95.py::test_actual_entering_clone_other_forms_and_original[Corrupted Shapeshifter-0/12 defender-3/3 flying-expected0-keywords0]
+[gw1] [ 93%] PASSED tests/test_rules_chosen_forms95.py::test_shapeshifter_bounded_seven_has_zero_toughness_and_dies
+tests/test_rules_sacrifice_type_costs82_extra.py::test_actual_artifact_creature_token_counts_two_without_token_type
+[gw3] [ 94%] PASSED tests/test_rules_chosen_forms95.py::test_copied_entity_can_pay_prospective_morph_cost
+tests/test_rules_sacrifice_type_costs82_extra.py::test_actual_liquimetal_added_type_is_frozen_at_sacrifice
+[gw0] [ 95%] PASSED tests/test_rules_chosen_forms95.py::test_actual_entering_clone_other_forms_and_original[Corrupted Shapeshifter-0/12 defender-3/3 flying-expected0-keywords0]
+tests/test_rules_sacrifice_type_costs82_extra.py::test_true_cold_locked_price_keeps_original_receipts
+[gw2] [ 95%] PASSED tests/test_rules_chosen_forms95.py::test_copied_away_entity_cannot_pay_original_morph_cost
+tests/test_rules_sacrifice_type_costs82_extra.py::test_actual_prior_turn_sacrifices_expire
+[gw1] [ 96%] PASSED tests/test_rules_sacrifice_type_costs82_extra.py::test_actual_artifact_creature_token_counts_two_without_token_type
+tests/test_rules_sacrifice_type_costs82_extra.py::test_five_distinct_card_types_reduce_only_generic_mana
+[gw3] [ 97%] PASSED tests/test_rules_sacrifice_type_costs82_extra.py::test_actual_liquimetal_added_type_is_frozen_at_sacrifice
+tests/test_rules_sacrifice_type_costs82_extra.py::test_actual_altar_sacrifice_during_payment_does_not_reprice_locked_total
+[gw3] [ 97%] PASSED tests/test_rules_sacrifice_type_costs82_extra.py::test_actual_altar_sacrifice_during_payment_does_not_reprice_locked_total
+[gw1] [ 98%] PASSED tests/test_rules_sacrifice_type_costs82_extra.py::test_five_distinct_card_types_reduce_only_generic_mana
+[gw0] [ 99%] PASSED tests/test_rules_sacrifice_type_costs82_extra.py::test_true_cold_locked_price_keeps_original_receipts
+[gw2] [100%] PASSED tests/test_rules_sacrifice_type_costs82_extra.py::test_actual_prior_turn_sacrifices_expire
+
+======================= 148 passed in 248.83s (0:04:08) ========================

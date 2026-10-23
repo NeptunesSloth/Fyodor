@@ -1,0 +1,44 @@
+{
+  "status": "READY exact2",
+  "names": [
+    "Musician",
+    "Essence Leak"
+  ],
+  "native": 28,
+  "genuine_cold": 3,
+  "install_test": "backend/tests/test_rules_conditional_upkeep_grants91.py",
+  "install_fixture": "backend/tests/fixtures/upkeep91_cards.json",
+  "stage": "/workspace/scratch/payment83/upkeep91/backend",
+  "source_files": [
+    "conditional_upkeep_grants91.py",
+    "scripts.py",
+    "effects.py",
+    "static_conditions.py",
+    "optional_payment.py"
+  ],
+  "hashes": {
+    "UNINSTALLED.patch": "dbac6a62682a490fc94b641b155dd0975bc8e6f2acf84868d0ac08b21c3c9a2a",
+    "native_tests.py": "f96e16f40f6b7142d6bcda322f2c8c3dd9d1300769c5f5db0170727dbed44588",
+    "cards.json": "38b6c32411238c41e102f585e39cc5cc6b93ca33302f19bfb994f3bf123859eb",
+    "conditional_upkeep_grants91.py": "8a2b6a4bb4f6d64de8f22f8fb6ac63dfa4d1a7af402e49017500ca73a589a017",
+    "legacy_flux_compat_tests.py": "3f0fdb65ac6c868cb2b00323c52e5faf1698d85c8e24ad5e3be3c30ff4f87aee",
+    "canonical-rulings.json": "7c6272812b031547938ff3fa1a89f1ac63fe0e6bdb1b7b8c3dbdf5df88d527e2",
+    "rosheen-rulings.json": "61e5b9ef21087e0d282aacd498462d4eae49302860e602c53312f8b5bb9c4f8e"
+  },
+  "historical_fresh_gate": {
+    "total": 168,
+    "native": 28,
+    "related": 140,
+    "seconds": 1167.36
+  },
+  "legacy_fixture_repair": "backend/tests/test_rules_wave16f_smaller.py: provide two legal battlefield Forest mana sources before original pay/sacrifice prompt",
+  "related": 142,
+  "total_distinct_cases": 170,
+  "compatibility_gate": {
+    "passed": 9,
+    "seconds": 61.44,
+    "includes": "legacy Flux2, native original-payer/control4, true-cold3"
+  },
+  "mypy": 5,
+  "ruff": 7
+}

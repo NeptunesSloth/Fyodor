@@ -1,0 +1,348 @@
+[
+  {
+    "id": "19b1dfd9-b717-4c23-b8e5-a6ec835b278a",
+    "oracle_id": "10891656-070f-49f4-80e0-78061b773f17",
+    "name": "Geistblast",
+    "layout": "normal",
+    "set_code": "soi",
+    "set_name": "Shadows over Innistrad",
+    "collector_number": "160",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Instant",
+    "oracle_text": "Geistblast deals 2 damage to any target.\n{2}{U}, Exile this card from your graveyard: Copy target instant or sorcery spell you control. You may choose new targets for the copy.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2016-04-08",
+    "artist": "Raymond Swanland",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "1b1e790e-ff82-4888-8aee-9986c646241a",
+    "oracle_id": "cf0492de-cec5-4455-839f-212246b7e9ea",
+    "name": "Gollum's Bite",
+    "layout": "normal",
+    "set_code": "ltr",
+    "set_name": "The Lord of the Rings: Tales of Middle-earth",
+    "collector_number": "85",
+    "rarity": "uncommon",
+    "mana_cost": "{B}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets -2/-2 until end of turn.\n{3}{B}, Exile this card from your graveyard: The Ring tempts you. Activate only as a sorcery.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2023-06-23",
+    "artist": "Anton Solovianchyk",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "7215460e-8c06-47d0-94e5-d1832d0218af",
+        "name": "The Ring // The Ring Tempts You",
+        "component": "combo_piece"
+      },
+      {
+        "id": "65131fa4-b7cd-4ac3-8b43-d3428aefddc6",
+        "name": "Gollum's Bite",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "95c2390f-71f1-4e42-83da-d603ca86a8d0",
+    "oracle_id": "cf1e1d8d-c02e-4b66-b1db-49ec48fa4b03",
+    "name": "Wither and Bloom",
+    "layout": "normal",
+    "set_code": "mh3",
+    "set_name": "Modern Horizons 3",
+    "collector_number": "111",
+    "rarity": "common",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Target creature gets -3/-3 until end of turn.\n{1}{B}, Exile this card from your graveyard: Put a +1/+1 counter on target creature you control. Activate only as a sorcery.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-06-14",
+    "artist": "Richard Kane Ferguson",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "409f9b88-f03e-40b6-9883-68c14c37c0de",
+    "oracle_id": "14c8f55d-d177-4c25-a931-ebeb9e6062a0",
+    "name": "Grizzly Bears",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "268",
+    "rarity": "common",
+    "mana_cost": "{1}{G}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "D. J. Cleland-Hura",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "14c2be6a-9ca6-4d3a-8dd0-db4ea40799f8",
+    "oracle_id": "342199e0-15b6-4824-83da-25caef2592b3",
+    "name": "Hill Giant",
+    "layout": "normal",
+    "set_code": "10e",
+    "set_name": "Tenth Edition",
+    "collector_number": "212",
+    "rarity": "common",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Giant",
+    "oracle_text": "",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2007-07-13",
+    "artist": "Kev Walker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "25e36841-3242-436b-8e82-9099063fa461",
+    "oracle_id": "b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6",
+    "name": "Forest",
+    "layout": "normal",
+    "set_code": "fra",
+    "set_name": "Reality Fracture",
+    "collector_number": "290",
+    "rarity": "common",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Chris Ostrowski",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "a0d12fc5-c7bd-4734-9259-98fe65241f60",
+        "name": "Forest",
+        "component": "combo_piece"
+      },
+      {
+        "id": "aed8ae06-ae54-4a16-8830-6547164ce6ae",
+        "name": "Gilt-Leaf Alchemist",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "0852f9f3-d7ef-4d31-93e3-93bc7c5a4ec9",
+    "oracle_id": "4457ed35-7c10-48c8-9776-456485fdf070",
+    "name": "Lightning Bolt",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "163",
+    "rarity": "uncommon",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Christopher Moeller",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": [
+      {
+        "id": "4f095067-cf24-4061-8626-dc68a66a0b36",
+        "name": "Toralf's Disciple",
+        "component": "combo_piece"
+      },
+      {
+        "id": "69b51576-532b-450e-a8bf-0482cac04618",
+        "name": "Thayan Evokers",
+        "component": "combo_piece"
+      },
+      {
+        "id": "618806ea-7ea8-4cfb-a8c1-c3defa34e7dd",
+        "name": "Indris, the Hydrostatic Surge",
+        "component": "combo_piece"
+      }
+    ]
+  },
+  {
+    "id": "4f152dd9-2b35-45b2-90fe-8c71d0634226",
+    "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487",
+    "name": "Sol Ring",
+    "layout": "normal",
+    "set_code": "fdc",
+    "set_name": "Foundations Commander",
+    "collector_number": "286",
+    "rarity": "uncommon",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Mike Bierek",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "16671d98-6f00-477b-a010-d2905c94eb65",
+    "oracle_id": "a3fb7228-e76b-4e96-a40e-20b5fed75685",
+    "name": "Mountain",
+    "layout": "normal",
+    "set_code": "fra",
+    "set_name": "Reality Fracture",
+    "collector_number": "287",
+    "rarity": "common",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Mountain",
+    "oracle_text": "({T}: Add {R}.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2026-10-02",
+    "artist": "Jorge Jacinto",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]
