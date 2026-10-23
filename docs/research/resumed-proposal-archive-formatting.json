@@ -618,5 +618,20 @@
     "original_sha256": "e6f357caf23e08a075ed8d71bc8a9fdb4d8526e773bcda76a446858c9418c774",
     "archived_sha256": "89797369f4335087a3d683fdf38a94cd86b220d209aa3654dd29925b91aef804",
     "numstat_preserved": null
+  },
+  "docs/research/checkpoint64-validation/native.log": {
+    "original_sha256": "67134750f782e3a3235252cd389ab7df4b11885c00a3215d2f53cbe9aa96efd0",
+    "archived_sha256": "84b65f38415acce565cc72fb272c56d4696481f5a9370f86639a45f0abda9530",
+    "numstat_preserved": null
+  },
+  "docs/research/checkpoint64-validation/native165.log": {
+    "original_sha256": "67134750f782e3a3235252cd389ab7df4b11885c00a3215d2f53cbe9aa96efd0",
+    "archived_sha256": "84b65f38415acce565cc72fb272c56d4696481f5a9370f86639a45f0abda9530",
+    "numstat_preserved": null
+  },
+  "docs/research/checkpoint64-validation/related.log": {
+    "original_sha256": "c53572a91172f934ace170a16c25c1ddcebe9bec3950639369ae154e1ab80c41",
+    "archived_sha256": "29b90274da0cfb9b0f3cb1102925b77108b5d8ae3d32e2332ccd472b0f21cab3",
+    "numstat_preserved": null
   }
 }

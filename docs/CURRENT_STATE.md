@@ -1,8 +1,10 @@
-Work resumed at the user’s request after wrap-up. Latest verified implementation is checkpoint63, saved to PR20 with twenty-seven exact additions and no prior FULL regressions. Six agents continue next groups automatically.
+Work continues on [PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20). Six agents continue next groups automatically.
 
-Verified implementation was merged in [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). [Active PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20) preserves subsequent verified implementation, the current candidate and remaining research on `codex/card-automation-wrap-up`. PR #18 and PR #19 references below describe historical implementation reviews.
+## CHECKPOINT64 VERIFIED — CONTINUING
 
-Checkpoint63 verifies27 further cards. See [integration evidence](research/resumed-checkpoint63-integrations.md). Later research remains uninstalled or uncounted until its next frozen audit.
+Latest catalog: **29,888 FULL / 2,180 PARTIAL**. **21 exact additions**, zero prior FULL regressions or unexpected/missing promotions. **426 of 1,500 additional completions verified; 1,074 remain.** FULL is engine coverage classification.
+
+[Evidence](research/resumed-checkpoint64-integrations.md), [coverage](research/checkpoint64-coverage.json), [904-module hashes](research/checkpoint64-source-hashes.json), [logs](research/checkpoint64-validation). Native165, related155, core54, full mypy904 and Ruff pass on the same immutable source. Next 30 candidates remain uncounted until integrated and validated.
 
 ## CHECKPOINT63 VERIFIED — CONTINUING
 
