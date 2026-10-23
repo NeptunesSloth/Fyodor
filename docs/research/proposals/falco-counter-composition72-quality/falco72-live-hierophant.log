@@ -1,0 +1,55 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_falco_actual_hierophant_also_shares_holder_but_never_counter_tokens[0] __
+tests/test_rules_dawnhand_counter_order72.py:282: in test_falco_actual_hierophant_also_shares_holder_but_never_counter_tokens
+    act(
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:162: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3773: in cast_spell
+    origins70 = counter_cost_order70.capture(plan, add_cost, add_objects) if add_cost is not None and grant is not None and grant.extra == counter_cost_order70.TEXT else None
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/counter_cost_order70.py:68: in capture
+    raise ActionError("The counter-first cost has no selected counter")
+E   app.game.errors.ActionError: The counter-first cost has no selected counter
+_ test_falco_actual_hierophant_also_shares_holder_but_never_counter_tokens[3] __
+tests/test_rules_dawnhand_counter_order72.py:282: in test_falco_actual_hierophant_also_shares_holder_but_never_counter_tokens
+    act(
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:162: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3692: in cast_spell
+    found_objects = cost_payment.choose(plan, a, add_cost, card, ch.name or "it", counter_first=counter_first70)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/cost_payment.py:485: in choose
+    found = _choose_any(plan, a, i, comp, cost, card, what, given.get(i), used)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/cost_payment.py:586: in _choose_any
+    raise ActionError(f"Choose from what can pay “{comp.text}”")
+E   app.game.errors.ActionError: Choose from what can pay “Remove any number of +1/+1 counters from among creatures you control”
+=============================== warnings summary ===============================
+../../workspace/Fyodor/backend/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /workspace/Fyodor/backend/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_rules_dawnhand_counter_order72.py::test_falco_actual_hierophant_also_shares_holder_but_never_counter_tokens[0]
+FAILED tests/test_rules_dawnhand_counter_order72.py::test_falco_actual_hierophant_also_shares_holder_but_never_counter_tokens[3]
+2 failed, 11 deselected, 1 warning in 5.84s

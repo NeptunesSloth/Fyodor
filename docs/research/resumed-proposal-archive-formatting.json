@@ -143,5 +143,80 @@
     "original_sha256": "c7188253914abd963e9fc7097b4795a8f782df672912a36deaea85c9140ba3d2",
     "archive_sha256": "87bdc9d14a35fe3d3c8b249d3c346df177e3762d221428fbb579d57bbb2eb2e9",
     "numstat_unchanged": true
+  },
+  "docs/research/proposals/cloudspire82/reviewed.patch": {
+    "original_sha256": "4dc2c7bc6847c54b450b62d712ded4fcc80513073842dfee928e5f57afccbdef",
+    "archive_sha256": "3392972eb65583c60f8c9bdda4a281761a8ffce67e57480a2d6706c8622e4b21",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/crew-saddle-readers81/reviewed.patch": {
+    "original_sha256": "f45cd0f1ad8855a7c20fac4acc81bd655798a49e3462e99da98c29ce565dbce4",
+    "archive_sha256": "5940e64bc36eb5bc1d40b4d0aa64a54c6545066f4481a4dd8675d21ecdc5f94a",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/crew-saddle-readers81/x-related.log": {
+    "original_sha256": "087063bcd3ea02bdb0c5b67761061054d9481ff84e777610159fe05a4ad69869",
+    "archive_sha256": "e9e52b7696e0c0c88ec4b710d3776f7f91bca26202c4c842f368dcfc8f089d55",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/demonic-covenant62/baseline-contested-game-ball.log": {
+    "original_sha256": "07605d82ad02e2fc82e3616fa7de1412e5b45cfe9282868ded0ceec636091f3a",
+    "archive_sha256": "b3c9de14c175adae795dcbec081e6429e04cc249ba48aa677f1da4ab37e1959e",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/demonic-covenant62/review.patch": {
+    "original_sha256": "bc36ef3006f0fd6b5e2d16fd13f7643e9f93a3c6d118a4d396a00d7489e1dc8c",
+    "archive_sha256": "a330570b92b14c3b741e653090b7e9674d8a6899b8d861d99cc908b5d0940074",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/falco-counter-composition72-quality/final-review.patch": {
+    "original_sha256": "43ac06dd62b9a26d42572748c6332c5c2f5c7afaf1936eabdd7657cea1ffcecc",
+    "archive_sha256": "d85271703c341a1169b919cf7bc151ced77a5827cbab7616811561c2330818bb",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/pooled-casting71-reviewed/final-review.patch": {
+    "original_sha256": "b1e9f3b88511d62e700a8eb6de7c86643765533c4bf6b1d375ae367e9544983c",
+    "archive_sha256": "4dce309cfb32a0e587d5376a2944f775e52f719535726b8cfea2e9b7967f29d6",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/post-mill-continuations60/review.patch": {
+    "original_sha256": "ecb54836b85203464819dbba978a96864eb6fb244356413c13b638c6225fc5d4",
+    "archive_sha256": "8ab83d1454edf6722290acb3907784739c370fc89611c858844fedf9cc9c6744",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/selected-keyword-costs65/cost65-cold-fixed.log": {
+    "original_sha256": "2a1e62e9ff8c2517f7a5b45ff7e050d73fb15dcb0844b7505dfff8983f73f959",
+    "archive_sha256": "f6744c6bfdf39d4fe59c9eea46f579d48a6c4c5db0bdce1a3b0b1062b5ed1435",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/selected-keyword-costs65/cost65-command-after.log": {
+    "original_sha256": "4ea2490a29706d2cab9c0969529010807714edbb33bbfa2b370100fc7533ee7b",
+    "archive_sha256": "ce791aaeb7bc8c47fa0b53903b16ffc3980a79b0467784083ca81a04578e4a3a",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/selected-keyword-costs65/cost65-command-before.log": {
+    "original_sha256": "5afcde40751ff97bf33eb0aae2d9135588b51e9bf8fb1fc71d1b1cf0523e9090",
+    "archive_sha256": "f6633738036889b69ad8f22d782946d8a510ab1e3b9dd1561168ca8570a97e3c",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/selected-keyword-costs65/cost65-native-final2.log": {
+    "original_sha256": "3590fea1d38e65db9f5e402f420dbff80f3c5f137b91b1a6218d7ed82152eb74",
+    "archive_sha256": "8349edcd7f73e99daf1709bc08863defc14be74817e6fbd9a370782b5be42430",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/selected-keyword-costs65/production-candidate.patch": {
+    "original_sha256": "376727696947bf22247df5f151955625cc885d9a74247c13c48a2da6a6f3a948",
+    "archive_sha256": "4a76eb42144045b70490394327f7ed5906e5f06ddbf02141239cfafc9d0cef14",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/stored-player-costs66/production-candidate.patch": {
+    "original_sha256": "5814b964d28a6405e7ec32dfaafd3a8e43e425590df05c5688e7f3587bb54d19",
+    "archive_sha256": "1dcdcf7403a5df12d5d72daeae5806e77fb14f51e3261742c2aa459831134f25",
+    "numstat_unchanged": true
+  },
+  "docs/research/proposals/upkeep-consequences81/UNINSTALLED.patch": {
+    "original_sha256": "6dd9540ea9a0cd5e258af1db59f7fef00896f1d10cd6f3dc5db783b14238357f",
+    "archive_sha256": "e6402c0cf9814604db1f24a75ba4ac8f678fd1752b4ef7d1af864d8112d78aad",
+    "numstat_unchanged": true
   }
 }

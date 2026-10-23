@@ -6712,3 +6712,20 @@ from app.rules import text_global_word71 as _global_word71  # noqa: E402
 RESUME['restore_global_word71'] = _global_word71.resume_restore
 
 RESUME['restore_global_continue71'] = _global_word71.resume_continue
+
+from app.rules import post_mill_continuations60 as _post_mill_continuations60  # noqa: E402, I001
+
+PRIMITIVES.update(_post_mill_continuations60.PRIMITIVES)
+RESUME.update(_post_mill_continuations60.RESUME)
+
+from app.rules import crew_saddle_readers81 as _crew_saddle_readers81  # noqa: E402, I001
+
+PRIMITIVES.update(_crew_saddle_readers81.PRIMITIVES)
+
+from app.rules import pooled_casting_authorities71 as _pooled_casting_authorities71  # noqa: E402, I001
+
+PRIMITIVES.update(_pooled_casting_authorities71.PRIMITIVES)
+
+from app.rules import demonic_covenant62 as _demonic_covenant62  # noqa: E402, I001
+
+PRIMITIVES.update(_demonic_covenant62.PRIMITIVES)

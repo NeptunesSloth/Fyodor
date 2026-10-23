@@ -2,7 +2,7 @@ Work resumed at the user’s request after wrap-up. Latest verified implementati
 
 Verified implementation was merged in [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). [Wrap-up PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20) preserves the remaining uninstalled research on `codex/card-automation-wrap-up`. PR #18 and PR #19 references below describe historical implementation reviews.
 
-After checkpoint58, twenty-five reviewed cards are integrated but remain outside verified totals pending the next full audit. The shared mill-continuation repair passes production quality checks; restored Airlift/Burrow and conditional-tax production checks are running. See [pending integrations](research/checkpoint59-pending-integrations.md).
+After checkpoint58,42 reviewed candidates are integrated but remain outside verified totals. An initial25-card catalog audit was superseded by an actual Falco/Bio-Titan counter-payment failure. Its shared repair and17 more reviewed cards are in the final857-module snapshot; full catalog/type/core/native gates are running. See [pending integrations](research/checkpoint59-pending-integrations.md).
 
 ## CHECKPOINT58 VERIFIED — CONTINUING
 

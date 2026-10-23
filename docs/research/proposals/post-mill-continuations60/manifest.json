@@ -1,0 +1,16 @@
+{
+  "cards": [
+    "Cache Grab",
+    "Midnight Tilling",
+    "Sparring Dummy"
+  ],
+  "status": "All scoped gates closed; source reviewed by root; awaiting root production integration/catalog audit.",
+  "dependency": "Root-integrated prepared-mill61 generic producer, source preserving hooks.",
+  "native": "30 passed, including four genuine fresh-process continuations",
+  "types": "Configured mypy three files passed",
+  "lint": "Configured Ruff three files passed",
+  "source_sha256": "5af181de5ba092b6550dc731ce1d556e61a6a1a9523eed040252c32f725d09d7",
+  "test_source": "backend/tests/test_rules_post_mill_continuations60.py",
+  "fixture": "backend/tests/fixtures/post_mill_continuations60_cards.json",
+  "related": "103 passed in 239.54s: look_distribute, reflexive_mill54, attachments, delayed"
+}

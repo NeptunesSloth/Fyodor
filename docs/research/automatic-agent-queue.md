@@ -15,7 +15,7 @@ Current resumed ownership:
 - `entry76`: conditional taxes and true-destruction/upkeep consequences, then payment windows.
 - `text71`: World duration/SBA foundation after closing Swirl.
 
-Checkpoint59 is frozen with 849 app/tools modules and 25 exact expected additions. Catalog, full types and latest native checks are running; configured Ruff and 54 core checks pass. Later proposals are excluded from that snapshot. No new verified totals are claimed yet.
+The final checkpoint59 snapshot has857 app/tools modules and42 exact expected additions from checkpoint58. It includes a shared Falco/Bio-Titan counter-payment repair after a real negative invalidated the initial25-card candidate. Final catalog/type/core/native gates are running. No new verified totals are claimed yet; all later proposals remain excluded.
 
 Historical ownership:
 

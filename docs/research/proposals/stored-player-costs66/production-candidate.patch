@@ -1,0 +1,53 @@
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -2653,6 +2653,10 @@
+
+
+ def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import stored_player_costs66
++
++    if (stored66 := stored_player_costs66.parse(body, event_player)) is not None:
++        return stored66
+     from app.rules import object_mana_offers78
+
+     if (offered78 := object_mana_offers78.parse(body)) is not None:
+--- a/backend/app/rules/permissions.py
++++ b/backend/app/rules/permissions.py
+@@ -2044,6 +2044,12 @@
+     """"<Spells> you cast this turn cost {N} less to cast" / "Until your next turn, <spells> you cast
+     cost {N} less to cast": a cost modifier for its controller's spells with that duration (601.2f,
+     611.2a; generic mana only, 118.7a), read with the table's static ones (``modifiers``)."""
++    if e.get("recipient66"):
++        from app.rules import effects
++
++        for recipient in effects._players(plan, ctx, e["recipient66"]):
++            cost_modifier(plan, {**ctx, "controller": recipient}, {k: v for k, v in e.items() if k != "recipient66"})
++        return True
+     pid = ctx["controller"]
+     from app.rules import values
+
+--- /dev/null
++++ b/backend/app/rules/stored_player_costs66.py
+@@ -0,0 +1,22 @@
++"""Exact stored taxes reuse native duration, optional resolution and caster records."""
++from __future__ import annotations
++
++from typing import Any
++
++
++def parse(body: str, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    from app.rules import scripts
++
++    text = body.casefold()
++    if text == 'until your next turn, spells your opponents cast cost {1} more to cast.':
++        return [{'do': 'cost_modifier', 'delta': 1, 'filter': None, 'caster': 'opponent', 'until': 'next_turn'}], None, False
++    if text == 'arrest — detain target creature an opponent controls.':
++        return scripts.parse_effects('Detain target creature an opponent controls.')
++    if text == 'that player may draw an additional card. if they do, spells they cast this turn cost {2} more to cast.':
++        native = scripts.parse_effects('That player may draw a card.', event_player=True)
++        if native is None:
++            return None
++        effects, target, optional = native
++        effects = [{**e, 'skip': 2} if e.get('do') == 'only_if' else dict(e) for e in effects]
++        return effects + [{'do': 'cost_modifier', 'delta': 2, 'filter': None, 'until': 'end_of_turn', 'recipient66': 'event_player'}], target, optional
++    return None

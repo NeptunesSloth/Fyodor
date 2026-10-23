@@ -1,0 +1,187 @@
+{
+  "Jacob Hauken, Inspector": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "16d2a56a-7181-4ef3-866b-10dd8615d9e9",
+        "source": "wotc",
+        "published_at": "2021-11-19",
+        "comment": "Paying {4}{U}{U} and transforming Jacob Hauken, Inspector is part of the resolution of the activated ability. You draw a card and exile a card before choosing whether to pay."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "16d2a56a-7181-4ef3-866b-10dd8615d9e9",
+        "source": "wotc",
+        "published_at": "2021-11-19",
+        "comment": "Playing a card using the last ability of Hauken's Insight follows all the normal timing rules for that card. For example, if you play a land this way, you may do so only during your main phase while the stack is empty and only if you haven't yet played a land (unless another effect allows you to play additional lands)."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "16d2a56a-7181-4ef3-866b-10dd8615d9e9",
+        "source": "wotc",
+        "published_at": "2021-11-19",
+        "comment": "You may play cards this way that were exiled with Jacob Hauken, Inspector before it transformed into Hauken's Insight."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "16d2a56a-7181-4ef3-866b-10dd8615d9e9",
+        "source": "wotc",
+        "published_at": "2021-11-19",
+        "comment": "Once Hauken's Insight leaves the battlefield, the player that controlled it may no longer play the exiled cards. If it's destroyed and somehow returns to the battlefield, it's a new object with no memory of the previously exiled cards."
+      }
+    ]
+  },
+  "Dawnhand Dissident": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "2cabf7a4-17af-45c7-b314-a84f5dc0d070",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "Dawnhand Dissident must be under your control in order for you to start casting a creature spell using its last ability, but it doesn't need to stay under your control throughout that process or be under your control as the spell resolves. If, for example, you sacrifice Dawnhand Dissident to pay an additional cost of the spell or it's destroyed in response, the spell will still resolve normally."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "2cabf7a4-17af-45c7-b314-a84f5dc0d070",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "All of the -1/-1 counters must be put on a single creature. You can't choose to split them up between multiple creatures."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "2cabf7a4-17af-45c7-b314-a84f5dc0d070",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "Once you've announced that you're casting a spell or activating an ability, players can't take actions until you've finished doing so. Notably, opponents can't try to destroy or otherwise remove your creatures to stop you from blighting as part of paying the cost of that spell or ability."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "2cabf7a4-17af-45c7-b314-a84f5dc0d070",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "If a creature that has +1/+1 counters on it receives enough -1/-1 counters to cause it to be destroyed by lethal damage or put into its owner's graveyard for having 0 or less toughness, effects that refer to the counters on that creature when it died will see all of those +1/+1 and -1/-1 counters."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "2cabf7a4-17af-45c7-b314-a84f5dc0d070",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "If you can't place -1/-1 counters on any creatures you control (probably because you control no creatures), you can't choose to blight."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "2cabf7a4-17af-45c7-b314-a84f5dc0d070",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "You must still pay all costs and follow any timing restrictions and permissions for creature spells you cast from exile this way. Normally, you'll be able to cast them only during your main phase while the stack is empty."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "2cabf7a4-17af-45c7-b314-a84f5dc0d070",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "If a creature has +1/+1 counters and -1/-1 counters on it, state-based actions remove the same number of each so that it has only one kind of those counters on it. For example, if a creature has three +1/+1 counters on it and two -1/-1 counters are put on it, state-based actions will remove two of each of those kinds of counters, leaving the creature with just one +1/+1 counter."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "2cabf7a4-17af-45c7-b314-a84f5dc0d070",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "The creature you choose to put -1/-1 counters on doesn't have to have enough toughness to survive the process. For example, if you blight 2, you can choose to put the counters on a 1/1 creature you control."
+      }
+    ]
+  },
+  "Maralen, Fae Ascendant": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "114e1d2c-cefc-4e2a-922e-3b2ceed1871d",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "If an exiled card has {X} in its mana cost, X is 0 for the purpose of determining its mana value."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "114e1d2c-cefc-4e2a-922e-3b2ceed1871d",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "If the spell you cast has {X} in its mana cost, you must choose 0 as the value of X when casting it without paying its mana cost."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "114e1d2c-cefc-4e2a-922e-3b2ceed1871d",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "Since you are using an alternative cost to cast the spell, you can't pay any other alternative costs. You can, however, pay additional costs, such as kicker costs. If the card has any mandatory additional costs, you must pay those."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "114e1d2c-cefc-4e2a-922e-3b2ceed1871d",
+        "source": "wotc",
+        "published_at": "2025-11-17",
+        "comment": "If Maralen enters at the same time as one or more other Elves or Faeries you control, its first ability will trigger for each of those other Elves and Faeries as well as itself."
+      }
+    ]
+  },
+  "Coram, the Undertaker": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "51c511c0-783a-456d-a7e2-959f6e8ddfc8",
+        "source": "wotc",
+        "published_at": "2024-06-07",
+        "comment": "Coram's first ability applies only while it is on the battlefield. In all other zones, its power is 0."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "51c511c0-783a-456d-a7e2-959f6e8ddfc8",
+        "source": "wotc",
+        "published_at": "2024-06-07",
+        "comment": "The value of X will change as the greatest power among creature cards in all graveyards changes."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "51c511c0-783a-456d-a7e2-959f6e8ddfc8",
+        "source": "wotc",
+        "published_at": "2024-06-07",
+        "comment": "You pay all costs and follow all timing rules for lands played and spells cast this way."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "51c511c0-783a-456d-a7e2-959f6e8ddfc8",
+        "source": "wotc",
+        "published_at": "2024-06-07",
+        "comment": "Once you begin to cast a spell this way, losing control of Coram won't affect it. You can finish casting it as normal."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "51c511c0-783a-456d-a7e2-959f6e8ddfc8",
+        "source": "wotc",
+        "published_at": "2024-06-07",
+        "comment": "If you play a land or cast a spell from a graveyard using another permission, it won't stop you from using Coram's permission to do the same thing later in the turn, provided you haven't already done so."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "51c511c0-783a-456d-a7e2-959f6e8ddfc8",
+        "source": "wotc",
+        "published_at": "2024-06-07",
+        "comment": "If you play a land, cast a spell, or both using the permission granted by Coram's last ability and then have a new Coram come under your control in the same turn, you can still play a land, cast a spell, or both using the new Coram's permission."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "51c511c0-783a-456d-a7e2-959f6e8ddfc8",
+        "source": "wotc",
+        "published_at": "2024-06-07",
+        "comment": "If it's your turn, you control Coram, and another player has permission to play a card in a graveyard that was put there from a library this turn (perhaps because it's an instant card they own that has flashback), whoever gets priority sooner will have the first chance to play that card. In most cases, this will be you, since the active player receives priority after a spell or ability resolves."
+      }
+    ]
+  }
+}

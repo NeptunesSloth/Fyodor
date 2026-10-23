@@ -1,0 +1,46 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__ test_warbringer_dash_commander_cost_reduction_applies_after_commander_tax ___
+
+cards = <app.cards.repository.CardRepository object at 0x7fba31409520>
+
+    def test_warbringer_dash_commander_cost_reduction_applies_after_commander_tax(cards):
+        from app.game.factory import PlayerSetup, new_game
+        from app.game.session import GameSession
+        from tests.game_helpers import deck, enable
+
+        decks = [deck(cards,'Zurgo Bellstriker',[(1,'Warbringer'),(20,'Mountain')]),
+                 deck(cards,"Atraxa, Praetors' Voice",[(1,'Lightning Bolt'),(20,'Island')]),
+                 deck(cards,"Atraxa, Praetors' Voice",[(20,'Island')])]
+        s = GameSession(enable(new_game([PlayerSetup(n,cards=d) for n,d in zip(('A','B','C'),decks,strict=True)],shuffle=False)),cards=cards)
+        act(s,'p1',type='pass_priority')
+        put(s,'Warbringer','battlefield')
+        spell = next(c for c in s.state.cards.values() if c.name == 'Zurgo Bellstriker')
+        bolt = put(s,'Lightning Bolt','hand',pid='p2')
+        ready(s)
+        assert spell.zone == 'p1:command'
+        act(s,'p1',type='add_mana',player='p1',mana={'R':1})
+        act(s,'p1',type='cast_spell',card_id=spell.id,dash=True,sources=[])
+        answer(s)
+        assert spell.zone == 'p1:battlefield' and not s.state.players['p1'].mana_units
+>       wait_priority(s,'p2')
+
+tests/test_rules_selected_keyword_costs65.py:181:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7fba31863e90>, pid = 'p2'
+
+    def wait_priority(s, pid):
+        for _ in range(6):
+            if s.state.rules.priority == pid:
+                return
+>           assert s.state.rules.decision is None
+E           AssertionError: assert Decision(id='e0ffba9ba22b', player='p1', kind='declare_attackers', prompt='Declare attackers (or attack with nothing)'...resume={'step': 'declare_attackers'}, display={'kind': 'attackers', 'banding': [], 'band_qualities': []}, decider=None) is None
+E            +  where Decision(id='e0ffba9ba22b', player='p1', kind='declare_attackers', prompt='Declare attackers (or attack with nothing)'...resume={'step': 'declare_attackers'}, display={'kind': 'attackers', 'banding': [], 'band_qualities': []}, decider=None) = RulesState(combat_memory=CombatMemory(version=1, known_empty=[], previous={'p1': CombatReceipt(player='p1', turn=1, co...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}).decision
+E            +    where RulesState(combat_memory=CombatMemory(version=1, known_empty=[], previous={'p1': CombatReceipt(player='p1', turn=1, co...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}) = GameState(format_version=1, id='c61a996cc6198502', name='Game', format='commander', created_at=1792715556.8116102, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})).rules
+E            +      where GameState(format_version=1, id='c61a996cc6198502', name='Game', format='commander', created_at=1792715556.8116102, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7fba31863e90>.state
+
+tests/test_rules_bandmate_references.py:149: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_selected_keyword_costs65.py::test_warbringer_dash_commander_cost_reduction_applies_after_commander_tax
+1 failed, 10 deselected in 1.58s

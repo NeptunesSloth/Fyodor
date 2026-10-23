@@ -1,0 +1,65 @@
+{
+  "status": "QUALITY REVIEW CLOSED; parent installing/validating accepted Falco, no new admissions",
+  "names": [
+    "Falco Spara, Pactweaver"
+  ],
+  "new_promotions": 0,
+  "held": [
+    "Dawnhand Dissident"
+  ],
+  "stage": "/tmp/falco72-quality-stage",
+  "base_snapshot": "/tmp/falco72-quality-base",
+  "patch": "/tmp/falco72-quality-final.patch",
+  "patch_sha256": "43ac06dd62b9a26d42572748c6332c5c2f5c7afaf1936eabdd7657cea1ffcecc",
+  "source_hashes": {
+    "app/rules/counter_cost_order70.py": {
+      "base_sha256": "41e7d57ba79d983581675391f09370ad6fce477e8182cb6f616c7d2dafb97f9a",
+      "proposed_sha256": "5116b02dd77830a00500d6413dfba7bee39c74c70ebef73453a2035677f26f24"
+    },
+    "app/rules/cost_payment.py": {
+      "base_sha256": "4f49c876ab1f0909ad0fb7c41d31d52a8555bee8b83f4fc91591e307e49ddc8b",
+      "proposed_sha256": "3b2862a4aa2c4257a005679f2597c0671c00cec3277d64d170ddd90946ac2091"
+    },
+    "tests/test_rules_falco_counter_composition72.py": {
+      "base_sha256": null,
+      "proposed_sha256": "af13b8f010cedb865b7b94a41ea7c1437abb81939230f3783c2071a75b59636f"
+    }
+  },
+  "before": {
+    "actual_live_failures": 2,
+    "optional_counter_reductions": [
+      0,
+      3
+    ],
+    "log": "/tmp/falco72-live-hierophant.log"
+  },
+  "native_whole": {
+    "passed": 6,
+    "cold_processes": 3,
+    "log": "/tmp/falco72-quality-native6.log"
+  },
+  "related": {
+    "passed": 66,
+    "log": "/tmp/falco72-quality-related.log"
+  },
+  "types": {
+    "files": 2,
+    "result": "PASS",
+    "log": "/tmp/falco72-quality-types2.log"
+  },
+  "ruff": {
+    "files": 3,
+    "result": "PASS",
+    "log": "/tmp/falco72-quality-ruff3.log"
+  },
+  "authority": [
+    "Pinned CR2026-09-25 118.3,118.10,400.7,601.2g-h",
+    "Full canonical Hierophant and complete official ruling set2022-10-07; fixture text,mana,MV,type,P/T independently identical"
+  ],
+  "scope": [
+    "Only selected exact fixed one-counter native grant, plus actual Hierophant optional among+1 counter removal, enters bounded same-holder distinct-token path.",
+    "Counter holders original OIDs retained before both nonmana-cost and mana-payment choices. All chosen counter holders captured, no guessed missing receipt.",
+    "Actual original token-to-holder/kind mapping frozen before any cost component removes counters. Duplicate tokens rejected, each actual counter removal still validated.",
+    "Dawnhand3 recipe/casting/permissions changes excluded; no installation of stale sibling source."
+  ]
+}

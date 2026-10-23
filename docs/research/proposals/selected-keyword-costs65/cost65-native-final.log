@@ -1,0 +1,4 @@
+..........
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! KeyboardInterrupt !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/json/decoder.py:339: KeyboardInterrupt
+(to show a full traceback on KeyboardInterrupt use --full-trace)

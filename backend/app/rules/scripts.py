@@ -2653,6 +2653,18 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import post_mill_continuations60
+
+    if (admitted := post_mill_continuations60.parse(body)) is not None:
+        return admitted
+    from app.rules import demonic_covenant62
+
+    if (admitted := demonic_covenant62.parse(body)) is not None:
+        return admitted
+    from app.rules import stored_player_costs66
+
+    if (stored66 := stored_player_costs66.parse(body, event_player)) is not None:
+        return stored66
     from app.rules import object_mana_offers78
 
     if (offered78 := object_mana_offers78.parse(body)) is not None:
@@ -5653,7 +5665,10 @@ def granted_ability(text: str) -> AbilityText | None:
     if ab.kind == "keywords":
         if ab.text.rstrip('.').lower() in ('affinity for artifacts', 'undaunted'):
             return ab  # Native selected cast permissions grant actual cumulative cost abilities.
-        from app.rules import graveyard_keywords
+        from app.rules import costs, graveyard_keywords, unearth_costs
+
+        if ab.keywords == ('unearth',) and (unearth_cost := unearth_costs.parse(ab.text)) is not None and not costs.parse_ability_cost(unearth_cost).unsupported:
+            return ab  # Native graveyard activation preserves timing, actual cost and replacement duration.
 
         if len(ab.keywords) == 1 and ab.keywords[0] in ("embalm", "encore") and graveyard_keywords.supported(ab.keywords[0], ab.text):
             return ab
@@ -5746,6 +5761,22 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import upkeep_consequences81
+
+    if (admitted := upkeep_consequences81.definition(ability, ch)) is not None:
+        return admitted
+    from app.rules import crew_saddle_readers81
+
+    if (admitted := crew_saddle_readers81.definition(ability, ch)) is not None:
+        return admitted
+    from app.rules import pooled_casting_authorities71
+
+    if (admitted := pooled_casting_authorities71.definition(ability, ch)) is not None:
+        return admitted
+    from app.rules import cloudspire82
+
+    if (admitted := cloudspire82.definition(ability, ch)) is not None:
+        return admitted
     from app.rules import text_global_word71
 
     if (global71 := text_global_word71.definition(ability, ch)) is not None:
@@ -6104,6 +6135,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (source_discount := source_spell_discounts64.definition(ability, ch)) is not None:
         return source_discount
+
+    from app.rules import selected_keyword_costs65
+
+    if (selected_keyword := selected_keyword_costs65.definition(ability, ch)) is not None:
+        return selected_keyword
 
     from app.rules import first_target_activation_cost58
 

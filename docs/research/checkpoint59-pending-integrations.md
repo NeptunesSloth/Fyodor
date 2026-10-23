@@ -1,6 +1,6 @@
 # Integrations after verified checkpoint58
 
-Twenty-five reviewed cards are integrated, but remain uncounted until the next frozen catalog audit. Root production verification of the latest restorations and conditional taxes is running.
+Forty-two reviewed candidates are integrated and remain uncounted until the final frozen catalog/type/core/native gates close. The initial25-card candidate was superseded after a real Falco/Bio-Titan additional-counter payment failure; the shared quality repair is included in final source.
 
 | Stream | Exact names | Production checks | Prior isolated checks |
 | --- | --- | --- | --- |
@@ -22,3 +22,11 @@ Latest verified totals remain checkpoint58: 29,747 FULL / 2,321 PARTIAL, target 
 Airlift was withdrawn before any catalog admission after a native RIP/Colossus competing-replacement counterexample. The shared prepared-mill repair now freezes original objects and completes every route choice before any commit or follow-up instruction. Root shared-quality9 plus Request7 pass; Airlift and Burrow recipes are restored pending their combined production gate. Earlier 17-pass evidence remains historical and insufficient for that boundary. Shared quality repair itself adds no promotions.
 
 The frozen849-module checkpoint59 snapshot has full mypy and configured Ruff PASS and54 core checks PASS. The catalog diff and latest native production checks remain running. A discarded earlier restoration/tax run crossed a transient, reverted worker patch application; the repeated run uses the immutable snapshot.
+
+## Final snapshot additions and quality repair
+
+Final857-module source includes17 further candidates: Cache Grab; Midnight Tilling; Sparring Dummy; Warbringer; Nahiri, Storm of Stone; Tax Collector; Academy Loremaster; Cosmic Horror; Demonic Hordes; Subterranean Schooner; Ghost Ark; Archmage’s Newt; Jacob Hauken, Inspector // Hauken’s Insight; Maralen, Fae Ascendant; Coram, the Undertaker; Demonic Covenant; Cloudspire Coordinator.
+
+All have closed isolated native/negative/cold and scoped related/type/lint gates. Root integrated bounded leaves while preserving existing shared code. Native selected flashback pricing now forces X0 only when the selected cost lacks both mana-X and a nonmana-X payment; actual Geyser and three nonmana-X regressions verify the distinction. Dash uses actual zone authority and rejects competing alternative costs. Coram/Maralen hints and responses expose only visible objects with actual permissions.
+
+Falco’s repaired counter allocation handles zero and multiple optional Bio-Titan counters on the same holder without reusing counters, preserves original holders across later questions, and uses the frozen original mapping throughout payment. This quality repair is separate from Dawnhand, which remains uninstalled. Final full checks and root production tests are running on the immutable snapshot; the initial849-module candidate is retained as superseded evidence. No new verified target increment is claimed yet.

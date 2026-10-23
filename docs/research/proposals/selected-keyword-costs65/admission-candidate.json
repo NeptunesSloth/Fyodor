@@ -1,0 +1,13 @@
+{
+  "names": [
+    "Warbringer",
+    "Nahiri, Storm of Stone"
+  ],
+  "status": "closed native22 distinct PASS (21 in final22 run plus corrected Nahiri cold; Warbringer cold independently rerun PASS), related45 PASS, mypy4 and Ruff PASS",
+  "source_files": {
+    "casting.py": "84e68d32193e2a50dcf30d0683024502fde22ef8b0117de5663131489baccd94",
+    "permissions.py": "2a9562d589356c2486cf7e3a53c66f71119bab4ee6a127d265546b578809efd4",
+    "scripts.py": "c05e640c3b609fdf969bbbfd3a997a077d961cbd424aaa155439698cc8ef5f94",
+    "selected_keyword_costs65.py": "a2a83916c7b78a3e3a5830c59bc1e52c8e69d1e3a266ff4e534dd610baff89ba"
+  }
+}

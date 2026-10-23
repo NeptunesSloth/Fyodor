@@ -1,0 +1,303 @@
+{
+  "Subterranean Schooner": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "7f82bae3-feaa-4967-a843-32a4f72806d5",
+        "source": "wotc",
+        "published_at": "2023-11-10",
+        "comment": "If an ability instructs a creature to explore, its controller reveals the top card of their library. If it's a land card, they'll put it into their hand. Otherwise, they'll put a +1/+1 counter on that creature, then choose to either leave that card on top of their library or put it into their graveyard."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "7f82bae3-feaa-4967-a843-32a4f72806d5",
+        "source": "wotc",
+        "published_at": "2023-11-10",
+        "comment": "Once an ability that causes a creature to explore begins to resolve, no player may take any other actions until it's done. Notably, opponents can't try to remove the exploring creature after you reveal a nonland card but before it receives a counter."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "7f82bae3-feaa-4967-a843-32a4f72806d5",
+        "source": "wotc",
+        "published_at": "2023-11-10",
+        "comment": "If no card is revealed, most likely because that player's library is empty, the exploring creature receives a +1/+1 counter."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "7f82bae3-feaa-4967-a843-32a4f72806d5",
+        "source": "wotc",
+        "published_at": "2023-11-10",
+        "comment": "If a resolving spell or ability instructs a specific creature to explore but that creature has left the battlefield, the creature still explores. If you reveal a nonland card this way, you won't put a +1/+1 counter on anything, but you may put the revealed card into your graveyard. Effects that trigger \"whenever a creature explores\" trigger as appropriate."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "7f82bae3-feaa-4967-a843-32a4f72806d5",
+        "source": "wotc",
+        "published_at": "2023-11-10",
+        "comment": "Some spells or abilities might cause a creature to explore multiple times in a row. If you reveal a nonland card when a creature explores and leave it on top of your library, then the creature explores again immediately afterwards, you'll reveal the same card again."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "7f82bae3-feaa-4967-a843-32a4f72806d5",
+        "source": "wotc",
+        "published_at": "2023-11-10",
+        "comment": "In some unusual cases, noncreature permanents may explore. For example, if the creature card returned by Defossilize is somehow not a creature once it's on the battlefield, it can still explore. You'll take all the same actions, and you may end up putting a +1/+1 counter on the permanent. (Note that some effects target a creature, and those effects would still require a legal target to have it explore.)"
+      }
+    ]
+  },
+  "Ghost Ark": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "bb1b4786-3804-486b-9fd9-85848d24d362",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Ghost Ark's triggered ability gives unearth {3} to each artifact that is in your graveyard as it resolves. Artifact cards that enter your graveyard after it resolves won't have unearth unless the ability triggers again later."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "bb1b4786-3804-486b-9fd9-85848d24d362",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "See also \"Returning Keyword Ability: Unearth\" in the General Notes section."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "bb1b4786-3804-486b-9fd9-85848d24d362",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "If you activate a card's unearth ability but that card is removed from your graveyard before the ability resolves, that unearth ability will resolve and do nothing."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "bb1b4786-3804-486b-9fd9-85848d24d362",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Activating a permanent card's unearth ability isn't the same as casting it as a spell. The unearth ability is put on the stack, but the card is not. Spells and abilities that interact with activated abilities (such as Stifle) will interact with unearth, but spells and abilities that interact with spells (such as Cancel) will not."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "bb1b4786-3804-486b-9fd9-85848d24d362",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "If a permanent returned to the battlefield by an unearth ability would leave it for any reason, it's exiled instead\u2014unless the spell or ability that's causing it to leave the battlefield is actually trying to exile it. In that case, the spell or ability succeeds at exiling the permanent. If the spell or ability later returns the card to the battlefield, it will return as a new object with no relation to its previous existence. The unearth effect will no longer apply to it."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "bb1b4786-3804-486b-9fd9-85848d24d362",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "At the beginning of the end step, a permanent returned to the battlefield with unearth is exiled. This is a delayed triggered ability, and it can be countered by effects that counter triggered abilities. If the ability is countered, the permanent will stay on the battlefield and the delayed trigger won't trigger again. However, the replacement effect will still exile it if it eventually leaves the battlefield."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "bb1b4786-3804-486b-9fd9-85848d24d362",
+        "source": "wotc",
+        "published_at": "2022-10-07",
+        "comment": "Unearth grants haste to the permanent that's returned to the battlefield. However, neither of the \"exile\" abilities is granted to that permanent. If that creature loses all its abilities, it will still be exiled at the beginning of the end step, and if it would leave the battlefield, it is still exiled instead."
+      }
+    ]
+  },
+  "Archmage's Newt": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "75ffebc4-8db9-4de6-a330-e3f41cdccecc",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "\"Flashback [cost]\" means \"You may cast this card from your graveyard by paying [cost] rather than paying its mana cost\" and \"If the flashback cost was paid, exile this card instead of putting it anywhere else any time it would leave the stack.\""
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "75ffebc4-8db9-4de6-a330-e3f41cdccecc",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "You must still follow any timing restrictions and permissions, including those based on the card's type. For instance, you can cast a sorcery using flashback only when you could normally cast a sorcery."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "75ffebc4-8db9-4de6-a330-e3f41cdccecc",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "To determine the total cost of a spell, start with the mana cost or alternative cost (such as a flashback cost) you're paying, add any cost increases, then apply any cost reductions. The mana value of the spell is determined only by its mana cost, no matter what the total cost to cast the spell was."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "75ffebc4-8db9-4de6-a330-e3f41cdccecc",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "A spell cast using flashback will always be exiled afterward, whether it resolves, is countered, or leaves the stack in some other way."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "75ffebc4-8db9-4de6-a330-e3f41cdccecc",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "You can cast a spell using flashback even if it was somehow put into your graveyard without having been cast."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "75ffebc4-8db9-4de6-a330-e3f41cdccecc",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "If you cast an instant or sorcery with {X} in its mana cost and a flashback cost equal to its mana cost, you still choose the value of X as part of casting the spell and paying that cost. If that spell has flashback {0}, you won't be able to choose the value of X; the value of X will simply be 0."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "75ffebc4-8db9-4de6-a330-e3f41cdccecc",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "If you cast a spell with flashback, you can't pay any alternative costs such as overload costs. You can pay additional costs such as kicker costs. If the spell has any mandatory additional costs, you must pay those to cast the spell with flashback."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "75ffebc4-8db9-4de6-a330-e3f41cdccecc",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "If a card has multiple instances of flashback, you may choose any of its flashback costs to pay."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "75ffebc4-8db9-4de6-a330-e3f41cdccecc",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "If a card with no mana cost gains flashback equal to its mana cost, it has no flashback cost. It can't be cast this way."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "75ffebc4-8db9-4de6-a330-e3f41cdccecc",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "\"Saddle N\" means \"Tap any number of other untapped creatures you control with total power N or greater: This permanent becomes saddled until end of turn. Activate only as a sorcery.\""
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "75ffebc4-8db9-4de6-a330-e3f41cdccecc",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "\"Saddled\" isn't an ability that a creature has. It's just something true about that creature. It won't stop being saddled until the turn ends or it leaves the battlefield."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "75ffebc4-8db9-4de6-a330-e3f41cdccecc",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "Creatures with saddle can attack or block as normal even if they aren't saddled."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "75ffebc4-8db9-4de6-a330-e3f41cdccecc",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "If a permanent becomes a copy of a saddled Mount, the copy won't be saddled."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "75ffebc4-8db9-4de6-a330-e3f41cdccecc",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "You may activate a permanent's saddle ability even if that permanent is already saddled."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "75ffebc4-8db9-4de6-a330-e3f41cdccecc",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "An ability that triggers when a creature \"attacks while saddled\" will trigger only if that creature was saddled when it was declared as an attacker."
+      }
+    ]
+  },
+  "Fortune, Loyal Steed": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "Fortune's middle ability creates a delayed triggered ability that triggers at end of combat. This ability will trigger whether or not Fortune is still on the battlefield. If it's not, you can still exile up to one creature that saddled it that turn."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "The delayed triggered ability doesn't target any creature. You choose which other creature to exile, if any, as that ability is resolving. At that point, it's too late for any player to respond."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "Tokens exiled by the delayed triggered ability won't return to the battlefield. It's usually not a good idea to saddle Fortune if Fortune itself is a token."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "\"Saddle N\" means \"Tap any number of other untapped creatures you control with total power N or greater: This permanent becomes saddled until end of turn. Activate only as a sorcery.\""
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "\"Saddled\" isn't an ability that a creature has. It's just something true about that creature. It won't stop being saddled until the turn ends or it leaves the battlefield."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "Creatures with saddle can attack or block as normal even if they aren't saddled."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "If a permanent becomes a copy of a saddled Mount, the copy won't be saddled."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "You may activate a permanent's saddle ability even if that permanent is already saddled."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "dc440b62-0bf0-4f23-9210-3550ff0a8d4d",
+        "source": "wotc",
+        "published_at": "2024-04-12",
+        "comment": "An ability that triggers when a creature \"attacks while saddled\" will trigger only if that creature was saddled when it was declared as an attacker."
+      }
+    ]
+  },
+  "Cloudspire Coordinator": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Balthier and Fran": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "570cb560-c246-4652-b230-ab34f966c78a",
+        "source": "wotc",
+        "published_at": "2025-06-06",
+        "comment": "Balthier and Fran's last ability doesn't give you any additional main phases. This means that you will move directly from the end of combat step of one combat phase to the beginning of combat step of the next one."
+      }
+    ]
+  }
+}

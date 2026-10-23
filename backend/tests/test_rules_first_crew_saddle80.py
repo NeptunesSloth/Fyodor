@@ -384,3 +384,19 @@ def test_unknown_legacy_history_does_not_notice_known_wrong_payment(cards):
     crew80(s, source, bear, other)
     assert s.state.rules.decision is None
     assert not any(a.text.startswith('Whenever this creature deals combat damage to a player, draw two cards') for a in chars(s, source).abilities)
+
+
+def test_trustworthy_fresh_turn_one_records_actual_first_crew(cards):
+    from tests.test_rules_wave30m_durations import stops, to_phase
+    names = list(dict.fromkeys([c['name'] for c in DATA] + ['Grizzly Bears', 'Sol Ring']))
+    s = table(cards, names, [], [])
+    source = put(s, 'Mighty Servant of Leuk-o', 'battlefield')
+    bear = put(s, 'Grizzly Bears', 'battlefield')
+    other = put(s, 'Runeclaw Bear', 'battlefield')
+    stops(s, 'main1')
+    to_phase(s, 'main1', turn=1)
+    assert s.state.turn.number == 1
+    assert s.state.rules.crew_saddle_history_turn80 == 1
+    crew80(s, source, bear, other)
+    assert s.state.rules.decision is None
+    assert any(a.text.startswith('Whenever this creature deals combat damage to a player, draw two cards') for a in chars(s, source).abilities)

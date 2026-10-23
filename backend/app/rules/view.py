@@ -242,6 +242,9 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     library = state.zones.get(zone_key(viewer, "library"), [])
     if library and can_see(state, state.cards[library[0]], viewer):
         candidates.append(library[0])
+    from app.rules.pooled_casting_authorities71 import external_candidates
+
+    candidates = list(dict.fromkeys([*candidates, *external_candidates(state, viewer, info)]))
     playable = []
     for cid in candidates:
         card = state.cards[cid]

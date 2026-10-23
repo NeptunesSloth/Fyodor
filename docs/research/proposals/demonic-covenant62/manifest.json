@@ -1,0 +1,21 @@
+{
+  "cards": [
+    "Demonic Covenant"
+  ],
+  "status": "All scoped gates closed; source reviewed by root pending final production integration/catalog audit.",
+  "native_historical": "Initial14 pass; whole3 pass separately; final route proof strengthened to public matching Artifact Creature pair vs hidden shuffle.",
+  "source": "backend/app/rules/demonic_covenant62.py",
+  "test": "backend/tests/test_rules_demonic_covenant62.py",
+  "fixture": "backend/tests/fixtures/demonic_covenant62_cards.json",
+  "authority": "Pinned CR701.17c public moved objects; official exact type combination ruling in ../post-mill-continuations60/rulings.json",
+  "baseline": "Contested Game Ball65 classifier PARTIAL reproduces on live source, separate from new leaf.",
+  "native": "19 passed119.95s, including two genuine fresh-process competing616 resumes",
+  "sha256": {
+    "demonic_covenant62.py": "d88b226a9da520b25ce8231eed57584430ff6b2b94f69483dc66e29b12fc63e3",
+    "test_rules_demonic_covenant62.py": "e1798fddf68a1c6f1f2d4197307bcf054a038cd681616c0b3802f93446d494ea",
+    "demonic_covenant62_cards.json": "b8882047eb2e240b6a344d45445486540df20d2485830356ea73a28190e6409a"
+  },
+  "related": "34 passed113.10s: reflexive_mill54 and attacking_opponents",
+  "mypy": "Configured leaf1 PASS",
+  "ruff": "Configured leaf and native test2 PASS"
+}

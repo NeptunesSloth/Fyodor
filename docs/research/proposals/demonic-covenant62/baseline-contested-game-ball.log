@@ -1,0 +1,18 @@
+F
+=================================== FAILURES ===================================
+_____________________________ test_whole_canonical _____________________________
+
+cards = <app.cards.repository.CardRepository object at 0x7f351b2a7830>
+
+    def test_whole_canonical(cards):
+>       assert coverage.of_card_data(cards.resolve(NAME)).level == 'FULL'
+E       AssertionError: assert 'PARTIAL' == 'FULL'
+E
+E         - FULL
+E         + PARTIAL
+
+tests/test_rules_trigger_attacking_player65.py:65: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_trigger_attacking_player65.py::test_whole_canonical
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 3.55s

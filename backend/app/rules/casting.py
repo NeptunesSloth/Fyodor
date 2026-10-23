@@ -3453,6 +3453,13 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
 
     ch = permission_spell_keywords.apply(ch, grant)
     free = grant is not None and grant.free  # "without paying its mana cost" (118.9): an alternative cost of {0}
+    from app.rules import flashback_choices
+
+    using_flashback = not free and a.alt_cost is None and not a.face_down and not plan.manual(card) and grant is not None and grant.how == "flashback"
+    if using_flashback and flashback_choices.announce(plan, a, card, ch):
+        return
+    selected_flashback = flashback_choices.selected(flashback_choices.options(plan.state, card, ch, plan.info), a.flashback_choice) if using_flashback else None
+    flashback_without_x = selected_flashback is not None and not M.parse_cost(selected_flashback[0]).x and not (selected_flashback[1] and selected_flashback[1].x_chosen)
     base = M.parse_cost(ch.mana_cost)
     airbent = grant is not None and bool(grant.alt_mana)  # -- trigger other (wave 25B) -- airbend 701.65a: cast only by paying its alternative cost
     from app.rules import alt_costs as _alt_x  # (leaves over this module)
@@ -3460,10 +3467,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     alt_x = a.alt_cost is not None and not free and not plan.manual(card) and any(  # -- cast keywords (wave 43D) -- 107.3a: an alternative cost with {X}
         o.key == a.alt_cost and _alt_x.announces_x(o) for o in _alt_x.offers(plan.state, plan.actor, card, ch, plan.info))  # (harmonize, overload, surge …)
     if (base.x or alt_x) and a.x_value is None:
-        if alt_x or (not free and a.alt_cost is None and not airbent):
+        if alt_x or (not free and a.alt_cost is None and not airbent and not flashback_without_x):
             raise ActionError(f"Choose a value for X to cast {ch.name}")
         a.x_value = 0  # 107.3b: X is 0 when a spell is cast without paying its mana cost (or for an alternative cost, wave 4I)
-    elif base.x and a.x_value and (free or airbent):  # -- review (wave 25A) -- 107.3b: the only legal choice is 0
+    elif base.x and a.x_value and (free or airbent or flashback_without_x):  # -- review (wave 25A) -- 107.3b: the only legal choice is 0
         raise ActionError(f"X is 0 when {ch.name} is cast without paying its mana cost or for an alternative cost without X (107.3b)")
     from app.rules import cast_limits as _x_limits
 
@@ -3482,11 +3489,6 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
                           else f"{ch.name}: pay its kicker X by hand")
     if kick_x and kc is not None and (a.x_value or 0) < kc.minimum_x:
         raise ActionError(f"{ch.name}: kicker X must be at least {kc.minimum_x}")
-    from app.rules import flashback_choices
-
-    if not free and a.alt_cost is None and not a.face_down and not plan.manual(card) and grant is not None and grant.how == "flashback" \
-            and flashback_choices.announce(plan, a, card, ch):
-        return
     alternative: M.ManaCost | None = M.parse_cost("{3}") if a.face_down else None
     additional: list[M.ManaCost] = [M.ManaCost(generic=grant.generic_extra)] if grant is not None and grant.generic_extra else []
     if a.buyback:
@@ -3503,10 +3505,14 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             raise ActionError("Only a card with evoke can be cast for its evoke cost from your hand")
         alternative = M.parse_cost(evoke)
     if a.dash:
+        if alternative is not None:
+            raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
         dash = keyword_cost(ch, "dash", DASH)
-        if dash is None or card.zone != zone_key(plan.actor, "hand"):
-            raise ActionError("Only a card with dash can be cast for its dash cost from your hand")
-        alternative = M.parse_cost(dash)
+        if dash is None:
+            raise ActionError("That spell has no dash cost")
+        if grant is not None and (grant.how in ('flashback', 'foretell', 'escape') or grant.alt_mana or grant.life_mv):
+            raise ActionError("The selected casting permission requires a different alternative cost (118.9a)")
+        alternative = M.parse_cost(dash)  # 702.109a: the actual casting permission, not dash, determines the allowed zone.
     if a.awaken:  # -- static_other sweep (wave 16B) -- 702.113a: an alternative cost; its text is the spell's "if cast for its awaken cost" line
         if a.evoke or a.dash or a.face_down or alternative is not None or keyword_cost(ch, "awaken", AWAKEN) is None \
                 or card.zone != zone_key(plan.actor, "hand"):
@@ -3695,6 +3701,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         add_objects = found_objects
     emerge_reduction = 0  # -- casting extras (wave 18E) -- 702.119a: reduced by the sacrificed permanent's mana value; 702.180a: harmonize, by
     # the tapped creature's power
+    if a.dash:
+        from app.rules import selected_keyword_costs65
+
+        emerge_reduction += selected_keyword_costs65.dash_discount(plan.state, plan.actor, plan.info)
     if alt_offer is not None and alt_offer.tag == "blitz":
         from app.rules import dynamic_keyword_costs55
 
@@ -6634,22 +6644,27 @@ def resume_mana_ability(plan: Plan, d: Any, chosen: list[str]) -> None:
 # -- responding -------------------------------------------------------------------------
 def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
     """Could ``player`` do anything at instant speed right now? (For Arena-style auto-passing.)"""
-    for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard"), zone_key(player, "exile"),
-                zone_key(player, "foretell")):
-        for cid in state.zones.get(key, []):
-            card = state.cards[cid]
-            ch = chars.of(card, info)
-            if ("Instant" in ch.types or ch.has_flash or _flash_granted(state, player, card, ch, info) or flash_if(ch) is not None) \
-                    and castable(state, player, card, info, check_priority=False):
-                return True
-            if any(g.flash and g.flash_requires_free for g in permissions.grants(state, player, card, ch, info, verb="cast")) and free_castable(
-                    state, player, card, info, check_priority=False):
-                return True
-            # -- cost changers (wave 4I) -- an instant castable only for an alternative cost (Force of Will with no mana
-            # open) is a response too: never auto-passed over
-            if ("Instant" in ch.types or ch.has_flash or "sneak" in ch.keywords) \
-                    and alt_castable(state, player, card, info, check_priority=False):  # (-- keywords (wave 30I) -- sneak: 702.190a)
-                return True
+    from app.rules.pooled_casting_authorities71 import external_candidates
+
+    candidates = [cid for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard"),
+                                 zone_key(player, "exile"), zone_key(player, "foretell"))
+                  for cid in state.zones.get(key, [])]
+    candidates += external_candidates(state, player, info)
+    for cid in candidates:
+        card = state.cards[cid]
+        ch = chars.of(card, info)
+        if ("Instant" in ch.types or ch.has_flash or _flash_granted(state, player, card, ch, info) or flash_if(ch) is not None) \
+                and (castable(state, player, card, info, check_priority=False)
+                     or free_castable(state, player, card, info, check_priority=False)):
+            return True
+        if any(g.flash and g.flash_requires_free for g in permissions.grants(state, player, card, ch, info, verb="cast")) and free_castable(
+                state, player, card, info, check_priority=False):
+            return True
+        # -- cost changers (wave 4I) -- an instant castable only for an alternative cost (Force of Will with no mana
+        # open) is a response too: never auto-passed over
+        if ("Instant" in ch.types or ch.has_flash or "sneak" in ch.keywords) \
+                and alt_castable(state, player, card, info, check_priority=False):  # (-- keywords (wave 30I) -- sneak: 702.190a)
+            return True
     return bool(activatable(state, player, info, check_priority=False)) or special_action(state, player, info, instant=True)  # (wave 50B: 116.2b, c: any time, so a response too)
 
 

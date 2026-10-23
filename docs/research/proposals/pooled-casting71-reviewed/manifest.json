@@ -1,0 +1,81 @@
+{
+  "status": "REVIEW READY ISOLATED; production installation/catalog audit pending",
+  "names": [
+    "Jacob Hauken, Inspector // Hauken's Insight",
+    "Maralen, Fae Ascendant",
+    "Coram, the Undertaker"
+  ],
+  "held": [
+    "Dawnhand Dissident"
+  ],
+  "stage": "/tmp/pool71-stage",
+  "base_snapshot": "/tmp/pool71-base",
+  "patch": "/tmp/pool71-final-review.patch",
+  "patch_sha256": "b1e9f3b88511d62e700a8eb6de7c86643765533c4bf6b1d375ae367e9544983c",
+  "source_hashes": {
+    "app/game/rules_state.py": {
+      "base_sha256": "5f075c36f7c43b99de171992744fec38fd94f12bf24eac25dd78ce3fb4dd2e94",
+      "proposed_sha256": "17ccc22f122dcf14520357b6aa5c3404dde1ddce87438566084074463022c114"
+    },
+    "app/rules/permissions.py": {
+      "base_sha256": "829c84d0fef6f664a86a58f630e45efe5042a3063d61d03b84fbc768bfb3df43",
+      "proposed_sha256": "6f527c5dd3632fd63fda9a2aa75e2df116c3ddcc558223ea77bb036641e40c89"
+    },
+    "app/rules/casting.py": {
+      "base_sha256": "2dfac2bfe0f0e65d3d1814d3f746cd3e5fce1dc90b2e7915cb51f2a513cf1519",
+      "proposed_sha256": "008aaf9697e330661a442331be7144dafc22e7f3d31b97fbcded2f32833d1637"
+    },
+    "app/rules/view.py": {
+      "base_sha256": "a06b63f1347641810d40e0d58c0ddb0b2f7986f80a9c256c77e64acc805cf63f",
+      "proposed_sha256": "aa37bffbbd90c1a59b0d879473b3f8906afdc88e571d10f69fb097b228db0b70"
+    },
+    "app/rules/scripts.py": {
+      "base_sha256": "201fc408ab8e4f0af05a519177d02c5123702845bc7a1c2b20f382fcf437d08a",
+      "proposed_sha256": "2c808abc22fae792ab4eb177223ef4b4cca5af5fc86c09fa86fa4522c4e410a2"
+    },
+    "app/rules/effects.py": {
+      "base_sha256": "19b7f9e399bfe027bf51f7209f8b0b77fcffe8fa24a7ac2ef701590e9eb26e9d",
+      "proposed_sha256": "7786c00824821f1e77d1ce35c4461470e0ab162810399789ca00b9377ec737cc"
+    },
+    "app/rules/pooled_casting_authorities71.py": {
+      "base_sha256": null,
+      "proposed_sha256": "4a7f1eb3b952e07ce43617c783ec633cb4f75a2fecbc185c0290283165791a85"
+    },
+    "tests/test_rules_pooled_casting_authorities71.py": {
+      "base_sha256": null,
+      "proposed_sha256": "c8d16c9a99c0f86844ad949f420462deddf71c52b01099267a4dae94d680c304"
+    },
+    "tests/fixtures/pooled_casting_authorities71_cards.json": {
+      "base_sha256": null,
+      "proposed_sha256": "6a55811b9824aaf2935471a843a9135a7129282e01f7cbf6476bee29f136d04f"
+    }
+  },
+  "types": {
+    "files": 7,
+    "result": "PASS",
+    "log": "/tmp/pool71-types-final.log"
+  },
+  "ruff": {
+    "files": 8,
+    "result": "PASS",
+    "log": "/tmp/pool71-ruff8-final.log"
+  },
+  "native_whole": {
+    "canonical_checks": 3,
+    "cold_processes": 4,
+    "log": "/tmp/pool71-final21-v2.log",
+    "passed": 21
+  },
+  "extra_negative": {
+    "passed": 4,
+    "log": "/tmp/pool71-extra4.log"
+  },
+  "corrected_hint": {
+    "passed": 1,
+    "log": "/tmp/pool71-corrected-coram.log"
+  },
+  "related": {
+    "log": "/tmp/pool71-related-final.log",
+    "passed": 117
+  }
+}

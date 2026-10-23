@@ -2413,6 +2413,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
 
             if card_names.has_name(ch, extra[9:]):
                 return False
+        if extra.startswith('paid_contributor81:'):
+            from app.rules import crew_saddle
+
+            _, kind, original_source = extra.split(':', 2)
+            if not crew_saddle.tapped_for(plan, kind, plan.oid(card), original_source):
+                return False
         if extra in ("crewed_it", "saddled_it"):  # (wave 23D)
             from app.rules import crew_saddle
 

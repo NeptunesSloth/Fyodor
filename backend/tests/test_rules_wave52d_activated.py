@@ -339,12 +339,15 @@ def test_assembly_worker_cannot_target_another_kind_of_creature(cards):
 
 # ---- Witch Engine -------------------------------------------------------------------------------------------------------------------------------
 def test_witch_engine_adds_the_mana_then_the_opponent_gains_control(cards):
+    from app.rules.mana_units import visible_pool
+
     s = build(cards, ["Witch Engine"])
     engine = put(s, "Witch Engine")
     next_turn(s)
     activate(s, "p1", engine, targets=["p2"])  # it has a target: not a mana ability, it uses the stack (605.1a)
     settle(s)
-    assert s.state.players["p1"].mana == {"B": 4} and s.state.cards[engine.id].controller == "p2"
+    assert visible_pool(s.state, "p1") == {"B": 4}
+    assert s.state.cards[engine.id].controller == "p2"
     check(s)
 
 

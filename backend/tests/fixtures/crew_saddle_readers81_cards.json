@@ -1,0 +1,284 @@
+[
+  {
+    "name": "Subterranean Schooner",
+    "mana_cost": "{1}{U}",
+    "type_line": "Artifact \u2014 Vehicle",
+    "oracle_text": "Whenever this Vehicle attacks, target creature that crewed it this turn explores. (Reveal the top card of your library. Put that card into your hand if it's a land. Otherwise, put a +1/+1 counter on that creature, then put the card back or put it into your graveyard.)\nCrew 1",
+    "power": "3",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Crew",
+      "Explore"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Ghost Ark",
+    "mana_cost": "{4}",
+    "type_line": "Artifact \u2014 Vehicle",
+    "oracle_text": "Flying\nRepair Barge \u2014 Whenever this Vehicle becomes crewed, each artifact creature card in your graveyard gains unearth {3} until end of turn.\nCrew 2 (Tap any number of creatures you control with total power 2 or more: This Vehicle becomes an artifact creature until end of turn.)",
+    "power": "3",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying",
+      "Repair Barge",
+      "Crew"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Archmage's Newt",
+    "mana_cost": "{1}{U}",
+    "type_line": "Creature \u2014 Salamander Mount",
+    "oracle_text": "Whenever this creature deals combat damage to a player, target instant or sorcery card in your graveyard gains flashback until end of turn. The flashback cost is equal to its mana cost. That card gains flashback {0} until end of turn instead if this creature is saddled. (You may cast that card from your graveyard for its flashback cost. Then exile it.)\nSaddle 3",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Saddle"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Fortune, Loyal Steed",
+    "mana_cost": "{2}{W}",
+    "type_line": "Legendary Creature \u2014 Beast Mount",
+    "oracle_text": "When Fortune enters, scry 2.\nWhenever Fortune attacks while saddled, at end of combat, exile it and up to one creature that saddled it this turn, then return those cards to the battlefield under their owner's control.\nSaddle 1",
+    "power": "2",
+    "toughness": "4",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Saddle",
+      "Scry"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Cloudspire Coordinator",
+    "mana_cost": "{R}{W}",
+    "type_line": "Creature \u2014 Human Pilot",
+    "oracle_text": "When this creature enters, scry 2.\n{T}: Create X 1/1 colorless Pilot creature tokens, where X is the number of Mounts and/or Vehicles that entered the battlefield under your control this turn. The tokens have \"This token saddles Mounts and crews Vehicles as though its power were 2 greater.\"",
+    "power": "3",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": [
+      "Scry"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Balthier and Fran",
+    "mana_cost": "{1}{R}{G}",
+    "type_line": "Legendary Creature \u2014 Human Rabbit",
+    "oracle_text": "Reach\nVehicles you control get +1/+1 and have reach and vigilance.\nWhenever a Vehicle crewed by Balthier and Fran this turn attacks, if it's the first combat phase of the turn, you may pay {1}{R}{G}. If you do, after this phase, there is an additional combat phase.",
+    "power": "4",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G",
+      "R"
+    ],
+    "color_identity": [
+      "G",
+      "R"
+    ],
+    "keywords": [
+      "Reach"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Cloudshift",
+    "mana_cost": "{W}",
+    "type_line": "Instant",
+    "oracle_text": "Exile target creature you control, then return that card to the battlefield under your control.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Disenchant",
+    "mana_cost": "{1}{W}",
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Lightning Bolt",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Fireball",
+    "mana_cost": "{X}{R}",
+    "type_line": "Sorcery",
+    "oracle_text": "This spell costs {1} more to cast for each target beyond the first.\nFireball deals X damage divided evenly, rounded down, among any number of targets.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Ancestral Vision",
+    "mana_cost": "",
+    "type_line": "Sorcery",
+    "oracle_text": "Suspend 4\u2014{U} (Rather than cast this card from your hand, pay {U} and exile it with four time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)\nTarget player draws three cards.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Suspend"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Lightning Axe",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "oracle_text": "As an additional cost to cast this spell, discard a card or pay {5}.\nLightning Axe deals 5 damage to target creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Ornithopter",
+    "mana_cost": "{0}",
+    "type_line": "Artifact Creature \u2014 Thopter",
+    "oracle_text": "Flying",
+    "power": "0",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [
+      "Flying"
+    ],
+    "card_faces": null
+  },
+  {
+    "name": "Memnite",
+    "mana_cost": "{0}",
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "",
+    "power": "1",
+    "toughness": "1",
+    "loyalty": null,
+    "defense": null,
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "card_faces": null
+  },
+  {
+    "name": "Volcanic Geyser",
+    "mana_cost": "{X}{R}{R}",
+    "type_line": "Instant",
+    "oracle_text": "Volcanic Geyser deals X damage to any target.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "card_faces": null
+  }
+]

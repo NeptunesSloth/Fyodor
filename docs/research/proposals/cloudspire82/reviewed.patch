@@ -1,0 +1,38 @@
+--- /dev/null
++++ b/backend/app/rules/cloudspire82.py
+@@ -0,0 +1,21 @@
++"""Cloudspire Coordinator retains native token creation and entry snapshots."""
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++TEXT = ('{T}: Create X 1/1 colorless Pilot creature tokens, where X is the number of Mounts and/or Vehicles that entered the battlefield under your control this turn. '
++        'The tokens have "This token saddles Mounts and crews Vehicles as though its power were 2 greater."')
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts, selectors
++
++    if ability.kind != 'activated' or ability.text != TEXT:
++        return None
++    proxy = '{T}: Create X 1/1 colorless Pilot creature tokens with "This token saddles Mounts and crews Vehicles as though its power were 2 greater.", where X is the number of creatures you had enter the battlefield under your control this turn.'
++    native = scripts.define(replace(ability, text=proxy), ch)
++    if native is None:
++        return None
++    effects = [{**e, 'n': {'turn_history': 'entered', 'sel': selectors.Selector(subtypes=('Mount', 'Vehicle')).key()}} for e in native['effects']]
++    return {**native, 'effects': effects}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5723,6 +5723,11 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import cloudspire82
++
++    if (cloud82 := cloudspire82.definition(ability, ch)) is not None:
++        return cloud82
++
+     from app.rules import crew_saddle_readers81
+
+     if (reader81 := crew_saddle_readers81.definition(ability, ch)) is not None:

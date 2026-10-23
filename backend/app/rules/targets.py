@@ -226,8 +226,10 @@ def _selector_targets(plan: Plan, sel: selectors.Selector, chooser: str, source:
             oid = plan.oid(plan.state.cards[source_card])
         return [p for p in plan.live() if selectors.matches_player(plan, sel, p, chooser, source_object=oid)
                 and player_shields.can_target(plan, chooser, p, source)]
-    from app.rules import prohibitions
+    from app.rules import crew_saddle_readers81, prohibitions
 
+    if source_object is not None:
+        sel = crew_saddle_readers81.bound_target(sel, source_object)
     if sel.other and source_card is not None and source_object is not None and (source_card not in plan.state.cards or plan.oid(source_card) != source_object):
         sel = selectors.replace(sel, other=False)
     out = []

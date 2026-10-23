@@ -1,0 +1,28 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW",
+  "cards": [
+    "Cloudspire Coordinator"
+  ],
+  "source_patch": "reviewed.patch",
+  "source_lines": 38,
+  "native_distinct": 5,
+  "genuine_subprocess_cold": 1,
+  "native_boundaries": [
+    "whole classifier",
+    "current-turn Mount/Vehicle entry count excludes prior-turn actual Vehicle and current ordinary creature",
+    "printed1/1 Pilot actual native Crew and Saddle costs each payable alone",
+    "actual Disenchant departure and actual Cloudshift repeat entry preserved in historical count",
+    "genuine cold pending activation creates real native tokens",
+    "printedRW cast and actual scry2 choice/order completion"
+  ],
+  "types": "mypy1 PASS",
+  "ruff": "leaf and tests2 PASS",
+  "stage": "/tmp/crewreaders82/backend",
+  "dependency": "reader81 shared source parser hook, native existing historical snapshots and crew/saddle statics",
+  "authorities": "../crew-saddle-readers81/canonical.json and rulings.json",
+  "notes": [
+    "No generic values change.",
+    "No live installation by child.",
+    "Fortune and Balthier remain unimplemented and unadmitted."
+  ]
+}

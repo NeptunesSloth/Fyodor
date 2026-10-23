@@ -1474,14 +1474,21 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             for linked_effect in d.get("effects") or []:
                 if linked_effect.get("do") == "borrowed_link_scope":
                     linked_ctx["borrowed_link_scope"] = linked_effect["scope"]
+            linked_scope = exiled_with.link_key(linked_ctx)
             if not card.zone.endswith(":exile") or (card.face_down and not d.get("linked_face_down")) \
-                    or oid not in r.exiled_with.get(exiled_with.link_key(linked_ctx), []):
+                    or oid not in r.exiled_with.get(linked_scope, []):
+                continue
+            if d.get('linked_current_turn71') and r.linked_exile_turns71.get(linked_scope, {}).get(oid) != turn:
+                continue
+            if not conditional_free_casts68.eligible(state, info, player, card, ch, d):
                 continue
             if d.get("filter") and not spell_matches(state, player, card, ch, d["filter"], info, source=src.id):
                 continue
             if d.get("if") is not None and not _linked_if(state, info, player, src, d["if"]):
                 continue
             key = f"{r.object_id(src.id)}:permission:{index}:{player}" if d.get("once_per_player") else f"{src.id}:permission:{index}"  # -- linked permissions (wave 30H) -- "You can't cast more than one spell this way each turn."
+            if d.get('once_per_object71'):
+                key = f"{r.object_id(src.id)}:permission:{index}"
             if d["once"] and r.once_per_turn.get(key) == turn:
                 continue
             out.append(Grant("permission", src.name, zone_ok=True, free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
@@ -1491,6 +1498,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         if not conditional_free_casts68.eligible(state, info, player, card, ch, d):
             continue
         permission_where = 'exile' if d.get('exile_counter') and card.zone.endswith(':exile') else where
+        if d.get('zone_owner') == 'any' and d['zone'] == 'graveyard' and card.zone.endswith(':graveyard'):
+            permission_where = 'graveyard'
         if d["zone"] != "any" and permission_where not in d.get("zones", [d["zone"]]):
             continue
         if d.get('foreign') and card.owner == player:
@@ -1520,6 +1529,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         if not top_library.static_ok(state, player, card, ch, info, d, src, verb):
             continue
         key = f"{r.object_id(src.id)}:permission:{index}"  # (-- review 30c -- 400.7: a new Muldrotha / Lurrus has new uses, the rulings 2020-11-10)
+        if d.get('separate_verb71'):
+            key += ':' + verb
         if d["once"] and (r.once_per_turn.get(key) == turn or (state.turn.active_player != player and not d.get("once_any"))):
             continue  # "once during each of your turns" ("once each turn": any turn, wave 5I)
         # -- cast permissions (wave 30Q) -- Muldrotha: a use for each permanent type, a card of several types counting as one of them as it is played or
@@ -1801,11 +1812,14 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
     """The mana part of an activated ability's cost after "Activated abilities of creatures you control cost {2} less to
     activate" and its increases: increases first, then reductions on the generic component only (118.7a, 601.2f), and with
     "can't reduce the mana in that cost to less than one mana" never below one mana. Costs with {X} are left alone."""
-    cost_statics = _table_statics(state, info, {"ability_cost_modifier", "cost_modifier"})
+    cost_statics = _table_statics(state, info, {"ability_cost_modifier", "cost_modifier", "grant"})
     mods = [(src, d) for src, _, d in cost_statics if d.get("static") == "ability_cost_modifier"]
     from app.rules import caster_turn_costs63
 
     mods += caster_turn_costs63.ability_modifiers(state, player, cost_statics)
+    from app.rules import selected_keyword_costs65
+
+    mods += selected_keyword_costs65.ability_modifiers(state, player, cost_statics)
     if capture is not None:
         capture.append(0)
     if not mods and not own:  # (own: the ability's "This ability costs {1} less …", wave 4I)
@@ -2044,6 +2058,12 @@ def cost_modifier(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """"<Spells> you cast this turn cost {N} less to cast" / "Until your next turn, <spells> you cast
     cost {N} less to cast": a cost modifier for its controller's spells with that duration (601.2f,
     611.2a; generic mana only, 118.7a), read with the table's static ones (``modifiers``)."""
+    if e.get("recipient66"):
+        from app.rules import effects
+
+        for recipient in effects._players(plan, ctx, e["recipient66"]):
+            cost_modifier(plan, {**ctx, "controller": recipient}, {k: v for k, v in e.items() if k != "recipient66"})
+        return True
     pid = ctx["controller"]
     from app.rules import values
 

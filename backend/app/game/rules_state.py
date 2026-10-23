@@ -1452,6 +1452,8 @@ class RulesState(BaseModel):
     # -- exiled with (wave 6D) -- source object -> the objects its abilities exiled (607.2a: "the exiled card",
     # "cards exiled with ~"; app/rules/exiled_with.py)
     exiled_with: dict[str, list[str]] = Field(default_factory=dict)
+    linked_exile_turns71: dict[str, dict[str, int]] = Field(default_factory=dict)  # Native link scope -> exact exile OID -> actual exile turn.
+
     created_with: dict[str, list[str]] = Field(default_factory=dict)  # exact created-token incarnations per source/borrowed scope
     hideaway: dict[str, HideawayLook] = Field(default_factory=dict)  # -- hideaway (wave 29D) -- exiled object id -> who may look at it (702.75a)
     # -- can't lose life (wave 29D) -- 119.7-119.8: resolved "your life total can't change" effects (app/rules/life_lock.py): {id, player, controller,

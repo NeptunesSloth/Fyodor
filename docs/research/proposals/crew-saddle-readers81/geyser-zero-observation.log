@@ -1,0 +1,21 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___ test_newt_variable_mana_cost_is_payable_only_for_mana_cost_branch[True] ____
+
+cards = <app.cards.repository.CardRepository object at 0x7fa71987fcb0>
+saddled = True
+
+    @pytest.mark.parametrize('saddled', [False, True])
+    def test_newt_variable_mana_cost_is_payable_only_for_mana_cost_branch(cards, saddled):
+        s, source, target = newt_grant81(cards, 'Volcanic Geyser', saddled)
+        before = s.state.players['p2'].life
+        mana(s, R=2, C=3)
+        act(s, 'p1', type='cast_spell', card_id=target.id, x_value=3, targets=['p2'])
+        settle(s)
+>       assert s.state.players['p2'].life == before - (0 if saddled else 3)
+E       AssertionError: assert 35 == (38 - 0)
+E        +  where 35 = PlayerState(id='p2', name='Bob', color='#5fa8d3', life=35, life_history=[LifeChange(turn=4, before=40, after=38, seq=9...id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None).life
+
+tests/test_rules_crew_saddle_readers81.py:245: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_crew_saddle_readers81.py::test_newt_variable_mana_cost_is_payable_only_for_mana_cost_branch[True]
