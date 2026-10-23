@@ -1528,7 +1528,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             if d.get("slots") else [""]
         out += [Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"], flash_requires_free=bool(d.get("flash_requires_free")), free=bool(d.get("free")), life_mv=bool(d.get("life_mv")),
                       once_key=f"{key}:{slot}" if slot else key if d["once"] else None, choice_key=f"{key}:{slot}" if slot else key, extra=d.get("extra") or "", exile_gy=d.get("exile_gy", ""),
-                      slot=slot, enters=d.get("enters"), spend=d.get("spend", "")) for slot in slots]
+                      slot=slot, enters=d.get("enters"), spend=d.get("spend", ""),
+                      use_trigger=permission_use_triggers43.static_receipt(state, src, index, d.get("use_trigger"))) for slot in slots]
     # -- top of library (wave 5I) -- the player picks the permission they use (601.3): a once-each-turn one is offered
     # last, so a cast another permission also allows doesn't use it up
     # (-- review 30c -- a stored one-spell permission too: Chainer's is kept while Liliana's covers the cast, the Chainer ruling 2019-08-23)
@@ -1814,6 +1815,12 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
     from app.rules import attachments
 
     for src, d in mods:
+        if d.get('target_rule62'):
+            from app.rules import target_cost_conditions62
+
+            chosen = targets if targets is not None else ((target,) if target and target != '?' else ())
+            if not target_cost_conditions62.available(state, player, src, d['target_rule62'], chosen, info, preview=target == '?'):
+                continue
         if d.get("first_controlled_creature_target58"):
             from app.rules import first_target_activation_cost58
 
@@ -1953,7 +1960,7 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         return True
     zone_label = "any graveyard" if e.get("zone_owner") == "any" and e["zone"] == "graveyard" else f"your {e['zone']}"
     r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=e["play"], cast=e["cast"], zone=e["zone"],
-                                    zone_owner=e.get("zone_owner", "you"),
+                                    zone_owner=e.get("zone_owner", "you"), look_top=bool(e.get("look_top")),
                                     extra=e.get("extra", ""), enters=e.get("enters"),
                                     filter=e.get("filter"), once=bool(e.get("once")),  # (-- cast permissions (wave 30Q) -- "a creature spell": one spell, of that kind)
                                     exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")), graveyard_destination=e.get("graveyard_destination", ""),  # (wave 25C)

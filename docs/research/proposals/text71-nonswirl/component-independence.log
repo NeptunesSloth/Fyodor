@@ -1,0 +1,40 @@
+.F
+=================================== FAILURES ===================================
+______ test_pending_native_trigger_is_independent_of_changed_source_text _______
+
+cards = <app.cards.repository.CardRepository object at 0x7fa7151f3140>
+
+    def test_pending_native_trigger_is_independent_of_changed_source_text(cards):
+        s, _, _ = setup(cards)
+        source = put(s, 'Siege-Gang Commander', 'hand')
+        mana(s, C=3, R=2)
+        wait_priority(s, 'p1')
+        act(s, 'p1', type='cast_spell', card_id=source.id, targets=[], sources=[])
+        for _ in range(20):
+            if any(e.kind == 'trigger' and e.source_card == source.id for e in s.state.rules.stack.values()):
+                break
+            act(s, s.state.rules.priority, type='pass_priority')
+        else:
+            raise AssertionError('native Commander ETB never reached stack')
+>       text = put(s, 'Artificial Evolution', 'hand', 'p2')
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_text_changes71.py:568:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+/workspace/Fyodor/backend/tests/test_rules_designations.py:148: in put
+    c = find(s, name, pid)
+        ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7fa7150a08c0>
+name = 'Artificial Evolution', pid = 'p2'
+
+    def find(s, name, pid="p1"):
+>       return next(c for c in s.state.cards.values() if c.name == name and c.owner == pid)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+/workspace/Fyodor/backend/tests/test_rules_designations.py:144: StopIteration
+=========================== short test summary info ============================
+FAILED tests/test_rules_text_changes71.py::test_pending_native_trigger_is_independent_of_changed_source_text
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

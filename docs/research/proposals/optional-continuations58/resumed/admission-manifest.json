@@ -1,0 +1,29 @@
+{
+  "status": "ISOLATED GATES CLOSED / PENDING ROOT INSTALLATION AND CATALOG AUDIT",
+  "names": [
+    "Eden, Seat of the Sanctum",
+    "Blood Spatter Analysis",
+    "Serum-Core Chimera",
+    "Vengeful Villagers",
+    "Winter Soldier, Icy Assassin"
+  ],
+  "native": 29,
+  "genuine_cold": 5,
+  "related": 92,
+  "mypy_files": 4,
+  "ruff_files": 4,
+  "stage": "/tmp/library58-resumed/backend",
+  "patch": "/tmp/library58-narrow.patch",
+  "test_file": "/tmp/library58-resumed/backend/tests/test_optional58.py",
+  "fixture_file": "/tmp/library58-resumed/backend/tests/fixtures/optional_continuations58_cards.json",
+  "source_hashes": {
+    "scripts.py": "0f03fd309cce491fa980a3da58341a4e2fd9fc9e45e578f539543fa315443aa7",
+    "effects.py": "e6549be8bd7f0e3e57e6912e9c2b54d5b5372c1ba6c0b0ea34e4c03d41b25c1f",
+    "selectors.py": "5e4a15d4d73bf03816f565736602b2aebe3218c7d7320a458c0cc708e49188e8",
+    "optional_continuations58.py": "c1c54ff3cc9123f8942aac3715b4f91e7fb940f214d026776baf41246c2c0474"
+  },
+  "held": [
+    "Airlift Chaplain",
+    "Unexpected Request"
+  ]
+}

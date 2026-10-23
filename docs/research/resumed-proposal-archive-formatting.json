@@ -1,0 +1,47 @@
+{
+  "docs/research/proposals/combat79-resumed/reviewed-shared.patch": {
+    "original_sha256": "fa285dded9a77774167c82287f5dcba5c394687b3e675be726810fe0e1332d96",
+    "archived_sha256": "17d77b5a683ee1b1a9611900272fdf620c3fb3a044ca8cdf9951c52a6b45bd39",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/combat79-resumed/ruxa-test-repair.patch": {
+    "original_sha256": "2645dc500527a8c8fa7e04815ea4519773e9d78f59bc41dfb192994fed061279",
+    "archived_sha256": "15e8031f4c64a0c23def99e545299a5fc744abc7bf957b2ad07f9d736ac00df5",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-counter-riders77/UNINSTALLED.patch": {
+    "original_sha256": "188434466d93fb1b3b5e23863cae556722df0c55baa240574b2de9a71805101b",
+    "archived_sha256": "aaeb6e8f7a035496588d19c1b7e8c53f963ac25888da237ba9ffa660b9033e9d",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/kicker-x-lki61/resumed-verified/production-candidate.patch": {
+    "original_sha256": "84b242f7b66158b2dd855e0a8ae53327784ed12abd3b5eaf1202ebbb74a4b80e",
+    "archived_sha256": "38e8d3c64719a253dcb2925d0e95345fb0d0e4fe4b55804f51c2886cb97bdd77",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/optional-continuations58/resumed/narrow-review.patch": {
+    "original_sha256": "78560322dfddf17be5a510a990e8c569dcdafcfd8689ebf2890bc6d059ee41c5",
+    "archived_sha256": "37381a1c36224ab7eb3f2cf45b0671c85d9d90ae520fb76209f122550a39a251",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/public-mill-attachment59/narrow-review.patch": {
+    "original_sha256": "7835cc0b6021489ef5fb8e2be3a61014eaea1070a9396151fda7508b8316ceb5",
+    "archived_sha256": "cb16d097a4c02f32cda86d1d63881a3ab060c30452e2608b52cf577f189a972e",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/target-cost-conditions62/production-candidate.patch": {
+    "original_sha256": "a16aab37d4671b5b9e529ca309bd18c719f81425f3c24bf283979e7207bf8b2a",
+    "archived_sha256": "73c7291b1848d58eaa15ad610f748c5dd9ce1d2b0e233133f61cf1498dce7636",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/text71-nonswirl/proposal.patch": {
+    "original_sha256": "d4dbb13028cc93e41e4a29f45f0d928659fd95461ec47f07b7106871af150fce",
+    "archived_sha256": "39cd553a2ded492448bfc50fc308ad8742d7fd7dd01e5f7bbfc767b2bd3c3e21",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/top-library69-reviewed/top69-four-card-review.patch": {
+    "original_sha256": "ea17e01f32cd98a6bd3f86c43668a1456acd16ad289a2b42a10f352a3b018d4b",
+    "archived_sha256": "812a7e1612422a503529a70c465455819ef35d1db6a59d75e0f68e8f34f00fe0",
+    "numstat_preserved": true
+  }
+}

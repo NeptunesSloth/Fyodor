@@ -1,0 +1,58 @@
+{
+  "status": "ISOLATED REVIEW READY; root installation/production checks and catalog audit pending",
+  "names": [
+    "The Belligerent",
+    "Into the Pit",
+    "Isu the Abominable",
+    "The Fourth Doctor"
+  ],
+  "held": [
+    "Falco Spara, Pactweaver"
+  ],
+  "base": "7c64d054d5555ffe41159bd03470791adf3cfb0b",
+  "patch": "/tmp/top69-four-card-review.patch",
+  "patch_sha256": "ea17e01f32cd98a6bd3f86c43668a1456acd16ad289a2b42a10f352a3b018d4b",
+  "stage": "/tmp/toplibrary69-resume",
+  "native_whole": {
+    "passed": 26,
+    "cold": 4,
+    "log": "/tmp/top69-final26.log"
+  },
+  "extra_native": {
+    "passed": 2,
+    "log": "/tmp/top69-extra2.log"
+  },
+  "related": {
+    "passed": 11,
+    "log": "/tmp/top69-related11.log"
+  },
+  "types": {
+    "files": 7,
+    "result": "PASS",
+    "log": "/tmp/top69-types7-final.log"
+  },
+  "ruff": {
+    "files": 8,
+    "result": "PASS",
+    "log": "/tmp/top69-ruff8-final.log"
+  },
+  "source_hashes": {
+    "app/rules/top_library_authorities69.py": "2aed419db5c8a183dbad0ce3182db2fac0b92f65d6d710a8ceae3def9de1d731",
+    "app/rules/scripts.py": "4bec56113e2ae429ca5688a58df516dcdd38fb5ea6a6c2b94e6581cdf0ced2a9",
+    "app/rules/effects.py": "353c4e5536e5e9c2842f0e2f3aff9339574c03418e95c6fd930951fc142fda3e",
+    "app/rules/permissions.py": "67ec70a70ec6d7cba0cf17b127a542d75631cb30375407b921e40aac3f87f206",
+    "app/rules/permission_use_triggers43.py": "5696d08f02ff3b33541d5e3a3e5873085d9279d07fc37ff4f7e4184aef403ffc",
+    "app/game/rules_state.py": "caba0a8edce0504364c128ae44ac6605f5421409c5cf3991ca73278b6a59cc13",
+    "app/game/visibility.py": "05ecde8fd3027db27a85693a443c301c584d9b4ac7027be0329f9cebcb79762b",
+    "tests/test_rules_top_library_authorities69.py": "8b2ed64145d3d581d44102d933fee6b071eb5d3650e1361b8659f890d7a953ef",
+    "tests/fixtures/top_library_authorities69_cards.json": "89fc8e35be93ddf1e1d28b71f19e0c93819cb24c8b82a85c2f9d52fa8182c724"
+  },
+  "held_evidence": "/tmp/top69-falco-casualty-before.log",
+  "notes": [
+    "No casting.py/costs.py/cost_payment.py changes in this candidate.",
+    "Current canonical Millikin Activate only as an instant is atomic negative, not permission for mana activation during payment.",
+    "Original 22-case run had two test setup/assertion errors; separate corrected Belligerent/Doctor run passed before unified26."
+  ],
+  "native_total": 28,
+  "native_count_note": "28 checks include four canonical full-definition checks, actual cold4, native whole/negative and one explicit legacy-marker visibility boundary."
+}

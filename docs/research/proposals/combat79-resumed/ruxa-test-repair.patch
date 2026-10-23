@@ -1,0 +1,14 @@
+--- a/backend/tests/test_rules_group_unblocked.py
++++ b/backend/tests/test_rules_group_unblocked.py
+@@ -166,8 +166,9 @@
+     start_combat(s, army, walls)
+     assert finish_combat(s) == [army[0].id]
+     assert not chars(s, army[0]).abilities
+-    # Ruxa's separate +1/+1 with-no-abilities layer gap remains partial.
+-    assert coverage.of_card_data(cards.resolve('Ruxa, Patient Professor')).level == 'PARTIAL'
++    # The no-abilities anthem was completed before checkpoint57; this remains
++    # a regression check that its group permission does not add abilities.
++    assert coverage.of_card_data(cards.resolve('Ruxa, Patient Professor')).level == 'FULL'
+
+
+ def test_double_strike_asks_again_and_can_change_answer_in_second_damage_step(cards):

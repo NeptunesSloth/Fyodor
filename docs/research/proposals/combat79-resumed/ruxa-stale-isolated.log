@@ -1,0 +1,22 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________________ test_group_permission_does_not_add_abilities _________________
+
+cards = <app.cards.repository.CardRepository object at 0x7fc709adf620>
+
+    def test_group_permission_does_not_add_abilities(cards):
+        s, _, army, walls = setup(cards, source='Ruxa, Patient Professor')
+        assert not chars(s, army[0]).abilities
+        start_combat(s, army, walls)
+        assert finish_combat(s) == [army[0].id]
+        assert not chars(s, army[0]).abilities
+        # Ruxa's separate +1/+1 with-no-abilities layer gap remains partial.
+>       assert coverage.of_card_data(cards.resolve('Ruxa, Patient Professor')).level == 'PARTIAL'
+E       AssertionError: assert 'FULL' == 'PARTIAL'
+E
+E         - PARTIAL
+E         + FULL
+
+/workspace/Fyodor/backend/tests/test_rules_group_unblocked.py:170: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_group_unblocked.py::test_group_permission_does_not_add_abilities

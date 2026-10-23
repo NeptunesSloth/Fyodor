@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 def static_receipt(state: GameState, source: CardInstance, index: int, kind: Any) -> PermissionUseTrigger | None:
     if kind is None:
         return None
-    if kind not in ("replenish_top", "owner_loses_mv") or state.rules is None:
+    if kind not in ("replenish_top", "owner_loses_mv", "create_food69") or state.rules is None:
         raise ValueError("Unknown permission-use trigger")
     return PermissionUseTrigger(kind=kind, source=ObjectRef(card=source.id, object_id=state.rules.object_id(source.id), zone=source.zone),
                                 controller=source.controller, name=source.name, index=index)
@@ -33,7 +33,15 @@ def committed(plan: Plan, receipt: PermissionUseTrigger, card_id: str, verb: str
     if receipt.controller not in plan.live() or (receipt.kind == 'owner_loses_mv' and verb != 'cast'):
         return
     card=plan.state.cards[card_id]
-    if receipt.kind == 'replenish_top':
+    if receipt.kind == 'create_food69':
+        from app.rules import scripts
+
+        player, amount = receipt.controller, 0
+        parsed = scripts.parse_effects('Create a Food token.')
+        if parsed is None:
+            raise ValueError('Food token effect must be natively supported')
+        effects = parsed[0]
+    elif receipt.kind == 'replenish_top':
         player,amount=plan.actor,0
         effects=[{'do':'exile_top','player':'player:'+player,'n':1,'link':True,'as':'permission_refill'}]
     else:

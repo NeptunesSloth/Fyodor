@@ -2653,6 +2653,18 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import conditional_counter_riders77
+
+    if (rider77 := conditional_counter_riders77.parse(body)) is not None:
+        return rider77
+    from app.rules import text_change_instructions71
+
+    if (text71 := text_change_instructions71.parse(body)) is not None:
+        return text71
+    from app.rules import optional_continuations58
+
+    if (continued58 := optional_continuations58.parse(body, it, event_player)) is not None:
+        return continued58
     from app.rules import graveyard_return57
 
     if (returned57 := graveyard_return57.parse(body, it)) is not None:
@@ -2782,6 +2794,11 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (creature_damage := creature_damage_followups.parse(body)) is not None:
         return creature_damage
+
+    from app.rules import kicked_x_lki_outcomes61
+
+    if (kicked_x_lki := kicked_x_lki_outcomes61.parse(body)) is not None:
+        return kicked_x_lki
 
     from app.rules import kicked_target_outcomes60
 
@@ -5721,6 +5738,10 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import unblocked_choices79
+
+    if (unblocked79 := unblocked_choices79.definition(ability, ch)) is not None:
+        return unblocked79
     from app.rules import first_event_receipts78
 
     if (first78 := first_event_receipts78.definition(ability, ch)) is not None:
@@ -6040,6 +6061,16 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if (kicked_keyword := kicked_spell_outcomes59.definition(ability, ch)) is not None:
         return kicked_keyword
 
+    from app.rules import kicked_x_lki_outcomes61
+
+    if (kicked_x_entry := kicked_x_lki_outcomes61.definition(ability, ch)) is not None:
+        return kicked_x_entry
+
+    from app.rules import target_cost_conditions62
+
+    if (target_cost := target_cost_conditions62.definition(ability, ch)) is not None:
+        return target_cost
+
     from app.rules import first_target_activation_cost58
 
     if (first_target_cost := first_target_activation_cost58.definition(ability, ch)) is not None:
@@ -6064,6 +6095,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (torch_exile65 := torch_exile_receipts65.definition(ability, ch)) is not None:
         return torch_exile65
+    from app.rules import top_library_authorities69
+
+    if (top69 := top_library_authorities69.definition(ability, ch)) is not None:
+        return top69
+
     from app.rules import conditional_free_casts68
 
     if (conditional68 := conditional_free_casts68.definition(ability, ch)) is not None:

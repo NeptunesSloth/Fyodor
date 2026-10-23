@@ -1,0 +1,110 @@
+[
+  {
+    "name": "Moment of Glory",
+    "url": "https://api.scryfall.com/cards/0a6a6ff0-b1cd-4b06-bd31-612690094e0e/rulings",
+    "data": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "3d39db09-67b7-4a4e-9667-4e1b806f51a5",
+          "source": "wotc",
+          "published_at": "2026-06-29",
+          "comment": "If a card with flashback is put into your graveyard during your turn, you can cast it if it's legal to do so before any other player can take any actions."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "3d39db09-67b7-4a4e-9667-4e1b806f51a5",
+          "source": "wotc",
+          "published_at": "2026-06-29",
+          "comment": "A spell cast using flashback will always be exiled afterward, whether it resolves, is countered, or leaves the stack in some other way."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "3d39db09-67b7-4a4e-9667-4e1b806f51a5",
+          "source": "wotc",
+          "published_at": "2026-06-29",
+          "comment": "\"Flashback [cost]\" means \"You may cast this card from your graveyard by paying [cost] rather than paying its mana cost\" and \"If the flashback cost was paid, exile this card instead of putting it anywhere else any time it would leave the stack.\""
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "3d39db09-67b7-4a4e-9667-4e1b806f51a5",
+          "source": "wotc",
+          "published_at": "2026-06-29",
+          "comment": "You must still follow any timing restrictions and permissions, including those based on the card's type. For instance, you can cast a sorcery using flashback only when you could normally cast a sorcery."
+        }
+      ]
+    }
+  },
+  {
+    "name": "Beast Mode",
+    "url": "https://api.scryfall.com/cards/39191f85-7698-487e-afad-07648a7cb695/rulings",
+    "data": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "name": "Recursive Recruitment",
+    "url": "https://api.scryfall.com/cards/68fddb6a-86d4-4ebb-907d-fdcaadebc4b3/rulings",
+    "data": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "b73e35b0-b8c9-471a-bdff-f7dc8f453d7a",
+          "source": "wotc",
+          "published_at": "2026-08-21",
+          "comment": "To determine the total cost of a spell, start with the mana cost or alternative cost (such as a flashback cost) you're paying, add any cost increases, then apply any cost reductions. The mana value of the spell is determined only by its mana cost, no matter what the total cost to cast the spell was."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "b73e35b0-b8c9-471a-bdff-f7dc8f453d7a",
+          "source": "wotc",
+          "published_at": "2026-08-21",
+          "comment": "You must still follow any timing restrictions and permissions, including those based on the card's type. For instance, you can cast a sorcery using flashback only when you could normally cast a sorcery."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "b73e35b0-b8c9-471a-bdff-f7dc8f453d7a",
+          "source": "wotc",
+          "published_at": "2026-08-21",
+          "comment": "\"Flashback [cost]\" means \"You may cast this card from your graveyard if the resulting spell is an instant or sorcery spell by paying [cost] rather than paying its mana cost\" and \"If the flashback cost was paid, exile this card instead of putting it anywhere else any time it would leave the stack.\""
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "b73e35b0-b8c9-471a-bdff-f7dc8f453d7a",
+          "source": "wotc",
+          "published_at": "2026-08-21",
+          "comment": "If a card with flashback is put into your graveyard during your turn, you can cast it if it's legal to do so before any other player can take any actions."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "b73e35b0-b8c9-471a-bdff-f7dc8f453d7a",
+          "source": "wotc",
+          "published_at": "2026-08-21",
+          "comment": "A spell cast using flashback will always be exiled afterward, whether it resolves, is countered, or leaves the stack in some other way."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "b73e35b0-b8c9-471a-bdff-f7dc8f453d7a",
+          "source": "wotc",
+          "published_at": "2026-08-21",
+          "comment": "You can cast a spell using flashback even if it was somehow put into your graveyard without having been cast."
+        }
+      ]
+    }
+  },
+  {
+    "name": "Ent's Fury",
+    "url": "https://api.scryfall.com/cards/c7946af6-69ab-47a1-955c-1954a04752df/rulings",
+    "data": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  }
+]

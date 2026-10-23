@@ -28,6 +28,7 @@ from app.game.rules_state import (
     OpponentGainCostReceipt,
     PaymentRecord,
     Permission,
+    SpliceText71,
     StackEntry,
     TargetRef,
     TurnCount,
@@ -3449,9 +3450,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             if d.get("static") == "x_cap" and a.x_value > (cap := _cap_values.evaluate(plan, {"controller": plan.actor}, d["n"])):
                 raise ActionError(f"{ch.name}: X can't be greater than {cap}")
     kick_x = a.kicker and not a.face_down and (kc := kicker_cost(ch.abilities)) is not None and kc.x  # -- cast keywords (wave 43D) -- 107.3a: "Kicker {X}"
-    if kick_x and (base.x or a.x_value is None or free):  # ponytail: a spell with another X, or cast free this way, pays a kicker X by hand
-        raise ActionError(f"Choose a value for X to pay the kicker cost of {ch.name}" if a.x_value is None and not (base.x or free)
+    if kick_x and (base.x or a.x_value is None):  # The additional kicker X is announced even when the mana cost is waived (118.9d).
+        raise ActionError(f"Choose a value for X to pay the kicker cost of {ch.name}" if a.x_value is None and not base.x
                           else f"{ch.name}: pay its kicker X by hand")
+    if kick_x and kc is not None and (a.x_value or 0) < kc.minimum_x:
+        raise ActionError(f"{ch.name}: kicker X must be at least {kc.minimum_x}")
     from app.rules import flashback_choices
 
     if not free and a.alt_cost is None and not a.face_down and not plan.manual(card) and grant is not None and grant.how == "flashback" \
@@ -3768,6 +3771,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     from app.rules import card_names
 
     data.spliced_names = sorted({name for cid in a.splice for name in card_names.names_of(plan.ch(plan.state.cards[cid]))})
+    from app.rules import text_spell_refresh71
+
+    data.splice_text71 = text_spell_refresh71.extras(ch.name, ch, spliced_ch) if a.splice else SpliceText71(name=ch.name)
     payment_data = _CastPayment(data, cost, not_mana, origin, x_payment, _purpose_context(purpose))
     from app.rules import payment_continuations as pc
 
@@ -3818,6 +3824,7 @@ class _PostCast:
     record: PaymentRecord | None = None
     opponent_gain_receipts: list[OpponentGainCostReceipt] | None = None
     spliced_names: list[str] | None = None  # Announcement snapshot; None only in legacy saved continuations.
+    splice_text71: SpliceText71 | None = None
     cast_greatest_power: int | None = None
 
 
@@ -3928,6 +3935,7 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
     record.gift_to = gift_to  # "If this spell was kicked"; wave 23D: a promised gift, 702.174k, likewise)
     _note_cast(plan, record, cast_zone, zone_player=from_where.split(":", 1)[0] if ":" in from_where else None)  # -- refused modal/conditional (wave 3R1) --
     record.spliced_names = data.spliced_names
+    record.splice_text71 = data.splice_text71
     record.flash_sac = sac_at_cleanup
     record_payment(plan, card.id, record)
     tags = ["Cast from the command zone"] if commander_cast else ["Harmonize"] if harmonized else ["Jump-start"] if jumped else \
@@ -4669,7 +4677,7 @@ def free_optional_offers(plan: Plan, card: CardInstance, ch: Characteristics) ->
             try:
                 selected_costs: list[bool | None] = []
                 ways = spell_cost_ways(plan.state, card, ch, info=plan.info, player=plan.actor, free=alt is None,
-                                       alternative=M.parse_cost(alt) if alt is not None else None, kicker=n, selected_costs=selected_costs)
+                                       alternative=M.parse_cost(alt) if alt is not None else None, kicker=n, x=kick.minimum_x, selected_costs=selected_costs)
             except ActionError:
                 break  # (a kicker cost Fyodor can't pay)
             if not any(can_pay(plan.state, plan.actor, total, plan.info,
@@ -4733,7 +4741,7 @@ def announce_free_x(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characte
     if a.x_value is not None or not ((kick is not None and kick.x) or (alt is not None and M.parse_cost(alt).x)):
         return False
     options: list[DecisionOption] = []
-    for n in range(1001):  # every X supported by the cast-intent quantity field
+    for n in range(kick.minimum_x if kick is not None and kick.x else 0, 1001):  # actual selected kicker lower bound
         x_payments: list[dict[str, Any] | None] = []
         selected_costs: list[bool | None] = []
         ways = spell_cost_ways(plan.state, card, ch, x=n, info=plan.info, player=plan.actor, free=alt is None,
@@ -4745,6 +4753,8 @@ def announce_free_x(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characte
                            reserve=life_due + (alternative_parts.life if alternative_parts is not None else 0)) for i, (total, life_due) in enumerate(ways)):
             break
         options.append(DecisionOption(id=f"x:{n}", label=str(n)))
+    if not options and kick is not None and kick.minimum_x:
+        raise ActionError(f"{ch.name}: you cannot pay its minimum kicker X")
     if paid:
         options.append(DecisionOption(id="x:other", label="Another value for X (0–1000)"))
     decide(plan, player=plan.actor, kind="choose_one", prompt=f"{ch.name or 'This spell'}: choose a value for X (107.3a)",
@@ -4898,6 +4908,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         return
     if announce_free_x(plan, a, card, ch):  # -- cast keywords (wave 43D) -- 107.3a: "Kicker {X}" kicked on a free cast, a miracle cost with {X}: X is announced with it
         return
+    if a.kicker and (minimum_kick := kicker_cost(ch.abilities)) is not None and (a.x_value or 0) < minimum_kick.minimum_x:
+        raise ActionError(f"{ch.name}: kicker X must be at least {minimum_kick.minimum_x}")
     if M.parse_cost(ch.mana_cost).x and (limited := cast_limits.cast_problem(plan.state, plan.actor, card, ch, plan.info, resolving=True, announced=a.x_value or 0)):
         raise ActionError(limited)  # -- review 38 -- 601.2e, 107.3b: X is 0 unless a miracle cost with {X} announced it
     definition = None if plan.manual(card) else scripts.spell_definition(ch)
@@ -5030,7 +5042,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         pay_spell_then(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name}" + (f" ({kind})" if alt and not paid else ""),
                        not_mana=not_mana, then=after, x_payment=x_payment, payment_context=_purpose_context(purpose))
         return
-    data.record = PaymentRecord(card=card.id, controller=plan.actor, alternative="free", x_black_spent=0)
+    data.record = PaymentRecord(card=card.id, controller=plan.actor, alternative="free", x_black_spent=0, splice_text71=SpliceText71(name=ch.name))
     _post_free_cast(plan, data, None)
 
 
@@ -5550,7 +5562,7 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
             from app.rules import power_up
 
             cost = replace(cost, mana=power_up.reduced(state, card, ch, cost.mana) or "")
-        own = cost_changes.ability_delta(state, card.controller, card, ch, ability.text, info, target=target) \
+        own = cost_changes.ability_delta(state, card.controller, card, ch, ability.text, info, target=target, targets=targets) \
             if "This ability costs " in ability.text else 0
         reduced = permissions.ability_mana(state, actor or card.controller, card, ch, cost.mana, info, own, ability.text, target, targets=targets)
         if reduced != cost.mana:

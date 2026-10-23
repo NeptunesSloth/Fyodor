@@ -181,6 +181,10 @@ def ability_change(text: str) -> Change | None:
     _, sentence = split_ability(body)
     if sentence is None:
         return {}
+    from app.rules import target_cost_conditions62
+
+    if (target_change := target_cost_conditions62.own_change(sentence)) is not None:
+        return target_change
     m = ABILITY_SENTENCE.fullmatch(sentence.strip())
     if m is None or m["n"] in "WUBRG":
         return None  # (a colored change to an activation cost isn't printed on any card the grammar was checked with)
@@ -198,13 +202,19 @@ def ability_change(text: str) -> Change | None:
 
 
 def ability_delta(state: GameState, player: str, card: CardInstance, ch: Characteristics, text: str, info: CardInfo,
-                  target: str | None = None) -> int:
+                  target: str | None = None, targets: tuple[str, ...] | None = None) -> int:
     """The signed generic change the ability's own sentence makes now (−N: costs {N} less)."""
     from app.rules.scripts import self_text
 
     change = ability_change(self_text(text, ch.name or ""))
     if not change:
         return 0
+    if change.get('own_target_rule62'):
+        from app.rules import target_cost_conditions62
+
+        chosen = targets if targets is not None else ((target,) if target and target != '?' else ())
+        if not target_cost_conditions62.available(state, player, card, change['own_target_rule62'], chosen, info, preview=target == '?'):
+            return 0
     if change.get("target_counters") or change.get('target_colors'):
         from app.rules.targets import legal_targets
 
@@ -650,6 +660,11 @@ ANY_TARGET: tuple[str, ...] = ("*any target*",)
 def static_delta(state: GameState, info: CardInfo, src: CardInstance, d: dict[str, Any], player: str,
                  card: CardInstance, ch: Characteristics, targets: tuple[str, ...] = ()) -> int | None:
     """The signed change a table cost changer makes to this spell now, or None when it doesn't apply to it."""
+    if d.get('target_rule62'):
+        from app.rules import target_cost_conditions62
+
+        if not target_cost_conditions62.available(state, player, src, d['target_rule62'], targets, info, preview=targets == ANY_TARGET):
+            return None
     if d.get('same_name_graveyard'):
         view = view_of(state, player, info)
         return -sum(_card_names.share(ch, view.ch(state.cards[c]))

@@ -210,7 +210,14 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     # -- emblems (wave 13A) -- 114: the emblems in the command zones (their text is part of the key)
     emblems = tuple(sorted((cid, c.owner, c.token.text) for cid, c in state.cards.items()
                            if c.token is not None and c.zone.endswith(":command") and c.token.type_line == "Emblem"))
-    key_all: tuple = (key, graveyards, gy_modes, hosts, emblems, tuple(sorted(live)),
+    impending = tuple(sorted(cid for cid, c in state.cards.items()
+                             if r is not None and c.zone.endswith(":battlefield")
+                             and (record := r.payments.get(r.object_id(cid))) is not None
+                             and record.alternative == "impending"))
+    text71 = tuple((e.id, tuple(e.affected), e.set_name,
+                    (e.text_change71.category, e.text_change71.old, e.text_change71.new) if e.text_change71 is not None else None)
+                   for e in r.effects if e.layer == '3') if r else ()
+    key_all: tuple = (key, graveyards, gy_modes, hosts, emblems, tuple(sorted(live)), impending, text71,
                       # -- attached events (wave 4L) -- "loses all abilities" effects: their objects' statics are gone
                       tuple(e.id for e in r.effects if e.remove_abilities or e.set_land_types is not None) if r else (),
                       # -- layers (wave 22A) -- the resolved effects the group layers (4-6) are solved against (613.6, 613.8)
@@ -237,7 +244,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
              and not (r is not None and r.card_mode(cid) == "manual")]
     out = []
     for cid, c in field:
-        for ability_index, d in scripts.definitions(copiable(state, c, info)).items():
+        for ability_index, d in scripts.definitions(source_text71(state, c, copiable(state, c, info), info)).items():
             if d["kind"] == "static" and d.get("static") in ("grant", "attached_rule") and not grammar.zone_static(d):
                 if (d := _chosen.resolve_marks(d, c)) is None:  # type: ignore[assignment]  # (wave 53B: the type or color it chose; none recorded: nothing to apply)
                     continue
@@ -282,7 +289,9 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
         _STATIC_CACHE.clear()
     from app.rules.layer_dependency_graph import has_layer4
 
-    layered = any(st.definition.get("layered") or has_layer4(st.definition) or st.definition.get("lose_all")
+    # Impending contributes synthetic layer-4 nodes even without a parsed group
+    # static. Their counter-dependent results need the dynamic table cache key.
+    layered = bool(impending) or any(st.definition.get("layered") or has_layer4(st.definition) or st.definition.get("lose_all")
                   or "set_colors" in st.definition or "add_colors" in st.definition for st in out)
     heads = [(cid, c.controller) for cid, c in field]
     hit = _STATIC_CACHE[key_all] = (out, wiped, layered, {}, heads)
@@ -905,16 +914,35 @@ def subtype_cdas(card: CardInstance, ch: Characteristics) -> Characteristics:
     return type_statics.with_gained_mana(ch, changed, True)
 
 
+def source_text71(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> Characteristics:
+    """A source's layer3 text generates later static effects; layer6 grants do not."""
+    if state.rules is None or not (card.zone.endswith(':battlefield') or card.zone == 'stack'):
+        return ch
+    oid = state.rules.object_id(card.id)
+    found = [e for e in state.rules.effects if e.layer == '3' and oid in e.affected]
+    if not any(e.text_change71 is not None for e in found):
+        return ch
+    return name_changes(ch, found, [], info)
+
+
 def name_changes(ch: Characteristics, effects: list[ContinuousEffect],
-                 attached45: list[tuple[float, dict[str, Any]]]) -> Characteristics:
+                 attached45: list[tuple[float, dict[str, Any]]], info: CardInfo | None = None) -> Characteristics:
     """Shared layer3 stage for final derivation and dependency positions (201.5)."""
     names: list[tuple[tuple[float, int, int], str]] = [
         ((stamp, 0, 0), definition["set_name"]) for stamp, definition in attached45
         if definition.get("set_name") is not None]
     names.extend(((effect.object_seq, 1, effect.timestamp), effect.set_name)
                  for effect in effects if effect.layer == "3" and effect.set_name is not None)
-    for _, name in sorted(names, key=lambda item: item[0]):
-        if name != ch.name:
+    from app.rules import text_word_changes71
+
+    changes = [((e.object_seq, 1, e.timestamp), e.text_change71) for e in effects
+               if e.layer == '3' and e.text_change71 is not None]
+    ordered = [(stamp, name, None) for stamp, name in names] + [(stamp, None, change) for stamp, change in changes]
+    for _, name, change in sorted(ordered, key=lambda item: item[0]):
+        if change is not None:
+            ch = text_word_changes71.apply(ch, change, getattr(info, 'name_at', None))
+            continue
+        if name is not None and name != ch.name:
             from app.rules.copying import renamed
 
             # 201.5: self references still name this object after its name changes.
@@ -967,7 +995,7 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     effects = affecting(state, card, info)
     each_amounts: dict[int, int] = {}
     attached45 = _attached45(state, card, info)  # -- attached events (wave 4L) -- "Enchanted creature is a … creature"
-    ch = name_changes(ch, effects, attached45)
+    ch = name_changes(ch, effects, attached45, info)
     start = ch  # Abilities after layers 1-3, before layers 4-6 take any away.
     # -- layers (wave 22A) -- group statics of layers 4 and 5 ("Each land is a Swamp in addition …", "Nonbasic lands are Mountains.",
     # "All permanents are colorless.": 613.1d-e, 305.7), the objects each began applying to found as the table was solved (613.6, 613.8)
@@ -1268,7 +1296,7 @@ def _own_layer4_statics(state: GameState, card: CardInstance, info: CardInfo | N
         return d.get("who") == "self" and "layer4" in d and (not d.get("layered") or probing(state, card)) and all(grammar._layer4_safe(c) for c in d.get("conditions") or ())
 
     if not any(d["kind"] == "static" and ("remove_types" in d or "add_subtypes" in d or "add_types" in d or safe_self_dictionary(d))
-               for d in scripts.definitions(copiable(state, card, info)).values()):
+               for d in scripts.definitions(source_text71(state, card, copiable(state, card, info), info)).values()):
         return []
     table = [st for st in (statics(state, info) if table is None else table) if st.source == card.id and st.gate is None
              and ("remove_types" in st.definition or "add_subtypes" in st.definition or "add_types" in st.definition or safe_self_dictionary(st.definition))]
@@ -1277,7 +1305,7 @@ def _own_layer4_statics(state: GameState, card: CardInstance, info: CardInfo | N
         # 614.12: its own type-changing static applies as it would exist on
         # the battlefield, even though it is absent from the battlefield table.
         table = [Static(card.id, card.controller, d, timestamp(state, card.id))
-                 for d in scripts.definitions(copiable(state, card, info)).values()
+                 for d in scripts.definitions(source_text71(state, card, copiable(state, card, info), info)).values()
                  if d["kind"] == "static" and ("remove_types" in d or "add_subtypes" in d or "add_types" in d or safe_self_dictionary(d))]
     if not table:
         return []
@@ -1311,7 +1339,7 @@ def _own_layer5(state: GameState, card: CardInstance, info: CardInfo | None,
     from app.rules import scripts
 
     if not any(d["kind"] == "static" and d.get("who") == "self" and "set_colors" in d
-               for d in scripts.definitions(copiable(state, card, info)).values()):
+               for d in scripts.definitions(source_text71(state, card, copiable(state, card, info), info)).values()):
         return []
     table = [st for st in (statics(state, info) if table is None else table) if st.source == card.id and st.gate is None
              and st.definition.get("who") == "self" and "set_colors" in st.definition]

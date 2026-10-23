@@ -1,0 +1,29 @@
+{
+  "status": "REVIEWED CANDIDATE; NOT YET INSTALLED OR ADMITTED",
+  "names": [
+    "Master of Cruelties",
+    "Bone Dancer",
+    "Stromgald Spy"
+  ],
+  "source_patch": "docs/research/proposals/combat79-resumed/reviewed-shared.patch",
+  "source_patch_sha256": "fa285dded9a77774167c82287f5dcba5c394687b3e675be726810fe0e1332d96",
+  "native_unique": 41,
+  "native_cold": 3,
+  "native_result": "PASS",
+  "types_files": 5,
+  "types_result": "PASS",
+  "ruff_result": "PASS",
+  "related_total": 92,
+  "related_result": "91 PASS; 1 stale Ruxa classifier expectation failed. Corrected expectation selected test PASS; no engine change or promotion.",
+  "stage": "/tmp/combat79-resume/backend",
+  "source_hashes": {
+    "app/rules/unblocked_choices79.py": "e873d7a5795901313431ba73fc647299b5f266e46bfa93023d60199518d6d510",
+    "app/rules/declaration_groups.py": "26b33f8ed8445327a40fb27109ae7d9a565a6350a36aeb832957bdb8bd62ffc7",
+    "app/game/rules_state.py": "5f242edbe9ab6400088968e8926dd3f4cf902a21a7cee4fb347efcd62f0541e3",
+    "app/game/visibility.py": "4e7e11906b95a006969c1bbdb9586b367d0793f2ee47d2f6f2a1d86f3c5b1ea1",
+    "app/rules/delayed.py": "eaaa165d06e2b9ea2435482276957cc0ba16664138fa6e743a62b83c2f4bde84",
+    "app/rules/scripts.py": "b1c7e7138a99e4f05f4927eb1940193e30581ff70daccba6d0520c42a69d96d9",
+    "app/rules/effects.py": "ff674f8ffe916485481551aed8f1716defb4427ddbc7a8660d54e9c028ec757d"
+  },
+  "semantic_repair": "Bone Dancer accepted payable return uses native CR118.12 return_card.did before replacement, not committed actual entry. Cage/empty cannot pay and omit invalid confirmation."
+}

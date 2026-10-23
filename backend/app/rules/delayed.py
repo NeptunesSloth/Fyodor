@@ -616,6 +616,8 @@ def expire(plan: Plan) -> None:
     table change: the source left, changed controller or untapped)."""
     from app.rules import phase_lifetimes43, timed_damage_replacements
 
+    plan.rules.source_hand_reveals79 = [r for r in plan.rules.source_hand_reveals79
+        if _source_ok(plan, 'source_on_battlefield', r.source_card, r.source_object, None)]
     phase_lifetimes43.expire(plan)
     timed_damage_replacements.expire_source_records(plan)
     r = plan.rules

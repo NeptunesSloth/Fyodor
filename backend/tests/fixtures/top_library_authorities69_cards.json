@@ -1,0 +1,248 @@
+[
+  {
+    "name": "The Belligerent",
+    "oracle_id": "9a0c9023-9431-4f98-b167-ab4c7215319c",
+    "mana_cost": "{2}{U}{R}",
+    "cmc": 4.0,
+    "type_line": "Legendary Artifact \u2014 Vehicle",
+    "oracle_text": "Whenever The Belligerent attacks, create a Treasure token. Until end of turn, you may look at the top card of your library any time, and you may play lands and cast spells from the top of your library.\nCrew 3",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+      "R",
+      "U"
+    ],
+    "color_identity": [
+      "R",
+      "U"
+    ],
+    "layout": "normal",
+    "keywords": [
+      "Treasure",
+      "Crew"
+    ]
+  },
+  {
+    "name": "Falco Spara, Pactweaver",
+    "oracle_id": "b9c1ca24-5696-4777-8465-13a8f78e4fb5",
+    "mana_cost": "{1}{G}{W}{U}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Bird Demon",
+    "oracle_text": "Flying, trample\nFalco Spara enters with a shield counter on it.\nYou may look at the top card of your library any time.\nYou may cast spells from the top of your library by removing a counter from a creature you control in addition to paying their other costs.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+      "G",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "G",
+      "U",
+      "W"
+    ],
+    "layout": "normal",
+    "keywords": [
+      "Flying",
+      "Trample"
+    ]
+  },
+  {
+    "name": "Into the Pit",
+    "oracle_id": "e330412f-46a1-4e7c-8766-f644606049e0",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Enchantment",
+    "oracle_text": "You may look at the top card of your library any time.\nYou may cast spells from the top of your library by sacrificing a nonland permanent in addition to paying their other costs.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "layout": "normal",
+    "keywords": []
+  },
+  {
+    "name": "Isu the Abominable",
+    "oracle_id": "b34823a3-7bee-4e71-a3df-9b533c8ddf15",
+    "mana_cost": "{3}{U}{U}",
+    "cmc": 5.0,
+    "type_line": "Legendary Snow Creature \u2014 Yeti",
+    "oracle_text": "You may look at the top card of your library any time.\nYou may play snow lands and cast snow spells from the top of your library.\nWhenever another snow permanent you control enters, you may pay {G}, {W}, or {U}. If you do, put a +1/+1 counter on Isu.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U",
+      "W"
+    ],
+    "layout": "normal",
+    "keywords": []
+  },
+  {
+    "name": "The Fourth Doctor",
+    "oracle_id": "c19fdee3-5fbc-4e2d-ac23-85b46eacafdc",
+    "mana_cost": "{2}{G}{U}",
+    "cmc": 4.0,
+    "type_line": "Legendary Creature \u2014 Time Lord Doctor",
+    "oracle_text": "You may look at the top card of your library any time.\nWould You Like A...? \u2014 Once each turn, you may play a historic land or cast a historic spell from the top of your library. When you do, create a Food token. (Artifacts, legendaries, and Sagas are historic.)",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+      "G",
+      "U"
+    ],
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "layout": "normal",
+    "keywords": [
+      "Food"
+    ]
+  },
+  {
+    "name": "Millikin",
+    "oracle_id": "fa4dffda-6f04-4d0b-829d-28a1a5794dee",
+    "mana_cost": "{2}",
+    "cmc": 2.0,
+    "type_line": "Artifact Creature \u2014 Construct",
+    "oracle_text": "{T}, Mill a card: Add {C}. (Activate only as an instant. To mill a card, put the top card of your library into your graveyard.)",
+    "power": "0",
+    "toughness": "1",
+    "colors": [],
+    "color_identity": [],
+    "layout": "normal",
+    "keywords": [
+      "Mill"
+    ]
+  },
+  {
+    "name": "Progenitus",
+    "oracle_id": "2d7e00b6-12f0-4b03-82a6-50e3d1b5395e",
+    "mana_cost": "{W}{W}{U}{U}{B}{B}{R}{R}{G}{G}",
+    "cmc": 10.0,
+    "type_line": "Legendary Creature \u2014 Hydra Avatar",
+    "oracle_text": "Protection from everything\nIf Progenitus would be put into a graveyard from anywhere, reveal Progenitus and shuffle it into its owner's library instead.",
+    "power": "10",
+    "toughness": "10",
+    "colors": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "layout": "normal",
+    "keywords": [
+      "Protection"
+    ]
+  },
+  {
+    "name": "Boreal Druid",
+    "oracle_id": "2fcc69ff-8ab5-4e14-afe3-db892049a872",
+    "mana_cost": "{G}",
+    "cmc": 1.0,
+    "type_line": "Snow Creature \u2014 Elf Druid",
+    "oracle_text": "{T}: Add {C}.",
+    "power": "1",
+    "toughness": "1",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "layout": "normal",
+    "keywords": []
+  },
+  {
+    "name": "Snow-Covered Forest",
+    "oracle_id": "5f0d3be8-e63e-4ade-ae58-6b0c14f2ce6d",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Snow Land \u2014 Forest",
+    "oracle_text": "({T}: Add {G}.)",
+    "colors": [],
+    "color_identity": [
+      "G"
+    ],
+    "layout": "normal",
+    "keywords": []
+  },
+  {
+    "name": "Seat of the Synod",
+    "oracle_id": "39451b4d-cd7a-40da-b457-cb51b609173f",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Artifact Land",
+    "oracle_text": "{T}: Add {U}.",
+    "colors": [],
+    "color_identity": [
+      "U"
+    ],
+    "layout": "normal",
+    "keywords": []
+  },
+  {
+    "name": "Future Sight",
+    "oracle_id": "93a0e938-b916-47ec-9803-369e885e253c",
+    "mana_cost": "{2}{U}{U}{U}",
+    "cmc": 5.0,
+    "type_line": "Enchantment",
+    "oracle_text": "Play with the top card of your library revealed.\nYou may play lands and cast spells from the top of your library.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "layout": "normal",
+    "keywords": []
+  },
+  {
+    "oracle_id": "9d8fe3f8-5027-4f9e-999e-e277caa96478",
+    "name": "Disperse",
+    "layout": "normal",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Return target nonland permanent to its owner's hand.",
+    "power": null,
+    "toughness": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "oracle_id": "a0734a4a-a3b4-5d0b-a402-e3f4ce6e9f16",
+    "name": "Light 'Em Up",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Instant",
+    "oracle_text": "Casualty 2 (As you cast this spell, you may sacrifice a creature with power 2 or greater. When you do, copy this spell and you may choose a new target for the copy.)\nLight 'Em Up deals 2 damage to target creature or planeswalker.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": []
+  }
+]

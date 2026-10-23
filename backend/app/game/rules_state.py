@@ -658,6 +658,18 @@ class HandLimitModifier(BaseModel):
     value: int = 0
 
 
+class SpliceText71(BaseModel):
+    name: str
+    abilities: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class TextChange71(BaseModel):
+    category: Literal['color', 'basic_land', 'creature']
+    old: str
+    new: str
+    all_colors: bool = False
+
+
 class ContinuousEffect(BaseModel):
     """A continuous effect from a resolved spell or ability (CR 611.2c): the objects it affects are
     fixed when it begins. See ``app.rules.layers``."""
@@ -673,6 +685,7 @@ class ContinuousEffect(BaseModel):
     source: str | None = None  # source object id
     controller: str
     set_name: str | None = None  # Noncopiable layer-3 name change (613.1c).
+    text_change71: TextChange71 | None = None
     power: int | None = None
     toughness: int | None = None
     add_keywords: list[str] = Field(default_factory=list)
@@ -1085,6 +1098,7 @@ class PaymentRecord(BaseModel):
     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
     exiled_objects: list[str] = Field(default_factory=list)  # -- as long as (wave 37A) -- the objects they became in exile (400.7j: "this card" finds that one)
     exiled_was: list[str] = Field(default_factory=list)  # (wave 48B: and the objects they were, "the number of cards exiled this way" of an activation cost)
+    splice_text71: SpliceText71 | None = None
     spliced_names: list[str] | None = None  # Public names spliced onto this spell; None is unknown in legacy saves.
     moved_exile_names: list[str] | None = None  # Public names of cards put from linked exile to a graveyard to pay.
     returned: list[str] = Field(default_factory=list)  # permanents returned to hand to pay
@@ -1116,7 +1130,7 @@ class PaymentRecord(BaseModel):
 class PermissionUseTrigger(BaseModel):
     """Original source of a trigger attached to one selected casting/play authority."""
 
-    kind: Literal["replenish_top", "owner_loses_mv"]
+    kind: Literal["replenish_top", "owner_loses_mv", "create_food69"]
     source: ObjectRef
     controller: str
     name: str
@@ -1140,6 +1154,7 @@ class Permission(BaseModel):
     # not the card (400.7h/i): once it changes zones it is a new object and the permission is spent
     object_id: str | None = None
     card: str | None = None
+    look_top: bool = False  # Source-independent private top look for this stored library-top authority.
     stop_on_linked_exile: str | None = None  # Source-object/link scope: expires when this permission holder next exiles a card with it.
     filter: str | None = None  # a selector key the spell must match ("creature spells")
     free: bool = False  # "without paying its mana cost": an alternative cost of {0} (118.9)
@@ -1223,6 +1238,14 @@ class NextSpellGrant(BaseModel):
     source: str | None = None
     label: str = Field(default="", max_length=120)
     amount: int = 0  # -- cant restrictions (wave 46A) -- keyword "cost": the generic mana it takes off ("The next spell you cast this turn costs {1} less to cast.", 601.2f, 118.7a)
+
+
+class SourceHandReveal79(BaseModel):
+    """A resolved reveal fixes its player and original source object for its duration."""
+
+    player: str
+    source_card: str
+    source_object: str
 
 
 class TopReveal(BaseModel):
@@ -1630,6 +1653,7 @@ class RulesState(BaseModel):
     permissions: list[Permission] = Field(default_factory=list)
     cost_modifiers: list[CostModifier] = Field(default_factory=list)
     next_spell_grants: list[NextSpellGrant] = Field(default_factory=list)  # -- spell grants (wave 28C) --
+    source_hand_reveals79: list[SourceHandReveal79] = Field(default_factory=list)
     top_reveals: list[TopReveal] = Field(default_factory=list)
     # -- conditional / instead clauses (wave 1B) --  this turn's and last turn's history (TurnLog)
     turn_log: TurnLog = Field(default_factory=TurnLog)

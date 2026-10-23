@@ -2670,7 +2670,7 @@ def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
 def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
     """Put one trigger on the stack. False if it waits for its controller's target choice.
     ``picks``: the choices so far for an ability with target groups (603.3d → 601.2c-d)."""
-    x = event_x(plan, t)  # -- X from the triggering object (wave 34C) -- its targets are chosen knowing that X: "with mana value X" (601.2c)
+    x = cast_x(plan, t)  # Own entry triggers also use their exact original payment X (107.3m); cast/cycle events delegate unchanged.
     if x is None:
         return _put(plan, t, target, picks)
     before, plan.x_choice = plan.x_choice, x

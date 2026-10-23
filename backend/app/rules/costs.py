@@ -747,8 +747,21 @@ def kicker_mixed_parts(line: str) -> tuple[str, str] | None:
     return (m["mana"], rest) if found is not None and found.mana == m["mana"] and found.cost.components else None
 
 
+def positive_kicker_x(line: str) -> str | None:
+    """An actual keyword's explicit lower bound on its single announced kicker X."""
+    suffix = ". X can't be 0"
+    text = line.strip().rstrip(".")
+    if not text.endswith(suffix):
+        return None
+    match = _KICKER.fullmatch(text[:-len(suffix)])
+    return match["cost"] if match is not None and match["cost"].upper().count("{X}") == 1 and not any(
+        match[k] for k in ("multi", "many", "once", "entwine")) and _MANA_ONLY.match(match["cost"]) else None
+
+
 def kicker_line(line: str) -> bool:
     """Is this keyword line a kicker the engine pays ("Kicker {2}{R}", "Multikicker {1}")?"""
+    if positive_kicker_x(line) is not None:
+        return True
     if _entwine_extra(line) is not None or kicker_extra_parts(line) is not None or kicker_mixed_parts(line) is not None:
         return True
     if (two := _KICKER2.fullmatch(line.strip().rstrip("."))) is not None:  # (-- keywords (wave 50H) -- both mana only, no {X})
@@ -767,6 +780,7 @@ class Kicker:
     extra: str = ""  # (an entwine cost that isn't mana: "sacrifice two lands", paid with the additional costs)
     text: str = ""  # -- free-cast optional costs (wave 41D) -- the keyword line ("Kicker {R}", "Squad {2}"): the label of the question
     second: str = ""  # -- keywords (wave 50H) -- 702.33b: "Kicker {A} and/or {B}": B, the second kicker cost. Then the cast's ``kicker`` is a mask (1: A, 2: B, 3: both)
+    minimum_x: int = 0  # Only the actual selected keyword may constrain its announced X.
 
     def paid(self, times: int) -> int:
         """-- keywords (wave 50H) -- how many kicker costs the cast's ``kicker`` pays (702.33d): the bits of the mask of two costs, else the count."""
@@ -785,6 +799,9 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
     found: list[Kicker] = []
     for ab in abilities:
         if ab.kind != "keywords" or not ({"kicker", "multikicker", "squad", "replicate", "offspring", "entwine"} & set(ab.keywords)):
+            continue
+        if (positive := positive_kicker_x(ab.text)) is not None:
+            found.append(Kicker(positive, text=ab.text.strip().rstrip("."), minimum_x=1))
             continue
         if (extra := _entwine_extra(ab.text)) is not None:
             found.append(Kicker("", entwine=True, extra=extra))

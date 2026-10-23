@@ -1,0 +1,9 @@
+# Text71 non-Swirl subset — REVIEW CANDIDATE, UNINSTALLED
+
+Exact10 candidates: Mind Bend, Sleight of Mind, Magical Hack, Alter Reality, Glamerdye, Spectral Shift, Crystal Spray, Whim of Volrath, Trait Doctoring, Artificial Evolution. Swirl the Mists and all dynamic global-color hooks are excluded. No text71 source changes are live.
+
+Source-preserving proposal against the recorded original production hashes: three new leaves plus seven shared files. Stage `/tmp/text71-current-backend`. Root subsequently repaired the preexisting impending statics-cache bug in the live layers file; preserve that independent repair when integrating this proposal, do not reverse it.
+
+Unified native33 PASS, including ten actual printed spell casts, other printed flashback/retrace/buyback/cipher paths, three fresh-process cold saves, exact meld names, word components, source/granted ability ordering, original targets/modes/splice/copies and unknown legacy splice manual fallback. Root-requested additional actual native per-opponent cold test1 PASS separately: Blatant Thievery original p2/p3 target scopes remain frozen after Domineering Will transfers p3 target to p2 and Sleight changes the pending spell. Only original p2 group remains legal. Final fixture/test file includes all34 cases. `manifest.json` distinguishes unified33 from the separately run additional cold test.
+
+Ten scoped source mypy and Ruff PASS; core54 PASS. Earlier component-independence log preserves the initial setup failure (opponent deck lacked the instant); final unified33 closes corrected case. Proper-name test initially used Bruna, but the actual meld instruction belongs to Gisela; canonical Gisela now provides the closed native proof. Unknown-legacy test first edited an active history, then was corrected to restore an explicit legacy save as a fresh session before continuing; final unified gate passes. No catalog promotion is claimed before root review and production verification.

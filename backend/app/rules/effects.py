@@ -3782,7 +3782,7 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     (603.7) it is put on the stack the next time a player would receive priority (603.3), its controller choosing
     its modes and targets then (603.3c-d) — not while the ability that created it was announced. Its source is that
     ability's source; it has no trigger event of its own."""
-    from app.rules import conditions
+    from app.rules import conditions, optional_continuations58
     from app.rules.triggers import _add  # (triggers imports this module)
 
     if e.get("entry_receipt56"):
@@ -3823,7 +3823,7 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                     if any(new["card"] == o.card for new, _ in _this_way._matched(plan, ctx, e["cond"]["value"]))]
                    if e.get("each") and event is not None else [event] * _reflex_times(plan, ctx, e["cond"])):
             _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
-                 name=str(ctx.get("name") or ""), index=7300, definition=e["ability"], event=ev)
+                 name=str(ctx.get("name") or ""), index=7300, definition=optional_continuations58.reflexive_ability(plan, ctx, e), event=ev)
     return True
 
 
@@ -3901,6 +3901,12 @@ def reading_x(plan: Plan, x: int | None) -> Iterator[None]:
 
 
 def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
+    from app.rules import text_spell_refresh71
+
+    refreshed71 = text_spell_refresh71.refresh(plan, stack_id, entry)
+    if refreshed71 is None:
+        return
+    entry = refreshed71
     if entry.x_from_event_spell:
         from app.rules.triggers import event_spell_x
 
@@ -6682,3 +6688,26 @@ PRIMITIVES["next_free_cast68"] = _conditional_free_casts68.next_free
 from app.rules import first_event_receipts78 as _first_event78  # noqa: E402
 
 PRIMITIVES['investigate_complete78'] = _first_event78.complete
+
+
+from app.rules import text_change_instructions71 as _text_change_instructions71  # noqa: E402
+
+PRIMITIVES.update(_text_change_instructions71.PRIMITIVES)
+CHOICE_OPTIONS['word to replace'] = [*_text_change_instructions71.COLORS, *_text_change_instructions71.LANDS,
+                               *sorted(_text_change_instructions71.CREATURE_TYPES)]
+
+RESUME['text71_legacy_done'] = _text_change_instructions71.legacy_done
+
+CHOICE_OPTIONS['replacement word'] = CHOICE_OPTIONS['word to replace']
+
+from app.rules import top_library_authorities69  # noqa: E402
+
+PRIMITIVES.update(top_library_authorities69.PRIMITIVES)
+
+from app.rules import conditional_counter_riders77  # noqa: E402
+
+PRIMITIVES.update(conditional_counter_riders77.PRIMITIVES)
+
+from app.rules import unblocked_choices79 as _unblocked79  # noqa: E402
+
+PRIMITIVES.update({'bone_entry79': _unblocked79.bone_entry, 'bone_finish79': _unblocked79.bone_finish, 'spy_reveal79': _unblocked79.spy_reveal})

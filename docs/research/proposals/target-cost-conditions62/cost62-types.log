@@ -1,0 +1,2 @@
+app/rules/target_cost_conditions62.py:11: error: Need type annotation for "common"  [var-annotated]
+Found 1 error in 1 file (checked 5 source files)
