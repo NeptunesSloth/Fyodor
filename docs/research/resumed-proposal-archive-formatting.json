@@ -503,5 +503,20 @@
     "original_sha256": "f888c132ebf7d1edbabd06047bd9ceb4a945a3ed4229c1420f84d78dcd263605",
     "archived_sha256": "f9ea8c5e56aab4b2d601ba93e9ef06bc5f4149889f3ebcc93b439ea2a5353928",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-animation92/UNINSTALLED.patch": {
+    "original_sha256": "018013a6633bc4db871f7ba9d2dadd3cb33ea637b7d3428d285109e78eb3c223",
+    "archived_sha256": "05a07b8552159a7304805176ec49574e852e92b263c06604ffa03d1fdef23330",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-animation92/final18.log": {
+    "original_sha256": "096f9f44cee8e134f71e961d10ac420e541d893b6176a21e5be1f37b0d3a251a",
+    "archived_sha256": "7f73ff4fb33b3b6225654bbf9a925c49d638cf09ff3f2f0f6f132b15e22b2f19",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/repeated-graveyard-offers89/UNINSTALLED.patch": {
+    "original_sha256": "bf2d75922d02188e4ddd173e988a1d2cd0441760fab37db73ff4a6718c7f7d60",
+    "archived_sha256": "7dd2e23e4a1c55edb29bee3f02ded006c0c0057147d5a3172a61c3836ac30221",
+    "numstat_preserved": true
   }
 }

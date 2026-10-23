@@ -1,0 +1,23 @@
+........F....                                                            [100%]
+=================================== FAILURES ===================================
+______________ test_native_relic_loss_of_animation_removes_combat ______________
+
+cards = <app.cards.repository.CardRepository object at 0x7f85af11bc50>
+
+    def test_native_relic_loss_of_animation_removes_combat(cards):
+        s=game(cards)
+        source=cast(s,'Rusted Relic')
+        cast(s,'Ornithopter')
+        support=cast(s,'Darksteel Relic')
+        to_phase(s,'declare_attackers',4)
+        act(s,'p1',type='declare_attackers',attackers=[{'card_id':source.id,'target':'p2'}])
+        act(s,'p1',type='set_controller',card_ids=[support.id],player='p2')
+>       assert not ch(s,source).is_creature and s.state.cards[source.id].attacking is None
+E       AssertionError: assert (not False and AttackTarget(kind='player', id='p2') is None)
+E        +  where False = Characteristics(name='Rusted Relic', supertypes=frozenset(), types=frozenset({'Artifact'}), subtypes=frozenset(), mana...=None, granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=0).is_creature
+E        +    where Characteristics(name='Rusted Relic', supertypes=frozenset(), types=frozenset({'Artifact'}), subtypes=frozenset(), mana...=None, granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=0) = ch(<app.game.session.GameSession object at 0x7f85afa71790>, CardInstance(borrow_identity=None, id='ff51e1428bc2', card_id='30ddff82-75b5-5db7-a78a-591bd2efad66', name='Rusted Rel...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False))
+E        +  and   AttackTarget(kind='player', id='p2') = CardInstance(borrow_identity=None, id='ff51e1428bc2', card_id='30ddff82-75b5-5db7-a78a-591bd2efad66', name='Rusted Rel...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False).attacking
+
+tests/test_rules_conditional_animation92.py:162: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_conditional_animation92.py::test_native_relic_loss_of_animation_removes_combat

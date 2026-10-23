@@ -1,0 +1,116 @@
+[
+  {
+    "card": {
+      "id": "fb01dd39-a957-4c1a-86cf-f31a699a154a",
+      "oracle_id": "ca9f538d-4191-448a-870d-f645b7c37c1b",
+      "name": "Forgotten Lore",
+      "layout": "normal",
+      "set_code": "ice",
+      "set_name": "Ice Age",
+      "collector_number": "237",
+      "rarity": "uncommon",
+      "mana_cost": "{G}",
+      "cmc": 1.0,
+      "type_line": "Sorcery",
+      "oracle_text": "Target opponent chooses a card in your graveyard. You may pay {G}. If you do, repeat this process except that opponent can't choose a card already chosen for Forgotten Lore. Then put the last chosen card into your hand.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "1995-06-03",
+      "artist": "Harold McNeill",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "ca9f538d-4191-448a-870d-f645b7c37c1b",
+          "source": "wotc",
+          "published_at": "2008-10-01",
+          "comment": "You target an opponent when you cast Forgotten Lore. The opponent chooses a card in your graveyard as Forgotten Lore resolves. After that choice is made, you\u2019re given the option to pay {G}. If you do, the targeted opponent must choose a different card, if there is one. (If there isn\u2019t one, this part is skipped.) Then you\u2019re given the option to pay {G} again. As long as you keep paying {G}, the process continues. As soon as you decline to pay {G}, the last card that was chosen by the opponent is put into your hand."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "ca9f538d-4191-448a-870d-f645b7c37c1b",
+          "source": "wotc",
+          "published_at": "2008-10-01",
+          "comment": "The spell has no knowledge of cards chosen for other spells named Forgotten Lore."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "id": "a26bf956-90eb-4221-a8e0-c8414d819072",
+      "oracle_id": "f21bd7b6-a03f-402e-a2b1-899ccbd9f0cf",
+      "name": "Shrouded Lore",
+      "layout": "normal",
+      "set_code": "plc",
+      "set_name": "Planar Chaos",
+      "collector_number": "91",
+      "rarity": "uncommon",
+      "mana_cost": "{B}",
+      "cmc": 1.0,
+      "type_line": "Sorcery",
+      "oracle_text": "Target opponent chooses a card in your graveyard. You may pay {B}. If you do, repeat this process except that opponent can't choose a card already chosen for Shrouded Lore. Then put the last chosen card into your hand.",
+      "power": null,
+      "toughness": null,
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2007-02-02",
+      "artist": "Kev Walker",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "f21bd7b6-a03f-402e-a2b1-899ccbd9f0cf",
+          "source": "wotc",
+          "published_at": "2007-02-01",
+          "comment": "You target an opponent when you cast Shrouded Lore. The opponent chooses a card in your graveyard as Shrouded Lore resolves. After that choice is made, you\u2019re given the option to pay {B}. If you do, the targeted opponent must choose a different card, if there is one. (If there isn\u2019t one, this part is skipped.) Then you\u2019re given the option to pay {B} again. As long as you keep paying {B}, the process continues. As soon as you decline to pay {B}, the last card that was chosen by the opponent is put into your hand."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "f21bd7b6-a03f-402e-a2b1-899ccbd9f0cf",
+          "source": "wotc",
+          "published_at": "2007-02-01",
+          "comment": "The spell has no knowledge of cards chosen for other spells named Shrouded Lore."
+        }
+      ]
+    }
+  }
+]
