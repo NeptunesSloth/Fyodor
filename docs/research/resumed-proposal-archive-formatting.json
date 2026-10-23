@@ -498,5 +498,10 @@
     "original_sha256": "0a6e41a2aa55f83cb4d83cff360b76e41615e804b77d4e12274819845c84e62a",
     "archived_sha256": "fe21914213c163c9b7c298fd06f0dc962f0c56a37c0f309eb03c94b784e21d13",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/native-count-discounts79/owned.patch": {
+    "original_sha256": "f888c132ebf7d1edbabd06047bd9ceb4a945a3ed4229c1420f84d78dcd263605",
+    "archived_sha256": "f9ea8c5e56aab4b2d601ba93e9ef06bc5f4149889f3ebcc93b439ea2a5353928",
+    "numstat_preserved": true
   }
 }

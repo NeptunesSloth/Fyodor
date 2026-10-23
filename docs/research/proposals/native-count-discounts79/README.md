@@ -1,0 +1,9 @@
+# Synchronized Eviction and Delightful Discovery
+
+Exact own-spell discounts compose existing native value authority. Synchronized Eviction checks the native maximum number of your creatures sharing a creature type, including current changeling/type layers, and reduces by two when at least two share. Delightful Discovery uses current-turn all-player native spell-cast count minus caster count, retaining actual earlier opponent casts even after countering or the opponent leaving. Neither introduces new history fields or value semantics.
+
+Authority: canonical printings and complete official rulings saved. Delightful Discovery's 2024-11-08 rulings specify increases before reductions, unchanged mana value and the {U} floor. Pinned CR800.4i explicitly allows finding actions players took before leaving. Full Thought Sponge and Chandra's Incinerator printing/ruling JSONs in authority/ confirm historical opponent actions remain countable after departure; Incinerator is itself an analogous historical cost reduction. An initial current-live hypothesis was withdrawn after this review, and values.py is byte-identical to the original source.
+
+Durable stage/base/helper/patch/logs: /workspace/scratch/cost79. Production ownership: new native_count_discounts79.py and a narrow cost_changes.self_change hook only (29 patch lines). Tests cover shared/disjoint/opposing creature types, changeling, native second-from-top and scry/draw resolution, ordinary/own/opponent/countered/prior-turn casts, taxes, colored floor, two genuine fresh-process reloads and real opponent cast then concede.
+
+Final gates PASS: native14 plus actual departed-opponent1 (15 distinct, including2 genuine cold); related126; mypy2; Ruff3. Native14 ran the original all-minus-own source, which is byte-identical to final source after the withdrawn current-live hypothesis. Root admission remains pending. No live source edits or commits by this worker.
