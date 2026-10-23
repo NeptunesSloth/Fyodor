@@ -973,5 +973,15 @@
     "original_sha256": "2787da665fb2864713ee2fe90e1fa7c60e5de59a854eee6dcc3b1e8116f42c16",
     "archived_sha256": "74b83bc7c515554c672d04908749ae46b72ae285b4987fb542dedb566d004548",
     "numstat_preserved": null
+  },
+  "docs/research/checkpoint67-validation/native.log": {
+    "original_sha256": "3f5a6759c4dd0119e3b1df6fd58279173729fdea97416ee76534da5853e00b9b",
+    "archived_sha256": "1d7bfe1db920b45efbc7bf36ddf24541c97bc288f04afa96560468c5dce1e001",
+    "numstat_preserved": null
+  },
+  "docs/research/checkpoint67-validation/related.log": {
+    "original_sha256": "d9d0e7bf4ae6d4942d835ce8b7eb50675c2476e41b5b3f6b17b640710c8e9eb9",
+    "archived_sha256": "13550fb92e140908048da8967999d5921fe5e3f0a268b5aa2bd8c1e5cec9ee94",
+    "numstat_preserved": null
   }
 }

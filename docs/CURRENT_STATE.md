@@ -1,4 +1,10 @@
-Work continues on [PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20). Six agents automatically continue next groups.
+Current-work wrap-up is saved in [PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20). The six agents reached their usage limit; no automatic assignments remain active.
+
+## CHECKPOINT67 VERIFIED — WRAP-UP
+
+Latest catalog: **29,945 FULL / 2,123 PARTIAL**. **11 exact additions**, zero prior FULL regressions or missing/unexpected promotions. **483 of 1,500 additional completions verified; 1,017 remain toward the target.** FULL is engine coverage classification; all cards are not complete.
+
+[Evidence](research/resumed-checkpoint67-integrations.md), [coverage](research/checkpoint67-coverage.json), [925-module hashes](research/checkpoint67-source-hashes.json), [logs](research/checkpoint67-validation), [held-work record](research/automation-current-work-wrap-up.md). Native110, related91, core54, full mypy925 and Ruff pass on the same immutable source. No fresh whole-suite claim.
 
 ## CHECKPOINT66 VERIFIED — CONTINUING
 

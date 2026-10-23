@@ -1,5 +1,5 @@
-# Current automatic queue
+# Automatic queue paused — current work wrapped up
 
-Verified checkpoint66:29,934 FULL /2,134 PARTIAL;target472/1,500. Next groups staged separately, uncounted.
+Verified checkpoint67: 29,945 FULL / 2,123 PARTIAL; target483/1,500. Six agents reached their usage limit. No further automatic assignments are running.
 
-Six automatic streams: cost68 first artifact activation84 after closed colored costs83; library64 Leng72 after closed Vault71 and collateral69; world81 conditional toughness96 then Attraction97 foundation; casting74 Flagbearer86 after closed Lara85; combat84 zone exchanges94 large-order paging then combat damage95; payment83 variable payer/prevention92 after closed upkeep91. Root reviews, integrates immutable batches, validates and pushes PR20. Later research never enters verified totals before gates.
+The current11-card cutoff is fully validated and saved in PR20. Other work is explicitly held/uninstalled: Flagbearer86, first artifact activation84, Library of Leng72, attached upkeep92, combat damage95, Attraction97 foundation research and older Cyber-Controller63. See automation-current-work-wrap-up.md. Resume from the exact latest source hashes/catalog, review each proposal's ancestry and remaining failures, and integrate only bounded owned hunks. Held snapshots are not production replacements.
