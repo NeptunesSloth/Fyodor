@@ -1,4 +1,10 @@
-Work continues on [PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20). Six agents continue next groups automatically.
+Work continues on [PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20). Six agents automatically continue next groups.
+
+## CHECKPOINT65 VERIFIED — CONTINUING
+
+Latest catalog: **29,914 FULL / 2,154 PARTIAL**. **26 exact Commander additions**, zero prior FULL regressions or unexpected/missing promotions. Four further tested digital implementations are outside the Commander catalog. **452 of1,500 additional completions verified;1,048 remain.** FULL is engine coverage classification.
+
+[Evidence](research/resumed-checkpoint65-integrations.md), [coverage](research/checkpoint65-coverage.json), [912-module hashes](research/checkpoint65-source-hashes.json), [logs](research/checkpoint65-validation). Native143, related150, core54, full mypy912 and Ruff pass on the same immutable source. The next17 candidates remain uncounted.
 
 ## CHECKPOINT64 VERIFIED — CONTINUING
 

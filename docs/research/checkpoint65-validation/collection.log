@@ -1,0 +1,9 @@
+tests/test_rules_attached_destruction82.py: 15
+tests/test_rules_attacked_player_costs80.py: 13
+tests/test_rules_bounded_unless_pay90.py: 24
+tests/test_rules_damage_retention83.py: 17
+tests/test_rules_exchange_choices92.py: 18
+tests/test_rules_shuffle_mill67.py: 18
+tests/test_rules_static_counts94.py: 18
+tests/test_rules_temporary_creature_types93.py: 20
+

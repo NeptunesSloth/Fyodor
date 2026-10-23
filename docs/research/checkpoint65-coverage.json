@@ -1,0 +1,49 @@
+{
+  "baseline": "checkpoint64",
+  "checkpoint": "checkpoint65",
+  "database_metadata_equal": true,
+  "card_name_set_equal": true,
+  "summary": {
+    "FULL": 29914,
+    "PARTIAL": 2154
+  },
+  "promotions": [
+    "Amoeboid Changeling",
+    "Ancient Adamantoise",
+    "Astral Confrontation",
+    "Blades of Velis Vel",
+    "Confusion in the Ranks",
+    "Cultural Exchange",
+    "Dark Matter Manipulator",
+    "Diligent Zookeeper",
+    "Divert",
+    "Eaten by Spiders",
+    "Ego Erasure",
+    "Enemy of Enlightenment",
+    "Juxtapose",
+    "Light from Within",
+    "Light of Judgment",
+    "Nameless Inversion",
+    "Psychic Spiral",
+    "Rhystic Lightning",
+    "Rhystic Syphon",
+    "Scarwood Bandits",
+    "Shields of Velis Vel",
+    "Soul Nova",
+    "Stream of Thought",
+    "Umbra Stalker",
+    "Unforge",
+    "Volatile Claws"
+  ],
+  "regressions": [],
+  "unexpected": [],
+  "missing": [],
+  "expected_implementation_count": 30,
+  "expected_commander_promotion_count": 26,
+  "out_of_catalog_implementations": {
+    "Patient Zero": "not_legal",
+    "Uthgardt Fury": "not_legal",
+    "Victory of the Pyrohammer": "not_legal",
+    "Case of the Market Melee": "not_legal"
+  }
+}

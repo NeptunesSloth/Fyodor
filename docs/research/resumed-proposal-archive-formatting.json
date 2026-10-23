@@ -793,5 +793,10 @@
     "original_sha256": "8442c747476538c17528a5b71f38b1b34970dadfb629e0ef102574ea3b3ea71b",
     "archived_sha256": "c5c902d41966ac8483028654c4804956d3edc53578b3f2f45f91c5845d5fe4a2",
     "numstat_preserved": true
+  },
+  "docs/research/checkpoint65-validation/related.log": {
+    "original_sha256": "6b606f5faf33e318809e2c3585097c3f20bc65338a03d31603543859ae799b14",
+    "archived_sha256": "683ef44920258faea8d19c6dff02becbd4b9593569d46aa2538f9c7573fea9d5",
+    "numstat_preserved": null
   }
 }

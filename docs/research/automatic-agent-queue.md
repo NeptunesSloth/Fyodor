@@ -1,5 +1,5 @@
 # Current automatic queue
 
-Verified checkpoint64: 29,888 FULL / 2,180 PARTIAL; target426/1,500. Next finite integration:30 closed candidates, uncounted pending review/gates.
+Verified checkpoint65:29,914 FULL /2,154 PARTIAL;target452/1,500. Root next frozen17 candidates remain uncounted.
 
-Six agent assignments continue automatically: cost68 sacrifice-type82 then colored activation83; library64 Gwenom70 after closed source-named69; world81 chosen forms95 including copied-face boundaries; casting74 stack-granted abilities84; combat84 stack exchanges93 then zone exchanges94; payment83 conditional upkeep91. Root reviews shared changes, integrates frozen batches, validates and pushes PR20. Later research is not included in verified totals.
+Six automatic streams: cost68 colored activation83; library64 Leng72 after closed Vault71; world81 conditional toughness96; casting74 counter exile85 after closed stack grants84; combat84 zone exchanges94 then combat damage95; payment83 conditional upkeep91 then variable payer/prevention92. Root reviews, integrates immutable groups, validates and pushes PR20. All later research is excluded from verified totals.
