@@ -2653,6 +2653,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import public_mill_costs64
+
+    if (admitted63 := public_mill_costs64.parse(body)) is not None:
+        return admitted63
     from app.rules import nonbattlefield_life_offers86
 
     if (answer86 := nonbattlefield_life_offers86.parse(body)) is not None:
@@ -5785,6 +5789,30 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import fight_receipts90
+
+    if (admitted63 := fight_receipts90.definition(ability, ch)) is not None:
+        return admitted63
+    from app.rules import tetzin_double_face66
+
+    if (admitted63 := tetzin_double_face66.definition(ability, ch)) is not None:
+        return admitted63
+    from app.rules import echo_alternatives76
+
+    if (admitted63 := echo_alternatives76.definition(ability, ch)) is not None:
+        return admitted63
+    from app.rules import compound_static_grants90
+
+    if (admitted63 := compound_static_grants90.definition(ability, ch)) is not None:
+        return admitted63
+    from app.rules import required_keyword79
+
+    if (admitted63 := required_keyword79.definition(ability, ch)) is not None:
+        return admitted63
+    from app.rules import knowledge_pool78
+
+    if (admitted63 := knowledge_pool78.definition(ability, ch)) is not None:
+        return admitted63
     from app.rules import linked_owner_cast77
 
     if (admitted62 := linked_owner_cast77.definition(ability, ch)) is not None:

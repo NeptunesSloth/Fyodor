@@ -1,0 +1,15 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_two_actual_pool_sources_offer_only_the_first_successful_exiling_pool78 __
+tests/test_rules_knowledge_pool78.py:143: in test_two_actual_pool_sources_offer_only_the_first_successful_exiling_pool78
+    second_pool = {oid.rsplit('.', 1)[0] for oid in s.state.rules.exiled_with[s.state.rules.object_id(second.id)]}
+                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'b7982c37d6ed.3'
+_________ test_real_snapcaster_graveyard_cast_does_not_trigger_pool78 __________
+tests/test_rules_knowledge_pool78.py:172: in test_real_snapcaster_graveyard_cast_does_not_trigger_pool78
+    assert d and spell.id in {o.id for o in d.options}
+E   assert (None)
+=========================== short test summary info ============================
+FAILED tests/test_rules_knowledge_pool78.py::test_two_actual_pool_sources_offer_only_the_first_successful_exiling_pool78
+FAILED tests/test_rules_knowledge_pool78.py::test_real_snapcaster_graveyard_cast_does_not_trigger_pool78
+2 failed, 5 deselected in 8.65s

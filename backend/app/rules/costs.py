@@ -558,6 +558,10 @@ def _craft_part(m: re.Match[str], part: str) -> CostComponent | None:
 
 def _one_4h(part: str, card_name: str) -> CostComponent | None:
     """One more part (the list above), or None."""
+    from app.rules import colored_reveal_x87
+
+    if (colored87 := colored_reveal_x87.component(part)) is not None:
+        return colored87
     from app.rules import fixed_top_graveyard_cost46, ordered_zone_costs46
 
     if (fixed_top := fixed_top_graveyard_cost46.component(part)) is not None:

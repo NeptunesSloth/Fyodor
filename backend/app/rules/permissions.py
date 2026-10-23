@@ -1417,7 +1417,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         self_ch = layers.derive(state, card, ch, info) if where == 'exile' and layers.affecting(state, card) else ch
         for index, d in _definitions(self_ch).items():  # the card's own ability, functioning in the graveyard (113.6) / exile (wave 20D)
             if d.get("static") == "permission" and d.get("self") and where in d.get("zones", [d["zone"]]):
-                if d.get('required_mutate75'):
+                if d.get('required_mutate75') or d.get('required_keyword79'):
                     continue  # This authority exists only for a selected native mutate alternative.
                 key = f"{card.id}:permission:{index}"
                 if d["once"] and r.once_per_turn.get(key) == turn:

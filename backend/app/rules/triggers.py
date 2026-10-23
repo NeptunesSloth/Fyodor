@@ -454,6 +454,9 @@ def _live(plan: Plan, obj: CardInstance) -> bool:
 
 def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
     r = plan.rules
+    if e.kind == "fought":
+        return [("fight", card, ch, snap.controller, {"oid": snap.object_id, "snap": snap})
+                for snap in e.fighters90 for card, ch in [_snapshot_card(plan, snap)]]
     if e.kind == "damage_prevented" and e.amount > 0:
         return [("damage_prevented", None, None, e.player, {"amount": e.amount, "recipient": e.player})]
     if e.kind == "library_shuffled":
@@ -608,6 +611,11 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         return _damage_facts(plan, e)
     if e.kind == "player_counters" and e.amount > 0 and e.player:  # -- counters & designations (wave 3E): 122.6 a player got counters --
         return [("player_counters", None, None, e.player, {"counter": e.counter, "amount": e.amount, "actor": e.actor, "group": e.group})]
+    if e.kind == 'designation' and e.counter == 'echo_paid76':
+        card = plan.state.cards.get(e.card or '')
+        if card is None or plan.oid(card) != e.object_id:
+            return []
+        return [('echo_paid76', card, plan.ch(card), e.player, {'oid': e.object_id})]
     if e.kind == "designation":  # -- counters & designations (wave 3E) --
         from app.rules import designations
 
@@ -2216,9 +2224,12 @@ def _echo(plan: Plan) -> None:
         r.echo_done[:] = [k for k in r.echo_done if not k.startswith(f"{plan.oid(card)}:")]
         r.echo_done.append(key)
         kind, cost = found
-        effects = [{"do": "pay_or_sacrifice", "cost": cost}] if kind == "mana" else [
+        effects = [{"do": "pay_or_sacrifice", "cost": cost, "echo_paid76": True}] if kind == "mana" else [
             {"do": "optional_payment", "who": "you", "cost": cost, "bind": "pay0"},
             {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1}, {"do": "sacrifice", "who": "self"}]
+        if kind != 'mana':
+            effects += [{'do': 'only_if', 'cond': {'succeeded': 'pay0'}, 'skip': 1}, {'do': 'note_echo_paid76'}]
+        effects = [{'do': 'echo_payment76', 'original': effects}]
         _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
              index=3000, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None, "effects": effects})
 
@@ -2640,8 +2651,10 @@ def bind_that_player(t: PendingTrigger) -> None:
 def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
     """-- reanimation (wave 16F) -- "return target creature card with lesser mana value": the selectors' ``evt:<stat>`` becomes the
     number the one object the trigger is about had (as it last existed, 608.2h), as the ability is put on the stack."""
+    from app.rules import fight_receipts90
     from app.rules.selectors import EVENT_STAT, _stat
 
+    fight_receipts90.bind(plan, t)
     raw = json.dumps(t.ability)
     other_is_type = bool(t.ability.get('target_other_is_type'))
     if (f'\\"{EVENT_STAT}' not in raw and not other_is_type) or t.event is None or len(t.event.objects) != 1:

@@ -1,0 +1,72 @@
+........F.                                                               [100%]
+=================================== FAILURES ===================================
+_________ test_bones_native_up_to_x_original_targets_in_one_graveyard __________
+
+cards = <app.cards.repository.CardRepository object at 0x7f648a547b90>
+
+    def test_bones_native_up_to_x_original_targets_in_one_graveyard(cards):
+        s = game(cards)
+        hold(s)
+        source = put(s, 'Martyr of Bones', 'battlefield')
+        a = put(s, 'Dark Ritual', 'hand')
+        b = put(s, 'Go for the Throat', 'hand')
+        left = put(s, 'Grizzly Bears', 'graveyard', 'p2')
+        right = put(s, 'Lightning Bolt', 'graveyard', 'p2')
+>       activate(s, source, [a, b], [left.id, right.id], mana=1)
+
+../martyrs87-tests/test_martyrs87.py:135: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../martyrs87-tests/test_martyrs87.py:67: in activate
+    act(s, 'p1', type='activate_ability', card_id=source.id, ability=0, targets=list(targets),
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:163: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:5407: in activate_ability
+    activate_to_stack(plan, card, ch, ability, a)
+app/rules/casting.py:5982: in activate_to_stack
+    picked_targets = choose_targets(plan, a, definition, f"{ch.name}’s ability", exclude=exclude_targets)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:814: in choose_targets
+    found = choose_groups(plan, specs, plan.actor, _target_source(plan, a), a.card_id, list(a.targets),  # (review 41: 115.2)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+plan = <app.rules.plan.Plan object at 0x7f64890260c0>
+specs = [{'min': 0, 'max': 250, 'what': 'sel:{"card":true,"zones":["graveyard"]}', 'same_graveyard': True, ...}]
+chooser = 'p1'
+source = Characteristics(name='Martyr of Bones', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Hu...1, 1), granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=0)
+source_card = 'bdd2e6d0b167', targets = ['cc5bdfce4cad', '0b0a140b6722']
+counts = [], division = [], x = 2, what = 'Martyr of Bones’s ability'
+exclude = (), attacker = None, source_object = None, event = None
+
+    def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source: Characteristics | None,
+                      source_card: str | None, targets: list[str], counts: list[int], division: list[int],
+                      x: int | None, what: str, exclude: tuple[str, ...] = (), attacker: str | None = None,
+                      source_object: str | None = None, event: dict[str, Any] | None = None) -> GroupChoice:
+        """Check the choices made so far for each target group, in printed order (601.2c): the
+        number of targets (``counts``: how many of ``targets`` are each group's), no object twice
+        for one word "target" (115.3; the same object may be chosen for another group unless it says
+        "another target"), each a legal target now; then each divided group's division (601.2d:
+        at least one each, adding up to the total; one target gets it all). Raises ActionError for a
+        wrong choice or when a group can't get enough legal targets; ``ask`` names the next missing
+        choice."""
+        from app.game.errors import ActionError
+    
+        random_only = len(specs) == 1 and bool(specs[0].get("random"))  # -- random choices (wave 47B) -- "target … chosen at random": the table picks (601.2c; each
+        if random_only:  # legal target equally likely: Scab-Clan Giant ruling 2013-04-15); nobody is asked, and a choice sent along is not read
+            targets, counts = [], []
+        if len(counts) > len(specs) or sum(counts) != len(targets):
+>           raise ActionError(f"Those aren't the right number of targets for {what}")
+E           app.game.errors.ActionError: Those aren't the right number of targets for Martyr of Bones’s ability
+
+app/rules/targets.py:370: ActionError
+=========================== short test summary info ============================
+FAILED ../../workspace/Fyodor/backend::test_bones_native_up_to_x_original_targets_in_one_graveyard
+1 failed, 9 passed in 21.85s

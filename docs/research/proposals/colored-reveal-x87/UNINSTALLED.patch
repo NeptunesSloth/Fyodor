@@ -1,0 +1,49 @@
+--- /dev/null
++++ b/backend/app/rules/colored_reveal_x87.py
+@@ -0,0 +1,20 @@
++"""X colored hand-card reveals use the native announced-X activation cost receipt."""
++from __future__ import annotations
++
++import re
++from typing import TYPE_CHECKING
++
++if TYPE_CHECKING:
++    from app.rules.costs import CostComponent
++
++_COLORED_X = re.compile(r'^Reveal X (?P<color>white|blue|black|red|green) cards from your hand$')
++
++
++def component(part: str) -> CostComponent | None:
++    from app.rules import costs
++
++    match = _COLORED_X.fullmatch(part)
++    if match is None:
++        return None
++    key = costs._selector(match['color'] + ' cards', zone='hand')
++    return costs.CostComponent('REVEAL_FROM_HAND', amount=0, selector=key, x=True, text=part) if key else None
+--- a/backend/app/rules/costs.py
++++ b/backend/app/rules/costs.py
+@@ -558,6 +558,10 @@
+ 
+ def _one_4h(part: str, card_name: str) -> CostComponent | None:
+     """One more part (the list above), or None."""
++    from app.rules import colored_reveal_x87
++
++    if (colored87 := colored_reveal_x87.component(part)) is not None:
++        return colored87
+     from app.rules import fixed_top_graveyard_cost46, ordered_zone_costs46
+ 
+     if (fixed_top := fixed_top_graveyard_cost46.component(part)) is not None:
+--- a/backend/app/rules/cost_payment.py
++++ b/backend/app/rules/cost_payment.py
+@@ -815,6 +815,10 @@
+         elif comp.kind in ("REVEAL_FROM_HAND", C.BEHOLD):  # -- static_other sweep (wave 17C) -- revealed to everyone (701.20a); a beheld permanent just is
+             shown = [c for c in ids if plan.state.cards[c].zone.endswith(":hand")]
+             if shown:
++                if comp.kind == 'REVEAL_FROM_HAND' and comp.x:
++                    from app.rules import mana_named_land_profiles
++
++                    mana_named_land_profiles.register_reveal(plan, record.card, shown)
+                 plan.do({"type": "reveal", "card_ids": shown}, actor=player)
+                 record.revealed += shown
+                 from app.rules import payment_card_facts

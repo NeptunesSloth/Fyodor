@@ -1,0 +1,47 @@
+FF.                                                                      [100%]
+=================================== FAILURES ===================================
+___________ test_countered_original_spell_creates_no_pool_exchange78 ___________
+tests/test_rules_knowledge_pool78.py:100: in test_countered_original_spell_creates_no_pool_exchange78
+    s, source, offered = prepared_pool(cards)
+                         ^^^^^^^^^^^^^^^^^^^^
+tests/test_rules_knowledge_pool78.py:91: in prepared_pool
+    s = setup(cards)
+        ^^^^^^^^^^^^
+tests/test_rules_knowledge_pool78.py:50: in setup
+    return gameplay.setup(cards, *[c['name'] for c in DATA], 'Lightning Bolt', 'Disperse', 'Counterspell', 'Sol Ring', 'Forest', 'Island', 'Plains',
+../exile49-paid-x-stage/backend/tests/test_rules_exile_cast_outcomes45_foundation.py:55: in setup
+    s=table(cards,names,names,names)
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/workspace/Fyodor/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/workspace/Fyodor/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:16: in deck
+    out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                     ^^^^^^^^^^^^
+E   TypeError: 'NoneType' object is not subscriptable
+___ test_pool_with_only_lands_never_recasts_the_just_exiled_original_spell78 ___
+tests/test_rules_knowledge_pool78.py:117: in test_pool_with_only_lands_never_recasts_the_just_exiled_original_spell78
+    s = setup(cards)
+        ^^^^^^^^^^^^
+tests/test_rules_knowledge_pool78.py:50: in setup
+    return gameplay.setup(cards, *[c['name'] for c in DATA], 'Lightning Bolt', 'Disperse', 'Counterspell', 'Sol Ring', 'Forest', 'Island', 'Plains',
+../exile49-paid-x-stage/backend/tests/test_rules_exile_cast_outcomes45_foundation.py:55: in setup
+    s=table(cards,names,names,names)
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/workspace/Fyodor/backend/tests/test_rules_shared_damage_choices.py:40: in table
+    s = three(cards, a, b, c)
+        ^^^^^^^^^^^^^^^^^^^^^
+/workspace/Fyodor/backend/tests/test_rules_wave30m_durations.py:54: in three
+    decks = [deck(cards, "Krenko, Mob Boss", [*((1, n) for n in a), (20, "Forest")]),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/game_helpers.py:16: in deck
+    out.append(DeckCard("main", qty, card["name"], card["id"]))
+                                     ^^^^^^^^^^^^
+E   TypeError: 'NoneType' object is not subscriptable
+=========================== short test summary info ============================
+FAILED tests/test_rules_knowledge_pool78.py::test_countered_original_spell_creates_no_pool_exchange78
+FAILED tests/test_rules_knowledge_pool78.py::test_pool_with_only_lands_never_recasts_the_just_exiled_original_spell78
+2 failed, 1 passed, 2 deselected in 3.36s

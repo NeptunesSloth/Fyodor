@@ -1,0 +1,22 @@
+...FFF.                                                                  [100%]
+=================================== FAILURES ===================================
+_ test_alternative_cost_wordings_now_have_native_definitions[You may exile a blue card with mana value X from your hand rather than pay this spell's mana cost.] _
+tests/test_rules_wave4i_cost_changers.py:185: in test_alternative_cost_wordings_now_have_native_definitions
+    assert alt_costs.parse_cost(definition["cost"]) is not None
+           ^^^^^^^^^
+E   NameError: name 'alt_costs' is not defined
+_ test_alternative_cost_wordings_now_have_native_definitions[You may discard an Island card and another card rather than pay this spell's mana cost.] _
+tests/test_rules_wave4i_cost_changers.py:185: in test_alternative_cost_wordings_now_have_native_definitions
+    assert alt_costs.parse_cost(definition["cost"]) is not None
+           ^^^^^^^^^
+E   NameError: name 'alt_costs' is not defined
+_ test_alternative_cost_wordings_now_have_native_definitions[If you control a Forest, rather than pay this spell's mana cost, you may have each other player gain 5 life.] _
+tests/test_rules_wave4i_cost_changers.py:185: in test_alternative_cost_wordings_now_have_native_definitions
+    assert alt_costs.parse_cost(definition["cost"]) is not None
+           ^^^^^^^^^
+E   NameError: name 'alt_costs' is not defined
+=========================== short test summary info ============================
+FAILED tests/test_rules_wave4i_cost_changers.py::test_alternative_cost_wordings_now_have_native_definitions[You may exile a blue card with mana value X from your hand rather than pay this spell's mana cost.]
+FAILED tests/test_rules_wave4i_cost_changers.py::test_alternative_cost_wordings_now_have_native_definitions[You may discard an Island card and another card rather than pay this spell's mana cost.]
+FAILED tests/test_rules_wave4i_cost_changers.py::test_alternative_cost_wordings_now_have_native_definitions[If you control a Forest, rather than pay this spell's mana cost, you may have each other player gain 5 life.]
+3 failed, 4 passed, 77 deselected in 1.18s

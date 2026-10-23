@@ -1,0 +1,12 @@
+...F.....                                                                [100%]
+=================================== FAILURES ===================================
+_ test_independent_muldrotha_permission_can_still_cast_each_card_normally79[Detective's Phoenix] _
+tests/test_rules_required_keyword79.py:176: in test_independent_muldrotha_permission_can_still_cast_each_card_normally79
+    assert source.zone == 'p1:battlefield'
+E   AssertionError: assert 'p1:graveyard' == 'p1:battlefield'
+E     
+E     - p1:battlefield
+E     + p1:graveyard
+=========================== short test summary info ============================
+FAILED tests/test_rules_required_keyword79.py::test_independent_muldrotha_permission_can_still_cast_each_card_normally79[Detective's Phoenix]
+1 failed, 8 passed, 13 deselected in 5.89s

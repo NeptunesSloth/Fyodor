@@ -2211,7 +2211,14 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if set(sel.without_keywords) & ch.keywords:
         return False
     for what, op, n in sel.compare:
-        if isinstance(n, str) and n.startswith(REVEALED_STAT):  # -- static_other sweep (wave 17C) --
+        if isinstance(n, str) and n.startswith('fight90:'):
+            from app.rules import fight_receipts90
+
+            now90 = fight_receipts90.same_mv(plan, n)
+            if now90 is None:
+                return False
+            n = now90
+        elif isinstance(n, str) and n.startswith(REVEALED_STAT):
             revealed = revealed_stat(plan, source, n[len(REVEALED_STAT):])
             if revealed is None:
                 return False
@@ -2522,6 +2529,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             src = plan.state.cards.get(source or "")
             # ponytail: the source's current characteristics, not last-known information (no subtypes are stored in the LKI snapshot)
             if src is None or not (ch.subtypes & plan.ch(src).subtypes & CREATURE_TYPES):
+                return False
+        if extra == 'double_faced_permanent66':
+            from app.rules import tetzin_double_face66
+
+            if not tetzin_double_face66.physical(plan, card):
                 return False
         if extra == 'double_faced_card':
             from app.cards.repository import DOUBLE_FACED_LAYOUTS

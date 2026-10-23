@@ -1,0 +1,58 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_native_optional_keep_combines_with_matrix_and_numeric_limit[False-False] _
+
+cards = <app.cards.repository.CardRepository object at 0x7f4c969c60c0>
+stay = False, matrix = False
+
+    @pytest.mark.parametrize('stay',[True,False])
+    @pytest.mark.parametrize('matrix',[True,False])
+    def test_native_optional_keep_combines_with_matrix_and_numeric_limit(cards,stay,matrix):
+        s=game(cards)
+        if matrix:
+            cast(s,REALM)
+        put(s,'Imi Statue','battlefield')
+        prison=put(s,'Amber Prison','battlefield','p2')
+        ring=put(s,'Sol Ring','battlefield','p2')
+        act(s,'p2',type='tap',card_ids=[prison.id,ring.id],tapped=True)
+        to_phase(s,'untap',2)
+        if matrix:
+            answer_type(s,'Artifact')
+        d=s.state.rules.decision
+        assert d and d.resume['step']=='untap_keep' and {o.id for o in d.options}=={prison.id}
+        act(s,'p2',type='choose',decision_id=d.id,option_ids=[prison.id] if stay else [])
+        if not stay:
+            d=s.state.rules.decision
+>           assert d and d.resume['step']=='untap_limit' and {o.id for o in d.options}=={prison.id,ring.id}
+E           assert (None)
+
+tests/test_rules_untap_restrictions89.py:149: AssertionError
+_______ test_native_intersecting_numeric_groups_remove_one_stun_counter ________
+
+cards = <app.cards.repository.CardRepository object at 0x7f4c965f7c80>
+
+    def test_native_intersecting_numeric_groups_remove_one_stun_counter(cards):
+        s=game(cards)
+        put(s,'Imi Statue','battlefield')
+        put(s,'Smoke','battlefield')
+        memnite=put(s,'Memnite','battlefield','p2')
+        other=[put(s,n,'battlefield','p2') for n in ('Sol Ring','Grizzly Bears')]
+        act(s,'p2',type='tap',card_ids=[memnite.id,*[o.id for o in other]],tapped=True)
+        act(s,'p2',type='counter',card_ids=[memnite.id],kind='stun',delta=2)
+        to_phase(s,'untap',2)
+        for _ in range(2):
+            d=s.state.rules.decision
+            assert d and d.resume['step']=='untap_limit' and memnite.id in {o.id for o in d.options}
+            act(s,'p2',type='choose',decision_id=d.id,option_ids=[memnite.id])
+        to_phase(s,'main1',2)
+>       assert s.state.cards[memnite.id].tapped and s.state.cards[memnite.id].counters.get('stun',0)==1
+E       AssertionError: assert (True and 0 == 1)
+E        +  where True = CardInstance(borrow_identity=None, id='1f964612ba52', card_id='058ce475-ae77-5c27-ab30-d04eff87eb40', name='Memnite', ...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False).tapped
+E        +  and   0 = <built-in method get of dict object at 0x7f4c9648e040>('stun', 0)
+E        +    where <built-in method get of dict object at 0x7f4c9648e040> = {}.get
+E        +      where {} = CardInstance(borrow_identity=None, id='1f964612ba52', card_id='058ce475-ae77-5c27-ab30-d04eff87eb40', name='Memnite', ...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False).counters
+
+tests/test_rules_untap_restrictions89.py:170: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_untap_restrictions89.py::test_native_optional_keep_combines_with_matrix_and_numeric_limit[False-False]
+FAILED tests/test_rules_untap_restrictions89.py::test_native_intersecting_numeric_groups_remove_one_stun_counter

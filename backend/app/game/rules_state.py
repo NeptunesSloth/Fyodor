@@ -385,6 +385,7 @@ class ObjectSnapshot(BaseModel):
 
 
 EventKind = Literal[
+    "fought",  # CR 701.14: actual fight participants, independent of damage.
     "player_lost_game",  # 603.10f: pre-loss battlefield watchers are captured on this event.
     "case_solved",  # The resolving controller reached a native To solve instruction (719.3).
     "library_shuffled",
@@ -433,6 +434,7 @@ class Event(BaseModel):
     """Something that happened. Events of one table step share a ``batch``: they happened
     simultaneously (destroy all creatures is one batch of zone changes, not N)."""
 
+    fighters90: list[ObjectSnapshot] = Field(default_factory=list)  # Exact native fight cohort before damage.
     crew_count80: int | None = None  # Native crew activation payment cardinality; unknown in old saves.
     loss_watchers: list[ObjectSnapshot] = Field(default_factory=list)
     attacking_player: str | None = None  # Combat damage-time attacking player; unknown in old saves.
@@ -608,6 +610,10 @@ class TurnLog(BaseModel):
     saves and undo reproduce it exactly. Only this turn's and the previous turn's logs are kept."""
 
     turn: int = 0
+    fight_history90_known: bool | None = None  # Legacy missing current-turn fight history is unknown.
+    fought90: list[str] = Field(default_factory=list)  # Original objects that actually fought this turn.
+    search_history75_known: bool | None = None  # Legacy missing authority is unknown until the next native turn.
+    searched_own_library75: list[str] = Field(default_factory=list)  # Actual own-library searches begun this turn, even no card found.
     starting_life: dict[str, int] | None = None
     active_player: str | None = None  # Named turn, never inferred from seat order.
     attacked: list[str] = Field(default_factory=list)  # players who declared one or more attackers
@@ -1906,6 +1912,8 @@ def emit(state: GameState, kind: EventKind, **fields: Any) -> None:
     if rules is None:
         return
     rules.events.append(Event(batch=rules.batch + 1, kind=kind, turn=state.turn.number, **fields))
+    if kind == "fought" and (fight_log90 := turn_log_now(state)) is not None:
+        fight_log90.fought90 = list(dict.fromkeys([*fight_log90.fought90, *(snap.object_id for snap in fields.get("fighters90", []))]))
     # CR 107.14, 608.2i: count removals during this turn, including costs; gains never offset them.
     if kind == "player_counters" and fields.get("counter") == "energy" and int(fields.get("amount") or 0) < 0 \
             and (log := turn_log_now(state)) is not None and (player := fields.get("player")):
@@ -1956,7 +1964,7 @@ def turn_log_now(state: GameState) -> TurnLog | None:
             rules.completed_own_turns.clear()
             rules.own_turn_history_known.clear()
         rules.last_turn_log = log if log.turn == n - 1 else None
-        log = rules.turn_log = TurnLog(turn=n, active_player=state.turn.active_player,
+        log = rules.turn_log = TurnLog(turn=n, active_player=state.turn.active_player, search_history75_known=True, fight_history90_known=True,
                                       starting_life=dict(state.turn.starting_life) if state.turn.starting_life is not None else None)
     elif log.active_player is None:
         log.active_player = state.turn.active_player

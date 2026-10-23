@@ -1,0 +1,27 @@
+{
+  "status": "READY exact5 for root63",
+  "names": [
+    "Martyr of Frost",
+    "Martyr of Sands",
+    "Martyr of Ashes",
+    "Martyr of Bones",
+    "Martyr of Spores"
+  ],
+  "native": {
+    "distinct": 23,
+    "genuine_cold": 2,
+    "note": "Fresh consolidated 23 native plus157 related:180 passed in819.06s; includes2 genuine cold"
+  },
+  "mypy": 3,
+  "ruff": 4,
+  "install_test": "backend/tests/test_rules_colored_reveal_x87.py",
+  "install_fixture": "backend/tests/fixtures/martyrs87_cards.json",
+  "source_stage": "/tmp/martyrs87-stage",
+  "patch_sha256": "7f89c6558cd0dd1323037af556c305cb0f80ba4912c1ff59d78dae605c917317",
+  "leaf_sha256": "77e484732c3f3c9436cbc2aeb5e03a044a4d3d515055e0a77c5cdd2fe685824b",
+  "coordinated": "cost68 no costs.py/cost_payment.py overlap; root63 only",
+  "related": 157,
+  "total_gate": 180,
+  "test_sha256": "7c840d42f0dae7f39c7e6e7c7194ae87c084bc4b806106ad7e84d4521298591f",
+  "fixture_sha256": "79dc910357d39ae283b3e48678dec1c3d04dcfb12ff0dfd124166d6728299f6f"
+}

@@ -1,0 +1,10 @@
+{
+  "app/rules/fight_receipts90.py": "b3b757eb05bf56079efa3bffeee2638c994c6e370504f23f336c93f985a46b5f",
+  "app/game/rules_state.py": "f9ba20c371f96dd0d66ef6f62b65e9f4cad2bbd2ffb6b658522f0f0bb2e18578",
+  "app/rules/effects.py": "fa5973afb52490f609d19c0b01b3272bf7ceb7e4f9379a37baf2d2b3802d9bab",
+  "app/rules/scripts.py": "6eca5dbba88f9d41118bb8b94959e914de41b0c20dada7bff0815a3f4263ba5e",
+  "app/rules/triggers.py": "c2d135d9c6e9074f2be9cd0d3f894c62ae7b98bd70edc82c24f733c7148779f4",
+  "app/rules/conditions.py": "987466dbb8654fb648c3c46f06c46f7ed24250297fb82087e479c96e93012338",
+  "app/rules/selectors.py": "53436ea61adc454aef424c4b357ac19f9ba89449d7c637d0ad844793e3aa6a3f",
+  "app/rules/restrictions.py": "32b40788c209090cde3b08341e5829b5c3ffd3bd63cc4053ce48ca09a29789df"
+}

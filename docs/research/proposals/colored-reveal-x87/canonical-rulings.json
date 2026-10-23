@@ -1,0 +1,322 @@
+[
+  {
+    "card": {
+      "id": "0e7c25c9-1634-4675-b975-e9d477d1f8e1",
+      "oracle_id": "196cacb0-a26a-4540-9143-57867a638085",
+      "name": "Martyr of Frost",
+      "layout": "normal",
+      "set_code": "jvc",
+      "set_name": "Duel Decks Anthology: Jace vs. Chandra",
+      "collector_number": "2",
+      "rarity": "common",
+      "mana_cost": "{U}",
+      "cmc": 1.0,
+      "type_line": "Creature \u2014 Human Wizard",
+      "oracle_text": "{2}, Reveal X blue cards from your hand, Sacrifice this creature: Counter target spell unless its controller pays {X}.",
+      "power": "1",
+      "toughness": "1",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2014-12-05",
+      "artist": "Wayne England",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "196cacb0-a26a-4540-9143-57867a638085",
+          "source": "wotc",
+          "published_at": "2006-07-15",
+          "comment": "Each card that\u2019s revealed to pay the cost remains revealed until the ability leaves the stack."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "196cacb0-a26a-4540-9143-57867a638085",
+          "source": "wotc",
+          "published_at": "2006-07-15",
+          "comment": "A card that\u2019s already revealed for another cost or because of an effect can be revealed to pay this cost."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "196cacb0-a26a-4540-9143-57867a638085",
+          "source": "wotc",
+          "published_at": "2006-07-15",
+          "comment": "If one of the cards that\u2019s revealed to pay the cost leaves its owner\u2019s hand before the ability resolves, it stops being revealed, but the value of X is not affected."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "id": "010d4a6b-af72-4d44-a25f-dce8e12da727",
+      "oracle_id": "f2048140-b691-4753-8239-1aa75059e389",
+      "name": "Martyr of Sands",
+      "layout": "normal",
+      "set_code": "uma",
+      "set_name": "Ultimate Masters",
+      "collector_number": "25",
+      "rarity": "common",
+      "mana_cost": "{W}",
+      "cmc": 1.0,
+      "type_line": "Creature \u2014 Human Cleric",
+      "oracle_text": "{1}, Reveal X white cards from your hand, Sacrifice this creature: You gain three times X life.",
+      "power": "1",
+      "toughness": "1",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2018-12-07",
+      "artist": "Randy Gallegos",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "f2048140-b691-4753-8239-1aa75059e389",
+          "source": "wotc",
+          "published_at": "2006-07-15",
+          "comment": "A card that\u2019s already revealed for another cost or because of an effect can be revealed to pay this cost."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "f2048140-b691-4753-8239-1aa75059e389",
+          "source": "wotc",
+          "published_at": "2006-07-15",
+          "comment": "Each card that\u2019s revealed to pay the cost remains revealed until the ability leaves the stack."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "f2048140-b691-4753-8239-1aa75059e389",
+          "source": "wotc",
+          "published_at": "2006-07-15",
+          "comment": "If one of the cards that\u2019s revealed to pay the cost leaves its owner\u2019s hand before the ability resolves, it stops being revealed, but the value of X is not affected."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "id": "600a2cd2-166a-4fd8-838d-e513534b7cb0",
+      "oracle_id": "7f00bc45-7c65-4455-9db0-58bd79bcdb4b",
+      "name": "Martyr of Ashes",
+      "layout": "normal",
+      "set_code": "csp",
+      "set_name": "Coldsnap",
+      "collector_number": "92",
+      "rarity": "common",
+      "mana_cost": "{R}",
+      "cmc": 1.0,
+      "type_line": "Creature \u2014 Human Shaman",
+      "oracle_text": "{2}, Reveal X red cards from your hand, Sacrifice this creature: This creature deals X damage to each creature without flying.",
+      "power": "1",
+      "toughness": "1",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "R"
+      ],
+      "color_identity": [
+        "R"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2006-07-21",
+      "artist": "Ralph Horsley",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "7f00bc45-7c65-4455-9db0-58bd79bcdb4b",
+          "source": "wotc",
+          "published_at": "2006-07-15",
+          "comment": "Each card that's revealed to pay the cost remains revealed until the ability leaves the stack."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "7f00bc45-7c65-4455-9db0-58bd79bcdb4b",
+          "source": "wotc",
+          "published_at": "2006-07-15",
+          "comment": "A card that's already revealed for another cost or because of an effect can be revealed to pay this cost."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "7f00bc45-7c65-4455-9db0-58bd79bcdb4b",
+          "source": "wotc",
+          "published_at": "2006-07-15",
+          "comment": "If one of the cards that's revealed to pay the cost leaves its owner's hand before the ability resolves, it stops being revealed, but the value of X is not affected."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "id": "8bba602e-5a81-4da2-99c0-6082f8a981e1",
+      "oracle_id": "a099d8fa-d51e-4dbc-a03f-6f912097d41e",
+      "name": "Martyr of Bones",
+      "layout": "normal",
+      "set_code": "csp",
+      "set_name": "Coldsnap",
+      "collector_number": "65",
+      "rarity": "common",
+      "mana_cost": "{B}",
+      "cmc": 1.0,
+      "type_line": "Creature \u2014 Human Wizard",
+      "oracle_text": "{1}, Reveal X black cards from your hand, Sacrifice this creature: Exile up to X target cards from a single graveyard.",
+      "power": "1",
+      "toughness": "1",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2006-07-21",
+      "artist": "E. M. Gist",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "a099d8fa-d51e-4dbc-a03f-6f912097d41e",
+          "source": "wotc",
+          "published_at": "2006-07-15",
+          "comment": "Each card that\u2019s revealed to pay the cost remains revealed until the ability leaves the stack."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a099d8fa-d51e-4dbc-a03f-6f912097d41e",
+          "source": "wotc",
+          "published_at": "2006-07-15",
+          "comment": "A card that\u2019s already revealed for another cost or because of an effect can be revealed to pay this cost."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "a099d8fa-d51e-4dbc-a03f-6f912097d41e",
+          "source": "wotc",
+          "published_at": "2006-07-15",
+          "comment": "If one of the cards that\u2019s revealed to pay the cost leaves its owner\u2019s hand before the ability resolves, it stops being revealed, but the value of X is not affected."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "id": "375fc47b-9a1b-4540-9c07-09e4e92ab974",
+      "oracle_id": "46c128d5-92b7-4132-a865-4db299879579",
+      "name": "Martyr of Spores",
+      "layout": "normal",
+      "set_code": "csp",
+      "set_name": "Coldsnap",
+      "collector_number": "113",
+      "rarity": "common",
+      "mana_cost": "{G}",
+      "cmc": 1.0,
+      "type_line": "Creature \u2014 Human Shaman",
+      "oracle_text": "{1}, Reveal X green cards from your hand, Sacrifice this creature: Target creature gets +X/+X until end of turn.",
+      "power": "1",
+      "toughness": "1",
+      "loyalty": null,
+      "defense": null,
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "keywords": [],
+      "is_token": false,
+      "faces": [],
+      "double_faced": false,
+      "image_faces": 1,
+      "has_image": false,
+      "released_at": "2006-07-21",
+      "artist": "Dan Murayama Scott",
+      "commander_legal": "legal",
+      "related_tokens": [],
+      "related_cards": []
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "46c128d5-92b7-4132-a865-4db299879579",
+          "source": "wotc",
+          "published_at": "2006-07-15",
+          "comment": "A card that\u2019s already revealed for another cost or because of an effect can be revealed to pay this cost."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "46c128d5-92b7-4132-a865-4db299879579",
+          "source": "wotc",
+          "published_at": "2006-07-15",
+          "comment": "If one of the cards that\u2019s revealed to pay the cost leaves its owner\u2019s hand before the ability resolves, it stops being revealed, but the value of X is not affected."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "46c128d5-92b7-4132-a865-4db299879579",
+          "source": "wotc",
+          "published_at": "2006-07-15",
+          "comment": "Each card that\u2019s revealed to pay the cost remains revealed until the ability leaves the stack."
+        }
+      ]
+    }
+  }
+]

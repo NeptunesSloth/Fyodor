@@ -1,0 +1,27 @@
+{
+  "object": "list",
+  "has_more": false,
+  "data": [
+    {
+      "object": "ruling",
+      "oracle_id": "31c978b4-06d7-4e9d-82da-bfa4ef16f470",
+      "source": "wotc",
+      "published_at": "2007-05-01",
+      "comment": "When the echo ability resolves, you may pay {0} or choose not pay. The first option means Shah of Naar Isle stays on the battlefield and its last ability triggers. The second option means Shah of Naar Isle is sacrificed."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "31c978b4-06d7-4e9d-82da-bfa4ef16f470",
+      "source": "wotc",
+      "published_at": "2007-05-01",
+      "comment": "If you use Thick-Skinned Goblin\u2019s ability to pay {0} instead of Shah of Naar Isle\u2019s echo cost, the Shah\u2019s last ability will trigger."
+    },
+    {
+      "object": "ruling",
+      "oracle_id": "31c978b4-06d7-4e9d-82da-bfa4ef16f470",
+      "source": "wotc",
+      "published_at": "2007-05-01",
+      "comment": "If you have multiple opponents, each one in turn order chooses whether or not to draw cards, and if so, how many to draw (from zero to three)."
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "id": "cee5e9e3-e3ae-4e1b-a8fb-48c523631105",
+  "oracle_id": "31c978b4-06d7-4e9d-82da-bfa4ef16f470",
+  "name": "Shah of Naar Isle",
+  "layout": "normal",
+  "set_code": "fut",
+  "set_name": "Future Sight",
+  "collector_number": "119",
+  "rarity": "rare",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Creature \u2014 Efreet",
+  "oracle_text": "Trample\nEcho {0} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature's echo cost is paid, each opponent may draw up to three cards.",
+  "power": "6",
+  "toughness": "6",
+  "loyalty": null,
+  "defense": null,
+  "colors": [
+    "R"
+  ],
+  "color_identity": [
+    "R"
+  ],
+  "keywords": [
+    "Trample",
+    "Echo"
+  ],
+  "is_token": false,
+  "faces": [],
+  "double_faced": false,
+  "image_faces": 1,
+  "has_image": false,
+  "released_at": "2007-05-04",
+  "artist": "Jon Foster",
+  "commander_legal": "legal",
+  "related_tokens": [],
+  "related_cards": []
+}

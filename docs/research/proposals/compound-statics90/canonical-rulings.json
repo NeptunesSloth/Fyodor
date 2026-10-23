@@ -1,0 +1,1121 @@
+[
+  {
+    "card": {
+      "object": "card",
+      "id": "c1f38104-a699-4bb9-930a-699f7bbc338a",
+      "oracle_id": "f85aef9b-b6ad-4716-b48b-5e26b474a59d",
+      "multiverse_ids": [
+        23229
+      ],
+      "mtgo_id": 14821,
+      "mtgo_foil_id": 14822,
+      "tcgplayer_id": 7697,
+      "cardmarket_id": 3689,
+      "name": "Tek",
+      "lang": "en",
+      "released_at": "2000-10-02",
+      "uri": "https://api.scryfall.com/cards/c1f38104-a699-4bb9-930a-699f7bbc338a",
+      "scryfall_uri": "https://scryfall.com/card/inv/313/tek?utm_source=api",
+      "layout": "normal",
+      "highres_image": true,
+      "image_status": "highres_scan",
+      "image_updated_at": "2026-07-13T12:27:29Z",
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/c/1/c1f38104-a699-4bb9-930a-699f7bbc338a.jpg?1783945649",
+        "normal": "https://cards.scryfall.io/normal/front/c/1/c1f38104-a699-4bb9-930a-699f7bbc338a.jpg?1783945649",
+        "large": "https://cards.scryfall.io/large/front/c/1/c1f38104-a699-4bb9-930a-699f7bbc338a.jpg?1783945649",
+        "png": "https://cards.scryfall.io/png/front/c/1/c1f38104-a699-4bb9-930a-699f7bbc338a.png?1783945649",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/c/1/c1f38104-a699-4bb9-930a-699f7bbc338a.jpg?1783945649",
+        "border_crop": "https://cards.scryfall.io/border_crop/front/c/1/c1f38104-a699-4bb9-930a-699f7bbc338a.jpg?1783945649",
+        "thumb": "https://cards.scryfall.io/thumb/front/c/1/c1f38104-a699-4bb9-930a-699f7bbc338a.webp?1783945649",
+        "grid": "https://cards.scryfall.io/grid/front/c/1/c1f38104-a699-4bb9-930a-699f7bbc338a.webp?1783945649",
+        "display": "https://cards.scryfall.io/display/front/c/1/c1f38104-a699-4bb9-930a-699f7bbc338a.webp?1783945649",
+        "art": "https://cards.scryfall.io/art/front/c/1/c1f38104-a699-4bb9-930a-699f7bbc338a.webp?1783945649",
+        "crop": "https://cards.scryfall.io/crop/front/c/1/c1f38104-a699-4bb9-930a-699f7bbc338a.webp?1783945649",
+        "jpeg": "https://cards.scryfall.io/normal/front/c/1/c1f38104-a699-4bb9-930a-699f7bbc338a.jpg?1783945649"
+      },
+      "mana_cost": "{5}",
+      "cmc": 5.0,
+      "type_line": "Artifact Creature \u2014 Dragon",
+      "oracle_text": "This creature gets +0/+2 as long as you control a Plains, has flying as long as you control an Island, gets +2/+0 as long as you control a Swamp, has first strike as long as you control a Mountain, and has trample as long as you control a Forest.",
+      "power": "2",
+      "toughness": "2",
+      "colors": [],
+      "color_identity": [],
+      "keywords": [],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "legal",
+        "predh": "legal",
+        "tlr": "not_legal"
+      },
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "reserved": false,
+      "game_changer": false,
+      "foil": true,
+      "nonfoil": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "oversized": false,
+      "promo": false,
+      "reprint": false,
+      "variation": false,
+      "set_id": "b9ae5e02-7726-47ca-b5e4-5ec402b41cd1",
+      "set": "inv",
+      "set_name": "Invasion",
+      "set_type": "expansion",
+      "set_uri": "https://api.scryfall.com/sets/b9ae5e02-7726-47ca-b5e4-5ec402b41cd1",
+      "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Ainv&unique=prints",
+      "scryfall_set_uri": "https://scryfall.com/sets/inv?utm_source=api",
+      "rulings_uri": "https://api.scryfall.com/cards/c1f38104-a699-4bb9-930a-699f7bbc338a/rulings",
+      "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3Af85aef9b-b6ad-4716-b48b-5e26b474a59d&unique=prints",
+      "collector_number": "313",
+      "digital": false,
+      "rarity": "rare",
+      "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "artist": "Chippy",
+      "artist_ids": [
+        "a36f01a0-e51a-48b2-a556-b9b3bc73f969"
+      ],
+      "illustration_id": "dcaf50b6-5b97-452b-8eae-18431681675d",
+      "border_color": "black",
+      "frame": "1997",
+      "full_art": false,
+      "textless": false,
+      "booster": true,
+      "story_spotlight": false,
+      "edhrec_rank": 28550,
+      "prices": {
+        "usd": "0.53",
+        "usd_foil": "15.01",
+        "usd_etched": null,
+        "eur": "0.48",
+        "eur_foil": "17.03",
+        "tix": "0.02"
+      },
+      "related_uris": {
+        "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=23229&printed=false",
+        "tcgplayer_infinite_articles": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Farticles&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Farticles%3FproductLineName%3Dmagic%26q%3DTek",
+        "tcgplayer_infinite_decks": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Fdecks&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Fdecks%3FproductLineName%3Dmagic%26q%3DTek",
+        "edhrec": "https://edhrec.com/route/?cc=Tek"
+      },
+      "purchase_uris": {
+        "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F7697%3Fpage%3D1",
+        "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=3689&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
+        "cardhoarder": "https://www.cardhoarder.com/cards/14821?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+      }
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "card": {
+      "object": "card",
+      "id": "6e208be1-8b24-4048-90b2-6389f08043d1",
+      "oracle_id": "9027d519-2e89-404f-b357-22799aee1874",
+      "multiverse_ids": [
+        30764
+      ],
+      "mtgo_id": 18227,
+      "mtgo_foil_id": 18228,
+      "tcgplayer_id": 10468,
+      "cardmarket_id": 1942,
+      "name": "Tribal Golem",
+      "lang": "en",
+      "released_at": "2002-10-07",
+      "uri": "https://api.scryfall.com/cards/6e208be1-8b24-4048-90b2-6389f08043d1",
+      "scryfall_uri": "https://scryfall.com/card/ons/311/tribal-golem?utm_source=api",
+      "layout": "normal",
+      "highres_image": true,
+      "image_status": "highres_scan",
+      "image_updated_at": "2026-07-13T12:17:10Z",
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/6/e/6e208be1-8b24-4048-90b2-6389f08043d1.jpg?1783945030",
+        "normal": "https://cards.scryfall.io/normal/front/6/e/6e208be1-8b24-4048-90b2-6389f08043d1.jpg?1783945030",
+        "large": "https://cards.scryfall.io/large/front/6/e/6e208be1-8b24-4048-90b2-6389f08043d1.jpg?1783945030",
+        "png": "https://cards.scryfall.io/png/front/6/e/6e208be1-8b24-4048-90b2-6389f08043d1.png?1783945030",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/6/e/6e208be1-8b24-4048-90b2-6389f08043d1.jpg?1783945030",
+        "border_crop": "https://cards.scryfall.io/border_crop/front/6/e/6e208be1-8b24-4048-90b2-6389f08043d1.jpg?1783945030",
+        "thumb": "https://cards.scryfall.io/thumb/front/6/e/6e208be1-8b24-4048-90b2-6389f08043d1.webp?1783945030",
+        "grid": "https://cards.scryfall.io/grid/front/6/e/6e208be1-8b24-4048-90b2-6389f08043d1.webp?1783945030",
+        "display": "https://cards.scryfall.io/display/front/6/e/6e208be1-8b24-4048-90b2-6389f08043d1.webp?1783945030",
+        "art": "https://cards.scryfall.io/art/front/6/e/6e208be1-8b24-4048-90b2-6389f08043d1.webp?1783945030",
+        "crop": "https://cards.scryfall.io/crop/front/6/e/6e208be1-8b24-4048-90b2-6389f08043d1.webp?1783945030",
+        "jpeg": "https://cards.scryfall.io/normal/front/6/e/6e208be1-8b24-4048-90b2-6389f08043d1.jpg?1783945030"
+      },
+      "mana_cost": "{6}",
+      "cmc": 6.0,
+      "type_line": "Artifact Creature \u2014 Golem",
+      "oracle_text": "This creature has trample as long as you control a Beast, haste as long as you control a Goblin, first strike as long as you control a Soldier, flying as long as you control a Wizard, and \"{B}: Regenerate this creature\" as long as you control a Zombie.",
+      "power": "4",
+      "toughness": "4",
+      "colors": [],
+      "color_identity": [
+        "B"
+      ],
+      "keywords": [
+        "Regenerate"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "legal",
+        "predh": "legal",
+        "tlr": "not_legal"
+      },
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "reserved": false,
+      "game_changer": false,
+      "foil": true,
+      "nonfoil": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "oversized": false,
+      "promo": false,
+      "reprint": false,
+      "variation": false,
+      "set_id": "914a6c6d-cb3b-45e8-a2db-9978a2339faf",
+      "set": "ons",
+      "set_name": "Onslaught",
+      "set_type": "expansion",
+      "set_uri": "https://api.scryfall.com/sets/914a6c6d-cb3b-45e8-a2db-9978a2339faf",
+      "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Aons&unique=prints",
+      "scryfall_set_uri": "https://scryfall.com/sets/ons?utm_source=api",
+      "rulings_uri": "https://api.scryfall.com/cards/6e208be1-8b24-4048-90b2-6389f08043d1/rulings",
+      "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3A9027d519-2e89-404f-b357-22799aee1874&unique=prints",
+      "collector_number": "311",
+      "digital": false,
+      "rarity": "rare",
+      "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "artist": "Edward P. Beard, Jr.",
+      "artist_ids": [
+        "b845b8ee-aeea-4822-bcf9-7230625ac95c"
+      ],
+      "illustration_id": "02d6d2d2-2c93-4734-9390-0d58bcf82f02",
+      "border_color": "black",
+      "frame": "1997",
+      "full_art": false,
+      "textless": false,
+      "booster": true,
+      "story_spotlight": false,
+      "edhrec_rank": 32014,
+      "prices": {
+        "usd": "0.22",
+        "usd_foil": "2.09",
+        "usd_etched": null,
+        "eur": "0.28",
+        "eur_foil": "4.33",
+        "tix": "0.02"
+      },
+      "related_uris": {
+        "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=30764&printed=false",
+        "tcgplayer_infinite_articles": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Farticles&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Farticles%3FproductLineName%3Dmagic%26q%3DTribal%2BGolem",
+        "tcgplayer_infinite_decks": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Fdecks&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Fdecks%3FproductLineName%3Dmagic%26q%3DTribal%2BGolem",
+        "edhrec": "https://edhrec.com/route/?cc=Tribal+Golem"
+      },
+      "purchase_uris": {
+        "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F10468%3Fpage%3D1",
+        "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=1942&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
+        "cardhoarder": "https://www.cardhoarder.com/cards/18227?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+      }
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": []
+    }
+  },
+  {
+    "card": {
+      "object": "card",
+      "id": "b3e5dbbe-ca99-41a5-901d-511b9f3ccea6",
+      "oracle_id": "63e6c80a-a7c7-4c98-b760-271c36425dd1",
+      "multiverse_ids": [
+        540831
+      ],
+      "mtgo_id": 94290,
+      "arena_id": 78779,
+      "tcgplayer_id": 253670,
+      "cardmarket_id": 583254,
+      "name": "Bride's Gown",
+      "lang": "en",
+      "released_at": "2021-11-19",
+      "uri": "https://api.scryfall.com/cards/b3e5dbbe-ca99-41a5-901d-511b9f3ccea6",
+      "scryfall_uri": "https://scryfall.com/card/vow/4/brides-gown?utm_source=api",
+      "layout": "normal",
+      "highres_image": true,
+      "image_status": "highres_scan",
+      "image_updated_at": "2026-07-13T06:42:06Z",
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/b/3/b3e5dbbe-ca99-41a5-901d-511b9f3ccea6.jpg?1783924926",
+        "normal": "https://cards.scryfall.io/normal/front/b/3/b3e5dbbe-ca99-41a5-901d-511b9f3ccea6.jpg?1783924926",
+        "large": "https://cards.scryfall.io/large/front/b/3/b3e5dbbe-ca99-41a5-901d-511b9f3ccea6.jpg?1783924926",
+        "png": "https://cards.scryfall.io/png/front/b/3/b3e5dbbe-ca99-41a5-901d-511b9f3ccea6.png?1783924926",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/b/3/b3e5dbbe-ca99-41a5-901d-511b9f3ccea6.jpg?1783924926",
+        "border_crop": "https://cards.scryfall.io/border_crop/front/b/3/b3e5dbbe-ca99-41a5-901d-511b9f3ccea6.jpg?1783924926",
+        "thumb": "https://cards.scryfall.io/thumb/front/b/3/b3e5dbbe-ca99-41a5-901d-511b9f3ccea6.webp?1783924926",
+        "grid": "https://cards.scryfall.io/grid/front/b/3/b3e5dbbe-ca99-41a5-901d-511b9f3ccea6.webp?1783924926",
+        "display": "https://cards.scryfall.io/display/front/b/3/b3e5dbbe-ca99-41a5-901d-511b9f3ccea6.webp?1783924926",
+        "art": "https://cards.scryfall.io/art/front/b/3/b3e5dbbe-ca99-41a5-901d-511b9f3ccea6.webp?1783924926",
+        "crop": "https://cards.scryfall.io/crop/front/b/3/b3e5dbbe-ca99-41a5-901d-511b9f3ccea6.webp?1783924926",
+        "jpeg": "https://cards.scryfall.io/normal/front/b/3/b3e5dbbe-ca99-41a5-901d-511b9f3ccea6.jpg?1783924926"
+      },
+      "mana_cost": "{1}{W}",
+      "cmc": 2.0,
+      "type_line": "Artifact \u2014 Equipment",
+      "oracle_text": "Equipped creature gets +2/+0. It gets an additional +0/+2 and has first strike as long as an Equipment named Groom's Finery is attached to a creature you control.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "keywords": [
+        "Equip"
+      ],
+      "all_parts": [
+        {
+          "object": "related_card",
+          "id": "b3e5dbbe-ca99-41a5-901d-511b9f3ccea6",
+          "component": "combo_piece",
+          "name": "Bride's Gown",
+          "type_line": "Artifact \u2014 Equipment",
+          "uri": "https://api.scryfall.com/cards/b3e5dbbe-ca99-41a5-901d-511b9f3ccea6"
+        },
+        {
+          "object": "related_card",
+          "id": "43bc65cf-4444-4db3-9bb3-a7d91e560470",
+          "component": "combo_piece",
+          "name": "Groom's Finery",
+          "type_line": "Artifact \u2014 Equipment",
+          "uri": "https://api.scryfall.com/cards/43bc65cf-4444-4db3-9bb3-a7d91e560470"
+        }
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "games": [
+        "arena",
+        "paper",
+        "mtgo"
+      ],
+      "reserved": false,
+      "game_changer": false,
+      "foil": true,
+      "nonfoil": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "oversized": false,
+      "promo": false,
+      "reprint": false,
+      "variation": false,
+      "set_id": "8144b676-569f-4716-8005-bc8f0778f3fa",
+      "set": "vow",
+      "set_name": "Innistrad: Crimson Vow",
+      "set_type": "expansion",
+      "set_uri": "https://api.scryfall.com/sets/8144b676-569f-4716-8005-bc8f0778f3fa",
+      "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Avow&unique=prints",
+      "scryfall_set_uri": "https://scryfall.com/sets/vow?utm_source=api",
+      "rulings_uri": "https://api.scryfall.com/cards/b3e5dbbe-ca99-41a5-901d-511b9f3ccea6/rulings",
+      "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3A63e6c80a-a7c7-4c98-b760-271c36425dd1&unique=prints",
+      "collector_number": "4",
+      "digital": false,
+      "rarity": "uncommon",
+      "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "artist": "Eric Deschamps",
+      "artist_ids": [
+        "37970e22-9cee-44c1-af44-5ee27cf26b76"
+      ],
+      "illustration_id": "f63a7cc5-bb83-465d-bcab-45a7b0ee848c",
+      "border_color": "black",
+      "frame": "2015",
+      "full_art": false,
+      "textless": false,
+      "booster": true,
+      "story_spotlight": false,
+      "edhrec_rank": 23339,
+      "preview": {
+        "source": "Riley Knight",
+        "source_uri": "https://twitter.com/RLYKNGHT/status/1456294067936104455",
+        "previewed_at": "2021-11-04"
+      },
+      "prices": {
+        "usd": "0.27",
+        "usd_foil": "0.19",
+        "usd_etched": null,
+        "eur": "0.08",
+        "eur_foil": "0.14",
+        "tix": "0.03"
+      },
+      "related_uris": {
+        "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=540831&printed=false",
+        "tcgplayer_infinite_articles": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Farticles&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Farticles%3FproductLineName%3Dmagic%26q%3DBride%2527s%2BGown",
+        "tcgplayer_infinite_decks": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Fdecks&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Fdecks%3FproductLineName%3Dmagic%26q%3DBride%2527s%2BGown",
+        "edhrec": "https://edhrec.com/route/?cc=Bride%27s+Gown"
+      },
+      "purchase_uris": {
+        "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F253670%3Fpage%3D1",
+        "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=583254&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
+        "cardhoarder": "https://www.cardhoarder.com/cards/94290?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+      }
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "63e6c80a-a7c7-4c98-b760-271c36425dd1",
+          "source": "wotc",
+          "published_at": "2021-11-19",
+          "comment": "In the phrase \u201cas long as an Equipment named . . . is attached to a creature you control,\u201d the \u201cyou\u201d is the controller of the Equipment, not the controller of the creature it's attached to. Suppose an opponent controls a creature equipped with Bride's Gown and another creature equipped with Groom's Finery, and they also control both of those Equipment. If you gain control of one of those creatures but not the Equipment attached to it, the creature you gained control of will get all the bonuses and the creature they control will only get +2/+0."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "object": "card",
+      "id": "43bc65cf-4444-4db3-9bb3-a7d91e560470",
+      "oracle_id": "b7d2feda-1a0e-4b62-be6d-a8dec7d8ea31",
+      "multiverse_ids": [
+        540965
+      ],
+      "mtgo_id": 94558,
+      "arena_id": 78913,
+      "tcgplayer_id": 253051,
+      "cardmarket_id": 581871,
+      "name": "Groom's Finery",
+      "lang": "en",
+      "released_at": "2021-11-19",
+      "uri": "https://api.scryfall.com/cards/43bc65cf-4444-4db3-9bb3-a7d91e560470",
+      "scryfall_uri": "https://scryfall.com/card/vow/117/grooms-finery?utm_source=api",
+      "layout": "normal",
+      "highres_image": true,
+      "image_status": "highres_scan",
+      "image_updated_at": "2026-07-13T06:41:00Z",
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/4/3/43bc65cf-4444-4db3-9bb3-a7d91e560470.jpg?1783924860",
+        "normal": "https://cards.scryfall.io/normal/front/4/3/43bc65cf-4444-4db3-9bb3-a7d91e560470.jpg?1783924860",
+        "large": "https://cards.scryfall.io/large/front/4/3/43bc65cf-4444-4db3-9bb3-a7d91e560470.jpg?1783924860",
+        "png": "https://cards.scryfall.io/png/front/4/3/43bc65cf-4444-4db3-9bb3-a7d91e560470.png?1783924860",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/4/3/43bc65cf-4444-4db3-9bb3-a7d91e560470.jpg?1783924860",
+        "border_crop": "https://cards.scryfall.io/border_crop/front/4/3/43bc65cf-4444-4db3-9bb3-a7d91e560470.jpg?1783924860",
+        "thumb": "https://cards.scryfall.io/thumb/front/4/3/43bc65cf-4444-4db3-9bb3-a7d91e560470.webp?1783924860",
+        "grid": "https://cards.scryfall.io/grid/front/4/3/43bc65cf-4444-4db3-9bb3-a7d91e560470.webp?1783924860",
+        "display": "https://cards.scryfall.io/display/front/4/3/43bc65cf-4444-4db3-9bb3-a7d91e560470.webp?1783924860",
+        "art": "https://cards.scryfall.io/art/front/4/3/43bc65cf-4444-4db3-9bb3-a7d91e560470.webp?1783924860",
+        "crop": "https://cards.scryfall.io/crop/front/4/3/43bc65cf-4444-4db3-9bb3-a7d91e560470.webp?1783924860",
+        "jpeg": "https://cards.scryfall.io/normal/front/4/3/43bc65cf-4444-4db3-9bb3-a7d91e560470.jpg?1783924860"
+      },
+      "mana_cost": "{1}{B}",
+      "cmc": 2.0,
+      "type_line": "Artifact \u2014 Equipment",
+      "oracle_text": "Equipped creature gets +2/+0. It gets an additional +0/+2 and has deathtouch as long as an Equipment named Bride's Gown is attached to a creature you control.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "keywords": [
+        "Equip"
+      ],
+      "all_parts": [
+        {
+          "object": "related_card",
+          "id": "b3e5dbbe-ca99-41a5-901d-511b9f3ccea6",
+          "component": "combo_piece",
+          "name": "Bride's Gown",
+          "type_line": "Artifact \u2014 Equipment",
+          "uri": "https://api.scryfall.com/cards/b3e5dbbe-ca99-41a5-901d-511b9f3ccea6"
+        },
+        {
+          "object": "related_card",
+          "id": "43bc65cf-4444-4db3-9bb3-a7d91e560470",
+          "component": "combo_piece",
+          "name": "Groom's Finery",
+          "type_line": "Artifact \u2014 Equipment",
+          "uri": "https://api.scryfall.com/cards/43bc65cf-4444-4db3-9bb3-a7d91e560470"
+        }
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "games": [
+        "arena",
+        "paper",
+        "mtgo"
+      ],
+      "reserved": false,
+      "game_changer": false,
+      "foil": true,
+      "nonfoil": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "oversized": false,
+      "promo": false,
+      "reprint": false,
+      "variation": false,
+      "set_id": "8144b676-569f-4716-8005-bc8f0778f3fa",
+      "set": "vow",
+      "set_name": "Innistrad: Crimson Vow",
+      "set_type": "expansion",
+      "set_uri": "https://api.scryfall.com/sets/8144b676-569f-4716-8005-bc8f0778f3fa",
+      "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Avow&unique=prints",
+      "scryfall_set_uri": "https://scryfall.com/sets/vow?utm_source=api",
+      "rulings_uri": "https://api.scryfall.com/cards/43bc65cf-4444-4db3-9bb3-a7d91e560470/rulings",
+      "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3Ab7d2feda-1a0e-4b62-be6d-a8dec7d8ea31&unique=prints",
+      "collector_number": "117",
+      "digital": false,
+      "rarity": "uncommon",
+      "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "artist": "Eric Deschamps",
+      "artist_ids": [
+        "37970e22-9cee-44c1-af44-5ee27cf26b76"
+      ],
+      "illustration_id": "dd583baa-694a-4dc7-8d92-7eafff185573",
+      "border_color": "black",
+      "frame": "2015",
+      "full_art": false,
+      "textless": false,
+      "booster": true,
+      "story_spotlight": false,
+      "edhrec_rank": 23577,
+      "preview": {
+        "source": "Aktiri Magic",
+        "source_uri": "https://www.youtube.com/watch?v=bopVP-_EZ5A",
+        "previewed_at": "2021-11-01"
+      },
+      "prices": {
+        "usd": "0.22",
+        "usd_foil": "0.27",
+        "usd_etched": null,
+        "eur": "0.07",
+        "eur_foil": "0.21",
+        "tix": "0.03"
+      },
+      "related_uris": {
+        "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=540965&printed=false",
+        "tcgplayer_infinite_articles": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Farticles&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Farticles%3FproductLineName%3Dmagic%26q%3DGroom%2527s%2BFinery",
+        "tcgplayer_infinite_decks": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Fdecks&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Fdecks%3FproductLineName%3Dmagic%26q%3DGroom%2527s%2BFinery",
+        "edhrec": "https://edhrec.com/route/?cc=Groom%27s+Finery"
+      },
+      "purchase_uris": {
+        "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F253051%3Fpage%3D1",
+        "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=581871&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
+        "cardhoarder": "https://www.cardhoarder.com/cards/94558?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+      }
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "b7d2feda-1a0e-4b62-be6d-a8dec7d8ea31",
+          "source": "wotc",
+          "published_at": "2021-11-19",
+          "comment": "In the phrase \u201cas long as an Equipment named . . . is attached to a creature you control,\u201d the \u201cyou\u201d is the controller of the Equipment, not the controller of the creature it's attached to. Suppose an opponent controls a creature equipped with Bride's Gown and another creature equipped with Groom's Finery, and they also control both of those Equipment. If you gain control of one of those creatures but not the Equipment attached to it, the creature you gained control of will get all the bonuses and the creature they control will only get +2/+0."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "object": "card",
+      "id": "421650f2-1b34-4a36-9675-9424997c9d0b",
+      "oracle_id": "196948c7-7386-4b5f-ad2f-ec9e3aef26fe",
+      "multiverse_ids": [
+        473026
+      ],
+      "mtgo_id": 78240,
+      "arena_id": 70211,
+      "tcgplayer_id": 199409,
+      "cardmarket_id": 401834,
+      "name": "So Tiny",
+      "lang": "en",
+      "released_at": "2019-10-04",
+      "uri": "https://api.scryfall.com/cards/421650f2-1b34-4a36-9675-9424997c9d0b",
+      "scryfall_uri": "https://scryfall.com/card/eld/64/so-tiny?utm_source=api",
+      "layout": "normal",
+      "highres_image": true,
+      "image_status": "highres_scan",
+      "image_updated_at": "2026-07-13T08:50:50Z",
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/4/2/421650f2-1b34-4a36-9675-9424997c9d0b.jpg?1783932650",
+        "normal": "https://cards.scryfall.io/normal/front/4/2/421650f2-1b34-4a36-9675-9424997c9d0b.jpg?1783932650",
+        "large": "https://cards.scryfall.io/large/front/4/2/421650f2-1b34-4a36-9675-9424997c9d0b.jpg?1783932650",
+        "png": "https://cards.scryfall.io/png/front/4/2/421650f2-1b34-4a36-9675-9424997c9d0b.png?1783932650",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/4/2/421650f2-1b34-4a36-9675-9424997c9d0b.jpg?1783932650",
+        "border_crop": "https://cards.scryfall.io/border_crop/front/4/2/421650f2-1b34-4a36-9675-9424997c9d0b.jpg?1783932650",
+        "thumb": "https://cards.scryfall.io/thumb/front/4/2/421650f2-1b34-4a36-9675-9424997c9d0b.webp?1783932650",
+        "grid": "https://cards.scryfall.io/grid/front/4/2/421650f2-1b34-4a36-9675-9424997c9d0b.webp?1783932650",
+        "display": "https://cards.scryfall.io/display/front/4/2/421650f2-1b34-4a36-9675-9424997c9d0b.webp?1783932650",
+        "art": "https://cards.scryfall.io/art/front/4/2/421650f2-1b34-4a36-9675-9424997c9d0b.webp?1783932650",
+        "crop": "https://cards.scryfall.io/crop/front/4/2/421650f2-1b34-4a36-9675-9424997c9d0b.webp?1783932650",
+        "jpeg": "https://cards.scryfall.io/normal/front/4/2/421650f2-1b34-4a36-9675-9424997c9d0b.jpg?1783932650"
+      },
+      "mana_cost": "{U}",
+      "cmc": 1.0,
+      "type_line": "Enchantment \u2014 Aura",
+      "oracle_text": "Flash\nEnchant creature\nEnchanted creature gets -2/-0. It gets -6/-0 instead as long as its controller has seven or more cards in their graveyard.",
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [
+        "Enchant",
+        "Flash"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "games": [
+        "arena",
+        "paper",
+        "mtgo"
+      ],
+      "reserved": false,
+      "game_changer": false,
+      "foil": true,
+      "nonfoil": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "oversized": false,
+      "promo": false,
+      "reprint": false,
+      "variation": false,
+      "set_id": "a90a7b2f-9dd8-4fc7-9f7d-8ea2797ec782",
+      "set": "eld",
+      "set_name": "Throne of Eldraine",
+      "set_type": "expansion",
+      "set_uri": "https://api.scryfall.com/sets/a90a7b2f-9dd8-4fc7-9f7d-8ea2797ec782",
+      "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Aeld&unique=prints",
+      "scryfall_set_uri": "https://scryfall.com/sets/eld?utm_source=api",
+      "rulings_uri": "https://api.scryfall.com/cards/421650f2-1b34-4a36-9675-9424997c9d0b/rulings",
+      "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3A196948c7-7386-4b5f-ad2f-ec9e3aef26fe&unique=prints",
+      "collector_number": "64",
+      "digital": false,
+      "rarity": "common",
+      "flavor_text": "His sword sounded like a silver chime on the glass jar, and the sprite laughed with delight.",
+      "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "artist": "Randy Vargas",
+      "artist_ids": [
+        "d20672ca-0555-4238-a984-fd171d36b247"
+      ],
+      "illustration_id": "f6187a9d-c83b-4207-a623-267c50b90160",
+      "border_color": "black",
+      "frame": "2015",
+      "full_art": false,
+      "textless": false,
+      "booster": true,
+      "story_spotlight": false,
+      "edhrec_rank": 24821,
+      "penny_rank": 14519,
+      "preview": {
+        "source": "Davinnistrad",
+        "source_uri": "https://twitter.com/Davinnistrad/status/1174611564919492608",
+        "previewed_at": "2019-09-19"
+      },
+      "prices": {
+        "usd": "0.11",
+        "usd_foil": "0.26",
+        "usd_etched": null,
+        "eur": "0.03",
+        "eur_foil": "0.08",
+        "tix": "0.03"
+      },
+      "related_uris": {
+        "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=473026&printed=false",
+        "tcgplayer_infinite_articles": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Farticles&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Farticles%3FproductLineName%3Dmagic%26q%3DSo%2BTiny",
+        "tcgplayer_infinite_decks": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Fdecks&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Fdecks%3FproductLineName%3Dmagic%26q%3DSo%2BTiny",
+        "edhrec": "https://edhrec.com/route/?cc=So+Tiny"
+      },
+      "purchase_uris": {
+        "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F199409%3Fpage%3D1",
+        "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=401834&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
+        "cardhoarder": "https://www.cardhoarder.com/cards/78240?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+      }
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "196948c7-7386-4b5f-ad2f-ec9e3aef26fe",
+          "source": "wotc",
+          "published_at": "2019-10-04",
+          "comment": "So Tiny continuously checks the enchanted creature's controller's graveyard to determine just how tiny the enchanted creature is."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "object": "card",
+      "id": "4ea29c34-4b55-4170-9120-0a8dda61f2eb",
+      "oracle_id": "d1767573-713d-4f63-a09d-e94150655093",
+      "multiverse_ids": [
+        646604
+      ],
+      "mtgo_id": 121570,
+      "arena_id": 88961,
+      "tcgplayer_id": 530001,
+      "cardmarket_id": 750660,
+      "name": "Burden of Proof",
+      "lang": "en",
+      "released_at": "2024-02-09",
+      "uri": "https://api.scryfall.com/cards/4ea29c34-4b55-4170-9120-0a8dda61f2eb",
+      "scryfall_uri": "https://scryfall.com/card/mkm/42/burden-of-proof?utm_source=api",
+      "layout": "normal",
+      "highres_image": true,
+      "image_status": "highres_scan",
+      "image_updated_at": "2026-07-13T03:21:55Z",
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/4/e/4ea29c34-4b55-4170-9120-0a8dda61f2eb.jpg?1783912915",
+        "normal": "https://cards.scryfall.io/normal/front/4/e/4ea29c34-4b55-4170-9120-0a8dda61f2eb.jpg?1783912915",
+        "large": "https://cards.scryfall.io/large/front/4/e/4ea29c34-4b55-4170-9120-0a8dda61f2eb.jpg?1783912915",
+        "png": "https://cards.scryfall.io/png/front/4/e/4ea29c34-4b55-4170-9120-0a8dda61f2eb.png?1783912915",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/4/e/4ea29c34-4b55-4170-9120-0a8dda61f2eb.jpg?1783912915",
+        "border_crop": "https://cards.scryfall.io/border_crop/front/4/e/4ea29c34-4b55-4170-9120-0a8dda61f2eb.jpg?1783912915",
+        "thumb": "https://cards.scryfall.io/thumb/front/4/e/4ea29c34-4b55-4170-9120-0a8dda61f2eb.webp?1783912915",
+        "grid": "https://cards.scryfall.io/grid/front/4/e/4ea29c34-4b55-4170-9120-0a8dda61f2eb.webp?1783912915",
+        "display": "https://cards.scryfall.io/display/front/4/e/4ea29c34-4b55-4170-9120-0a8dda61f2eb.webp?1783912915",
+        "art": "https://cards.scryfall.io/art/front/4/e/4ea29c34-4b55-4170-9120-0a8dda61f2eb.webp?1783912915",
+        "crop": "https://cards.scryfall.io/crop/front/4/e/4ea29c34-4b55-4170-9120-0a8dda61f2eb.webp?1783912915",
+        "jpeg": "https://cards.scryfall.io/normal/front/4/e/4ea29c34-4b55-4170-9120-0a8dda61f2eb.jpg?1783912915"
+      },
+      "mana_cost": "{1}{U}",
+      "cmc": 2.0,
+      "type_line": "Enchantment \u2014 Aura",
+      "oracle_text": "Flash\nEnchant creature\nEnchanted creature gets +2/+2 as long as it's a Detective you control. Otherwise, it has base power and toughness 1/1 and can't block Detectives.",
+      "colors": [
+        "U"
+      ],
+      "color_identity": [
+        "U"
+      ],
+      "keywords": [
+        "Enchant",
+        "Flash"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "reserved": false,
+      "game_changer": false,
+      "foil": true,
+      "nonfoil": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "oversized": false,
+      "promo": false,
+      "reprint": false,
+      "variation": false,
+      "set_id": "2b17794b-15c3-4796-ad6f-0887a0eceeca",
+      "set": "mkm",
+      "set_name": "Murders at Karlov Manor",
+      "set_type": "expansion",
+      "set_uri": "https://api.scryfall.com/sets/2b17794b-15c3-4796-ad6f-0887a0eceeca",
+      "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Amkm&unique=prints",
+      "scryfall_set_uri": "https://scryfall.com/sets/mkm?utm_source=api",
+      "rulings_uri": "https://api.scryfall.com/cards/4ea29c34-4b55-4170-9120-0a8dda61f2eb/rulings",
+      "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3Ad1767573-713d-4f63-a09d-e94150655093&unique=prints",
+      "collector_number": "42",
+      "digital": false,
+      "rarity": "uncommon",
+      "flavor_text": "\"You must have known all those lies would catch up to you eventually.\"",
+      "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "artist": "Deruchenko Alexander",
+      "artist_ids": [
+        "806f6ff9-6ed4-4e93-998a-a562c0b792e6"
+      ],
+      "illustration_id": "ac7b84b1-40fa-4d18-b0c5-ae19be8b4822",
+      "border_color": "black",
+      "frame": "2015",
+      "full_art": false,
+      "textless": false,
+      "booster": true,
+      "story_spotlight": false,
+      "edhrec_rank": 23495,
+      "prices": {
+        "usd": "0.12",
+        "usd_foil": "0.03",
+        "usd_etched": null,
+        "eur": "0.03",
+        "eur_foil": "0.13",
+        "tix": "0.03"
+      },
+      "related_uris": {
+        "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=646604&printed=false",
+        "tcgplayer_infinite_articles": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Farticles&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Farticles%3FproductLineName%3Dmagic%26q%3DBurden%2Bof%2BProof",
+        "tcgplayer_infinite_decks": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Fdecks&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Fdecks%3FproductLineName%3Dmagic%26q%3DBurden%2Bof%2BProof",
+        "edhrec": "https://edhrec.com/route/?cc=Burden+of+Proof"
+      },
+      "purchase_uris": {
+        "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F530001%3Fpage%3D1",
+        "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=750660&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
+        "cardhoarder": "https://www.cardhoarder.com/cards/121570?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+      }
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "d1767573-713d-4f63-a09d-e94150655093",
+          "source": "wotc",
+          "published_at": "2024-02-02",
+          "comment": "Once a Detective has been blocked, attaching Burden of Proof to a creature blocking it won't cause that Detective to become unblocked."
+        }
+      ]
+    }
+  },
+  {
+    "card": {
+      "object": "card",
+      "id": "b51d3259-c41c-4f64-9666-0a9e676c812f",
+      "oracle_id": "6ffe71c0-acb5-4ba9-8c2f-719330e1ea69",
+      "multiverse_ids": [],
+      "resource_id": "EFE127D8F21420E91183A542364BC9715DD54D6AA914A1AEBAFB5967E6498090",
+      "mtgo_id": 144708,
+      "arena_id": 97389,
+      "tcgplayer_id": 662623,
+      "cardmarket_id": 858192,
+      "name": "Phoenix Fleet Airship",
+      "lang": "en",
+      "released_at": "2025-11-21",
+      "uri": "https://api.scryfall.com/cards/b51d3259-c41c-4f64-9666-0a9e676c812f",
+      "scryfall_uri": "https://scryfall.com/card/tla/114/phoenix-fleet-airship?utm_source=api",
+      "layout": "normal",
+      "highres_image": true,
+      "image_status": "highres_scan",
+      "image_updated_at": "2026-07-13T01:09:28Z",
+      "image_uris": {
+        "small": "https://cards.scryfall.io/small/front/b/5/b51d3259-c41c-4f64-9666-0a9e676c812f.jpg?1783904968",
+        "normal": "https://cards.scryfall.io/normal/front/b/5/b51d3259-c41c-4f64-9666-0a9e676c812f.jpg?1783904968",
+        "large": "https://cards.scryfall.io/large/front/b/5/b51d3259-c41c-4f64-9666-0a9e676c812f.jpg?1783904968",
+        "png": "https://cards.scryfall.io/png/front/b/5/b51d3259-c41c-4f64-9666-0a9e676c812f.png?1783904968",
+        "art_crop": "https://cards.scryfall.io/art_crop/front/b/5/b51d3259-c41c-4f64-9666-0a9e676c812f.jpg?1783904968",
+        "border_crop": "https://cards.scryfall.io/border_crop/front/b/5/b51d3259-c41c-4f64-9666-0a9e676c812f.jpg?1783904968",
+        "thumb": "https://cards.scryfall.io/thumb/front/b/5/b51d3259-c41c-4f64-9666-0a9e676c812f.webp?1783904968",
+        "grid": "https://cards.scryfall.io/grid/front/b/5/b51d3259-c41c-4f64-9666-0a9e676c812f.webp?1783904968",
+        "display": "https://cards.scryfall.io/display/front/b/5/b51d3259-c41c-4f64-9666-0a9e676c812f.webp?1783904968",
+        "art": "https://cards.scryfall.io/art/front/b/5/b51d3259-c41c-4f64-9666-0a9e676c812f.webp?1783904968",
+        "crop": "https://cards.scryfall.io/crop/front/b/5/b51d3259-c41c-4f64-9666-0a9e676c812f.webp?1783904968",
+        "jpeg": "https://cards.scryfall.io/normal/front/b/5/b51d3259-c41c-4f64-9666-0a9e676c812f.jpg?1783904968"
+      },
+      "mana_cost": "{2}{B}{B}",
+      "cmc": 4.0,
+      "type_line": "Artifact \u2014 Vehicle",
+      "oracle_text": "Flying\nAt the beginning of your end step, if you sacrificed a permanent this turn, create a token that's a copy of this Vehicle.\nAs long as you control eight or more permanents named Phoenix Fleet Airship, this Vehicle is an artifact creature.\nCrew 1",
+      "power": "4",
+      "toughness": "4",
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "keywords": [
+        "Flying",
+        "Crew"
+      ],
+      "all_parts": [
+        {
+          "object": "related_card",
+          "id": "bf9085bd-0ee0-4d8a-8deb-686a87b28c7a",
+          "component": "combo_piece",
+          "name": "Phoenix Fleet Airship",
+          "type_line": "Artifact \u2014 Vehicle",
+          "uri": "https://api.scryfall.com/cards/bf9085bd-0ee0-4d8a-8deb-686a87b28c7a"
+        },
+        {
+          "object": "related_card",
+          "id": "6f361ecd-045d-43a3-bb1b-83c23f070ff8",
+          "component": "token",
+          "name": "Copy",
+          "type_line": "Token",
+          "uri": "https://api.scryfall.com/cards/6f361ecd-045d-43a3-bb1b-83c23f070ff8"
+        }
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "reserved": false,
+      "game_changer": false,
+      "foil": true,
+      "nonfoil": true,
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "oversized": false,
+      "promo": false,
+      "reprint": false,
+      "variation": false,
+      "set_id": "118f7e64-5caa-4cb7-99a8-184f4d3a7422",
+      "set": "tla",
+      "set_name": "Avatar: The Last Airbender",
+      "set_type": "expansion",
+      "set_uri": "https://api.scryfall.com/sets/118f7e64-5caa-4cb7-99a8-184f4d3a7422",
+      "set_search_uri": "https://api.scryfall.com/cards/search?order=set&q=e%3Atla&unique=prints",
+      "scryfall_set_uri": "https://scryfall.com/sets/tla?utm_source=api",
+      "rulings_uri": "https://api.scryfall.com/cards/b51d3259-c41c-4f64-9666-0a9e676c812f/rulings",
+      "prints_search_uri": "https://api.scryfall.com/cards/search?order=released&q=oracleid%3A6ffe71c0-acb5-4ba9-8c2f-719330e1ea69&unique=prints",
+      "collector_number": "114",
+      "digital": false,
+      "rarity": "mythic",
+      "card_back_id": "0aeebaf5-8c7d-4636-9e82-8c27447861f7",
+      "artist": "Thanh Tu\u1ea5n",
+      "artist_ids": [
+        "4092d03e-ede3-4946-bfdc-888fff30cfdf"
+      ],
+      "illustration_id": "f48bf34c-33a2-4f9d-abc4-6b9157de2b19",
+      "border_color": "black",
+      "frame": "2015",
+      "security_stamp": "oval",
+      "full_art": false,
+      "textless": false,
+      "booster": true,
+      "story_spotlight": false,
+      "promo_types": [
+        "universesbeyond"
+      ],
+      "edhrec_rank": 9182,
+      "preview": {
+        "source": "Giga",
+        "source_uri": "https://www.giga.de/games/zum-20-avatar-jubilaeum-2-exklusive-magic-karten-vorgestellt--01K9CY90P3Y5G4HRX4X48KTDTG",
+        "previewed_at": "2025-11-06"
+      },
+      "prices": {
+        "usd": "1.41",
+        "usd_foil": "1.66",
+        "usd_etched": null,
+        "eur": "2.38",
+        "eur_foil": "2.90",
+        "tix": "0.49"
+      },
+      "related_uris": {
+        "tcgplayer_infinite_articles": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Farticles&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Farticles%3FproductLineName%3Dmagic%26q%3DPhoenix%2BFleet%2BAirship",
+        "tcgplayer_infinite_decks": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&trafcat=tcgplayer.com%2Fsearch%2Fdecks&u=https%3A%2F%2Fwww.tcgplayer.com%2Fsearch%2Fdecks%3FproductLineName%3Dmagic%26q%3DPhoenix%2BFleet%2BAirship",
+        "edhrec": "https://edhrec.com/route/?cc=Phoenix+Fleet+Airship"
+      },
+      "purchase_uris": {
+        "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F662623%3Fpage%3D1",
+        "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=858192&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
+        "cardhoarder": "https://www.cardhoarder.com/cards/144708?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+      }
+    },
+    "rulings": {
+      "object": "list",
+      "has_more": false,
+      "data": [
+        {
+          "object": "ruling",
+          "oracle_id": "6ffe71c0-acb5-4ba9-8c2f-719330e1ea69",
+          "source": "wotc",
+          "published_at": "2025-10-02",
+          "comment": "The token won't copy counters or damage marked on Phoenix Fleet Airship, nor will it copy other effects that have changed Phoenix Fleet Airship's power, toughness, types, color, and so on. Normally, this means the token will simply be a Phoenix Fleet Airship, but if any copy effects have affected that Phoenix Fleet Airship, they're taken into account."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "6ffe71c0-acb5-4ba9-8c2f-719330e1ea69",
+          "source": "wotc",
+          "published_at": "2025-10-02",
+          "comment": "The token will have Phoenix Fleet Airship's abilities. It will also be able to create copies of itself on future turns."
+        },
+        {
+          "object": "ruling",
+          "oracle_id": "6ffe71c0-acb5-4ba9-8c2f-719330e1ea69",
+          "source": "wotc",
+          "published_at": "2025-10-02",
+          "comment": "If Phoenix Fleet Airship leaves the battlefield before its triggered ability resolves, the token will still enter as a copy of Phoenix Fleet Airship, using its copiable values from when it was last on the battlefield."
+        }
+      ]
+    }
+  }
+]

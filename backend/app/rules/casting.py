@@ -2712,10 +2712,12 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
             and perm.controller == player:
         how = "prepared"  # -- prepared (wave 13C) -- 722.3c: its controller may cast the copy in exile
     found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
-    from app.rules import required_mutate75
+    from app.rules import required_keyword79, required_mutate75
 
     if not free and via is None and slot is None and required_mutate75.selected(state, player, card, ch, info, alternative_key):
         how = 'mutate'  # Required native alternative; unrelated permissions remain selectable independently.
+    if not free and via is None and slot is None and (required79 := required_keyword79.selected(state, player, card, ch, info, alternative_key)) is not None:
+        how = required79
     flash = any(g.flash and (free or not g.flash_requires_free) for g in found)
     if how is None and info is not None and card.zone == zone_key(player, "foretell") and not free and card.owner == player \
             and _foretell_offers(state, player, card, ch, info):
@@ -3176,9 +3178,9 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
     from app.rules import text_global_word71
 
     ch = text_global_word71.prospective(state, card, ch, info)
-    from app.rules import required_mutate75
+    from app.rules import required_keyword79, required_mutate75
 
-    required_mutate = required_mutate75.candidate(state, player, card, ch)
+    required_mutate = required_mutate75.candidate(state, player, card, ch) or required_keyword79.kind(state, player, card, ch) is not None
     blocked = cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is not None
     if blocked and not required_mutate and cast_problem(state, player, card, ch, check_priority=check_priority, info=info, sneak=True) is not None:
         return out
@@ -6672,7 +6674,7 @@ def resume_mana_ability(plan: Plan, d: Any, chosen: list[str]) -> None:
 # -- responding -------------------------------------------------------------------------
 def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
     """Could ``player`` do anything at instant speed right now? (For Arena-style auto-passing.)"""
-    from app.rules import required_mutate75
+    from app.rules import required_keyword79, required_mutate75
     from app.rules.pooled_casting_authorities71 import external_candidates
 
     candidates = [cid for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard"),
@@ -6682,7 +6684,7 @@ def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
     for cid in candidates:
         card = state.cards[cid]
         ch = chars.of(card, info)
-        if required_mutate75.candidate(state, player, card, ch):
+        if required_mutate75.candidate(state, player, card, ch) or required_keyword79.kind(state, player, card, ch) is not None:
             for option in alt_castable(state, player, card, info, check_priority=False):
                 selected_grant = cast_grant(state, player, card, ch, info, alternative_key=option['id'])
                 if selected_grant is not None and selected_grant.flash:
@@ -6690,7 +6692,7 @@ def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
         if ("Instant" in ch.types or ch.has_flash or _flash_granted(state, player, card, ch, info) or flash_if(ch) is not None) \
                 and (castable(state, player, card, info, check_priority=False)
                      or free_castable(state, player, card, info, check_priority=False)
-                     or (required_mutate75.candidate(state, player, card, ch)
+                     or ((required_mutate75.candidate(state, player, card, ch) or required_keyword79.kind(state, player, card, ch) is not None)
                          and alt_castable(state, player, card, info, check_priority=False))):
             return True
         if any(g.flash and g.flash_requires_free for g in permissions.grants(state, player, card, ch, info, verb="cast")) and free_castable(

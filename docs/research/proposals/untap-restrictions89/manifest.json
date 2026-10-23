@@ -1,0 +1,21 @@
+{
+  "candidate_names": [
+    "Mungha Wurm",
+    "Storage Matrix"
+  ],
+  "expected_promotions": 2,
+  "source_files": [
+    "backend/app/rules/untap_choice.py",
+    "backend/app/rules/engine.py"
+  ],
+  "patch": "UNINSTALLED.patch",
+  "test_destination": "backend/tests/test_rules_untap_restrictions89.py",
+  "fixture_destination": "backend/tests/fixtures/untap_restrictions89_cards.json",
+  "native_pass": 18,
+  "cold_roundtrips": 2,
+  "related_native_pass": 19,
+  "supplemental_isolated_model_pass": 16,
+  "mypy_files": 2,
+  "ruff_files": 3,
+  "admission": "root audit required; no live source edits"
+}

@@ -815,6 +815,10 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
         elif comp.kind in ("REVEAL_FROM_HAND", C.BEHOLD):  # -- static_other sweep (wave 17C) -- revealed to everyone (701.20a); a beheld permanent just is
             shown = [c for c in ids if plan.state.cards[c].zone.endswith(":hand")]
             if shown:
+                if comp.kind == 'REVEAL_FROM_HAND' and comp.x:
+                    from app.rules import mana_named_land_profiles
+
+                    mana_named_land_profiles.register_reveal(plan, record.card, shown)
                 plan.do({"type": "reveal", "card_ids": shown}, actor=player)
                 record.revealed += shown
                 from app.rules import payment_card_facts

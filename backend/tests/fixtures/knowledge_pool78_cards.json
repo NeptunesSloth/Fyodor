@@ -1,0 +1,108 @@
+[
+  {
+    "name": "Knowledge Pool",
+    "oracle_text": "Imprint \u2014 When this artifact enters, each player exiles the top three cards of their library.\nWhenever a player casts a spell from their hand, that player exiles it. If the player does, they may cast a spell from among other cards exiled with this artifact without paying its mana cost.",
+    "mana_cost": "{6}",
+    "cmc": 6.0,
+    "type_line": "Artifact",
+    "colors": [],
+    "power": null,
+    "toughness": null,
+    "keywords": [
+      "Imprint"
+    ],
+    "layout": "normal",
+    "oracle_id": "cb53bd72-dee8-46fa-b0f9-1eee3a99379a"
+  },
+  {
+    "name": "Glen Elendra Archmage",
+    "oracle_text": "Flying\n{U}, Sacrifice this creature: Counter target noncreature spell.\nPersist (When this creature dies, if it had no -1/-1 counters on it, return it to the battlefield under its owner's control with a -1/-1 counter on it.)",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Faerie Wizard",
+    "colors": [
+      "U"
+    ],
+    "power": "2",
+    "toughness": "2",
+    "keywords": [
+      "Flying",
+      "Persist"
+    ],
+    "layout": "normal",
+    "oracle_id": "5f3f68b5-8c6a-4181-bb8a-9c73967d198a"
+  },
+  {
+    "name": "Snapcaster Mage",
+    "oracle_text": "Flash\nWhen this creature enters, target instant or sorcery card in your graveyard gains flashback until end of turn. The flashback cost is equal to its mana cost. (You may cast that card from your graveyard for its flashback cost. Then exile it.)",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Wizard",
+    "colors": [
+      "U"
+    ],
+    "power": "2",
+    "toughness": "1",
+    "keywords": [
+      "Flash"
+    ],
+    "layout": "normal",
+    "oracle_id": "2bb2eda7-3b38-4c56-870f-c3218a1056f5"
+  },
+  {
+    "name": "Island",
+    "oracle_text": "({T}: Add {U}.)",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Island",
+    "colors": [],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "layout": "normal",
+    "oracle_id": "b2c6aa39-2d2a-459c-a555-fb48ba993373"
+  },
+  {
+    "name": "Plains",
+    "oracle_text": "({T}: Add {W}.)",
+    "mana_cost": "",
+    "cmc": 0.0,
+    "type_line": "Basic Land \u2014 Plains",
+    "colors": [],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "layout": "normal",
+    "oracle_id": "bc71ebf6-2056-41f7-be35-b2e5c34afa99"
+  },
+  {
+    "name": "Leyline of Anticipation",
+    "oracle_text": "If this card is in your opening hand, you may begin the game with it on the battlefield.\nYou may cast spells as though they had flash.",
+    "mana_cost": "{2}{U}{U}",
+    "cmc": 4.0,
+    "type_line": "Enchantment",
+    "colors": [
+      "U"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "layout": "normal",
+    "oracle_id": "9dc65ffe-17fc-4280-b4bd-78073ac7e12b"
+  },
+  {
+    "name": "Seal of Cleansing",
+    "oracle_text": "Sacrifice this enchantment: Destroy target artifact or enchantment.",
+    "mana_cost": "{1}{W}",
+    "cmc": 2.0,
+    "type_line": "Enchantment",
+    "colors": [
+      "W"
+    ],
+    "power": null,
+    "toughness": null,
+    "keywords": [],
+    "layout": "normal",
+    "oracle_id": "a75dbe70-7e3e-446f-9a76-9fbb414f2e7c"
+  }
+]

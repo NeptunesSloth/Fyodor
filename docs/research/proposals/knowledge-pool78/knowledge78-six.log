@@ -1,0 +1,10 @@
+.....F                                                                   [100%]
+=================================== FAILURES ===================================
+_ test_two_actual_pool_sources_offer_only_the_first_successful_exiling_pool78 __
+tests/test_rules_knowledge_pool78.py:143: in test_two_actual_pool_sources_offer_only_the_first_successful_exiling_pool78
+    second_pool = {oid.rsplit('.', 1)[0] for oid in s.state.rules.exiled_with[s.state.rules.object_id(second.id)]}
+                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: '5f9c6710a283.3'
+=========================== short test summary info ============================
+FAILED tests/test_rules_knowledge_pool78.py::test_two_actual_pool_sources_offer_only_the_first_successful_exiling_pool78
+1 failed, 5 passed in 29.61s

@@ -31,14 +31,15 @@ def choose(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     options = []
     for cid in effects._looked(plan, ctx)[1]:
         ch = plan.ch(plan.state.cards[cid])
-        if ('Legendary' in ch.supertypes or 'Enchantment' in ch.types) if e['nashi'] else ch.is_permanent_card:
+        matches = 'Artifact' in ch.types if e.get('artifact66') else (('Legendary' in ch.supertypes or 'Enchantment' in ch.types) if e['nashi'] else ch.is_permanent_card)
+        if matches:
             options.append(cid)
     ctx['returned65'] = []
     if not options:
         return True
     decide(plan, player=ctx['controller'], kind='choose_cards', prompt='Choose milled cards to return to your hand',
            options=[DecisionOption(id=cid, label=plan.state.cards[cid].name or 'Card', card_id=cid) for cid in options],
-           min_choices=0, max_choices=len(options) if e['nashi'] else min(2, len(options)),
+           min_choices=0, max_choices=1 if e.get('artifact66') else len(options) if e['nashi'] else min(2, len(options)),
            resume={'step': 'public_pick65', 'ctx': ctx, 'e': e})
     return False
 

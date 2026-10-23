@@ -1,0 +1,155 @@
+[
+  {
+    "id": "43bacd07-fdaf-4ce4-bf7a-dda55a99d460",
+    "oracle_id": "7234bbf8-b962-4515-bedf-68d111c6137e",
+    "name": "Sabin, Master Monk",
+    "layout": "normal",
+    "set_code": "fic",
+    "set_name": "Final Fantasy Commander",
+    "collector_number": "57",
+    "rarity": "rare",
+    "mana_cost": "{4}{R}",
+    "cmc": 5.0,
+    "type_line": "Legendary Creature \u2014 Human Noble Monk",
+    "oracle_text": "Double strike\nBlitz\u2014{2}{R}{R}, Discard a card. (If you cast this spell for its blitz cost, it gains haste and \"When this creature dies, draw a card.\" Sacrifice it at the beginning of the next end step.)\nYou may cast this card from your graveyard using its blitz ability.",
+    "power": "4",
+    "toughness": "3",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Blitz",
+      "Double strike"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-06-13",
+    "artist": "Kevin Glint",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "9b6a6d00-3e00-4827-8420-13343ac3d0fd",
+    "oracle_id": "598e3ed2-659f-4400-b41d-3aee8068fba6",
+    "name": "Tenacious Underdog",
+    "layout": "normal",
+    "set_code": "snc",
+    "set_name": "Streets of New Capenna",
+    "collector_number": "97",
+    "rarity": "rare",
+    "mana_cost": "{1}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Human Warrior",
+    "oracle_text": "Blitz\u2014{2}{B}{B}, Pay 2 life. (If you cast this spell for its blitz cost, it gains haste and \"When this creature dies, draw a card.\" Sacrifice it at the beginning of the next end step.)\nYou may cast this card from your graveyard using its blitz ability.",
+    "power": "3",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Blitz"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2022-04-29",
+    "artist": "Zara Alfonso",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "33410410-72f2-49c4-9e63-a72202cd075a",
+    "oracle_id": "3c307122-bc18-41f1-87d5-ae6b3ca9b8b9",
+    "name": "Timeline Culler",
+    "layout": "normal",
+    "set_code": "eoe",
+    "set_name": "Edge of Eternities",
+    "collector_number": "121",
+    "rarity": "uncommon",
+    "mana_cost": "{B}{B}",
+    "cmc": 2.0,
+    "type_line": "Creature \u2014 Drix Warlock",
+    "oracle_text": "Haste\nYou may cast this card from your graveyard using its warp ability.\nWarp\u2014{B}, Pay 2 life. (You may cast this card from your hand or graveyard for its warp cost. If you do, exile this creature at the beginning of the next end step, then you may cast it from exile on a later turn.)",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Haste",
+      "Warp"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2025-08-01",
+    "artist": "Alfonso Santano",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "db16e02b-1b7f-4976-b9eb-41350337616c",
+    "oracle_id": "52c3fe55-74ee-44cb-b62b-dc6c5dfdc33e",
+    "name": "Detective's Phoenix",
+    "layout": "normal",
+    "set_code": "mh3",
+    "set_name": "Modern Horizons 3",
+    "collector_number": "457",
+    "rarity": "rare",
+    "mana_cost": "{2}{R}",
+    "cmc": 3.0,
+    "type_line": "Enchantment Creature \u2014 Phoenix",
+    "oracle_text": "Bestow\u2014{R}, Collect evidence 6. (To pay this bestow cost, pay {R} and exile cards with total mana value 6 or greater from your graveyard.)\nFlying, haste\nEnchanted creature gets +2/+2 and has flying and haste.\nYou may cast this card from your graveyard using its bestow ability.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Flying",
+      "Collect evidence",
+      "Haste",
+      "Bestow"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-06-14",
+    "artist": "Deruchenko Alexander",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

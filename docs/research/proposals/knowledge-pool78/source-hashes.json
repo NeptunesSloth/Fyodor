@@ -1,0 +1,7 @@
+{
+  "app/rules/knowledge_pool78.py": "5efe640643264b524acd6f621e2f8b1060737f4801d14f0297ed5728880a1328",
+  "app/rules/scripts.py": "3b32b2067ea9ff2a9b33cc7b8b420caa01a511bbaa8500afd8531b4045b0e1fd",
+  "app/rules/effects.py": "f9c3ddf4d964acc456a4deb8c4e3ed0b3cbea05f8c488b943d00bbae41f70355",
+  "tests/test_rules_knowledge_pool78.py": "dd8a9de29047565b21420f9f2b07b37b90d2a7e4f4cae2b3e819e1a4efcfc995",
+  "tests/fixtures/knowledge_pool78_cards.json": "20c88322e3c16dd2e6f9be8f7b5d76c417d75515025b1d91d3f55188616c5a09"
+}

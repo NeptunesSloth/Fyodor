@@ -855,6 +855,9 @@ def fight(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             return True
         pair.append((cid, max(0, ch.pt[0]) if ch.pt is not None else 0))
     (ca, pa), (cb, pb) = pair
+    from app.rules import fight_receipts90
+
+    fight_receipts90.record(plan, [ca, cb])
     fights = (f"{plan.ch(plan.state.cards[ca]).name} fights {plan.ch(plan.state.cards[cb]).name}", [ca, cb])
     if e.get("dealt_as"):  # -- replacement effects stage 2 (wave 2E): "dealt damage this way" --
         ctx.setdefault(DEALT_KEY, {})[e["dealt_as"]] = []
@@ -2876,10 +2879,9 @@ def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import mana  # casting imports this module
 
     pid = ctx["controller"]
-    src = [c for c in _cards(plan, ctx, "self") if plan.state.cards[c].controller == pid]
-    if not src:
-        # it already left — or 701.21a: another player controls it now (echo, "sacrifice ~ unless
-        # you pay" after a control change): it can't be sacrificed, so there's nothing to choose
+    src = [c for c in _cards(plan, ctx, "self") if plan.state.cards[c].controller == pid or e.get('echo_paid76')]
+    if not src and not e.get('echo_paid76'):
+        # Existing non-echo paths require a controlled source; echo's optional original payment is independent.
         return True
     if e["cost"] == "mana_cost":  # -- cost alt (wave 16F) -- "unless you pay its mana cost": what is printed on it (X is 0 off the stack,
         # 202.3e); an object with no mana cost has nothing to pay: it is sacrificed
@@ -2896,10 +2898,11 @@ def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         cost = mana.parse_cost(e["cost"] * n) if n else mana.parse_cost("{0}")
     e = {**e, "cost": cost.text() if not cost.is_free else "{0}"}
     options = [DecisionOption(id="pay", label=f"Pay {cost.text()}"),  # (tap your mana first, then Pay)
-               DecisionOption(id="sacrifice", label=f"Sacrifice {plan.state.cards[src[0]].name}")]
+               DecisionOption(id="sacrifice", label=f"Sacrifice {plan.state.cards[src[0]].name}" if src and plan.state.cards[src[0]].controller == pid else "Don't pay")]
     decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name', '')}: pay {cost.text()} or sacrifice it?",
            options=options, resume={"step": "pay_or_sacrifice", "ctx": ctx, "cost": e["cost"],
-                   **({"purpose_special": "cumulative_upkeep"} if e.get("per") == "age" else {})}, source=plan.state.cards[src[0]])
+                   **({'echo_paid76': True} if e.get('echo_paid76') else {}),
+                   **({"purpose_special": "cumulative_upkeep"} if e.get("per") == "age" else {})}, source=plan.state.cards[src[0]] if src else None)
     return False
 
 
@@ -2918,15 +2921,19 @@ def resume_pay_or_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
             counter_object(plan, sid, d.player, by=ctx["controller"])
         continue_effects(plan, ctx)
         return
-    src = [c for c in _cards(plan, ctx, "self") if plan.state.cards[c].controller == d.player]  # (701.21a)
-    if chosen[0] == "pay" and src:
+    src = [c for c in _cards(plan, ctx, "self") if plan.state.cards[c].controller == d.player or d.resume.get('echo_paid76')]  # (701.21a)
+    if chosen[0] == "pay" and (src or d.resume.get('echo_paid76')):
+        if d.resume.get('echo_paid76'):
+            from app.rules import echo_alternatives76
+
+            echo_alternatives76.insert(ctx, [{'do': 'note_echo_paid76'}])
         cost = mana.parse_cost(d.resume["cost"])
         casting.pay_from_pool_then(plan, d.player, cost, f"paid {cost.text()} for {ctx.get('name', '')}",
                                    then={"do": "continue", "ctx": ctx},
                                    purpose=casting.Purpose(special=d.resume.get("purpose_special")))
         return
     elif src:
-        _sacrifice_cards(plan, src, d.player, ctx)
+        _sacrifice_cards(plan, [c for c in src if plan.state.cards[c].controller == d.player], d.player, ctx)
     continue_effects(plan, ctx)
 
 
@@ -6803,3 +6810,21 @@ from app.rules import nonbattlefield_life_offers86 as _life86  # noqa: E402, I00
 
 PRIMITIVES.update(_life86.PRIMITIVES)
 RESUME.update(_life86.RESUME)
+
+from app.rules import public_mill_costs64 as _public_mill_costs64  # noqa: E402, I001
+
+PRIMITIVES.update(_public_mill_costs64.PRIMITIVES)
+RESUME.update(_public_mill_costs64.RESUME)
+
+from app.rules import knowledge_pool78 as _knowledge_pool78  # noqa: E402, I001
+
+PRIMITIVES.update(_knowledge_pool78.PRIMITIVES)
+
+
+from app.rules import echo_alternatives76 as _echo76  # noqa: E402
+
+PRIMITIVES['echo_payment76'] = _echo76.payment
+
+PRIMITIVES['note_echo_paid76'] = _echo76.note_paid
+
+PRIMITIVES['echo_draws76'] = _echo76.draws

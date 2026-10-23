@@ -1,0 +1,207 @@
+--- /dev/null
++++ b/backend/app/rules/required_keyword79.py
+@@ -0,0 +1,57 @@
++"""A self graveyard permission requires the actual selected native keyword alternative."""
++from __future__ import annotations
++
++import re
++from typing import TYPE_CHECKING, Any
++
++if TYPE_CHECKING:
++    from app.game.state import CardInstance, GameState
++    from app.rules.characteristics import AbilityText, CardInfo, Characteristics
++
++COMPOSITE = {
++    'blitz—{2}{r}{r}, discard a card': ('blitz', 'pay {2}{R}{R} and discard a card'),
++    'blitz—{2}{b}{b}, pay 2 life': ('blitz', 'pay {2}{B}{B} and pay 2 life'),
++    'warp—{b}, pay 2 life': ('warp', 'pay {B} and pay 2 life'),
++    'bestow—{r}, collect evidence 6': ('bestow', 'pay {R} and collect evidence 6'),
++}
++
++
++def composite_kind(line: str) -> str | None:
++    found = COMPOSITE.get(line.lower().strip().rstrip('.'))
++    return found[0] if found is not None else None
++
++
++def keyword_definition(line: str) -> dict[str, Any] | None:
++    from app.rules import alt_costs
++
++    found = COMPOSITE.get(line.lower().strip().rstrip('.'))
++    if found is None:
++        return None
++    tag, cost = found
++    native = alt_costs.define(f"you may {cost} rather than pay ~'s mana cost")
++    return {**native, 'tag': tag, **({'hand_only': True} if tag == 'warp' else {})} if native is not None else None
++
++
++def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | None:
++    m = re.fullmatch(r'You may cast this card from your graveyard using its (blitz|warp|bestow) ability\.', ability.text)
++    if m is None:
++        return None
++    return {'kind': 'static', 'static': 'permission', 'zone': 'graveyard', 'once': False, 'flash': False,
++            'self': True, 'play': False, 'cast': True, 'filter': None, 'required_keyword79': m[1], 'effects': []}
++
++
++def kind(state: GameState, player: str, card: CardInstance, ch: Characteristics) -> str | None:
++    from app.rules import scripts
++
++    if state.rules is None or card.owner != player or card.zone != f'{player}:graveyard':
++        return None
++    return next((d['required_keyword79'] for d in scripts.definitions(ch).values() if d.get('required_keyword79')), None)
++
++
++def selected(state: GameState, player: str, card: CardInstance, ch: Characteristics,
++             info: CardInfo | None, key: str | None) -> str | None:
++    from app.rules import alt_costs
++
++    tag = kind(state, player, card, ch)
++    return tag if tag is not None and key is not None and info is not None and any(
++        offer.key == key and offer.tag == tag for offer in alt_costs.offers(state, player, card, ch, info)) else None
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5785,6 +5785,10 @@
+ 
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import required_keyword79
++
++    if (required79 := required_keyword79.definition(ability, ch)) is not None:
++        return required79
+     from app.rules import linked_owner_cast77
+ 
+     if (admitted62 := linked_owner_cast77.definition(ability, ch)) is not None:
+--- a/backend/app/rules/alt_costs.py
++++ b/backend/app/rules/alt_costs.py
+@@ -52,7 +52,7 @@
+                    r"for (?:(?:a|an) )?(?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spells? you cast"
+                    r"(?P<zone> from your hand| from exile)?(?: with mana value X or less, where X is (?P<mv>.+))?$")
+ _EXILE_HAND = re.compile(r"^Exile (?P<n>a|an|one|two|three) (?P<what>(?:[\w\-]+ )*cards?(?: with mana value \d+ or (?:less|greater))?) from your hand$")
+-_PART_SPLIT = re.compile(r" and (?=(?:pay|exile|sacrifice|return|tap|discard) )")
++_PART_SPLIT = re.compile(r" and (?=(?:pay|exile|sacrifice|return|tap|discard|collect) )")
+ _WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3}
+ 
+ 
+@@ -79,8 +79,11 @@
+     # "tap four untapped creatures you control with flying" (Sephara): the selector grammar reads "… with flying you control"
+     part = re.sub(r"^(Tap \w+ untapped \w+) you control (with [a-z ]+)$", r"\1 \2 you control", part)
+     found = C._component(part, "")
++    if found is None and re.fullmatch(r'Collect evidence \d+', part):
++        parsed = C.parse_ability_cost(part)
++        found = parsed.components[0] if not parsed.unsupported and len(parsed.components) == 1 else None
+     if found is None or found.kind not in (C.PAY_LIFE, C.PAY_ENERGY, C.SACRIFICE, C.RETURN_PERMANENT, C.TAP_OTHER, C.DISCARD,
+-                                           C.EXILE_FROM_GRAVEYARD):
++                                           C.EXILE_FROM_GRAVEYARD, C.COLLECT_EVIDENCE):
+         return None
+     if found.kind not in (C.PAY_LIFE, C.PAY_ENERGY) and (found.selector is None or found.random):
+         return None  # (never the spell itself; a random discard isn't printed on an alternative cost)
+@@ -278,6 +281,10 @@
+ 
+ 
+ def keyword_definition(line: str) -> dict[str, Any] | None:
++    from app.rules import required_keyword79
++
++    if (composite79 := required_keyword79.keyword_definition(line)) is not None:
++        return composite79
+     line = re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".")
+     if (imp := _IMPENDING.fullmatch(line)) is not None and int(imp["n"]) > 0:
+         found = define(f"you may pay {imp['cost']} rather than pay ~'s mana cost")
+@@ -364,7 +371,7 @@
+ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[Offer]:
+     """The alternative costs ``player`` could use to cast this card now (conditions and "once each turn" included;
+     whether the cast is allowed at all and the cost can be paid are the caller's)."""
+-    from app.rules import permissions, scripts
++    from app.rules import permissions, required_keyword79, scripts
+     from app.rules.plan import Plan
+ 
+     r = state.rules
+@@ -376,7 +383,8 @@
+     for index, d in scripts.definitions(ch).items():
+         if d.get("static") != "alt_cost" or d.get("table") or d.get("tag") == CONVERTED:
+             continue
+-        if d.get("hand_only") and card.zone != f"{player}:hand":
++        if d.get("hand_only") and card.zone != f"{player}:hand" and not (
++                d.get("tag") == "warp" and required_keyword79.kind(state, player, card, ch) == "warp"):
+             continue
+         if (d.get("tag") == "foretell") != (card.zone == f"{player}:foretell"):
+             continue  # -- hidden exile (wave 18A) -- 702.143a: a foretold card is cast for its foretell cost only (and it only from there)
+--- a/backend/app/rules/oracle.py
++++ b/backend/app/rules/oracle.py
+@@ -148,6 +148,10 @@
+ 
+ 
+ def _keywords_line(line: str) -> tuple[str, ...] | None:
++    from app.rules.required_keyword79 import composite_kind
++
++    if (composite79 := composite_kind(line)) is not None:
++        return (composite79,)
+     if line == 'Equip {10}. This ability costs {X} less to activate, where X is the power of the creature it targets.':
+         return ('equip',)
+     from app.rules.conditional_own_discounts import flashback_line
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -2712,10 +2712,12 @@
+             and perm.controller == player:
+         how = "prepared"  # -- prepared (wave 13C) -- 722.3c: its controller may cast the copy in exile
+     found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
+-    from app.rules import required_mutate75
++    from app.rules import required_keyword79, required_mutate75
+ 
+     if not free and via is None and slot is None and required_mutate75.selected(state, player, card, ch, info, alternative_key):
+         how = 'mutate'  # Required native alternative; unrelated permissions remain selectable independently.
++    if not free and via is None and slot is None and (required79 := required_keyword79.selected(state, player, card, ch, info, alternative_key)) is not None:
++        how = required79
+     flash = any(g.flash and (free or not g.flash_requires_free) for g in found)
+     if how is None and info is not None and card.zone == zone_key(player, "foretell") and not free and card.owner == player \
+             and _foretell_offers(state, player, card, ch, info):
+@@ -3176,9 +3178,9 @@
+     from app.rules import text_global_word71
+ 
+     ch = text_global_word71.prospective(state, card, ch, info)
+-    from app.rules import required_mutate75
+-
+-    required_mutate = required_mutate75.candidate(state, player, card, ch)
++    from app.rules import required_keyword79, required_mutate75
++
++    required_mutate = required_mutate75.candidate(state, player, card, ch) or required_keyword79.kind(state, player, card, ch) is not None
+     blocked = cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is not None
+     if blocked and not required_mutate and cast_problem(state, player, card, ch, check_priority=check_priority, info=info, sneak=True) is not None:
+         return out
+@@ -6672,7 +6674,7 @@
+ # -- responding -------------------------------------------------------------------------
+ def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
+     """Could ``player`` do anything at instant speed right now? (For Arena-style auto-passing.)"""
+-    from app.rules import required_mutate75
++    from app.rules import required_keyword79, required_mutate75
+     from app.rules.pooled_casting_authorities71 import external_candidates
+ 
+     candidates = [cid for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard"),
+@@ -6682,7 +6684,7 @@
+     for cid in candidates:
+         card = state.cards[cid]
+         ch = chars.of(card, info)
+-        if required_mutate75.candidate(state, player, card, ch):
++        if required_mutate75.candidate(state, player, card, ch) or required_keyword79.kind(state, player, card, ch) is not None:
+             for option in alt_castable(state, player, card, info, check_priority=False):
+                 selected_grant = cast_grant(state, player, card, ch, info, alternative_key=option['id'])
+                 if selected_grant is not None and selected_grant.flash:
+@@ -6690,7 +6692,7 @@
+         if ("Instant" in ch.types or ch.has_flash or _flash_granted(state, player, card, ch, info) or flash_if(ch) is not None) \
+                 and (castable(state, player, card, info, check_priority=False)
+                      or free_castable(state, player, card, info, check_priority=False)
+-                     or (required_mutate75.candidate(state, player, card, ch)
++                     or ((required_mutate75.candidate(state, player, card, ch) or required_keyword79.kind(state, player, card, ch) is not None)
+                          and alt_castable(state, player, card, info, check_priority=False))):
+             return True
+         if any(g.flash and g.flash_requires_free for g in permissions.grants(state, player, card, ch, info, verb="cast")) and free_castable(
+--- a/backend/app/rules/permissions.py
++++ b/backend/app/rules/permissions.py
+@@ -1417,7 +1417,7 @@
+         self_ch = layers.derive(state, card, ch, info) if where == 'exile' and layers.affecting(state, card) else ch
+         for index, d in _definitions(self_ch).items():  # the card's own ability, functioning in the graveyard (113.6) / exile (wave 20D)
+             if d.get("static") == "permission" and d.get("self") and where in d.get("zones", [d["zone"]]):
+-                if d.get('required_mutate75'):
++                if d.get('required_mutate75') or d.get('required_keyword79'):
+                     continue  # This authority exists only for a selected native mutate alternative.
+                 key = f"{card.id}:permission:{index}"
+                 if d["once"] and r.once_per_turn.get(key) == turn:

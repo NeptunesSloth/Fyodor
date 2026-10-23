@@ -1,0 +1,33 @@
+{
+  "id": "393454c2-b256-4a6e-9bc2-56a47cab5073",
+  "oracle_id": "cb53bd72-dee8-46fa-b0f9-1eee3a99379a",
+  "name": "Knowledge Pool",
+  "layout": "normal",
+  "set_code": "mbs",
+  "set_name": "Mirrodin Besieged",
+  "collector_number": "111",
+  "rarity": "rare",
+  "mana_cost": "{6}",
+  "cmc": 6.0,
+  "type_line": "Artifact",
+  "oracle_text": "Imprint \u2014 When this artifact enters, each player exiles the top three cards of their library.\nWhenever a player casts a spell from their hand, that player exiles it. If the player does, they may cast a spell from among other cards exiled with this artifact without paying its mana cost.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "defense": null,
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+    "Imprint"
+  ],
+  "is_token": false,
+  "faces": [],
+  "double_faced": false,
+  "image_faces": 1,
+  "has_image": false,
+  "released_at": "2011-02-04",
+  "artist": "Mike Bierek",
+  "commander_legal": "legal",
+  "related_tokens": [],
+  "related_cards": []
+}

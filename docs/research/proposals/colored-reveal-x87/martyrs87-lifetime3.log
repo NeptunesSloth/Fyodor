@@ -1,0 +1,126 @@
+.F.                                                                      [100%]
+=================================== FAILURES ===================================
+_ test_actual_revealed_card_cast_and_regrown_incarnation_never_changes_frozen_x_or_reveals_new_hand_object _
+
+cards = <app.cards.repository.CardRepository object at 0x7f6892bd4f50>
+
+    def test_actual_revealed_card_cast_and_regrown_incarnation_never_changes_frozen_x_or_reveals_new_hand_object(cards):
+        from app.game.visibility import ALL
+        from app.rules.plan import Plan
+    
+        s = game(cards)
+        hold(s)
+        source = put(s, 'Martyr of Sands', 'battlefield')
+        a = put(s, 'Swords to Plowshares', 'hand')
+        b = put(s, 'Disenchant', 'hand')
+        target = put(s, 'Grizzly Bears', 'battlefield', 'p2')
+        original = s.state.rules.object_id(a.id)
+        ability = activate(s, source, [a, b], mana=1)
+        ability_oid = s.state.rules.object_id(ability.id)
+        wait_priority(s, 'p1')
+        act(s, 'p1', type='add_mana', player='p1', mana={'W': 1})
+        act(s, 'p1', type='cast_spell', card_id=a.id, targets=[target.id], sources=[])
+        resolve_one(s, a.id)
+        assert s.state.cards[a.id].zone == 'p1:graveyard' and ALL not in s.state.cards[a.id].revealed_to
+>       regrowth = cast_pending(s, 'p1', 'Regrowth', [a.id], {'C': 1, 'G': 1})
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+../martyrs87-tests/test_martyrs87.py:295: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../martyrs87-tests/test_martyrs87.py:245: in cast_pending
+    act(s, pid, type='cast_spell', card_id=spell.id, targets=list(targets), sources=[])
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:163: in compile_intent
+    handler(plan, intent)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+plan = <app.rules.plan.Plan object at 0x7f689399a2d0>
+a = CastSpell(actor='p1', ts=1792721883.381303, r=None, mana_symbols=None, flashback_choice=None, type='cast_spell', card_...ker=0, cost_choices=[], alt_cost=None, optional_costs=[], slot=None, via=None, optional_asked=False, life_symbols=None)
+
+    def cast_spell(plan: Plan, a: A.CastSpell) -> None:
+        require_no_decision(plan)
+        card = plan.state.cards.get(a.card_id)
+        if card is None:
+            raise ActionError("That card isn't here any more")
+        if card.zone == zone_key(plan.actor, "graveyard") and a.face is None and not a.fuse and not a.free:  # -- casting extras (wave 18E) -- 702.146a
+            from app.rules import disturb
+    
+            if disturb.cast_face(plan.state, plan.actor, card, plan.info, a.alt_cost):
+                a.face = 1  # cast transformed: the spell is the back face (702.146b, 712.8c)
+        if a.face is None and a.alt_cost is not None and not a.fuse and not a.free and not plan.manual(card):  # -- commanders (wave 50C) -- 702.162a: cast converted = the back face is the spell (701.28a, 712.8c)
+            from app.rules import alt_costs as _converted
+    
+            if any(o.key == a.alt_cost and o.tag == _converted.CONVERTED_TAG for o in _converted.converted_offers(plan.state, plan.actor, card, plan.info)):
+                a.face = 1
+        ch = chars.as_cast(card, plan.info, a.face, a.fuse)  # split cards / adventures: the half being cast
+        from app.rules import text_global_word71
+    
+        global_text_prepared71 = bool(text_global_word71.global_changes(plan.state, card.model_copy(update={'zone': 'stack'}), plan.info))
+        ch = text_global_word71.prospective(plan.state, card, ch, plan.info)
+        from app.rules import paid_effect_costs
+    
+        if paid_effect_costs.announce(plan, a, card, ch):
+            return
+        if a.fuse and (ch.name.count(" // ") != 1 or card.zone != zone_key(plan.actor, "hand")):  # -- static_other sweep (wave 16B) -- 702.102a
+            raise ActionError("Only a split card with fuse can be cast as both halves, from your hand")
+        if a.alt_cost is not None and (a.free or a.evoke or a.dash or a.awaken or a.face_down):  # -- cost changers (wave 4I) --
+            raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
+        if a.free and card.id in plan.rules.free_casts:  # suspend / cascade / rebound / madness: what the engine granted
+            cast_free(plan, card, ch, a)
+            return
+        if a.alt_cost is not None and not plan.manual(card):  # -- keywords (wave 15E) -- bestow 702.103b/d: cast as an Aura spell
+            from app.rules import alt_costs as _alt
+            from app.rules import bestow
+    
+            kinds = {o.tag for o in _alt.offers(plan.state, plan.actor, card, ch, plan.info) if o.key == a.alt_cost}
+            if "overload" in kinds:  # -- casting extras (wave 18E) -- 702.96a: "target" is "each" (no targets, 702.96b)
+                from app.rules import overload
+    
+                ch = overload.overlay(ch)
+            if "cleave" in kinds:  # -- keywords (wave 50H) -- 702.148a: the words in square brackets are removed
+                from app.rules import cleave
+    
+                ch = cleave.overlay(ch)
+            bestowed_cast = "bestow" in kinds
+            sneaking = "sneak" in kinds  # -- keywords (wave 30I) -- 702.190a
+            mutating_cast = "mutate" in kinds  # -- merged permanents (wave 18D) -- 702.140a: a mutating creature spell, targeting a creature
+            if bestowed_cast:
+                ch = bestow.overlay(ch)
+        else:
+            bestowed_cast = mutating_cast = sneaking = False
+        if a.prototype:  # -- casting extras (wave 18E) -- 702.160a / 718.3a: only the alternative cost, power and toughness are used to cast it
+            from app.rules import prototype
+    
+            if a.face_down or a.fuse or prototype.parse(ch) is None or plan.manual(card):
+                raise ActionError(f"{ch.name or 'That card'} has no prototype the engine can cast it with")
+            ch = prototype.overlay(ch)
+        face_down_kind = face_down_cast_kind(ch) if a.face_down else None  # -- keyword actions & face-down (wave 3F) --
+        if a.face_down:  # morph / disguise: a nameless 2/2 creature spell (disguise: with ward {2}) for {3}
+            if face_down_kind is None or card.zone != zone_key(plan.actor, "hand"):
+                raise ActionError("Only a card with morph or disguise can be cast face down from your hand")
+            ch = chars.face_down_characteristics(face_down_kind)
+            # -- granted casts (wave 29B) -- 707.2: a copy of a face-down spell is not face down
+            from app.rules import cast_limits as _limits
+    
+            if not plan.manual(card) and _limits.granted_cascade(plan, card.id, ch, "hand", "storm"):
+                raise ActionError("A face-down spell that is given storm isn't automated (its copies are face-up 2/2 creature spells): cast it face up")
+        # 601.3d / 601.2g: mana abilities may remove a conditional timing source after this announcement was legal.
+        # Only a server-created payment resume can authorize its original object; new casts and new incarnations cannot.
+        timing_locked = plan.locked_cast_timing == plan.oid(card)
+        problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free, sneak=sneaking or timing_locked, announced=True, alternative_key=a.alt_cost, optional_keys=tuple(a.optional_costs))
+        if problem:
+>           raise ActionError(problem)
+E           app.game.errors.ActionError: Regrowth can only be cast while the stack is empty
+
+app/rules/casting.py:3451: ActionError
+=========================== short test summary info ============================
+FAILED ../../workspace/Fyodor/backend::test_actual_revealed_card_cast_and_regrown_incarnation_never_changes_frozen_x_or_reveals_new_hand_object
+1 failed, 2 passed, 18 deselected in 17.12s

@@ -1,0 +1,10 @@
+{
+  "app/rules/required_keyword79.py": "930d311798ccfcdf55060a10d3f88e8b3a942525fec3336cbb7cc4535e251edf",
+  "app/rules/scripts.py": "98f9b63ba86b3409757d1631a9cf1fb5ce360d27d250b7b2b5ef4063475c9e68",
+  "app/rules/alt_costs.py": "26f144737193571917ba8bbac5543966cc4cc802df652e73c312cbef5cf73d37",
+  "app/rules/oracle.py": "8e8974981d6e5c869f2a6405656b9721ef470cdb4b848dfde8b11e9332c0165c",
+  "app/rules/casting.py": "2d2fbe84a52f1acb9b510090064cdaba15e33afcb280ee1d55897aef1ef28bf1",
+  "app/rules/permissions.py": "fb2a8443184fc0c6250ecba2534df1d20df32aa4a5229b183484d1cf78c1b844",
+  "tests/test_rules_required_keyword79.py": "22bb3baf8d9b0441b68ffe3b2fec28ee8ccea951c0a1f4fb5ed6a300ef47bb74",
+  "tests/fixtures/required_keyword79_cards.json": "16108398e048ce494f89c848e47f895e48e0c64fd1344e97ad3d180fb7cd7f10"
+}

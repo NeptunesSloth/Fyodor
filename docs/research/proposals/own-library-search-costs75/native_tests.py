@@ -239,3 +239,111 @@ GameState.model_validate_json(s.state.model_dump_json())
 '''
     run=subprocess.run([sys.executable,'-c',code,str(saved),str(cards.db_path),source.id],capture_output=True,text=True,env=os.environ.copy())
     assert run.returncode==0,run.stdout+run.stderr
+
+
+def legacy(s,cards):
+    from app.game.session import GameSession
+    from app.game.state import GameState
+    old=s.state.model_dump(mode='json')
+    old['rules']['turn_log'].pop('searched_own_library75',None)
+    old['rules']['turn_log'].pop('search_history75_known',None)
+    s=GameSession(GameState.model_validate(old),cards=cards)
+    s.view('p3')
+    s.view('p1')
+    assert s.state.rules.turn_log.search_history75_known is None
+    return s
+
+
+def test_legacy_unknown_selected_alternative_has_explicit_atomic_manual_guard_but_normal_paid_cast_works(cards):
+    s,source=setup(cards)
+    search(s)
+    s=legacy(s,cards)
+    wait_priority(s,'p1')
+    before=s.state.model_dump_json()
+    with pytest.raises(ActionError,match='unknown.*manually'):
+        alt(s,source)
+    assert s.state.model_dump_json()==before
+    act(s,'p1',type='add_mana',player='p1',mana={'C':3,'U':2})
+    act(s,'p1',type='cast_spell',card_id=source.id,targets=['p3'],sources=[])
+    answer(s)
+    assert s.state.cards[source.id].zone=='p1:graveyard'
+
+
+def test_legacy_unknown_positive_actual_opponent_search_is_sufficient_without_faking_known_history(cards):
+    s,source=setup(cards)
+    s=legacy(s,cards)
+    search(s,none=True)
+    assert s.state.rules.turn_log.search_history75_known is None
+    assert s.state.rules.turn_log.searched_own_library75==['p2']
+    alt(s,source)
+    answer(s)
+    assert s.state.cards[source.id].zone=='p1:graveyard'
+
+
+def test_legacy_unknown_own_search_does_not_erase_missing_opponent_history(cards):
+    s,source=setup(cards,own=True)
+    s=legacy(s,cards)
+    search(s,pid='p1')
+    assert s.state.rules.turn_log.search_history75_known is None
+    assert s.state.rules.turn_log.searched_own_library75==['p1']
+    wait_priority(s,'p1')
+    with pytest.raises(ActionError,match='unknown.*manually'):
+        alt(s,source)
+
+
+def test_native_next_turn_establishes_known_empty_after_legacy_unknown(cards):
+    s,source=setup(cards)
+    s=legacy(s,cards)
+    to_phase(s,'main1',6)
+    assert s.state.rules.turn_log.search_history75_known is True
+    assert not s.state.rules.turn_log.searched_own_library75
+    wait_priority(s,'p1')
+    with pytest.raises(ActionError) as got:
+        alt(s,source)
+    assert 'unknown' not in str(got.value)
+
+
+def test_true_cold_old_save_manual_guard_and_normal_paid_cast(cards,tmp_path):
+    import os
+    import subprocess
+    import sys
+    s,source=setup(cards)
+    search(s)
+    old=s.state.model_dump(mode='json')
+    old['rules']['turn_log'].pop('searched_own_library75',None)
+    old['rules']['turn_log'].pop('search_history75_known',None)
+    saved=tmp_path/'old.json'
+    saved.write_text(json.dumps(old))
+    code='''
+import sys
+from pathlib import Path
+from app.cards.images import ImageStore
+from app.cards.repository import CardRepository
+from app.game.session import GameSession
+from app.game.state import GameState
+from app.game.errors import ActionError
+from tests.test_rules_activated_copy_family import answer
+from tests.test_rules_bandmate_references import wait_priority
+from tests.game_helpers import act
+saved,database,cid=sys.argv[1:]
+repo=CardRepository(Path(database),ImageStore(Path(database).parent/'images'))
+s=GameSession(GameState.model_validate_json(Path(saved).read_text()),cards=repo)
+s.view('p3')
+s.view('p1')
+assert s.state.rules.turn_log.search_history75_known is None
+wait_priority(s,'p1')
+before=s.state.model_dump_json()
+try:
+ act(s,'p1',type='cast_spell',card_id=cid,alt_cost=f'{cid}:0',targets=['p3'],sources=[])
+except ActionError as e:
+ assert 'unknown' in str(e) and 'manually' in str(e)
+else: raise AssertionError('Legacy history must not silently become known none')
+assert s.state.model_dump_json()==before
+act(s,'p1',type='add_mana',player='p1',mana={'C':3,'U':2})
+act(s,'p1',type='cast_spell',card_id=cid,targets=['p3'],sources=[])
+answer(s)
+assert s.state.cards[cid].zone=='p1:graveyard'
+GameState.model_validate_json(s.state.model_dump_json())
+'''
+    run=subprocess.run([sys.executable,'-c',code,str(saved),str(cards.db_path),source.id],capture_output=True,text=True,env=os.environ.copy())
+    assert run.returncode==0,run.stdout+run.stderr
