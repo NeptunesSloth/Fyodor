@@ -483,6 +483,9 @@ def choice_needed(plan: Plan, card: CardInstance, entry: Entry) -> dict[str, Any
     """The choice a permanent's own "As ~ enters, you may …" asks for before it enters (614.12a)."""
     if not plan.state.players.get(entry["player"]):
         return None
+    from app.rules import face_down_entries64
+
+    card = face_down_entries64.probe(plan, card, entry)
     if entry.get("modal_back"):  # -- play now (wave 28A) -- 712.12: the land face chosen enters face up, so its replacements apply
         card = card.model_copy(update={"face": 1})
     return entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped")),
@@ -748,6 +751,9 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
         card = plan.state.cards.get(entry["card"])
         if card is None or any(card.id == c.id for _, c, _ in planned):
             continue
+        from app.rules import face_down_entries64
+
+        card = face_down_entries64.probe(plan, card, entry)
         # (-- transform, wave 11A -- 712.14a: it enters with its back face up, so that face's replacement effects apply)
         planned.append((entry, card, entry_plan(plan, card.model_copy(update={"face": 1}) if entry.get("transformed") or entry.get("modal_back") else card,
                                                  entry["player"], pay_life=entry.get("pay_life"),
@@ -812,6 +818,9 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
     first = planned[0][0]
     payload: dict[str, Any] = {"type": "move", "card_ids": [c.id for _, c, _ in planned],
                                "to": {"player": first["player"], "zone": "battlefield"}}
+    from app.rules import face_down_entries64
+
+    face_down_entries64.payload([entry for entry, _, _ in planned], payload)
     forms = {c.id: e["entry_characteristics"] for e, c, _ in planned if e.get("entry_characteristics")}
     if forms:
         payload["entry_characteristics"] = forms

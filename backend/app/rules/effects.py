@@ -6747,3 +6747,25 @@ RESUME.update(_grave_adventure74.RESUME)
 from app.rules import target_duration_costs69 as _target_duration69  # noqa: E402
 
 PRIMITIVES.update(_target_duration69.PRIMITIVES)
+
+from app.rules import attack_subjects86 as _attack_subjects86  # noqa: E402, I001
+
+PRIMITIVES.update(_attack_subjects86.PRIMITIVES)
+
+from app.rules import teferi_realm84 as _teferi_realm84  # noqa: E402, I001
+
+PRIMITIVES.update(_teferi_realm84.PRIMITIVES)
+
+from app.rules import source_cohort87 as _source_cohort87  # noqa: E402, I001
+
+PRIMITIVES.update(_source_cohort87.PRIMITIVES)
+
+from app.rules import cyber_controller63 as _cyber_controller63  # noqa: E402, I001
+
+PRIMITIVES.update(_cyber_controller63.PRIMITIVES)
+CHOICE_OPTIONS[_teferi_realm84.WHAT] = list(_teferi_realm84.CHOICES)
+
+from app.rules import permanent_payments83 as _permanent83  # noqa: E402, I001
+
+PRIMITIVES.update(_permanent83.PRIMITIVES)
+RESUME.update(_permanent83.RESUME)

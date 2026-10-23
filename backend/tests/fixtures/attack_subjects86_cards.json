@@ -1,0 +1,52 @@
+[
+  {
+    "name": "Canal Courier",
+    "mana_cost": "{5}{U}",
+    "cmc": 6.0,
+    "type_line": "Creature \u2014 Human Rogue",
+    "oracle_text": "When this creature enters, you become the monarch.\nWhenever this creature and another creature attack different players, this creature can't be blocked this combat.",
+    "power": "3",
+    "toughness": "5",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": []
+  },
+  {
+    "name": "Creepy Puppeteer",
+    "mana_cost": "{3}{R}",
+    "cmc": 4.0,
+    "type_line": "Creature \u2014 Human Rogue",
+    "oracle_text": "Haste\nWhenever this creature attacks, if you attacked with exactly one other creature this combat, you may have that creature's base power and toughness become 4/3 until end of turn.",
+    "power": "4",
+    "toughness": "3",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Haste"
+    ]
+  },
+  {
+    "name": "Ballroom Brawlers",
+    "mana_cost": "{3}{W}{W}",
+    "cmc": 5.0,
+    "type_line": "Creature \u2014 Human Warrior",
+    "oracle_text": "Whenever this creature attacks, this creature and up to one other target creature you control both gain your choice of first strike or lifelink until end of turn.",
+    "power": "3",
+    "toughness": "5",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": []
+  }
+]

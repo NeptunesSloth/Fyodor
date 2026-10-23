@@ -3961,7 +3961,7 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
             after = pc.continuation(plan, 'post_cast', data)
             opponent_gain_costs44.start(plan, opponent_gain_costs44.GainLifeCosts(gains, after, payment))
             return  # Native completion or saved replacement continuation owns the rest.
-        expected = [(add_objects[i][0], c.amount) for i, c in enumerate(add_cost.components) if c.kind == costs.OPPONENT_GAIN_LIFE]
+        expected = [(pid, c.amount) for i, c in enumerate(add_cost.components) if c.kind == costs.OPPONENT_GAIN_LIFE for pid in add_objects[i]]
         if [(r.recipient, r.nominal_amount) for r in data.opponent_gain_receipts] != expected:
             raise ActionError('The opponent-gain cost has not been paid')
         record.opponent_gain_costs = list(data.opponent_gain_receipts)

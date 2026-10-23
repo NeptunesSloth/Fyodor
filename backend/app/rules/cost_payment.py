@@ -1006,7 +1006,9 @@ def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list
     player = plan.actor
     x = record.x or 0
     if comp.kind == C.OPPONENT_GAIN_LIFE:
-        if len(ids) != 1 or not any(r.recipient == ids[0] and r.nominal_amount == comp.amount for r in record.opponent_gain_costs):
+        if ((comp.gain_scope != 'each_other_player' and len(ids) != 1)
+                or len(ids) != len(set(ids))
+                or any(not any(r.recipient == pid and r.nominal_amount == comp.amount for r in record.opponent_gain_costs) for pid in ids)):
             raise ActionError('The opponent-gain cost has not been paid')
         return True
     if comp.kind == C.REMOVE_COUNTER and (comp.counter == C.ANY_COUNTER or comp.among):  # (among: wave 26C)

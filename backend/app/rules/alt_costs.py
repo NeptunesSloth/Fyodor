@@ -63,6 +63,8 @@ def _part(text: str, x_ok: bool = False) -> C.CostComponent | str | None:
 
     if (gain_cost := opponent_gain_costs44.component(text)) is not None:
         return gain_cost
+    if text == "reveal your hand":
+        return C.CostComponent("REVEAL_HAND", text=text)
     part = text[:1].upper() + text[1:]
     m = re.fullmatch(r"Pay (?P<mana>(?:\{[^}]+\})+)", part)
     if m:
@@ -137,6 +139,11 @@ def parse_cost(text: str, x_ok: bool = False) -> AltCost | None:
 def _cond(text: str | None) -> Any:
     if text is None:
         return None
+    if text == "you have no land cards in hand":
+        from app.rules.selectors import Selector
+
+        return {"value": {"count": Selector(card=True, zones=("hand",), zone_owner="you", types=("Land",)).key()},
+                "op": "==", "n": 0}
     cond = conditions.parse(text)
     if cond is None or "succeeded" in cond:
         raise ValueError(text)

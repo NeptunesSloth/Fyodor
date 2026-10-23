@@ -2653,6 +2653,14 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import permanent_payments83
+
+    if (permanent83 := permanent_payments83.parse(body)) is not None:
+        return permanent83
+    from app.rules import cyber_controller63
+
+    if (cyber63 := cyber_controller63.parse(body)) is not None:
+        return cyber63
     from app.rules import post_mill_continuations60
 
     if (admitted := post_mill_continuations60.parse(body)) is not None:
@@ -5761,6 +5769,18 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import source_cohort87
+
+    if (admitted61 := source_cohort87.definition(ability, ch)) is not None:
+        return admitted61
+    from app.rules import teferi_realm84
+
+    if (admitted61 := teferi_realm84.definition(ability, ch)) is not None:
+        return admitted61
+    from app.rules import attack_subjects86
+
+    if (admitted61 := attack_subjects86.definition(ability, ch)) is not None:
+        return admitted61
     from app.rules import required_mutate75
 
     if (mutate75 := required_mutate75.definition(ability, ch)) is not None:

@@ -15,7 +15,7 @@ Current resumed ownership (checkpoint60 verified; next candidates isolated):
 - `payment83`: manual mana-ability payment availability and Fade Away85; Killing Wave83 under LKI/World review, Tariff84 held on payment foundation.
 - `world81`: Winter's Night85 after closing Teferi's Realm84; World foundation/Chaos/upkeep candidates in frozen60.
 
-Checkpoint59 verifies42 additions on857 frozen modules; target327/1,500. Later proposals remain excluded until root integration and the next frozen audit. All six owners automatically advance coherent groups after handing off a closed manifest.
+Checkpoint60 verifies19 additions on868 frozen modules; target346/1,500. Later proposals remain excluded until root integration and the next frozen audit. All six owners automatically advance coherent groups after handing off a closed manifest.
 
 Historical ownership:
 
@@ -30,4 +30,4 @@ After each batch, send the exact completed-card manifest, native whole-card/nega
 
 Each production admission requires the exact reviewed source, native whole-card and negative proofs, genuine cold continuation where applicable, and related checks. Production closures after checkpoint50 remain uncounted until the next frozen catalog diff.
 
-Current live worker names are the six resumed owners listed above. Checkpoint59 verifies42 additional promotions; target progress327/1,500. Later batches stay uncounted until their snapshot diff. Root remains active across checkpoints and status questions.
+Current live worker names are the six resumed owners listed above. Checkpoint60 verifies19 additional promotions; target progress346/1,500. Later batches stay uncounted until their snapshot diff. Root remains active across checkpoints and status questions.

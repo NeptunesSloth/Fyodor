@@ -318,13 +318,16 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
     rest continue on resume, then ``shuffle``'s library is shuffled — "put it onto the battlefield,
     then shuffle" — and ``ctx``'s effects go on)."""
     from app.rules import characteristics as chars
-    from app.rules import copying, replacements
+    from app.rules import copying, face_down_entries64, replacements
 
+    face_down_entries64.validate(plan, entries)
     for back in (e for e in entries if e.get("to") == "hand"):  # -- resolution memory (wave 22D) -- 610.3: exiled from a hand, returns there
         plan.do({"type": "move", "card_ids": [back["card"]], "to": {"player": back["player"], "zone": "hand"}}, actor=back["actor"])
     entries = [dict(e) for e in entries if e.get("to") != "hand"]
     for i, entry in enumerate(entries):
         card = plan.state.cards.get(entry["card"])
+        if card is not None:
+            card = face_down_entries64.probe(plan, card, entry)
         if card is not None and entry.get("transformed") and not chars.transformable(card, plan.info):
             entry["stays"] = True  # -- transform (wave 11A) -- 712.14a: a card that isn't a double-faced card stays where it is
         if card is None or entry.get("stays"):

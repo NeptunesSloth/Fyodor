@@ -1524,6 +1524,10 @@ def bind_objects(cond: Condition, who: str) -> Condition:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if cond.get('attack_pair_players86') or cond.get('attack_other_exact86'):
+        from app.rules import attack_subjects86
+
+        return attack_subjects86.holds(plan, ctx, cond)
     if cond.get('crewed_by_source84'):
         from app.rules import crewed_attacks84
 

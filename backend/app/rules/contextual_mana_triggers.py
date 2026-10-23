@@ -28,6 +28,12 @@ def definition(text: str) -> dict[str, Any] | None:
                 'extra': [['U']], 'staged': True, 'snow_extra': True,
                 'only': M.spend_kind('Spend this mana only to pay cumulative upkeep costs'),
                 'effects': [], 'optional': False, 'target': None}
+    if text == ("Whenever a player taps a snow land for mana, that player adds one mana of any type that land produced. "
+                "That land doesn't untap during its controller's next untap step."):
+        return {'kind': 'triggered', 'trigger': 'tap_for_mana', 'who': 'any',
+                'sel': selectors.Selector(types=('Land',), supertypes=('Snow',)).key(),
+                'extra': 'produced', 'staged': True, 'body': 'winter_stay85',
+                'effects': [], 'optional': False, 'target': None}
     if text == 'Whenever a player taps a Mountain, Forest, or Plains for mana, that player adds one mana of any type that land produced.':
         sel = selectors.Selector(types=('Land',), subtypes=('Mountain', 'Forest', 'Plains'))
         return {'kind': 'triggered', 'trigger': 'tap_for_mana', 'who': 'any', 'sel': sel.key(),
@@ -206,6 +212,15 @@ def add_extra(plan: Plan, data: dict[str, Any], extra: dict[str, Any], option: l
         reveal_mana._add(plan, data['controller'], option, ctx)
         emit(plan.state, 'mana_added', object_id=ctx['source_object'], card=ctx['source_card'],
              player=data['controller'], amount=len(option))
+    if extra.get('body') == 'winter_stay85':
+        ctx = {'kind': 'mana', 'controller': extra['owner'], 'source_card': extra.get('source'),
+               'source_object': extra.get('oid'), 'name': extra['name'], 'next': 0, 'targets': [],
+               'refs': {'winter_land85': {'kind': 'objects', 'objects': [
+                   {'card': extra['land']['id'], 'object_id': extra['land_oid'], 'zone': 'battlefield'}]}},
+               'effects': [{'do': 'stay_tapped', 'who': 'ref:winter_land85', 'during': 'controller'}],
+               'body_done': {'do': 'staged_mana_extras', 'data': data}}
+        effects.continue_effects(plan, ctx)
+        return
     if extra.get('body'):
         source_card, source_oid = extra.get('source'), extra.get('oid')
         if extra['body'] == 'land_damage':

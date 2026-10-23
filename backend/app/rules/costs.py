@@ -127,6 +127,7 @@ class CostComponent:
     names: str | None = None  # CR 201.2a–b: a constraint on the entire chosen payment group
     all_objects: bool = False  # Every matching controlled permanent, including an empty set.
     amount_rule: Literal["opponents"] | None = None  # Bound when the actual activation total is determined.
+    gain_scope: Literal["each_other_player"] | None = None  # Nominal life-gain cost paid to every other live player.
 
     @property
     def chosen(self) -> bool:
