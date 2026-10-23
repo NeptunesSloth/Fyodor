@@ -2790,14 +2790,15 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "hand"}}, actor=ctx["controller"])
         _moved(plan, ctx, e, before)
         return True
-    if e.get("face_down"):  # -- hidden exile (wave 18A) -- 708.4: enters face down (a 2/2 creature; turned up with its morph cost)
-        from app.rules import facedown
+    if e.get("face_down"):
+        from app.rules import face_down_entries64
 
-        for cid in cards:
-            facedown.put_face_down(plan, cid, ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
-                                   "generic", actor=ctx["controller"], spec=e.get("spec"))
-        _moved(plan, ctx, e, before)
-        return True
+        entries = face_down_entries64.prepare(plan, cards, ctx["controller"], under_you=e.get("under") == "you",
+                                              spec=e.get("spec"), tapped=bool(e.get("tapped")))
+        done = attachments.enter(plan, entries, ctx)
+        if done:
+            _moved(plan, ctx, e, before)
+        return done
     from app.rules import conditions as entry_conditions
 
     entry_counter_applies = not e.get('counter_condition') or entry_conditions.holds(plan, ctx, e['counter_condition'])

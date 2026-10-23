@@ -1,0 +1,235 @@
+bringing up nodes...
+bringing up nodes...
+
+........................................................................ [ 54%]
+........................FF....FF......F............F........             [100%]
+=================================== FAILURES ===================================
+____________ test_native_two_cybermen_are_one_artifact_entry_event _____________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7fdeb27c1070>
+
+    def test_native_two_cybermen_are_one_artifact_entry_event(cards):
+        from app.rules import coverage
+        s=setup(cards)
+        assert coverage.of_card_data(cards.resolve('Ingenious Artillerist')).level=='FULL'
+        art=put(s,'Ingenious Artillerist','battlefield')
+        top_for(s,['Grizzly Bears'],'p2')
+        top_for(s,['Hill Giant'],'p3')
+        source=put(s,'The Cyber-Controller','hand')
+        act(s,'p1',type='cast_spell',card_id=source.id,sources=[],x_value=1)
+        seen={}
+        for _ in range(100):
+            for key,e in s.state.rules.stack.items():
+                if e.source_card==art.id and e.event is not None:
+                    seen[key]=e.event.count
+            d=s.state.rules.decision
+            if d is not None:
+                assert d.kind=='order',(d.kind,d.prompt)
+                act(s,d.player,type='choose',decision_id=d.id,option_ids=[o.id for o in d.options])
+            elif s.state.zones.get('stack'):
+                act(s,s.state.rules.priority,type='pass_priority')
+            else:
+                break
+>       assert sorted(seen.values())==[1,2],seen
+E       AssertionError: {'bc995b0bc601': 1, 'e44777cd8f15': 1, '1d2a91f7380e': 1}
+E       assert [1, 1, 1] == [1, 2]
+E
+E         At index 1 diff: 1 != 2
+E         Left contains one more item: 1
+E         Use -v to get more diff
+
+/tmp/fyodor-next61-review/backend/tests/test_rules_cyber_controller63.py:246: AssertionError
+________ test_native_cyber_counter_entry_choices_finish_before_returns _________
+[gw1] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7fdeb1358ce0>
+
+    def test_native_cyber_counter_entry_choices_finish_before_returns(cards):
+        s=setup(cards)
+        put(s,'Grumgully, the Generous','battlefield')
+        put(s,'Hardened Scales','battlefield')
+        put(s,'Doubling Season','battlefield')
+        top_for(s,['Grizzly Bears'],'p2')
+        top_for(s,['Hill Giant'],'p3')
+        source=put(s,'The Cyber-Controller','hand')
+        act(s,'p1',type='cast_spell',card_id=source.id,sources=[],x_value=1)
+        entry_choices=0
+        for _ in range(120):
+            d=s.state.rules.decision
+            if d is not None:
+                if d.kind=='order':
+                    ids=[o.id for o in d.options]
+                else:
+                    labels=[o.label for o in d.options]
+                    assert any('Hardened Scales' in label for label in labels),(d.kind,d.prompt,labels)
+                    entry_choices+=1
+                    if source.zone=='p1:battlefield':
+                        assert not any(c.face_down and c.zone=='p1:battlefield' for c in s.state.cards.values())
+                        assert sum(c.name in ('Grizzly Bears','Hill Giant') and c.zone.endswith(':graveyard') for c in s.state.cards.values())==2
+                    ids=[next(o.id for o in d.options if 'Hardened Scales' in o.label)]
+                act(s,d.player,type='choose',decision_id=d.id,option_ids=ids)
+            elif s.state.zones.get('stack'):
+                act(s,s.state.rules.priority,type='pass_priority')
+            else:
+                break
+>       assert entry_choices==3,entry_choices
+E       AssertionError: 1
+E       assert 1 == 3
+
+/tmp/fyodor-next61-review/backend/tests/test_rules_cyber_controller63.py:279: AssertionError
+____ test_native_owner_conceding_during_entry_choice_skips_only_their_card _____
+[gw2] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7f6c93429400>
+
+    def test_native_owner_conceding_during_entry_choice_skips_only_their_card(cards):
+        s=setup(cards)
+        put(s,'Grumgully, the Generous','battlefield')
+        put(s,'Hardened Scales','battlefield')
+        put(s,'Doubling Season','battlefield')
+        original=top_for(s,['Grizzly Bears'],'p2')[0]
+        top_for(s,['Hill Giant'],'p3')
+        source=put(s,'The Cyber-Controller','hand')
+        act(s,'p1',type='cast_spell',card_id=source.id,sources=[],x_value=1)
+        for _ in range(80):
+            d=s.state.rules.decision
+            if d is not None:
+                if source.zone=='p1:battlefield' and d.resume.get('step')=='enter_choice':
+                    break
+                act(s,d.player,type='choose',decision_id=d.id,option_ids=[next(o.id for o in d.options if 'Hardened Scales' in o.label)])
+            else:
+                act(s,s.state.rules.priority,type='pass_priority')
+        act(s,'p2',type='concede')
+        for _ in range(60):
+            d=s.state.rules.decision
+            if d is not None:
+                act(s,d.player,type='choose',decision_id=d.id,option_ids=[next(o.id for o in d.options if 'Hardened Scales' in o.label)])
+            elif s.state.zones.get('stack'):
+                act(s,s.state.rules.priority,type='pass_priority')
+            else:
+                break
+        bodies=[c for c in s.state.cards.values() if c.face_down and c.zone=='p1:battlefield']
+>       assert original.zone=='p2:graveyard'
+E       AssertionError: assert 'p2:battlefield' == 'p2:graveyard'
+E
+E         - p2:graveyard
+E         + p2:battlefield
+
+/tmp/fyodor-next61-review/backend/tests/test_rules_cyber_controller63.py:396: AssertionError
+_ test_true_cold_pending_face_down_entry_orders_are_atomic_and_original[valid] _
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7fed2708e510>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-6703/popen-gw0/test_true_cold_pending_face_do0')
+mode = 'valid'
+
+    @pytest.mark.parametrize('mode',['valid','reincarnated','missing'])
+    def test_true_cold_pending_face_down_entry_orders_are_atomic_and_original(cards,tmp_path,mode):
+        import os
+        import subprocess
+        import sys
+
+        import app
+        s=setup(cards)
+        put(s,'Grumgully, the Generous','battlefield')
+        put(s,'Hardened Scales','battlefield')
+        put(s,'Doubling Season','battlefield')
+        original=top_for(s,['Grizzly Bears'],'p2')[0]
+        top_for(s,['Hill Giant'],'p3')
+        source=put(s,'The Cyber-Controller','hand')
+        act(s,'p1',type='cast_spell',card_id=source.id,sources=[],x_value=1)
+        for _ in range(80):
+            d=s.state.rules.decision
+            if d is not None:
+                if source.zone=='p1:battlefield' and d.resume.get('step')=='enter_choice':
+                    break
+                assert d.kind=='choose_one'
+                act(s,d.player,type='choose',decision_id=d.id,option_ids=[next(o.id for o in d.options if 'Hardened Scales' in o.label)])
+            else:
+                act(s,s.state.rules.priority,type='pass_priority')
+        else:
+>           raise AssertionError('No pending Cyberman entry choice')
+E           AssertionError: No pending Cyberman entry choice
+
+/tmp/fyodor-next61-review/backend/tests/test_rules_cyber_controller63.py:310: AssertionError
+_ test_true_cold_pending_face_down_entry_orders_are_atomic_and_original[reincarnated] _
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7fed263b9d30>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-6703/popen-gw0/test_true_cold_pending_face_do1')
+mode = 'reincarnated'
+
+    @pytest.mark.parametrize('mode',['valid','reincarnated','missing'])
+    def test_true_cold_pending_face_down_entry_orders_are_atomic_and_original(cards,tmp_path,mode):
+        import os
+        import subprocess
+        import sys
+
+        import app
+        s=setup(cards)
+        put(s,'Grumgully, the Generous','battlefield')
+        put(s,'Hardened Scales','battlefield')
+        put(s,'Doubling Season','battlefield')
+        original=top_for(s,['Grizzly Bears'],'p2')[0]
+        top_for(s,['Hill Giant'],'p3')
+        source=put(s,'The Cyber-Controller','hand')
+        act(s,'p1',type='cast_spell',card_id=source.id,sources=[],x_value=1)
+        for _ in range(80):
+            d=s.state.rules.decision
+            if d is not None:
+                if source.zone=='p1:battlefield' and d.resume.get('step')=='enter_choice':
+                    break
+                assert d.kind=='choose_one'
+                act(s,d.player,type='choose',decision_id=d.id,option_ids=[next(o.id for o in d.options if 'Hardened Scales' in o.label)])
+            else:
+                act(s,s.state.rules.priority,type='pass_priority')
+        else:
+>           raise AssertionError('No pending Cyberman entry choice')
+E           AssertionError: No pending Cyberman entry choice
+
+/tmp/fyodor-next61-review/backend/tests/test_rules_cyber_controller63.py:310: AssertionError
+_ test_true_cold_pending_face_down_entry_orders_are_atomic_and_original[missing] _
+[gw0] linux -- Python 3.12.14 /workspace/Fyodor/backend/.venv/bin/python
+
+cards = <app.cards.repository.CardRepository object at 0x7fed2708fce0>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-6703/popen-gw0/test_true_cold_pending_face_do2')
+mode = 'missing'
+
+    @pytest.mark.parametrize('mode',['valid','reincarnated','missing'])
+    def test_true_cold_pending_face_down_entry_orders_are_atomic_and_original(cards,tmp_path,mode):
+        import os
+        import subprocess
+        import sys
+
+        import app
+        s=setup(cards)
+        put(s,'Grumgully, the Generous','battlefield')
+        put(s,'Hardened Scales','battlefield')
+        put(s,'Doubling Season','battlefield')
+        original=top_for(s,['Grizzly Bears'],'p2')[0]
+        top_for(s,['Hill Giant'],'p3')
+        source=put(s,'The Cyber-Controller','hand')
+        act(s,'p1',type='cast_spell',card_id=source.id,sources=[],x_value=1)
+        for _ in range(80):
+            d=s.state.rules.decision
+            if d is not None:
+                if source.zone=='p1:battlefield' and d.resume.get('step')=='enter_choice':
+                    break
+                assert d.kind=='choose_one'
+                act(s,d.player,type='choose',decision_id=d.id,option_ids=[next(o.id for o in d.options if 'Hardened Scales' in o.label)])
+            else:
+                act(s,s.state.rules.priority,type='pass_priority')
+        else:
+>           raise AssertionError('No pending Cyberman entry choice')
+E           AssertionError: No pending Cyberman entry choice
+
+/tmp/fyodor-next61-review/backend/tests/test_rules_cyber_controller63.py:310: AssertionError
+=========================== short test summary info ============================
+FAILED ../../../tmp/fyodor-next61-review/backend/tests/test_rules_cyber_controller63.py::test_native_two_cybermen_are_one_artifact_entry_event
+FAILED ../../../tmp/fyodor-next61-review/backend/tests/test_rules_cyber_controller63.py::test_native_cyber_counter_entry_choices_finish_before_returns
+FAILED ../../../tmp/fyodor-next61-review/backend/tests/test_rules_cyber_controller63.py::test_native_owner_conceding_during_entry_choice_skips_only_their_card
+FAILED ../../../tmp/fyodor-next61-review/backend/tests/test_rules_cyber_controller63.py::test_true_cold_pending_face_down_entry_orders_are_atomic_and_original[valid]
+FAILED ../../../tmp/fyodor-next61-review/backend/tests/test_rules_cyber_controller63.py::test_true_cold_pending_face_down_entry_orders_are_atomic_and_original[reincarnated]
+FAILED ../../../tmp/fyodor-next61-review/backend/tests/test_rules_cyber_controller63.py::test_true_cold_pending_face_down_entry_orders_are_atomic_and_original[missing]
+6 failed, 126 passed in 489.68s (0:08:09)
