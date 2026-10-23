@@ -1,0 +1,42 @@
+{
+  "baseline": "checkpoint62",
+  "checkpoint": "checkpoint63",
+  "database_metadata_equal": true,
+  "card_name_set_equal": true,
+  "summary": {
+    "FULL": 29867,
+    "PARTIAL": 2201
+  },
+  "promotions": [
+    "Archive Trap",
+    "Barrowgoyf",
+    "Boxing Ring",
+    "Bride's Gown",
+    "Burden of Proof",
+    "Detective's Phoenix",
+    "Foe-Razer Regent",
+    "Groom's Finery",
+    "Knowledge Pool",
+    "Martyr of Ashes",
+    "Martyr of Bones",
+    "Martyr of Frost",
+    "Martyr of Sands",
+    "Martyr of Spores",
+    "Mungha Wurm",
+    "Neyith of the Dire Hunt",
+    "Phoenix Fleet Airship",
+    "Sabin, Master Monk",
+    "Shah of Naar Isle",
+    "So Tiny",
+    "Storage Matrix",
+    "Tek",
+    "Tenacious Underdog",
+    "Tetzin, Gnome Champion // The Golden-Gear Colossus",
+    "Thick-Skinned Goblin",
+    "Timeline Culler",
+    "Tribal Golem"
+  ],
+  "regressions": [],
+  "unexpected": [],
+  "missing": []
+}

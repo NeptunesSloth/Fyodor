@@ -518,5 +518,15 @@
     "original_sha256": "bf2d75922d02188e4ddd173e988a1d2cd0441760fab37db73ff4a6718c7f7d60",
     "archived_sha256": "7dd2e23e4a1c55edb29bee3f02ded006c0c0057147d5a3172a61c3836ac30221",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/exchange-conditions91/reviewed.patch": {
+    "original_sha256": "5080e3368e00867bef4f805651c3e5ec2e7f5064ed34607034f3316fcc54efca",
+    "archived_sha256": "fa4c47fb7d82c075d7ea8bfb0a5148cebc1a63293f8f1fb63a7d14b7045ae5c3",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/exchange-conditions91/superseded-pre-6082b-review/reviewed.patch": {
+    "original_sha256": "0cbbe82fa90e3ea869af0d065d57e276af7df49c4222a406393106ecef0954ae",
+    "archived_sha256": "efe1686cfa2c0376b7e0934007a68d0a81779e4e9667f434c06a1d6a887eb3e3",
+    "numstat_preserved": true
   }
 }

@@ -1,0 +1,6 @@
+{
+  "url": "https://yawgatog.com/resources/magic-rules/",
+  "rule": "608.2b",
+  "relevant_text": "If part of the effect requires information about an illegal target, it fails to determine any such information. Any part of the effect that requires that information won't happen.",
+  "conclusion": "Modify Memory needs controller information about both targets for its independent condition; if either target is illegal, draw does not happen. Complete rule was read; full retrieved rules text retained in persistent isolated stage cr608-full.txt."
+}

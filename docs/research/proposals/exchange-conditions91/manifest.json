@@ -1,0 +1,43 @@
+{
+  "status": "CLOSED_AFTER_CR6082B_PEER_REVIEW",
+  "cards": [
+    "Modify Memory",
+    "Gauntlets of Chaos",
+    "Gilded Drake"
+  ],
+  "stage": "/workspace/scratch/exchanges91",
+  "note": "Corrected final21 native (including2cold), related105, types3 and Ruff4 passed. Superseded pre-608.2b assumptions are archived and excluded. Root admission pending.",
+  "native": {
+    "passed": 21,
+    "genuine_cold": 2,
+    "logs": [
+      "native20-peer.log",
+      "native-blink1-peer.log"
+    ],
+    "note": "Final corrected whole20 consolidated green, plus distinct actual Cloudshift original/new-incarnation negative1 green. Focused negative4 also green; overlaps final20 and not double-counted."
+  },
+  "mypy": {
+    "files": 3,
+    "result": "PASS",
+    "log": "types3-peer.log"
+  },
+  "ruff": {
+    "files": 4,
+    "result": "PASS",
+    "log": "ruff4-peer.log"
+  },
+  "related": {
+    "passed": 105,
+    "log": "related105-peer.log",
+    "files": [
+      "test_rules_permanent_exchange_qualities.py",
+      "test_rules_multitarget.py",
+      "test_rules_control.py"
+    ]
+  },
+  "patch": "reviewed.patch",
+  "patch_sha256": "5080e3368e00867bef4f805651c3e5ec2e7f5064ed34607034f3316fcc54efca",
+  "superseded": "superseded-pre-6082b-review/REJECTED.md",
+  "authority": "cr6082b-authority.json",
+  "peer_fix": "Never obtains controller information from illegal targets. Requires two native still-legal original target refs before checking independent neither-control draw condition."
+}
