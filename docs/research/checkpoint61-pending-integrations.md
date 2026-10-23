@@ -1,3 +1,5 @@
+CLOSED: checkpoint61 verified with132 native,145 related,54 core,full mypy874 and Ruff; exact12 promotions, zero regressions. See checkpoint61-coverage.json and resumed-checkpoint61-integrations.md. Historical candidate notes below are retained.
+
 Final repaired source passes native132, core54, related145, full mypy874 and configured Ruff. Only final full-catalog audit remains. Initial-source history below is superseded and unadmitted.
 
 Final repaired candidate pending full gates. Initial candidate was rejected:6 Cyber failures from omitted functional return branch (root integration error);126 passed. See checkpoint61-initial-candidate/STATUS.md. Exact reviewed return branch is now installed. Earlier shared passes apply to the initial source and are superseded by final reruns.

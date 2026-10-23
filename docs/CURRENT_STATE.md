@@ -1,8 +1,14 @@
-Work resumed at the user’s request after wrap-up. Latest verified implementation is checkpoint60, saved to PR20 with nineteen exact additions and no prior FULL regressions. Six agents continue next groups automatically.
+Work resumed at the user’s request after wrap-up. Latest verified implementation is checkpoint61, saved to PR20 with twelve exact additions and no prior FULL regressions. Six agents continue next groups automatically.
 
 Verified implementation was merged in [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). [Active PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20) preserves subsequent verified implementation, the current candidate and remaining research on `codex/card-automation-wrap-up`. PR #18 and PR #19 references below describe historical implementation reviews.
 
-Checkpoint60 verifies19 further cards. See [integration evidence](research/resumed-checkpoint60-integrations.md). Later research remains uninstalled or uncounted until its next frozen audit.
+Checkpoint61 verifies12 further cards. See [integration evidence](research/resumed-checkpoint61-integrations.md). Later research remains uninstalled or uncounted until its next frozen audit.
+
+## CHECKPOINT61 VERIFIED — CONTINUING
+
+Latest full catalog: **29,820 FULL /2,248 PARTIAL**. **12 exact expected promotions** from checkpoint60; zero prior FULL regressions, missing/unexpected promotions. Metadata and card names match. **358 of1,500 additional completions verified;1,142 remain.** FULL is engine coverage classification.
+
+[Coverage](research/checkpoint61-coverage.json), [874-module hashes](research/checkpoint61-source-hashes.json), [integration evidence](research/resumed-checkpoint61-integrations.md) and [final logs](research/checkpoint61-validation). Repaired frozen source passes132 native,145 related and54 core tests, full mypy874 and Ruff. Initial incomplete integration was rejected before admission. No fresh full-suite claim. Six agents continue automatically.
 
 ## CHECKPOINT60 VERIFIED — CONTINUING
 

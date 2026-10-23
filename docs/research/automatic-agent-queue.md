@@ -1,8 +1,8 @@
 # Automatic card-rule work queue
 
-Current status: work resumed at the user’s request after the wrap-up. Checkpoint60 is now the verified baseline. Six workers have disjoint assignments and continue to the next coherent group after closing a batch. New work is uncounted until reviewed and audited.
+Current status: work resumed at the user’s request after the wrap-up. Checkpoint61 is now the verified baseline. Six workers have disjoint assignments and continue to the next coherent group after closing a batch. New work is uncounted until reviewed and audited.
 
-The user explicitly requests automatic reassignment to the next biggest remaining groups when agents finish. Keep this instruction across checkpoints. The target remains at least 1,500 additional verified completions from checkpoint48; checkpoint60 verifies346 cumulatively from checkpoint48, leaving1,154 toward that target.
+The user explicitly requests automatic reassignment to the next biggest remaining groups when agents finish. Keep this instruction across checkpoints. The target remains at least 1,500 additional verified completions from checkpoint48; checkpoint61 verifies358 cumulatively from checkpoint48, leaving1,142 toward that target.
 
 Use the newest verified catalog inventory to choose coherent shared rule gaps. Broad family counts overlap and do not establish how many cards an implementation completes. Prefer reusable semantics with concrete whole-card candidates, rather than choosing individual cards solely for popularity.
 
