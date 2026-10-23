@@ -473,5 +473,15 @@
     "original_sha256": "f79b57684cbfae2146748cdfedad4f809ad2583143686d6363d62141a2750852",
     "archived_sha256": "64ba9bbd9b61eb2303e2dccfd43ace8c98357e5fa88f90f61b9decad7c259e14",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/first-kicked-costs77/owned.patch": {
+    "original_sha256": "422bbfd076a5b2b5abd93d9953cac1e2abc4a13d9db0dabd68983b593a2c29f7",
+    "archived_sha256": "9324e6b3907d2b711601fd874a6b68fdd47fba7a963be07f8b9a36776f59478e",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/nightshade-resolution-reveal88/UNINSTALLED.patch": {
+    "original_sha256": "e52c66e4576f46eb478458b7aee63a1be3c6263e82f97daea1e01fcacaba08ce",
+    "archived_sha256": "4058e4db6db6299909983150a1002087b8fd5ad1c9e7c909ee2dc39b63099e6f",
+    "numstat_preserved": true
   }
 }

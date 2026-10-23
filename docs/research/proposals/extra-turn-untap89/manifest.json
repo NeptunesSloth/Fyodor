@@ -31,5 +31,6 @@
   "patch": "reviewed.patch",
   "patch_sha256": "29b94d5c6dc8267be98e1f8667673b9e5035c4a6b30080a8add21e970bcc6ca8",
   "stage": "/tmp/extra89",
-  "changes": "Owned extra_turns.py parser/queue metadata only plus historical wave8a manual expectation update. No engine/shared registration changes. Final stronger4/static1 run with phase88 skips.py in isolated stage to prove combined compatibility."
+  "changes": "Owned extra_turns.py parser/queue metadata only plus historical wave8a manual expectation update. No engine/shared registration changes. Final stronger4/static1 run with phase88 skips.py in isolated stage to prove combined compatibility.",
+  "canonical_hold_gate": "held-scheme-coverage.json"
 }

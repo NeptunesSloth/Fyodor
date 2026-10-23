@@ -1,0 +1,22 @@
+{
+  "status": "READY exact1",
+  "names": [
+    "Nightshade Assassin"
+  ],
+  "native": 12,
+  "genuine_cold": 2,
+  "mypy": 1,
+  "ruff": 2,
+  "install_test": "backend/tests/test_rules_nightshade_resolution_reveal88.py",
+  "install_fixture": "backend/tests/fixtures/nightshade88_cards.json",
+  "stage": "/tmp/nightshade88-stage",
+  "hashes": {
+    "UNINSTALLED.patch": "e52c66e4576f46eb478458b7aee63a1be3c6263e82f97daea1e01fcacaba08ce",
+    "native_tests.py": "7e72a52840f7afa9cbb2f2818ee6dfe3070f211344203379a59f38a8a84c2baa",
+    "cards.json": "c1290328ad8d13637761e6a3557d89822e2fa3e6c5c3aaf4812ed98c483106b4",
+    "nightshade_reveal88.py": "e6d20845289e2d27cf83c0abcd055b3247f39c720e2ce246a2b0e9b4ad92f96b"
+  },
+  "related": 119,
+  "total_gate": 131,
+  "gate_elapsed_seconds": 63.15
+}
