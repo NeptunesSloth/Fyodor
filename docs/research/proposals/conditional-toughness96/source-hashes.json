@@ -1,0 +1,6 @@
+{
+  "backend/app/rules/conditional_toughness96.py": "d813f1bbf11582860891816c6e1ad7bea9b566df12ee4534b88e82916473daa2",
+  "backend/app/rules/scripts.py": "90d018f43f02e9805eb82f84ae6ca5ba5339ca43403802b2eb72c08bb0589bf6",
+  "backend/app/rules/combat.py": "c2241f5d36c083f7dfb0736b5e2679909fbe970207f21d6ce7c62f9d6541216e",
+  "backend/app/rules/effects.py": "5b38f62bebdaa0da9a0c5ec619c22e3db75872cde62970e3c9fca76f4ccdb7f8"
+}

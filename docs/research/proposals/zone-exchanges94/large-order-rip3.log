@@ -1,0 +1,212 @@
+.F.                                                                      [100%]
+=================================== FAILURES ===================================
+________ test_morality_native_graveyard_order_covers_original_library94 ________
+
+self = <app.game.session.GameSession object at 0x7f7f6381b770>, actor = 'p1'
+payload = {'type': 'choose', 'decision_id': 'dda6c96e3d1f', 'option_ids': ['182ad84c997e', '19556770fa78', '22c8c0399212', '3846e20a8343', '462814b819c9', '464b124c5bd9', ...]}
+trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+>           resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+../../scratch/zone_exchanges94/app/game/session.py:61:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+../../scratch/zone_exchanges94/app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../scratch/zone_exchanges94/app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+../../scratch/zone_exchanges94/app/rules/engine.py:1469: in choose
+    RESUME[str(step)](plan, d, chosen)
+../../scratch/zone_exchanges94/app/rules/graveyard_order.py:122: in resume
+    plan.note(f"{plan.name(owner)} ordered the {len(cards)} cards put into their graveyard together", cards, actor=d.player)
+../../scratch/zone_exchanges94/app/rules/plan.py:289: in note
+    self.do({"type": "rules_log", "text": shown(self.state, message), "card_ids": list(card_ids)}, actor=actor)
+../../scratch/zone_exchanges94/app/rules/plan.py:139: in do
+    action = A.parse_action(payload)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+../../scratch/zone_exchanges94/app/game/actions.py:1492: in parse_action
+    return ACTION_ADAPTER.validate_python(data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = TypeAdapter(Annotated[Union[Draw, Move, SetPosition, Shuffle, Mill, Mulligan, PutTopFaceDown, MulliganTake, MulliganKe...lesDamage, RulesLifeChanges, Renumber, RulesLog], FieldInfo(annotation=NoneType, required=True, discriminator='type')])
+object = {'type': 'rules_log', 'text': 'Alice ordered the 25 cards put into their graveyard together', 'card_ids': ['3846e20a8343', 'f2163812b589', '5548bab85b81', 'eda34e0f4dea', '667d488298a5', 'bbbcb8881f89', ...]}
+strict = None, extra = None, from_attributes = None, context = None
+experimental_allow_partial = False, by_alias = None, by_name = None
+
+    def validate_python(
+        self,
+        object: Any,
+        /,
+        *,
+        strict: bool | None = None,
+        extra: ExtraValues | None = None,
+        from_attributes: bool | None = None,
+        context: Any | None = None,
+        experimental_allow_partial: bool | Literal['off', 'on', 'trailing-strings'] = False,
+        by_alias: bool | None = None,
+        by_name: bool | None = None,
+    ) -> T:
+        """Validate a Python object against the model.
+
+        A [`ValidationError`][pydantic_core.ValidationError] reports the rejected locations and values.
+        If you record validations with [Logfire](../integrations/logfire.md), the complete object and trace
+        context are retained alongside the error — `TypeAdapter` validations are captured the same way as
+        model validations (see [Troubleshooting validation errors](../errors/troubleshooting.md)).
+
+        Args:
+            object: The Python object to validate against the model.
+            strict: Whether to strictly check types.
+            extra: Whether to ignore, allow, or forbid extra data during model validation.
+                See the [`extra` configuration value][pydantic.ConfigDict.extra] for details.
+            from_attributes: Whether to extract data from object attributes.
+            context: Additional context to pass to the validator.
+            experimental_allow_partial: **Experimental** whether to enable
+                [partial validation](../concepts/experimental.md#partial-validation), e.g. to process streams.
+                * False / 'off': Default behavior, no partial validation.
+                * True / 'on': Enable partial validation.
+                * 'trailing-strings': Enable partial validation and allow trailing strings in the input.
+            by_alias: Whether to use the field's alias when validating against the provided input data.
+            by_name: Whether to use the field's name when validating against the provided input data.
+
+        !!! note
+            When using `TypeAdapter` with a Pydantic `dataclass`, the use of the `from_attributes`
+            argument is not supported.
+
+        Returns:
+            The validated object.
+        """
+        if by_alias is False and by_name is not True:
+            raise PydanticUserError(
+                'At least one of `by_alias` or `by_name` must be set to True.',
+                code='validate-by-alias-and-name-false',
+            )
+
+>       return self.validator.validate_python(
+            object,
+            strict=strict,
+            extra=extra,
+            from_attributes=from_attributes,
+            context=context,
+            allow_partial=experimental_allow_partial,
+            by_alias=by_alias,
+            by_name=by_name,
+        )
+E       pydantic_core._pydantic_core.ValidationError: 1 validation error for tagged-union[Draw,Move,SetPosition,Shuffle,Mill,Mulligan,PutTopFaceDown,MulliganTake,MulliganKeep,MulliganBottom,MulliganPowder,MulliganFinish,Reveal,Hide,LookTop,RevealTop,SearchStart,SearchEnd,EndView,Tap,UntapAll,PhaseShift,Counter,SetCounter,CreateToken,CopyCard,DeleteCard,Merge,Meld,SetFace,Flip,FaceDown,Note,SetController,ReturnToOwner,RestoreState,SpawnCard,ResetDeck,RestartGame,RunMacro,SetAppearance,SetTablePlaymat,function-after[_clean_strings(), AddEffect],RemoveEffect,SetDamage,function-after[_clean_strings(), SetChoice],function-after[_clean_strings(), SetStackInfo],function-after[_clean_strings(), SetExileGroup],function-after[_clean_strings(), CreateArrow],RemoveArrow,SetCopySource,Cleanup,RemovePlayer,SetCommander,Life,SetLife,Resource,SetResource,CommanderDamage,CommanderTax,SetMonarch,SetInitiative,SetDayNight,CityBlessing,RenamePlayer,Roll,Coin,Chat,Phase,NextTurn,Attack,Block,ClearCombat,CreateAbility,ResolveTop,ResponseOpen,ResponsePass,ResponseRespond,ResponseAutoPass,ResponseClose,Rotate,SetLock,SetProtect,Attach,Detach,Group,Ungroup,StackAdjust,SplitStack,ExpandStack,MergeTokens,AddMana,ClearMana,Configure,PlayLand,CastSpell,TurnFaceUp,UnlockDoor,EndEffect,PayDeferred,MiracleReveal,ActivateAbility,DeclareAttackers,DeclareBlockers,PassPriority,Choose,Concede,SetStops,SetPrefs,SetCardAutomation,RepeatSequence,RulesSync,RulesMana,RulesDamage,RulesLifeChanges,Renumber,RulesLog]
+E       rules_log.card_ids
+E         List should have at most 20 items after validation, not 25 [type=too_long, input_value=['3846e20a8343', 'f216381...80f5d2', 'e37664534d28'], input_type=list]
+E           For further information visit https://errors.pydantic.dev/2.14/v/too_long
+
+.venv/lib/python3.12/site-packages/pydantic/type_adapter.py:410: ValidationError
+
+The above exception was the direct cause of the following exception:
+
+cards = <app.cards.repository.CardRepository object at 0x7f7f63b1dfa0>
+
+    def test_morality_native_graveyard_order_covers_original_library94(cards):
+        from tests.test_rules_designations import pick
+
+        s = setup94(cards)
+        start(s)
+        act(s, "p1", type="set_prefs", ask_graveyard_order=True)
+        source = put(s, "Morality Shift", "hand")
+        original = list(s.state.zones["p1:library"])
+        mana(s, C=5, B=2)
+        act(s, "p1", type="cast_spell", card_id=source.id)
+        for _ in range(20):
+            if s.state.rules.decision:
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        d = s.state.rules.decision
+        assert d and d.player == "p1" and d.resume["step"] == "graveyard_order"
+        assert {o.id for o in d.options} == set(original)
+        ordered = sorted(original)
+>       pick(s, ordered)
+
+../../scratch/zone_exchanges94/tests/test_zone_exchanges94.py:369:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_rules_designations.py:156: in pick
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.game.session.GameSession object at 0x7f7f6381b770>, actor = 'p1'
+payload = {'type': 'choose', 'decision_id': 'dda6c96e3d1f', 'option_ids': ['182ad84c997e', '19556770fa78', '22c8c0399212', '3846e20a8343', '462814b819c9', '464b124c5bd9', ...]}
+trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+            resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+        except ActionError:
+            raise
+        except Exception as exc:
+            if action.type not in INTENT_TYPES and action.type != "configure":
+                raise
+            # A rules bug must never break game night: compiling works on a scratch copy, so
+            # nothing was applied. Remember the failure for EXPORT RULES SCENARIO.
+            log.exception("Rules engine failed on %s", action.type)
+            self.rules_failure = {
+                "intent": action.model_dump(mode="json", exclude={"r"}), "actor": actor, "seq": self.state.seq,
+                "error": f"{type(exc).__name__}: {exc}"[:500], "at": time.time(),
+            }
+>           raise AutomationError(
+                f"{AutomationError.PREFIX}: Fyodor couldn't carry out {action.type.replace('_', ' ')}. Nothing changed. "
+                "Resolve it manually with the table tools, pause automation, or export a rules scenario."
+            ) from exc
+E           app.game.errors.AutomationError: AUTOMATION ERROR: Fyodor couldn't carry out choose. Nothing changed. Resolve it manually with the table tools, pause automation, or export a rules scenario.
+
+../../scratch/zone_exchanges94/app/game/session.py:74: AutomationError
+------------------------------ Captured log call -------------------------------
+ERROR    app.game.session:session.py:69 Rules engine failed on choose
+Traceback (most recent call last):
+  File "/workspace/scratch/zone_exchanges94/app/game/session.py", line 61, in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/zone_exchanges94/app/game/resolve.py", line 76, in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/zone_exchanges94/app/rules/engine.py", line 164, in compile_intent
+    handler(plan, intent)
+  File "/workspace/scratch/zone_exchanges94/app/rules/engine.py", line 1469, in choose
+    RESUME[str(step)](plan, d, chosen)
+  File "/workspace/scratch/zone_exchanges94/app/rules/graveyard_order.py", line 122, in resume
+    plan.note(f"{plan.name(owner)} ordered the {len(cards)} cards put into their graveyard together", cards, actor=d.player)
+  File "/workspace/scratch/zone_exchanges94/app/rules/plan.py", line 289, in note
+    self.do({"type": "rules_log", "text": shown(self.state, message), "card_ids": list(card_ids)}, actor=actor)
+  File "/workspace/scratch/zone_exchanges94/app/rules/plan.py", line 139, in do
+    action = A.parse_action(payload)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/zone_exchanges94/app/game/actions.py", line 1492, in parse_action
+    return ACTION_ADAPTER.validate_python(data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Fyodor/backend/.venv/lib/python3.12/site-packages/pydantic/type_adapter.py", line 410, in validate_python
+    return self.validator.validate_python(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pydantic_core._pydantic_core.ValidationError: 1 validation error for tagged-union[Draw,Move,SetPosition,Shuffle,Mill,Mulligan,PutTopFaceDown,MulliganTake,MulliganKeep,MulliganBottom,MulliganPowder,MulliganFinish,Reveal,Hide,LookTop,RevealTop,SearchStart,SearchEnd,EndView,Tap,UntapAll,PhaseShift,Counter,SetCounter,CreateToken,CopyCard,DeleteCard,Merge,Meld,SetFace,Flip,FaceDown,Note,SetController,ReturnToOwner,RestoreState,SpawnCard,ResetDeck,RestartGame,RunMacro,SetAppearance,SetTablePlaymat,function-after[_clean_strings(), AddEffect],RemoveEffect,SetDamage,function-after[_clean_strings(), SetChoice],function-after[_clean_strings(), SetStackInfo],function-after[_clean_strings(), SetExileGroup],function-after[_clean_strings(), CreateArrow],RemoveArrow,SetCopySource,Cleanup,RemovePlayer,SetCommander,Life,SetLife,Resource,SetResource,CommanderDamage,CommanderTax,SetMonarch,SetInitiative,SetDayNight,CityBlessing,RenamePlayer,Roll,Coin,Chat,Phase,NextTurn,Attack,Block,ClearCombat,CreateAbility,ResolveTop,ResponseOpen,ResponsePass,ResponseRespond,ResponseAutoPass,ResponseClose,Rotate,SetLock,SetProtect,Attach,Detach,Group,Ungroup,StackAdjust,SplitStack,ExpandStack,MergeTokens,AddMana,ClearMana,Configure,PlayLand,CastSpell,TurnFaceUp,UnlockDoor,EndEffect,PayDeferred,MiracleReveal,ActivateAbility,DeclareAttackers,DeclareBlockers,PassPriority,Choose,Concede,SetStops,SetPrefs,SetCardAutomation,RepeatSequence,RulesSync,RulesMana,RulesDamage,RulesLifeChanges,Renumber,RulesLog]
+rules_log.card_ids
+  List should have at most 20 items after validation, not 25 [type=too_long, input_value=['3846e20a8343', 'f216381...80f5d2', 'e37664534d28'], input_type=list]
+    For further information visit https://errors.pydantic.dev/2.14/v/too_long
+=========================== short test summary info ============================
+FAILED ::test_morality_native_graveyard_order_covers_original_library94 - app...
+1 failed, 2 passed, 20 deselected in 36.27s

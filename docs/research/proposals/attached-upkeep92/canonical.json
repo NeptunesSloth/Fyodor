@@ -1,0 +1,113 @@
+[
+  {
+    "id": "99f235d7-8f6b-4d17-bc36-6f2cb6d5deec",
+    "oracle_id": "dc2f0000-870b-487f-9623-618fc8eb9765",
+    "name": "Power Leak",
+    "layout": "normal",
+    "set_code": "4ed",
+    "set_name": "Fourth Edition",
+    "collector_number": "92",
+    "rarity": "common",
+    "mana_cost": "{1}{U}",
+    "cmc": 2.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant enchantment\nAt the beginning of the upkeep of enchanted enchantment's controller, that player may pay any amount of mana. This Aura deals 2 damage to that player. Prevent X of that damage, where X is the amount of mana that player paid this way.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1995-04-01",
+    "artist": "Drew Tucker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "61648ddb-6efb-43d0-b2b1-418cc957854c",
+    "oracle_id": "80459049-bd89-4736-82f8-03c603644033",
+    "name": "Errant Minion",
+    "layout": "normal",
+    "set_code": "ice",
+    "set_name": "Ice Age",
+    "collector_number": "68",
+    "rarity": "common",
+    "mana_cost": "{2}{U}",
+    "cmc": 3.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, that player may pay any amount of mana. This Aura deals 2 damage to that player. Prevent X of that damage, where X is the amount of mana that player paid this way.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1995-06-03",
+    "artist": "Harold McNeill",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "3f3ff5fb-4126-4a18-b540-2beaae382e59",
+    "oracle_id": "e26f7a58-18ae-432b-bc3f-c410512eb6bf",
+    "name": "Mind Whip",
+    "layout": "normal",
+    "set_code": "ice",
+    "set_name": "Ice Age",
+    "collector_number": "149",
+    "rarity": "rare",
+    "mana_cost": "{2}{B}{B}",
+    "cmc": 4.0,
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, that player may pay {3}. If they don't, this Aura deals 2 damage to that player and you tap that creature.",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "1995-06-03",
+    "artist": "Drew Tucker",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  }
+]

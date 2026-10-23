@@ -1,0 +1,53 @@
+--- app/rules/effects.py
++++ app/rules/effects.py
+@@ -912,12 +912,10 @@
+
+     abilities = source_quality_grants.abilities(plan, ctx, player_protection_grants.abilities(plan, ctx, list(e.get("abilities") or [])))
+     if abilities:
+-        receivers = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield") or (
+-            plan.state.cards[c].zone == "stack" and plan.state.cards[c].ability is None
+-            and ((entry := plan.rules.stack.get(c)) is None or entry.kind == "spell"))]
+-        if len(receivers) < len(cards):
+-            plan.note(f"{ctx.get('name') or 'The effect'}: only a permanent or a spell gains an ability", actor=ctx["controller"])
+-        cards = receivers
++        permanents = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]
++        if len(permanents) < len(cards):
++            plan.note(f"{ctx.get('name') or 'The effect'}: only a permanent on the battlefield gains an ability", actor=ctx["controller"])
++        cards = permanents
+     if cards and (keywords or removed or abilities):
+         words = [*keywords, *(f"loses {k}" for k in removed), *(f'"{a}"' for a in abilities)]
+         duration = e.get("duration", "end_of_turn")
+@@ -2637,6 +2635,12 @@
+         cards = [c for c in cards if prohibitions.cant_cause_discard(plan, plan.state.cards[c].owner, str(ctx.get("replacement_controller") or ctx["controller"])) is None]
+     e = {"as": binding}
+     before = _remember(plan, ctx, e, cards)
++    if cards and dest == 'graveyard' and src == 'hand':
++        from app.rules import grouped_discard, library_leng72
++
++        if any(library_leng72.sources(plan, plan.state.cards[c].owner) for c in cards):
++            ctx['effects'].insert(ctx['next'], {'do': 'leng_receipt72', 'effect': e, 'before': [r.model_dump(mode='json') for r in before]})
++            return grouped_discard.begin_cards(plan, ctx, cards)
+     if cards:  # each to its owner's graveyard (701.9a); -- hand disruption (wave 11D) -- or exiled, which is no discard (701.9a)
+         plan.do({"type": "move", "card_ids": cards, "to": {"zone": dest}, **({"face_down": True, "blind": blind} if dest == "exile" and face_down else {})}, actor=ctx["controller"])
+     if dest == 'exile' and link:
+@@ -3423,8 +3427,7 @@
+     (401.4)."""
+     cards = ([t["id"] for group in ctx.get("groups", []) for t in group if t] if e["who"] == "all_targets" else _cards(plan, ctx, e["who"]))
+     before = _remember(plan, ctx, e, cards)
+-    compound81 = e.get('owner_root_choice81') and any(plan.state.cards[cid].merged for cid in cards)
+-    if (len(cards) > 1 or compound81) and (e["place"] == "choice" or (e["place"] in ("top", "bottom") and not e.get("chooser"))):
++    if len(cards) > 1 and (e["place"] == "choice" or (e["place"] in ("top", "bottom") and not e.get("chooser"))):
+         from app.rules import library_placements
+
+         return library_placements.start(plan, ctx, e, cards, before)
+@@ -6866,6 +6869,7 @@
+
+ PRIMITIVES.update(_exchange92.PRIMITIVES)
+
+-from app.rules import exchange_spells93 as _exchange93  # noqa: E402
+-
+-PRIMITIVES.update(_exchange93.PRIMITIVES)
++from app.rules import library_leng72 as _leng72  # noqa: E402, I001
++
++RESUME.update(_leng72.RESUME)
++PRIMITIVES["leng_receipt72"] = _leng72.receipt

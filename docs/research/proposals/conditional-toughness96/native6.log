@@ -1,0 +1,21 @@
+...FF.                                                                   [100%]
+=================================== FAILURES ===================================
+_______________ test_actual_bark_equip_and_combat_current_stats ________________
+tests/test_rules_conditional_toughness96.py:100: in test_actual_bark_equip_and_combat_current_stats
+    assert ch(s,bear).pt==(2,3) and 'assign_toughness' in ch(s,bear).imposed
+E   AssertionError: assert ((2, 3) == (2, 3)
+E
+E     Use -v to get more diff and 'assign_toughness' in frozenset())
+E    +  where frozenset() = Characteristics(name='Grizzly Bears', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Bear...2, 2), granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=0).imposed
+E    +    where Characteristics(name='Grizzly Bears', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Bear...2, 2), granted=frozenset(), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=0) = ch(<app.game.session.GameSession object at 0x7fcd1c1856a0>, CardInstance(borrow_identity=None, id='bde8508cbd83', card_id='cd627462-e10a-5928-b8c8-55100753374d', name='Grizzly Be...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False))
+____________________ test_actual_solid_vigilance_and_combat ____________________
+tests/test_rules_conditional_toughness96.py:110: in test_actual_solid_vigilance_and_combat
+    assert ch(s,guard).pt==(2,4) and 'assign_toughness' in ch(s,guard).imposed
+E   AssertionError: assert ((2, 4) == (2, 4)
+E
+E     Use -v to get more diff and 'assign_toughness' in frozenset())
+E    +  where frozenset() = Characteristics(name='Maritime Guard', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Sol...d=frozenset({'vigilance'}), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=0).imposed
+E    +    where Characteristics(name='Maritime Guard', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Sol...d=frozenset({'vigilance'}), lost=frozenset(), imposed=frozenset(), level=None, doors=None, word=None, flanking_count=0) = ch(<app.game.session.GameSession object at 0x7fcd1c183b30>, CardInstance(borrow_identity=None, id='6b9e0a415668', card_id='17a0c531-dafd-5434-ac1a-6423d2af9f75', name='Maritime G...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False))
+=========================== short test summary info ============================
+FAILED tests/test_rules_conditional_toughness96.py::test_actual_bark_equip_and_combat_current_stats
+FAILED tests/test_rules_conditional_toughness96.py::test_actual_solid_vigilance_and_combat

@@ -1,0 +1,330 @@
+[
+  {
+    "name": "Power Leak",
+    "mana_cost": "{1}{U}",
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant enchantment\nAt the beginning of the upkeep of enchanted enchantment's controller, that player may pay any amount of mana. This Aura deals 2 damage to that player. Prevent X of that damage, where X is the amount of mana that player paid this way.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Errant Minion",
+    "mana_cost": "{2}{U}",
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, that player may pay any amount of mana. This Aura deals 2 damage to that player. Prevent X of that damage, where X is the amount of mana that player paid this way.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Mind Whip",
+    "mana_cost": "{2}{B}{B}",
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, that player may pay {3}. If they don't, this Aura deals 2 damage to that player and you tap that creature.",
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Musician",
+    "mana_cost": "{2}{U}",
+    "type_line": "Creature \u2014 Human Wizard",
+    "oracle_text": "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\n{T}: Put a music counter on target creature. If it doesn't have \"At the beginning of your upkeep, destroy this creature unless you pay {1} for each music counter on it,\" it gains that ability.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Cumulative upkeep"
+    ],
+    "power": "1",
+    "toughness": "3",
+    "layout": "normal"
+  },
+  {
+    "name": "Essence Leak",
+    "mana_cost": "{U}",
+    "type_line": "Enchantment \u2014 Aura",
+    "oracle_text": "Enchant permanent\nAs long as enchanted permanent is red or green, it has \"At the beginning of your upkeep, sacrifice this permanent unless you pay its mana cost.\"",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [
+      "Enchant"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Glorious Anthem",
+    "mana_cost": "{1}{W}{W}",
+    "type_line": "Enchantment",
+    "oracle_text": "Creatures you control get +1/+1.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Grizzly Bears",
+    "mana_cost": "{1}{G}",
+    "type_line": "Creature \u2014 Bear",
+    "oracle_text": "",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "power": "2",
+    "toughness": "2",
+    "layout": "normal"
+  },
+  {
+    "name": "Expedite",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "oracle_text": "Target creature gains haste until end of turn.\nDraw a card.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Dominate",
+    "mana_cost": "{X}{1}{U}{U}",
+    "type_line": "Instant",
+    "oracle_text": "Gain control of target creature with mana value X or less.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Unsummon",
+    "mana_cost": "{U}",
+    "type_line": "Instant",
+    "oracle_text": "Return target creature to its owner's hand.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Naturalize",
+    "mana_cost": "{1}{G}",
+    "type_line": "Instant",
+    "oracle_text": "Destroy target artifact or enchantment.",
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Furnace of Rath",
+    "mana_cost": "{1}{R}{R}{R}",
+    "type_line": "Enchantment",
+    "oracle_text": "If a source would deal damage to a permanent or player, it deals double that damage to that permanent or player instead.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [
+      "Double"
+    ],
+    "layout": "normal"
+  },
+  {
+    "name": "Torbran, Thane of Red Fell",
+    "mana_cost": "{1}{R}{R}{R}",
+    "type_line": "Legendary Creature \u2014 Dwarf Noble",
+    "oracle_text": "If a red source you control would deal damage to an opponent or a permanent an opponent controls, it deals that much damage plus 2 instead.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "power": "2",
+    "toughness": "4",
+    "layout": "normal"
+  },
+  {
+    "name": "Chaoslace",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "oracle_text": "Target spell or permanent becomes red. (Its mana symbols remain unchanged.)",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Deflecting Palm",
+    "mana_cost": "{R}{W}",
+    "type_line": "Instant",
+    "oracle_text": "The next time a source of your choice would deal damage to you this turn, prevent that damage. If damage is prevented this way, Deflecting Palm deals that much damage to that source's controller.",
+    "colors": [
+      "R",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "W"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Lightning Bolt",
+    "mana_cost": "{R}",
+    "type_line": "Instant",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Leyline of Punishment",
+    "mana_cost": "{2}{R}{R}",
+    "type_line": "Enchantment",
+    "oracle_text": "If this card is in your opening hand, you may begin the game with it on the battlefield.\nPlayers can't gain life.\nDamage can't be prevented.",
+    "colors": [
+      "R"
+    ],
+    "color_identity": [
+      "R"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Phyrexian Altar",
+    "mana_cost": "{3}",
+    "type_line": "Artifact",
+    "oracle_text": "Sacrifice a creature: Add one mana of any color.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Angel of Jubilation",
+    "mana_cost": "{1}{W}{W}{W}",
+    "type_line": "Creature \u2014 Angel",
+    "oracle_text": "Flying\nOther nonblack creatures you control get +1/+1.\nPlayers can't pay life or sacrifice creatures to cast spells or activate abilities.",
+    "colors": [
+      "W"
+    ],
+    "color_identity": [
+      "W"
+    ],
+    "keywords": [
+      "Flying"
+    ],
+    "power": "3",
+    "toughness": "3",
+    "layout": "normal"
+  },
+  {
+    "name": "Rosheen Meanderer",
+    "mana_cost": "{3}{R/G}",
+    "type_line": "Legendary Creature \u2014 Giant Shaman",
+    "oracle_text": "{T}: Add {C}{C}{C}{C}. Spend this mana only on costs that contain {X}.",
+    "colors": [
+      "G",
+      "R"
+    ],
+    "color_identity": [
+      "G",
+      "R"
+    ],
+    "keywords": [],
+    "power": "4",
+    "toughness": "4",
+    "layout": "normal"
+  },
+  {
+    "name": "Sol Ring",
+    "mana_cost": "{1}",
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add {C}{C}.",
+    "colors": [],
+    "color_identity": [],
+    "keywords": [],
+    "layout": "normal"
+  },
+  {
+    "name": "Aura Graft",
+    "mana_cost": "{1}{U}",
+    "type_line": "Instant",
+    "oracle_text": "Gain control of target Aura that's attached to a permanent. Attach it to another permanent it can enchant.",
+    "colors": [
+      "U"
+    ],
+    "color_identity": [
+      "U"
+    ],
+    "keywords": [],
+    "layout": "normal"
+  }
+]

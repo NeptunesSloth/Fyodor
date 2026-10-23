@@ -1,0 +1,36 @@
+--- app/game/rules_state.py
++++ app/game/rules_state.py
+@@ -389,6 +389,7 @@
+     "player_lost_game",  # 603.10f: pre-loss battlefield watchers are captured on this event.
+     "case_solved",  # The resolving controller reached a native To solve instruction (719.3).
+     "library_shuffled",
++    "discarded",  # A committed true discard into a hidden zone; generic private moves emit nothing.
+     "zone_change",  # an object moved between zones (or ceased to exist: to_zone None)
+     "damage_prevented",  # Actual committed prevention, distinct from damage dealt.
+     "damage",  # damage dealt (to a creature, planeswalker or player): not the same as life loss
+@@ -440,6 +441,7 @@
+     attacking_player: str | None = None  # Combat damage-time attacking player; unknown in old saves.
+     turn_start_life: int | None = None  # Losing player's actual life at this turn's native start.
+     prevention: dict[str, Any] | None = None  # Native committed prevention receipt; absent in old saves.
++    discarded_snapshot: ObjectSnapshot | None = None  # Revealed hidden-zone discard result before a later shuffle.
+     played_snapshot: ObjectSnapshot | None = None  # Public land face as played, even if entering was diverted.
+     step_phase: str | None = None
+     active_player: str | None = None
+@@ -590,6 +592,7 @@
+     # -- trigger other (wave 36A) -- "discard" facts: the event batch it happened in (0: not known / an older save), for "for the first time each turn" (603.2)
+     batch: int = 0
+     discarded_results: list[ObjectRef] | None = None  # Exact public discard results; [] hidden, None legacy.
++    characteristics_defined: bool = True  # Hidden discarded cards have undefined characteristics (701.8c).
+     # -- trigger damage (wave 39B) -- "damaged" facts: the excess damage (120.10) the batch dealt to the permanent, on its first fact ("was dealt excess
+     # damage this turn"); "damage" / "damaged" / "counters" facts also keep their event batch (0: an older save), for "for the first time each turn"
+     excess: int = 0
+@@ -1159,8 +1162,7 @@
+ class PermissionUseTrigger(BaseModel):
+     """Original source of a trigger attached to one selected casting/play authority."""
+
+-    kind: Literal["replenish_top", "owner_loses_mv", "create_food69", "native"]
+-    definition: dict[str, Any] | None = None
++    kind: Literal["replenish_top", "owner_loses_mv", "create_food69"]
+     source: ObjectRef
+     controller: str
+     name: str

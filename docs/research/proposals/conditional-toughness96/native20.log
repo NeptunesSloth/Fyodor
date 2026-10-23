@@ -1,0 +1,62 @@
+.......F..F..F......                                                     [100%]
+=================================== FAILURES ===================================
+_______ test_bark_actual_fight_uses_power_and_current_host_after_reequip _______
+tests/test_rules_conditional_toughness96.py:143: in test_bark_actual_fight_uses_power_and_current_host_after_reequip
+    cast(s,'Prey Upon',targets=[bear.id,opponent.id])
+tests/test_rules_conditional_toughness96.py:52: in cast
+    act(s,pid,type='cast_spell',card_id=source.id,targets=list(targets),sources=[],**kwargs)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3679: in cast_spell
+    picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:814: in choose_targets
+    found = choose_groups(plan, specs, plan.actor, _target_source(plan, a), a.card_id, list(a.targets),  # (review 41: 115.2)
+app/rules/targets.py:370: in choose_groups
+    raise ActionError(f"Those aren't the right number of targets for {what}")
+E   app.game.errors.ActionError: Those aren't the right number of targets for Prey Upon
+___________________ test_solid_actual_fight_still_uses_power ___________________
+tests/test_rules_conditional_toughness96.py:177: in test_solid_actual_fight_still_uses_power
+    cast(s,'Prey Upon',targets=[guard.id,giant.id])
+tests/test_rules_conditional_toughness96.py:52: in cast
+    act(s,pid,type='cast_spell',card_id=source.id,targets=list(targets),sources=[],**kwargs)
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/casting.py:3679: in cast_spell
+    picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/casting.py:814: in choose_targets
+    found = choose_groups(plan, specs, plan.actor, _target_source(plan, a), a.card_id, list(a.targets),  # (review 41: 115.2)
+app/rules/targets.py:370: in choose_groups
+    raise ActionError(f"Those aren't the right number of targets for {what}")
+E   app.game.errors.ActionError: Those aren't the right number of targets for Prey Upon
+___________ test_kingpin_current_stats_during_combat_and_real_expiry ___________
+tests/test_rules_conditional_toughness96.py:210: in test_kingpin_current_stats_during_combat_and_real_expiry
+    assert ch(s,guard).pt==(8,6) and 'assign_toughness' not in ch(s,guard).imposed
+E   AssertionError: assert ((8, 6) == (8, 6)
+E
+E     Use -v to get more diff and 'assign_toughness' not in frozenset({'assign_toughness'}))
+E    +  where frozenset({'assign_toughness'}) = Characteristics(name='Maritime Guard', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Mer...nset(), lost=frozenset(), imposed=frozenset({'assign_toughness'}), level=None, doors=None, word=None, flanking_count=0).imposed
+E    +    where Characteristics(name='Maritime Guard', supertypes=frozenset(), types=frozenset({'Creature'}), subtypes=frozenset({'Mer...nset(), lost=frozenset(), imposed=frozenset({'assign_toughness'}), level=None, doors=None, word=None, flanking_count=0) = ch(<app.game.session.GameSession object at 0x7f505baff8c0>, CardInstance(borrow_identity=None, id='7ef715d2b722', card_id='17a0c531-dafd-5434-ac1a-6423d2af9f75', name='Maritime G...one)], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False))
+=========================== short test summary info ============================
+FAILED tests/test_rules_conditional_toughness96.py::test_bark_actual_fight_uses_power_and_current_host_after_reequip
+FAILED tests/test_rules_conditional_toughness96.py::test_solid_actual_fight_still_uses_power
+FAILED tests/test_rules_conditional_toughness96.py::test_kingpin_current_stats_during_combat_and_real_expiry

@@ -853,5 +853,115 @@
     "original_sha256": "435bc7d3fb1328f053889b0f07a467a7f913f2a9beadfa6876a1510625ff2b9a",
     "archived_sha256": "7d82a2606359e10bc12e97d001edb07e1016f23704168eb2f9e5fd22f3d94111",
     "numstat_preserved": null
+  },
+  "docs/research/proposals/attached-upkeep92/basic15.log": {
+    "original_sha256": "e472645a2274783242604435e5ab3ebd53e0c4c4d3757cfe8ef47b0dc78040ab",
+    "archived_sha256": "db0e79a4c7fe6f86fdfbdc9334cc23c62537c7be31e0430170091c62a957bcdb",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/combat-damage95/UNINSTALLED.patch": {
+    "original_sha256": "23895bf863cc1a61d11eae1446b017955520773a33a5a6016e688f0f823d25f5",
+    "archived_sha256": "3c5dc68c3c41f339bffda02722493cf328f56ff41f13c1f5426fd5ce54103537",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-toughness96/UNINSTALLED.patch": {
+    "original_sha256": "e8fb634d844c45f406e8d137c2b5243db87b043cf4837324978825469059fc57",
+    "archived_sha256": "d6e1998bf3c887848785d1a6bde1aa2a7df040119fead7f03ee0259f7530d4f3",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/conditional-toughness96/native20.log": {
+    "original_sha256": "b41ddd391b921f08a18462c57f4bb90a528a6f97e432f21423bfeabc4fe2a51d",
+    "archived_sha256": "755c12a5d019021dc9af201d3e09753de9ab856c46b4a857e6c57d732d092b47",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/conditional-toughness96/native6.log": {
+    "original_sha256": "63185a981c8779e26b7623a83e0e9299dc9e49611e954fe9d33c5a44eaa1ba30",
+    "archived_sha256": "c5019ae7e4ec954ae2eaa0dc480d23731033190f57f1f29c7d6c6f42be447481",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/first-artifact-activation-cost84/native6-prototype.log": {
+    "original_sha256": "c254fee1a0b4d93b3498fe723dce942ee15db93192cbd0225fa5a105b2424777",
+    "archived_sha256": "240859ea9840991b70a9e4fac067ca3dc0e95f2acb3c2ee276aa98497aba1ec3",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/first-artifact-activation-cost84/owned.patch": {
+    "original_sha256": "52047ac5ff7d81f24a5960b58c79aec81a4798d4bca2bad8032c5a45cb5831f4",
+    "archived_sha256": "82580099358a97fd7b37c094f4885f0ad45aad324aaa9897bf9878d379653f17",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/first-artifact-activation-cost84/zero-mana-debug1.log": {
+    "original_sha256": "a73309bee9e27e3f28952b3cd64c8576159409aabbd21a6ac901acbc8501ac5a",
+    "archived_sha256": "1f08f8ef600605cb11588e2237ada98ee3e8b9c2555702a38ac39af7731c3807",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/flagbearer86/UNINSTALLED.patch": {
+    "original_sha256": "5b83f425acf4bece09ebe4bdef74bc586445f8ab2c9af6b9d432bf73258cbfe9",
+    "archived_sha256": "2bd9e54dd277dcf0c2ec4ad4516d1f020aadc87bad62fadfd107e7caf06ee384",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/library-leng72/after-native4.log": {
+    "original_sha256": "da3cf88693e06ca3176ca4205ea415b6b613e8e46a6168279c497644dd70ae4b",
+    "archived_sha256": "aa66749ce8f094cc73a5989c75bbd0370bed315bb7425ffae1994fd47f5e4f0e",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/library-leng72/effects.py.patch": {
+    "original_sha256": "fce072da48021ea35a5d333fe5093c59d6d5ad90c491bdfef6e5cf307bd6841a",
+    "archived_sha256": "e0be7ae99cba97b1727fb6c9ea148064cc7bef1b1da20a2c6b9f3ab046a0181c",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/library-leng72/grouped_discard.py.patch": {
+    "original_sha256": "4e71d991a7c74d4babb11578bd621f42be41c310748e9e1e74fbb5b48aecf5fe",
+    "archived_sha256": "4665ea209a214336b34d61153d0c0547c9d30dffdc29c059d2497a287e24bfca",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/library-leng72/history.py.patch": {
+    "original_sha256": "c575df8aca9d1b29e0795798ae0ef38f0e535abba497d7b66092e9be2374b409",
+    "archived_sha256": "e705e875f091b0ff0144e157cd26cd1123a0b11bc881370fb076b24d237f2f71",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/library-leng72/native-handlimit3.log": {
+    "original_sha256": "56e68597755fd7d2d4f04a5f765ee4851189394b9ba6f6cfa770566d54508411",
+    "archived_sha256": "93db2b09a60300d4906cfc15e65d5617bd16549011aeccb94282251a8ea86cb0",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/library-leng72/nonbattlefield_life_offers86.py.patch": {
+    "original_sha256": "5f66e76356f672e9b18c0d1ee2337dec411473792fe76afbb84b32d76fb95189",
+    "archived_sha256": "76c9fcc11b1436bc71ff560562c0a47a230e722e9b3bae11a32815a6d56400d8",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/library-leng72/rules_state.py.patch": {
+    "original_sha256": "0cb3cc63cf4ee4f3b71d016f81a5beb12cb82d3ee99fa1205822220ea5999a11",
+    "archived_sha256": "f4bfac4a95ac08bd88ae4d4bf5a53afbbe56d7c62748abe15d8df6841c4e238b",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/library-leng72/scripts.py.patch": {
+    "original_sha256": "ca82592a2d573c774b09ecec9e7b298a6a3b6c85462dbdb9bc71f1c9f724e10e",
+    "archived_sha256": "accdce5ec7470b90f2fd7fbc42eb8eeae80348f67a03adb298bf1cc42e8d65c4",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/library-leng72/triggers.py.patch": {
+    "original_sha256": "9b47d7fb8a5f288360144321ac5cb952c0e7b650c57fae744a71ab0a6b4f2b92",
+    "archived_sha256": "e624caad1e4fce599fd77a2b25a30e64011a1769420183a0a59874267aac5d4e",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/zone-exchanges94/baseline251-native.log": {
+    "original_sha256": "868d907011e8b4e79c0f3aa04a507579694418cbb83dee569914b422608bae11",
+    "archived_sha256": "4121137cbe11dac9f2b3408c54cab87082ce61d85fc398593167404de4dcd12c",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/zone-exchanges94/large-baseline1.log": {
+    "original_sha256": "8bb5bc5c97fe461c1f724de1b365e053fae24f2ecc2371efff48dd6bd78243db",
+    "archived_sha256": "2f19cf921b8b8b5bf0aa21274d4faa3ac0d7b3b5c133e8f852b833eeeb3829d8",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/zone-exchanges94/large-order-rip3.log": {
+    "original_sha256": "99c51e6c9584adbb5e937b4342673894bb60869f75db37187417e14334970ae7",
+    "archived_sha256": "dd0d95e474c1aa3b6b395fcf433c82884860311b8252b267d3e41f0284f83bde",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/zone-exchanges94/reviewed.patch": {
+    "original_sha256": "cb497ec56579f9aeef35fe644b6fdaa8992ec03fb4d9a83e3e64bbb6c8cc8410",
+    "archived_sha256": "e8ab0e06c111f1b3cb263b9d663ddd4f3a84adb2f359273a2f64d322457d3994",
+    "numstat_preserved": true
   }
 }

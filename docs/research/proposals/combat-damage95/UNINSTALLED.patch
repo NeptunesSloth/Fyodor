@@ -1,0 +1,229 @@
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -611,6 +611,7 @@
+     saves and undo reproduce it exactly. Only this turn's and the previous turn's logs are kept."""
+
+     turn: int = 0
++    combat_damage95_known: bool | None = None  # Complete native current-turn damage history; None is legacy.
+     fight_history90_known: bool | None = None  # Legacy missing current-turn fight history is unknown.
+     fought90: list[str] = Field(default_factory=list)  # Original objects that actually fought this turn.
+     search_history75_known: bool | None = None  # Legacy missing authority is unknown until the next native turn.
+@@ -1967,7 +1968,7 @@
+             rules.completed_own_turns.clear()
+             rules.own_turn_history_known.clear()
+         rules.last_turn_log = log if log.turn == n - 1 else None
+-        log = rules.turn_log = TurnLog(turn=n, active_player=state.turn.active_player, search_history75_known=True, fight_history90_known=True,
++        log = rules.turn_log = TurnLog(turn=n, active_player=state.turn.active_player, search_history75_known=True, fight_history90_known=True, combat_damage95_known=True,
+                                       starting_life=dict(state.turn.starting_life) if state.turn.starting_life is not None else None)
+     elif log.active_player is None:
+         log.active_player = state.turn.active_player
+--- a/backend/app/rules/conditions.py
++++ b/backend/app/rules/conditions.py
+@@ -1530,6 +1530,10 @@
+
+
+ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
++    if cond.get("axe_combat95"):
++        from app.rules import combat_damage95
++
++        return combat_damage95.holds(plan, ctx)
+     if "damaged_creatures83" in cond:
+         from app.rules import damage_retention83
+
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6862,3 +6862,7 @@
+ from app.rules import exchange_choices92 as _exchange92  # noqa: E402
+
+ PRIMITIVES.update(_exchange92.PRIMITIVES)
++
++from app.rules import combat_damage95 as _combat_damage95  # noqa: E402
++
++PRIMITIVES.update(_combat_damage95.PRIMITIVES)
+--- a/backend/app/rules/engine.py
++++ b/backend/app/rules/engine.py
+@@ -1844,3 +1844,7 @@
+ RESUME['echo_alternative76'] = _echo76.resume
+
+ RESUME['echo_draw_count76'] = _echo76.resume_draw
++
++from app.rules import combat_damage95 as _combat_damage95  # noqa: E402
++
++RESUME.update(_combat_damage95.RESUME)
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -5805,6 +5805,10 @@
+
+ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+     """The engine definition of one ability, or None (manual)."""
++    from app.rules import combat_damage95
++
++    if (combat95 := combat_damage95.definition(ability, ch)) is not None:
++        return combat95
+     from app.rules import exchange_choices92
+
+     if (exchange92 := exchange_choices92.definition(ability, ch)) is not None:
+--- a/backend/app/rules/selectors.py
++++ b/backend/app/rules/selectors.py
+@@ -116,6 +116,7 @@
+     either: tuple[str, ...] = ()
+     lost_life_this_turn: bool = False
+     damaged_by_source_this_turn: bool = False
++    combat_damaged_by_source_this_turn: bool = False
+
+     def key(self) -> str:
+         """Canonical and compact: only fields that differ from the defaults."""
+@@ -2038,11 +2039,12 @@
+
+         if log_for(plan).lost.get(pid, 0) <= 0:
+             return False
+-    if sel.damaged_by_source_this_turn:
++    if sel.damaged_by_source_this_turn or sel.combat_damaged_by_source_this_turn:
+         from app.rules.history import log_for
+
+         if source_object is None or not any(
+             fact.kind == "damage" and fact.player == pid and fact.amount > 0 and fact.object_id == source_object
++            and (not sel.combat_damaged_by_source_this_turn or fact.combat)
+             for fact in log_for(plan).facts
+         ):
+             return False
+@@ -2102,6 +2104,12 @@
+            for x in sel.extras):  # -- copy abilities (wave 19E) -- "… from an enchantment source"
+         return False
+     for extra in sel.extras:
++        if extra == "combat_pirate_player95":
++            from app.rules import combat_damage95
++
++            if not combat_damage95.pirate_player(plan, card.controller):
++                return False
++            continue
+         if extra.startswith('exclude_successor58:') and plan.oid(card) == extra.partition(':')[2]:
+             return False
+         if extra == 'controlled_since_turn_start69':
+--- /dev/null
++++ b/backend/app/rules/combat_damage95.py
+@@ -0,0 +1,124 @@
++"""Exact positive combat receipts and safe negative history for original objects."""
++
++from __future__ import annotations
++
++from dataclasses import replace
++from typing import Any
++
++from app.rules.plan import Plan
++
++HOPE = "Sacrifice ~: Until your next turn, target player who was dealt combat damage by ~ this turn can't cast noncreature spells."
++BECKETT = "At the beginning of your end step, gain control of target nonland permanent controlled by a player who was dealt combat damage by three or more Pirates this turn."
++AXE = "At the beginning of your end step, if equipped creature didn't deal combat damage to a creature this turn, sacrifice it."
++
++
++def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
++    from app.rules import scripts, selectors
++
++    text = scripts.self_text(ability.text, ch.name)
++    if text == HOPE:
++        native = scripts.define(
++            replace(
++                ability,
++                text="Sacrifice ~: Until your next turn, target player can't cast noncreature spells.",
++            ),
++            ch,
++        )
++        if native:
++            return {
++                **native,
++                "target": selectors.Selector(player="any", combat_damaged_by_source_this_turn=True).key(),
++            }
++    if text == BECKETT:
++        native = scripts.define(
++            replace(
++                ability, text="At the beginning of your end step, gain control of target nonland permanent."
++            ),
++            ch,
++        )
++        if native:
++            target = selectors.parse("nonland permanent")
++            assert target is not None
++            return {
++                **native,
++                "target": replace(target, extras=(*target.extras, "combat_pirate_player95")).key(),
++            }
++    if text == AXE:
++        native = scripts.define(replace(ability, text="At the beginning of your end step, draw a card."), ch)
++        if native:
++            return {**native, "if": {"axe_combat95": True}, "effects": [{"do": "axe_sacrifice95"}]}
++    return None
++
++
++def pirate_player(plan: Plan, player: str) -> bool:
++    from app.rules.history import log_for
++
++    originals = {
++        f.object_id
++        for f in log_for(plan).facts
++        if f.kind == "damage"
++        and f.player == player
++        and f.amount > 0
++        and f.combat
++        and f.object_id is not None
++        and "Pirate" in (f.source_subtypes or [])
++    }
++    return len(originals) >= 3
++
++
++def host_result(plan: Plan, ctx: Any) -> bool | None:
++    """True means the current/last-known host did not deal qualifying combat damage."""
++    from app.rules import effects
++    from app.rules.history import log_for
++
++    hosts = effects._cards(plan, ctx, "host")
++    if len(hosts) != 1 or not plan.in_game(plan.state.cards[hosts[0]]):
++        return False
++    oid = plan.oid(hosts[0])
++    log = log_for(plan)
++    if any(
++        f.kind == "damaged"
++        and f.source == oid
++        and f.amount > 0
++        and f.combat
++        and "Creature" in (f.types or [])
++        for f in log.facts
++    ):
++        return False
++    return True if log.combat_damage95_known is True else None
++
++
++def holds(plan: Plan, ctx: Any) -> bool:
++    # Unknown history must reach the explicit legacy continuation rather than
++    # silently inventing a negative receipt or omitting a potentially due trigger.
++    return host_result(plan, ctx) is not False
++
++
++def sacrifice(plan: Plan, ctx: Any, effect: Any) -> bool:
++    from app.game.rules_state import DecisionOption
++    from app.rules.plan import decide
++
++    result = host_result(plan, ctx)
++    if result is None:
++        decide(
++            plan,
++            player=ctx["controller"],
++            kind="manual_resolution",
++            prompt="This older save does not record complete combat-damage history. If the equipped creature didn't deal combat damage to a creature this turn, sacrifice it by hand, then press Done.",
++            options=[DecisionOption(id="done", label="Done")],
++            resume={"step": "combat_damage95_legacy", "ctx": ctx},
++        )
++        return False
++    if result:
++        ctx["effects"][ctx["next"] : ctx["next"]] = [{"do": "sacrifice", "who": "host"}]
++    return True
++
++
++def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
++    from app.rules.effects import continue_effects
++
++    continue_effects(plan, d.resume["ctx"])
++
++
++PRIMITIVES = {"axe_sacrifice95": sacrifice}
++RESUME = {"combat_damage95_legacy": resume}

@@ -1,0 +1,53 @@
+--- app/rules/triggers.py
++++ app/rules/triggers.py
+@@ -540,6 +540,18 @@
+             return [("land_played", played_card, played_ch, e.player, {"oid": e.object_id, "actor": e.player, "snap": e.played_snapshot, "played_from": e.from_zone})]
+         got = _object_then(plan, e.card, e.object_id)
+         return [("land_played", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "played_from": e.from_zone})] if got is not None else []
++    if e.kind == 'discarded':
++        if e.discarded_snapshot is not None:
++            from app.rules import outside_battlefield_self
++
++            card, ch = _snapshot_card(plan, e.discarded_snapshot)
++            return [('discard', card, outside_battlefield_self.apply(ch), e.player,
++                     {'oid': e.new_object_id, 'actor': e.player, 'amount': 1, 'new_oid': e.new_object_id,
++                      'to': e.to_zone, 'by': e.actor, 'snap': e.discarded_snapshot})]
++        if e.card is not None:
++            return _discard_facts(plan, e)
++        return [('discard', None, None, e.player, {'oid': e.new_object_id, 'actor': e.player, 'amount': 1,
++                    'new_oid': e.new_object_id, 'to': e.to_zone, 'by': e.actor, 'characteristics_undefined72': True})]
+     if e.kind == 'investigated':
+         return [('investigate', None, None, e.player, {'actor': e.actor or e.player, 'amount': 1})]
+     if e.kind == "foretold":
+@@ -630,6 +642,9 @@
+     # way only by discarding it (an effect, a cost, cycling); -- review (wave 23D) -- or a replacement put the discard elsewhere
+     if _zone(e.from_zone) != "hand" or not e.card or not (_zone(e.to_zone) == "graveyard" or _discarded_instead(plan, e)):
+         return []
++    if any(f.kind == 'discard' and f.object_id == e.object_id and not f.characteristics_defined for f in plan.rules.turn_log.facts):
++        return [('discard', None, None, (e.from_zone or '').split(':')[0], {'oid': e.new_object_id, 'actor': (e.from_zone or '').split(':')[0],
++                    'amount': 1, 'new_oid': e.new_object_id, 'to': e.to_zone, 'by': e.actor, 'characteristics_undefined72': True})]
+     got = _card_in(plan, e.card, e.to_zone if _zone(e.to_zone) != "battlefield" else e.from_zone)  # (a permanent now: the card it was)
+     if got is None or (e.from_zone or "").split(":")[0] != got[0].owner:
+         return []
+@@ -826,6 +841,10 @@
+                 plan, selectors.from_key(cond["spell"]), obj, och, you, watcher.id)
+         if cond.get("obj"):  # the permanent sacrificed, the card discarded, the token created …
+             selected = selectors.from_key(cond["obj"])
++            if event == 'discard' and info.get('characteristics_undefined72'):
++                from app.rules import library_leng72
++
++                return library_leng72.plain_card(selected)
+             if event == "land_played" and info.get("snap") is not None and obj is not None:
+                 selected = selectors.replace(selected, zones=(obj.zone.rsplit(":", 1)[-1],))
+             return obj is not None and och is not None and selectors.matches(
+@@ -1317,7 +1336,9 @@
+     for f in history.log_for(plan).facts:
+         if f.kind != "discard" or f.player != player or not f.batch or f.batch >= batch:
+             continue
+-        if sel is None or history.note_matches(sel, f.types, f.subtypes, f.supertypes):
++        from app.rules import library_leng72
++
++        if sel is None or ((f.characteristics_defined or library_leng72.plain_card(sel)) and history.note_matches(sel, f.types, f.subtypes, f.supertypes)):
+             return False
+     return True
+

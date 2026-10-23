@@ -1,0 +1,23 @@
+...F.                                                                    [100%]
+=================================== FAILURES ===================================
+________________ test_harness_no_madness_or_waste_not_discard94 ________________
+
+cards = <app.cards.repository.CardRepository object at 0x7f20b712b770>
+
+    def test_harness_no_madness_or_waste_not_discard94(cards):
+        s = setup94(cards, ["Waste Not", "Fiery Temper"])
+        put(s, "Waste Not", "battlefield", pid="p2")
+        start(s)
+        temper = put(s, "Fiery Temper", "hand")
+        source, before = cast94(s, "Harness Infinity")
+        assert s.state.rules.decision is None and temper.zone == "p1:graveyard"
+        assert source.zone == "p1:exile"
+        assert not any(c.is_token and c.controller == "p2" for c in s.state.cards.values())
+>       assert not any(n.player == "p1" and n.kind == "discard" for n in s.state.rules.turn_log.facts)
+E       assert not True
+E        +  where True = any(<generator object test_harness_no_madness_or_waste_not_discard94.<locals>.<genexpr> at 0x7f20b6c51490>)
+
+scratch/zone_exchanges94/tests/test_zone_exchanges94.py:82: AssertionError
+=========================== short test summary info ============================
+FAILED Fyodor/backend::test_harness_no_madness_or_waste_not_discard94 - asser...
+1 failed, 4 passed in 10.38s

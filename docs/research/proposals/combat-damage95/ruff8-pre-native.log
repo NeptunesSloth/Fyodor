@@ -1,0 +1,21 @@
+F841 Local variable `source` is assigned to but never used
+   --> /workspace/scratch/combat_damage95/tests/test_combat_damage95.py:339:5
+    |
+337 |     cast95(s, "Ego Erasure", ["p1"])
+338 |     cast95(s, "Murder", [pirates[0].id])
+339 |     source = cast95(s, NAMES[1])
+    |     ^^^^^^
+340 |     to_phase(s, "end", turn=4)
+341 |     settle(s)
+    |
+help: Remove assignment to unused variable `source`
+    |
+338 |     cast95(s, "Murder", [pirates[0].id])
+    -     source = cast95(s, NAMES[1])
+339 +     cast95(s, NAMES[1])
+340 |     to_phase(s, "end", turn=4)
+    |
+note: This is an unsafe fix and may change runtime behavior
+
+Found 1 error.
+1 unsafe fix available with `--fix --unsafe-fixes`.

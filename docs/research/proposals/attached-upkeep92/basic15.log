@@ -1,0 +1,217 @@
+.....F
+=================================== FAILURES ===================================
+_ test_original_host_player_pays_arbitrary_amount_and_only_this_damage_is_prevented[1-Power Leak] _
+
+self = <app.game.session.GameSession object at 0x7fe5a9c220c0>, actor = 'p1'
+payload = {'type': 'choose', 'decision_id': '98b95bba3413', 'name': '1'}
+trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+>           resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+app/game/session.py:61:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+app/rules/engine.py:1469: in choose
+    RESUME[str(step)](plan, d, chosen)
+app/rules/optional_payment.py:445: in resume
+    attached_upkeep_payments92.resume(plan, d, chosen)
+app/rules/attached_upkeep_payments92.py:72: in resume
+    optional_payment._pay(plan, ctx, {'cost': f'{{{n}}}', 'bind': BIND, 'payer': payer,
+app/rules/optional_payment.py:714: in _pay
+    casting.pay_then(plan, payer, mana_cost, f"paid {opt.get('amount_label') or mana_cost.text()} for {label}", then=then,
+app/rules/casting.py:1577: in pay_then
+    pc.finish(plan, then, result)
+app/rules/payment_continuations.py:51: in finish
+    replace.run_then(plan, {**then, 'payment': payment_data(payment)})
+app/rules/replace.py:636: in run_then
+    fn(plan, then)
+app/rules/payment_continuations.py:63: in _resume
+    handler(plan, adapter.validate_python(then['payload']), payment_of(then.get('payment')))
+app/rules/optional_payment.py:767: in _paid
+    _payment_done(plan, ctx, frame.after)
+app/rules/optional_payment.py:672: in _payment_done
+    effects.continue_effects(plan, ctx)
+app/rules/effects.py:4009: in continue_effects
+    _continue_effects(plan, ctx)
+app/rules/effects.py:4035: in _continue_effects
+    if not _run_body(plan, ctx):
+           ^^^^^^^^^^^^^^^^^^^^
+app/rules/effects.py:4029: in _run_body
+    if not PRIMITIVES[e["do"]](plan, ctx, e):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/effects.py:707: in damage
+    return _deal(plan, ctx, hits, e) if hits else True
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/effects.py:655: in _deal
+    out = replace.damage_outcome(plan, kept, answers=answers, order=order, ask=rerun is not None)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/replace.py:2430: in damage_outcome
+    planned = plan_damage(plan, events, answers=answers, order=order, ask=ask)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/replace.py:2341: in plan_damage
+    planner.settle(dict(ev), sim, out.append)
+app/rules/replace.py:345: in settle
+    self._children(self.apply(chosen, ev, sim), sim, on_final)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/replace.py:287: in apply
+    out = _APPLY[ev["kind"]](self.plan, c, ev, sim)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/rules/replace.py:2178: in _damage_apply
+    used = single_recipient_redirection.amount(sim, c, ev, left)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+sim = {'shields': {}, 'redirect_allocations': {}}
+candidate = Candidate(id='r:dee3d6d0', event='damage', match={'source': {'self': True}, 'to': {'players': 'any', 'objects': {}}}, ...urce_card='6007ce04ffb2', source_oid='6007ce04ffb2.5', seq=(8, 1, 0), label='Power Leak', self_repl=False, legacy=None)
+event = {'source_card': '6007ce04ffb2', 'source_oid': '6007ce04ffb2.5', 'target': 'p1', 'amount': 2, ...}
+left = 1
+
+    def amount(sim: dict[str, Any], candidate: Any, event: dict[str, Any], left: int) -> int:
+        key = identity(candidate, event)
+>       row = str(event["_redirect_lineage"]) + ":" + ",".join(event.get("applied") or [])
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: '_redirect_lineage'
+
+app/rules/single_recipient_redirection.py:44: KeyError
+
+The above exception was the direct cause of the following exception:
+
+cards = <app.cards.repository.CardRepository object at 0x7fe5a9c20320>
+name = 'Power Leak', n = 1
+
+    @pytest.mark.parametrize('name', ['Power Leak', 'Errant Minion'])
+    @pytest.mark.parametrize('n', [0, 1, 2, 41, 'pass'])
+    def test_original_host_player_pays_arbitrary_amount_and_only_this_damage_is_prevented(cards, name, n):
+        s, _, _ = setup(cards, name)
+        upkeep(s)
+        act(s, 'p1', type='add_mana', player='p1', mana={'C': 41})
+        settle(s)
+        assert s.state.rules.decision.player == 'p1'
+        life = s.state.players['p1'].life
+>       amount(s, n)
+
+../tests/test_attached92.py:102:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+../tests/test_attached92.py:84: in amount
+    act(s, d.player, type='choose', decision_id=d.id, name=str(n))
+tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.game.session.GameSession object at 0x7fe5a9c220c0>, actor = 'p1'
+payload = {'type': 'choose', 'decision_id': '98b95bba3413', 'name': '1'}
+trusted = False
+
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        if actor not in self.state.players:
+            raise ActionError("Only seated players can act")
+        action = parse_action(payload) if isinstance(payload, dict) else payload
+        if not trusted and action.type not in CONTROLLED_MAY:
+            self._check_not_controlled(actor)
+        try:
+            resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+        except ActionError:
+            raise
+        except Exception as exc:
+            if action.type not in INTENT_TYPES and action.type != "configure":
+                raise
+            # A rules bug must never break game night: compiling works on a scratch copy, so
+            # nothing was applied. Remember the failure for EXPORT RULES SCENARIO.
+            log.exception("Rules engine failed on %s", action.type)
+            self.rules_failure = {
+                "intent": action.model_dump(mode="json", exclude={"r"}), "actor": actor, "seq": self.state.seq,
+                "error": f"{type(exc).__name__}: {exc}"[:500], "at": time.time(),
+            }
+>           raise AutomationError(
+                f"{AutomationError.PREFIX}: Fyodor couldn't carry out {action.type.replace('_', ' ')}. Nothing changed. "
+                "Resolve it manually with the table tools, pause automation, or export a rules scenario."
+            ) from exc
+E           app.game.errors.AutomationError: AUTOMATION ERROR: Fyodor couldn't carry out choose. Nothing changed. Resolve it manually with the table tools, pause automation, or export a rules scenario.
+
+app/game/session.py:74: AutomationError
+------------------------------ Captured log call -------------------------------
+ERROR    app.game.session:session.py:69 Rules engine failed on choose
+Traceback (most recent call last):
+  File "/workspace/scratch/payment83/attached92/backend/app/game/session.py", line 61, in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/payment83/attached92/backend/app/game/resolve.py", line 76, in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/engine.py", line 164, in compile_intent
+    handler(plan, intent)
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/engine.py", line 1469, in choose
+    RESUME[str(step)](plan, d, chosen)
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/optional_payment.py", line 445, in resume
+    attached_upkeep_payments92.resume(plan, d, chosen)
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/attached_upkeep_payments92.py", line 72, in resume
+    optional_payment._pay(plan, ctx, {'cost': f'{{{n}}}', 'bind': BIND, 'payer': payer,
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/optional_payment.py", line 714, in _pay
+    casting.pay_then(plan, payer, mana_cost, f"paid {opt.get('amount_label') or mana_cost.text()} for {label}", then=then,
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/casting.py", line 1577, in pay_then
+    pc.finish(plan, then, result)
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/payment_continuations.py", line 51, in finish
+    replace.run_then(plan, {**then, 'payment': payment_data(payment)})
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/replace.py", line 636, in run_then
+    fn(plan, then)
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/payment_continuations.py", line 63, in _resume
+    handler(plan, adapter.validate_python(then['payload']), payment_of(then.get('payment')))
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/optional_payment.py", line 767, in _paid
+    _payment_done(plan, ctx, frame.after)
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/optional_payment.py", line 672, in _payment_done
+    effects.continue_effects(plan, ctx)
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/effects.py", line 4009, in continue_effects
+    _continue_effects(plan, ctx)
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/effects.py", line 4035, in _continue_effects
+    if not _run_body(plan, ctx):
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/effects.py", line 4029, in _run_body
+    if not PRIMITIVES[e["do"]](plan, ctx, e):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/effects.py", line 707, in damage
+    return _deal(plan, ctx, hits, e) if hits else True
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/effects.py", line 655, in _deal
+    out = replace.damage_outcome(plan, kept, answers=answers, order=order, ask=rerun is not None)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/replace.py", line 2430, in damage_outcome
+    planned = plan_damage(plan, events, answers=answers, order=order, ask=ask)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/replace.py", line 2341, in plan_damage
+    planner.settle(dict(ev), sim, out.append)
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/replace.py", line 345, in settle
+    self._children(self.apply(chosen, ev, sim), sim, on_final)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/replace.py", line 287, in apply
+    out = _APPLY[ev["kind"]](self.plan, c, ev, sim)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/replace.py", line 2178, in _damage_apply
+    used = single_recipient_redirection.amount(sim, c, ev, left)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/payment83/attached92/backend/app/rules/single_recipient_redirection.py", line 44, in amount
+    row = str(event["_redirect_lineage"]) + ":" + ",".join(event.get("applied") or [])
+              ~~~~~^^^^^^^^^^^^^^^^^^^^^
+KeyError: '_redirect_lineage'
+=========================== short test summary info ============================
+FAILED ../../../../Fyodor/backend::test_original_host_player_pays_arbitrary_amount_and_only_this_damage_is_prevented[1-Power Leak]
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 5 passed, 14 deselected in 33.26s

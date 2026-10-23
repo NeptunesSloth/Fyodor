@@ -1,0 +1,21 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________________ test_zero_cost_mana_activation_consumes_first _________________
+
+cards = <app.cards.repository.CardRepository object at 0x7fca07ed52b0>
+
+    def test_zero_cost_mana_activation_consumes_first(cards):
+        s = setup(cards)
+        ring = put(s, 'Sol Ring', 'battlefield')
+        mana(s, ring)
+>       assert s.state.players['p1'].mana == {'C': 2}, (s.state.rules.decision, s.state.turn, s.state.rules.once_per_turn, s.state.log[-4:])
+E       AssertionError: (None, TurnState(number=4, active_player='p1', phase='main1', starting_life={'p1': 40, 'p2': 40, 'p3': 40}), {'drawste...to their graveyard', card_id=None, name=None, visible_to=[], group=None)], kind='action', manual=False, folded=False)])
+E       assert {} == {'C': 2}
+E
+E         Right contains 1 more item:
+E         {'C': 2}
+E         Use -v to get more diff
+
+scratch/cost84/stage/backend/tests/test_rules_first_artifact_activation_cost84.py:95: AssertionError
+=========================== short test summary info ============================
+FAILED scratch/cost84/stage/backend/tests/test_rules_first_artifact_activation_cost84.py::test_zero_cost_mana_activation_consumes_first

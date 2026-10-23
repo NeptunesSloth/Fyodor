@@ -1,0 +1,15 @@
+..FF                                                                     [100%]
+=================================== FAILURES ===================================
+___________ test_kingpin_current_stats_during_combat_and_real_expiry ___________
+tests/test_rules_conditional_toughness96.py:212: in test_kingpin_current_stats_during_combat_and_real_expiry
+    assert s.state.players['p2'].life==27
+E   AssertionError: assert 29 == 27
+E    +  where 29 = PlayerState(id='p2', name='Bob', color='#5fa8d3', life=29, life_history=[LifeChange(turn=4, before=40, after=29, seq=1...id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None).life
+________ test_kingpin_gains_eligibility_after_rule_begins_actual_combat ________
+tests/test_rules_conditional_toughness96.py:313: in test_kingpin_gains_eligibility_after_rule_begins_actual_combat
+    assert s.state.players['p2'].life==22
+E   AssertionError: assert 27 == 22
+E    +  where 27 = PlayerState(id='p2', name='Bob', color='#5fa8d3', life=27, life_history=[LifeChange(turn=4, before=40, after=27, seq=1...id=None, deck_name=None, token_shortcuts=[], mana={}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None).life
+=========================== short test summary info ============================
+FAILED tests/test_rules_conditional_toughness96.py::test_kingpin_current_stats_during_combat_and_real_expiry
+FAILED tests/test_rules_conditional_toughness96.py::test_kingpin_gains_eligibility_after_rule_begins_actual_combat

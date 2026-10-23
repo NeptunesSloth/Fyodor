@@ -1,0 +1,13 @@
+{
+  "status": "NATIVE23_CLOSED_RELATED_RUNNING",
+  "cards": [
+    "Harness Infinity",
+    "Morality Shift"
+  ],
+  "stage": "/workspace/scratch/zone_exchanges94",
+  "patch_sha256": "cb497ec56579f9aeef35fe644b6fdaa8992ec03fb4d9a83e3e64bbb6c8cc8410",
+  "native": "23 pass119.53s;2 genuine cold; full actual game replay checks; >250 original cohort actual Sidisi exactly-one Zombie trigger; ordinary Mind Rot/madness/Waste Not positive; native original commander previous graveyard-decline then hidden-zone replacement; original graveyard order; RiP/616.1 privacy/empty cohorts.",
+  "types": "10 source files pass",
+  "ruff": "11 files pass",
+  "note": "Related six-file gate running, not ready for live admission. Native failed false-discard facts, transport250 bound and graveyard-order log20-reference bound preserved before their narrow repairs. No global schema cap relaxation. All source edits isolated."
+}

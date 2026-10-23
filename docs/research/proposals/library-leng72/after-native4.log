@@ -1,0 +1,76 @@
+.FF.                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_hidden_two_discard_single_event_private_order_generic_not_typed_triggers72 _
+
+cards = <app.cards.repository.CardRepository object at 0x7f07c526a0c0>
+
+    def test_hidden_two_discard_single_event_private_order_generic_not_typed_triggers72(cards):
+        s,chosen=mindrot72(cards)
+        ids=[c.id for c in chosen]
+        life=s.state.players['p2'].life
+        choose_leng72(s)
+        assert all(s.state.cards[cid].zone=='p2:hand' for cid in ids)
+        choose_leng72(s)
+        d=s.state.rules.decision
+        assert d and d.kind=='order' and d.player=='p2'
+        assert all(s.state.cards[cid].zone=='p2:hand' for cid in ids)
+>       mana=s.state.players['p1'].mana_pool.copy()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_rules_library_leng72.py:113:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = PlayerState(id='p1', name='Alice', color='#d4a852', life=40, life_history=[], resources={'poison': 0, 'energy': 0, 'ex...C': 28, 'W': 30, 'U': 30, 'B': 29, 'R': 30, 'G': 30}, mana_units=[], mana_seq=0, left=False, sleeve=None, playmat=None)
+item = 'mana_pool'
+
+    def __getattr__(self, item: str) -> Any:
+        private_attributes = object.__getattribute__(self, '__private_attributes__')
+        if item in private_attributes:
+            attribute = private_attributes[item]
+            if hasattr(attribute, '__get__'):
+                return attribute.__get__(self, type(self))  # type: ignore
+
+            try:
+                # Note: self.__pydantic_private__ cannot be None if self.__private_attributes__ has items
+                return self.__pydantic_private__[item]  # type: ignore
+            except KeyError as exc:
+                raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}') from exc
+        else:
+            # `__pydantic_extra__` can fail to be set if the model is not yet fully initialized.
+            # See `BaseModel.__repr_args__` for more details
+            try:
+                pydantic_extra = object.__getattribute__(self, '__pydantic_extra__')
+            except AttributeError:
+                pydantic_extra = None
+
+            if pydantic_extra and item in pydantic_extra:
+                return pydantic_extra[item]
+            else:
+                if hasattr(self.__class__, item):
+                    return super().__getattribute__(item)  # Raises AttributeError if appropriate
+                else:
+                    # this is the current error
+>                   raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+E                   AttributeError: 'PlayerState' object has no attribute 'mana_pool'
+
+../../../Fyodor/backend/.venv/lib/python3.12/site-packages/pydantic/main.py:1105: AttributeError
+__ test_optional_individual_leng_choice_keeps_normal_public_characteristics72 __
+
+cards = <app.cards.repository.CardRepository object at 0x7f07c52fe930>
+
+    def test_optional_individual_leng_choice_keeps_normal_public_characteristics72(cards):
+        s,chosen=mindrot72(cards)
+        first=s.state.rules.decision.resume['card']
+        choose_leng72(s,False)
+        choose_leng72(s,True)
+        # Only one goes on top, so no private ordering decision.
+>       assert not s.state.rules.decision
+E       AssertionError: assert not Decision(id='c39cdb01da23', player='p1', kind='order', prompt='Order your triggered abilities (the first you pick goes...s=2, source_id=None, memory_key=None, memory_context='', resume={'step': 'order_triggers'}, display=None, decider=None)
+E        +  where Decision(id='c39cdb01da23', player='p1', kind='order', prompt='Order your triggered abilities (the first you pick goes...s=2, source_id=None, memory_key=None, memory_context='', resume={'step': 'order_triggers'}, display=None, decider=None) = RulesState(world_epoch80=0, world_intervals80={}, combat_memory=CombatMemory(version=1, known_empty=['p1', 'p2', 'p3']...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}).decision
+E        +    where RulesState(world_epoch80=0, world_intervals80={}, combat_memory=CombatMemory(version=1, known_empty=['p1', 'p2', 'p3']...ree_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={}) = GameState(format_version=1, id='4505fedcb2526f6c', name='Game', format='commander', created_at=1792729119.9449272, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})).rules
+E        +      where GameState(format_version=1, id='4505fedcb2526f6c', name='Game', format='commander', created_at=1792729119.9449272, seq...ee_cast_faces={}, exile_if_graveyard=[], bottom_if_graveyard=[], cast_enters={}, exile_resolves={}, counter_stamps={})) = <app.game.session.GameSession object at 0x7f07c40178c0>.state
+
+tests/test_rules_library_leng72.py:131: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_library_leng72.py::test_hidden_two_discard_single_event_private_order_generic_not_typed_triggers72
+FAILED tests/test_rules_library_leng72.py::test_optional_individual_leng_choice_keeps_normal_public_characteristics72

@@ -1,0 +1,47 @@
+{
+  "Standard Bearer": {
+    "object": "list",
+    "has_more": false,
+    "data": []
+  },
+  "Coalition Flag": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "b45a0a2f-39fd-47b9-bc9d-3d4321b377d3",
+        "source": "wotc",
+        "published_at": "2004-10-04",
+        "comment": "If this card is ever on a creature you don\u2019t control, it is put into the graveyard as a State-Based Action."
+      }
+    ]
+  },
+  "Coalition Honor Guard": {
+    "object": "list",
+    "has_more": false,
+    "data": [
+      {
+        "object": "ruling",
+        "oracle_id": "c95cebf7-c28c-4453-b5e4-e895d621f290",
+        "source": "wotc",
+        "published_at": "2016-06-08",
+        "comment": "Any player\u2019s Flagbearer may be targeted. For example, if each player controls a Coalition Honor Guard, Seal of Strength\u2019s ability may target any of them."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "c95cebf7-c28c-4453-b5e4-e895d621f290",
+        "source": "wotc",
+        "published_at": "2016-06-08",
+        "comment": "Activated abilities contain a colon. They\u2019re generally written \u201c[Cost]: [Effect].\u201d Some keywords are activated abilities and will have colons in their reminder text. Triggered abilities (written with \u201cwhen,\u201d \u201cwhenever,\u201d or \u201cat\u201d) don\u2019t have to target a Flagbearer."
+      },
+      {
+        "object": "ruling",
+        "oracle_id": "c95cebf7-c28c-4453-b5e4-e895d621f290",
+        "source": "wotc",
+        "published_at": "2016-06-08",
+        "comment": "If a spell or ability\u2019s targets are changed, or if a copy of a spell or ability is put onto the stack and has new targets chosen, it doesn\u2019t have to target a Flagbearer."
+      }
+    ]
+  }
+}

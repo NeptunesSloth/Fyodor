@@ -1,0 +1,21 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________ test_actual_mind_rot_offers_leng_effect_discard72 _______________
+
+cards = <app.cards.repository.CardRepository object at 0x7f596875bbf0>
+
+    def test_actual_mind_rot_offers_leng_effect_discard72(cards):
+        s=setup(cards)
+        put(s,'Library of Leng','battlefield','p2')
+        chosen=[put(s,n,'hand','p2') for n in ['Grizzly Bears','Forest']]
+        other=[cid for cid in s.state.zones['p2:hand'] if cid not in [c.id for c in chosen]]
+        if other:
+            act(s,'p2',type='move',card_ids=other,to={'player':'p2','zone':'library'},position='bottom')
+        cast(s,'Mind Rot',targets=['p2'])
+        d=s.state.rules.decision
+>       assert d and 'Library of Leng' in d.prompt
+E       assert (None)
+
+tests/test_rules_library_leng72.py:79: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_library_leng72.py::test_actual_mind_rot_offers_leng_effect_discard72
