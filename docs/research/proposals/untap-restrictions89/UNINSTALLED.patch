@@ -3,7 +3,7 @@
 @@ -56,6 +56,14 @@
  def static_definition(text: str) -> dict[str, Any] | None:
      from app.rules import selectors
- 
+
 +    if text.strip() == "You can't untap more than one land during your untap step.":
 +        return {'kind': 'static', 'static': 'untap_limit', 'sel': selectors.Selector(types=('Land',)).key(),
 +                'n': 1, 'scope89': 'you', 'conditions': [], 'effects': []}
@@ -17,7 +17,7 @@
      if m is None or sel is None:
 @@ -69,10 +77,18 @@
      from app.rules import permissions, selectors, statics
- 
+
      limits: dict[str, int] = {}
 -    for src, _, d in permissions._table_statics(plan.state, plan.info, {"untap_limit"}):
 -        if statics.conditions_hold(plan, d, source=src, controller=src.controller):
@@ -43,8 +43,8 @@
              out.append([ids, n])
 -    return out
 +    return [*categories, *out]
- 
- 
+
+
  def _limits(plan: Plan, r: dict[str, Any]) -> None:
 @@ -125,7 +141,10 @@
      """Ask the active player which of ``asked`` stay tapped, then which of each limited kind untap (``groups``: the ids

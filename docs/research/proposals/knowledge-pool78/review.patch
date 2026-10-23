@@ -50,7 +50,7 @@
 --- a/backend/app/rules/scripts.py
 +++ b/backend/app/rules/scripts.py
 @@ -5785,6 +5785,10 @@
- 
+
  def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
      """The engine definition of one ability, or None (manual)."""
 +    from app.rules import knowledge_pool78
@@ -58,12 +58,12 @@
 +    if (pool78 := knowledge_pool78.definition(ability, ch)) is not None:
 +        return pool78
      from app.rules import linked_owner_cast77
- 
+
      if (admitted62 := linked_owner_cast77.definition(ability, ch)) is not None:
 --- a/backend/app/rules/effects.py
 +++ b/backend/app/rules/effects.py
 @@ -6803,3 +6803,7 @@
- 
+
  PRIMITIVES.update(_life86.PRIMITIVES)
  RESUME.update(_life86.RESUME)
 +

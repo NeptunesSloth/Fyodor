@@ -86,7 +86,7 @@
 --- a/backend/app/rules/scripts.py
 +++ b/backend/app/rules/scripts.py
 @@ -6193,6 +6193,10 @@
- 
+
      if (counter_comparison := counter_event_comparisons50.definition(ability, ch)) is not None:
          return counter_comparison
 +    from app.rules import compound_static_grants90
@@ -94,5 +94,5 @@
 +    if (compound90 := compound_static_grants90.definition(ability, ch)) is not None:
 +        return compound90
      from app.rules import world_upkeep83
- 
+
      if (world_upkeep := world_upkeep83.definition(ability, ch)) is not None:

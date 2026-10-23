@@ -14,8 +14,8 @@ cards = <app.cards.repository.CardRepository object at 0x7f648a547b90>
         right = put(s, 'Lightning Bolt', 'graveyard', 'p2')
 >       activate(s, source, [a, b], [left.id, right.id], mana=1)
 
-../martyrs87-tests/test_martyrs87.py:135: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../martyrs87-tests/test_martyrs87.py:135:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 ../martyrs87-tests/test_martyrs87.py:67: in activate
     act(s, 'p1', type='activate_ability', card_id=source.id, ability=0, targets=list(targets),
 tests/game_helpers.py:42: in act
@@ -36,7 +36,7 @@ app/rules/casting.py:5982: in activate_to_stack
                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 app/rules/casting.py:814: in choose_targets
     found = choose_groups(plan, specs, plan.actor, _target_source(plan, a), a.card_id, list(a.targets),  # (review 41: 115.2)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 plan = <app.rules.plan.Plan object at 0x7f64890260c0>
 specs = [{'min': 0, 'max': 250, 'what': 'sel:{"card":true,"zones":["graveyard"]}', 'same_graveyard': True, ...}]
@@ -58,7 +58,7 @@ exclude = (), attacker = None, source_object = None, event = None
         wrong choice or when a group can't get enough legal targets; ``ask`` names the next missing
         choice."""
         from app.game.errors import ActionError
-    
+
         random_only = len(specs) == 1 and bool(specs[0].get("random"))  # -- random choices (wave 47B) -- "target … chosen at random": the table picks (601.2c; each
         if random_only:  # legal target equally likely: Scab-Clan Giant ruling 2013-04-15); nobody is asked, and a choice sent along is not read
             targets, counts = [], []

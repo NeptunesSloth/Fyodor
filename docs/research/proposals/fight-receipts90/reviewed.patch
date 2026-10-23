@@ -235,8 +235,8 @@
 --- a/backend/app/game/rules_state.py
 +++ b/backend/app/game/rules_state.py
 @@ -385,6 +385,7 @@
- 
- 
+
+
  EventKind = Literal[
 +    "fought",  # CR 701.14: actual fight participants, independent of damage.
      "player_lost_game",  # 603.10f: pre-loss battlefield watchers are captured on this event.
@@ -245,14 +245,14 @@
 @@ -433,6 +434,7 @@
      """Something that happened. Events of one table step share a ``batch``: they happened
      simultaneously (destroy all creatures is one batch of zone changes, not N)."""
- 
+
 +    fighters90: list[ObjectSnapshot] = Field(default_factory=list)  # Exact native fight cohort before damage.
      crew_count80: int | None = None  # Native crew activation payment cardinality; unknown in old saves.
      loss_watchers: list[ObjectSnapshot] = Field(default_factory=list)
      attacking_player: str | None = None  # Combat damage-time attacking player; unknown in old saves.
 @@ -608,6 +610,8 @@
      saves and undo reproduce it exactly. Only this turn's and the previous turn's logs are kept."""
- 
+
      turn: int = 0
 +    fight_history90_known: bool | None = None  # Legacy missing current-turn fight history is unknown.
 +    fought90: list[str] = Field(default_factory=list)  # Original objects that actually fought this turn.
@@ -292,7 +292,7 @@
 --- a/backend/app/rules/scripts.py
 +++ b/backend/app/rules/scripts.py
 @@ -5769,6 +5769,11 @@
- 
+
  def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
      """The engine definition of one ability, or None (manual)."""
 +    from app.rules import fight_receipts90
@@ -301,12 +301,12 @@
 +        return fight90
 +
      from app.rules import source_cohort87
- 
+
      if (admitted61 := source_cohort87.definition(ability, ch)) is not None:
 --- a/backend/app/rules/triggers.py
 +++ b/backend/app/rules/triggers.py
 @@ -454,6 +454,9 @@
- 
+
  def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
      r = plan.rules
 +    if e.kind == "fought":
@@ -321,7 +321,7 @@
      number the one object the trigger is about had (as it last existed, 608.2h), as the ability is put on the stack."""
 +    from app.rules import fight_receipts90
      from app.rules.selectors import EVENT_STAT, _stat
- 
+
 +    fight_receipts90.bind(plan, t)
      raw = json.dumps(t.ability)
      other_is_type = bool(t.ability.get('target_other_is_type'))
@@ -335,11 +335,11 @@
 +    if t.lower() == 'you control a creature that fought this turn':
 +        return {'fought_creature90': True}
      from app.rules import graveyard_return57
- 
+
      if (returned57 := graveyard_return57.condition(t)) is not None and (objects or "history" in returned57):
 @@ -1524,6 +1526,10 @@
- 
- 
+
+
  def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
 +    if cond.get('fought_creature90'):
 +        from app.rules import fight_receipts90
@@ -347,7 +347,7 @@
 +        return fight_receipts90.fought_creature(plan, ctx['controller'])
      if cond.get('attack_pair_players86') or cond.get('attack_other_exact86'):
          from app.rules import attack_subjects86
- 
+
 --- a/backend/app/rules/selectors.py
 +++ b/backend/app/rules/selectors.py
 @@ -2211,7 +2211,14 @@

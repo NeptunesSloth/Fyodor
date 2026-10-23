@@ -4,7 +4,7 @@ _ test_independent_muldrotha_permission_can_still_cast_each_card_normally79[Dete
 tests/test_rules_required_keyword79.py:176: in test_independent_muldrotha_permission_can_still_cast_each_card_normally79
     assert source.zone == 'p1:battlefield'
 E   AssertionError: assert 'p1:graveyard' == 'p1:battlefield'
-E     
+E
 E     - p1:battlefield
 E     + p1:graveyard
 =========================== short test summary info ============================

@@ -408,5 +408,70 @@
     "original_sha256": "68b6964d5b5c40f90f04e8608b21305a974e69304d338701693e132c3b071e02",
     "archived_sha256": "f7502cc66d331bdccc66135e8eefe4f776b8d14fa3dbccd223398e6416e5aaa8",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/colored-reveal-x87/UNINSTALLED.patch": {
+    "original_sha256": "7f89c6558cd0dd1323037af556c305cb0f80ba4912c1ff59d78dae605c917317",
+    "archived_sha256": "53bea4bbd7e4574dd93d4e43c82b87a00c949030829ad8aa77fbb8cb778f47ff",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/colored-reveal-x87/martyrs87-initial10.log": {
+    "original_sha256": "c95206744d7b13ab562fcedb0c61003ac82c347e20bda5a0a7393bab917aa75d",
+    "archived_sha256": "efbccf2a512371fe130a928f3a5194c5f6296e4ea5875c0cd8367658d28f9db8",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/colored-reveal-x87/martyrs87-lifetime3.log": {
+    "original_sha256": "ae28e8c262cf3431edeecd0430fbf26390ae35f877f6bac58532364ce112eca0",
+    "archived_sha256": "459b23a9d599ee6325b14b0058efd12a00ad0f9d477fdad92e80441827718958",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/compound-statics90/UNINSTALLED.patch": {
+    "original_sha256": "0f1fd2c6182f87a64208d70ff726027b577c7bb6365b8e69cd7af01e43dcb0cf",
+    "archived_sha256": "dcb0f4d902a05bf210a456a5152c27f27996496eaef493682ccaac37c919d508",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/fight-receipts90/native26-uncorrected-harness.log": {
+    "original_sha256": "80514d9414e046de854fe76315158a0c8f9cd25d322a2abd43277c086907cd6e",
+    "archived_sha256": "03edfa8963a11cc93af9b369c95ad5ddc20fac2cc7ba66e5ce2ef014a789671f",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/fight-receipts90/reviewed.patch": {
+    "original_sha256": "2799a47eec86d241dd9ccbd3e0bd3b105f4ffc3abcb5790465a74a9b94fc838e",
+    "archived_sha256": "c3438b6aa6fa3d1a14cf8daa78acef6f62acd48b244436e92d5e16466325ae25",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/knowledge-pool78/review.patch": {
+    "original_sha256": "86cd5deeb01d006f1f0314925f199978f3898f94b648fb38e39a4974bf004547",
+    "archived_sha256": "0fed0a6bdc4951aad26152da8186c89f36d31efbf58a89b33c41931dd2b05452",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/legacy-wave4i-support79/review.patch": {
+    "original_sha256": "c31d78edee532ce0c2c96f008ac59cd12209dfb8b0cba5403bc41f2bf6d22dda",
+    "archived_sha256": "9bb3e9adcaf9a2243da6bb0be7d88926152c2d9c749fdbf0c0ef5102b3a518b7",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/required-keyword79/required79-first10.log": {
+    "original_sha256": "a55a764e1721a4a48c30559db4b06c765740ed1e807741b567d1a5eec75ffb1e",
+    "archived_sha256": "bc70eadf9e3a2bc685d53ad05fab711c43efc5c5183aa67a7a5afb19a958e285",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/required-keyword79/required79-independent-negative9.log": {
+    "original_sha256": "9a8d7ec29b449a62af4d15c17af879872bbc0b030559205ff33beec8a55d5a68",
+    "archived_sha256": "d3633c65aca52d76a627a6e7aa38aad5645a2a9d859bc212e3bd63aebddd0426",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/required-keyword79/review.patch": {
+    "original_sha256": "3ddf64900aff2475d04f57c3bfe934ce75f2d8d187002f24935aa986410ef37f",
+    "archived_sha256": "131395bd2a5b2b978475107c908d73bf548d381c3e8f244176078f9a5ff46a36",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/tetzin-double-face66/review.patch": {
+    "original_sha256": "427316d981aa7aaee4659a26be65b7a63b5962ecd00b24dc01b43abbe6d13c0c",
+    "archived_sha256": "0218b789512dc5a65dabaf452a4ba0a11b05d86c7ce64add93c6552b29e51ab2",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/untap-restrictions89/UNINSTALLED.patch": {
+    "original_sha256": "f79b57684cbfae2146748cdfedad4f809ad2583143686d6363d62141a2750852",
+    "archived_sha256": "64ba9bbd9b61eb2303e2dccfd43ace8c98357e5fa88f90f61b9decad7c259e14",
+    "numstat_preserved": true
   }
 }

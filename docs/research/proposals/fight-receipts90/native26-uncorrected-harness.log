@@ -10,9 +10,9 @@ mode = 'neyith'
     def test_genuine_cold_native_fight_receipt90(cards, tmp_path, mode):
         import subprocess
         import sys
-    
+
         import app
-    
+
         observer = (
             NAMES[0] if mode == "neyith" else NAMES[2] if mode == "ring" else NAMES[1]
         )
@@ -89,7 +89,7 @@ mode = 'neyith'
 E       AssertionError: Traceback (most recent call last):
 E           File "<string>", line 9, in <module>
 E         ModuleNotFoundError: No module named 'tests.game_helpers'
-E         
+E
 E       assert 1 == 0
 E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python3', '-c', "\nimport sys\nfrom pathlib import Path\nf...nt call last):\n  File "<string>", line 9, in <module>\nModuleNotFoundError: No module named \'tests.game_helpers\'\n').returncode
 
@@ -104,9 +104,9 @@ mode = 'regent'
     def test_genuine_cold_native_fight_receipt90(cards, tmp_path, mode):
         import subprocess
         import sys
-    
+
         import app
-    
+
         observer = (
             NAMES[0] if mode == "neyith" else NAMES[2] if mode == "ring" else NAMES[1]
         )
@@ -183,7 +183,7 @@ mode = 'regent'
 E       AssertionError: Traceback (most recent call last):
 E           File "<string>", line 9, in <module>
 E         ModuleNotFoundError: No module named 'tests.game_helpers'
-E         
+E
 E       assert 1 == 0
 E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python3', '-c', "\nimport sys\nfrom pathlib import Path\nf...nt call last):\n  File "<string>", line 9, in <module>\nModuleNotFoundError: No module named \'tests.game_helpers\'\n').returncode
 
@@ -198,9 +198,9 @@ mode = 'ring'
     def test_genuine_cold_native_fight_receipt90(cards, tmp_path, mode):
         import subprocess
         import sys
-    
+
         import app
-    
+
         observer = (
             NAMES[0] if mode == "neyith" else NAMES[2] if mode == "ring" else NAMES[1]
         )
@@ -277,7 +277,7 @@ mode = 'ring'
 E       AssertionError: Traceback (most recent call last):
 E           File "<string>", line 9, in <module>
 E         ModuleNotFoundError: No module named 'tests.game_helpers'
-E         
+E
 E       assert 1 == 0
 E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python3', '-c', "\nimport sys\nfrom pathlib import Path\nf...nt call last):\n  File "<string>", line 9, in <module>\nModuleNotFoundError: No module named \'tests.game_helpers\'\n').returncode
 
@@ -292,9 +292,9 @@ mode = 'regent_blink'
     def test_genuine_cold_native_fight_receipt90(cards, tmp_path, mode):
         import subprocess
         import sys
-    
+
         import app
-    
+
         observer = (
             NAMES[0] if mode == "neyith" else NAMES[2] if mode == "ring" else NAMES[1]
         )
@@ -371,7 +371,7 @@ mode = 'regent_blink'
 E       AssertionError: Traceback (most recent call last):
 E           File "<string>", line 9, in <module>
 E         ModuleNotFoundError: No module named 'tests.game_helpers'
-E         
+E
 E       assert 1 == 0
 E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python3', '-c', "\nimport sys\nfrom pathlib import Path\nf...nt call last):\n  File "<string>", line 9, in <module>\nModuleNotFoundError: No module named \'tests.game_helpers\'\n').returncode
 
@@ -384,7 +384,7 @@ both = False
     @pytest.mark.parametrize("both", [False, True])
     def test_ring_actual_fighters_phase_out_are_nonexistent90(cards, both):
         from app.game.errors import ActionError
-    
+
         s, ring, bear, elf, _, _, _ = setup90(cards, NAMES[2])
         safe = put(s, "Safe Passage", "hand")
         mana(s, C=2, W=1)
@@ -430,7 +430,7 @@ both = True
     @pytest.mark.parametrize("both", [False, True])
     def test_ring_actual_fighters_phase_out_are_nonexistent90(cards, both):
         from app.game.errors import ActionError
-    
+
         s, ring, bear, elf, _, _, _ = setup90(cards, NAMES[2])
         safe = put(s, "Safe Passage", "hand")
         mana(s, C=2, W=1)

@@ -68,7 +68,7 @@
 +           min_choices=0, max_choices=1 if e.get('artifact66') else len(options) if e['nashi'] else min(2, len(options)),
             resume={'step': 'public_pick65', 'ctx': ctx, 'e': e})
      return False
- 
+
 --- a/backend/app/rules/selectors.py
 +++ b/backend/app/rules/selectors.py
 @@ -2523,6 +2523,11 @@
@@ -82,11 +82,11 @@
 +                return False
          if extra == 'double_faced_card':
              from app.cards.repository import DOUBLE_FACED_LAYOUTS
- 
+
 --- a/backend/app/rules/scripts.py
 +++ b/backend/app/rules/scripts.py
 @@ -5785,6 +5785,10 @@
- 
+
  def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
      """The engine definition of one ability, or None (manual)."""
 +    from app.rules import tetzin_double_face66
@@ -94,5 +94,5 @@
 +    if (tetzin66 := tetzin_double_face66.definition(ability, ch)) is not None:
 +        return tetzin66
      from app.rules import linked_owner_cast77
- 
+
      if (admitted62 := linked_owner_cast77.definition(ability, ch)) is not None:

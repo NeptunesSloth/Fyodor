@@ -1,7 +1,7 @@
 --- a/backend/tests/test_rules_wave4i_cost_changers.py
 +++ b/backend/tests/test_rules_wave4i_cost_changers.py
 @@ -13,7 +13,7 @@
- 
+
  from app.game.errors import ActionError
  from app.game.state import GameState
 -from app.rules import coverage, permissions
@@ -10,7 +10,7 @@
  from app.rules.characteristics import Characteristics, parse_type_line
  from app.rules.oracle import parse_abilities
 @@ -161,9 +161,6 @@
- 
+
  @pytest.mark.parametrize("text", [
      # a cost the alternative-cost grammar can't pay, or a condition it doesn't read: refused, never guessed
 -    "You may exile a blue card with mana value X from your hand rather than pay this spell's mana cost.",
@@ -21,8 +21,8 @@
      "You may pay {X} rather than pay the mana cost for Samurai spells you cast, where X is that spell's mana value.",
 @@ -177,6 +174,17 @@
      assert permissions.define_static(text[0].lower() + text[1:], "spell") is None
- 
- 
+
+
 +@pytest.mark.parametrize("text", [
 +    "You may exile a blue card with mana value X from your hand rather than pay this spell's mana cost.",
 +    "You may discard an Island card and another card rather than pay this spell's mana cost.",
@@ -39,13 +39,13 @@
      assert permissions.define_static(line, "static", ("As ~ enters, choose a creature type.",)) is not None
 @@ -184,9 +192,9 @@
      assert permissions.define_static(line, "static", ("As ~ enters, choose a card type.",)) is None
- 
- 
+
+
 -def test_an_activated_ability_with_an_unread_cost_sentence_stays_manual():
 +def test_target_qualified_activation_discount_is_supported():
      text = "{2}, {T}: Tap target creature. This ability costs {1} less to activate if it targets a creature with power 3 or less."
 -    assert not ok(text, "Raft Security Officer", "Artifact Creature — Robot")
 +    assert ok(text, "Raft Security Officer", "Artifact Creature — Robot")
- 
- 
+
+
  # -- alternative costs (118.9) ----------------------------------------------------------------------------------------

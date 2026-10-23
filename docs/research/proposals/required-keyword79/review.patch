@@ -61,7 +61,7 @@
 --- a/backend/app/rules/scripts.py
 +++ b/backend/app/rules/scripts.py
 @@ -5785,6 +5785,10 @@
- 
+
  def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
      """The engine definition of one ability, or None (manual)."""
 +    from app.rules import required_keyword79
@@ -69,7 +69,7 @@
 +    if (required79 := required_keyword79.definition(ability, ch)) is not None:
 +        return required79
      from app.rules import linked_owner_cast77
- 
+
      if (admitted62 := linked_owner_cast77.definition(ability, ch)) is not None:
 --- a/backend/app/rules/alt_costs.py
 +++ b/backend/app/rules/alt_costs.py
@@ -80,8 +80,8 @@
 -_PART_SPLIT = re.compile(r" and (?=(?:pay|exile|sacrifice|return|tap|discard) )")
 +_PART_SPLIT = re.compile(r" and (?=(?:pay|exile|sacrifice|return|tap|discard|collect) )")
  _WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3}
- 
- 
+
+
 @@ -79,8 +79,11 @@
      # "tap four untapped creatures you control with flying" (Sephara): the selector grammar reads "… with flying you control"
      part = re.sub(r"^(Tap \w+ untapped \w+) you control (with [a-z ]+)$", r"\1 \2 you control", part)
@@ -96,8 +96,8 @@
      if found.kind not in (C.PAY_LIFE, C.PAY_ENERGY) and (found.selector is None or found.random):
          return None  # (never the spell itself; a random discard isn't printed on an alternative cost)
 @@ -278,6 +281,10 @@
- 
- 
+
+
  def keyword_definition(line: str) -> dict[str, Any] | None:
 +    from app.rules import required_keyword79
 +
@@ -113,7 +113,7 @@
 -    from app.rules import permissions, scripts
 +    from app.rules import permissions, required_keyword79, scripts
      from app.rules.plan import Plan
- 
+
      r = state.rules
 @@ -376,7 +383,8 @@
      for index, d in scripts.definitions(ch).items():
@@ -128,8 +128,8 @@
 --- a/backend/app/rules/oracle.py
 +++ b/backend/app/rules/oracle.py
 @@ -148,6 +148,10 @@
- 
- 
+
+
  def _keywords_line(line: str) -> tuple[str, ...] | None:
 +    from app.rules.required_keyword79 import composite_kind
 +
@@ -146,7 +146,7 @@
      found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
 -    from app.rules import required_mutate75
 +    from app.rules import required_keyword79, required_mutate75
- 
+
      if not free and via is None and slot is None and required_mutate75.selected(state, player, card, ch, info, alternative_key):
          how = 'mutate'  # Required native alternative; unrelated permissions remain selectable independently.
 +    if not free and via is None and slot is None and (required79 := required_keyword79.selected(state, player, card, ch, info, alternative_key)) is not None:
@@ -156,7 +156,7 @@
              and _foretell_offers(state, player, card, ch, info):
 @@ -3176,9 +3178,9 @@
      from app.rules import text_global_word71
- 
+
      ch = text_global_word71.prospective(state, card, ch, info)
 -    from app.rules import required_mutate75
 -
@@ -174,7 +174,7 @@
 -    from app.rules import required_mutate75
 +    from app.rules import required_keyword79, required_mutate75
      from app.rules.pooled_casting_authorities71 import external_candidates
- 
+
      candidates = [cid for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard"),
 @@ -6682,7 +6684,7 @@
      for cid in candidates:
