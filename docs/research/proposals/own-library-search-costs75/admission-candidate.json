@@ -1,0 +1,41 @@
+{
+  "status": "CLOSED_FOR_ROOT_REVIEW; no live source writes or admission",
+  "names": [
+    "Archive Trap"
+  ],
+  "native": {
+    "passed": 15,
+    "genuine_cold": 1,
+    "logs": [
+      "native9.log",
+      "native6-cold1.log"
+    ]
+  },
+  "related": {
+    "passed": 43,
+    "modules": [
+      "tests/test_rules_wave22b_prohibitions.py",
+      "tests/test_rules_wave18h_search_control.py"
+    ],
+    "log": "related43.log"
+  },
+  "mypy": {
+    "passed": 4,
+    "log": "types4.log"
+  },
+  "ruff": {
+    "passed": 5,
+    "log": "ruff5.log"
+  },
+  "official_rulings_read": 8,
+  "patch": "production-candidate.patch",
+  "stage": "/tmp/cost75-stage/backend",
+  "test_module": "tests/test_rules_own_library_search_costs75.py",
+  "fixture": "tests/fixtures/own_library_search_costs75_cards.json",
+  "source_hashes": {
+    "app/game/rules_state.py": "10248af40bf78ffaa6e7abe537f95485a016f809ba7067bbb76a177a7f52afef",
+    "app/rules/prohibitions.py": "210d1a067df4529744ddc7146853ae8b7d5ddf3ac778dbd7696e94fab9d42227",
+    "app/rules/history.py": "60fe12a669c810c2132f95953246c577deeab30da838d3c0519ea2514fd85559",
+    "app/rules/alt_costs.py": "3bf1c5c09b822ac2e07c3121aee9dae9e2e755a76ed39585dc83e644d0cf3733"
+  }
+}

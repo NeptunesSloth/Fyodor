@@ -1,0 +1,56 @@
+{
+  "cards": [
+    "Barrowgoyf"
+  ],
+  "status": "CLOSED_ISOLATED_ROOT_REVIEW",
+  "production_promotions": 0,
+  "stage": "/tmp/public-mill-costs64/backend",
+  "native": {
+    "passed": 10,
+    "genuine_cold": 4,
+    "log": "native10.log",
+    "extra": {
+      "passed": 1,
+      "log": "bruvac1.log",
+      "scope": "Original payable mill2 cost from only3 library cards; opponent Bruvac replaces with mill4, native actual partial3; still accepted, public selection follows."
+    }
+  },
+  "related": {
+    "passed": 74,
+    "files": [
+      "tests/test_rules_post_mill_continuations60.py",
+      "tests/test_rules_library_placements.py",
+      "tests/test_rules_wave18a_down.py"
+    ],
+    "command": ".venv/bin/pytest -q tests/test_rules_post_mill_continuations60.py tests/test_rules_library_placements.py tests/test_rules_wave18a_down.py -k 'not coverage_full'",
+    "log": "related74.log",
+    "scope": "Coverage-only cases excluded"
+  },
+  "mypy": {
+    "files": 3,
+    "result": "PASS before positive-count resume guard; final changed helper1 PASS",
+    "logs": [
+      "types3.log",
+      "types1-final.log"
+    ]
+  },
+  "ruff": {
+    "files": 4,
+    "result": "PASS",
+    "log": "ruff4.log"
+  },
+  "patch": {
+    "path": "review.patch",
+    "lines": 87,
+    "source_files": 3,
+    "sha256": "1f54404a3cbcb3f77e282fa96f52541b85089170f46f8938da19f4f2818e4ded"
+  },
+  "boundaries": [
+    "Only Barrowgoyf exact full optional mill/if-do body. No generic payment, native mill, private look or replacement mutation.",
+    "Positive original damage n frozen through decision; missing original count fails atomically.",
+    "Optional mill resource gate uses original count under CR118.3/118.12/701.17b. Replacement outcomes do not undo accepted cost.",
+    "Four genuine cold subprocesses: pending cost accept/missing count and pending competing616 public exile/hidden library:shuffle.",
+    "Current-root-preserving hook artifact copies; root owns production frozen whole/native/catalog gates.",
+    "Canonical/rulings also include still-reserved Tetzin and already-staged Nashi/Room as historical group research, no extra promotion claimed."
+  ]
+}

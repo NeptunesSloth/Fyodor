@@ -1,0 +1,233 @@
+[
+  {
+    "id": "cea3b218-0e6e-443a-84f7-380f1021e8e1",
+    "oracle_id": "74c0164c-130f-4572-9066-626c77f6e2ff",
+    "name": "Barrowgoyf",
+    "layout": "normal",
+    "set_code": "m3c",
+    "set_name": "Modern Horizons 3 Commander",
+    "collector_number": "102",
+    "rarity": "rare",
+    "mana_cost": "{2}{B}",
+    "cmc": 3.0,
+    "type_line": "Creature \u2014 Lhurgoyf",
+    "oracle_text": "Deathtouch, lifelink\nBarrowgoyf's power is equal to the number of card types among cards in all graveyards and its toughness is equal to that number plus 1.\nWhenever this creature deals combat damage to a player, you may mill that many cards. If you do, you may put a creature card from among them into your hand.",
+    "power": "*",
+    "toughness": "1+*",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B"
+    ],
+    "color_identity": [
+      "B"
+    ],
+    "keywords": [
+      "Lifelink",
+      "Mill",
+      "Deathtouch"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-06-14",
+    "artist": "Igor Kieryluk",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0fbf9e1e-43f2-499e-844d-22fc10dbad06",
+    "oracle_id": "ade8fc6f-efaa-4a24-96d8-99ef5026cd74",
+    "name": "Nashi, Searcher in the Dark",
+    "layout": "normal",
+    "set_code": "dsk",
+    "set_name": "Duskmourn: House of Horror",
+    "collector_number": "223",
+    "rarity": "rare",
+    "mana_cost": "{U}{B}",
+    "cmc": 2.0,
+    "type_line": "Legendary Creature \u2014 Rat Ninja Wizard",
+    "oracle_text": "Menace\nWhenever Nashi deals combat damage to a player, you mill that many cards. You may put any number of legendary and/or enchantment cards from among them into your hand. If you put no cards into your hand this way, put a +1/+1 counter on Nashi.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "B",
+      "U"
+    ],
+    "color_identity": [
+      "B",
+      "U"
+    ],
+    "keywords": [
+      "Menace",
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-09-27",
+    "artist": "Johan Grenier",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "a22e8038-0706-47ec-bfda-f421a4912774",
+    "oracle_id": "a341eb75-e6a0-468b-8c83-61102249c648",
+    "name": "Greenhouse // Rickety Gazebo",
+    "layout": "split",
+    "set_code": "dsk",
+    "set_name": "Duskmourn: House of Horror",
+    "collector_number": "181",
+    "rarity": "uncommon",
+    "mana_cost": "{2}{G} // {3}{G}",
+    "cmc": 7.0,
+    "type_line": "Enchantment \u2014 Room // Enchantment \u2014 Room",
+    "oracle_text": "Lands you control have \"{T}: Add one mana of any color.\"\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)\n//\nWhen you unlock this door, mill four cards, then return up to two permanent cards from among them to your hand.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+    "power": null,
+    "toughness": null,
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "G"
+    ],
+    "color_identity": [
+      "G"
+    ],
+    "keywords": [
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [
+      {
+        "name": "Greenhouse",
+        "mana_cost": "{2}{G}",
+        "type_line": "Enchantment \u2014 Room",
+        "oracle_text": "Lands you control have \"{T}: Add one mana of any color.\"\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      },
+      {
+        "name": "Rickety Gazebo",
+        "mana_cost": "{3}{G}",
+        "type_line": "Enchantment \u2014 Room",
+        "oracle_text": "When you unlock this door, mill four cards, then return up to two permanent cards from among them to your hand.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+        "power": null,
+        "toughness": null,
+        "loyalty": null,
+        "defense": null,
+        "colors": null,
+        "image_face": 0
+      }
+    ],
+    "double_faced": false,
+    "image_faces": 1,
+    "has_image": false,
+    "released_at": "2024-09-27",
+    "artist": "John Di Giovanni",
+    "commander_legal": "legal",
+    "related_tokens": [],
+    "related_cards": []
+  },
+  {
+    "id": "0502deea-95ad-4b6d-a3ac-d3adcd607624",
+    "oracle_id": "e12b38e5-621b-4b2c-8c04-c15c41d4fc70",
+    "name": "Tetzin, Gnome Champion // The Golden-Gear Colossus",
+    "layout": "transform",
+    "set_code": "lcc",
+    "set_name": "The Lost Caverns of Ixalan Commander",
+    "collector_number": "13",
+    "rarity": "rare",
+    "mana_cost": "{U}{R}{W} // ",
+    "cmc": 3.0,
+    "type_line": "Legendary Artifact Creature \u2014 Gnome // Legendary Artifact Creature \u2014 Gnome",
+    "oracle_text": "Whenever Tetzin or another double-faced artifact you control enters, mill three cards. You may put an artifact card from among them into your hand.\nCraft with six artifacts {4} ({4}, Exile this artifact, Exile the six from among other permanents you control and/or cards from your graveyard: Return this card transformed under its owner's control. Craft only as a sorcery.)\n//\nVigilance, trample\nWhenever The Golden-Gear Colossus enters or attacks, transform up to one other target double-faced artifact you control. Create two 1/1 colorless Gnome artifact creature tokens.",
+    "power": "2",
+    "toughness": "2",
+    "loyalty": null,
+    "defense": null,
+    "colors": [
+      "R",
+      "U",
+      "W"
+    ],
+    "color_identity": [
+      "R",
+      "U",
+      "W"
+    ],
+    "keywords": [
+      "Craft",
+      "Vigilance",
+      "Transform",
+      "Trample",
+      "Mill"
+    ],
+    "is_token": false,
+    "faces": [
+      {
+        "name": "Tetzin, Gnome Champion",
+        "mana_cost": "{U}{R}{W}",
+        "type_line": "Legendary Artifact Creature \u2014 Gnome",
+        "oracle_text": "Whenever Tetzin or another double-faced artifact you control enters, mill three cards. You may put an artifact card from among them into your hand.\nCraft with six artifacts {4} ({4}, Exile this artifact, Exile the six from among other permanents you control and/or cards from your graveyard: Return this card transformed under its owner's control. Craft only as a sorcery.)",
+        "power": "2",
+        "toughness": "2",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "R",
+          "U",
+          "W"
+        ],
+        "image_face": 0
+      },
+      {
+        "name": "The Golden-Gear Colossus",
+        "mana_cost": "",
+        "type_line": "Legendary Artifact Creature \u2014 Gnome",
+        "oracle_text": "Vigilance, trample\nWhenever The Golden-Gear Colossus enters or attacks, transform up to one other target double-faced artifact you control. Create two 1/1 colorless Gnome artifact creature tokens.",
+        "power": "6",
+        "toughness": "6",
+        "loyalty": null,
+        "defense": null,
+        "colors": [
+          "R",
+          "U",
+          "W"
+        ],
+        "image_face": 1
+      }
+    ],
+    "double_faced": true,
+    "image_faces": 2,
+    "has_image": false,
+    "released_at": "2023-11-17",
+    "artist": "Kekai Kotaki",
+    "commander_legal": "legal",
+    "related_tokens": [
+      {
+        "id": "6def709a-53b3-4520-9544-74ab6472d256",
+        "name": "Gnome",
+        "type_line": "Token Artifact Creature \u2014 Gnome"
+      }
+    ],
+    "related_cards": [
+      {
+        "id": "53b2e955-0106-4c28-8897-bcdafd96195f",
+        "name": "Tetzin, Gnome Champion // The Golden-Gear Colossus",
+        "component": "combo_piece"
+      }
+    ]
+  }
+]

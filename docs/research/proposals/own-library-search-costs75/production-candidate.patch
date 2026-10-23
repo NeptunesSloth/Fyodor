@@ -1,0 +1,46 @@
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -608,6 +608,7 @@
+     saves and undo reproduce it exactly. Only this turn's and the previous turn's logs are kept."""
+
+     turn: int = 0
++    searched_own_library75: list[str] = Field(default_factory=list)  # Actual own-library searches begun this turn, even no card found.
+     starting_life: dict[str, int] | None = None
+     active_player: str | None = None  # Named turn, never inferred from seat order.
+     attacked: list[str] = Field(default_factory=list)  # players who declared one or more attackers
+--- a/backend/app/rules/prohibitions.py
++++ b/backend/app/rules/prohibitions.py
+@@ -258,6 +258,11 @@
+     from app.game.rules_state import emit
+
+     if searcher == owner:
++        from app.game.rules_state import turn_log_now
++
++        log = turn_log_now(plan.state)
++        if log is not None and searcher not in log.searched_own_library75:
++            log.searched_own_library75.append(searcher)
+         emit(plan.state, "designation", counter="search_library", player=searcher)
+
+
+--- a/backend/app/rules/history.py
++++ b/backend/app/rules/history.py
+@@ -98,6 +98,8 @@
+     me: str = ctx["controller"]
+     n = int(cond.get("n", 1))
+     log = log_for(plan, bool(cond.get("last")))
++    if kind == "searched_own_library75":
++        return any(p != me and p in plan.live() for p in log.searched_own_library75)
+     if kind == "played_from_exile":
+         return (any(c.player == me and c.cast_from == "exile" for c in log.casts)
+                 or any(f.kind == "land_play" and f.player == me and (f.from_zone or '').endswith(':exile')
+--- a/backend/app/rules/alt_costs.py
++++ b/backend/app/rules/alt_costs.py
+@@ -144,6 +144,8 @@
+
+         return {"value": {"count": Selector(card=True, zones=("hand",), zone_owner="you", types=("Land",)).key()},
+                 "op": "==", "n": 0}
++    if text == "an opponent searched their library this turn":
++        return {"history": "searched_own_library75"}
+     cond = conditions.parse(text)
+     if cond is None or "succeeded" in cond:
+         raise ValueError(text)

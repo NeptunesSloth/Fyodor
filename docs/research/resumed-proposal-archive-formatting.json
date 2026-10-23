@@ -398,5 +398,15 @@
     "original_sha256": "e2df4e7b50e0002f94ef8a7ac489e9b5454017608db98c29c2fee2420bb055e0",
     "archived_sha256": "d9b6f4186f910af0fee07a28d64b6b93c9c2b3609e800e94f54d0c669ac226f9",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/public-mill-costs64/review.patch": {
+    "original_sha256": "1f54404a3cbcb3f77e282fa96f52541b85089170f46f8938da19f4f2818e4ded",
+    "archived_sha256": "3c688f7f3add3e95bb9630bc50c0ab48a0d3772482b8ffadba1cd0c0837f55de",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/own-library-search-costs75/production-candidate.patch": {
+    "original_sha256": "68b6964d5b5c40f90f04e8608b21305a974e69304d338701693e132c3b071e02",
+    "archived_sha256": "f7502cc66d331bdccc66135e8eefe4f776b8d14fa3dbccd223398e6416e5aaa8",
+    "numstat_preserved": true
   }
 }
