@@ -2,7 +2,7 @@ Work resumed at the user’s request after wrap-up. Latest verified implementati
 
 Verified implementation was merged in [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). [Active PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20) preserves subsequent verified implementation, the current candidate and remaining research on `codex/card-automation-wrap-up`. PR #18 and PR #19 references below describe historical implementation reviews.
 
-Checkpoint59 verifies42 further cards. See [integration evidence](research/resumed-checkpoint59-integrations.md). Later research remains uninstalled or uncounted until its next frozen audit.
+Checkpoint60 verifies19 further cards. See [integration evidence](research/resumed-checkpoint60-integrations.md). Later research remains uninstalled or uncounted until its next frozen audit.
 
 ## CHECKPOINT60 VERIFIED — CONTINUING
 
