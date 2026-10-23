@@ -1,3 +1,5 @@
+> Closed: all42 candidates in this historical ledger are verified in checkpoint59. See [final evidence](resumed-checkpoint59-integrations.md). References below to running gates describe earlier candidate states, not current verification.
+
 # Integrations after verified checkpoint58
 
 Forty-two reviewed candidates are integrated and remain uncounted until the final frozen catalog/type/core/native gates close. The initial25-card candidate was superseded after a real Falco/Bio-Titan additional-counter payment failure; the shared quality repair is included in final source.

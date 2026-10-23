@@ -1,8 +1,16 @@
-Work resumed at the user’s request after wrap-up. Latest verified implementation is checkpoint58; later batches remain uncounted until their next frozen audit. Six agents are closing saved proposals; uninstalled research remains excluded from production admissions.
+Work resumed at the user’s request after wrap-up. Latest verified implementation is checkpoint59; later batches remain uncounted until their next frozen audit. Six agents are closing saved proposals; uninstalled research remains excluded from production admissions.
 
 Verified implementation was merged in [PR #19](https://github.com/NeptunesSloth/Fyodor/pull/19). [Wrap-up PR #20](https://github.com/NeptunesSloth/Fyodor/pull/20) preserves the remaining uninstalled research on `codex/card-automation-wrap-up`. PR #18 and PR #19 references below describe historical implementation reviews.
 
-After checkpoint58,42 reviewed candidates are integrated but remain outside verified totals. An initial25-card catalog audit was superseded by an actual Falco/Bio-Titan counter-payment failure. Its shared repair and17 more reviewed cards are in the final857-module snapshot; full catalog/type/core/native gates are running. See [pending integrations](research/checkpoint59-pending-integrations.md).
+Checkpoint59 verifies42 further cards. See [integration evidence](research/resumed-checkpoint59-integrations.md). Later research remains uninstalled or uncounted until its next frozen audit.
+
+## CHECKPOINT59 VERIFIED — CONTINUING
+
+Latest full catalog classification: **29,789 FULL /2,279 PARTIAL**, among32,068 Commander-legal cards. **42 exact expected promotions** from checkpoint58; zero prior FULL regressions, unexpected or missing promotions. Database metadata and card names match. **327 of1,500 additional completions verified;1,173 remain.** FULL is the engine coverage classification, not a guarantee of every interaction.
+
+Evidence: [coverage](research/checkpoint59-coverage.json), [857-module hashes](research/checkpoint59-source-hashes.json) and [integration details](research/resumed-checkpoint59-integrations.md). Final frozen source passes full mypy857, configured Ruff,54 core checks,166 native card checks and141 casting/flashback regressions. Earlier per-stream and fresh-process checks are retained; no fresh full-suite claim.
+
+The initial25-card candidate was superseded before admission after a real Falco/Bio-Titan additional-counter failure. The final shared repair verifies original disjoint counters across payment components and saved choices. Generic mill replacement sequencing and selected flashback-X behavior are also repaired. Six agents continue next groups automatically; later research is excluded from these totals.
 
 ## CHECKPOINT58 VERIFIED — CONTINUING
 

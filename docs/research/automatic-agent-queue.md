@@ -1,21 +1,21 @@
 # Automatic card-rule work queue
 
-Current status: work resumed at the user’s request after the wrap-up. Checkpoint58 is now the verified baseline. Six workers have disjoint assignments and continue to the next coherent group after closing a batch. New work is uncounted until reviewed and audited.
+Current status: work resumed at the user’s request after the wrap-up. Checkpoint59 is now the verified baseline. Six workers have disjoint assignments and continue to the next coherent group after closing a batch. New work is uncounted until reviewed and audited.
 
-The user explicitly requests automatic reassignment to the next biggest remaining groups when agents finish. Keep this instruction across checkpoints. The target remains at least 1,500 additional verified completions from checkpoint48; checkpoint58 verifies 285 cumulatively from checkpoint48, leaving 1,215 toward that target.
+The user explicitly requests automatic reassignment to the next biggest remaining groups when agents finish. Keep this instruction across checkpoints. The target remains at least 1,500 additional verified completions from checkpoint48; checkpoint59 verifies327 cumulatively from checkpoint48, leaving1,173 toward that target.
 
 Use the newest verified catalog inventory to choose coherent shared rule gaps. Broad family counts overlap and do not establish how many cards an implementation completes. Prefer reusable semantics with concrete whole-card candidates, rather than choosing individual cards solely for popularity.
 
 Current resumed ownership:
 
-- `kicker61`: source-dependent costs, then first-activation and alternative-cost groups.
-- `combat79`: crew/saddle readers, then combat groups.
-- `library58`: prepared mill and public library/graveyard continuations.
-- `toplibrary69`: pooled linked-exile and graveyard casting permissions.
-- `entry76`: conditional taxes and true-destruction/upkeep consequences, then payment windows.
-- `text71`: World duration/SBA foundation after closing Swirl.
+- `cost68`: conditional costs after closing equipment/Notebook67.
+- `combat84`: Balthier/Fran after closing Fortune83.
+- `library64`: four public-mill choice cards after closing Cyber63.
+- `casting74`: death-trigger Adventure permissions after closing Dawnhand73.
+- `payment83`: per-object offers after closing deferred-window82.
+- `world81`: World durations and held In the Eye of Chaos, then text/static rules.
 
-The final checkpoint59 snapshot has857 app/tools modules and42 exact expected additions from checkpoint58. It includes a shared Falco/Bio-Titan counter-payment repair after a real negative invalidated the initial25-card candidate. Final catalog/type/core/native gates are running. No new verified totals are claimed yet; all later proposals remain excluded.
+Checkpoint59 verifies42 additions on857 frozen modules; target327/1,500. Later proposals remain excluded until root integration and the next frozen audit. All six owners automatically advance coherent groups after handing off a closed manifest.
 
 Historical ownership:
 
@@ -30,4 +30,4 @@ After each batch, send the exact completed-card manifest, native whole-card/nega
 
 Each production admission requires the exact reviewed source, native whole-card and negative proofs, genuine cold continuation where applicable, and related checks. Production closures after checkpoint50 remain uncounted until the next frozen catalog diff.
 
-Current live worker names are the six resumed owners listed above. Checkpoint58 verifies32 additional promotions; target progress285/1,500. Later batches stay uncounted until their snapshot diff. Root remains active across checkpoints and status questions.
+Current live worker names are the six resumed owners listed above. Checkpoint59 verifies42 additional promotions; target progress327/1,500. Later batches stay uncounted until their snapshot diff. Root remains active across checkpoints and status questions.
