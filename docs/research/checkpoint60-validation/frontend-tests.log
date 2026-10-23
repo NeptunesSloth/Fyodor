@@ -1,0 +1,22 @@
+
+> fyodor-frontend@0.1.0 test
+> vitest run
+
+
+ RUN  v5.0.2 /workspace/Fyodor/frontend
+
+
+ Test Files  13 passed (13)
+      Tests  93 passed (93)
+   Start at  01:31:15
+   Duration  3.39s (transform 54%, import 21%, tests 16%, worker 8%)
+
+  Transform  transforming modules took 2.51s · 54% of tracked time, re-done on every run
+             persist transforms across runs with fsModuleCache: true
+             learn more: https://vitest.dev/guide/improving-performance#caching-between-reruns
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

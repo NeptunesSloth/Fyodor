@@ -6,14 +6,14 @@ The user explicitly requests automatic reassignment to the next biggest remainin
 
 Use the newest verified catalog inventory to choose coherent shared rule gaps. Broad family counts overlap and do not establish how many cards an implementation completes. Prefer reusable semantics with concrete whole-card candidates, rather than choosing individual cards solely for popularity.
 
-Current resumed ownership:
+Current resumed ownership (checkpoint60 candidate saved, gates running):
 
-- `cost68`: conditional costs after closing equipment/Notebook67.
-- `combat84`: Balthier/Fran after closing Fortune83.
-- `library64`: four public-mill choice cards after closing Cyber63.
-- `casting74`: death-trigger Adventure permissions after closing Dawnhand73.
-- `payment83`: per-object offers after closing deferred-window82.
-- `world81`: World durations and held In the Eye of Chaos, then text/static rules.
+- `cost68`: Land Grant/Spinning Darkness scout after closing all-player life-gain alternate costs70.
+- `combat84`: Razorgrass Invoker/Alluring Suitor87 after closing compound attack subjects86.
+- `library64`: public mill picks; prepared face-down entries64/Cyber-Controller held for root admission.
+- `casting74`: Ian Malcolm/Kaya emblem76 after closing Dawnhand73, Adventure74 and Brokkos75.
+- `payment83`: manual mana-ability payment availability and Fade Away85; Killing Wave83 under LKI/World review, Tariff84 held on payment foundation.
+- `world81`: Winter's Night85 after closing Teferi's Realm84; World foundation/Chaos/upkeep candidates in frozen60.
 
 Checkpoint59 verifies42 additions on857 frozen modules; target327/1,500. Later proposals remain excluded until root integration and the next frozen audit. All six owners automatically advance coherent groups after handing off a closed manifest.
 

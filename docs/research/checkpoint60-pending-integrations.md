@@ -2,7 +2,7 @@
 
 Baseline: verified checkpoint59 (29,789 FULL / 2,279 PARTIAL).
 
-Frozen source: /tmp/fyodor-catalog60-resume-snapshot; 868 app/tools Python modules. Nineteen expected promotions; native, casting, full typing and inventory gates running. Core54, configured Ruff and frontend93 plus frontend typing passed. No new totals claimed until all gates and exact inventory comparison close.
+Frozen source: /tmp/fyodor-catalog60-resume-snapshot; 868 app/tools Python modules. Nineteen expected promotions; Consolidated native gate running. Exact full-catalog audit passed: nineteen expected promotions, zero prior FULL regressions, zero unexpected/missing cards; metadata and card sets unchanged. Candidate totals 29,808 FULL / 2,260 PARTIAL remain unadmitted pending the native gate. Core54, casting141, full mypy868, configured Ruff and frontend93 plus frontend typing passed. No new totals claimed until all gates and exact inventory comparison close.
 
 - Balthier and Fran
 - Brokkos, Apex of Forever
