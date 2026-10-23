@@ -6,14 +6,14 @@ The user explicitly requests automatic reassignment to the next biggest remainin
 
 Use the newest verified catalog inventory to choose coherent shared rule gaps. Broad family counts overlap and do not establish how many cards an implementation completes. Prefer reusable semantics with concrete whole-card candidates, rather than choosing individual cards solely for popularity.
 
-Current resumed ownership (checkpoint61 verified; checkpoint62 twenty-card candidate frozen):
+Current resumed ownership (checkpoint62 verified; checkpoint63 twenty-seven-card candidate frozen):
 
-- `cost68`: echo alternative/payment events76 after closing Archive Trap75.
-- `combat84`: native fight receipts90 after closing phase skips88 and Savor89.
-- `library64`: Tetzin whole craft/back-face and double-faced permanent boundaries66 after closing Barrow/public picks.
-- `casting74`: Knowledge Pool78 after closing Ian/Kaya76 and Spell Queller77.
-- `payment83`: all five Martyrs87 after closing Moonlight Bargain/Sirocco86.
-- `world81`: scoped/category untap restrictions89 after closing Hall86 and conditional untap87.
+- `cost68`: Exiled Doomsayer78 after closing Vine Gecko77 and repaired echo76.
+- `combat84`: permanent exchanges91 after closing native fight receipts90.
+- `library64`: Psychic Spiral / Stream of Thought shuffle67 after closing Tetzin66.
+- `casting74`: linked casts81, plus Case80 ability-grant quality repair; finite graveyard windows remain excluded until repaired.
+- `payment83`: Forgotten Lore / Shrouded Lore89 after closing Martyrs87 and Nightshade88.
+- `world81`: native-supported conditional aliases91; Manor Gargoyle held for proven same-layer dependency gap.
 
 Checkpoint62 verifies20 additions on885 frozen modules; target378/1,500. Later proposals remain excluded until root integration and the next frozen audit. All six owners automatically advance coherent groups after handing off a closed manifest.
 
