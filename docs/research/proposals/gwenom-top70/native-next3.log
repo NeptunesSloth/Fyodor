@@ -1,0 +1,20 @@
+..F                                                                      [100%]
+=================================== FAILURES ===================================
+________________ test_modal_back_is_land_front_uses_spell_mv70 _________________
+
+cards = <app.cards.repository.CardRepository object at 0x7fe73ca67aa0>
+
+    def test_modal_back_is_land_front_uses_spell_mv70(cards):
+        s,_=grant70(cards)
+        spell=top(s,['Shatterskull Smashing // Shatterskull, the Hammer Pass'])[0]
+        life=s.state.players['p1'].life
+        act(s,'p1',type='play_land',card_id=spell.id,face=1)
+>       assert spell.zone=='p1:battlefield' and s.state.players['p1'].life==life
+E       AssertionError: assert ('p1:library' == 'p1:battlefield'
+E
+E         - p1:battlefield
+E         + p1:library)
+
+tests/test_rules_gwenom_top70.py:154: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_rules_gwenom_top70.py::test_modal_back_is_land_front_uses_spell_mv70

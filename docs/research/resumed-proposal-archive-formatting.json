@@ -723,5 +723,35 @@
     "original_sha256": "4817bd20a67811adf69122f7cca4dcd071780f26ae7f061f174f7110b0e8a0e8",
     "archived_sha256": "e30d1fa84f527972e472ab31588213c15c29bbe14ac12af4083fe308350ec14b",
     "numstat_preserved": null
+  },
+  "docs/research/proposals/gwenom-top70/native-boundaries4.log": {
+    "original_sha256": "189097e86f4e2ba9a810711429683663cd734d3303328c03bd9658b22babe4d0",
+    "archived_sha256": "f7f055f95025332bc7aea65d70f0442a5a5621ca1edf27d7fbcc614bdbfe46a9",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/gwenom-top70/native-controller-legacy2.log": {
+    "original_sha256": "d23c7115533314965ad0dd46e0061fd3fd945eb5312fda472696d693d2d28c69",
+    "archived_sha256": "d0197d7cf605ac0c69509d4b7a9b809c2099d0cb2e22359735a7ee9a7788e6d4",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/gwenom-top70/native-controller1.log": {
+    "original_sha256": "998ae67f00c0b225ccd4b5cbcdf9cfe97026543ac96198bfefaf8cfcd1f47b11",
+    "archived_sha256": "4d22cafce08db3f9b6829ed4292e958943aac969ed3218d01da71c892b205918",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/gwenom-top70/native-modal-cold2.log": {
+    "original_sha256": "488d91ae5ef517ce39590f7448d2367b6fa0441f4ca18d091f1bcffba7e616dc",
+    "archived_sha256": "ac032ab22b1c1fe0405f04dedff9b298a780ae8e0994c280ba2955f751c4d10f",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/gwenom-top70/native-next3.log": {
+    "original_sha256": "5aa1614adac16f54c737fe3eab8f86c80c5ede50374aa284f6e4b208e0c1dfd7",
+    "archived_sha256": "6cac55ded73f5a8ba1bee81cb890a340dc5cdfccc316cabf5fe876a8259427da",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/gwenom-top70/review.patch": {
+    "original_sha256": "44769020701a761044492edbbdbb37947b10aa39f9f2cd2bddb1aac6f5c80a4b",
+    "archived_sha256": "94a21f55cb3de50feb579c6c2c57fe55ad0e74924c659c3b9552466e402c828a",
+    "numstat_preserved": true
   }
 }
