@@ -1,0 +1,123 @@
+--- /dev/null
++++ b/backend/app/rules/colored_activation_costs83.py
+@@ -0,0 +1,56 @@
++"""Exact own colored activation reductions, using native draw/entry receipts."""
++from __future__ import annotations
++
++from typing import Any
++
++KAMI = "This ability costs {4}{B} less to activate if you've drawn three or more cards this turn."
++DRONE = 'This ability costs {1}{U} less to activate if another creature with flying entered the battlefield under your control this turn.'
++
++
++def sentence(text: str) -> str | None:
++    from app.rules import cost_changes
++
++    _, found = cost_changes.split_ability(text.split(':', 1)[-1])
++    return found if found in (KAMI, DRONE) else None
++
++
++def flying_receipts(plan: Any, player: str, card: Any) -> tuple[bool, bool]:
++    from app.rules import history
++
++    positive, unknown = False, False
++    for entry in history.log_for(plan).entered:
++        if entry.controller != player or entry.object_id == plan.oid(card):
++            continue
++        if entry.types is None:
++            unknown = True
++        elif 'Creature' in entry.types:
++            if entry.keywords83 is None:
++                unknown = True
++            elif 'flying' in entry.keywords83:
++                positive = True
++    return positive, unknown
++
++
++def reduction(state: Any, player: str, card: Any, text: str, info: Any) -> tuple[int, tuple[str, ...]]:
++    from app.rules import history
++    from app.rules.plan import Plan
++
++    found = sentence(text)
++    if found is None:
++        return 0, ()
++    view = Plan.view(state, player, info)
++    if found == KAMI and history.log_for(view).drew.get(player, 0) >= 3:
++        return 4, ('B',)
++    if found == DRONE and flying_receipts(view, player, card)[0]:
++        return 1, ('U',)
++    return 0, ()
++
++
++def require_known(plan: Any, card: Any, text: str) -> None:
++    if sentence(text) != DRONE or plan.locked_cost is not None:
++        return
++    positive, unknown = flying_receipts(plan, plan.actor, card)
++    if unknown and not positive:
++        from app.game.errors import ActionError
++
++        raise ActionError('This saved turn lacks entry-time flying history; resolve Flying Drone manually or begin a new native turn.')
+--- a/backend/app/rules/cost_changes.py
++++ b/backend/app/rules/cost_changes.py
+@@ -189,2 +189,6 @@
+         return target_change
++    from app.rules import colored_activation_costs83
++
++    if sentence.strip() in (colored_activation_costs83.KAMI, colored_activation_costs83.DRONE):
++        return {"dir": -1, "n": 0}  # Native permissions.ability_mana applies both generic and colored reductions.
+     m = ABILITY_SENTENCE.fullmatch(sentence.strip())
+--- a/backend/app/rules/permissions.py
++++ b/backend/app/rules/permissions.py
+@@ -1824,5 +1824,8 @@
+     mods += selected_keyword_costs65.ability_modifiers(state, player, cost_statics)
++    from app.rules import colored_activation_costs83
++
++    own_cut83, own_colors83 = colored_activation_costs83.reduction(state, player, card, ability_text, info)
+     if capture is not None:
+         capture.append(0)
+-    if not mods and not own:  # (own: the ability's "This ability costs {1} less …", wave 4I)
++    if not mods and not own and not own_cut83 and not own_colors83:  # (own: the ability's "This ability costs {1} less …", wave 4I)
+         return mana
+@@ -1832,3 +1835,3 @@
+     view = None
+-    increase, reduction = max(0, own), max(0, -own)
++    increase, reduction = max(0, own), max(0, -own) + own_cut83
+     floored_reduction = 0
+@@ -1903,3 +1906,3 @@
+                 reduction -= delta
+-    if not increase and not reduction and not floored_reduction:
++    if not increase and not reduction and not floored_reduction and not own_colors83:
+         return mana
+@@ -1913,2 +1916,4 @@
+     out = cost.plus_generic(-cut)
++    if own_colors83:
++        out = cost_changes.reduce_colored(out, own_colors83)
+     return mana if not mana and out.is_free else out.text()  # (wave 4I: "{T}: …" taxed {2} becomes "{2}, {T}: …")
+--- a/backend/app/game/rules_state.py
++++ b/backend/app/game/rules_state.py
+@@ -523,2 +523,3 @@
+     subtypes: list[str] | None = None
++    keywords83: list[str] | None = None  # As entered; absent old-save history is unknown, never current flying.
+     colors: list[str] | None = None  # as entered; None is unknown in an older save, not its later color
+--- a/backend/app/rules/plan.py
++++ b/backend/app/rules/plan.py
+@@ -190,2 +190,3 @@
+                     entry.colors = sorted(now.colors)
++                    entry.keywords83 = sorted(now.keywords)
+         for oid, (pt, abilities, keywords, traits, base, goaded) in leaving.items():  # last known information (608.2h)
+--- a/backend/app/rules/entry_forms.py
++++ b/backend/app/rules/entry_forms.py
+@@ -86,2 +86,3 @@
+                 entry.colors = sorted(now.colors)
++                entry.keywords83 = sorted(now.keywords)
+     return True
+--- a/backend/app/rules/casting.py
++++ b/backend/app/rules/casting.py
+@@ -5946,2 +5946,3 @@
+         activation_alternatives,
++        colored_activation_costs83,
+         defined_activation_x,
+@@ -5950,2 +5951,3 @@
+
++    colored_activation_costs83.require_known(plan, card, ability.text)
+     input_x = a.x_value

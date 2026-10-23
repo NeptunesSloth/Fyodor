@@ -798,5 +798,35 @@
     "original_sha256": "6b606f5faf33e318809e2c3585097c3f20bc65338a03d31603543859ae799b14",
     "archived_sha256": "683ef44920258faea8d19c6dff02becbd4b9593569d46aa2538f9c7573fea9d5",
     "numstat_preserved": null
+  },
+  "docs/research/proposals/colored-activation-costs83/affected3-cold1.log": {
+    "original_sha256": "b4a17a6b9c2577d22196b51fdaca3ee63c0d6a52d91b34da6a7582163d856dfe",
+    "archived_sha256": "dfcae1983f2af1d946f4eaac34cd1f9b3f37ccba1d38fa513d9bf984fa34baee",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/colored-activation-costs83/final15.log": {
+    "original_sha256": "4d2834a41ecd024de6263d9adc59a1ac4d4735daaebd5c55c777cb021d014956",
+    "archived_sha256": "d297d6c6a29b1caf232254393b6fd755353ca602d400918d16fd021f60dac424",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/colored-activation-costs83/native11.log": {
+    "original_sha256": "2321d9e42935428672f8d2ecf73da5a3044b6953908d36004b57a9ff1d6c503c",
+    "archived_sha256": "86717e53021e6653c17bba7a61ce075ab4e2dcd60c5a59e35eda66b370893284",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/colored-activation-costs83/owned.patch": {
+    "original_sha256": "9eae025c19d9ee6e29524bd4c0d9360a38e9ce94fbdb6a18987a1e0e5a85f00d",
+    "archived_sha256": "234ab0e87a97f1fe0d00e5053e292515dc39f4123a387fc3e0f2e4b9b18d2ebe",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/exile-counter-access85/native-boundaries3.log": {
+    "original_sha256": "b1375d11a3e047f8434b8cf024a7f82d605599da017aabe0bab68f8bf1b09432",
+    "archived_sha256": "89b497d870b7fe498c9a0243593b063cf576f454ba26312aae397f257e4b608a",
+    "numstat_preserved": null
+  },
+  "docs/research/proposals/exile-counter-access85/review.patch": {
+    "original_sha256": "e61046f8a9ae56c1e24f490a344df7ba3ed094de31d09505b37d962e2aa4ce1b",
+    "archived_sha256": "bb6e635e16c3320bbb73357e1982400a90dd1e6aa7d5c40ff7aab10e8ff9e8d3",
+    "numstat_preserved": true
   }
 }

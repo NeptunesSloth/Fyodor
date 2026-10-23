@@ -1,0 +1,91 @@
+..............F                                                          [100%]
+=================================== FAILURES ===================================
+_ test_true_cold_actual_mana_ability_third_draw_keeps_original_locked_kami_cost _
+
+cards = <app.cards.repository.CardRepository object at 0x7fdc734f0a10>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-196/test_true_cold_actual_mana_abi0')
+
+    def test_true_cold_actual_mana_ability_third_draw_keeps_original_locked_kami_cost(cards, tmp_path):
+        s, source = setup(cards, NAMES[1])
+        spell(s, 'Opt', {'U': 1})
+        sphere = put(s, 'Chromatic Sphere', 'battlefield')
+        wait_priority(s, 'p1')
+        act(s, 'p1', type='set_prefs', payment='self')
+        act(s, 'p1', type='add_mana', player='p1', mana={'C': 4})
+        index = next(a.index for a in Plan(s.state, 'p1', cards, None).ch(source).abilities if a.kind == 'activated')
+        act(s, 'p1', type='activate_ability', card_id=source.id, ability=index, sources=None)
+        assert s.state.rules.decision.resume['cost'] == '{4}{B}'
+>       cold(cards, s, tmp_path, [sphere.id], '''
+    sphere=s.state.cards[args[0]]
+    index=next(a.index for a in Plan(s.state,'p1',repo,None).ch(sphere).abilities if a.kind=='activated')
+    act(s,'p1',type='activate_ability',card_id=sphere.id,ability=index,mana_choice='B',sources=[])
+    assert s.state.rules.turn_log.drew['p1']==3
+    assert s.state.rules.decision.resume['cost']=='{4}{B}'
+    act(s,'p1',type='add_mana',player='p1',mana={'C':1})
+    d=s.state.rules.decision
+    if d: act(s,'p1',type='choose',decision_id=d.id,option_ids=['pay'])
+    ability=next(c for c in s.state.cards.values() if c.zone=='stack' and c.ability is not None)
+    assert s.state.rules.payments[s.state.rules.object_id(ability.id)].mana_spent=={'C':4,'B':1}
+    assert sum(s.state.players['p1'].mana.values())==0
+    ''')
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83_extra.py:93:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cards = <app.cards.repository.CardRepository object at 0x7fdc734f0a10>
+s = <app.game.session.GameSession object at 0x7fdc731c22d0>
+tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-196/test_true_cold_actual_mana_abi0')
+extra = ['83abc7661328']
+code = "\nsphere=s.state.cards[args[0]]\nindex=next(a.index for a in Plan(s.state,'p1',repo,None).ch(sphere).abilities if a.k...s[s.state.rules.object_id(ability.id)].mana_spent=={'C':4,'B':1}\nassert sum(s.state.players['p1'].mana.values())==0\n"
+legacy = False
+
+    def cold(cards, s, tmp_path, extra, code, legacy=False):
+        saved = tmp_path / 'colored83.json'
+        data = s.state.model_dump(mode='json')
+        if legacy:
+            for entry in data['rules']['turn_log']['entered']:
+                entry.pop('keywords83', None)
+        saved.write_text(json.dumps(data))
+        prefix = '''
+    import sys
+    from pathlib import Path
+    from app.cards.images import ImageStore
+    from app.cards.repository import CardRepository
+    from app.game.session import GameSession
+    from app.game.state import GameState
+    from app.game.errors import ActionError
+    from app.rules.plan import Plan
+    from tests.game_helpers import act
+    from tests.test_rules_colored_activation_costs83 import activate, spell
+    saved,database,*args=sys.argv[1:]
+    repo=CardRepository(Path(database),ImageStore(Path(database).parent/'images'))
+    s=GameSession(GameState.model_validate_json(Path(saved).read_text()),cards=repo)
+    s.view('p1');s.view('p2')
+    '''
+        run = subprocess.run([sys.executable, '-c', prefix + code, str(saved), str(cards.db_path), *extra], capture_output=True, text=True, env=os.environ.copy())
+>       assert run.returncode == 0, run.stdout + run.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<string>", line 19, in <module>
+E           File "/workspace/scratch/cost83/stage/backend/tests/game_helpers.py", line 42, in act
+E             return session.perform(actor, payload)
+E                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           File "/workspace/scratch/cost83/stage/backend/app/game/session.py", line 61, in perform
+E             resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+E                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           File "/workspace/scratch/cost83/stage/backend/app/game/resolve.py", line 76, in resolve
+E             a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+E                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           File "/workspace/scratch/cost83/stage/backend/app/rules/engine.py", line 164, in compile_intent
+E             handler(plan, intent)
+E           File "/workspace/scratch/cost83/stage/backend/app/rules/casting.py", line 5303, in activate_ability
+E             _mana_while_paying(plan, a)
+E           File "/workspace/scratch/cost83/stage/backend/app/rules/casting.py", line 5586, in _mana_while_paying
+E             raise ActionError("While paying you can only tap for mana")
+E         app.game.errors.ActionError: While paying you can only tap for mana
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/workspace/Fyodor/backend/.venv/bin/python3', '-c', "\nimport sys\nfrom pathlib import Path\nf...rror("While paying you can only tap for mana")\napp.game.errors.ActionError: While paying you can only tap for mana\n').returncode
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83_extra.py:42: AssertionError
+=========================== short test summary info ============================
+FAILED scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83_extra.py::test_true_cold_actual_mana_ability_third_draw_keeps_original_locked_kami_cost

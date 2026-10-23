@@ -1,0 +1,4 @@
+..
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! KeyboardInterrupt !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py:52: KeyboardInterrupt
+(to show a full traceback on KeyboardInterrupt use --full-trace)

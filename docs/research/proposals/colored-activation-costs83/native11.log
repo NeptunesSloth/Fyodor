@@ -1,0 +1,278 @@
+..FFFFFFFF.                                                              [100%]
+=================================== FAILURES ===================================
+_____________ test_kami_three_actual_draws_free_and_once_each_turn _____________
+
+cards = <app.cards.repository.CardRepository object at 0x7ff66b80b1a0>
+
+    def test_kami_three_actual_draws_free_and_once_each_turn(cards):
+        s, source = setup(cards, NAMES[1])
+        spell(s, 'Divination', {'C': 2, 'U': 1})
+        assert s.state.rules.turn_log.drew['p1'] == 3
+>       activate(s, source, {}, '{0}')
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py:89:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7ff66ae79460>
+source = CardInstance(borrow_identity=None, id='0d6c4d3fb668', card_id='a2958c96-97f8-4961-813c-938b83e20d07', name='Kami of Je...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+mana = {}, expected = ''
+
+    def activate(s, source, mana, expected):
+        wait_priority(s, 'p1')
+        if mana:
+            act(s, 'p1', type='add_mana', player='p1', mana=mana)
+        index = next(a.index for a in Plan(s.state, 'p1', s.cards, None).ch(source).abilities if a.kind == 'activated')
+        act(s, 'p1', type='activate_ability', card_id=source.id, ability=index, sources=[])
+        ability = next(c for c in s.state.cards.values() if c.zone == 'stack' and c.ability is not None)
+        paid = s.state.rules.payments[s.state.rules.object_id(ability.id)]
+>       assert paid.total_cost == expected
+E       AssertionError: assert '{4}{B}' == ''
+E
+E         + {4}{B}
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py:67: AssertionError
+_____ test_qualifying_reduction_keeps_actual_activation_tax[Flying Drone] ______
+
+cards = <app.cards.repository.CardRepository object at 0x7ff66afff470>
+name = 'Flying Drone'
+
+    @pytest.mark.parametrize('name', NAMES)
+    def test_qualifying_reduction_keeps_actual_activation_tax(cards, name):
+        s, source = setup(cards, name)
+        if name == NAMES[1]:
+            spell(s, 'Divination', {'C': 2, 'U': 1})
+        else:
+            spell(s, 'Ornithopter')
+        put(s, 'Suppression Field', 'battlefield')
+>       activate(s, source, {'C': 2}, '{2}')
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py:105:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7ff66b0196d0>
+source = CardInstance(borrow_identity=None, id='ae689dfa0777', card_id='3fea3eb2-9360-41fc-890e-8377e69fb9e3', name='Flying Dro...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+mana = {'C': 2}, expected = '{2}'
+
+    def activate(s, source, mana, expected):
+        wait_priority(s, 'p1')
+        if mana:
+            act(s, 'p1', type='add_mana', player='p1', mana=mana)
+        index = next(a.index for a in Plan(s.state, 'p1', s.cards, None).ch(source).abilities if a.kind == 'activated')
+        act(s, 'p1', type='activate_ability', card_id=source.id, ability=index, sources=[])
+        ability = next(c for c in s.state.cards.values() if c.zone == 'stack' and c.ability is not None)
+        paid = s.state.rules.payments[s.state.rules.object_id(ability.id)]
+>       assert paid.total_cost == expected
+E       AssertionError: assert '{1}{U}, {T}' == '{2}'
+E
+E         - {2}
+E         + {1}{U}, {T}
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py:67: AssertionError
+_ test_qualifying_reduction_keeps_actual_activation_tax[Kami of Jealous Thirst] _
+
+cards = <app.cards.repository.CardRepository object at 0x7ff66aec43b0>
+name = 'Kami of Jealous Thirst'
+
+    @pytest.mark.parametrize('name', NAMES)
+    def test_qualifying_reduction_keeps_actual_activation_tax(cards, name):
+        s, source = setup(cards, name)
+        if name == NAMES[1]:
+            spell(s, 'Divination', {'C': 2, 'U': 1})
+        else:
+            spell(s, 'Ornithopter')
+        put(s, 'Suppression Field', 'battlefield')
+>       activate(s, source, {'C': 2}, '{2}')
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py:105:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7ff66aea5790>
+source = CardInstance(borrow_identity=None, id='50ecc0a09481', card_id='a2958c96-97f8-4961-813c-938b83e20d07', name='Kami of Je...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+mana = {'C': 2}, expected = '{2}'
+
+    def activate(s, source, mana, expected):
+        wait_priority(s, 'p1')
+        if mana:
+            act(s, 'p1', type='add_mana', player='p1', mana=mana)
+        index = next(a.index for a in Plan(s.state, 'p1', s.cards, None).ch(source).abilities if a.kind == 'activated')
+        act(s, 'p1', type='activate_ability', card_id=source.id, ability=index, sources=[])
+        ability = next(c for c in s.state.cards.values() if c.zone == 'stack' and c.ability is not None)
+        paid = s.state.rules.payments[s.state.rules.object_id(ability.id)]
+>       assert paid.total_cost == expected
+E       AssertionError: assert '{4}{B}' == '{2}'
+E
+E         - {2}
+E         + {4}{B}
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py:67: AssertionError
+_________________ test_drone_own_entry_alone_does_not_qualify __________________
+
+cards = <app.cards.repository.CardRepository object at 0x7ff66afd0800>
+
+    def test_drone_own_entry_alone_does_not_qualify(cards):
+        s, source = setup(cards, NAMES[0])
+>       activate(s, source, {'C': 1, 'U': 1}, '{1}{U}')
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py:110:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7ff66ae6cf50>
+source = CardInstance(borrow_identity=None, id='260edd412083', card_id='3fea3eb2-9360-41fc-890e-8377e69fb9e3', name='Flying Dro...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+mana = {'C': 1, 'U': 1}, expected = '{1}{U}'
+
+    def activate(s, source, mana, expected):
+        wait_priority(s, 'p1')
+        if mana:
+            act(s, 'p1', type='add_mana', player='p1', mana=mana)
+        index = next(a.index for a in Plan(s.state, 'p1', s.cards, None).ch(source).abilities if a.kind == 'activated')
+        act(s, 'p1', type='activate_ability', card_id=source.id, ability=index, sources=[])
+        ability = next(c for c in s.state.cards.values() if c.zone == 'stack' and c.ability is not None)
+        paid = s.state.rules.payments[s.state.rules.object_id(ability.id)]
+>       assert paid.total_cost == expected
+E       AssertionError: assert '{1}{U}, {T}' == '{1}{U}'
+E
+E         - {1}{U}
+E         + {1}{U}, {T}
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py:67: AssertionError
+_____________ test_drone_actual_other_flyer_entry_and_draw_discard _____________
+
+cards = <app.cards.repository.CardRepository object at 0x7ff66aee6f00>
+
+    def test_drone_actual_other_flyer_entry_and_draw_discard(cards):
+        s, source = setup(cards, NAMES[0])
+        spell(s, 'Ornithopter')
+        entry = next(e for e in s.state.rules.turn_log.entered if e.card != source.id and 'flying' in (e.keywords83 or []))
+        assert 'Creature' in entry.types
+        before = len(s.state.zones['p1:graveyard'])
+>       activate(s, source, {}, '{0}')
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py:120:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7ff66aefb380>
+source = CardInstance(borrow_identity=None, id='9ca0fcddce5d', card_id='3fea3eb2-9360-41fc-890e-8377e69fb9e3', name='Flying Dro...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+mana = {}, expected = ''
+
+    def activate(s, source, mana, expected):
+        wait_priority(s, 'p1')
+        if mana:
+            act(s, 'p1', type='add_mana', player='p1', mana=mana)
+        index = next(a.index for a in Plan(s.state, 'p1', s.cards, None).ch(source).abilities if a.kind == 'activated')
+        act(s, 'p1', type='activate_ability', card_id=source.id, ability=index, sources=[])
+        ability = next(c for c in s.state.cards.values() if c.zone == 'stack' and c.ability is not None)
+        paid = s.state.rules.payments[s.state.rules.object_id(ability.id)]
+>       assert paid.total_cost == expected
+E       AssertionError: assert '{1}{U}, {T}' == ''
+E
+E         + {1}{U}, {T}
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py:67: AssertionError
+______________ test_drone_flying_lost_after_entry_still_qualifies ______________
+
+cards = <app.cards.repository.CardRepository object at 0x7ff66aefa300>
+
+    def test_drone_flying_lost_after_entry_still_qualifies(cards):
+        s, source = setup(cards, NAMES[0])
+        flyer = spell(s, 'Ornithopter')
+        spell(s, 'Turn to Frog', {'C': 1, 'U': 1}, [flyer.id])
+        assert 'flying' not in Plan(s.state, 'p1', s.cards, None).ch(flyer).keywords
+>       activate(s, source, {}, '{0}')
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py:130:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7ff66af25be0>
+source = CardInstance(borrow_identity=None, id='723b26e0a0d5', card_id='3fea3eb2-9360-41fc-890e-8377e69fb9e3', name='Flying Dro...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+mana = {}, expected = ''
+
+    def activate(s, source, mana, expected):
+        wait_priority(s, 'p1')
+        if mana:
+            act(s, 'p1', type='add_mana', player='p1', mana=mana)
+        index = next(a.index for a in Plan(s.state, 'p1', s.cards, None).ch(source).abilities if a.kind == 'activated')
+        act(s, 'p1', type='activate_ability', card_id=source.id, ability=index, sources=[])
+        ability = next(c for c in s.state.cards.values() if c.zone == 'stack' and c.ability is not None)
+        paid = s.state.rules.payments[s.state.rules.object_id(ability.id)]
+>       assert paid.total_cost == expected
+E       AssertionError: assert '{1}{U}, {T}' == ''
+E
+E         + {1}{U}, {T}
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py:67: AssertionError
+____________ test_drone_flying_gained_after_entry_does_not_qualify _____________
+
+cards = <app.cards.repository.CardRepository object at 0x7ff66af266c0>
+
+    def test_drone_flying_gained_after_entry_does_not_qualify(cards):
+        s, source = setup(cards, NAMES[0])
+        bear = spell(s, 'Grizzly Bears', {'C': 1, 'G': 1})
+        spell(s, 'Jump', {'U': 1}, [bear.id])
+        assert 'flying' in Plan(s.state, 'p1', s.cards, None).ch(bear).keywords
+>       activate(s, source, {'C': 1, 'U': 1}, '{1}{U}')
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py:138:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7ff66aebcb60>
+source = CardInstance(borrow_identity=None, id='8236e6509eaa', card_id='3fea3eb2-9360-41fc-890e-8377e69fb9e3', name='Flying Dro...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+mana = {'C': 1, 'U': 1}, expected = '{1}{U}'
+
+    def activate(s, source, mana, expected):
+        wait_priority(s, 'p1')
+        if mana:
+            act(s, 'p1', type='add_mana', player='p1', mana=mana)
+        index = next(a.index for a in Plan(s.state, 'p1', s.cards, None).ch(source).abilities if a.kind == 'activated')
+        act(s, 'p1', type='activate_ability', card_id=source.id, ability=index, sources=[])
+        ability = next(c for c in s.state.cards.values() if c.zone == 'stack' and c.ability is not None)
+        paid = s.state.rules.payments[s.state.rules.object_id(ability.id)]
+>       assert paid.total_cost == expected
+E       AssertionError: assert '{1}{U}, {T}' == '{1}{U}'
+E
+E         - {1}{U}
+E         + {1}{U}, {T}
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py:67: AssertionError
+_______________ test_drone_opponent_flyer_entry_does_not_qualify _______________
+
+cards = <app.cards.repository.CardRepository object at 0x7ff66af19d30>
+
+    def test_drone_opponent_flyer_entry_does_not_qualify(cards):
+        s, source = setup(cards, NAMES[0])
+        put(s, 'Ornithopter', 'battlefield', 'p2')
+>       activate(s, source, {'C': 1, 'U': 1}, '{1}{U}')
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py:144:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+s = <app.game.session.GameSession object at 0x7ff66aebe1b0>
+source = CardInstance(borrow_identity=None, id='ce3eea933ea9', card_id='3fea3eb2-9360-41fc-890e-8377e69fb9e3', name='Flying Dro...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+mana = {'C': 1, 'U': 1}, expected = '{1}{U}'
+
+    def activate(s, source, mana, expected):
+        wait_priority(s, 'p1')
+        if mana:
+            act(s, 'p1', type='add_mana', player='p1', mana=mana)
+        index = next(a.index for a in Plan(s.state, 'p1', s.cards, None).ch(source).abilities if a.kind == 'activated')
+        act(s, 'p1', type='activate_ability', card_id=source.id, ability=index, sources=[])
+        ability = next(c for c in s.state.cards.values() if c.zone == 'stack' and c.ability is not None)
+        paid = s.state.rules.payments[s.state.rules.object_id(ability.id)]
+>       assert paid.total_cost == expected
+E       AssertionError: assert '{1}{U}, {T}' == '{1}{U}'
+E
+E         - {1}{U}
+E         + {1}{U}, {T}
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py:67: AssertionError
+=========================== short test summary info ============================
+FAILED scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py::test_kami_three_actual_draws_free_and_once_each_turn
+FAILED scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py::test_qualifying_reduction_keeps_actual_activation_tax[Flying Drone]
+FAILED scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py::test_qualifying_reduction_keeps_actual_activation_tax[Kami of Jealous Thirst]
+FAILED scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py::test_drone_own_entry_alone_does_not_qualify
+FAILED scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py::test_drone_actual_other_flyer_entry_and_draw_discard
+FAILED scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py::test_drone_flying_lost_after_entry_still_qualifies
+FAILED scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py::test_drone_flying_gained_after_entry_does_not_qualify
+FAILED scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py::test_drone_opponent_flyer_entry_does_not_qualify

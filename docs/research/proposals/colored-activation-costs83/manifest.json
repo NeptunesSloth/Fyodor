@@ -1,0 +1,32 @@
+{
+  "status": "closed; root admission pending",
+  "cards": [
+    "Kami of Jealous Thirst",
+    "Flying Drone"
+  ],
+  "files": [
+    "app/rules/colored_activation_costs83.py",
+    "app/rules/cost_changes.py",
+    "app/rules/permissions.py",
+    "app/game/rules_state.py",
+    "app/rules/plan.py",
+    "app/rules/entry_forms.py",
+    "app/rules/casting.py"
+  ],
+  "source_sha256": {
+    "app/rules/colored_activation_costs83.py": "dd501bbfe7abdfc63f768e6a6713aa1d02b5661bd955d07bd956c37a48fc5bb1",
+    "app/rules/cost_changes.py": "e4e4fa5eec573b18d289855f048593399b17739255a581be412799af39960b86",
+    "app/rules/permissions.py": "ec7e5d6ff3ebb9181345176f19ccc947ff8720e8fcb6e2b0ccc7cbe5a3315c51",
+    "app/game/rules_state.py": "fdc9bcae71ce7cce1a14114a2258cb6e505121cd2417e5163f5e9eca544950cd",
+    "app/rules/plan.py": "ce009c32b0c63abf6ef95bea4078823b509b289192a88a1445afe6bfa08876bd",
+    "app/rules/entry_forms.py": "ada586918e9de426a790f91c5a0e19212bfe06fa2259f0b137cad21d195f0767",
+    "app/rules/casting.py": "10194a1fff27a334ac33d99b6ae68c7add48574439c324f4012ec5dd09593eee"
+  },
+  "native_distinct": 17,
+  "cold": 3,
+  "related": 14,
+  "related_cold": 4,
+  "mypy": 7,
+  "ruff": 9,
+  "patch_lines": 123
+}

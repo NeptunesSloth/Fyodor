@@ -1,0 +1,54 @@
+..F                                                                      [100%]
+=================================== FAILURES ===================================
+_ test_actual_layered_entry_without_flying_is_not_retroactive_after_sphere_leaves _
+
+cards = <app.cards.repository.CardRepository object at 0x7f1d43723cb0>
+
+    def test_actual_layered_entry_without_flying_is_not_retroactive_after_sphere_leaves(cards):
+        s, source = setup(cards, NAMES[0])
+        sphere = put(s, 'Gravity Sphere', 'battlefield')
+        flyer = spell(s, 'Ornithopter')
+        entry = next(e for e in s.state.rules.turn_log.entered if e.card == flyer.id)
+        assert entry.keywords83 is not None and 'flying' not in entry.keywords83
+        spell(s, 'Naturalize', {'C': 1, 'G': 1}, [sphere.id])
+        assert 'flying' in Plan(s.state, 'p1', cards, None).ch(s.state.cards[flyer.id]).keywords
+>       activate(s, source, {'C': 1, 'U': 1}, '{1}{U}')
+
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83_extra.py:132:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83.py:64: in activate
+    act(s, 'p1', type='activate_ability', card_id=source.id, ability=index, sources=[])
+scratch/cost83/stage/backend/tests/game_helpers.py:42: in act
+    return session.perform(actor, payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost83/stage/backend/app/game/session.py:61: in perform
+    resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost83/stage/backend/app/game/resolve.py:76: in resolve
+    a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scratch/cost83/stage/backend/app/rules/engine.py:164: in compile_intent
+    handler(plan, intent)
+scratch/cost83/stage/backend/app/rules/casting.py:5426: in activate_ability
+    activate_to_stack(plan, card, ch, ability, a)
+scratch/cost83/stage/backend/app/rules/casting.py:5952: in activate_to_stack
+    colored_activation_costs83.require_known(plan, card, ability.text)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+plan = <app.rules.plan.Plan object at 0x7f1d4258dd00>
+card = CardInstance(borrow_identity=None, id='3f772321fdd7', card_id='3fea3eb2-9360-41fc-890e-8377e69fb9e3', name='Flying Dro...ts=[], damage=0, choices={}, stack_info=None, exile_group=None, token_source=None, origin='library', test_object=False)
+text = '{1}{U}, {T}: Draw a card, then discard a card. This ability costs {1}{U} less to activate if another creature with flying entered the battlefield under your control this turn.'
+
+    def require_known(plan: Any, card: Any, text: str) -> None:
+        if sentence(text) != DRONE or plan.locked_cost is not None:
+            return
+        positive, unknown = flying_receipts(plan, plan.actor, card)
+        if unknown and not positive:
+            from app.game.errors import ActionError
+
+>           raise ActionError('This saved turn lacks entry-time flying history; resolve Flying Drone manually or begin a new native turn.')
+E           app.game.errors.ActionError: This saved turn lacks entry-time flying history; resolve Flying Drone manually or begin a new native turn.
+
+scratch/cost83/stage/backend/app/rules/colored_activation_costs83.py:56: ActionError
+=========================== short test summary info ============================
+FAILED scratch/cost83/stage/backend/tests/test_rules_colored_activation_costs83_extra.py::test_actual_layered_entry_without_flying_is_not_retroactive_after_sphere_leaves

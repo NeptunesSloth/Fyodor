@@ -1,0 +1,20 @@
+{
+  "before": {
+    "app/rules/colored_activation_costs83.py": null,
+    "app/rules/cost_changes.py": "6e8c9657bd6f9cdf8221a414c6d21053f3d8ed9826132c20212f1be574b49f19",
+    "app/rules/permissions.py": "2a8e888c0e26b2ee30fa44ab33f461c85661eb980863d4d658cbc9da7b78d68f",
+    "app/game/rules_state.py": "afd314424df982ebda96a5645431f25281d44ee40928ebde2a6849d5f00e0def",
+    "app/rules/plan.py": "7267163279ff4dd9bec69373bba9b85699026f8941d9611ddb0466d0a82f795f",
+    "app/rules/entry_forms.py": "e0028a5b8685e9376c761d1d35b311b9cf62458cd7061d40bc9a9cee07fc2d79",
+    "app/rules/casting.py": "5c2261362a3847dbcb69b1788bee192d12471492631a874a743ef1f045060148"
+  },
+  "after": {
+    "app/rules/colored_activation_costs83.py": "dd501bbfe7abdfc63f768e6a6713aa1d02b5661bd955d07bd956c37a48fc5bb1",
+    "app/rules/cost_changes.py": "e4e4fa5eec573b18d289855f048593399b17739255a581be412799af39960b86",
+    "app/rules/permissions.py": "ec7e5d6ff3ebb9181345176f19ccc947ff8720e8fcb6e2b0ccc7cbe5a3315c51",
+    "app/game/rules_state.py": "fdc9bcae71ce7cce1a14114a2258cb6e505121cd2417e5163f5e9eca544950cd",
+    "app/rules/plan.py": "ce009c32b0c63abf6ef95bea4078823b509b289192a88a1445afe6bfa08876bd",
+    "app/rules/entry_forms.py": "ada586918e9de426a790f91c5a0e19212bfe06fa2259f0b137cad21d195f0767",
+    "app/rules/casting.py": "10194a1fff27a334ac33d99b6ae68c7add48574439c324f4012ec5dd09593eee"
+  }
+}

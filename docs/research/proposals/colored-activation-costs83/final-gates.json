@@ -1,0 +1,37 @@
+{
+  "native_distinct": 17,
+  "cold": 3,
+  "evidence": {
+    "final15.log": {
+      "pass": 14,
+      "invalid_historical_sphere_fixture": 1,
+      "exit": 1
+    },
+    "affected3-cold1.log": {
+      "pass": 2,
+      "manual_gravity_sphere_entry_fixture": 1,
+      "exit": 1
+    },
+    "layered-native-entry1.log": {
+      "pass": 1,
+      "exit": 0
+    }
+  },
+  "related14-cold4.log": {
+    "pass": 14,
+    "cold": 4,
+    "exit": 0
+  },
+  "types7.log": {
+    "files": 7,
+    "stage_local_cache": true,
+    "exit": 0
+  },
+  "ruff9-closure.log": {
+    "files": 9,
+    "exit": 0
+  },
+  "final_production_hashes_match_pre_gate": true,
+  "intermediate_shadow_review_interrupted_exit": 2,
+  "fixture_failures_retained": true
+}

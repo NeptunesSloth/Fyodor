@@ -1,0 +1,36 @@
+{
+  "status": "CLOSED exact1 Lara; native6 incl cold2 /related73/types4/Ruff5 PASS",
+  "names": [
+    "Lara Croft, Tomb Raider"
+  ],
+  "held": [
+    "Draugr Necromancer",
+    "Haldan, Avid Arcanist",
+    "Evelyn, the Covetous"
+  ],
+  "stage": "/workspace/scratch/casting85-stage",
+  "native": {
+    "count": 6,
+    "cold": 2,
+    "log": "native-final6.log"
+  },
+  "design": "Dynamic current card_filter for land plays and spell casts; explicitly any-player exile; native per-effect once limit and existing turn expiry. Native attack original targets/counter effects unchanged.",
+  "types": {
+    "count": 4,
+    "log": "types4.log"
+  },
+  "ruff": {
+    "count": 5,
+    "log": "ruff-final5.log"
+  },
+  "related": {
+    "count": 73,
+    "status": "PASS",
+    "log": "related.log",
+    "nodes": "related-nodes.log"
+  },
+  "source_patch": "review.patch",
+  "patch_lines": 89,
+  "source_hashes": "source-hashes.json",
+  "integration": "git apply --check PASS current root; preserve later permissions flags/hooks"
+}

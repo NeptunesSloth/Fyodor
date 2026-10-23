@@ -1,0 +1,40 @@
+I001 [*] Import block is un-sorted or un-formatted
+    --> app/rules/casting.py:5945:5
+     |
+5943 |                         a: A.ActivateAbility, *, definition: dict[str, Any] | None = None,
+5944 |                         exclude_targets: tuple[str, ...] = (), keep_revealed: bool = False) -> None:
+5945 | /     from app.rules import (
+5946 | |         activation_alternatives,
+5947 | |         defined_activation_x,
+5948 | |         modal_abilities,  # (a leaf module over this one)
+5949 | |     )
+5950 | |
+5951 | |     from app.rules import colored_activation_costs83
+     | |____________________________________________________^
+5952 |
+5953 |       colored_activation_costs83.require_known(plan, card, ability.text)
+     |
+help: Organize imports
+     |
+5946 |         activation_alternatives,
+5947 +         colored_activation_costs83,
+5948 |         defined_activation_x,
+5949 |         modal_abilities,  # (a leaf module over this one)
+5950 |     )
+     -
+     -     from app.rules import colored_activation_costs83
+5951 |
+     |
+
+F823 Local variable `cost_changes` referenced before assignment
+    --> app/rules/permissions.py:1862:43
+     |
+1861 |             view = view or _view(state, player, info)
+1862 |             if not conditions.holds(view, cost_changes.context(state, src.controller, src), d['condition']):
+     |                                           ^^^^^^^^^^^^
+1863 |                 continue
+1864 |         if d.get('loyalty_only'):
+     |
+
+Found 2 errors.
+[*] 1 fixable with `--fix`.
