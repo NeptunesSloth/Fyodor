@@ -1,0 +1,36 @@
+{
+  "cards": [
+    "The Cyber-Controller"
+  ],
+  "status": "HELD_NATIVE_ENTRY_COUNTER_ORDER_COUNTEREXAMPLE",
+  "source_patch": "review.patch",
+  "native": {
+    "passed": 17,
+    "genuine_cold": 2,
+    "log": "native17.log",
+    "note": "Prior17 is insufficient for admission: actual Grumgully+Scales+Season proves returned face-down entrants silently auto-order. Prepared native entry repair is isolated/pending."
+  },
+  "related": {
+    "passed": 16,
+    "log": "related16.log",
+    "scope": "Relevant native18A face-down mechanics and full18R hidden-ID mapping"
+  },
+  "mypy": {
+    "passed": true,
+    "files": 1,
+    "log": "types1.log"
+  },
+  "ruff": {
+    "passed": true,
+    "files": 2,
+    "log": "ruff2.log"
+  },
+  "source_scope": "One exact public-mill return leaf plus parser/primitive registrations; no shared generic mill/face-down changes",
+  "authority": "Canonical full card and all five official published rulings read; CR701.17c actual public outcomes",
+  "sha256": {
+    "cyber_controller63.py": "fd369471eb2a70a81156a74c8ecd5519ef55c99c6a07ca24576f74d97469940e",
+    "test_rules_cyber_controller63.py": "0b8a31e589e2bedb0cea5a6c7d44833386b06af5db56d39765926d42cdcc8d8f",
+    "cyber_controller63_cards.json": "a3bb6fde7af2b8bf9e1d75faa692d0db87b45dfbe7fe25352cffc6a97eeeb0c2",
+    "review.patch": "459a90ba815714b79955a7c137c91afc3106b2f4ca5dcfbc160317d8d256d517"
+  }
+}

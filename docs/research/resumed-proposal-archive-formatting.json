@@ -963,5 +963,15 @@
     "original_sha256": "cb497ec56579f9aeef35fe644b6fdaa8992ec03fb4d9a83e3e64bbb6c8cc8410",
     "archived_sha256": "e8ab0e06c111f1b3cb263b9d663ddd4f3a84adb2f359273a2f64d322457d3994",
     "numstat_preserved": true
+  },
+  "docs/research/proposals/cyber-controller63/review.patch": {
+    "original_sha256": "459a90ba815714b79955a7c137c91afc3106b2f4ca5dcfbc160317d8d256d517",
+    "archived_sha256": "e50fb19e1b60b83ca0772df2b60ae90fdc0863feb85653bc141d347104729be2",
+    "numstat_preserved": true
+  },
+  "docs/research/proposals/cyber-controller63/ruling-fixture-before.log": {
+    "original_sha256": "2787da665fb2864713ee2fe90e1fa7c60e5de59a854eee6dcc3b1e8116f42c16",
+    "archived_sha256": "74b83bc7c515554c672d04908749ae46b72ae285b4987fb542dedb566d004548",
+    "numstat_preserved": null
   }
 }

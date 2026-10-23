@@ -1,0 +1,60 @@
+--- /dev/null
++++ b/backend/app/rules/cyber_controller63.py
+@@ -0,0 +1,34 @@
++"""Bounded actual public mill cards returned with native face-down characteristics."""
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, Any
++
++if TYPE_CHECKING:
++    from app.rules.plan import Plan
++
++_BODY = "Each opponent mills X cards. Put all creature cards milled this way onto the battlefield face down under your control. They're 2/2 Cyberman artifact creatures."
++_PUBLIC = ('graveyard', 'exile', 'battlefield', 'command', 'stack')
++
++
++def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
++    if body.strip().casefold() != _BODY.casefold():
++        return None
++    return [{'do': 'mill', 'who': 'each_opponent', 'n': {'x': 1}, 'as': 'cyber_mill63'},
++            {'do': 'cyber_return63'}], None, False
++
++
++def return_creatures(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
++    from app.rules import context, effects, replace
++
++    selected = [cid for cid in context.objects(plan, ctx, 'cyber_mill63')
++                if plan.state.cards[cid].zone.rsplit(':', 1)[-1] in _PUBLIC
++                and not plan.state.cards[cid].face_down and 'Creature' in plan.ch(plan.state.cards[cid]).types]
++    context.bind_objects(plan, ctx, 'cyber_creatures63', selected)
++    start = plan.rules.batch
++    done = effects.return_card(plan, ctx, {'who': 'ref:cyber_creatures63', 'to': 'battlefield', 'under': 'you',
++                                   'face_down': True, 'spec': '2/2 Cyberman artifact creature'})
++    replace._one_batch(plan, start)
++    return done
++
++
++PRIMITIVES = {'cyber_return63': return_creatures}
+--- a/backend/app/rules/scripts.py
++++ b/backend/app/rules/scripts.py
+@@ -2669,6 +2669,10 @@
+
+     if (offered78 := object_mana_offers78.parse(body)) is not None:
+         return offered78
++    from app.rules import cyber_controller63
++
++    if (cyber63 := cyber_controller63.parse(body)) is not None:
++        return cyber63
+     from app.rules import public_mill_attachment59
+
+     if (continued59 := public_mill_attachment59.parse(body, it, event_player)) is not None:
+--- a/backend/app/rules/effects.py
++++ b/backend/app/rules/effects.py
+@@ -6729,3 +6729,7 @@
+ from app.rules import demonic_covenant62 as _demonic_covenant62  # noqa: E402, I001
+
+ PRIMITIVES.update(_demonic_covenant62.PRIMITIVES)
++
++from app.rules import cyber_controller63
++
++PRIMITIVES.update(cyber_controller63.PRIMITIVES)
