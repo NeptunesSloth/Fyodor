@@ -85,6 +85,11 @@ def divided(ctx: Context, e: dict[str, Any]) -> dict[str, int] | None:
 
 def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
     me = ctx["controller"]
+    if who.startswith("others100c:"):  # -- static spells (wave 100C) -- "each player other than target player"
+        named = set(_players(plan, ctx, who[len("others100c:"):]))
+        return [p for p in plan.live() if p not in named]
+    if who.startswith("owners100c:"):  # -- static spells (wave 100C) -- "the owners of those cards"
+        return [p for p in dict.fromkeys(plan.state.cards[c].owner for c in _cards(plan, ctx, who[len("owners100c:"):])) if p in plan.live()]
     if who.startswith(selectors.PREFIX):  # "each opponent", "each player" … as a selector
         sel = selectors.from_key(who)
         return [p for p in plan.live() if selectors.matches_player(plan, sel, p, me)] if sel.player else []
@@ -182,6 +187,10 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
 
 
 def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
+    if who.startswith(("owned100c:", "attached100c:", "partner100c:", "samemv100c:", "dust100c")):  # -- static spells (wave 100C) -- "all artifacts target player owns", "all Auras attached to it", ...
+        from app.rules import static_spell100c
+
+        return static_spell100c.cards(plan, ctx, who)
     if who == 'all_targets':
         return list(dict.fromkeys(cid for i in range(len(ctx.get('groups') or []))
                                   for cid in _cards(plan, ctx, f'target:{i}')))
@@ -388,6 +397,11 @@ def draw(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
         this_way.mark_drawn(plan, ctx, e["as"])
     players = _players(plan, ctx, e["who"])
+    if sized_damage.has_per_player(e["n"]):  # -- static spells (wave 100C) -- "each player draws a card for each creature card in their graveyard":
+        # every player's number determined once, before the first draw (608.2h); the draws in APNAP order (121.2c)
+        each = {p: max(0, _amount(plan, {**ctx, "recipient": p}, e["n"])) for p in players}
+        players = [p for p in players if each[p] > 0]
+        return not players or replace.draw_cards(plan, players, each, then=_then(ctx, e), ctx=ctx)
     if isinstance(e["n"], dict) and e["n"].get("each_hand_shortfall"):
         # 608.2h: determine every shortfall once, before the first draw. A draw
         # replacement may then enlarge one hand without increasing later draws.
@@ -1179,7 +1193,11 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
 
         return first_event_receipts78.investigate(plan, ctx, e)
     t = e["token"]
-    count = _amount(plan, ctx, e["n"])
+    # -- static spells (wave 100C) -- "Each player creates a … token for each untapped Forest they control": each player's own count, all
+    # determined before any token is created (608.2h), one creation batch (616.1 APNAP)
+    per100c = {p: max(0, _amount(plan, {**ctx, "recipient": p}, e["n"])) for p in _players(plan, ctx, e["who"])} \
+        if sized_damage.has_per_player(e["n"]) and not e.get("more") and not e.get("per_controller") else None
+    count = _amount(plan, ctx, e["n"]) if per100c is None else max(per100c.values(), default=0)
     if count <= 0 and not e.get("more"):  # (wave 34C: a list of kinds is judged kind by kind below: "create X A tokens and two B tokens", X = 0)
         _remember(plan, ctx, e, [])
         return True
@@ -1226,6 +1244,9 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
                     requests.append((pid, spec, count, source, tapped))
                     assert creation_atoms is not None
                     creation_atoms.append("controller:" + pid + ":" + str(iteration))
+            elif per100c is not None:  # -- static spells (wave 100C) --
+                if per100c.get(pid, 0) > 0:
+                    requests.append((pid, spec, per100c[pid], source, tapped))
             else:
                 requests.append((pid, spec, count, source, tapped))
     # (the tokens are recorded as binding "as", the new objects they are: "they gain haste")
@@ -1840,6 +1861,9 @@ def _stack_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[str]:
     if e.get("who") == "each_opponent_spell":  # -- cast keywords (wave 43D) -- "Counter each spell you don't control." (an overloaded Counterflux): spells only (not abilities)
         return [c for c in plan.state.zones.get("stack", []) if c != ctx.get("stack_id") and plan.state.cards[c].ability is None
                 and plan.state.cards[c].controller != ctx["controller"]]
+    if e.get("who") in ("all_other_spells100c", "all_abilities100c"):  # -- static spells (wave 100C) -- "Counter all other spells." / "counter all abilities"
+        spells = e["who"] == "all_other_spells100c"
+        return [c for c in plan.state.zones.get("stack", []) if c != ctx.get("stack_id") and (plan.state.cards[c].ability is None) == spells]
     if e.get("who") == "event_source":  # -- unless pays (wave 20E) -- the spell or ability a "becomes the target" event names, while still that object
         ref = (ctx.get("event") or {}).get("source")
         card = context._same(plan, ObjectRef.model_validate(ref)) if ref else None
@@ -3518,7 +3542,7 @@ def shuffle_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     before = _remember(plan, ctx, e, [c for pid in players for zone in e.get("zones") or [] for c in plan.state.zones.get(zone_key(pid, zone), [])] + chosen)
     moved_count = 0
     for pid in players:
-        if mine := [c for c in chosen if plan.state.cards[c].zone == zone_key(pid, "graveyard")]:  # (their graveyard: 701.24a puts them in before the shuffle)
+        if mine := [c for c in chosen if c in plan.state.cards and plan.state.cards[c].zone == zone_key(pid, "graveyard")]:  # (their graveyard: 701.24a puts them in before the shuffle; wave 100C: an earlier owner's shuffle re-keyed theirs)
             originals = {cid: plan.oid(cid) for cid in mine}
             plan.do({"type": "move", "card_ids": mine, "to": {"player": pid, "zone": "library"}}, actor=pid)
             moved_count += sum(cid in plan.state.cards and plan.state.cards[cid].zone == zone_key(pid, "library")
@@ -6908,3 +6932,7 @@ from app.rules import attached100f as _attached100f  # noqa: E402, I001
 
 PRIMITIVES.update(_attached100f.PRIMITIVES)
 RESUME.update(_attached100f.RESUME)
+# -- static spells (wave 100C) --
+from app.rules import static_spell100c as _static_spell100c  # noqa: E402
+
+PRIMITIVES.update(_static_spell100c.PRIMITIVES)
