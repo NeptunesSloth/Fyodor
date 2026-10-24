@@ -9,96 +9,24 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import pytest
 
-from app.cards.images import ImageStore
-from app.cards.importer import build_database
-from app.cards.repository import CardRepository
 from app.rules import coverage
-from app.rules.plan import Plan
-from tests.fixtures.cards import card, fixture_cards
+from tests import wave100e_kit as kit
 from tests.game_helpers import act
 from tests.test_rules_wave7b_activation import ability_index
-from tests.test_rules_wave12a_counters_keywords import real
 from tests.wave9c_kit import build, check, life, mana, pt, put, to_hand
-
-DATA = json.loads((Path(__file__).parent / "fixtures" / "wave100e_xdamage_cards.json").read_text("utf-8"))
-KNOWN = {c["name"] for c in fixture_cards()}
-EXTRA = [card(c["name"], set_code="w100e", number=f"E{i:03d}", **{k: v for k, v in c.items() if k != "name"})
-         for i, c in enumerate(DATA) if c["name"] not in KNOWN] + [
-    real("Probe Hamster", "{2}{R}", 3, "Creature — Hamster", "", ("3", "3"), "R"),
-    real("Probe Ember", "{R}", 1, "Enchantment", "", None, "R"),
-    real("Probe Army", "{1}{B}", 2, "Creature — Zombie Army", "", ("1", "1"), "B"),
-    real("Probe Wall", "{3}", 3, "Creature — Wall", "", ("0", "6")),
-]
+from tests.wave100e_kit import answer, chars, full_control, hand, loyal, pick, zone_of
 
 
 @pytest.fixture()
 def cards(settings):
-    settings.ensure_dirs()
-    build_database([*fixture_cards(), *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
-    repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
-    yield repo
-    repo.close()
+    yield from kit.repo(settings)
 
 
-FULL = [c["name"] for c in DATA]
-
-
-@pytest.mark.parametrize("name", FULL)
+@pytest.mark.parametrize("name", [c["name"] for c in kit.DATA])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
-
-
-def answer(s, *prefer, limit=60):
-    """Resolve everything; a choice is answered with ``prefer`` (when offered) or its first options."""
-    for _ in range(limit):
-        d = s.state.rules.decision
-        if d is not None:
-            ids = [o.id for o in d.options]
-            want = [o for o in prefer if o in ids]
-            act(s, d.player, type="choose", decision_id=d.id, option_ids=want if len(want) >= max(1, d.min_choices) else ids[: max(1, d.min_choices)])
-        elif s.state.zones.get("stack"):
-            act(s, s.state.rules.priority, type="pass_priority")
-        else:
-            return
-    raise AssertionError("never settled")
-
-
-def pick(s, kind, *ids, limit=20):
-    """Pass priority until a decision of this kind is pending, then answer it with exactly these options."""
-    for _ in range(limit):
-        d = s.state.rules.decision
-        if d is not None:
-            assert d.kind == kind, (d.kind, d.prompt)
-            act(s, d.player, type="choose", decision_id=d.id, option_ids=list(ids))
-            return d
-        act(s, s.state.rules.priority, type="pass_priority")
-    raise AssertionError("no decision came up")
-
-
-def loyal(s, name, pid="p1", loyalty=10, face=None):
-    c = put(s, name, pid)
-    answer(s, "no")  # (an enters trigger's "may": declined)
-    if face is not None:
-        act(s, pid, type="set_face", card_id=c.id, face=face)
-    act(s, pid, type="counter", card_ids=[c.id], kind="loyalty", delta=loyalty)
-    return c
-
-
-def hand(s, pid="p1"):
-    return len(s.state.zones.get(f"{pid}:hand", []))
-
-
-def chars(s, c):
-    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id])
-
-
-def zone_of(s, c):
-    return s.state.cards[c.id].zone
 
 
 # -- Minsc & Boo, Timeless Heroes: "−2: Sacrifice a creature. When you do, … X damage …, where X is that creature's power. If the sacrificed
@@ -151,8 +79,7 @@ def test_ajani_avenger_red_permanent_gone_before_it_resolves_does_nothing(cards)
     s = build(cards, ["Ajani, Nacatl Pariah // Ajani, Nacatl Avenger", "Probe Ember"])
     ajani = loyal(s, "Ajani, Nacatl Pariah // Ajani, Nacatl Avenger", face=1)
     ember = put(s, "Probe Ember")
-    for pid in ("p1", "p2"):
-        act(s, pid, type="set_prefs", full_control=True)  # (nothing resolves on its own)
+    full_control(s)
     act(s, "p1", type="activate_ability", card_id=ajani.id, ability=ability_index(s, ajani, "Create a 2/1"))
     pick(s, "choose_one", "p2")
     assert len(s.state.zones["stack"]) == 1  # (the reflexive ability, about to resolve)

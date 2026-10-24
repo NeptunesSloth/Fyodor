@@ -142,6 +142,192 @@ _TEXTS: dict[str, Callable[[], Parsed]] = {
 }
 
 
+def _text(text: str) -> Callable[[Callable[[], Parsed]], Callable[[], Parsed]]:
+    def register(build: Callable[[], Parsed]) -> Callable[[], Parsed]:
+        _TEXTS[text.casefold()] = build
+        return build
+    return register
+
+
+_ELF_WARRIOR = {"name": "Elf Warrior", "power": "1", "toughness": "1", "colors": ["G", "W"], "type_line": "Token Creature — Elf Warrior", "text": ""}
+
+
+@_text("Target creature's controller sacrifices it, then creates X 1/1 green and white Elf Warrior creature tokens, where X is that creature's power.")
+def _mercy_killing() -> Parsed:
+    """Mercy Killing: 701.21a — whoever controls the target as it resolves sacrifices it (neither regeneration nor indestructible saves it: the
+    2013-07-01 ruling), then that player creates X tokens, X its power as it last existed on the battlefield (608.2h)."""
+    return [{"do": "sacrifice", "who": "target", "by": "controller", "as": "e0"},
+            {"do": "create_token", "who": "ref:e0.controller", "n": {"power": "ref:e0"}, "token": dict(_ELF_WARRIOR)}], "creature", False
+
+
+@_text("that player mills a card. Then they create X 1/1 black Minion creature tokens, where X is the milled card's mana value.")
+def _infernal_genesis() -> Parsed:
+    """Infernal Genesis: the upkeep's player mills, then creates as many tokens as the milled card's mana value (a land: 0, the 2008-08-01
+    ruling) — "they" is that player (608.2c)."""
+    return _p("that player mills a card. Then that player creates X 1/1 black Minion creature tokens, where X is the milled card's mana value.")
+
+
+@_text("create X 2/2 green Wolf creature tokens, where X is the number of your opponents with four or more cards in hand.")
+def _wolfcallers_howl() -> Parsed:
+    """Wolfcaller's Howl: X is counted as the ability resolves (the 2014-11-07 ruling)."""
+    return _p("create X 2/2 green Wolf creature tokens, where X is the number of opponents who have four or more cards in hand.")
+
+
+@_text("Put target nonland permanent into its owner's library just beneath the top X cards of that library.")
+def _unexpectedly_absent() -> Parsed:
+    """Unexpectedly Absent: beneath the top X cards (X 0: on top; fewer than X cards: on the bottom — the 2016-06-08 rulings), 401.4."""
+    effects, target, optional = _p("Put target nonland permanent into its owner's library third from the top.")
+    assert effects == [{"do": "to_library", "who": "target", "place": 3}]
+    return [{"do": "beneath_top100e", "who": "target", "n": {"x": 1}}], target, optional
+
+
+@_text("put target creature into its owner's library just beneath the top X cards of that library, where X is the number of Plains you control.")
+def _quarry_colossus() -> Parsed:
+    """Quarry Colossus: X is the Plains you control as it resolves (no Plains: on top; fewer cards than X: on the bottom — the 2014-04-26
+    rulings)."""
+    from app.rules import values
+
+    n = values.parse_count("the number of Plains you control")
+    effects, target, optional = _p("Put target creature into its owner's library third from the top.")
+    assert n is not None and effects == [{"do": "to_library", "who": "target", "place": 3}]
+    return [{"do": "beneath_top100e", "who": "target", "n": n}], target, optional
+
+
+@_text("Target player draws X cards plus an additional card for each time they've cast a commander from the command zone this game.")
+def _commanders_insight() -> Parsed:
+    """Commander's Insight: 903.8 — only a commander's owner casts it from the command zone, so "each time they've cast a commander from the
+    command zone" is that player's commander tax count (state commander_casts)."""
+    return [{"do": "draw", "who": "target", "n": {"plus": [{"x": 1}, {"for_player": "target", "of": {"commander_casts": 1}}]}}], "player", False
+
+
+@_text("Until end of turn, double target creature's power X times.")
+def _exponential_growth() -> Parsed:
+    """Exponential Growth: 701.10b, one doubling after another (the 2021-04-16 rulings: a 2/2 doubled three times is 16/2; a negative power
+    doubles to a more negative one, 701.10c)."""
+    effects, target, optional = _p("Double target creature's power until end of turn.")
+    assert effects == [{"do": "double_pt", "who": "target", "toughness": False}]
+    return [{"do": "double_times100e", "who": "target", "n": {"x": 1}}], target, optional
+
+
+@_text("Target creature gets -X/-X until end of turn. That creature gets an additional -3/-3 until end of turn if you controlled a Faerie as you cast this spell.")
+def _faerie_fencing() -> Parsed:
+    """Faerie Fencing: the Faeries you controlled as casting finished (601.2i; the 2023-09-01 ruling: whether you still do doesn't matter),
+    from the spell's own cast record (casting._note_cast); a copy isn't cast and gets no additional -3/-3."""
+    first, target, optional = _p("Target creature gets -X/-X until end of turn.")
+    more = _p("Target creature gets -3/-3 until end of turn.")[0]
+    return [*first, {"do": "only_if", "cond": {"object": "self", "cast": {"controlled_subtype100e": "Faerie"}}, "skip": 1}, *more], target, optional
+
+
+@_text("Target creature gets -X/-X until end of turn, where X is 7 minus the number of cards in that creature's controller's hand.")
+def _flunk() -> Parsed:
+    """Flunk: X as it resolves (the 2021-04-16 rulings), never below 0 (107.1b: seven or more cards, -0/-0)."""
+    effects, target, optional = _p("Target creature gets -X/-X until end of turn.")
+    x = {"minus": [7, {"controller_hand100e": "target"}]}
+    return [{**effects[0], "p": {"neg": x}, "t": {"neg": x}}], target, optional
+
+
+@_text("Tap X target creatures. ~ deals 2 damage to each of those creatures with flying.")
+def _winter_blast() -> Parsed:
+    """Winter Blast: flying is checked as it resolves, not as a targeting restriction, and a tapped target with flying is dealt the damage too
+    (the 2007-09-16 rulings); only the targets still legal (608.2b) are "those creatures"."""
+    effects, target, optional = _p("Tap X target creatures.")
+    assert effects == [{"do": "tap", "who": "target:0"}]
+    return [*effects, {"do": "keep_keyword100e", "who": "target:0", "keyword": "flying", "as": "flyers100e"},
+            {"do": "damage", "who": "ref:flyers100e", "n": 2}], target, optional
+
+
+@_text("~ deals X damage divided as you choose among any number of targets. Tap each creature dealt damage this way. Players dealt damage this way can't cast noncreature spells this turn.")
+def _aurelias_fury() -> Parsed:
+    """Aurelia's Fury: X and the division announced as it is cast (601.2d; the 2013-01-24 rulings: each target at least 1, an illegal target's
+    share isn't dealt); "dealt damage this way" is what was actually dealt (after prevention, 615): those creatures are tapped, those players
+    can't cast noncreature spells this turn."""
+    effects, target, optional = _p("~ deals X damage divided as you choose among any number of targets.")
+    limit = _p("Target player can't cast noncreature spells this turn.")[0]
+    assert effects == [{"do": "damage", "who": "target:0", "n": {"divided": 0}}] and limit[0]["do"] == "cast_limit"
+    return [{**effects[0], "dealt_as": "ref:d0", "bind_damage_players": "fury_players100e"},
+            {"do": "keep_dealt100e", "dealt": "ref:d0", "types": ["Creature"], "as": "fury_creatures100e"},
+            {"do": "tap", "who": "ref:fury_creatures100e"},
+            {**limit[0], "who": "ref:fury_players100e"}], target, optional
+
+
+@_text("~ deals X damage divided as you choose among any number of target creatures. Creatures dealt damage this way can't block this turn.")
+def _huatli() -> Parsed:
+    """Huatli, Warrior Poet −X: the division as it is activated (the 2017-09-29 rulings: X 0, no targets), and the creatures actually dealt
+    damage can't block this turn (a restriction on those objects, 400.7)."""
+    effects, target, optional = _p("~ deals X damage divided as you choose among any number of target creatures. Creatures dealt damage this way "
+                                   "can't be regenerated this turn.")
+    assert effects[1] == {"do": "no_regen_turn", "dealt": "ref:d0", "types": ["Creature"]}
+    return [effects[0], {"do": "restrict", "who": "dealt", "dealt": "ref:d0", "rules": ["cant_block"]}], target, optional
+
+
+@_text("~ deals X damage divided as you choose among any number of target creatures, where X is the greatest amount of damage dealt by a source to a permanent or player this turn.")
+def _impact_resonance() -> Parsed:
+    """Impact Resonance: X is fixed as it is cast, when the division is announced (601.2d; the 2014-11-07 rulings): the most damage any one source
+    dealt to any one permanent or player this turn (the turn's damage log, 120.3: prevented damage isn't dealt)."""
+    effects, target, optional = _p("~ deals X damage divided as you choose among any number of target creatures, where X is the number of lands you control.")
+    assert target[0]["divide"]["value"] == {"count": 'sel:{"controller":"you","types":["Land"]}'}
+    target[0]["divide"]["value"] = {"greatest_damage100e": 1}
+    return effects, target, optional
+
+
+# -- primitives ------------------------------------------------------------------------------------------------------------------------------
+def beneath_top(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"just beneath the top X cards of that library": its owner's library, X cards above it (401.4); X 0 is the top, and a library of fewer
+    cards puts it on the bottom."""
+    from app.rules import effects
+
+    cards = effects._cards(plan, ctx, e["who"])
+    n = effects._amount(plan, ctx, e["n"])
+    for cid in cards[:1]:
+        depth = min(n, len(plan.state.zones.get(f"{plan.state.cards[cid].owner}:library", [])))
+        effects.to_library(plan, ctx, {"do": "to_library", "who": e["who"], "place": depth + 1, **({"as": e["as"]} if e.get("as") else {})})
+    return True
+
+
+def double_times(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import combat_rules, effects
+
+    for _ in range(effects._amount(plan, ctx, e["n"])):
+        combat_rules.double_pt(plan, ctx, {"do": "double_pt", "who": e["who"], "toughness": False})
+    return True
+
+
+def keep_keyword(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Bind the objects ``who`` names that have the keyword now (as the instruction is reached: 608.2h)."""
+    from app.rules import context, effects
+
+    context.bind_objects(plan, ctx, e["as"], [c for c in effects._cards(plan, ctx, e["who"]) if e["keyword"] in plan.ch(plan.state.cards[c]).keywords])
+    return True
+
+
+def keep_dealt(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Bind the objects an earlier damage instruction actually dealt damage to (effects.DEALT_KEY), still those objects on the battlefield
+    (400.7) and of these card types now."""
+    from app.rules import context, effects
+
+    oids = set((ctx.get(effects.DEALT_KEY) or {}).get(e["dealt"]) or [])
+    kept = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) in oids
+            and (not e.get("types") or set(e["types"]) & plan.ch(c).types)]
+    context.bind_objects(plan, ctx, e["as"], kept)
+    return True
+
+
+def greatest_damage(plan: Any, ctx: dict[str, Any], v: dict[str, Any]) -> int:
+    """"the greatest amount of damage dealt by a source to a permanent or player this turn": this turn's damage (the log records only damage
+    dealt, 120.3, 615), added up for each source and each player or permanent dealt it (each object once: 400.7)."""
+    from app.rules.history import log_for
+
+    totals: dict[tuple[str | None, str | None], int] = {}
+    for f in log_for(plan).facts:
+        if f.kind in ("damage", "damaged") and f.amount > 0:
+            key = (f.object_id, f.player) if f.kind == "damage" else (f.source, f.object_id)
+            totals[key] = totals.get(key, 0) + int(f.amount)
+    return max(totals.values(), default=0)
+
+
+PRIMITIVES = {"beneath_top100e": beneath_top, "double_times100e": double_times, "keep_keyword100e": keep_keyword, "keep_dealt100e": keep_dealt}
+
+
 def parse(body: str) -> Parsed | None:
     build = _TEXTS.get(body.strip().casefold())
     return build() if build is not None else None

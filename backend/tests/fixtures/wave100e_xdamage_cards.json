@@ -245,5 +245,255 @@
   ],
   "keywords": [],
   "loyalty": "5"
+ },
+ {
+  "name": "Mercy Killing",
+  "layout": "normal",
+  "mana_cost": "{2}{G/W}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Target creature's controller sacrifices it, then creates X 1/1 green and white Elf Warrior creature tokens, where X is that creature's power.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [],
+  "all_parts": [
+   {
+    "id": "0ef5649d-10a4-44cc-b94a-9f2ee4c0aac7",
+    "component": "combo_piece",
+    "name": "Mercy Killing",
+    "type_line": "Instant"
+   },
+   {
+    "id": "cee23d72-2cd6-4133-98d1-c7b8da839408",
+    "component": "token",
+    "name": "Elf Warrior",
+    "type_line": "Token Creature — Elf Warrior"
+   }
+  ]
+ },
+ {
+  "name": "Infernal Genesis",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{B}",
+  "cmc": 6.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of each player's upkeep, that player mills a card. Then they create X 1/1 black Minion creature tokens, where X is the milled card's mana value.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Mill"
+  ]
+ },
+ {
+  "name": "Wolfcaller's Howl",
+  "layout": "normal",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "At the beginning of your upkeep, create X 2/2 green Wolf creature tokens, where X is the number of your opponents with four or more cards in hand.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "all_parts": [
+   {
+    "id": "3e79f075-f663-4a23-8a56-2aa6164d23f6",
+    "component": "token",
+    "name": "Wolf",
+    "type_line": "Token Creature — Wolf"
+   },
+   {
+    "id": "f4bf2855-f5bf-4216-8123-576d6c5e1628",
+    "component": "combo_piece",
+    "name": "Wolfcaller's Howl",
+    "type_line": "Enchantment"
+   }
+  ]
+ },
+ {
+  "name": "Unexpectedly Absent",
+  "layout": "normal",
+  "mana_cost": "{X}{W}{W}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Put target nonland permanent into its owner's library just beneath the top X cards of that library.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Quarry Colossus",
+  "layout": "normal",
+  "mana_cost": "{5}{W}{W}",
+  "cmc": 7.0,
+  "type_line": "Creature — Giant",
+  "oracle_text": "When this creature enters, put target creature into its owner's library just beneath the top X cards of that library, where X is the number of Plains you control.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "5",
+  "toughness": "6"
+ },
+ {
+  "name": "Commander's Insight",
+  "layout": "normal",
+  "mana_cost": "{X}{U}{U}{U}",
+  "cmc": 3.0,
+  "type_line": "Instant",
+  "oracle_text": "Target player draws X cards plus an additional card for each time they've cast a commander from the command zone this game.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Exponential Growth",
+  "layout": "normal",
+  "mana_cost": "{X}{X}{G}{G}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Until end of turn, double target creature's power X times.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Double"
+  ]
+ },
+ {
+  "name": "Faerie Fencing",
+  "layout": "normal",
+  "mana_cost": "{X}{B}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Target creature gets -X/-X until end of turn. That creature gets an additional -3/-3 until end of turn if you controlled a Faerie as you cast this spell.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Flunk",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Target creature gets -X/-X until end of turn, where X is 7 minus the number of cards in that creature's controller's hand.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Winter Blast",
+  "layout": "normal",
+  "mana_cost": "{X}{G}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Tap X target creatures. Winter Blast deals 2 damage to each of those creatures with flying.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Aurelia's Fury",
+  "layout": "normal",
+  "mana_cost": "{X}{R}{W}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Aurelia's Fury deals X damage divided as you choose among any number of targets. Tap each creature dealt damage this way. Players dealt damage this way can't cast noncreature spells this turn.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Huatli, Warrior Poet",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{W}",
+  "cmc": 5.0,
+  "type_line": "Legendary Planeswalker — Huatli",
+  "oracle_text": "+2: You gain life equal to the greatest power among creatures you control.\n0: Create a 3/3 green Dinosaur creature token with trample.\n−X: Huatli deals X damage divided as you choose among any number of target creatures. Creatures dealt damage this way can't block this turn.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [],
+  "loyalty": "3",
+  "all_parts": [
+   {
+    "id": "1ccee594-e1e6-4a82-bc17-93bcdeb36198",
+    "component": "token",
+    "name": "Dinosaur",
+    "type_line": "Token Creature — Dinosaur"
+   },
+   {
+    "id": "a0cc61ba-e91a-4b30-841c-cae8dd288b40",
+    "component": "combo_piece",
+    "name": "Huatli, Warrior Poet",
+    "type_line": "Legendary Planeswalker — Huatli"
+   }
+  ]
+ },
+ {
+  "name": "Impact Resonance",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Impact Resonance deals X damage divided as you choose among any number of target creatures, where X is the greatest amount of damage dealt by a source to a permanent or player this turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
  }
 ]
