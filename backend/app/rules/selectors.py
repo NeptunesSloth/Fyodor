@@ -2109,9 +2109,13 @@ def matches_player(plan: Plan, sel: Selector, pid: str, you: str, *, source_obje
 
         if source_object is None or not any(
             fact.kind == "damage" and fact.player == pid and fact.amount > 0 and fact.object_id == source_object
+            and (fact.combat or "combat100i" not in sel.extras)  # (-- activated (wave 100I) -- "dealt combat damage by ~ this turn")
             for fact in log_for(plan).facts
         ):
             return False
+    if "not_source_owner100i" in sel.extras and (  # -- activated (wave 100I) -- "target player other than ~'s owner" (108.3)
+            (src := plan.state.cards.get((source_object or "").rsplit(".", 1)[0])) is None or src.owner == pid):
+        return False
     if sel.player == "opponent":
         return pid != you
     if sel.player == "you":

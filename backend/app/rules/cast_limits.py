@@ -817,6 +817,10 @@ def _cast_hit(state: GameState, player: str, card: CardInstance, ch: Characteris
     if d.get("sorcery"):  # 307.1
         return resolving or not (state.turn.active_player == player and state.turn.phase in ("main1", "main2")
                                  and not state.zones.get("stack"))
+    if d.get("share_last100i"):  # -- activated (wave 100I) -- "share a color with the spell most recently cast this turn" (any player's, as it was cast)
+        log = state.rules.turn_log if state.rules is not None else None
+        last = log.casts[-1] if log is not None and log.turn == state.turn.number and log.casts else None
+        return last is not None and bool(set(last.colors) & ch.colors)
     frm = d.get("from")
     if frm:
         if frm == ["not_hand"]:

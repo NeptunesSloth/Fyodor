@@ -769,6 +769,7 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
         types = types - frozenset(e.remove_types)
         if e.add_supertypes:
             supers = supers | frozenset(e.add_supertypes)
+        supers = supers - frozenset(e.remove_supertypes)  # -- activated (wave 100I) --
         if e.set_creature_types is not None:
             # (a subtype in no list is a creature type — or, on a planeswalker, a planeswalker type, which stays)
             known = LAND_TYPES | ARTIFACT_TYPES | ENCHANTMENT_TYPES | SPELL_TYPES | BATTLE_TYPES

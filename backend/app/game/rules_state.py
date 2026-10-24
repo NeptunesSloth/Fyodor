@@ -760,6 +760,7 @@ class ContinuousEffect(BaseModel):
     # creature types" (every creature type, as changeling has, 702.73a).
     set_types: list[str] | None = None
     add_supertypes: list[str] = Field(default_factory=list)
+    remove_supertypes: list[str] = Field(default_factory=list)  # -- activated (wave 100I) -- "is no longer snow" (205.4; Arcum's Weathervane)
     set_creature_types: list[str] | None = None
     all_creature_types: bool = False
     # -- land types set (wave 12D) -- 305.7: "target land becomes an Island": its land types are replaced by these basic

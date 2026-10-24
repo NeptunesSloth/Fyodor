@@ -258,7 +258,8 @@ def life_cap(plan: Plan, ctx: dict[str, Any]) -> int:
 
 
 _AS_ENTERS = {"As ~ enters, discard your hand.": "discard_hand", "As ~ enters, sacrifice all lands you control.": "sacrifice_lands",
-              "As ~ enters, mill three cards for each time it was kicked.": "mill_per_kick"}  # (Urborg Lhurgoyf: 702.33d, rulings 2022-09-09)
+              "As ~ enters, mill three cards for each time it was kicked.": "mill_per_kick",  # (Urborg Lhurgoyf: 702.33d, rulings 2022-09-09)
+              "As ~ enters, if it was kicked, mill four cards.": "kicked_mill4"}  # (-- activated (wave 100I) -- Monstrous War-Leech: 702.33d, 701.17a)
 
 
 def plan_entry(plan: Plan, card: CardInstance, controller: str, out: dict[str, Any], answers: dict[str, str] | None = None) -> None:
@@ -309,6 +310,11 @@ def as_enters(plan: Plan, card_id: str, ep: dict[str, Any], controller: str) -> 
         elif what == "mill_per_kick" and (n := 3 * values.kicked_count(plan, ctx)):  # 701.17a (not cast: never kicked)
             plan.note(f"As {name} enters, {plan.name(controller)} mills {n} cards", [card_id])
             effects.PRIMITIVES["mill"](plan, ctx, {"do": "mill", "who": "you", "n": n})
+        elif what == "kicked_mill4":  # (the spell's own payment record, 601.2h: "if it was kicked")
+            from app.rules import conditions
+
+            if conditions.holds(plan, ctx, {"object": "self", "cast": {"kicked": True}}):
+                effects.PRIMITIVES["mill"](plan, ctx, {"do": "mill", "who": "you", "n": 4})
 
 
 def _statics(plan: Plan, card: CardInstance, kind: str) -> list[dict[str, Any]]:

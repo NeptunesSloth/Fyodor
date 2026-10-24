@@ -183,6 +183,15 @@ def define(t: str, x_ok: bool = False) -> dict[str, Any] | None:
         except ValueError:
             return None
         return {"kind": "static", "static": "alt_cost", "cost": m["cost"], "cond": cond, "effects": []}
+    # -- activated (wave 100I) -- table costs of another shape: collect evidence (701.59a; Conspiracy Unraveler, rulings 2024-02-02), and generic mana equal to
+    # the spell's mana value (Kentaro, rulings 2005-02-01: no X of its own, so an {X} spell's X is 0, 107.3b)
+    if t == "you may collect evidence 10 rather than pay the mana cost for spells you cast":
+        return {"kind": "static", "static": "alt_cost", "cost": "collect evidence 10", "table": True, "filter": None, "once": False, "zone": None, "mv": None, "effects": []}
+    if t == "you may pay {X} rather than pay the mana cost for Samurai spells you cast, where X is that spell's mana value":
+        from app.rules.permissions import spell_filter
+
+        return {"kind": "static", "static": "alt_cost", "cost": "pay {0}", "mv_mana100i": True, "table": True, "filter": spell_filter("Samurai"), "once": False,
+                "zone": None, "mv": None, "effects": []}
     m = TABLE.fullmatch(t)
     if m:
         pay = m["pay"]
@@ -442,7 +451,7 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
                 continue
         if d.get("cond") is not None and not conditions.holds(view, _ctx(state, player, card), d["cond"]):
             continue  # (wave 17C: prowl — read about the spell being cast)
-        alt = parse_cost(d["cost"])
+        alt = parse_cost(f"pay {{{int(ch.mana_value)}}}" if d.get("mv_mana100i") else d["cost"])  # (wave 100I: Kentaro)
         if alt is not None:
             out.append(Offer(f"{src.id}:{index}", f"{src.name}: {d['cost']}", alt, once_key=key if d["once"] else None, tag=d.get("tag"), flash=bool(d.get("flash"))))
     # -- escape (wave 5I) -- printed and granted escape costs (702.138a), for a card in its owner's graveyard

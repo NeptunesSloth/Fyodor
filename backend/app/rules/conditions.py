@@ -779,6 +779,11 @@ def _attacked(m: re.Match[str]) -> Condition:
     return {"history": "attacked"}  # 508.1: declared attackers; 508.4: a creature put onto the battlefield attacking never "attacked"
 
 
+@_history_pattern(r"you attacked with a Spacecraft this turn")
+def _attacked_spacecraft(m: re.Match[str]) -> Condition:
+    return {"history": "attacked_with", "sel": selectors.Selector(subtypes=("Spacecraft",)).key()}  # -- activated (wave 100I) -- 508.1 (Thaumaton Torpedo)
+
+
 @_history_pattern(r"you (?:didn't|did not) attack(?: with a creature)? this turn")
 def _not_attacked(m: re.Match[str]) -> Condition:
     return {"not": {"history": "attacked"}}

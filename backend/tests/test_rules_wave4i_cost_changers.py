@@ -161,9 +161,9 @@ def test_the_cards_are_full(name):
 
 @pytest.mark.parametrize("text", [
     # a cost the alternative-cost grammar can't pay, or a condition it doesn't read: refused, never guessed
-    "You may collect evidence 10 rather than pay the mana cost for spells you cast.",
+    # ("You may collect evidence 10 …" and Kentaro's "You may pay {X} … where X is that spell's mana value." are read since wave 100I:
+    # tests/test_rules_wave100i_activated.py)
     # ("For each {B} in a cost, you may pay 2 life …" is read now, wave 18B: K'rrik)
-    "You may pay {X} rather than pay the mana cost for Samurai spells you cast, where X is that spell's mana value.",
     # (Bruenor's "{0} rather than the equip cost of the first equip ability … each of your turns" is read since wave 48D)
     # cost changers that read something this grammar doesn't (targets, the first spell each turn, chosen names)
     # ("Spells you cast that target enchanted player cost {1} less to cast." is read since wave 53C: Infectious Curse, tests/test_rules_wave53c_block_events.py)
