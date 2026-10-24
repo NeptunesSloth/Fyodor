@@ -304,6 +304,22 @@ def _trap(d: dict[str, Any]) -> dict[str, Any] | None:
     return {**d, "effects": [effects[0], {"do": "only_if", "cond": {"clash_won100a": True}, "skip": 1}, effects[1]]}
 
 
+def _rampager(d: dict[str, Any]) -> dict[str, Any] | None:
+    """Greenbelt Rampager: "pay {E}{E}. If you can't" — no choice: with two {E} you pay them (the rulings), with fewer you can't (118.3)."""
+    effects = d["effects"]
+    if [e.get("do") for e in effects] != ["optional_payment", "only_if", "bounce", "player_counter"]:
+        return None
+    return {**d, "effects": [{"do": "rampager100a"}, *effects[1:]]}
+
+
+def _veiled(d: dict[str, Any]) -> dict[str, Any] | None:
+    """Veiled Serpent: the 4/4 Serpent (no longer an enchantment: 205.1a, the ruling) has the quoted ability (613.1f)."""
+    effects = d["effects"]
+    if [e.get("do") for e in effects] != ["only_if", "become"]:
+        return None
+    return {**d, "effects": [effects[0], {**effects[1], "abilities": ["This creature can't attack unless defending player controls an Island."]}]}
+
+
 def _suspected(d: dict[str, Any]) -> dict[str, Any] | None:
     """Clandestine Meddler: "suspected creatures" — those with the designation (701.60a), as the attack is declared."""
     from app.rules import selectors
@@ -411,6 +427,13 @@ _BUILD: dict[str, tuple[str, Any]] = {
     # not a planeswalker of yours — the ruling); unknown in an older save: it doesn't trigger
     "Whenever ~ deals combat damage to a player, if that player attacked you during their last turn, exile target nonland permanent that player controls.":
         ("Whenever ~ deals combat damage to a player, exile target nonland permanent that player controls.", lambda d: {**d, "if": {"attacked_you_last100a": True}}),
+    # Nullstone Gargoyle: the first noncreature spell anyone cast this turn (the turn's log, 601.2i: even one cast before it entered — the ruling)
+    "Whenever the first noncreature spell of a turn is cast, counter that spell.":
+        ("Whenever a player casts a noncreature spell, counter that spell.", lambda d: {**d, "if": {"first_noncreature100a": True}}),
+    "When ~ enters, pay {E}{E}. If you can't, return ~ to its owner's hand and you get {E}.":
+        ("When ~ enters, you may pay {E}{E}. If you don't, return ~ to its owner's hand and you get {E}.", _rampager),
+    'When an opponent casts a spell, if ~ is an enchantment, it becomes a 4/4 Serpent creature with "~ can\'t attack unless defending player controls an '
+    'Island."': ("When an opponent casts a spell, if ~ is an enchantment, ~ becomes a 4/4 Serpent creature.", _veiled),
     "When you cast this spell, counter it unless you sacrifice a land.": ("When you cast this spell, draw a card.", _vortex),
     "At the beginning of each player's end step, ~ deals 2 damage to that player unless one of their opponents was dealt damage this turn.":
         ("At the beginning of each player's end step, ~ deals 2 damage to that player.", _antagonism),
@@ -594,6 +617,17 @@ def dreadnought(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                 0, len(mine))
 
 
+def rampager(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    me = ctx["controller"]
+    paid = plan.state.players[me].resources.get("energy", 0) >= 2
+    if paid:
+        plan.do({"type": "resource", "player": me, "key": "energy", "delta": -2}, actor=me)
+    context.bind_payment(ctx, "pay0", paid)
+    return True
+
+
 def _done(plan: Any, d: Any, chosen: list[str]) -> None:
     from app.rules import effects
 
@@ -619,6 +653,12 @@ def holds(plan: Any, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
         subs = {t for o in (ctx.get("event") or {}).get("objects") or [] if (got := triggers._object_then(plan, o.get("card"), o.get("object_id")))
                 for t in got[1].subtypes}
         return {"Pirate", "Vehicle"} <= subs
+    if cond.get("first_noncreature100a"):
+        from app.rules import history
+
+        ids = history.object_ids(plan, ctx, "event")
+        first = next((n for n in history.log_for(plan, False).casts if "Creature" not in n.types), None)
+        return first is not None and (first.object_id in ids or first.became in ids)
     if cond.get("attacked_you_last100a"):
         from app.rules import previous_own_turns
 
@@ -748,6 +788,6 @@ from app.rules import trigger_leaf51_staged as _leaf51  # noqa: E402
 
 PRIMITIVES = {"plague100a": plague, "emancipate100a": emancipate, "egon100a": egon, "scavenger100a": scavenger, "chisei100a": chisei,
               "jurin100a": jurin, "namor100a": namor, "hornbeetle100a": hornbeetle, "ghoul100a": ghoul, "scales100a": scales,
-              "dreadnought100a": dreadnought, "linked_gain100a": linked_gain, "trigger_leaf51_djinn_draws": _leaf51.djinn_draws,
+              "dreadnought100a": dreadnought, "rampager100a": rampager, "linked_gain100a": linked_gain, "trigger_leaf51_djinn_draws": _leaf51.djinn_draws,
               **_ball65.PRIMITIVES}
 RESUME = {"egon100a": resume, "scavenger100a": resume, "chisei100a": resume, "ghoul100a": resume, "dreadnought100a": resume, "linked_gain100a": _done, "trigger_leaf51_djinn_count": _leaf51.resume_djinn}

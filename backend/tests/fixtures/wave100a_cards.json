@@ -1316,5 +1316,54 @@
    "Flying",
    "Trample"
   ]
+ },
+ {
+  "name": "Nullstone Gargoyle",
+  "layout": "normal",
+  "mana_cost": "{9}",
+  "cmc": 9.0,
+  "type_line": "Artifact Creature — Gargoyle",
+  "oracle_text": "Flying\nWhenever the first noncreature spell of a turn is cast, counter that spell.",
+  "power": "4",
+  "toughness": "5",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Flying"
+  ]
+ },
+ {
+  "name": "Greenbelt Rampager",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Creature — Elephant",
+  "oracle_text": "When this creature enters, pay {E}{E} (two energy counters). If you can't, return this creature to its owner's hand and you get {E}.",
+  "power": "3",
+  "toughness": "4",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Veiled Serpent",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When an opponent casts a spell, if this permanent is an enchantment, it becomes a 4/4 Serpent creature with \"This creature can't attack unless defending player controls an Island.\"\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Cycling"
+  ]
  }
 ]

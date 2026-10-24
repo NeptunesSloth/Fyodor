@@ -1552,3 +1552,52 @@ def test_o_kagachi_exiles_only_from_a_player_who_attacked_you_last_turn(cards, a
     to_phase(s, "main2", 3)
     assert (s.state.cards[ring.id].zone == "p2:exile") == (at == "p1")
     check(s)
+
+
+PROMOTED += ["Nullstone Gargoyle", "Greenbelt Rampager"]
+
+
+def test_nullstone_gargoyle_counters_only_the_first_noncreature_spell_of_the_turn(cards):
+    assert coverage.of_card_data(cards.resolve("Nullstone Gargoyle")).level == "FULL"
+    s = build(cards, ["Nullstone Gargoyle", "Grizzly Bears", "Opt", "Lightning Bolt"])
+    put(s, "Nullstone Gargoyle")
+    cast_it(s, "Grizzly Bears", G=1, C=1)  # a creature spell doesn't count
+    cast_it(s, "Opt", U=1)
+    assert card_named(s, "Grizzly Bears").zone == "p1:battlefield" and card_named(s, "Opt").zone == "p1:graveyard"
+    life = s.state.players["p2"].life
+    cast_card(s, card_named(s, "Lightning Bolt"), targets=["p2"], R=1)  # the second: it resolves
+    assert s.state.players["p2"].life == life - 3 and _stacked(s, "Nullstone Gargoyle") == 1
+    check(s)
+
+
+@pytest.mark.parametrize("energy", [2, 1])
+def test_greenbelt_rampager_must_pay_two_energy_if_it_can(cards, energy):
+    assert coverage.of_card_data(cards.resolve("Greenbelt Rampager")).level == "FULL"
+    s = build(cards, ["Greenbelt Rampager"])
+    act(s, "p1", type="resource", player="p1", key="energy", delta=energy)
+    cast_it(s, "Greenbelt Rampager", G=1)
+    assert card_named(s, "Greenbelt Rampager").zone == ("p1:battlefield" if energy == 2 else "p1:hand")
+    assert s.state.players["p1"].resources.get("energy", 0) == (0 if energy == 2 else 2)  # (with one, it can't pay: gets another)
+    check(s)
+
+
+PROMOTED += ["Veiled Serpent"]
+
+
+def test_veiled_serpent_becomes_a_serpent_that_needs_an_island_to_attack(cards):
+    from app.game.errors import ActionError
+    from tests.test_rules_wave30m_durations import to_phase
+
+    assert coverage.of_card_data(cards.resolve("Veiled Serpent")).level == "FULL"
+    s = build(cards, ["Veiled Serpent"], ["Opt"])
+    serpent = put(s, "Veiled Serpent")
+    to_phase(s, "main1", 2)
+    cast_it(s, "Opt", "p2", U=1)  # 205.1a: no longer an enchantment (the ruling)
+    ch = _ch(s, serpent)
+    assert ch.is_creature and "Enchantment" not in ch.types and ch.pt == (4, 4)
+    to_phase(s, "declare_attackers", 3)
+    with pytest.raises(ActionError, match="can't attack"):
+        act(s, "p1", type="declare_attackers", attackers=[{"card_id": serpent.id, "target": "p2"}])  # Bob controls no Island
+    put(s, "Island", "p2")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": serpent.id, "target": "p2"}])
+    check(s)
