@@ -1,0 +1,249 @@
+[
+ {
+  "name": "Minsc & Boo, Timeless Heroes",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Minsc",
+  "oracle_text": "When Minsc & Boo enters and at the beginning of your upkeep, you may create Boo, a legendary 1/1 red Hamster creature token with trample and haste.\n+1: Put three +1/+1 counters on up to one target creature with trample or haste.\n−2: Sacrifice a creature. When you do, Minsc & Boo deals X damage to any target, where X is that creature's power. If the sacrificed creature was a Hamster, draw X cards.\nMinsc & Boo, Timeless Heroes can be your commander.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [],
+  "loyalty": "3",
+  "all_parts": [
+   {
+    "id": "0149b45d-b7d4-46bf-ba3a-5137e93ea607",
+    "component": "combo_piece",
+    "name": "Minsc & Boo, Timeless Heroes",
+    "type_line": "Legendary Planeswalker — Minsc"
+   },
+   {
+    "id": "0d0475e9-68ae-4553-a5ef-650091e04967",
+    "component": "token",
+    "name": "Boo",
+    "type_line": "Token Legendary Creature — Hamster"
+   }
+  ]
+ },
+ {
+  "name": "Ajani, Nacatl Pariah // Ajani, Nacatl Avenger",
+  "layout": "transform",
+  "mana_cost": "{1}{W} // ",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Cat Warrior // Legendary Planeswalker — Ajani",
+  "oracle_text": "When Ajani enters, create a 2/1 white Cat Warrior creature token.\nWhenever one or more other Cats you control die, you may exile Ajani, then return him to the battlefield transformed under his owner's control.\n//\n+2: Put a +1/+1 counter on each Cat you control.\n0: Create a 2/1 white Cat Warrior creature token. When you do, if you control a red permanent other than Ajani, he deals damage equal to the number of creatures you control to any target.\n−4: Each opponent chooses an artifact, a creature, an enchantment, and a planeswalker from among the nonland permanents they control, then sacrifices the rest.",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "power": "1",
+  "toughness": "2",
+  "card_faces": [
+   {
+    "name": "Ajani, Nacatl Pariah",
+    "mana_cost": "{1}{W}",
+    "type_line": "Legendary Creature — Cat Warrior",
+    "oracle_text": "When Ajani enters, create a 2/1 white Cat Warrior creature token.\nWhenever one or more other Cats you control die, you may exile Ajani, then return him to the battlefield transformed under his owner's control.",
+    "power": "1",
+    "toughness": "2",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/0/d/0d16e8e0-31b2-4389-afd6-783c501f6fa0.jpg?1791803778",
+     "normal": "https://cards.scryfall.io/normal/front/0/d/0d16e8e0-31b2-4389-afd6-783c501f6fa0.jpg?1791803778",
+     "large": "https://cards.scryfall.io/large/front/0/d/0d16e8e0-31b2-4389-afd6-783c501f6fa0.jpg?1791803778",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/0/d/0d16e8e0-31b2-4389-afd6-783c501f6fa0.jpg?1791803778"
+    }
+   },
+   {
+    "name": "Ajani, Nacatl Avenger",
+    "mana_cost": "",
+    "type_line": "Legendary Planeswalker — Ajani",
+    "oracle_text": "+2: Put a +1/+1 counter on each Cat you control.\n0: Create a 2/1 white Cat Warrior creature token. When you do, if you control a red permanent other than Ajani, he deals damage equal to the number of creatures you control to any target.\n−4: Each opponent chooses an artifact, a creature, an enchantment, and a planeswalker from among the nonland permanents they control, then sacrifices the rest.",
+    "loyalty": "3",
+    "colors": [
+     "R",
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/0/d/0d16e8e0-31b2-4389-afd6-783c501f6fa0.jpg?1791803778",
+     "normal": "https://cards.scryfall.io/normal/back/0/d/0d16e8e0-31b2-4389-afd6-783c501f6fa0.jpg?1791803778",
+     "large": "https://cards.scryfall.io/large/back/0/d/0d16e8e0-31b2-4389-afd6-783c501f6fa0.jpg?1791803778",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/0/d/0d16e8e0-31b2-4389-afd6-783c501f6fa0.jpg?1791803778"
+    }
+   }
+  ],
+  "all_parts": [
+   {
+    "id": "f897d650-f1a2-4366-a025-f12c10310d96",
+    "component": "combo_piece",
+    "name": "Ajani, Nacatl Pariah // Ajani, Nacatl Avenger",
+    "type_line": "Legendary Creature — Cat Warrior // Legendary Planeswalker — Ajani"
+   },
+   {
+    "id": "ce5c5bcf-1fdd-4d73-a92b-223292da00ca",
+    "component": "token",
+    "name": "Cat Warrior",
+    "type_line": "Token Creature — Cat Warrior"
+   }
+  ]
+ },
+ {
+  "name": "Foray of Orcs",
+  "layout": "normal",
+  "mana_cost": "{3}{R}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Amass Orcs 2. When you do, Foray of Orcs deals X damage to target creature an opponent controls, where X is the amassed Army's power. (To amass Orcs 2, put two +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Amass"
+  ],
+  "all_parts": [
+   {
+    "id": "43cddad8-b5ca-4b8f-a73c-38809ef279d6",
+    "component": "combo_piece",
+    "name": "Foray of Orcs",
+    "type_line": "Sorcery"
+   },
+   {
+    "id": "6943f966-fd21-427c-a13f-44727edcaa4b",
+    "component": "token",
+    "name": "Orc Army",
+    "type_line": "Token Creature — Orc Army"
+   }
+  ]
+ },
+ {
+  "name": "Widespread Brutality",
+  "layout": "normal",
+  "mana_cost": "{1}{B}{R}{R}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Amass Zombies 2, then the Army you amassed deals damage equal to its power to each non-Army creature. (To amass Zombies 2, put two +1/+1 counters on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Amass"
+  ],
+  "all_parts": [
+   {
+    "id": "97715d22-f432-4f67-b4ea-47b8fe6edca5",
+    "component": "combo_piece",
+    "name": "Widespread Brutality",
+    "type_line": "Sorcery"
+   },
+   {
+    "id": "12742d1f-eb2e-4262-88e2-403c9ae6c431",
+    "component": "token",
+    "name": "Zombie Army",
+    "type_line": "Token Creature — Zombie Army"
+   }
+  ]
+ },
+ {
+  "name": "Surrounded by Orcs",
+  "layout": "normal",
+  "mana_cost": "{3}{U}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Amass Orcs 3, then target player mills X cards, where X is the amassed Army's power. (To amass Orcs 3, put three +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Amass",
+   "Mill"
+  ],
+  "all_parts": [
+   {
+    "id": "6943f966-fd21-427c-a13f-44727edcaa4b",
+    "component": "token",
+    "name": "Orc Army",
+    "type_line": "Token Creature — Orc Army"
+   },
+   {
+    "id": "aeacbeae-b9cd-4622-b686-cfa85e184e12",
+    "component": "combo_piece",
+    "name": "Surrounded by Orcs",
+    "type_line": "Sorcery"
+   }
+  ]
+ },
+ {
+  "name": "Pumpkin Bombs",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Artifact",
+  "oracle_text": "{T}, Discard two cards: Draw three cards, then put a fuse counter on this artifact. It deals damage equal to the number of fuse counters on it to target opponent. They gain control of this artifact.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Dragonspark Reactor",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Artifact",
+  "oracle_text": "Whenever this artifact or another artifact you control enters, put a charge counter on this artifact.\n{4}, Sacrifice this artifact: It deals damage equal to the number of charge counters on it to target player and that much damage to up to one target creature.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "The Royal Scions",
+  "layout": "normal",
+  "mana_cost": "{1}{U}{R}",
+  "cmc": 3.0,
+  "type_line": "Legendary Planeswalker — Will Rowan",
+  "oracle_text": "+1: Draw a card, then discard a card.\n+1: Target creature gets +2/+0 and gains first strike and trample until end of turn.\n−8: Draw four cards. When you do, The Royal Scions deals damage to any target equal to the number of cards in your hand.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [],
+  "loyalty": "5"
+ }
+]
