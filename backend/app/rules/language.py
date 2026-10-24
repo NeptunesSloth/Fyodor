@@ -1825,6 +1825,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if any(selectors.from_key(k).controller not in (None, "you") for k in sel.either):
             raise _Fail
         return [{"do": "sacrifice_choice", "who": "you", "sel": sel.key(), "n": 10**6, "upto": True}], None
+    # -- if you do (wave 100B) -- "you may sacrifice up to three Zombies" (Ravenous Rotbelly): the player's own choice of none to three (701.21a)
+    m = re.fullmatch(r"sacrifice up to (?P<n>two|three|four|five) (?P<sel>[A-Za-z]+s)", text)
+    if m and rider is None:
+        sel = selectors.parse(m["sel"])
+        if sel is None or sel.player is not None or sel.controller is not None or sel.zones != ("battlefield",) or sel.other:
+            raise _Fail
+        return [{"do": "sacrifice_choice", "who": "you", "sel": sel.key(), "n": _amount(m["n"]), "upto": True}], None
     # -- trigger other (wave 39A) -- "Sacrifice half the non-Demon permanents you control, rounded up." (Rakdos the Defiler): 107.1a, counted as it resolves
     m = re.fullmatch(r"sacrifice half the (?P<sel>.+?) you control, rounded (?P<r>up|down)", text)
     if m and rider is None:

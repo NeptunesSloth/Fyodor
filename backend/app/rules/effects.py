@@ -972,6 +972,9 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     the text states none (611.2a)."""
     if e.get('dealt'):
         oids = list(dict.fromkeys((ctx.get(DEALT_KEY) or {}).get(e['dealt']) or []))
+        if e.get('types'):  # -- if you do (wave 100B) -- "A creature dealt damage this way can't block this turn": only those that were creatures (not a planeswalker)
+            oids = [o for o in oids if (c := plan.state.cards.get(o.rsplit('.', 1)[0])) is not None and plan.oid(c) == o
+                    and set(e['types']) & set(plan.ch(c).types)]
         e = {**e, 'who': 'union:' + '+'.join('object:' + oid for oid in oids), 'locked': True}
     who = _GROUPS.get(e["who"], e["who"])
     cards = _cards(plan, ctx, who)
@@ -2759,6 +2762,8 @@ def return_card(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # -- reanimation (wave 37B) -- ``also``: "Return this card and target land card …" (Sandman): the source too, both in one move (608.2c)
     cards = [c for w in (e["who"], e.get("also")) if w for c in _cards(plan, ctx, w)
              if e["to"] == "command" or not plan.state.cards[c].zone.endswith(":battlefield")]
+    if e.get("from"):  # -- if you do (wave 100B) -- "put it from your graveyard onto the battlefield" (Silvan Reveler): only while it is in that graveyard
+        cards = [c for c in cards if plan.state.cards[c].zone == f"{ctx['controller']}:{e['from']}"]
     return _return_cards(plan, ctx, e, list(dict.fromkeys(cards)))
 
 
@@ -4105,7 +4110,8 @@ def describe(effects: list[dict[str, Any]]) -> str:
              "monarch": "become the monarch", "discard": "discard {n}", "search": "search your library",
              "demonstrate_copy": "copy it, and an opponent copies it too (demonstrate)"}
     # (an amount that is worked out as it resolves — "equal to its mana value", X — reads as X, not as its data)
-    parts = [("discard any number" if e["do"] == "discard" else "sacrifice any number") if e["do"] in ("discard", "sacrifice_choice") and e.get("upto")
+    parts = [("discard any number" if e["do"] == "discard" else f"sacrifice up to {e['n']}" if isinstance(e.get("n"), int) and e["n"] < 10**6  # (wave 100B: "up to three")
+              else "sacrifice any number") if e["do"] in ("discard", "sacrifice_choice") and e.get("upto")
              else words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()}) for e in effects
              if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent")]  # (wave 30G: "any number")
     return (", ".join(parts) or "do it").capitalize()
@@ -6893,3 +6899,7 @@ from app.rules import xdamage100e as _xdamage100e  # noqa: E402  -- xdamage (wav
 
 PRIMITIVES.update(_xdamage100e.PRIMITIVES)
 RESUME.update(_xdamage100e.RESUME)
+from app.rules import ifyoudo100b as _ifyoudo100b  # noqa: E402, I001  -- if you do (wave 100B) --
+
+PRIMITIVES.update(_ifyoudo100b.PRIMITIVES)
+RESUME.update(_ifyoudo100b.RESUME)

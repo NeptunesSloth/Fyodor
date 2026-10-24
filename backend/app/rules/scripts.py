@@ -2657,6 +2657,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (xdamage := xdamage100e.parse(body)) is not None:
         return xdamage
+    from app.rules import ifyoudo100b  # -- if you do (wave 100B) --
+
+    if (ifyoudo := ifyoudo100b.parse(body, it, event_player)) is not None:
+        return ifyoudo
     from app.rules import vault_loop71
 
     if (vault71 := vault_loop71.parse(body)) is not None:
@@ -4997,13 +5001,15 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             from app.rules import conditions
 
             cond = conditions.parse(cond_m["c"], objects=True)
+            if cond is not None and "cost_sacrifice_is" in cond and any(_RECORDING.get(str(e.get("do"))) == "sacrificed" for e in effects):
+                cond = None  # -- if you do (wave 100B) -- "Defending player sacrifices a creature. If a creature was sacrificed this way": that instruction's (this_way), not a cost's
             if cond is not None and it in ("event", "event_gone") and re.match(r"that (?:creature|permanent) ", cond_m["c"]) \
                     and effects and effects[-1].get("who") == "self":
                 # -- if you do (wave 40A) -- "Whenever another nontoken creature you control dies, put a +1/+1 counter on Taborax. If that creature was a Cleric, …": "that creature" is
                 # the one the trigger is about, never the source an instruction before just named (a name is not its antecedent): as it last existed (608.2h)
                 cond = json.loads(json.dumps(cond).replace('"object": "it"', '"object": "event"'))
             if cond is None and (cond := this_way.condition(cond_m["c"])) is not None:  # -- "this way" outcomes (wave 4A) --
-                if cond["value"].get("this_way") == "your_hand" and cond["value"].get("of"):
+                if (cond.get("value") or {}).get("this_way") == "your_hand" and cond["value"].get("of"):  # (wave 100B: an "any" of two has no value of its own)
                     # -- most-played cards II (wave 45A) -- "If you put a Town card into your hand this way": what kind the card is can be read only when the cards were public before
                     # (milled into a graveyard, or revealed from the library): a card taken from a hidden zone unseen is never read, nobody learns its kind from the life gained
                     if not any(e.get("do") == "mill" or (e.get("do") == "look_top" and e.get("reveal")) for e in effects):
